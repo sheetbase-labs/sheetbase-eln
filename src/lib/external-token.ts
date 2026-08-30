@@ -156,6 +156,8 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   sheet_definition_versions: { read: 'schema:read' },
   notebook_templates: { read: 'templates:read' },
   notebook_template_versions: { read: 'templates:read' },
+  webhook_subscriptions: { read: 'webhooks:read' },
+  webhook_deliveries: { read: 'webhooks:read' },
 }
 
 /**
@@ -217,6 +219,13 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   instantiate_notebook_template_version: ['templates:write'],
   preview_notebook_template_upgrade: ['templates:read'],
   apply_notebook_template_upgrade: ['templates:write'],
+
+  create_webhook_subscription: ['webhooks:write'],
+  update_webhook_subscription: ['webhooks:write'],
+  delete_webhook_subscription: ['webhooks:write'],
+  rotate_webhook_secret: ['webhooks:write'],
+  list_webhook_deliveries: ['webhooks:read'],
+  replay_webhook_delivery: ['webhooks:write'],
 }
 
 const READ_METHODS = new Set(['GET', 'HEAD'])

@@ -25,6 +25,8 @@ export const VALID_SCOPES = [
   'reviews:write',
   'files:read',
   'files:write',
+  'webhooks:read',
+  'webhooks:write',
 ] as const
 
 export type Scope = (typeof VALID_SCOPES)[number]
@@ -102,5 +104,12 @@ export const SCOPE_GROUPS: ReadonlyArray<{
       'Mintable now. File access remains fail-closed until DATA-02 / PLAT-01.',
     effective: false,
     scopes: ['files:read', 'files:write'],
+  },
+  {
+    title: 'Webhooks',
+    description:
+      'Webhook subscription management and delivery history. Requires integrations.manage capability.',
+    effective: true,
+    scopes: ['webhooks:read', 'webhooks:write'],
   },
 ]

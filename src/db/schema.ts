@@ -6280,6 +6280,212 @@ export const connectorRunsRelations = relations(connectorRuns, ({ one }) => ({
 }))
 
 // ---------------------------------------------------------------------------
+// API-06 — Webhooks & Event Delivery.
+//
+// Webhook subscriptions, delivery history, and signing secrets. Subscriptions
+// filter change_events by stable event type (e.g. record.created,
+// dataset.versioned, notebook.submitted). The delivery engine (app server)
+// LISTENs on sheetbase_change, finds matching subscriptions, creates delivery
+// rows, and attempts HTTP POST with HMAC-SHA256 signed payloads. Retries use
+// exponential backoff; repeated consecutive failures auto-disable the
+// endpoint. Signing secrets live in internal.webhook_secrets (PostgREST-
+// invisible).
+// ---------------------------------------------------------------------------
+
+export const webhookSubscriptions = api.table(
+  'webhook_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    description: text('description'),
+    url: text('url').notNull(),
+    /** Stable event type filters (e.g. ["record.created","dataset.versioned"]). Empty = all. */
+    eventTypes: jsonb('event_types').notNull().default(sql`'[]'`),
+    maxRetries: integer('max_retries').notNull().default(5),
+    consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    /** Auto-disable after this many consecutive failures (0 = never). */
+    failureThreshold: integer('failure_threshold').notNull().default(10),
+    status: text('status').notNull().default('active'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdByCredentialId: uuid('created_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByCredentialId: uuid('updated_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+  },
+  (table) => [
+    uniqueIndex('uq_webhook_subscriptions_workspace_key').on(
+      table.workspaceId,
+      table.key,
+    ),
+    unique('uq_webhook_subscriptions_workspace_id').on(
+      table.workspaceId,
+      table.id,
+    ),
+    index('idx_webhook_subscriptions_workspace').on(table.workspaceId),
+    index('idx_webhook_subscriptions_active')
+      .on(table.workspaceId)
+      .where(sql`status = 'active'`),
+    check('chk_webhook_subscriptions_key', sql`${table.key} ~ '^[a-z][a-z0-9-]{0,48}$'`),
+    check(
+      'chk_webhook_subscriptions_url',
+      sql`${table.url} ~ '^https://' AND length(${table.url}) <= 2048`,
+    ),
+    check(
+      'chk_webhook_subscriptions_max_retries',
+      sql`${table.maxRetries} BETWEEN 0 AND 25`,
+    ),
+    check(
+      'chk_webhook_subscriptions_failure_threshold',
+      sql`${table.failureThreshold} BETWEEN 0 AND 100`,
+    ),
+    check(
+      'chk_webhook_subscriptions_status',
+      sql`${table.status} IN ('active', 'paused', 'disabled', 'archived')`,
+    ),
+    check(
+      'chk_webhook_subscriptions_desc',
+      sql`${table.description} IS NULL OR length(btrim(${table.description})) BETWEEN 1 AND 2000`,
+    ),
+  ],
+)
+
+export const webhookDeliveries = api.table(
+  'webhook_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    subscriptionId: uuid('subscription_id').notNull(),
+    /** Links to the source change_event. */
+    changeEventId: uuid('change_event_id').notNull(),
+    /** Stable external event type (e.g. record.created, dataset.versioned). */
+    eventType: text('event_type').notNull(),
+    /** Full signed JSON payload sent to the endpoint. */
+    payload: jsonb('payload').notNull(),
+    /** HMAC-SHA256 signature hex for this payload. */
+    signature: text('signature').notNull(),
+    attempt: integer('attempt').notNull().default(0),
+    status: text('status').notNull().default('pending'),
+    responseStatus: integer('response_status'),
+    responseBody: text('response_body'),
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    nextAttemptAt: timestamp('next_attempt_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    deliveredAt: timestamp('delivered_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_webhook_deliveries_workspace_id').on(
+      table.workspaceId,
+      table.id,
+    ),
+    foreignKey({
+      name: 'fk_webhook_deliveries_subscription',
+      columns: [table.workspaceId, table.subscriptionId],
+      foreignColumns: [webhookSubscriptions.workspaceId, webhookSubscriptions.id],
+    }).onDelete('cascade'),
+    index('idx_webhook_deliveries_workspace').on(table.workspaceId),
+    index('idx_webhook_deliveries_subscription').on(
+      table.subscriptionId,
+      table.createdAt,
+    ),
+    index('idx_webhook_deliveries_pending')
+      .on(table.workspaceId, table.nextAttemptAt)
+      .where(sql`status IN ('pending', 'retrying')`),
+    check(
+      'chk_webhook_deliveries_status',
+      sql`${table.status} IN ('pending', 'delivered', 'failed', 'retrying')`,
+    ),
+    check('chk_webhook_deliveries_attempt', sql`${table.attempt} >= 0`),
+    check(
+      'chk_webhook_deliveries_response',
+      sql`${table.responseStatus} IS NULL OR (${table.responseStatus} >= 100 AND ${table.responseStatus} < 600)`,
+    ),
+  ],
+)
+
+/**
+ * API-06 webhook signing secrets. Lives in the internal schema so PostgREST
+ * cannot see them. Values are AES-256-GCM ciphertext produced by the app
+ * server (reusing the connector-secrets seal/open infrastructure with a
+ * domain-separated key).
+ */
+export const webhookSecrets = internal.table(
+  'webhook_secrets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    subscriptionId: uuid('subscription_id').notNull(),
+    secretName: text('secret_name').notNull().default('signing_secret'),
+    ciphertext: bytea('ciphertext').notNull(),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    foreignKey({
+      name: 'fk_webhook_secrets_subscription',
+      columns: [table.workspaceId, table.subscriptionId],
+      foreignColumns: [webhookSubscriptions.workspaceId, webhookSubscriptions.id],
+    }).onDelete('cascade'),
+    index('idx_webhook_secrets_workspace').on(table.workspaceId),
+    check(
+      'chk_webhook_secrets_name',
+      sql`${table.secretName} = 'signing_secret'`,
+    ),
+    unique('uq_webhook_secrets').on(table.subscriptionId, table.secretName),
+  ],
+)
+
+export const webhookSubscriptionsRelations = relations(
+  webhookSubscriptions,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [webhookSubscriptions.workspaceId],
+      references: [workspaces.id],
+    }),
+    deliveries: many(webhookDeliveries),
+  }),
+)
+
+export const webhookDeliveriesRelations = relations(
+  webhookDeliveries,
+  ({ one }) => ({
+    subscription: one(webhookSubscriptions, {
+      fields: [webhookDeliveries.subscriptionId],
+      references: [webhookSubscriptions.id],
+    }),
+    workspace: one(workspaces, {
+      fields: [webhookDeliveries.workspaceId],
+      references: [workspaces.id],
+    }),
+  }),
+)
+
+// ---------------------------------------------------------------------------
 // AUTO-01/02/03 — deterministic, versioned Pipelines.
 //
 // Versioned Pipeline Definitions mirror the Sheet Definition / Notebook

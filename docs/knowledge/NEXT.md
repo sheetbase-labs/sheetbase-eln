@@ -23,10 +23,7 @@ Roadmap 3    STRATEGIC — not yet an execution task set
 The substantive Roadmap 2 work still to complete is:
 
 ```text
-▶ API-04 — Python SDK
-  API-05 — TypeScript SDK
-  API-06 — Webhooks
-  AUTO-04 — Agent-authored Operations
+▶ AUTO-04 — Agent-authored Operations
   AUTO-05 — Agentic Scientific Workflows
 ```
 
@@ -38,13 +35,10 @@ These are whole named tasks. Do not implement ambiguous fractions of adjacent ta
 
 ## Recommended sequence
 
-1. **API-04 — Python SDK**
-2. **API-05 — TypeScript SDK**
-3. **API-06 — Webhooks**
-4. **AUTO-04 — Agent-authored Operations**
-5. **AUTO-05 — Agentic Scientific Workflows**
+1. **AUTO-04 — Agent-authored Operations**
+2. **AUTO-05 — Agentic Scientific Workflows**
 
-The SDK/event work completes the external platform surface needed for richer automation. AUTO-04/05 should build on the existing canonical Pipeline, permission, provenance, evidence and API contracts rather than create parallel agent-only models.
+API-04 (Python SDK), API-05 (TypeScript SDK), and API-06 (Webhooks) are complete. The external platform surface is now complete. AUTO-04/05 should build on the existing canonical Pipeline, permission, provenance, evidence and API contracts rather than create parallel agent-only models.
 
 ## After Roadmap 2
 

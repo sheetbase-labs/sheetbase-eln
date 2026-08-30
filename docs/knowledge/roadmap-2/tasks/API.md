@@ -153,21 +153,77 @@ A developer can integrate the current external credential surface from the OpenA
 
 ## API-04 — Python SDK
 
+**Status:** Complete.
+
 Typed resources, authentication, pagination iterators, pandas conversion, bulk upload/download, idempotent mutation helpers, stable exceptions, version compatibility and optional async where useful.
+
+**Delivered:**
+
+- `sdks/python/` — standalone Python package (`sheetbase`, v0.1.0) targeting the external API contract (`docs/public-api-contract.md` v0.1.3, OpenAPI `docs/openapi/external-api-v0.json`)
+- `HttpTransport` / `AsyncHttpTransport` — credential exchange via `POST /api/token`, automatic JWT refresh (300s TTL with 30s buffer), `Authorization: Bearer` header injection, error-envelope parsing (token path `{ error: { code } }` vs data path `{ error: { category, request_id } }`)
+- Typed frozen dataclasses with `from_dict()` for `Project`, `Record`, `Dataset`, `DatasetVersion`, `DatasetRow`, `SheetInstance`, `SearchResult`, `CommitResult`, `ValidationResult`, `ValidationFailure`
+- Resource classes: `ProjectsResource`, `RecordsResource`, `DatasetsResource`, `SheetsResource`, `SearchResource`, `CataloguesResource` — each wrapping the allowlisted RPCs and table reads from API-07
+- Pagination: `iter_table()` (PostgREST `limit`/`offset`) and `iter_rpc()` (`hasMore`/`totalCount`) generators; `.iter()` methods on projects, records, datasets, search
+- pandas conversion: `DatasetRowPage.to_dataframe()`, `SearchPage.to_dataframe()`, `DatasetsResource.to_dataframe()` / `download_dataframe()` / `upload_dataframe()` (batched create operations with revision chaining)
+- Idempotent mutations: `commit_rows()` with auto-generated `p_idempotency_key`, `DatasetRowBatch` builder, automatic `stale_version` retry (re-reads dataset revision, generates fresh key)
+- Stable exception hierarchy: `SheetbaseError` → `TokenError` (`.code`), `DataPathError` (`.category`, `.request_id`) with 13 category-specific subclasses mapping 1:1 to the contract's stable error categories
+- `AsyncSheetbaseClient` with proper async resource classes (`AsyncProjects`, `AsyncRecords`, `AsyncDatasets`, `AsyncSheets`, `AsyncSearch`, `AsyncCatalogues`) — all methods are coroutines
+- `SheetbaseClient.rpc()` escape hatch for allowlisted RPCs not yet wrapped by a resource
+- 68 tests (68 passing) covering token exchange/caching, error mapping, pagination, stale-version retry, idempotency, pandas conversion, async paths
 
 **Exit:** scientific Python users can treat Sheetbase as a data platform without hand-writing HTTP.
 
+**Evidence:** `sdks/python/src/sheetbase/`, `sdks/python/tests/`, `sdks/python/pyproject.toml`, `sdks/python/README.md`. Run `cd sdks/python && python -m pytest -v` (68 passed).
+
 ## API-05 — TypeScript SDK
+
+**Status:** Complete.
 
 Typed domain resources, auth, pagination, errors, idempotency, concurrency and browser/server-safe client boundaries.
 
+**Delivered:**
+
+- `sdks/typescript/` — standalone TypeScript package (`@sheetbase/eln-sdk`, v0.1.0) targeting the external API contract (`docs/public-api-contract.md` v0.1.3, OpenAPI `docs/openapi/external-api-v0.json`)
+- `HttpTransport` — credential exchange via `POST /api/token`, automatic JWT refresh (300s TTL with 30s buffer), `Authorization: Bearer` header injection, error-envelope parsing (token path `{ error: { code } }` vs data path `{ error: { category, request_id } }`)
+- Isomorphic `fetch` — no runtime dependencies; works in Node 18+ and all modern browsers. Uses the global `fetch` API and Web Crypto `randomUUID()` with fallback
+- Typed interfaces with factory functions (`fromProject`, `fromRecord`, `fromDataset`, etc.) for `Project`, `SheetbaseRecord`, `Dataset`, `DatasetVersion`, `DatasetRow`, `SheetInstance`, `SearchResult`, `CommitResult`, `ValidationResult`, `ValidationFailure` — all with snake_case JSON → camelCase TypeScript field mapping
+- Resource classes: `ProjectsResource`, `RecordsResource`, `DatasetsResource`, `SheetsResource`, `SearchResource`, `CataloguesResource` — each wrapping the allowlisted RPCs and table reads from API-07
+- Pagination: `iterTable()` (PostgREST `limit`/`offset`) and `iterRpc()` (`hasMore`/`totalCount`) async generators; `.iter()` methods on projects, records, datasets, search
+- Idempotent mutations: `commitRows()` with auto-generated `p_idempotency_key`, `DatasetRowBatch` builder, automatic `stale_version` retry (re-reads dataset revision, generates fresh key)
+- Stable exception hierarchy: `SheetbaseError` → `TokenError` (`.code`), `DataPathError` (`.category`, `.requestId`) with 13 category-specific subclasses mapping 1:1 to the contract's stable error categories
+- `SheetbaseClient.rpc()` escape hatch for allowlisted RPCs not yet wrapped by a resource
+- 59 tests (59 passing) covering token exchange/caching, error mapping, pagination, stale-version retry, idempotency, batch builder, async iterators
+
 **Exit:** application/integration developers consume the public contract through maintained types rather than internal app code.
 
+**Evidence:** `sdks/typescript/src/`, `sdks/typescript/tests/`, `sdks/typescript/package.json`, `sdks/typescript/README.md`. Run `cd sdks/typescript && npx vitest run` (59 passed) and `npx tsc --noEmit` (clean).
+
 ## API-06 — Webhooks & Event Delivery
+
+**Status:** Complete.
 
 Subscriptions; signed payloads; stable event schema; retries/backoff; delivery history; replay; idempotency; endpoint disablement; events such as Record created, Dataset updated/versioned and Notebook submitted.
 
 **Exit:** external systems can react reliably without polling.
+
+### Delivered
+
+- **`api.webhook_subscriptions`** — subscription registry (URL, event type filters, retry config, failure tracking, auto-disablement). RLS: workspace members and `api_client` can read; mutations go through SECURITY DEFINER RPCs only.
+- **`api.webhook_deliveries`** — delivery history (one row per delivery attempt). Links to `change_events` via `change_event_id`. Tracks attempt count, HTTP response, error info, next retry time, and delivery status (`pending` → `delivered` / `retrying` / `failed`).
+- **`internal.webhook_secrets`** — HMAC-SHA256 signing secrets, PostgREST-invisible (same pattern as `internal.connector_secrets`).
+- **Stable event schema** (`src/lib/webhook-events.ts`) — maps internal `change_events` (entity_type + operation) to stable external event types: `record.created`, `record.updated`, `dataset.created`, `dataset.updated`, `dataset.versioned`, `notebook.submitted`, `notebook.signed`, `review.decided`, `sheet_instance.created/updated`, `project.created/updated`, `sheet_definition.versioned`, `notebook_template.versioned`. Schema version `1` with `eventType`, `eventId`, `sequence`, `workspaceId`, `entityUuid`, `payload`, `createdAt`.
+- **HMAC-SHA256 payload signing** (`src/lib/webhook-signing.ts`) — `signPayload()` produces `sha256=<hex>` signatures; `verifySignature()` uses timing-safe comparison. Per-subscription signing secrets generated at creation time; rotation via `api.rotate_webhook_secret` RPC.
+- **Delivery engine** (`src/lib/webhook-delivery.ts`) — app-server module that LISTENs on `sheetbase_change` (same channel as SSE), finds matching active subscriptions, creates delivery records, and attempts HTTP POST with signed payloads. Exponential backoff with jitter (`computeBackoff()`). Periodic retry processor for scheduled redeliveries. `X-Sheetbase-Signature` header carries the HMAC.
+- **Auto-disablement** — `api.record_webhook_delivery_result` RPC increments `consecutive_failures` on failure and auto-disables the subscription when `failure_threshold` is reached. Successful delivery resets the counter. Re-enabling via `update_webhook_subscription(status='active')` also resets.
+- **Replay** — `api.replay_webhook_delivery` RPC creates a new pending delivery row from an existing one (new id, attempt 0), so the delivery engine can redeliver.
+- **Scopes** — `webhooks:read` and `webhooks:write` added to the canonical scope vocabulary (`src/lib/api-credential-scopes.ts`). `webhooks:write` gates subscription management, rotation, and replay; `webhooks:read` gates delivery history.
+- **External allowlist** — webhook tables (`webhook_subscriptions`, `webhook_deliveries`) and RPCs (`create_webhook_subscription`, `update_webhook_subscription`, `delete_webhook_subscription`, `rotate_webhook_secret`, `list_webhook_deliveries`, `replay_webhook_delivery`) mapped in `src/lib/external-token.ts`. Unknown paths stay fail-closed.
+- **Capability** — `integrations.manage` (owner/admin/steward) gates subscription management. `api_client` role granted `integrations.manage` in `has_capability` so service credentials can manage webhooks.
+- **RPCs**: `create_webhook_subscription`, `update_webhook_subscription`, `delete_webhook_subscription` (soft archive), `rotate_webhook_secret`, `list_webhook_deliveries` (paginated), `replay_webhook_delivery`, `record_webhook_delivery_result` (internal, delivery engine only).
+- **Migration**: `drizzle/0147_api_06_webhooks.sql` — tables, RPCs, RLS, capability updates, scopes CHECK constraint update, change_events vocabulary extension.
+- **Tests**: 16 DB integration tests (`tests/db/webhooks.test.ts` — subscription CRUD, credential attribution, viewer rejection, auto-disablement, replay, signing secret storage), 15 event mapping unit tests (`src/lib/webhook-events.test.ts`), 11 signing unit tests (`src/lib/webhook-signing.test.ts`), external-token scope mapping test.
+
+**Evidence:** `drizzle/0147_api_06_webhooks.sql`, `src/db/schema.ts` (webhook tables), `src/lib/webhook-events.ts`, `src/lib/webhook-signing.ts`, `src/lib/webhook-delivery.ts`, `src/lib/api-credential-scopes.ts`, `src/lib/external-token.ts`, `tests/db/webhooks.test.ts` (16 passed), `src/lib/webhook-events.test.ts` (15 passed), `src/lib/webhook-signing.test.ts` (11 passed), `src/lib/external-token.test.ts` (28 passed).
 
 ## Boundaries
 

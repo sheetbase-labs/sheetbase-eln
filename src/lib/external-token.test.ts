@@ -244,6 +244,24 @@ describe('requiredScopes', () => {
     }
   })
 
+  it('maps webhook tables and RPCs to canonical scopes', () => {
+    expect(
+      requiredScopes('GET', { kind: 'table', resource: 'webhook_subscriptions' }),
+    ).toEqual(['webhooks:read'])
+    expect(
+      requiredScopes('GET', { kind: 'table', resource: 'webhook_deliveries' }),
+    ).toEqual(['webhooks:read'])
+    expect(
+      requiredScopes('POST', { kind: 'rpc', resource: 'create_webhook_subscription' }),
+    ).toEqual(['webhooks:write'])
+    expect(
+      requiredScopes('POST', { kind: 'rpc', resource: 'list_webhook_deliveries' }),
+    ).toEqual(['webhooks:read'])
+    expect(
+      requiredScopes('POST', { kind: 'rpc', resource: 'replay_webhook_delivery' }),
+    ).toEqual(['webhooks:write'])
+  })
+
   it('does not grant scientific:* scopes access to vestigial metadata tables', () => {
     expect(() =>
       requiredScopes('GET', {

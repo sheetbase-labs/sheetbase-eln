@@ -126,10 +126,10 @@ Token-path errors use `TokenError` with a `.code` attribute (`invalid_credential
 | `client.sheets`           | Sheet-instance queries/mutations, calculation results, composition/definition upgrades, materialization, notebook blocks and model write-back                                               |
 | `client.search`           | search, search_sheet_records, iter                                                                                                                                                          |
 | `client.catalogues`       | Schema/sheet-definition/template reads and notebook-template instantiate/upgrade RPCs                                                                                                       |
-| `client.agent_operations` | AUTO-04 proposals and AUTO-05 workflow create/advance/usage/cancel RPCs plus audit-table reads                                                                                              |
+| `client.agent_operations` | Agent proposal and workflow create/advance/usage/cancel RPCs plus audit-table reads                                                                                                         |
 | `client.webhooks`         | Subscription create/update/delete/secret rotation, delivery pagination/replay and table reads                                                                                               |
 
-AUTO operation, workflow, provenance and budget dictionaries remain in the
+Agent operation, workflow, provenance and budget dictionaries remain in the
 canonical contract shape and are validated by the server. The SDK deliberately
 does not reproduce policy, transition, budget or scientific business rules.
 

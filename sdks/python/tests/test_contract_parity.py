@@ -1,4 +1,4 @@
-"""Shared public-contract semantics and AUTO-04/05 request coverage."""
+"""Shared public-contract semantics and agent workflow request coverage."""
 
 import json
 

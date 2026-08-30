@@ -19,7 +19,7 @@ Sheetbase is a scientific data workspace and electronic laboratory notebook. The
 
 ## Local development
 
-Requirements: Node.js 22.12 or newer, pnpm 11, and Docker.
+Requirements: Node.js 22.13 or newer (use `.node-version`), pnpm 11, and Docker.
 
 ```bash
 cp .env.example .env.local

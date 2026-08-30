@@ -1,52 +1,46 @@
 # Roadmap 3 Tasks
 
-Roadmap 3 is decomposed into discrete, independently assignable named tasks grouped by programme.
+Roadmap 3 is decomposed into **60 discrete, independently assignable tasks** across 18 capability streams. This mirrors the Roadmap 2 pattern: each capability file contains a numbered sequence of tasks with its own goals, scope and exit criteria.
 
-## Product Depth
+## Product Depth — 15 tasks
 
-[`PRODUCT_DEPTH.md`](PRODUCT_DEPTH.md)
+- [`NAV.md`](NAV.md) — NAV-01..03
+- [`GRID.md`](GRID.md) — GRID-01..05
+- [`NOTE.md`](NOTE.md) — NOTE-01..04
+- [`FIND.md`](FIND.md) — FIND-01..03
 
-- NAV-01 — Workspace Navigation & Information Architecture
-- GRID-01 — Spreadsheet Interaction Depth
-- NOTE-01 — Notebook Authoring & Composition Depth
-- FIND-01 — Contextual Discovery, Recents & Favourites
+## Scientific Depth — 14 tasks
 
-## Scientific Depth
+- [`KNOW.md`](KNOW.md) — KNOW-01..03
+- [`VIEW.md`](VIEW.md) — VIEW-01..04
+- [`MODEL.md`](MODEL.md) — MODEL-01..04
+- [`REUSE.md`](REUSE.md) — REUSE-01..03
 
-[`SCIENTIFIC_DEPTH.md`](SCIENTIFIC_DEPTH.md)
+## Open Platform — 12 tasks
 
-- KNOW-01 — Scientific Knowledge & Relationship Context
-- VIEW-01 — Rich Scientific Representations
-- MODEL-01 — Scientific Modelling Depth
-- REUSE-01 — Reusable Scientific Structures & Workflows
+- [`SDK.md`](SDK.md) — SDK-01..03
+- [`EVENT.md`](EVENT.md) — EVENT-01..03
+- [`EXT.md`](EXT.md) — EXT-01..03
+- [`ADMIN.md`](ADMIN.md) — ADMIN-01..03
 
-## Open Platform
+## Intelligent Workspace — 9 tasks
 
-[`OPEN_PLATFORM.md`](OPEN_PLATFORM.md)
+- [`AI.md`](AI.md) — AI-01..03
+- [`ASSIST.md`](ASSIST.md) — ASSIST-01..03
+- [`AUTO_PLUS.md`](AUTO_PLUS.md) — AUTO-PLUS-01..03
 
-- SDK-01 — SDK Product Maturity
-- EVENT-01 — Event & Webhook Platform Maturity
-- EXT-01 — Extension Model
-- ADMIN-01 — Mature Platform Administration
+## Institutionalise — 10 tasks
 
-## Intelligent Workspace
-
-[`INTELLIGENT_WORKSPACE.md`](INTELLIGENT_WORKSPACE.md)
-
-- AI-01 — Contextual Scientific Intelligence Substrate
-- ASSIST-01 — Embedded Scientific Assistance
-- AUTO-PLUS-01 — Mature Agentic Operations & Scientific Workflows
-
-## Institutionalise
-
-[`INSTITUTIONALISE.md`](INSTITUTIONALISE.md)
-
-- ENT-ORG-01 — Organisation & Team Model
-- GXP-01 — Configurable Regulated Controls & Evidence
-- OPS-01 — Institutional Operational Maturity
+- [`ENT_ORG.md`](ENT_ORG.md) — ENT-ORG-01..03
+- [`GXP.md`](GXP.md) — GXP-01..04
+- [`OPS.md`](OPS.md) — OPS-01..03
 
 ## Assignment rule
 
-A named task is not Ready merely because it appears here. It becomes current only when dependencies are satisfied and the repository-wide [`../../NEXT.md`](../../NEXT.md) or an explicit assignment says to start it.
+A task is not Ready merely because it appears here. It becomes current only when:
 
-Implement the whole named task/exit criterion. Do not silently bundle ambiguous fractions of adjacent tasks.
+1. its dependencies are satisfied;
+2. any required ADR is accepted;
+3. repository-wide [`../../NEXT.md`](../../NEXT.md) or an explicit assignment selects it.
+
+Implement the **whole assigned numbered task** and its exit criterion. Do not silently bundle the next task in the same capability stream or ambiguous pieces of adjacent streams.

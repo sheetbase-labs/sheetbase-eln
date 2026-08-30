@@ -1,0 +1,96 @@
+---
+title: Permissions, API and Automation
+status: canonical
+last_reviewed: 2026-08-30
+---
+
+# Permissions, API and Automation
+
+## Server-authoritative security
+
+PostgreSQL/RLS and canonical server operations are the security boundary.
+
+Client-side hiding/gating improves UX but cannot be the sole permission check for privileged mutations or sensitive reads.
+
+## Workspace membership and capabilities
+
+Capabilities are derived from workspace membership/role rather than embedded as untrusted client claims.
+
+Important settled behaviour includes:
+
+- viewer is read-only;
+- Steward can govern schema/configuration without needing blanket `workspace.admin`;
+- privileged operations resolve capabilities server-side;
+- workspace isolation remains enforced by RLS and scoped server execution.
+
+Do not create a second capability vocabulary for an individual feature.
+
+## Public API principle
+
+The browser is one client.
+
+The public API should expose canonical domain concepts suitable for:
+
+- Python SDK;
+- TypeScript SDK;
+- integrations;
+- Pipelines;
+- future agents.
+
+Do not design domain semantics that exist only as local UI state.
+
+## Credential model
+
+Roadmap 2 established a fail-closed external credential surface with canonical scope vocabulary.
+
+The platform supports workspace service credentials and user-scoped personal tokens. Credential lifecycle and auditability are explicit.
+
+Human-attestation actions such as submit/sign/amend stay off the external credential allowlist unless a future deliberate design changes that.
+
+Retired `scientific:*` scope vocabulary must not be revived.
+
+## OpenAPI and SDK direction
+
+OpenAPI describes the supported credential-facing contract, not every internal database RPC.
+
+Remaining Roadmap 2 API work is to mature this surface through:
+
+- Python SDK;
+- TypeScript SDK;
+- Webhooks/events.
+
+SDKs should be thin, ergonomic representations of the canonical API—not alternative business logic stacks.
+
+## Connectors
+
+The integration model is generic connector → connector run → validated mapping/commit into canonical Sheetbase data.
+
+Secrets are sealed and administration respects `integrations.manage`.
+
+Instrument/vendor integrations should be implementations of the generic contract rather than new top-level architectures.
+
+## Pipelines
+
+AUTO-01/02/03 established the canonical deterministic Pipeline model:
+
+- versioned definitions;
+- immutable published versions;
+- manual/scheduled/event runs;
+- run history/logs/outputs;
+- bounded deterministic SQL execution in v1;
+- provenance and capability control;
+- Notebook output integration.
+
+Do not create another automation model.
+
+## Agents
+
+AUTO-04/05 should build on the same operations and permissions.
+
+An agent-authored operation must not become a privileged bypass. Agent work should be attributable, auditable and subject to the same domain invariants as human/API/Pipeline clients.
+
+Longer term, contextual AI should assist inside the scientific workspace rather than become a separate “AI product” that ignores Sheetbase structure.
+
+## Idempotency and consequential mutations
+
+External and automated operations should consider idempotency, retry behaviour, optimistic concurrency and provenance. A retry should not silently duplicate a scientific mutation.

@@ -1,8 +1,8 @@
 # Sheetbase
 
-Sheetbase is a scientific data workspace and electronic laboratory notebook. The notebook provides scientific context; Excel-like Sheets are the primary structured-data interaction surface; PostgreSQL remains authoritative.
+Sheetbase is a scientific data workspace and electronic laboratory notebook. The Notebook provides scientific context; Excel-like Sheets are the primary structured-data interaction surface; PostgreSQL remains authoritative.
 
-> **Current development programme:** Core Data Workspace. Before substantial domain or product work, read [`docs/core/README.md`](./docs/core/README.md). It links the canonical core product model, target architecture, migration map, epics and agent continuation guidance.
+> **Development knowledge:** start with [`docs/knowledge/README.md`](./docs/knowledge/README.md). Product, design, ADRs, Roadmaps 1–3, historical concepts/mockups and dated competitor research are standardised there.
 
 ## Stack
 
@@ -16,8 +16,6 @@ Sheetbase is a scientific data workspace and electronic laboratory notebook. The
 - PostgREST for the primary data API with PostgreSQL row-level security.
 - Tailwind CSS 4 and shadcn/ui's source-owned component convention.
 - Vitest, Testing Library, ESLint, Prettier, and strict TypeScript.
-
-TanStack DB makes queries reactive when their collections change; PostgreSQL changes do not reach the browser by themselves. The initial collection adapter can use TanStack Query and API invalidation, while a push or sync transport should be selected when real-time collaboration requirements are implemented.
 
 ## Local development
 
@@ -36,47 +34,57 @@ The app runs at `http://localhost:3000`. The PostgREST API runs at `http://local
 
 ## Commands
 
-| Task                                          | Command                  |
-| --------------------------------------------- | ------------------------ |
-| Start local services (PostgreSQL + PostgREST) | `pnpm services:up`       |
-| Stop local services                           | `pnpm services:down`     |
-| Inspect service status                        | `pnpm services:ps`       |
-| Follow service logs                           | `pnpm services:logs`     |
-| Recreate services from scratch                | `pnpm services:recreate` |
-| Start the app (dev)                           | `pnpm dev`               |
-| Build an immutable deployment artifact        | `pnpm artifact:build`    |
-| Validate and print a deployment plan          | `pnpm deploy:plan`       |
-| Run all tests                                 | `pnpm test`              |
-| Run database integration tests                | `pnpm test:db`           |
-| Generate a migration after schema edits       | `pnpm db:generate`       |
-| Apply migrations                              | `pnpm db:migrate`        |
-| Seed minimal fixtures                         | `pnpm db:seed`           |
-| Seed fixtures + demonstration data            | `pnpm db:seed:demo`      |
-| Reset the local database (guarded)            | `pnpm db:reset`          |
-| Fresh database: reset + migrate + seed        | `pnpm db:fresh`          |
-| Format code                                   | `pnpm format`            |
-| Full quality gate                             | `pnpm validate`          |
+| Task | Command |
+| --- | --- |
+| Start local services | `pnpm services:up` |
+| Stop local services | `pnpm services:down` |
+| Inspect service status | `pnpm services:ps` |
+| Follow service logs | `pnpm services:logs` |
+| Recreate services | `pnpm services:recreate` |
+| Start the app | `pnpm dev` |
+| Build deployment artifact | `pnpm artifact:build` |
+| Validate deployment plan | `pnpm deploy:plan` |
+| Run tests | `pnpm test` |
+| Run DB tests | `pnpm test:db` |
+| Generate migration | `pnpm db:generate` |
+| Apply migrations | `pnpm db:migrate` |
+| Seed demo data | `pnpm db:seed:demo` |
+| Fresh database | `pnpm db:fresh` |
+| Format | `pnpm format` |
+| Full quality gate | `pnpm validate` |
 
-See `docs/migrations.md` before changing schema, `docs/testing.md` for test layers, `docs/seeds.md` for fixtures/seeds, `docs/handsontable.md` for the Handsontable integration boundary, `docs/security.md` for the security posture, `docs/security-headers.md` for the CSP/headers slice, `docs/deployment.md` for environment/deployment guidance and `docs/recovery.md` for backups/restore/DR objectives.
+Implementation/runbook documentation remains directly under `docs/`, including migrations, testing, security, deployment, recovery, integrations, APIs and observability.
 
-## Repository boundaries
+## Repository knowledge
 
-- `src/` is the production application — the only code that ships.
-- `Concepts/sheetbase-ui-system-v2/` is the current UI-system study. It is reference material: read it, port reviewed pieces from it, never import or depend on it from `src/`.
-- `Mockups/` contains approved product mockups and the product specification PDF. Reference only.
-- `docs/core/` defines the current core product/architecture programme and is the first stop for architectural/domain work.
-- `docs/references/` contains dated research/reference material. It explains influences and alternatives but is not normative.
-- `docs/references/eln-competitors/` captures the 13 August 2026 review of Benchling, Dotmatics, Signals Notebook, SciNote, Labguru and Sapio plus cross-product patterns.
-- `docs/openapi/` is the service-credential OpenAPI (API-03).
-- `docs/archive/` identifies superseded planning material and where its immutable Git history can be recovered. Archived plans are not implementation guidance.
-- `docs/decisions/` contains durable ADRs.
-- `PRODUCT.md` and `DESIGN.md` describe broader product and design intent.
-- `docs/dev-environment.md` describes the disposable auth-free development surface at `dev.sheetbase.co.uk`.
-- `ROADMAP.md` gives the active high-level epics. The pre-Core root `TODO.md` has been removed from the active tree so agents cannot mistake obsolete unchecked tickets for current requirements.
+Canonical development knowledge lives under [`docs/knowledge/`](./docs/knowledge/):
 
-Product components should be added through shadcn's source-owned pattern and then reconciled with the concept system. Naming rules for database objects, REST resources, domain identifiers and event types — plus when to use TanStack Table vs Handsontable — are in `docs/conventions.md`.
+```text
+docs/knowledge/
+├── PRODUCT.md
+├── DESIGN.md
+├── ROADMAP.md
+├── roadmap-1/        # complete
+├── roadmap-2/        # nearly complete
+├── roadmap-3/        # strategic direction
+├── decisions/        # ADRs + decision context
+├── product/
+├── architecture/
+├── design/
+├── concepts/         # historical runnable concepts/prototypes
+├── mockups/          # historical visual product/design artefacts
+├── references/
+├── history/
+└── agent/
+```
 
-## Current core mental model
+## Current roadmap state
+
+- **Roadmap 1 / Core Data Workspace:** complete; see [`docs/knowledge/roadmap-1/`](./docs/knowledge/roadmap-1/).
+- **Roadmap 2 / Product & Platform Consolidation:** nearly complete; see [`docs/knowledge/roadmap-2/NEXT.md`](./docs/knowledge/roadmap-2/NEXT.md).
+- **Roadmap 3:** strategic direction defined; see [`docs/knowledge/roadmap-3/README.md`](./docs/knowledge/roadmap-3/README.md).
+
+## Core mental model
 
 The durable product primitives are:
 
@@ -84,4 +92,4 @@ The durable product primitives are:
 
 with Field Definitions and Policies/Capabilities shared across them.
 
-A Sheet can combine multiple Datasets and Model Records plus local and calculated columns. Every displayed value has inspectable provenance and every writable value has one authoritative write target. Sheets must support linking and creating Records directly, including bulk creation from pasted rows.
+A Sheet can combine multiple Datasets and Model Records plus local and calculated columns. Every displayed value has inspectable provenance and every writable value has one authoritative write target. Sheets support linking and creating Records directly, including bulk creation from pasted rows.

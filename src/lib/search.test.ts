@@ -355,6 +355,9 @@ describe('toSearchResult', () => {
     expect(result.identifier).toBe('EXP-2025-0001')
     expect(result.archived).toBe(false)
     expect(result.rank).toBeCloseTo(0.06079271)
+    expect(result.deepLink).toBe(
+      '/records/00000000-0000-4000-8000-000000000101',
+    )
     expect(result.totalCount).toBe(42)
   })
 
@@ -382,31 +385,31 @@ describe('toSearchResult', () => {
 // ---------------------------------------------------------------------------
 
 describe('searchResultDeepLink', () => {
-  it('links notebook templates to /templates', () => {
-    expect(
-      searchResultDeepLink('record', 'notebook_template', 'proj-1', 'rec-1'),
-    ).toBe('/templates')
+  it('keeps historical notebook-template records readable by stable ID', () => {
+    expect(searchResultDeepLink('record', 'notebook_template', 'rec-1')).toBe(
+      '/records/rec-1',
+    )
   })
 
-  it('links records through the notebook route', () => {
-    expect(
-      searchResultDeepLink('record', 'experiment', 'proj-1', 'rec-1'),
-    ).toBe('/projects/proj-1/experiments/rec-1')
-    expect(searchResultDeepLink('record', 'sample', 'proj-1', 'rec-2')).toBe(
-      '/projects/proj-1/experiments/rec-2',
+  it('links records through canonical owning surfaces', () => {
+    expect(searchResultDeepLink('record', 'experiment', 'rec-1')).toBe(
+      '/records/rec-1',
+    )
+    expect(searchResultDeepLink('record', 'sample', 'rec-2')).toBe(
+      '/samples?selected=rec-2',
     )
   })
 
   it('links datasets, sheets and templates to their surfaces', () => {
-    expect(searchResultDeepLink('dataset', 'dataset', 'proj-1', 'ds-1')).toBe(
+    expect(searchResultDeepLink('dataset', 'dataset', 'ds-1')).toBe(
       '/datasets?dataset=ds-1',
     )
-    expect(
-      searchResultDeepLink('sheet', 'sheet_instance', 'proj-1', 'sh-1'),
-    ).toBe('/sheets/sh-1')
-    expect(
-      searchResultDeepLink('template', 'notebook_template', '', 't-1'),
-    ).toBe('/templates')
+    expect(searchResultDeepLink('sheet', 'sheet_instance', 'sh-1')).toBe(
+      '/sheets/sh-1',
+    )
+    expect(searchResultDeepLink('template', 'notebook_template', 't-1')).toBe(
+      '/templates?template=t-1',
+    )
   })
 })
 
@@ -589,7 +592,7 @@ function searchResult(overrides: Partial<SearchResult> = {}): SearchResult {
     matchedContext: 'Virus <b>Stability</b> at 4 °C',
     matchedField: 'title',
     rank: 0.06,
-    deepLink: '/projects/proj-1/experiments/rec-1',
+    deepLink: '/records/rec-1',
     totalCount: 1,
     ...overrides,
   }

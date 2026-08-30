@@ -36,10 +36,9 @@ async function asAuthenticated(
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
-  await client.query(
-    "SELECT set_config('request.jwt.claims', $1, false)",
-    [claims(userId, workspaceId)],
-  )
+  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+    claims(userId, workspaceId),
+  ])
   return client
 }
 
@@ -104,7 +103,14 @@ async function insertFileObject(
     `INSERT INTO api.file_objects
       (workspace_id, record_id, storage_key, display_name, media_type, byte_size, status, storage_backend, created_by_user_id, updated_by_user_id)
      VALUES ($1, $2, $3, $4, $5, 256, 'active', 'local', $6, $6)`,
-    [workspace, recordId, `${workspace}/${recordId}/${hash}`, displayName, mediaType, owner],
+    [
+      workspace,
+      recordId,
+      `${workspace}/${recordId}/${hash}`,
+      displayName,
+      mediaType,
+      owner,
+    ],
   )
 }
 
@@ -177,7 +183,12 @@ describe('SCI-008 search — workspace isolation', () => {
   it('returns nothing for a query that only matches cross-workspace records', async () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
-    await createRecord(ownerB, PROJ_B, 'experiment', 'Cross-workspace unique term zyxwv')
+    await createRecord(
+      ownerB,
+      PROJ_B,
+      'experiment',
+      'Cross-workspace unique term zyxwv',
+    )
     const results = await search(ownerA, 'zyxwv')
     expect(results).toHaveLength(0)
   })
@@ -186,8 +197,17 @@ describe('SCI-008 search — workspace isolation', () => {
 describe('SCI-008 search — archived records', () => {
   it('includes archived records with archived = true', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const record = await createRecord(owner, PROJ_A, 'sample', 'Archived searchable sample', 'available')
-    await owner.query(`UPDATE api.records SET archived_at = now() WHERE id = $1`, [record.id])
+    const record = await createRecord(
+      owner,
+      PROJ_A,
+      'sample',
+      'Archived searchable sample',
+      'available',
+    )
+    await owner.query(
+      `UPDATE api.records SET archived_at = now() WHERE id = $1`,
+      [record.id],
+    )
     const results = await search(owner, 'searchable sample')
     const hit = results.find((r) => r.record_id === record.id)
     expect(hit).toBeDefined()
@@ -196,8 +216,17 @@ describe('SCI-008 search — archived records', () => {
 
   it('excludes soft-deleted records', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const record = await createRecord(owner, PROJ_A, 'sample', 'Soft-deleted invisible sample', 'available')
-    await owner.query(`UPDATE api.records SET deleted_at = now() WHERE id = $1`, [record.id])
+    const record = await createRecord(
+      owner,
+      PROJ_A,
+      'sample',
+      'Soft-deleted invisible sample',
+      'available',
+    )
+    await owner.query(
+      `UPDATE api.records SET deleted_at = now() WHERE id = $1`,
+      [record.id],
+    )
     const results = await search(owner, 'invisible sample')
     expect(results.find((r) => r.record_id === record.id)).toBeUndefined()
   })
@@ -206,22 +235,38 @@ describe('SCI-008 search — archived records', () => {
 describe('SCI-008 search — updated block text is immediately searchable', () => {
   it('finds text after a block is inserted (real-time, no indexing delay)', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const record = await createRecord(owner, PROJ_A, 'experiment', 'Real-time text experiment')
+    const record = await createRecord(
+      owner,
+      PROJ_A,
+      'experiment',
+      'Real-time text experiment',
+    )
     // No blocks yet — search by block text should not match.
     const before = await search(owner, 'freshly indexed content')
     expect(before.find((r) => r.record_id === record.id)).toBeUndefined()
     // Insert a block with distinct text.
-    await insertBlock(owner, record.id, 'rich_text', {
-      doc: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'This is freshly indexed content for search.' }],
-          },
-        ],
+    await insertBlock(
+      owner,
+      record.id,
+      'rich_text',
+      {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'This is freshly indexed content for search.',
+                },
+              ],
+            },
+          ],
+        },
       },
-    }, OWNER_A)
+      OWNER_A,
+    )
     const after = await search(owner, 'freshly indexed content')
     const hit = after.find((r) => r.record_id === record.id)
     expect(hit).toBeDefined()
@@ -233,12 +278,52 @@ describe('SCI-008 search — mixed result types', () => {
   it('finds experiments, samples, reagents, protocols, templates and files', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     await createRecord(owner, PROJ_A, 'experiment', 'Mixed type experiment')
-    await createRecord(owner, PROJ_A, 'sample', 'Mixed type sample', 'available')
-    await createRecord(owner, PROJ_A, 'reagent', 'Mixed type reagent', 'available')
-    await createRecord(owner, PROJ_A, 'protocol_template', 'Mixed type protocol', 'validated')
-    const template = await insertRecord(WS_A, PROJ_A, 'notebook_template', 'NBK-MIXED-0001', 'Mixed type template', OWNER_A, 'validated')
-    const fileRec = await insertRecord(WS_A, PROJ_A, 'file', 'FILE-MIXED-0001', 'Mixed type file', OWNER_A, 'active')
-    await insertFileObject(fileRec.id, WS_A, 'mixed-type-report.pdf', 'application/pdf', OWNER_A)
+    await createRecord(
+      owner,
+      PROJ_A,
+      'sample',
+      'Mixed type sample',
+      'available',
+    )
+    await createRecord(
+      owner,
+      PROJ_A,
+      'reagent',
+      'Mixed type reagent',
+      'available',
+    )
+    await createRecord(
+      owner,
+      PROJ_A,
+      'protocol_template',
+      'Mixed type protocol',
+      'validated',
+    )
+    const template = await insertRecord(
+      WS_A,
+      PROJ_A,
+      'notebook_template',
+      'NBK-MIXED-0001',
+      'Mixed type template',
+      OWNER_A,
+      'validated',
+    )
+    const fileRec = await insertRecord(
+      WS_A,
+      PROJ_A,
+      'file',
+      'FILE-MIXED-0001',
+      'Mixed type file',
+      OWNER_A,
+      'active',
+    )
+    await insertFileObject(
+      fileRec.id,
+      WS_A,
+      'mixed-type-report.pdf',
+      'application/pdf',
+      OWNER_A,
+    )
 
     const results = await search(owner, 'mixed type')
     const kinds = new Set(results.map((r) => r.kind))
@@ -254,11 +339,25 @@ describe('SCI-008 search — mixed result types', () => {
 describe('SCI-008 search — file metadata', () => {
   it('finds records by file display name and media type', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const fileRec = await insertRecord(WS_A, PROJ_A, 'file', 'FILE-QPCR-0001', 'qPCR raw data file', OWNER_A, 'active')
+    const fileRec = await insertRecord(
+      WS_A,
+      PROJ_A,
+      'file',
+      'FILE-QPCR-0001',
+      'qPCR raw data file',
+      OWNER_A,
+      'active',
+    )
     // Use a display name with spaces; PostgreSQL FTS treats dot/hyphen-delimited
     // filenames as single host tokens, so words within them are not individually
     // searchable. Display names with spaces tokenize correctly.
-    await insertFileObject(fileRec.id, WS_A, 'amplification plot results', 'text/csv', OWNER_A)
+    await insertFileObject(
+      fileRec.id,
+      WS_A,
+      'amplification plot results',
+      'text/csv',
+      OWNER_A,
+    )
     const results = await search(owner, 'amplification')
     const hit = results.find((r) => r.record_id === fileRec.id)
     expect(hit).toBeDefined()
@@ -270,8 +369,19 @@ describe('SCI-008 search — file metadata', () => {
 describe('SCI-008 search — record relationship context', () => {
   it('finds a source record by searching for a linked target identifier', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const sample = await createRecord(owner, PROJ_A, 'sample', 'Linked target sample', 'available')
-    const experiment = await createRecord(owner, PROJ_A, 'experiment', 'Experiment with linked sample')
+    const sample = await createRecord(
+      owner,
+      PROJ_A,
+      'sample',
+      'Linked target sample',
+      'available',
+    )
+    const experiment = await createRecord(
+      owner,
+      PROJ_A,
+      'experiment',
+      'Experiment with linked sample',
+    )
     await owner.query(
       `SELECT * FROM api.create_record_link($1, 'sample', $2, 'sample', $3, NULL)`,
       [experiment.id, sample.identifier, sample.id],
@@ -326,7 +436,10 @@ describe('SCI-008 search — structured filters', () => {
     })
     expect(
       results.every(
-        (r) => r.kind === 'sample' && r.status === 'available' && r.project_id === PROJ_A,
+        (r) =>
+          r.kind === 'sample' &&
+          r.status === 'available' &&
+          r.project_id === PROJ_A,
       ),
     ).toBe(true)
   })
@@ -337,10 +450,21 @@ describe('SCI-008 search — pagination', () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     // Create enough records to exercise pagination.
     for (let i = 0; i < 5; i++) {
-      await createRecord(owner, PROJ_A, 'experiment', `Pagination experiment ${i}`)
+      await createRecord(
+        owner,
+        PROJ_A,
+        'experiment',
+        `Pagination experiment ${i}`,
+      )
     }
-    const page1 = await search(owner, 'pagination experiment', { p_limit: 2, p_offset: 0 })
-    const page2 = await search(owner, 'pagination experiment', { p_limit: 2, p_offset: 2 })
+    const page1 = await search(owner, 'pagination experiment', {
+      p_limit: 2,
+      p_offset: 0,
+    })
+    const page2 = await search(owner, 'pagination experiment', {
+      p_limit: 2,
+      p_offset: 2,
+    })
     expect(page1).toHaveLength(2)
     expect(page2).toHaveLength(2)
     // total_count is the same on every row (bigint → Number).
@@ -365,17 +489,61 @@ describe('SCI-008 search — empty query browse mode', () => {
 })
 
 describe('SCI-008 search — deep links', () => {
-  it('links notebook templates to /templates', async () => {
+  it('links workspace catalogue records to their owning surfaces', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const sample = await createRecord(
+      owner,
+      PROJ_A,
+      'sample',
+      'Canonical destination sample',
+      'available',
+    )
+    const reagent = await createRecord(
+      owner,
+      PROJ_A,
+      'reagent',
+      'Canonical destination reagent',
+      'available',
+    )
+    const protocol = await createRecord(
+      owner,
+      PROJ_A,
+      'protocol_template',
+      'Canonical destination protocol',
+      'validated',
+    )
+
+    const results = await search(owner, 'canonical destination', {
+      p_limit: 100,
+    })
+    const byId = new Map(results.map((result) => [result.record_id, result]))
+    expect(byId.get(sample.id)?.deep_link).toBe(
+      `/samples?selected=${sample.id}`,
+    )
+    expect(byId.get(reagent.id)?.deep_link).toBe(
+      `/reagents?selected=${reagent.id}`,
+    )
+    expect(byId.get(protocol.id)?.deep_link).toBe(
+      `/templates?protocol=${protocol.id}`,
+    )
+  })
+
+  it('keeps legacy notebook-template records readable by stable ID', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const results = await search(owner, '', { p_kind: 'notebook_template' })
     expect(results.length).toBeGreaterThan(0)
-    expect(results.every((r) => r.deep_link === '/templates')).toBe(true)
+    expect(
+      results.every((r) => r.deep_link === `/records/${r.record_id}`),
+    ).toBe(true)
   })
 
-  it('links non-template records through the notebook route', async () => {
+  it('links non-template records through their stable record IDs', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const results = await search(owner, '', { p_kind: 'experiment', p_limit: 1 })
-    expect(results[0].deep_link).toMatch(/\/projects\/.*\/experiments\//)
+    const results = await search(owner, '', {
+      p_kind: 'experiment',
+      p_limit: 1,
+    })
+    expect(results[0].deep_link).toBe(`/records/${results[0].record_id}`)
   })
 })
 
@@ -392,7 +560,9 @@ describe('SEARCH-001 search — relevance ranking by matched_field', () => {
   it('reports matched_field=identifier when the query matches an identifier', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     // Create a record whose identifier contains a unique searchable term.
-    const { rows: [rec] } = await migrator.query(
+    const {
+      rows: [rec],
+    } = await migrator.query(
       `INSERT INTO api.records (workspace_id, project_id, kind, identifier, title, status, created_by_user_id)
        VALUES ($1, $2, 'experiment', 'EXP-REL-IDENT-001', 'Relevance identifier test', 'draft', $3)
        RETURNING *`,
@@ -406,7 +576,12 @@ describe('SEARCH-001 search — relevance ranking by matched_field', () => {
 
   it('reports matched_field=title when the query matches the title but not identifier', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const record = await createRecord(owner, PROJ_A, 'experiment', 'Relevance title unique phrase zzz')
+    const record = await createRecord(
+      owner,
+      PROJ_A,
+      'experiment',
+      'Relevance title unique phrase zzz',
+    )
     const results = await search(owner, 'unique phrase zzz')
     const hit = results.find((r) => r.record_id === record.id)
     expect(hit).toBeDefined()
@@ -415,18 +590,34 @@ describe('SEARCH-001 search — relevance ranking by matched_field', () => {
 
   it('reports matched_field=block_text when the query matches notebook text only', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const record = await createRecord(owner, PROJ_A, 'experiment', 'Relevance block text container')
-    await insertBlock(owner, record.id, 'rich_text', {
-      doc: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'This block has unique fuzzy text xyzabc.' }],
-          },
-        ],
+    const record = await createRecord(
+      owner,
+      PROJ_A,
+      'experiment',
+      'Relevance block text container',
+    )
+    await insertBlock(
+      owner,
+      record.id,
+      'rich_text',
+      {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'This block has unique fuzzy text xyzabc.',
+                },
+              ],
+            },
+          ],
+        },
       },
-    }, OWNER_A)
+      OWNER_A,
+    )
     const results = await search(owner, 'unique fuzzy text xyzabc')
     const hit = results.find((r) => r.record_id === record.id)
     expect(hit).toBeDefined()
@@ -437,24 +628,42 @@ describe('SEARCH-001 search — relevance ranking by matched_field', () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     // Create two records: one matching on identifier, one on block text,
     // both containing the same searchable term "rankscore".
-    const { rows: [idRec] } = await migrator.query(
+    const {
+      rows: [idRec],
+    } = await migrator.query(
       `INSERT INTO api.records (workspace_id, project_id, kind, identifier, title, status, created_by_user_id)
        VALUES ($1, $2, 'experiment', 'EXP-RANKSCORE-001', 'Identifier match for rankscore', 'draft', $3)
        RETURNING *`,
       [WS_A, PROJ_A, OWNER_A],
     )
-    const blockRec = await createRecord(owner, PROJ_A, 'experiment', 'Block text match for rankscore')
-    await insertBlock(owner, blockRec.id, 'rich_text', {
-      doc: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'This content discusses rankscore in detail.' }],
-          },
-        ],
+    const blockRec = await createRecord(
+      owner,
+      PROJ_A,
+      'experiment',
+      'Block text match for rankscore',
+    )
+    await insertBlock(
+      owner,
+      blockRec.id,
+      'rich_text',
+      {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'This content discusses rankscore in detail.',
+                },
+              ],
+            },
+          ],
+        },
       },
-    }, OWNER_A)
+      OWNER_A,
+    )
     const results = await search(owner, 'rankscore')
     const idHit = results.find((r) => r.record_id === idRec.id)
     const blockHit = results.find((r) => r.record_id === blockRec.id)
@@ -480,7 +689,12 @@ describe('SEARCH-001 search — permission regression', () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
     // Create a record in WS_B with a unique term.
-    await createRecord(ownerB, PROJ_B, 'experiment', 'Permission count leak unique qqqxxx')
+    await createRecord(
+      ownerB,
+      PROJ_B,
+      'experiment',
+      'Permission count leak unique qqqxxx',
+    )
     // Search in WS_A for that term — should return 0 results.
     const results = await search(ownerA, 'qqqxxx')
     expect(results).toHaveLength(0)
@@ -498,18 +712,34 @@ describe('SEARCH-001 search — permission regression', () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
     // Create a record in WS_B with a distinct phrase in block text.
-    const recB = await createRecord(ownerB, PROJ_B, 'experiment', 'Permission snippet container')
-    await insertBlock(ownerB, recB.id, 'rich_text', {
-      doc: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'Secret cross-workspace snippet marker pppqqq' }],
-          },
-        ],
+    const recB = await createRecord(
+      ownerB,
+      PROJ_B,
+      'experiment',
+      'Permission snippet container',
+    )
+    await insertBlock(
+      ownerB,
+      recB.id,
+      'rich_text',
+      {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Secret cross-workspace snippet marker pppqqq',
+                },
+              ],
+            },
+          ],
+        },
       },
-    }, OWNER_B)
+      OWNER_B,
+    )
     // Search in WS_A for the secret phrase.
     const results = await search(ownerA, 'pppqqq')
     expect(results).toHaveLength(0)
@@ -524,8 +754,19 @@ describe('SEARCH-001 search — permission regression', () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
     // Create a record in WS_B with a link to another WS_B record.
-    const sampleB = await createRecord(ownerB, PROJ_B, 'sample', 'Permission relationship target sample', 'available')
-    const experimentB = await createRecord(ownerB, PROJ_B, 'experiment', 'Permission relationship source experiment')
+    const sampleB = await createRecord(
+      ownerB,
+      PROJ_B,
+      'sample',
+      'Permission relationship target sample',
+      'available',
+    )
+    const experimentB = await createRecord(
+      ownerB,
+      PROJ_B,
+      'experiment',
+      'Permission relationship source experiment',
+    )
     await ownerB.query(
       `SELECT * FROM api.create_record_link($1, 'sample', $2, 'sample', $3, NULL)`,
       [experimentB.id, sampleB.identifier, sampleB.id],
@@ -538,7 +779,9 @@ describe('SEARCH-001 search — permission regression', () => {
 
   it('does not leak restricted file fields (storage_key, checksum) in results', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const { rows: [fileRec] } = await migrator.query(
+    const {
+      rows: [fileRec],
+    } = await migrator.query(
       `INSERT INTO api.records (workspace_id, project_id, kind, identifier, title, status, created_by_user_id)
        VALUES ($1, $2, 'file', 'FILE-PERM-0001', 'Permission restricted file test', 'active', $3) RETURNING *`,
       [WS_A, PROJ_A, OWNER_A],

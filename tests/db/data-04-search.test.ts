@@ -247,14 +247,14 @@ describe('DATA-04 global search coverage', () => {
   it('builds stable deep links per object class', async () => {
     const hits = await search(OWNER_A, WS_A, { query: 'quantum', limit: 100 })
     const byId = new Map(hits.map((h) => [h.record_id, h]))
-    expect(byId.get(RECORD_A)?.deep_link).toBe(
-      `/projects/${PROJ_A}/experiments/${RECORD_A}`,
-    )
+    expect(byId.get(RECORD_A)?.deep_link).toBe(`/records/${RECORD_A}`)
     expect(byId.get(DATASET_A)?.deep_link).toBe(
       `/datasets?dataset=${DATASET_A}`,
     )
     expect(byId.get(SHEET_A)?.deep_link).toBe(`/sheets/${SHEET_A}`)
-    expect(byId.get(TEMPLATE_A)?.deep_link).toBe('/templates')
+    expect(byId.get(TEMPLATE_A)?.deep_link).toBe(
+      `/templates?template=${TEMPLATE_A}`,
+    )
   })
 
   it('includes archived datasets with archived=true', async () => {

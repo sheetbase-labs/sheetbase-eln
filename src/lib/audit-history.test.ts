@@ -44,9 +44,17 @@ describe('describeAuditEvent', () => {
     )
     expect(described.action).toBe('updated')
     const title = described.changes.find((c) => c.label === 'Title')
-    expect(title).toMatchObject({ kind: 'changed', from: 'Baseline Notebook', to: 'Renamed Notebook' })
+    expect(title).toMatchObject({
+      kind: 'changed',
+      from: 'Baseline Notebook',
+      to: 'Renamed Notebook',
+    })
     const status = described.changes.find((c) => c.label === 'Status')
-    expect(status).toMatchObject({ kind: 'changed', from: 'Draft', to: 'Complete' })
+    expect(status).toMatchObject({
+      kind: 'changed',
+      from: 'Draft',
+      to: 'Complete',
+    })
   })
 
   it('renders version numbers as v-prefixed values', () => {
@@ -60,7 +68,11 @@ describe('describeAuditEvent', () => {
       }),
     )
     expect(described.action).toBe('upgraded definition')
-    expect(described.changes[0]).toMatchObject({ label: 'Definition version', from: 'v1', to: 'v2' })
+    expect(described.changes[0]).toMatchObject({
+      label: 'Definition version',
+      from: 'v1',
+      to: 'v2',
+    })
   })
 
   it('never fabricates before/after values the event did not capture', () => {
@@ -86,7 +98,10 @@ describe('describeAuditEvent', () => {
 
   it('describes amendment revisions distinctly', () => {
     const described = describeAuditEvent(
-      event({ entityType: 'revision', payload: { reason: 'amend', revisionId: 'r-2' } }),
+      event({
+        entityType: 'revision',
+        payload: { reason: 'amend', revisionId: 'r-2' },
+      }),
     )
     expect(described.action).toBe('opened amendment revision')
   })
@@ -135,6 +150,13 @@ describe('groupAuditEvents correlation', () => {
 })
 
 describe('auditLinkFor deep links', () => {
+  it('links records by stable record ID without project placement', () => {
+    const link = auditLinkFor(
+      event({ entityType: 'record', entityUuid: 'record-1', projectId: null }),
+    )
+    expect(link).toEqual({ href: '/records/record-1', label: 'Open record' })
+  })
+
   it('links review events to the frozen revision workspace', () => {
     const link = auditLinkFor(
       event({
@@ -146,7 +168,9 @@ describe('auditLinkFor deep links', () => {
   })
 
   it('links sheet instances to their canonical surface', () => {
-    const link = auditLinkFor(event({ entityType: 'sheet_instance', entityUuid: 'sheet-1' }))
+    const link = auditLinkFor(
+      event({ entityType: 'sheet_instance', entityUuid: 'sheet-1' }),
+    )
     expect(link?.href).toBe('/sheets/sheet-1')
   })
 

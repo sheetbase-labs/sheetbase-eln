@@ -139,13 +139,15 @@ const lockedRecord: NotebookRecord = {
 
 describe('HistoricalEvidenceBanner', () => {
   it('returns the scientist to the working Notebook', () => {
-    render(<HistoricalEvidenceBanner projectId="p1" recordId="r1" />)
+    render(<HistoricalEvidenceBanner recordId="r1" />)
     expect(screen.getByRole('status').textContent).toContain(
       'Viewing submitted evidence',
     )
     expect(
-      screen.getByRole('link', { name: 'Return to working Notebook' }),
-    ).toBeTruthy()
+      screen
+        .getByRole('link', { name: 'Return to working Notebook' })
+        .getAttribute('href'),
+    ).toBe('/records/r1')
   })
 })
 
@@ -514,13 +516,12 @@ describe('NotebookErrorState', () => {
 })
 
 describe('NotebookUnavailableState', () => {
-  it('renders an honest unavailable state with a back-to-project link', () => {
-    render(<NotebookUnavailableState projectId="p1" />)
+  it('renders an honest unavailable state with safe workspace navigation', () => {
+    render(<NotebookUnavailableState />)
     expect(
       screen.getByRole('heading', { name: 'Notebook unavailable' }),
     ).toBeTruthy()
-    const back = screen.getByRole('link', { name: 'Back to project' })
-    expect(back.getAttribute('href')).toBe('/projects/p1')
+    expect(screen.getByRole('link', { name: 'All projects' })).toBeTruthy()
   })
 })
 

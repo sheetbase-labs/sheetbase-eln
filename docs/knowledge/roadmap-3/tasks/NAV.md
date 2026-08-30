@@ -1,6 +1,6 @@
 # NAV — Workspace Navigation & Information Architecture
 
-**Status:** planned; not active until promoted by `docs/knowledge/NEXT.md`.
+**Status:** active; NAV-01 completed 2026-08-30, NAV-02 and NAV-03 planned.
 
 ## Programme goal
 
@@ -8,44 +8,77 @@ Make Sheetbase easy to orient, traverse and resume without flattening Notebook, 
 
 ## NAV-01 — Canonical Navigation Model
 
+**Status:** completed 2026-08-30.
+
 ### Goal
+
 Define and implement the canonical workspace/project navigation hierarchy and object destinations.
 
 ### Scope
+
 - reconcile global, workspace, project and object navigation;
 - remove duplicate/dead-end destinations and inconsistent naming;
 - preserve stable object identity in URLs/navigation state;
 - establish responsive sidebar/header behaviour.
 
 ### Exit
+
 A user can predict where canonical object types live and move among workspace, project and object contexts without contradictory navigation models.
+
+### Implemented contract
+
+- The persistent product navigation has one destination per plane: Workspace,
+  Scientific work, Configuration, Automation, Platform and specialist More
+  tools.
+- The contextual hierarchy is Workspace → Project → Folder → Record. Project
+  and folder placement provide context; they do not redefine an object's
+  workspace-owned identity.
+- Canonical URLs carry stable IDs: `/projects/:projectId`,
+  `/records/:recordId`, `/sheets/:sheetId`, `/datasets?dataset=:datasetId`,
+  `/samples?selected=:sampleId`, `/reagents?selected=:reagentId`, and
+  `/templates?template=:templateId` or `?protocol=:recordId` for the two
+  distinct template catalogues. Historical notebook-template records remain
+  readable at `/records/:recordId`.
+- Search, audit, collaboration, dashboard, review, creation and template flows
+  resolve destinations through the same canonical model. The superseded
+  project-scoped experiment route is removed rather than retained as an alias.
+- On desktop the sidebar expands or becomes a contained, labeled icon rail;
+  project context remains in the header breadcrumbs. On narrow screens the
+  same labeled navigation and project hierarchy use an independently scrolling
+  drawer, while the inspector remains a separate responsive drawer.
 
 ## NAV-02 — Context-Preserving Object Navigation
 
 ### Goal
+
 Keep scientific context visible while moving between related objects.
 
 ### Scope
+
 - breadcrumbs/back-stack semantics based on stable IDs;
 - links between Notebook, Sheet, Dataset, Record, analysis and evidence views;
 - preserve useful project/workspace context when following relationships;
 - avoid label- or browser-history-dependent reconstruction.
 
 ### Exit
+
 Opening a related scientific object and returning preserves understandable project/object context without relying on accidental browser state.
 
 ## NAV-03 — Navigation Productivity & Responsive Behaviour
 
 ### Goal
+
 Make navigation fast for repeated daily use.
 
 ### Scope
+
 - keyboard-first navigation/command entry points;
 - compact project/folder/object switching;
 - responsive mobile/narrow-screen behaviour without separate semantics;
 - accessibility and focus restoration.
 
 ### Exit
+
 Core navigation workflows are keyboard-accessible, responsive and demonstrably faster than repeated manual sidebar traversal.
 
 ## Boundaries

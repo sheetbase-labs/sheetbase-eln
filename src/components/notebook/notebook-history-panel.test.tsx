@@ -1,5 +1,4 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -67,7 +66,7 @@ const revision: RevisionWire = {
 }
 
 describe('NotebookHistoryPanel', () => {
-  it('renders submitted revisions as experiment links', async () => {
+  it('renders submitted revisions as canonical record links', async () => {
     const { fetchRecordTimeline, fetchRevisionsForRecord } =
       await import('#/lib/notebook-experience')
     vi.mocked(fetchRecordTimeline).mockResolvedValue([])
@@ -77,38 +76,35 @@ describe('NotebookHistoryPanel', () => {
         recordId="r1"
         currentUserId="u1"
         currentUserName="Ada"
-        projectId="p1"
       />,
     )
     const link = await screen.findByRole('link', {
       name: new RegExp(`Submitted ${formatDate(revision.created_at)}`),
     })
     expect(link.getAttribute('href')).toBe(
-      '/projects/p1/experiments/r1?revision=aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      '/records/r1?revision=aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
     )
     expect(screen.getByText('aaaaaaaa')).toBeTruthy()
   })
 
-  it('calls onSelectRevision when no projectId is provided', async () => {
+  it('uses the same stable destination without project context', async () => {
     const { fetchRecordTimeline, fetchRevisionsForRecord } =
       await import('#/lib/notebook-experience')
     vi.mocked(fetchRecordTimeline).mockResolvedValue([])
     vi.mocked(fetchRevisionsForRecord).mockResolvedValue([revision])
-    const onSelectRevision = vi.fn()
-    const user = userEvent.setup()
     renderPanel(
       <NotebookHistoryPanel
         recordId="r1"
         currentUserId="u1"
         currentUserName="Ada"
-        onSelectRevision={onSelectRevision}
       />,
     )
-    await user.click(
-      await screen.findByRole('button', {
-        name: new RegExp(`Submitted ${formatDate(revision.created_at)}`),
-      }),
-    )
-    expect(onSelectRevision).toHaveBeenCalledWith(revision.id)
+    expect(
+      (
+        await screen.findByRole('link', {
+          name: new RegExp(`Submitted ${formatDate(revision.created_at)}`),
+        })
+      ).getAttribute('href'),
+    ).toContain('/records/r1?revision=')
   })
 })

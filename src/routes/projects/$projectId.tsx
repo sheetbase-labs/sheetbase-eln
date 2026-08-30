@@ -31,6 +31,7 @@ import type { ReactNode } from 'react'
 
 import { useShell } from '#/components/app-shell'
 import { CreateBlankExperimentDialog } from '#/components/notebook/create-blank-experiment-dialog'
+import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import {
   CheckList,
   InspectorSection,
@@ -53,6 +54,7 @@ import {
 } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
 import {
+  fetchFoldersForProject,
   fetchProject,
   fetchRecordsForProject,
   formatDate,
@@ -64,6 +66,7 @@ import {
   statusDomainForKind,
 } from '#/lib/notebook-data'
 import type { NotebookRecord, Project } from '#/lib/notebook-data'
+import { recordDestination } from '#/lib/navigation'
 import {
   activitySentence,
   computeProjectMetrics,
@@ -125,6 +128,11 @@ function ProjectRoute() {
     queryFn: () => fetchRecordsForProject(notebookDataClient, projectId),
     enabled: isProjectIndex,
   })
+  const foldersQuery = useQuery({
+    queryKey: notebookQueryKeys.folders(projectId),
+    queryFn: () => fetchFoldersForProject(notebookDataClient, projectId),
+    enabled: isProjectIndex,
+  })
   const activityQuery = useQuery({
     queryKey: dashboardQueryKeys.projectActivity(projectId, 25),
     queryFn: () => fetchProjectActivity(notebookDataClient, projectId, 25),
@@ -147,6 +155,7 @@ function ProjectRoute() {
     id: context.user.id,
     name: context.user.name,
   })
+  const [createOpen, setCreateOpen] = useState(false)
 
   if (!isProjectIndex) return <Outlet />
 
@@ -222,7 +231,6 @@ function ProjectRoute() {
     projectId: project.id,
     overdueDays: OVERDUE_DAYS,
   })
-  const [createOpen, setCreateOpen] = useState(false)
 
   return (
     <RouteShell
@@ -236,6 +244,13 @@ function ProjectRoute() {
         { label: 'Projects', to: '/projects' },
         { label: project.title },
       ]}
+      projectTree={
+        <ProjectNavigationTree
+          project={project}
+          folders={foldersQuery.data ?? []}
+          records={records}
+        />
+      }
       primaryAction={
         isArchived ? undefined : (
           <Button size="sm" onClick={() => setCreateOpen(true)}>
@@ -258,7 +273,6 @@ function ProjectRoute() {
           <ProjectStatCards stats={stats} metrics={projectMetrics} />
 
           <RecordListSection
-            projectId={project.id}
             records={records}
             isLoading={recordsQuery.isLoading}
             error={recordsQuery.error}
@@ -552,14 +566,12 @@ const KIND_FILTERS: { value: string; label: string }[] = [
 ]
 
 export function RecordListSection({
-  projectId,
   records,
   isLoading,
   error,
   onRetry,
   userLabel,
 }: {
-  projectId: string
   records: NotebookRecord[]
   isLoading: boolean
   error: unknown
@@ -577,8 +589,7 @@ export function RecordListSection({
           const record = row.original
           return (
             <Link
-              to="/projects/$projectId/experiments/$recordId"
-              params={{ projectId, recordId: record.id }}
+              to={recordDestination(record.kind, record.id)}
               className="flex min-w-0 flex-col gap-0.5 no-underline"
             >
               <span className="truncate text-sm font-medium text-foreground group-hover:text-primary">
@@ -640,7 +651,7 @@ export function RecordListSection({
         meta: { className: 'w-[6.5rem]' },
       }),
     ],
-    [projectId, userLabel],
+    [userLabel],
   )
 
   const table = useReactTable({
@@ -1027,6 +1038,7 @@ export function ProjectSidebar({
                     sort: undefined,
                     group: 'sampleType',
                     filters: undefined,
+                    selected: undefined,
                     rq: undefined,
                   }}
                   className="no-underline"
@@ -1041,7 +1053,11 @@ export function ProjectSidebar({
                 size="sm"
                 className="col-span-2"
               >
-                <Link to="/templates" className="no-underline">
+                <Link
+                  to="/templates"
+                  search={{ template: undefined, protocol: undefined }}
+                  className="no-underline"
+                >
                   <Upload className="size-3.5" aria-hidden="true" />
                   Templates
                 </Link>

@@ -98,6 +98,24 @@ describe('AppShell', () => {
     )
   })
 
+  it('gives every canonical destination one predictable product plane', () => {
+    const destinations = defaultNavSections.flatMap((section) =>
+      section.items.map((item) => ({ section: section.label, ...item })),
+    )
+    expect(new Set(destinations.map((item) => item.to)).size).toBe(
+      destinations.length,
+    )
+    expect(destinations.find((item) => item.to === '/samples')?.section).toBe(
+      'Scientific work',
+    )
+    expect(destinations.find((item) => item.to === '/templates')?.section).toBe(
+      'Configuration',
+    )
+    expect(destinations.find((item) => item.to === '/configure')?.label).toBe(
+      'Models & schemas',
+    )
+  })
+
   it('renders primary landmarks and a skip link', () => {
     currentPathname = '/'
     renderShell({
@@ -122,10 +140,44 @@ describe('AppShell', () => {
       children: null,
     })
     const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    const currentLocations = within(breadcrumb)
+      .getAllByText('Projects')
+      .filter((element) => element.getAttribute('aria-current') === 'page')
+    expect(currentLocations).toHaveLength(2)
     expect(
-      within(breadcrumb).getByText('Projects').getAttribute('aria-current'),
-    ).toBe('page')
-    expect(within(breadcrumb).getByRole('link', { name: 'Home' })).toBeTruthy()
+      within(breadcrumb).getByRole('link', { name: 'Sheetbase home' }),
+    ).toBeTruthy()
+  })
+
+  it('keeps a useful current location in the narrow header for short trails', () => {
+    const { container } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Samples' }],
+      children: null,
+    })
+    const mobile = container.querySelector('[data-slot="mobile-breadcrumb"]')
+    expect(mobile?.textContent).toBe('Samples')
+    expect(mobile?.querySelector('[aria-current="page"]')?.textContent).toBe(
+      'Samples',
+    )
+  })
+
+  it('names the canonical parent destination in the narrow header', () => {
+    const { container } = renderShell({
+      context: baseContext,
+      breadcrumbs: [
+        { label: 'Home', to: '/' },
+        { label: 'Projects', to: '/projects' },
+        { label: 'Stability run' },
+      ],
+      children: null,
+    })
+    const mobile = container.querySelector(
+      '[data-slot="mobile-breadcrumb"]',
+    ) as HTMLElement
+    expect(within(mobile).getByRole('link', { name: 'Projects' })).toBeTruthy()
+    expect(mobile.textContent).not.toContain('Back')
+    expect(mobile.textContent).toContain('Stability run')
   })
 
   it('marks the active nav item with aria-current=page', () => {
@@ -226,6 +278,16 @@ describe('AppShell', () => {
     await user.click(toggle)
     expect(localStorage.getItem('sheetbase-sidebar-collapsed')).toBe('1')
     expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeTruthy()
+    const home = screen.getByRole('link', { name: 'Home' })
+    expect(home.textContent).toBe('')
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
+    const mobileNavigation = screen.getByRole('dialog', {
+      name: 'Navigation',
+    })
+    expect(
+      within(mobileNavigation).getByRole('link', { name: 'Home' }).textContent,
+    ).toBe('Home')
   })
 
   it('keeps stable ids for the skip-link target and primary nav', () => {

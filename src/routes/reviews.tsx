@@ -47,6 +47,7 @@ import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusVocabulary } from '#/components/scientific/status-badge'
 import { Badge, Button } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
+import { recordPath } from '#/lib/navigation'
 import {
   formatDate,
   formatRelativeTime,
@@ -925,8 +926,7 @@ export function ReviewInspector({
           </Link>
           {openDiffEnabled ? (
             <Link
-              to="/projects/$projectId/experiments/$recordId"
-              params={{ projectId: row.projectId!, recordId: row.recordId }}
+              to={recordPath(row.recordId)}
               className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border text-xs font-medium no-underline hover:bg-muted"
             >
               <GitCompare className="size-3.5" aria-hidden />

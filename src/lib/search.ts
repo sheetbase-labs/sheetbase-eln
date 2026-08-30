@@ -20,6 +20,7 @@
 import type { DataClient } from '#/lib/data-client'
 import { richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
+import { searchResultDestination } from '#/lib/navigation'
 
 // ---------------------------------------------------------------------------
 // Wire shape (snake_case, as returned by PostgREST from the api.search RPC).
@@ -32,7 +33,7 @@ export interface SearchResultWire {
   identifier: string
   title: string
   status: string
-  project_id: string
+  project_id: string | null
   archived: boolean
   created_by_user_id: string
   created_at: string
@@ -79,7 +80,7 @@ export interface SearchResult {
   identifier: string
   title: string
   status: string
-  projectId: string
+  projectId: string | null
   archived: boolean
   createdByUserId: string
   createdAt: string
@@ -131,12 +132,13 @@ export type SearchableKind = (typeof SEARCHABLE_KINDS)[number]
 // ---------------------------------------------------------------------------
 
 export function toSearchResult(row: SearchResultWire): SearchResult {
+  const resultType = (SEARCH_RESULT_TYPES as readonly string[]).includes(
+    row.result_type,
+  )
+    ? (row.result_type as SearchResultType)
+    : 'record'
   return {
-    resultType: (SEARCH_RESULT_TYPES as readonly string[]).includes(
-      row.result_type,
-    )
-      ? (row.result_type as SearchResultType)
-      : 'record',
+    resultType,
     recordId: row.record_id,
     kind: row.kind,
     identifier: row.identifier,
@@ -150,7 +152,7 @@ export function toSearchResult(row: SearchResultWire): SearchResult {
     matchedContext: row.matched_context,
     matchedField: row.matched_field as MatchedField,
     rank: Number(row.rank),
-    deepLink: row.deep_link,
+    deepLink: searchResultDestination(resultType, row.kind, row.record_id),
     totalCount: Number(row.total_count),
   }
 }
@@ -194,14 +196,9 @@ export function buildSearchRpcArgs(
 export function searchResultDeepLink(
   resultType: SearchResultType,
   kind: string,
-  projectId: string,
   recordId: string,
 ): string {
-  if (resultType === 'dataset') return `/datasets?dataset=${recordId}`
-  if (resultType === 'sheet') return `/sheets/${recordId}`
-  if (resultType === 'template' || kind === 'notebook_template')
-    return '/templates'
-  return `/projects/${projectId}/experiments/${recordId}`
+  return searchResultDestination(resultType, kind, recordId)
 }
 
 /**

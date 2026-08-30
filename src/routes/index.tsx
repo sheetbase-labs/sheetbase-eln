@@ -68,6 +68,7 @@ import type {
   DashboardPinnedItem,
 } from '#/lib/dashboard-data'
 import type { ReviewItem } from '#/lib/reviews'
+import { recordDestination, recordPath } from '#/lib/navigation'
 import { cn } from '#/lib/utils'
 import { useUserNames } from '#/lib/user-names'
 
@@ -760,19 +761,7 @@ export function RecentWorkTable({
               <TableRow key={record.id}>
                 <TableCell>
                   <Link
-                    to={
-                      record.projectId
-                        ? '/projects/$projectId/experiments/$recordId'
-                        : '/templates'
-                    }
-                    params={
-                      record.projectId
-                        ? {
-                            projectId: record.projectId,
-                            recordId: record.id,
-                          }
-                        : {}
-                    }
+                    to={recordDestination(record.kind, record.id)}
                     className="flex items-center gap-3 no-underline"
                   >
                     <RecordKindIcon kind={record.kind} />
@@ -933,11 +922,7 @@ export function MentionsPanel({
         {mentions.map((mention) => (
           <li key={mention.id} className="px-4 py-3">
             <Link
-              to="/projects/$projectId/experiments/$recordId"
-              params={{
-                projectId: 'unknown',
-                recordId: mention.recordId,
-              }}
+              to={recordPath(mention.recordId)}
               className="block no-underline"
             >
               <p className="line-clamp-2 text-sm text-foreground">
@@ -1164,16 +1149,7 @@ export function PinnedRecordsPanel({
           {pinnedRecords.map(({ record, project }) => (
             <li key={record.id} className="flex items-center gap-2 px-4 py-3">
               <Link
-                to={
-                  record.projectId
-                    ? '/projects/$projectId/experiments/$recordId'
-                    : '/templates'
-                }
-                params={
-                  record.projectId
-                    ? { projectId: record.projectId, recordId: record.id }
-                    : {}
-                }
+                to={recordDestination(record.kind, record.id)}
                 className="min-w-0 flex-1 no-underline"
               >
                 <p className="truncate text-sm font-medium text-foreground">

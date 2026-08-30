@@ -7,15 +7,9 @@ import {
   useBlocker,
   useNavigate,
   useRouterState,
+  redirect,
 } from '@tanstack/react-router'
-import {
-  Archive,
-  ChevronDown,
-  FileWarning,
-  FlaskConical,
-  Folder,
-  Lock,
-} from 'lucide-react'
+import { Archive, FileWarning, Lock } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -29,6 +23,7 @@ import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
 import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-notebook-dialog'
 import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-panel'
+import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import {
   ExportEvidenceButton,
   NotebookPrintStyles,
@@ -71,10 +66,12 @@ import type { DataClient } from '#/lib/data-client'
 import {
   fetchBlocksForRecord,
   fetchChangeEventsForRecord,
+  fetchFoldersForProject,
   fetchLatestRevisionForRecord,
   fetchLinksForRecord,
   fetchProject,
   fetchRecord,
+  fetchRecordsForProject,
   fetchRevision,
   fetchRevisionSheetEvidence,
   formatDate,
@@ -146,7 +143,7 @@ function RouteShell({
 }
 
 /**
- * ELN-004: the deep-linkable experiment notebook route. Loads the record,
+ * ELN-004: the deep-linkable canonical record route. Loads the record,
  * its ordered blocks and its outgoing links through route-aware queries,
  * renders the compact record header and a continuous central document
  * canvas, and pins the project context, status and ownership while the
@@ -154,9 +151,12 @@ function RouteShell({
  * each get an honest state. ELN-005 adds editing/insertion on this canvas.
  */
 
-export const Route = createFileRoute(
-  '/projects/$projectId/experiments/$recordId',
-)({
+export const Route = createFileRoute('/records/$recordId')({
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
+    if (!context) throw redirect({ to: '/sign-in' })
+    return { context }
+  },
   component: ExperimentNotebookRoute,
 })
 
@@ -176,7 +176,7 @@ function historicalRevisionFromSearch(search: unknown): string | undefined {
 
 function ExperimentNotebookRoute() {
   const { context } = Route.useRouteContext()
-  const { projectId, recordId } = Route.useParams()
+  const { recordId } = Route.useParams()
   // COLLAB-02: one record room per experiment page; null when the
   // deployment has collaboration disabled or there is no workspace.
   const collaborationEnabled = useCollaborationEnabled()
@@ -189,20 +189,30 @@ function ExperimentNotebookRoute() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
-  const isNotebookIndex =
-    pathname === `/projects/${projectId}/experiments/${recordId}`
+  const isNotebookIndex = pathname === `/records/${recordId}`
 
   const queryClient = useQueryClient()
 
-  const projectQuery = useQuery({
-    queryKey: notebookQueryKeys.project(projectId),
-    queryFn: () => fetchProject(notebookDataClient, projectId),
-    enabled: isNotebookIndex,
-  })
   const recordQuery = useQuery({
     queryKey: notebookQueryKeys.record(recordId),
     queryFn: () => fetchRecord(notebookDataClient, recordId),
     enabled: isNotebookIndex,
+  })
+  const projectId = recordQuery.data?.projectId ?? null
+  const projectQuery = useQuery({
+    queryKey: notebookQueryKeys.project(projectId ?? 'none'),
+    queryFn: () => fetchProject(notebookDataClient, projectId!),
+    enabled: isNotebookIndex && Boolean(projectId),
+  })
+  const projectFoldersQuery = useQuery({
+    queryKey: notebookQueryKeys.folders(projectId ?? 'none'),
+    queryFn: () => fetchFoldersForProject(notebookDataClient, projectId!),
+    enabled: isNotebookIndex && Boolean(projectId),
+  })
+  const projectRecordsQuery = useQuery({
+    queryKey: notebookQueryKeys.records(projectId ?? 'none'),
+    queryFn: () => fetchRecordsForProject(notebookDataClient, projectId!),
+    enabled: isNotebookIndex && Boolean(projectId),
   })
   const blocksQuery = useQuery({
     queryKey: notebookQueryKeys.blocks(recordId),
@@ -231,7 +241,7 @@ function ExperimentNotebookRoute() {
   })
 
   // Child routes (e.g. /overview) render through the Outlet; the notebook
-  // queries only run for the exact experiment path.
+  // queries only run for the exact record path.
   if (!isNotebookIndex) return <Outlet />
 
   const project = projectQuery.data ?? null
@@ -250,7 +260,7 @@ function ExperimentNotebookRoute() {
     return (
       <RouteShell
         context={shellContext}
-        breadcrumbs={loadingBreadcrumbs(project, projectId)}
+        breadcrumbs={loadingBreadcrumbs(project)}
         inspector={
           <Inspector
             recordType="Experiment"
@@ -295,7 +305,7 @@ function ExperimentNotebookRoute() {
           { label: 'Notebook unavailable' },
         ]}
       >
-        <NotebookUnavailableState projectId={projectId} />
+        <NotebookUnavailableState />
       </RouteShell>
     )
   }
@@ -308,7 +318,7 @@ function ExperimentNotebookRoute() {
     return (
       <RouteShell
         context={shellContext}
-        breadcrumbs={loadingBreadcrumbs(project, projectId)}
+        breadcrumbs={loadingBreadcrumbs(project)}
         inspector={
           <Inspector
             recordType="Experiment"
@@ -374,17 +384,17 @@ function ExperimentNotebookRoute() {
           { label: 'Home', to: '/' },
           { label: 'Projects', to: '/projects' },
           ...(project
-            ? [{ label: project.title, to: `/projects/${projectId}` }]
+            ? [{ label: project.title, to: `/projects/${project.id}` }]
             : []),
           { label: displayRecord.title },
         ]}
         projectTree={
-          project ? (
-            <NotebookProjectTree
-              projectId={projectId}
-              projectName={project.title}
-              recordId={record.id}
-              recordTitle={displayRecord.title}
+          project && projectId ? (
+            <ProjectNavigationTree
+              project={project}
+              folders={projectFoldersQuery.data ?? []}
+              records={projectRecordsQuery.data ?? []}
+              activeRecordId={record.id}
             />
           ) : undefined
         }
@@ -396,7 +406,6 @@ function ExperimentNotebookRoute() {
             ownerName={context.user.name}
             currentUserId={context.user.id}
             currentUserName={context.user.name}
-            projectId={projectId}
             links={links}
             linksLoading={linksQuery.isLoading}
             blocks={blocks}
@@ -416,7 +425,7 @@ function ExperimentNotebookRoute() {
           <StickyRecordHeader
             record={displayRecord}
             projectName={project?.title ?? null}
-            projectId={projectId}
+            projectId={projectId ?? undefined}
             currentUserId={context.user.id}
             currentUserName={context.user.name}
             workspaceId={context.workspace?.id}
@@ -427,10 +436,7 @@ function ExperimentNotebookRoute() {
             liveLockedByRevisionId={record.lockedByRevisionId}
           />
           {historicalRevisionId ? (
-            <HistoricalEvidenceBanner
-              projectId={projectId}
-              recordId={record.id}
-            />
+            <HistoricalEvidenceBanner recordId={record.id} />
           ) : null}
           {isArchived ? <ArchivedBanner /> : null}
           {!historicalRevisionId && record.lockedAt ? (
@@ -471,44 +477,7 @@ function ExperimentNotebookRoute() {
   )
 }
 
-export function NotebookProjectTree({
-  projectId,
-  projectName,
-  recordId,
-  recordTitle,
-}: {
-  projectId: string
-  projectName: string
-  recordId: string
-  recordTitle: string
-}) {
-  return (
-    <div className="space-y-0.5 text-sm">
-      <Link
-        to="/projects/$projectId"
-        params={{ projectId }}
-        className="flex h-8 items-center gap-2 rounded-md px-2 font-medium text-sidebar-foreground no-underline hover:bg-sidebar-accent/60"
-      >
-        <ChevronDown className="size-3.5 text-muted-foreground" />
-        <Folder className="size-4 text-muted-foreground" />
-        <span className="truncate">{projectName}</span>
-      </Link>
-      <Link
-        to="/projects/$projectId/experiments/$recordId"
-        params={{ projectId, recordId }}
-        className="ml-5 flex min-h-8 items-center gap-2 rounded-md bg-sidebar-accent px-2 py-1.5 text-xs font-medium text-sidebar-accent-foreground no-underline"
-      >
-        <FlaskConical className="size-3.5 shrink-0" />
-        <span className="line-clamp-2">{recordTitle}</span>
-      </Link>
-    </div>
-  )
-}
-
-function loadingBreadcrumbs(
-  project: { title: string } | null,
-  projectId: string,
-) {
+function loadingBreadcrumbs(project: { id: string; title: string } | null) {
   return [
     { label: 'Home', to: '/' },
     { label: 'Projects', to: '/projects' },
@@ -516,7 +485,7 @@ function loadingBreadcrumbs(
       ? [
           {
             label: project.title,
-            to: `/projects/${projectId}`,
+            to: `/projects/${project.id}`,
           },
         ]
       : []),
@@ -737,10 +706,9 @@ export function StickyRecordHeader({
           source={record}
           blocks={blocks}
           onDuplicated={(copy) => {
-            if (!copy.projectId) return
             void navigate({
-              to: '/projects/$projectId/experiments/$recordId',
-              params: { projectId: copy.projectId, recordId: copy.id },
+              to: '/records/$recordId',
+              params: { recordId: copy.id },
             })
           }}
         />
@@ -758,13 +726,7 @@ export function StickyRecordHeader({
   )
 }
 
-export function HistoricalEvidenceBanner({
-  projectId,
-  recordId,
-}: {
-  projectId: string
-  recordId: string
-}) {
+export function HistoricalEvidenceBanner({ recordId }: { recordId: string }) {
   return (
     <div
       role="status"
@@ -774,8 +736,8 @@ export function HistoricalEvidenceBanner({
         Viewing submitted evidence. The working Notebook is unchanged.
       </span>
       <Link
-        to="/projects/$projectId/experiments/$recordId"
-        params={{ projectId, recordId }}
+        to="/records/$recordId"
+        params={{ recordId }}
         className="font-medium text-foreground underline-offset-4 hover:underline"
       >
         Return to working Notebook
@@ -1679,7 +1641,7 @@ export function NotebookErrorState({
   )
 }
 
-export function NotebookUnavailableState({ projectId }: { projectId: string }) {
+export function NotebookUnavailableState() {
   return (
     <div className="max-w-md space-y-3 rounded-md border border-border bg-muted/30 p-6">
       <div className="flex items-center gap-2 text-muted-foreground">
@@ -1694,13 +1656,6 @@ export function NotebookUnavailableState({ projectId }: { projectId: string }) {
         workspace membership.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Link
-          to="/projects/$projectId"
-          params={{ projectId }}
-          className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium no-underline"
-        >
-          Back to project
-        </Link>
         <Link
           to="/projects"
           className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium no-underline"
@@ -1966,7 +1921,6 @@ export function NotebookInspector({
   ownerName,
   currentUserId,
   currentUserName,
-  projectId,
   links,
   linksLoading,
   blocks,
@@ -1983,7 +1937,6 @@ export function NotebookInspector({
   ownerName?: string | null
   currentUserId?: string | null
   currentUserName?: string
-  projectId?: string
   links: NotebookLink[]
   linksLoading: boolean
   blocks?: NotebookBlockDomain[]
@@ -2158,7 +2111,6 @@ export function NotebookInspector({
             recordId={record.id}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
-            projectId={projectId}
           />
         ) : (
           <EmptyHint>Sign in to see Notebook history.</EmptyHint>

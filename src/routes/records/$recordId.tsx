@@ -877,14 +877,12 @@ export function NotebookCanvas({
       </div>
     )
   }
-  if (blocks.length === 0) {
-    return <EmptyNotebook record={record} />
-  }
   if (record.archivedAt || record.lockedAt || !client || !queryClient) {
     // Archived and locked notebooks, plus provider-less callers, render
     // read-only through the same document component so the visual frame and
     // anchors match the editable state. SIGN-002: a locked record's
     // scientific evidence is frozen until an amendment unlocks it.
+    if (blocks.length === 0) return <EmptyNotebook record={record} />
     if ((record.archivedAt || record.lockedAt) && client && queryClient) {
       return (
         <LockedNotebook
@@ -1025,6 +1023,13 @@ function EditableNotebook({
     })
   }
 
+  async function refreshStructure() {
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: blocksKey }),
+      queryClient.refetchQueries({ queryKey: recordKey }),
+    ])
+  }
+
   // --- Save (update payload) ---------------------------------------------
   // --- Insert ------------------------------------------------------------
   const insertMutation = useMutation({
@@ -1061,29 +1066,30 @@ function EditableNotebook({
       upsertBlock(res.block)
       setRecordStructureVersion(res.structureVersion)
     },
-    onError: (error) => {
+    onError: async (error) => {
       if (error instanceof DataClientError && error.code === 'stale_version') {
-        void queryClient.invalidateQueries({ queryKey: blocksKey })
-        void queryClient.invalidateQueries({ queryKey: recordKey })
+        await refreshStructure()
       }
     },
   })
 
   // --- Duplicate ---------------------------------------------------------
   const duplicateMutation = useMutation({
-    mutationFn: async (block: NotebookBlockDomain) =>
-      duplicateBlock(client, {
+    mutationFn: async (block: NotebookBlockDomain) => {
+      const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+      return duplicateBlock(client, {
         block,
-        expectedStructureVersion: record.structureVersion,
-      }),
+        expectedStructureVersion:
+          current?.structureVersion ?? record.structureVersion,
+      })
+    },
     onSuccess: (res) => {
       upsertBlock(res.block)
       setRecordStructureVersion(res.structureVersion)
     },
-    onError: (error) => {
+    onError: async (error) => {
       if (error instanceof DataClientError && error.code === 'stale_version') {
-        void queryClient.invalidateQueries({ queryKey: blocksKey })
-        void queryClient.invalidateQueries({ queryKey: recordKey })
+        await refreshStructure()
       }
     },
   })
@@ -1102,37 +1108,58 @@ function EditableNotebook({
       removeBlock(vars.id)
       setRecordStructureVersion(res.structureVersion)
     },
-    onError: (error) => {
+    onError: async (error) => {
       if (error instanceof DataClientError && error.code === 'stale_version') {
-        void queryClient.invalidateQueries({ queryKey: blocksKey })
-        void queryClient.invalidateQueries({ queryKey: recordKey })
+        await refreshStructure()
       }
     },
   })
 
-  // Undo delete = re-insert the same payload at the end (safe default; the
-  // original position is preserved only loosely). Uses the current
-  // structure_version from the record cache.
+  // Undo restores the deleted payload at its original neighbours. Insert can
+  // address an `after` neighbour directly; restoring the first block needs a
+  // second canonical move because insert_block's null anchor means append.
   const undoDeleteMutation = useMutation({
     mutationFn: async ({
       type,
       payload,
+      destination,
     }: {
       type: string
       payload: Record<string, unknown>
+      destination: {
+        afterBlockId: string | null
+        beforeBlockId: string | null
+      }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
-      return insertBlock(client, {
+      const inserted = await insertBlock(client, {
         recordId: record.id,
         type,
         payload,
+        afterBlockId: destination.afterBlockId ?? undefined,
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
+      if (destination.afterBlockId === null && destination.beforeBlockId) {
+        const moved = await moveBlock(client, {
+          blockId: inserted.block.id,
+          afterBlockId: null,
+          beforeBlockId: destination.beforeBlockId,
+          expectedStructureVersion: inserted.structureVersion,
+        })
+        return { ...inserted, ...moved, order: moved.order }
+      }
+      return { ...inserted, order: null }
     },
     onSuccess: (res) => {
       upsertBlock(res.block)
+      if (res.order) reorderBlocks(res.order)
       setRecordStructureVersion(res.structureVersion)
+    },
+    onError: async (error) => {
+      if (error instanceof DataClientError && error.code === 'stale_version') {
+        await refreshStructure()
+      }
     },
   })
 
@@ -1166,10 +1193,9 @@ function EditableNotebook({
       reorderBlocks(res.order)
       setRecordStructureVersion(res.structureVersion)
     },
-    onError: (error) => {
+    onError: async (error) => {
       if (error instanceof DataClientError && error.code === 'stale_version') {
-        void queryClient.invalidateQueries({ queryKey: blocksKey })
-        void queryClient.invalidateQueries({ queryKey: recordKey })
+        await refreshStructure()
       }
     },
   })
@@ -1362,7 +1388,8 @@ function EditableNotebook({
   }
 
   async function handleDuplicate(block: NotebookBlockDomain) {
-    await duplicateMutation.mutateAsync(block)
+    const duplicated = await duplicateMutation.mutateAsync(block)
+    return duplicated.block.id
   }
 
   async function handleDelete(block: NotebookBlockDomain) {
@@ -1389,8 +1416,17 @@ function EditableNotebook({
   async function handleUndoDelete(
     type: string,
     payload: Record<string, unknown>,
+    destination: {
+      afterBlockId: string | null
+      beforeBlockId: string | null
+    },
   ) {
-    await undoDeleteMutation.mutateAsync({ type, payload })
+    const restored = await undoDeleteMutation.mutateAsync({
+      type,
+      payload,
+      destination,
+    })
+    return restored.block.id
   }
 
   async function handleMove(
@@ -1594,10 +1630,6 @@ export function EmptyNotebook({ record }: { record: NotebookRecord }) {
         <span className="font-mono">{record.identifier}</span> has no content
         yet. Start with a text block for the objective — section headings and
         prose stay together so the team can read the same document structure.
-      </p>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Block insertion arrives in the next ticket (ELN-005). The notebook is
-        deep-linkable and shareable today.
       </p>
     </div>
   )

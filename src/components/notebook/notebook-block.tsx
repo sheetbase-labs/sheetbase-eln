@@ -84,9 +84,10 @@ export interface NotebookBlockProps {
 
 const stateRing: Record<NotebookBlockState, string> = {
   default: 'bg-transparent',
-  selected: 'bg-primary/[0.015]',
-  editing: 'bg-primary/[0.015]',
-  dragging: 'bg-background opacity-60 shadow-sm',
+  selected: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/25',
+  editing: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/40',
+  dragging:
+    'bg-background opacity-60 shadow-sm ring-1 ring-inset ring-primary/50',
   invalid: 'ring-1 ring-inset ring-destructive/60',
   locked: 'bg-muted/20',
   loading: 'bg-transparent',

@@ -13,15 +13,18 @@ last_reviewed: 2026-08-30
 For substantial product or engineering work:
 
 1. [`agent/agent-context.md`](agent/agent-context.md)
-2. [`PRODUCT.md`](PRODUCT.md)
-3. [`DESIGN.md`](DESIGN.md)
-4. [`ROADMAP.md`](ROADMAP.md)
-5. [`product/product-thesis.md`](product/product-thesis.md)
-6. [`decisions/context/canonical-decisions.md`](decisions/context/canonical-decisions.md)
-7. [`decisions/context/retired-approaches.md`](decisions/context/retired-approaches.md)
-8. the relevant architecture document
-9. the active Roadmap 2 hand-off/task, if working on Roadmap 2
-10. relevant ADRs under [`decisions/`](decisions/)
+2. [`agent/workflows.md`](agent/workflows.md) — how to review PRs, propose work and implement changes
+3. [`PRODUCT.md`](PRODUCT.md)
+4. [`DESIGN.md`](DESIGN.md)
+5. [`ROADMAP.md`](ROADMAP.md)
+6. [`product/product-thesis.md`](product/product-thesis.md)
+7. [`decisions/context/canonical-decisions.md`](decisions/context/canonical-decisions.md)
+8. [`decisions/context/retired-approaches.md`](decisions/context/retired-approaches.md)
+9. the relevant architecture document
+10. the active Roadmap 2 hand-off/task, if working on Roadmap 2
+11. relevant ADRs under [`decisions/`](decisions/)
+
+Use [`agent/qmd.md`](agent/qmd.md) for local knowledge search. The repository includes a project-local [`.qmd/index.yml`](../../.qmd/index.yml) that indexes `docs/knowledge/**/*.md` as the `sheetbase-knowledge` collection.
 
 ## Canonical structure
 
@@ -49,6 +52,10 @@ docs/knowledge/
 │   ├── archive/             # superseded planning pointers/history
 │   └── sci-*.md             # pre-Core scientific programme evidence/plans
 └── agent/
+    ├── agent-context.md
+    ├── development-rules.md
+    ├── workflows.md
+    └── qmd.md
 ```
 
 ## Product and design
@@ -100,6 +107,14 @@ Accepted ADRs live directly under [`decisions/`](decisions/). Cross-cutting summ
 - [`history/conversation-synthesis.md`](history/conversation-synthesis.md)
 - [`history/archive/`](history/archive/) — superseded planning material retained only for historical investigation.
 - `history/sci-009-virus-stability-acceptance.md`, `history/sci-010-dataset-schema-registry-plan.md` and `history/sci-011-schema-relationships-plan.md` — pre-Core scientific programme evidence/plans retained as historical context, not current architecture.
+
+## Agent workflow and search
+
+- [`agent/workflows.md`](agent/workflows.md) defines the expected process for PR review, proposing roadmap/product work, implementation and hand-off.
+- [`agent/development-rules.md`](agent/development-rules.md) contains cross-cutting engineering constraints.
+- [`agent/qmd.md`](agent/qmd.md) describes qmd search, retrieval and MCP use.
+
+Search is a discovery layer only. Agents must open the relevant roadmap task, ADR and canonical source documents in full before making consequential judgements.
 
 ## Implementation documentation
 

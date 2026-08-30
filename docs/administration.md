@@ -408,6 +408,7 @@ history forever." See `docs/testing.md` for pagination conventions.
 - [Observability](observability.md) — health endpoints, logs, and metrics.
 - [Pipelines](pipelines.md) — canonical Pipeline model (AUTO-01/02/03).
 - [Agent operations](agent-operations.md) — inspectable agent-authored mutations (AUTO-04).
+- [Agent workflows](agent-workflows.md) — sequential plans over those proposals (AUTO-05).
 - [Integrations](integrations.md) — connector framework (INT-01/02/03).
 - [Authentication](authentication.md) — Better Auth and GitHub OAuth.
 - [Governance roles](governance-roles.md) — role and capability reference.

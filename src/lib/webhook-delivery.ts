@@ -52,7 +52,10 @@ const BACKOFF_JITTER = 0.2
  * Rejects non-HTTPS, credentials in URL, and loopback/private/resolved
  * hostnames. Fail-closed: any parse or resolution error rejects.
  */
-export function validateWebhookUrl(url: string): { ok: boolean; reason?: string } {
+export function validateWebhookUrl(url: string): {
+  ok: boolean
+  reason?: string
+} {
   let parsed: URL
   try {
     parsed = new URL(url)
@@ -312,7 +315,8 @@ export async function attemptDelivery(
       return {
         success: false,
         errorCode: 'delivery_error',
-        errorMessage: err instanceof Error ? err.message : 'Unknown delivery error',
+        errorMessage:
+          err instanceof Error ? err.message : 'Unknown delivery error',
       }
     } finally {
       clearTimeout(timer)
@@ -349,9 +353,7 @@ export async function findMatchingSubscriptions(
         WHERE workspace_id = $1 AND status = 'active'`,
       [workspaceId],
     )
-    return rows.filter((sub) =>
-      matchesFilter(eventType, sub.event_types),
-    )
+    return rows.filter((sub) => matchesFilter(eventType, sub.event_types))
   } finally {
     await client.end()
   }
@@ -700,19 +702,25 @@ const RECONNECT_DELAY_MS = 5_000
  * delivery engine was down. Queries recent change_events that map to the
  * webhook surface and have no corresponding webhook_deliveries records.
  */
-async function startupCatchup(
-  connectionString: string,
-): Promise<number> {
+async function startupCatchup(connectionString: string): Promise<number> {
   const client = new Client({ connectionString })
   await client.connect()
   let processed = 0
   try {
     // Entity types that are in the webhook event surface.
     const entityTypes = [
-      'record', 'dataset', 'dataset_version', 'review_submission',
-      'review_decision', 'signature', 'sheet_instance', 'project',
-      'sheet_definition', 'sheet_definition_version',
-      'notebook_template', 'notebook_template_version',
+      'record',
+      'dataset',
+      'dataset_version',
+      'review_submission',
+      'review_decision',
+      'signature',
+      'sheet_instance',
+      'project',
+      'sheet_definition',
+      'sheet_definition_version',
+      'notebook_template',
+      'notebook_template_version',
     ]
     const placeholders = entityTypes.map((_, i) => `$${i + 2}`).join(', ')
     const { rows } = await client.query(
@@ -774,10 +782,19 @@ async function startupCatchup(
  * Returns a stop function that cleanly shuts down both the listener and
  * the retry timer.
  */
+const WEBHOOK_ENGINE_STOP = Symbol.for('sheetbase.webhook-delivery.stop')
+type WebhookEngineGlobal = typeof globalThis & {
+  [WEBHOOK_ENGINE_STOP]?: () => Promise<void>
+}
+
 export function startWebhookDeliveryEngine(
   connectionString: string = env.DATABASE_URL,
   retryIntervalMs: number = 60_000,
 ): () => Promise<void> {
+  const registry = globalThis as WebhookEngineGlobal
+  const running = registry[WEBHOOK_ENGINE_STOP]
+  if (running) return running
+
   let listenClient: Client | null = null
   let retryTimer: ReturnType<typeof setInterval> | null = null
   let stopped = false
@@ -883,9 +900,7 @@ export function startWebhookDeliveryEngine(
     logger.info('webhook delivery engine started')
   }
 
-  void start()
-
-  return async () => {
+  const stop = async () => {
     stopped = true
     if (retryTimer) clearInterval(retryTimer)
     if (reconnectTimer) clearTimeout(reconnectTimer)
@@ -901,6 +916,15 @@ export function startWebhookDeliveryEngine(
         /* best effort */
       }
     }
+    if (registry[WEBHOOK_ENGINE_STOP] === stop) {
+      delete registry[WEBHOOK_ENGINE_STOP]
+    }
     logger.info('webhook delivery engine stopped')
   }
+  // Register synchronously before startup begins. Request middleware can call
+  // this function again while the first asynchronous connection is opening.
+  registry[WEBHOOK_ENGINE_STOP] = stop
+  void start()
+
+  return stop
 }

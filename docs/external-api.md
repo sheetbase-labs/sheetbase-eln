@@ -68,7 +68,7 @@ exchange and rotation.
 | `reviews:write`                      | Mintable. Does not submit, sign or amend                              |
 | `schema:read`                        | Catalogue GET only                                                    |
 | `webhooks:read` / `webhooks:write`   | Subscriptions and delivery history                                    |
-| `agent_operations:read` / `agent_operations:write` | Inspect and submit typed proposals. Does not approve, execute, or create policies |
+| `agent_operations:read` / `agent_operations:write` | Inspect and submit typed proposals and workflows. Does not approve, execute, resume, or create policies |
 
 ### Still fail-closed
 
@@ -114,10 +114,11 @@ Direct INSERT/UPDATE/DELETE on `revisions` is not granted. Submit, sign,
 amend and revision checks stay human-session-only; a credential with
 `reviews:write` cannot call them.
 
-Agent operations: `propose_agent_operation` is on the allowlist under
-`agent_operations:write`. Policy create/disable, `decide_agent_operation`,
-and `execute_agent_operation` are not. See
-[`agent-operations.md`](agent-operations.md).
+Agent operations: `propose_agent_operation` (and AUTO-05 workflow RPCs) are
+on the allowlist under `agent_operations:write`. Policy create/disable,
+`decide_agent_operation`, `execute_agent_operation`, and
+`resume_agent_workflow` are not. See [`agent-operations.md`](agent-operations.md)
+and [`agent-workflows.md`](agent-workflows.md).
 
 ### Denied examples (fail closed)
 

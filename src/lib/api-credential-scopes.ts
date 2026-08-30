@@ -117,7 +117,7 @@ export const SCOPE_GROUPS: ReadonlyArray<{
   {
     title: 'Agent operations',
     description:
-      'Submit and inspect typed operation proposals. Safe drafts may execute automatically; consequential writes remain human-required unless delegated by an owner or steward.',
+      'Submit and inspect typed proposals and bounded workflows. Safe drafts and delegated create/append writes may execute automatically; other writes, approval, execution, and workflow resume require a human session.',
     effective: true,
     scopes: ['agent_operations:read', 'agent_operations:write'],
   },

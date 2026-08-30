@@ -2,10 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
-import { ProposalWorkbench } from '#/components/agent-operations/proposal-workbench'
 import { AgentOperationPolicyPanel } from '#/components/agent-operations/policy-panel'
+import { ProposalWorkbench } from '#/components/agent-operations/proposal-workbench'
+import { WorkflowWorkbench } from '#/components/agent-operations/workflow-workbench'
 import { useShell } from '#/components/app-shell'
-import { PageHeader, Skeleton } from '#/components/ui'
+import {
+  PageHeader,
+  Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '#/components/ui'
 import {
   agentOperationQueryKeys,
   createAgentOperationPolicy,
@@ -18,6 +26,16 @@ import {
   proposalRevision,
 } from '#/lib/agent-operations'
 import type { AgentOperationProposal } from '#/lib/agent-operations'
+import {
+  advanceAgentWorkflow,
+  agentWorkflowQueryKeys,
+  cancelAgentWorkflow,
+  listAgentWorkflowEvents,
+  listAgentWorkflows,
+  listAgentWorkflowSteps,
+  resumeAgentWorkflow,
+} from '#/lib/agent-workflows'
+import type { AgentWorkflow } from '#/lib/agent-workflows'
 import { listApiCredentialsFn } from '#/lib/api-credential-admin'
 import { hasCapability } from '#/lib/capability'
 import { createDataClient } from '#/lib/data-client'
@@ -36,7 +54,11 @@ const dataClient = createDataClient()
 function AgentOperationsRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
+  const [tab, setTab] = useState<'workflows' | 'proposals'>('workflows')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(
+    null,
+  )
 
   const proposalsQuery = useQuery({
     queryKey: agentOperationQueryKeys.proposals,
@@ -63,6 +85,25 @@ function AgentOperationsRoute() {
       proposals.find((proposal) => proposal.id === effectiveSelectedId) ?? null,
     [effectiveSelectedId, proposals],
   )
+  const workflowsQuery = useQuery({
+    queryKey: agentWorkflowQueryKeys.workflows,
+    queryFn: () => listAgentWorkflows(dataClient),
+    enabled: Boolean(context.workspace?.id),
+  })
+  const workflows = workflowsQuery.data ?? []
+  const effectiveWorkflowId = selectedWorkflowId ?? workflows.at(0)?.id ?? null
+  const workflowStepsQuery = useQuery({
+    queryKey: agentWorkflowQueryKeys.steps(effectiveWorkflowId ?? ''),
+    queryFn: () =>
+      listAgentWorkflowSteps(dataClient, effectiveWorkflowId ?? ''),
+    enabled: Boolean(effectiveWorkflowId),
+  })
+  const workflowEventsQuery = useQuery({
+    queryKey: agentWorkflowQueryKeys.events(effectiveWorkflowId ?? ''),
+    queryFn: () =>
+      listAgentWorkflowEvents(dataClient, effectiveWorkflowId ?? ''),
+    enabled: Boolean(effectiveWorkflowId),
+  })
 
   const eventsQuery = useQuery({
     queryKey: agentOperationQueryKeys.events(effectiveSelectedId ?? ''),
@@ -80,6 +121,15 @@ function AgentOperationsRoute() {
       setSelectedId(proposals[0].id)
     }
   }, [proposals, selectedId])
+  useEffect(() => {
+    if (
+      selectedWorkflowId &&
+      workflows.length > 0 &&
+      !workflows.some((workflow) => workflow.id === selectedWorkflowId)
+    ) {
+      setSelectedWorkflowId(workflows[0].id)
+    }
+  }, [selectedWorkflowId, workflows])
 
   const refresh = async (proposalId: string) => {
     await Promise.all([
@@ -166,6 +216,42 @@ function AgentOperationsRoute() {
       }),
     onSuccess: (proposal) => refresh(proposal.id),
   })
+  const refreshWorkflow = async (workflow: AgentWorkflow) => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: agentWorkflowQueryKeys.workflows,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: agentWorkflowQueryKeys.steps(workflow.id),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: agentWorkflowQueryKeys.events(workflow.id),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: agentOperationQueryKeys.proposals,
+      }),
+    ])
+  }
+  const advanceWorkflowMutation = useMutation({
+    mutationFn: (workflow: AgentWorkflow) =>
+      advanceAgentWorkflow(dataClient, workflow),
+    onSuccess: refreshWorkflow,
+  })
+  const resumeWorkflowMutation = useMutation({
+    mutationFn: (workflow: AgentWorkflow) =>
+      resumeAgentWorkflow(dataClient, workflow),
+    onSuccess: refreshWorkflow,
+  })
+  const cancelWorkflowMutation = useMutation({
+    mutationFn: ({
+      workflow,
+      reason,
+    }: {
+      workflow: AgentWorkflow
+      reason: string
+    }) => cancelAgentWorkflow(dataClient, { workflow, reason }),
+    onSuccess: refreshWorkflow,
+  })
 
   const canApprove = selected
     ? selected.operation_kind === 'dataset_rows.commit'
@@ -183,13 +269,26 @@ function AgentOperationsRoute() {
     disablePolicyMutation.error ??
     approveMutation.error ??
     rejectMutation.error ??
-    executeMutation.error
+    executeMutation.error ??
+    workflowsQuery.error ??
+    workflowStepsQuery.error ??
+    workflowEventsQuery.error ??
+    advanceWorkflowMutation.error ??
+    resumeWorkflowMutation.error ??
+    cancelWorkflowMutation.error
   const pendingAction = approveMutation.isPending
     ? 'approve'
     : rejectMutation.isPending
       ? 'reject'
       : executeMutation.isPending
         ? 'execute'
+        : null
+  const pendingWorkflowAction = advanceWorkflowMutation.isPending
+    ? 'advance'
+    : resumeWorkflowMutation.isPending
+      ? 'resume'
+      : cancelWorkflowMutation.isPending
+        ? 'cancel'
         : null
   const canManagePolicies =
     context.workspace?.role === 'owner' || context.workspace?.role === 'steward'
@@ -213,7 +312,7 @@ function AgentOperationsRoute() {
         <PageHeader
           eyebrow={context.workspace?.name ?? undefined}
           title="Agent operations"
-          description="Inspect deterministic impact and policy evidence. Safe drafts run automatically. Dataset create and append writes can run for one delegated service credential; other writes need human approval."
+          description="Inspect pinned plans and policy evidence. Safe drafts and delegated create/append writes can run automatically; other Dataset writes wait for a human."
           className="border-0 pb-4"
         />
       </div>
@@ -222,10 +321,47 @@ function AgentOperationsRoute() {
           {error.message}
         </p>
       )}
-      {proposalsQuery.isLoading ? (
-        <Skeleton className="m-4 h-72" />
-      ) : (
-        <>
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          setTab(value === 'proposals' ? 'proposals' : 'workflows')
+        }
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <TabsList className="mx-4 mb-3 w-fit">
+          <TabsTrigger value="workflows">Workflows</TabsTrigger>
+          <TabsTrigger value="proposals">Operation proposals</TabsTrigger>
+        </TabsList>
+        <TabsContent
+          value="workflows"
+          className="mt-0 flex min-h-0 flex-1 flex-col"
+        >
+          {workflowsQuery.isLoading ? (
+            <Skeleton className="m-4 h-72" />
+          ) : (
+            <WorkflowWorkbench
+              workflows={workflows}
+              steps={workflowStepsQuery.data ?? []}
+              events={workflowEventsQuery.data ?? []}
+              selectedId={effectiveWorkflowId}
+              onSelect={setSelectedWorkflowId}
+              onAdvance={(workflow) => advanceWorkflowMutation.mutate(workflow)}
+              onResume={(workflow) => resumeWorkflowMutation.mutate(workflow)}
+              onCancel={(workflow, reason) =>
+                cancelWorkflowMutation.mutate({ workflow, reason })
+              }
+              onInspectProposal={(proposalId) => {
+                setSelectedId(proposalId)
+                setTab('proposals')
+              }}
+              pendingAction={pendingWorkflowAction}
+            />
+          )}
+        </TabsContent>
+        <TabsContent
+          value="proposals"
+          className="mt-0 flex min-h-0 flex-col overflow-auto"
+        >
           <AgentOperationPolicyPanel
             policies={policiesQuery.data ?? []}
             credentials={(credentialsQuery.data ?? []).map((credential) => ({
@@ -237,21 +373,25 @@ function AgentOperationsRoute() {
             onCreate={(input) => policyMutation.mutate(input)}
             onDisable={(policy) => disablePolicyMutation.mutate(policy.id)}
           />
-          <ProposalWorkbench
-            proposals={proposals}
-            events={eventsQuery.data ?? []}
-            selectedId={effectiveSelectedId}
-            onSelect={setSelectedId}
-            onApprove={(proposal) => approveMutation.mutate(proposal)}
-            onReject={(proposal, reason) =>
-              rejectMutation.mutate({ proposal, reason })
-            }
-            onExecute={(proposal) => executeMutation.mutate(proposal)}
-            canApprove={canApprove}
-            pendingAction={pendingAction}
-          />
-        </>
-      )}
+          {proposalsQuery.isLoading ? (
+            <Skeleton className="m-4 h-72" />
+          ) : (
+            <ProposalWorkbench
+              proposals={proposals}
+              events={eventsQuery.data ?? []}
+              selectedId={effectiveSelectedId}
+              onSelect={setSelectedId}
+              onApprove={(proposal) => approveMutation.mutate(proposal)}
+              onReject={(proposal, reason) =>
+                rejectMutation.mutate({ proposal, reason })
+              }
+              onExecute={(proposal) => executeMutation.mutate(proposal)}
+              canApprove={canApprove}
+              pendingAction={pendingAction}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

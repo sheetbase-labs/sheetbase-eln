@@ -3,43 +3,44 @@
 SCI-005 uses the existing authenticated same-origin `/api/db` boundary
 (ADR 0030). A plate map is a `blocks` row with `type='plate_map'` and a
 versioned JSONB `payload` (`payload_schema_version=1`). UUIDs and credentials
-below are placeholders.
+in this document are placeholders.
 
 ## Contract summary
 
-- A plate map specification stores plate dimensions (format, rows, cols),
-  well assignments (role, optional sample link, replicate, volume, notes),
-  and validation configuration (required roles, volume bounds).
-- No biotech-specific assay semantics are baked into the role vocabulary;
-  roles are generic (`sample`, `positive_control`, `negative_control`,
-  `blank`, `empty`) and extensible.
+- A plate map specification stores:
+  - plate dimensions (format, rows, cols),
+  - well assignments (role, optional sample link, replicate, volume, notes),
+  - validation configuration (required roles, volume bounds).
+- The role vocabulary contains no biotech-specific assay semantics. Roles are
+  generic (`sample`, `positive_control`, `negative_control`, `blank`,
+  `empty`) and extensible.
 - Sample links reuse the existing SCI-001 record-link machinery. The payload
-  stores an honest `SampleRef` snapshot (`recordId`, `identifier`, `title`,
-  `archived`) so archived, renamed, or soft-deleted samples remain historically
+  stores a complete `SampleRef` snapshot (`recordId`, `identifier`, `title`,
+  `archived`). Archived, renamed, and soft-deleted samples stay historically
   resolvable.
 - The DB trigger (`api.validate_scientific_block`) enforces structural
   invariants and same-workspace sample reference integrity. Application
-  validation improves error messages but is not the only boundary.
+  validation improves error messages. It is not the only boundary.
 - Plate edits persist atomically through the existing `update_block_payload`
-  RPC with expected-version optimistic concurrency — all wells live in a
-  single JSONB payload, so no bulk-assignment RPC is needed.
-- Durable change events and audit attribution come from existing block
-  triggers; no plate-map-specific event names.
+  RPC with expected-version optimistic concurrency. All wells live in one
+  JSONB payload, so no bulk-assignment RPC is needed.
+- Existing block triggers produce durable change events and audit
+  attribution. There are no plate-map-specific event names.
 
 ## Resources
 
 - `GET /api/db/blocks?record_id=eq.<experiment-id>&type=eq.plate_map&order=order.asc`
   — list plate map blocks for a record.
-- `GET /api/db/blocks?id=eq.<plate-map-block-id>&select=id,type,payload` — read
-  a single plate map block.
-- `POST /api/db/rpc/insert_block` — insert a plate map block (draft `{}` is
-  valid).
-- `POST /api/db/rpc/update_block_payload` — update the plate map payload (title,
-  spec, wells, validation config).
+- `GET /api/db/blocks?id=eq.<plate-map-block-id>&select=id,type,payload` —
+  read one plate map block.
+- `POST /api/db/rpc/insert_block` — insert a plate map block. A draft `{}` is
+  valid.
+- `POST /api/db/rpc/update_block_payload` — update the plate map payload
+  (title, spec, wells, validation config).
 
-All resources accept normal bounded PostgREST equality, `in`, ordering, range,
-and selected-column filters allowed by the shared proxy. RLS limits every
-result to the active workspace.
+All resources accept the normal bounded PostgREST equality, `in`, ordering,
+range, and selected-column filters that the shared proxy allows. RLS limits
+every result to the active workspace.
 
 ## Payload shape
 
@@ -81,7 +82,7 @@ interface WellAssignment {
 }
 ```
 
-An empty draft `{}` is valid, so the editor opens immediately and the user
+An empty draft `{}` is valid. The editor opens immediately, and the user
 configures the plate interactively.
 
 ## Insert a plate map block
@@ -168,13 +169,13 @@ The response contains the updated block with the incremented `version`.
 ## Validation errors
 
 The DB trigger raises `SQLSTATE 23514` for invalid payloads. The proxy maps
-this to the `validation_error` category. Error codes:
+this to the `validation_error` category.
 
 | Code                       | Description                                                         |
 | -------------------------- | ------------------------------------------------------------------- |
 | `invalid_shape`            | Payload or spec is not an object                                    |
 | `missing_field`            | Required field is absent                                            |
-| `invalid_value`            | Field value is invalid (e.g. wrong rows/cols)                       |
+| `invalid_value`            | Field value is invalid (for example wrong rows/cols)                |
 | `unsupported_format`       | Format is not in the approved set                                   |
 | `unsupported_spec_version` | specVersion is not 1                                                |
 | `unsupported_role`         | Role is not in the approved set                                     |
@@ -201,27 +202,27 @@ Example error response:
 
 ## Archived-sample behavior
 
-When a sample record is archived after being referenced by a plate map:
+When a sample record is archived after a plate map references it:
 
-- The `sampleRef` in the payload retains the honest snapshot
+- The `sampleRef` in the payload keeps the full snapshot
   (`recordId`, `identifier`, `title`, `archived: true`).
 - `GET /api/db/blocks?id=eq.<plate-map-block-id>` continues to return the
   block with the archived reference.
-- `fetchRecordById` resolves the live record state; the UI shows the
-  archived indicator alongside the stored identifier.
+- `fetchRecordById` resolves the live record state. The UI shows the archived
+  indicator next to the stored identifier.
 - The DB trigger accepts archived sample references in the same workspace.
 
 ## Cross-workspace enforcement
 
 - RLS on `api.blocks` limits reads to the active workspace.
-- The DB trigger rejects `sampleRef.recordId` values pointing to records in
+- The DB trigger rejects `sampleRef.recordId` values that point to records in
   a different workspace.
 - The `create_record_link` same-workspace enforcement applies to any
   record links created for sample references.
 
 ## Stable link representations
 
-The `sampleRef.recordId` (UUID) is authoritative and stable. The
-`sampleRef.identifier` and `sampleRef.title` are observed display values
-captured at assignment time, ensuring historical resolution even if the
-sample record is later renamed or archived.
+`sampleRef.recordId` (UUID) is authoritative and stable. `sampleRef.identifier`
+and `sampleRef.title` are observed display values. The payload captures them
+at assignment time. Historical resolution stays correct even when the sample
+record is later renamed or archived.

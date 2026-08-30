@@ -1,8 +1,8 @@
 # Performance & Scale (PLAT-05)
 
-Canonical performance/scale reference for the current Sheetbase deployment
-shape: one app container, one PostgREST, one PostgreSQL on a single VPS behind
-a Cloudflare Tunnel.
+This document is the canonical performance and scale reference for the current
+Sheetbase deployment. The deployment shape is one app container, one PostgREST
+instance, and one PostgreSQL database on a single VPS behind a Cloudflare Tunnel.
 
 - [Workload catalogue](#workload-catalogue)
 - [Performance budgets](#performance-budgets)
@@ -18,10 +18,10 @@ a Cloudflare Tunnel.
 
 ## Purpose
 
-PLAT-05 answers: _how much work can the current architecture handle
-comfortably, where are the real bottlenecks, and what changes are justified by
-evidence?_ Everything here is measured by the repeatable harness in `perf/` on
-a real local deployment. It is an engineering reference, not a marketing SLA.
+PLAT-05 answers three questions: _How much work can the current architecture
+handle? Where are the bottlenecks? Which changes does the evidence justify?_
+The repeatable harness in `perf/` measures everything here on a real local
+deployment. This document is an engineering reference. It is not a marketing SLA.
 
 ## Benchmark environment (baseline)
 
@@ -38,15 +38,15 @@ container/native Docker (OrbStack) for PostgreSQL/PostgREST; native Node
 commit SHA       85270d9 (canonical PLAT-05 baseline; per-run reports embed their SHA)
 ```
 
-PostgREST v14.5. `shared_buffers` at the container default (128 MiB). The
-harness reports its own environment snapshot with every result file — numbers
+PostgREST is v14.5. `shared_buffers` uses the container default (128 MiB).
+The harness writes an environment snapshot with every result file. Numbers
 without environment context are not comparable.
 
 ## Workload catalogue
 
-The canonical performance workload inventory. Each row names the workload, a
-representative dataset/object size, the operation, expected user-facing
-behaviour and the metric that measures it.
+This section is the canonical workload inventory. Each row names the workload,
+a representative size, the operation, the expected user-facing behaviour, and
+the metric that measures it.
 
 ### Interactive product workloads
 
@@ -115,18 +115,19 @@ behaviour and the metric that measures it.
 
 ## Performance budgets
 
-Initial engineering targets, revised when measurement shows a better
-threshold. These bound the supported envelope; they are not customer SLOs.
+These targets are initial engineering goals. Revise a target when measurement
+shows a better threshold. The targets bound the supported envelope. They are
+not customer SLOs.
 
 ### Interactive latency (p95, server-side)
 
-| Workload              | Budget                        | Measured baseline                              |
-| --------------------- | ----------------------------- | ---------------------------------------------- |
-| Common navigation     | < 500 ms                      | notebook/explorer load RPCs comfortably inside |
-| Common metadata reads | < 300 ms                      | dataset page reads 8–237 ms (page 100)         |
-| Single-cell save      | < 500 ms                      | 1-row commit p95 38.6 ms                       |
-| Filter/sort response  | interactive at supported size | 100k-row filter+sort page p95 237 ms           |
-| Search                | < 300 ms                      | 15 ms DB-side after the maintained FTS index   |
+| Workload              | Budget                        | Measured baseline                                |
+| --------------------- | ----------------------------- | ------------------------------------------------ |
+| Common navigation     | < 500 ms                      | notebook and explorer load RPCs are inside       |
+| Common metadata reads | < 300 ms                      | dataset page reads 8–237 ms (page 100)           |
+| Single-cell save      | < 500 ms                      | 1-row commit p95 38.6 ms                         |
+| Filter/sort response  | interactive at supported size | 100k-row filter+sort page p95 237 ms             |
+| Search                | < 300 ms                      | 15 ms DB-side after the maintained FTS index     |
 
 ### Dataset scale
 
@@ -139,9 +140,9 @@ Supported behaviour (measured, page 100, filter+sort, warm cache):
 | 50k  | 116.2 | 137.4 |
 | 100k | 235.8 | 236.9 |
 
-Field widths: narrow (5) and medium (14) fields behave identically; wide
-(60-field) schemas add proportional projection cost (measured wide@10k page
-≈ 34 ms). Fields beyond 60 are not benchmarked.
+Field widths: narrow (5 fields) and medium (14 fields) schemas behave
+identically. Wide (60-field) schemas add proportional projection cost; the
+measured wide@10k page is about 34 ms. Fields beyond 60 are not benchmarked.
 
 ### Concurrent usage
 
@@ -158,9 +159,10 @@ executor is validated at 1 / 2 / 5 concurrent runs.
 
 ### Files
 
-Uploads/downloads are streamed (64 KiB chunks) up to the 100 MiB cap; byte
-routes never buffer whole files in memory (see memory section). Measured
-against the local backend (macOS APFS):
+The byte routes stream uploads and downloads in 64 KiB chunks up to the
+100 MiB cap. The routes never buffer a whole file in memory (see
+[Memory behaviour](#memory-behaviour)). Measurements use the local backend
+(macOS APFS):
 
 | Scenario      | Throughput   | p50 (ms) |
 | ------------- | ------------ | -------- |
@@ -171,20 +173,22 @@ against the local backend (macOS APFS):
 | read 50 MiB   | ~2,174 MiB/s | 23       |
 | read 100 MiB  | ~2,000 MiB/s | 50       |
 
-A 100 MiB file streams in ~123 ms write / ~50 ms read on local disk —
-disk-bound, never memory-bound (64 KiB chunks).
+A 100 MiB file streams in about 123 ms for write and about 50 ms for read on
+local disk. The path is disk-bound, not memory-bound (64 KiB chunks).
 
 ### API throughput
 
-Throughput is dominated by the slowest mixed-workload member (search, before
-the maintained FTS index it ran at ~2 s per query). After the index fix the
-DB-side search cost is ~15 ms; the API re-measurement is in `perf/results/`.
+Search dominates the mixed-workload throughput because it is the slowest
+member. Before the maintained FTS index, search took about 2 s per query.
+After the index fix, the DB-side search cost is about 15 ms. The re-measured
+API results are in `perf/results/`.
 
 ## Benchmark harness
 
-Repeatable, deterministic, machine-readable. Lives in `perf/`; results go to
-`perf/results/` (gitignored). No paid services; runs entirely against the
-local Docker PostgreSQL/PostgREST stack.
+The harness is repeatable, deterministic, and machine-readable. It lives in
+`perf/`, and it writes results to `perf/results/` (gitignored). It uses no
+paid services and runs entirely against the local Docker
+PostgreSQL/PostgREST stack.
 
 ```bash
 pnpm perf:seed          # deterministic fixtures (1k/10k/50k/100k × narrow/medium/wide)
@@ -200,11 +204,11 @@ pnpm perf:all --large   # include 100k snapshots / 100k pipeline inputs
 ```
 
 Every command requires `SHEETBASE_ENV=development` and
-`PERF_CONFIRM=local-destructive`, with loopback `DATABASE_URL`,
-`MIGRATION_DATABASE_URL` and `PGRST_DB_URI` (refuses remote hosts). The
-`migrator` login is used for privileged fixture setup/cleanup; product-facing
-measurements use the canonical RPCs through the `authenticated` role with
-workspace claims, exactly like the running product.
+`PERF_CONFIRM=local-destructive`. The `DATABASE_URL`, `MIGRATION_DATABASE_URL`,
+and `PGRST_DB_URI` values must be loopback addresses; the harness refuses
+remote hosts. The `migrator` login runs privileged fixture setup and cleanup.
+Product-facing measurements use the canonical RPCs through the
+`authenticated` role with workspace claims, exactly like the running product.
 
 ### Fixtures
 
@@ -216,10 +220,10 @@ workspace claims, exactly like the running product.
 | medium | 14     | 1k / 10k / 50k / 100k rows |
 | wide   | 60     | 10k rows                   |
 
-plus 20k Sample Records (reference targets + search corpus), direct-seeded
-Dataset Versions for version-read benchmarks, and a published Pipeline
-Definition with an input Dataset Version. All generation is deterministic
-(set-based SQL, stable seeds, no randomness).
+The fixtures also include 20k Sample Records (reference targets and search
+corpus), direct-seeded Dataset Versions for version-read benchmarks, and a
+published Pipeline Definition with an input Dataset Version. All generation is
+deterministic (set-based SQL, stable seeds, no randomness).
 
 ### Result format
 
@@ -239,14 +243,15 @@ Every run writes one JSON report per section:
 }
 ```
 
-plus an environment block (CPU, RAM, OS, PostgreSQL version, Node version,
-commit SHA) and the query-plan audit (`EXPLAIN (ANALYZE, BUFFERS)` summaries)
-for the hot Dataset paths. Generated files are never committed.
+Each report also has an environment block (CPU, RAM, OS, PostgreSQL version,
+Node version, commit SHA) and the query-plan audit
+(`EXPLAIN (ANALYZE, BUFFERS)` summaries) for the hot Dataset paths. The
+harness never commits generated files.
 
 ## Measured results
 
-Canonical baseline measured 2026-08-29 on the environment above (see
-`perf/results/*.json` for the full per-run reports).
+The canonical baseline was measured on 2026-08-29 on the environment above.
+See `perf/results/*.json` for the full per-run reports.
 
 ### Dataset reads (`query_dataset_rows`, page 100, filter + sort, warm)
 
@@ -259,11 +264,11 @@ Canonical baseline measured 2026-08-29 on the environment above (see
 | dataset-read-50k narrow | 50,000  | 66.6     | 74.6     | narrow shape ≈ medium |
 | dataset-read-10k wide   | 10,000  | 33.8     | 58.0     | 60-field projection   |
 
-The canonical read path is dominated by the per-page `count(*)` plus the
-per-field correlated value joins; it stays interactive at 100k rows. Deep
-offsets grow with the scan (offset 9,800 on a 10k match set measured ~485 ms
-in the CORE-02.6 gate); keyset pagination is a documented future option, not
-yet justified.
+The per-page `count(*)` and the per-field correlated value joins dominate the
+canonical read path. The path stays interactive at 100k rows. Deep offsets
+grow with the scan: offset 9,800 on a 10k match set measured about 485 ms in
+the CORE-02.6 gate. Keyset pagination is a documented future option. The
+measurements do not yet justify it.
 
 ### Dataset Version reads (`query_dataset_version_rows`, page 100)
 
@@ -274,7 +279,8 @@ yet justified.
 | dataset-version-read | 50,000  | 23.7     | 27.4     |
 | dataset-version-read | 100,000 | 18.5     | 19.4     |
 
-Immutable version pages ride the PK order — flat cost regardless of size.
+Immutable version pages follow the PK order. The cost stays flat regardless
+of size.
 
 ### Dataset writes
 
@@ -284,8 +290,8 @@ Immutable version pages ride the PK order — flat cost regardless of size.
 | dataset-write-100  | 100   | 0.7               | 1.8             | 2.0             |
 | dataset-write-1000 | 1,000 | 2.5               | 5.3             | 5.4             |
 
-The canonical commit RPC is fast; the 1000-row batch bound is a product
-constraint, not a measured wall.
+The canonical commit RPC is fast. The 1000-row batch bound is a product
+constraint, not a measured limit.
 
 ### Dataset Version snapshots
 
@@ -294,10 +300,10 @@ constraint, not a measured wall.
 | dataset-snapshot-1k  | 1,000  | 165.0    | 170.2    | ~6k rows/s |
 | dataset-snapshot-10k | 10,000 | 2,012.1  | 2,037.9  | ~5k rows/s |
 
-Snapshot cost is linear (~200 ms per 1k rows): a 100k-row snapshot is ~20 s.
-Each snapshot also emits one `change_events` row (GOV-03). This is the single
-largest write-path cost and the reason the scale envelope draws the
-"requires caution" line where it does.
+Snapshot cost is linear (about 200 ms per 1k rows). A 100k-row snapshot takes
+about 20 s. Each snapshot also emits one `change_events` row (GOV-03). This is
+the largest write-path cost. The scale envelope sets the "requires caution"
+line because of it.
 
 ### Pipeline stages (10k input rows, 3 samples)
 
@@ -311,14 +317,16 @@ largest write-path cost and the reason the scale envelope draws the
 | output_overhead    | 156      |
 | total              | 6,713    |
 
-Output commit dominates: 10 chunked 1000-row commits (the executor now chunks
-the canonical 1000-row batch bound instead of failing >1000-row outputs) plus
-a 10k-row snapshot. The chunked commit is ~560 ms per 1000-row chunk inside
-the run's long-lived transaction (the canonical commit is ~5 ms standalone);
-this is the current dominant pipeline cost and the first thing to revisit if
-pipeline throughput matters. Materialization is set-based (one statement, not
-one round-trip per row — the previous implementation issued up to 100k
-sequential inserts and dominated large-input runs).
+Output commit dominates the run. It contains 10 chunked 1000-row commits plus
+a 10k-row snapshot. The executor now chunks the canonical 1000-row batch
+bound instead of failing on outputs above 1000 rows. The chunked commit takes
+about 560 ms per 1000-row chunk inside the run's long-lived transaction; the
+canonical commit takes about 5 ms standalone. This is the dominant pipeline
+cost. Revisit it first if pipeline throughput matters.
+
+Materialization is set-based: one statement, not one round-trip per row. The
+previous implementation issued up to 100k sequential inserts and dominated
+large-input runs.
 
 ### Pipeline concurrency (10k input rows)
 
@@ -328,9 +336,10 @@ sequential inserts and dominated large-input runs).
 | 2           | 13,713        | 2.0×    |
 | 5           | 34,551        | 5.0×    |
 
-Linear — no collapse, but also no parallelism benefit (single executor
-connection per run; CPU-bound transform is small). Supported initial
-concurrency limit: **5 concurrent runs** (see limits).
+Scaling is linear. There is no collapse, but there is also no parallelism
+benefit (one executor connection per run; the CPU-bound transform is small).
+The supported initial limit is **5 concurrent runs** (see
+[Known limits](#known-limits)).
 
 ### Scheduler sweep (interval schedules, not due)
 
@@ -340,8 +349,8 @@ concurrency limit: **5 concurrent runs** (see limits).
 | 100       | 180            | ~1.8 ms      |
 | 1000      | 1,524          | ~1.5 ms      |
 
-A 1000-schedule sweep completes in ~1.4 s; the 60 s polling cadence remains
-acceptable (one sweep ≈ 2.3% of the interval).
+A 1000-schedule sweep completes in about 1.4 s. One sweep is about 2.3% of
+the 60 s polling interval, so the cadence stays acceptable.
 
 ### Event-trigger bursts
 
@@ -352,8 +361,8 @@ acceptable (one sweep ≈ 2.3% of the interval).
 | 1000   | 4,491 ms   | 51     | 1,000           |
 
 Each sweep consumes up to 20 events per schedule (per-sweep bound). 1000
-events drain in ~4.5 s; at-least-once delivery and the cursor advance are
-unchanged (the harness asserts the exact consumption count).
+events drain in about 4.5 s. At-least-once delivery and the cursor advance
+stay unchanged (the harness asserts the exact consumption count).
 
 ### Search (global search over 20k records)
 
@@ -363,17 +372,19 @@ unchanged (the harness asserts the exact consumption count).
 | `qc_0`            | ~2,000      | ~15 (DB-side)                   |
 | `zzzz` (no match) | ~2,000      | ~15 (DB-side)                   |
 
-The DATA-04 search computed a tsvector for every workspace record on every
-query. A partial GIN index on a maintained `api.records.search_tsv` (updated
-by triggers on records/blocks/files/links, with a change-event guard so index
-maintenance never emits duplicate record events) routes the record branch
-through the index. Ranking weights and match semantics are byte-identical;
-RLS still filters the indexed scan. See migration `0141`.
+Before the fix, the DATA-04 search computed a tsvector for every workspace
+record on every query. Now a partial GIN index on a maintained
+`api.records.search_tsv` routes the record branch through the index. Triggers
+on records, blocks, files, and links update the column. A change-event guard
+stops index maintenance from emitting duplicate record events. Ranking weights
+and match semantics are byte-identical. RLS still filters the indexed scan.
+See migration `0141`.
 
 ### API concurrency (mixed workload: 40% dataset read, 20% list, 20% search, 20% write)
 
-Measured against PostgREST directly (each request mints a fresh JWT exactly
-like the same-origin proxy does). After the maintained FTS search index:
+The harness measures PostgREST directly. Each request mints a fresh JWT,
+exactly like the same-origin proxy does. Results after the maintained FTS
+search index:
 
 | Concurrency | Throughput | p95 (ms) | p99 (ms) | Errors                       |
 | ----------- | ---------- | -------- | -------- | ---------------------------- |
@@ -381,19 +392,21 @@ like the same-origin proxy does). After the maintained FTS search index:
 | 5           | ~42 req/s  | 546      | 555      | 0                            |
 | 20          | ~44 req/s  | 1,291    | 1,472    | 6 (stale-revision conflicts) |
 
-Throughput is 5–10× the pre-fix baseline (which was ~1–10 req/s with p95 up
-to 8.7 s because search computed a tsvector for every record per query).
-The write share (~20%) exercises real optimistic concurrency: concurrent
-commits that read a stale expected revision conflict (`SB001`), exactly as
-the product behaves — bounded and recoverable, never corruption.
+Throughput is 5–10× the pre-fix baseline. The pre-fix baseline was about
+1–10 req/s with p95 up to 8.7 s, because search computed a tsvector for every
+record per query. The write share (about 20%) exercises optimistic
+concurrency: concurrent commits that read a stale expected revision conflict
+(`SB001`), exactly as the product behaves. Conflicts are bounded and
+recoverable. They never corrupt state.
 
 ## Supported scale envelope
 
-The measured initial scale envelope for the current single-node deployment
-shape. "Comfortable" = interactive at the p95 budgets above; "Supported" =
-works with known latency/throughput; "Requires caution" = measured cost
-starts to dominate or correctness semantics (e.g. 1000-row commit cap,
-100k-row pipeline input cap) need explicit handling.
+This is the measured initial scale envelope for the current single-node
+deployment shape. "Comfortable" means interactive at the p95 budgets above.
+"Supported" means it works with known latency and throughput. "Requires
+caution" means the measured cost starts to dominate, or correctness semantics
+(for example the 1000-row commit cap and the 100k-row pipeline input cap)
+need explicit handling.
 
 ```text
 Dataset interactive use
@@ -426,45 +439,45 @@ Validated import  bounded by canonical 1000-row commit cap per call (chunked)
 
 ## Capacity guidance
 
-For the current single-VPS deployment (the supported shape). The CPU/RAM
-profiles below are **unvalidated starting heuristics**, not measured
-capacities: the benchmark suite ran on an Apple M2 Pro / 32 GiB workstation,
-not on the VPS hardware. Treat any profile as provisional until `pnpm perf:all`
-has been run on the target deployment and its results reconcile with the
-baseline in this document. The measured scale envelope (above) is the
-authoritative statement of what the software sustains on the benchmark box;
-capacity on other hardware must be re-validated, not extrapolated.
+This guidance is for the current single-VPS deployment (the supported shape).
+The CPU/RAM profiles below are **unvalidated starting heuristics**, not
+measured capacities. The benchmark suite ran on an Apple M2 Pro / 32 GiB
+workstation, not on the VPS hardware. Treat any profile as provisional. Run
+`pnpm perf:all` on the target deployment first, and check that its results
+reconcile with the baseline in this document. The measured scale envelope
+(above) is the authoritative statement of what the software sustains on the
+benchmark box. Re-validate capacity on other hardware; do not extrapolate it.
 
 ### Development
 
-- Loopback traffic only; PostgreSQL default sizing. The full benchmark suite
-  (including 100k fixtures) is heavy — run it on a workstation, not the dev
-  VPS.
+- Loopback traffic only, with PostgreSQL default sizing. The full benchmark
+  suite (including 100k fixtures) needs a workstation; do not run it on the
+  dev VPS.
 
 ### Small deployment (unvalidated heuristic)
 
-- App: 1 vCPU / 1–2 GiB RAM (Node SSR is lightweight; the app is not the
-  bottleneck at the measured envelope).
-- PostgreSQL: 2 vCPU / 4 GiB, `shared_buffers` 512 MiB–1 GiB, storage with
-  enough headroom for Dataset Version snapshots (~5–10× the live Dataset
+- App: 1 vCPU / 1–2 GiB RAM. Node SSR is lightweight; the app is not the
+  bottleneck at the measured envelope.
+- PostgreSQL: 2 vCPU / 4 GiB, `shared_buffers` 512 MiB–1 GiB. Give storage
+  enough headroom for Dataset Version snapshots (about 5–10× the live Dataset
   size once scientists snapshot routinely).
-- Measured-envelope targets to re-validate on this hardware: up to ~100k rows
-  per Dataset (page reads p95 < 300 ms), 5 concurrent Pipelines, and up to
-  20 concurrent mixed users with search (the largest tested concurrency —
-  no claim is made beyond it).
+- Re-validate these measured-envelope targets on this hardware: up to about
+  100k rows per Dataset (page reads p95 < 300 ms), 5 concurrent Pipelines,
+  and up to 20 concurrent mixed users with search. 20 users is the largest
+  tested concurrency; this document makes no claim beyond it.
 
 ### Larger single-node deployment (unvalidated heuristic)
 
-- App: 2 vCPU / 2 GiB (Node is single-threaded; the extra vCPU covers
-  scheduler sweeps + concurrent HTTP).
+- App: 2 vCPU / 2 GiB. Node is single-threaded; the extra vCPU covers
+  scheduler sweeps and concurrent HTTP.
 - PostgreSQL: 4 vCPU / 8 GiB. The Dataset read path and snapshots are the
   hot paths; keep the Dataset working set cached.
-- Connection budget (see below) becomes the first ceiling as users and
+- The connection budget (see below) becomes the first ceiling as users and
   Pipelines grow.
 
 ### Connection budget
 
-Measured/estimated per surface:
+Measured and estimated per surface:
 
 | Surface             | Connections                                    |
 | ------------------- | ---------------------------------------------- |
@@ -475,25 +488,27 @@ Measured/estimated per surface:
 | Connector execution | short-lived per-operation connections          |
 | Benchmark harness   | its own clients (disposable)                   |
 
-PostgreSQL's default `max_connections` (100) is sufficient at the supported
-envelope (≈ 20–40 in use). Do not raise it blindly; the Pooled-to-100
-recheck and the scheduler's per-schedule connections are the first places to
-measure before scaling.
+The PostgreSQL default `max_connections` (100) is sufficient at the supported
+envelope (about 20–40 in use). Do not raise it without measurement. Measure
+the Pooled-to-100 recheck and the scheduler's per-schedule connections first,
+before you scale.
 
 ### Memory behaviour
 
-- Large Dataset responses and page reads are bounded by the page caps
-  (max 1000 rows per RPC); serialisation is per-page.
-- Pipeline input materialisation is now set-based in the database — the
-  previous per-row implementation buffered the entire version (1.2M value
-  rows for a 100k input) in Node. The set-based path avoids that buffer.
-- Pipeline result rows are still fully buffered in Node (up to 100k rows ×
-  1 MiB cell cap) before the output phase — documented bounded buffering.
-- Files upload/download stream in 64 KiB chunks; never buffered whole.
-- XLSX/Parquet export materialise in memory (XLSX unbounded by the page
-  loop; Parquet capped). CSV/TSV/JSON/NDJSON stream.
-- Connector ingestion hashes the full payload into memory for content SHA —
-  documented bounded buffering (bounded by the import caps).
+- The page caps bound large Dataset responses and page reads (max 1000 rows
+  per RPC). Serialisation is per-page.
+- Pipeline input materialisation is now set-based in the database. The
+  previous per-row implementation buffered the entire version in Node (1.2M
+  value rows for a 100k input). The set-based path avoids that buffer.
+- Pipeline result rows are still fully buffered in Node before the output
+  phase (up to 100k rows × 1 MiB cell cap). This is documented bounded
+  buffering.
+- File uploads and downloads stream in 64 KiB chunks; the routes never buffer
+  a whole file.
+- XLSX and Parquet exports materialise in memory (XLSX is unbounded by the
+  page loop; Parquet is capped). CSV, TSV, JSON, and NDJSON stream.
+- Connector ingestion hashes the full payload into memory for the content
+  SHA. The import caps bound this buffer; the buffering is documented.
 
 ## Known limits
 
@@ -517,9 +532,9 @@ measure before scaling.
 1. **Measure first.** Run the harness (`pnpm perf:all`) on the target box and
    compare `perf/results/` against the baseline. Note the environment block.
 2. **Read the metrics.** `/api/metrics` (bearer-protected outside
-   development) exposes the bounded dataset/pipeline/scheduler/search
+   development) exposes the bounded dataset, pipeline, scheduler, and search
    duration histograms; see the catalogue below. Watch
-   `sheetbase_dataset_rpc_duration_seconds`, `sheetbase_pipeline_stage_duration_seconds`
+   `sheetbase_dataset_rpc_duration_seconds`, `sheetbase_pipeline_stage_duration_seconds`,
    and `sheetbase_scheduler_sweep_duration_seconds`.
 3. **Follow the request.** Every request carries `x-request-id` into logs and
    upstream PostgREST; connector runs add `connector_run_id`.
@@ -527,23 +542,24 @@ measure before scaling.
    ```sql
    explain (analyze, buffers) select api.query_dataset_rows('…', '{"filters":[…]}'::jsonb, 100, 0);
    ```
-   Look for sequential scans on `dataset_row_values` (missing index), full
-   per-page counts, or correlated-subquery blowups.
-5. **PostgreSQL slow statements.** Set `log_min_duration_statement` (e.g.
-   `1s`) on the VPS and correlate with request ids in app logs. Never log
-   scientific payloads — statements include parameter values, so prefer
-   `log_min_duration_statement` with `log_statement = 'none'` on a
+   Look for sequential scans on `dataset_row_values` (a missing index), full
+   per-page counts, or correlated-subquery cost growth.
+5. **PostgreSQL slow statements.** Set `log_min_duration_statement` (for
+   example `1s`) on the VPS. Correlate the log with request ids in the app
+   logs. Do not log scientific payloads: statements include parameter values.
+   Use `log_min_duration_statement` with `log_statement = 'none'` on a
    controlled window.
-6. **Common failure modes.** Slow search → check `idx_records_search_tsv` is
-   used (`explain select * from api.search('x', …)`); snapshot-heavy runs →
-   quantify `sheetbase_dataset_snapshot_duration_seconds`; scheduler backlog →
-   `sheetbase_scheduler_sweep_duration_seconds` and `pipeline_runs` stuck
-   `running` (stale-run reconciliation after 900 s).
+6. **Common failure modes.** Slow search: check that the plan uses
+   `idx_records_search_tsv` (`explain select * from api.search('x', …)`).
+   Snapshot-heavy runs: quantify `sheetbase_dataset_snapshot_duration_seconds`.
+   Scheduler backlog: check `sheetbase_scheduler_sweep_duration_seconds` and
+   `pipeline_runs` rows stuck in `running` (stale-run reconciliation starts
+   after 900 s).
 
 ## Metrics reference
 
-PLAT-05 additions (bounded labels; IDs, workspaces, users and names are never
-label values):
+These metrics are PLAT-05 additions. Labels are bounded; IDs, workspaces,
+users, and names are never label values:
 
 | Metric                                            | Type      | Labels (bounded)                                                                                                        |
 | ------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -564,8 +580,8 @@ Size buckets map row counts: small < 1k, medium < 10k, large < 50k, xlarge ≥
 
 ## Architecture-change triggers
 
-Explicit, measurement-driven triggers. Do not build these systems before a
-trigger is met.
+These triggers are explicit and measurement-driven. Do not build these
+systems before a trigger is met.
 
 ```text
 Introduce a connection pooler (PgBouncer) if:
@@ -615,22 +631,23 @@ Add Dataset Version archival/retention if:
 
 ### Files (local backend)
 
-See the Files budget table above for throughput/p50. The byte routes add only
-HTTP framing + auth over the measured storage backend; both stream in 64 KiB
-chunks and never buffer the whole object (verified by the benchmark's
-received-bytes check).
+See the Files budget table above for throughput and p50. Over the measured
+storage backend, the byte routes add only HTTP framing and auth. Both routes
+stream in 64 KiB chunks and never buffer the whole object (the benchmark's
+received-bytes check verifies this).
 
 ### Connectors
 
-Measured against local deterministic fixtures: an in-process S3-compatible
-HTTP backend (real SDK + SigV4) and an isolated source PostgreSQL database in
-the local cluster. Runs execute in-process, request-scoped, through the
-canonical commit path, which now runs **atomically**: `commit_dataset_row_batch_atomic`
-executes every canonical ≤1000-row chunk inside one database transaction, so a
-failure in any chunk rolls back every earlier chunk — no partial scientific
-imports (a large import previously failed outright above 1000 rows, and the
-interim chunked fix risked partial mutation). Per-stage timings come from the
-run's durable stage logs.
+The harness measures against local deterministic fixtures: an in-process
+S3-compatible HTTP backend (real SDK + SigV4) and an isolated source
+PostgreSQL database in the local cluster. Runs execute in-process and
+request-scoped through the canonical commit path. The commit path now runs
+**atomically**: `commit_dataset_row_batch_atomic` executes every canonical
+≤1000-row chunk inside one database transaction. A failure in any chunk rolls
+back every earlier chunk, so scientific imports are never partial. Previously,
+a large import failed outright above 1000 rows, and the interim chunked fix
+risked partial mutation. Per-stage timings come from the run's durable stage
+logs.
 
 | Scenario                   | Rows | Source read | Map+validate | Commit | Total  |
 | -------------------------- | ---- | ----------- | ------------ | ------ | ------ |
@@ -641,12 +658,12 @@ run's durable stage logs.
 | s3 ingest 1k               | 1k   | 27 ms       | 625 ms       | 2.2 ms | 653 ms |
 | s3 preview 500 / 1k        | —    | 5 / 3 ms    | —            | —      | —      |
 
-Replay (digest dedupe) latency: postgres 55–157 ms, s3 19–22 ms — a retried
-identical import replays the prior receipt instead of re-reading the source.
-Map+validate dominates every import (per-row coercion + chunked validation);
-it is the first candidate if connector ingest throughput matters. S3 objects
-are limited to the delimited parser's 1000-row import cap (a product limit);
-the PostgreSQL source scales to 50k+ rows.
+Replay (digest dedupe) latency is 55–157 ms for postgres and 19–22 ms for s3.
+A retried identical import replays the prior receipt instead of re-reading
+the source. Map+validate dominates every import (per-row coercion plus
+chunked validation). Revisit it first if connector ingest throughput matters.
+S3 objects are limited to the delimited parser's 1000-row import cap (a
+product limit). The PostgreSQL source scales to 50k+ rows.
 
 ### Sheet & Notebook
 
@@ -658,10 +675,10 @@ the PostgreSQL source scales to 50k+ rows.
 | notebook blocks load, 200  | 200 blocks | 20 ms | 21 ms |
 | notebook blocks load, 500  | 500 blocks | 21 ms | 23 ms |
 
-`query_sheet_instance_rows` hydrates a Dataset-bound grid at ~82 ms p50 for
-a 200-row page over a 10k-row Dataset. Notebook bodies load in ~20 ms at any
-tested size (index-backed, ~40 µs/block amortised); the notebook screen
-issues 4 data requests (record + blocks + links + files).
+`query_sheet_instance_rows` hydrates a Dataset-bound grid in about 82 ms p50
+for a 200-row page over a 10k-row Dataset. Notebook bodies load in about
+20 ms at any tested size (index-backed, about 40 µs per block amortised). The
+notebook screen issues 4 data requests (record + blocks + links + files).
 
 ### Failure under pressure
 
@@ -672,5 +689,5 @@ issues 4 data requests (record + blocks + links + files).
 | Slow/unreachable source               | bounded `query_failed` after the 10 s connection timeout; retry possible |
 | Scheduler backlog (40 due)            | 40/40 occurrences started, zero duplicates                               |
 
-All failure modes are bounded, explicitly surfaced (bounded error codes /
-durable run records), recoverable, and never corrupt state.
+All failure modes are bounded, explicitly surfaced (bounded error codes and
+durable run records), and recoverable. They never corrupt state.

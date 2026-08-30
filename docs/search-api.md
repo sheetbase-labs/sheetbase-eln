@@ -1,6 +1,6 @@
 # Scientific search API (SCI-008, decision 0033; DATA-04 extension)
 
-Search is exposed through the existing same-origin `/api/db` boundary as a
+Search runs through the existing same-origin `/api/db` boundary as a
 PostgREST RPC. PostgreSQL and RLS remain authoritative.
 
 ## Resource
@@ -112,38 +112,38 @@ Analysis artefacts, plate designs and instrument runs are not indexed yet.
 
 ## Archived-result behaviour
 
-Archived records (`archived_at IS NOT NULL`, `deleted_at IS NULL`) are included
-with `archived = true`. Archived Datasets and Sheet Instances appear with
-`status = 'archived'` and `archived = true`; retired Notebook Templates appear
-with `archived = true`. Soft-deleted records (`deleted_at IS NOT NULL`) are
-excluded.
+Archived records (`archived_at IS NOT NULL`, `deleted_at IS NULL`) appear in
+results with `archived = true`. Archived Datasets and Sheet Instances appear
+with `status = 'archived'` and `archived = true`. Retired Notebook Templates
+appear with `archived = true`. Soft-deleted records
+(`deleted_at IS NOT NULL`) are excluded.
 
 ## Record-only filter semantics
 
-`p_kind`, `p_status` and `p_owner_id` apply to the record branch only. When any
-of them is supplied the Dataset/Sheet/Template branches are suppressed so a
-kind-filtered query keeps its exact previous meaning; use `p_result_type`
+`p_kind`, `p_status` and `p_owner_id` apply to the record branch only. When
+you supply any of them, the Dataset/Sheet/Template branches are suppressed.
+A kind-filtered query keeps its exact previous meaning. Use `p_result_type`
 instead to facet across object classes.
 
 ## Indexing delay and stale-result behaviour
 
-**None.** Search is real-time (query-time). The `api.search` function builds a
-`tsvector` at query time from live `records`, `blocks`, `file_objects`,
-`record_links`, `datasets`, `sheet_instances` and `notebook_templates` rows. An
-edit is searchable immediately after the transaction commits. There is no
+**None.** Search is real-time (query-time). The `api.search` function builds
+a `tsvector` at query time from live `records`, `blocks`, `file_objects`,
+`record_links`, `datasets`, `sheet_instances` and `notebook_templates` rows.
+An edit is searchable immediately after the transaction commits. There is no
 materialised index, no triggers, and no eventual consistency window.
 
 ## Restricted-field non-leakage
 
-Results contain only metadata (title, identifier, kind, status, project, owner,
-dates) and matched context (a short snippet). Full record content, block
-payloads, file bytes, storage keys, checksums, property values and restricted
-fields are not returned.
+Results contain only metadata (title, identifier, kind, status, project,
+owner, dates) and matched context (a short snippet). The response does not
+contain full record content, block payloads, file bytes, storage keys,
+checksums, property values or restricted fields.
 
 Counts, facets and result rows all derive from the same permission-filtered
 set: the RPC is SECURITY INVOKER, every source table enforces workspace RLS,
-and non-members are rejected before any branch runs. Objects outside the
-caller's workspace never surface through totals either.
+and the system rejects non-members before any branch runs. Objects outside
+the caller's workspace never surface through totals either.
 
 ## Error shapes
 
@@ -154,14 +154,15 @@ caller's workspace never surface through totals either.
 | Caller not a workspace member | 42501       | `permission_denied` |
 | PostgREST upstream failure    | 500         | `upstream_error`    |
 
-Errors use the same `{ error: { category, message, request_id } }` envelope as
-all other `/api/db` resources.
+Errors use the same `{ error: { category, message, request_id } }` envelope
+as all other `/api/db` resources.
 
 ## Known FTS tokenizer limitation
 
 PostgreSQL's default full-text search parser treats dot/hyphen-delimited
 strings that resemble file paths or URLs (e.g. `stability-run07-4c.csv`) as
-single `host` tokens. Words within such tokens are not individually searchable.
-Display names with spaces tokenize correctly. This is a PostgreSQL FTS
-behaviour, not a Sheetbase-specific limitation. Record titles, identifiers and
-notebook text (which use natural-language spacing) are unaffected.
+single `host` tokens. Words within such tokens are not individually
+searchable. Display names with spaces tokenize correctly. This is a
+PostgreSQL FTS behaviour, not a Sheetbase-specific limitation. Record titles,
+identifiers and notebook text (which use natural-language spacing) are
+unaffected.

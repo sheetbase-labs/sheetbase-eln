@@ -1,21 +1,22 @@
 # Sheetbase public API contract (API-01)
 
 > **Status:** Contract v0.1.3 — **intended** public surface.  
-> **Implementation:** the external surface accepts two credential kinds —
-> workspace service credentials and personal API tokens acting as their
-> creating member. API-07 cut over Core Dataset/Sheet external operations.
+> **Implementation:** External clients use two credential kinds: workspace
+> service credentials, and personal API tokens that act as their creating
+> member. API-07 cut over the Core Dataset/Sheet external operations.
 > Schema-authoring RPCs, files, specialist surfaces, and human attestation
-> (submit / sign / amend / revision checks) remain fail-closed for external
+> (submit / sign / amend / revision checks) stay fail-closed for external
 > credentials of either kind.  
 > **Authority:** PC-00 accepted decisions; Core ADRs 0020–0024, 0031, 0036–0038;
 > `docs/notebook-api.md` for notebook RPC detail.
 
-Sheetbase is programmable through a **deliberate domain API**, not through
-raw PostgreSQL table exposure. The browser session path (`/api/db/*` with
-Better Auth cookies) is one client of the same Core operations; it is **not**
-the public contract and has **no resource allowlist**. External clients use two kinds of scoped credential (`POST /api/token`) —
-workspace service credentials and personal API tokens acting as their creating
-member — under a **fail-closed allowlist** (`src/lib/external-token.ts`).
+Integrators call a **deliberate domain API**. They do not read or write raw
+PostgreSQL tables. The browser session path (`/api/db/*` with Better Auth
+cookies) is one client of the same Core operations. It is **not** the public
+contract and has **no resource allowlist**. External clients use two kinds of
+scoped credential (`POST /api/token`): workspace service credentials, and
+personal API tokens that act as their creating member. Access goes through a
+**fail-closed allowlist** (`src/lib/external-token.ts`).
 
 ---
 
@@ -26,25 +27,25 @@ member — under a **fail-closed allowlist** (`src/lib/external-token.ts`).
 | Exchange | `POST /api/token` | `{ credential, scopes }` → `{ token }`                         |
 | Data     | `/api/db/*`       | Same-origin PostgREST proxy with `Authorization: Bearer <jwt>` |
 
-Credential format, exchange errors, revocation, rate limiting and enforcement
-layers are documented in `docs/external-api.md`.
+`docs/external-api.md` documents the credential format, exchange errors,
+revocation, rate limiting, and enforcement layers.
 
-**JWT claims (external):** both kinds carry `workspace_id`, `credential_id`
-and `scopes`; default TTL 300s; no capability claims in the token (ADR 0005) —
-RLS and the proxy allowlist enforce access.
+**JWT claims (external):** Both credential kinds carry `workspace_id`,
+`credential_id` and `scopes`. The default TTL is 300s. The token carries no
+capability claims (ADR 0005). RLS and the proxy allowlist enforce access.
 
 - Service credential: `role: 'api_client'`, no user id. The credential row is
-  the service principal; writes attribute to `*_credential_id` columns.
+  the service principal. Writes attribute to `*_credential_id` columns.
 - Personal token: `role: 'authenticated'` with the creating member's real
-  `sub` and no `session_id`. Member permissions and row-level security apply,
-  so a viewer's token is read-only and attribution is human. Removing or
-  suspending the creating member makes the token unusable at exchange and at
+  `sub` and no `session_id`. Member permissions and row-level security apply.
+  A viewer's token is read-only, and attribution is human. If you remove or
+  suspend the creating member, the token stops working at exchange and at
   use time.
 
-**Versioning:** Contract v0.1 uses unversioned `/api/db` paths matching the
-browser proxy. API-03 publishes OpenAPI for those paths. A future `/api/v1/…`
-prefix may add explicit version negotiation without breaking v0.1 during a
-deprecation window.
+**Versioning:** Contract v0.1 uses unversioned `/api/db` paths that match the
+browser proxy. API-03 publishes OpenAPI for those paths. A future
+`/api/v1/…` prefix may add explicit version negotiation. It will not break
+v0.1 during a deprecation window.
 
 ---
 
@@ -121,9 +122,9 @@ RPCs (`create_dataset_schema_definition`, Dataset Schema publish/retire,
 template authoring) stay denied even with `schema:*` or `sheets:write`.
 Human attestation RPCs (`submit_record_revision`, `run_revision_checks`,
 `sign_revision`, amendment / review-transition writers) stay denied for
-external credentials of either kind even with `reviews:*`; personal tokens
-additionally cannot reach them because they carry no `session_id`. Removed scientific-table
-resources stay denied. File RPCs stay denied (DATA-02).
+external credentials of either kind, even with `reviews:*`. Personal tokens
+additionally cannot reach them because they carry no `session_id`. Removed
+scientific-table resources stay denied. File RPCs stay denied (DATA-02).
 
 **Vestigial scopes:** `scientific:read`, `scientific:write`, `scientific:schema`
 are **removed**. They are not in `VALID_SCOPES`, cannot be stored, and token
@@ -135,11 +136,11 @@ API-07 implemented the Dataset, Sheet Instance, template instantiate
 and search operations from this map. Still queued: Sheet Definition and
 Dataset Schema **authoring**, notebook template **authoring**, files, and
 specialist surfaces. Notebook **submit / sign / amend / revision checks**
-are human-session-only; they are not a later credential allowlist item.
+are human-session-only. They are not a later credential allowlist item.
 
-The product converges on **Core RPCs** the UI already calls. External clients
-reach those operations through scoped credentials — not direct table writes
-where RPCs exist.
+The product converges on **Core RPCs** that the UI already calls. External
+clients reach those operations through scoped credentials — not through
+direct table writes where RPCs exist.
 
 | Domain                  | Stable identity                              | Primary operations (RPC-first)                                                                                                                                                                                                             |
 | ----------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -180,12 +181,12 @@ External clients **never** call PostgREST directly.
 | RPC              | `POST /api/db/rpc/{name}`                     | `/api/db/rpc/create_record`         |
 
 PostgREST query parameters (`select`, `order`, `limit`, `offset`, filters)
-apply to table resources. RPC bodies use `p_*` argument names matching
+apply to table resources. RPC bodies use `p_*` argument names that match the
 PostgreSQL function signatures.
 
 ### 3.3 Domain-oriented grouping (documentation model)
 
-Integrators should think in **resources**, not SQL table names:
+Think in **resources**, not SQL table names:
 
 ```text
 Workspace
@@ -201,7 +202,7 @@ Workspace
 └── Files
 ```
 
-HTTP paths remain PostgREST-shaped for v0.1. OpenAPI 3.1 for the external
+For v0.1, HTTP paths stay PostgREST-shaped. OpenAPI 3.1 for the external
 surface (both credential kinds) is `docs/openapi/external-api-v0.json`
 (API-03). A future `/api/v1/…` prefix is not introduced here.
 
@@ -224,10 +225,13 @@ surface (both credential kinds) is `docs/openapi/external-api-v0.json`
 
 **Rules:**
 
-- UUIDs are opaque, stable for the lifetime of the object.
-- Identifier strings (`EXP-2026-0001`) are assigned by Core RPCs, not client-supplied sequences.
-- Definition/template `key` values are unique per workspace; use UUID when ambiguity exists.
-- Never use removed `sheet_{base32}` scientific-table resource names in new integrations.
+- UUIDs are opaque and stay stable for the lifetime of the object.
+- Core RPCs assign identifier strings (`EXP-2026-0001`). Clients do not
+  supply sequences.
+- Definition/template `key` values are unique per workspace. Use the UUID
+  when ambiguity exists.
+- Do not use the removed `sheet_{base32}` scientific-table resource names in
+  new integrations.
 
 ---
 
@@ -254,8 +258,8 @@ surface (both credential kinds) is `docs/openapi/external-api-v0.json`
 | `search_sheet_records`       | `p_limit` 1–50 (default 25); no offset           | `p_model_key`, `p_query`, `p_include_archived`                            |
 
 **Contract rule:** List endpoints that can return large sets **must** use
-bounded windows. Clients iterate with offset/limit or cursor-style paging
-(API-04/05 SDKs should expose iterators).
+bounded windows. Clients iterate with offset/limit paging or cursor-style
+paging. API-04/05 SDKs should expose iterators.
 
 ---
 
@@ -286,8 +290,8 @@ Token exchange (`POST /api/token`):
 }
 ```
 
-Branch on **`category`** (data path) or **`code`** (exchange path), not on
-raw PostgreSQL messages.
+Branch on **`category`** (data path) or **`code`** (exchange path). Do not
+branch on raw PostgreSQL messages.
 
 ### 6.2 Stable categories
 
@@ -312,7 +316,7 @@ Implementation: `src/lib/errors.ts`, `src/lib/postgrest-proxy.ts`.
 ### 6.3 Rate limits
 
 - **Credential exchange:** 5 failed attempts per prefix / 15 minutes → 15-minute lock (`src/lib/api-credentials.ts`).
-- **General API:** Not yet enforced (PLAT-03 backlog). Contract reserves `rate_limited` for future use.
+- **General API:** Not yet enforced (PLAT-03 backlog). The contract reserves `rate_limited` for future use.
 
 ---
 
@@ -328,8 +332,8 @@ Implementation: `src/lib/errors.ts`, `src/lib/postgrest-proxy.ts`.
 | Definition/version publish | `p_expected_revision`          | `stale_version`  |
 | Dataset row commit         | expected dataset `revision`    | `stale_version`  |
 
-Clients **must** read current version/revision before mutating and retry on
-`stale_version` after re-fetching.
+Clients **must** read the current version or revision before they mutate.
+On `stale_version`, re-fetch and retry.
 
 ### 7.2 Command idempotency
 
@@ -338,8 +342,8 @@ Clients **must** read current version/revision before mutating and retry on
 | `submit_record_revision`   | `p_idempotency_key`                          | Same key + same inputs → same revision/submission with `idempotent: true`                         |
 | `commit_dataset_row_batch` | `p_idempotency_key` (1–128) + request digest | Same credential + same digest → stored result with `idempotent: true`; different digest conflicts |
 
-Other RPCs: treat POST as **at-most-once** unless documented otherwise; use
-client-generated UUID command ids when adding idempotency in later API work.
+Other RPCs: treat POST as **at-most-once** unless we document otherwise.
+When later API work adds idempotency, use client-generated UUID command ids.
 
 ### 7.3 Retry guidance
 
@@ -355,8 +359,8 @@ client-generated UUID command ids when adding idempotency in later API work.
 
 ## 8. Proposed credential scopes (Core-domain)
 
-Retires `scientific:*` as the future model (PC-00 decision). Scopes are
-**capabilities on domain operations**, not SQL grants.
+This scope list retires `scientific:*` as the future model (PC-00 decision).
+Scopes are **capabilities on domain operations**, not SQL grants.
 
 ### 8.1 Scope vocabulary (target)
 
@@ -380,44 +384,45 @@ Retires `scientific:*` as the future model (PC-00 decision). Scopes are
 | `files:read`      | Download file objects                                                                                                                       |
 | `files:write`     | Upload and finalize files                                                                                                                   |
 
-**Invariant:** data-editing scopes (`datasets:*`, `sheets:write`, `models:write`)
-never grant governed schema/configuration authority. Schema stewardship RPCs
-(`create_dataset_schema_definition`, Dataset Schema publish/retire, Sheet
-Definition draft/publish, Model field create/update,
+**Invariant:** Data-editing scopes (`datasets:*`, `sheets:write`,
+`models:write`) never grant governed schema/configuration authority.
+Schema stewardship RPCs (`create_dataset_schema_definition`, Dataset Schema
+publish/retire, Sheet Definition draft/publish, Model field create/update,
 `extract_sheet_definition_draft`) require `schema:write` and/or
-`schema:publish`, matching CORE-05 `schema.edit` vs `schema.publish`. Do not
-collapse those into `datasets:write`.
+`schema:publish`. This matches CORE-05 `schema.edit` vs `schema.publish`.
+Do not collapse those authorities into `datasets:write`.
 
-**Mapping note:** Today's `projects:read` / `projects:write` remain valid
-during migration. New scopes subdivide the project domain without implying
+**Mapping note:** Today's `projects:read` / `projects:write` stay valid
+during migration. New scopes subdivide the project domain. They do not imply
 scientific-table access. `schema:*` is the future replacement for the
-retired `scientific:schema` _idea_ (catalogue authority), not a restoration of
-scientific-table RPCs.
+retired `scientific:schema` _idea_ (catalogue authority). It does not
+restore scientific-table RPCs.
 
 ### 8.2 Allowlist cut-over (API-07)
 
 **Done.** `requiredScopes()` maps Core Dataset/Sheet RPCs and catalogue
-tables to canonical scopes, with `api_client` EXECUTE grants and
-workspace-pinned RLS on those tables (`drizzle/0114_api_07_core_external_allowlist.sql`).
-Human attestation RPCs stay revoked (`drizzle/0116_api_07_revoke_human_attestation.sql`).
-Mapped data-plane **writes succeed** for a service credential: the JWT
+tables to canonical scopes. It adds `api_client` EXECUTE grants and
+workspace-pinned RLS on those tables
+(`drizzle/0114_api_07_core_external_allowlist.sql`). Human attestation RPCs
+stay revoked (`drizzle/0116_api_07_revoke_human_attestation.sql`). Mapped
+data-plane **writes succeed** for a service credential. The JWT
 `credential_id` is the actor (`api.current_credential_id()` /
 `api.has_write_actor()`), persisted on `actor_credential_id` /
 `created_by_credential_id` / `updated_by_credential_id`
-(`drizzle/0115_api_07_credential_write_actors.sql`). Session behaviour
-with `authenticated` + `sub` is unchanged. The cut-over does not mint a
-fake `sub` or invent named service-account user rows.
+(`drizzle/0115_api_07_credential_write_actors.sql`). Session behaviour with
+`authenticated` + `sub` is unchanged. The cut-over does not mint a fake
+`sub` and does not invent named service-account user rows.
 
-**Personal tokens (API-02)** reuse this exact allowlist and scope mapping:
-their exchange mints the same claim shape a member session has
-(`role='authenticated'`, real `sub`, no `session_id`), so member RLS — not a
-second permission model — constrains what they can do, and human-attestation
-RPCs remain out of reach for them as well.
+**Personal tokens (API-02)** reuse this exact allowlist and scope mapping.
+Their exchange mints the same claim shape a member session has
+(`role='authenticated'`, real `sub`, no `session_id`). Member RLS — not a
+second permission model — constrains what they can do. Human-attestation
+RPCs also stay out of reach for them.
 
 Principles held:
 
 - Fail closed for unknown paths.
-- RPC allowlist mirrors product UI capabilities, not every `api.*` function.
+- The RPC allowlist mirrors product UI capabilities, not every `api.*` function.
 - No DELETE on projects for `api_client` (existing Phase 1 rule).
 - `schema:*` does not author Dataset Schema Versions in this cut-over.
 - `sheets:write` does not author Sheet Definitions.
@@ -425,8 +430,8 @@ Principles held:
 **Human attestation (not a missing-`sub` caveat):** `submit_record_revision`,
 `run_revision_checks`, `sign_revision` and amendment / review-transition
 writers stay **off** the credential allowlist. They require an authenticated
-human session. `reviews:write` remains mintable but does not open those
-RPCs. `reviews:read` opens `preview_submission_digest` only.
+human session. `reviews:write` stays mintable but does not open those RPCs.
+`reviews:read` opens `preview_submission_digest` only.
 
 ---
 
@@ -443,17 +448,18 @@ appear in new integrations:
 - Scopes: `scientific:read`, `scientific:write`, `scientific:schema`
 
 Historical ADR 0019/0020 describe the retired architecture. `docs/external-api.md`
-previously documented CLI examples for this surface — that was a documentation
+previously documented CLI examples for this surface. That was a documentation
 defect (P1-A2).
 
 ### 9.2 Removed `scientific:*` scopes
 
 `scientific:read`, `scientific:write`, and `scientific:schema` are **removed**
-from the credential vocabulary. Sheetbase is pre-release with no production
-credentials: there is no deprecation window and no compatibility exchange path.
+from the credential vocabulary. Sheetbase is pre-release and has no production
+credentials. There is no deprecation window and no compatibility exchange
+path.
 
-Token exchange returns `invalid_scope` if they are requested. The database
-CHECK rejects storing them. Historical ADR 0019/0020 remain archival.
+Token exchange returns `invalid_scope` if a caller requests them. The
+database CHECK rejects storing them. Historical ADR 0019/0020 stay archival.
 
 ### 9.3 Browser-only routes
 
@@ -467,9 +473,9 @@ Not part of the public contract:
 
 Once API-03 publishes versioned docs:
 
-1. Announce deprecated scopes/paths in changelog and `Sunset` header (planned).
-2. Minimum 90-day notice for breaking scope renames.
-3. Digest-pinned server deploys remain the rollback unit (see `docs/deployment.md`).
+1. Announce deprecated scopes/paths in the changelog and `Sunset` header (planned).
+2. Give at least 90 days notice for breaking scope renames.
+3. Digest-pinned server deploys stay the rollback unit (see `docs/deployment.md`).
 
 ---
 
@@ -486,9 +492,10 @@ Once API-03 publishes versioned docs:
 | **DATA-02/PLAT-01** | `api_client` file access; S3 backend                                                                                                           |
 | **GOV-01**          | `viewer` read-only semantics (affects RLS, not contract shape)                                                                                 |
 
-**Out of API-07:** schema/template **authoring** RPCs, named service-account
-principals (queued; requires an ADR). Personal tokens and credential audit
-events shipped with API-02 completion (`#56`). Files remain DATA-02/PLAT-01.
+**Out of API-07:** schema/template **authoring** RPCs, and named
+service-account principals (queued; requires an ADR). Personal tokens and
+credential audit events shipped with API-02 completion (`#56`). Files remain
+DATA-02/PLAT-01.
 
 ---
 

@@ -1,12 +1,12 @@
 # Recovery: backups, restore and disaster recovery
 
-PLAT-01. A backup is incomplete until restore is proven. This document is the
-canonical reference for what Sheetbase backs up, how a restore works, how
-restore is proven, and the recovery objectives. Deployment rollback is a
-different mechanism and is documented in
+PLAT-01. A backup is incomplete until restore is proven. This document is
+the canonical reference for what Sheetbase backs up, how a restore works,
+how restore is proven, and the recovery objectives. Deployment rollback is a
+different mechanism; see
 [`deployment.md`](deployment.md#promotion-and-rollback).
 
-## What state matters
+## Which state matters
 
 Sheetbase has exactly two durable state surfaces:
 
@@ -16,7 +16,7 @@ Sheetbase has exactly two durable state surfaces:
 | Object storage | File bytes referenced by `api.file_objects`                                                                                     | volume tar archive             |
 
 Everything else (images, code, configuration templates, PostgREST) is
-reproducible from the immutable artifact; only these two surfaces need
+reproducible from the immutable artifact. Only these two surfaces need
 backup.
 
 ## Backup policy
@@ -25,12 +25,12 @@ backup.
 | ------------------ | ---------------------------------------------------------------------------------------- |
 | What               | Full logical `pg_dump` of the database + full object-storage archive                     |
 | Frequency          | Nightly cron on the VPS, plus a run before every deployment                              |
-| Retention          | 14 days of backup sets (whole sets pruned, never a lone dump)                            |
+| Retention          | 14 days of backup sets (whole sets pruned, never one lone dump)                          |
 | Location           | `/opt/sheetbase/backups` on the VPS                                                      |
-| Encryption         | At rest by the VPS disk; see note below                                                  |
+| Encryption         | At rest by the VPS disk; see the note below                                              |
 | Failure visibility | Script exits non-zero and emits a JSON error line; `latest.json` age exposes missed runs |
 
-Each run produces one **backup set** sharing a timestamp prefix:
+Each run produces one **backup set** with a shared timestamp prefix:
 
 ```text
 sheetbase-20260828T030000Z-db.sql.gz      # PostgreSQL, gzip
@@ -39,8 +39,8 @@ sheetbase-20260828T030000Z-manifest.json  # sizes, sha256 checksums, duration
 latest.json                               # pointer to the newest successful set
 ```
 
-The manifest checksums make silent corruption detectable before a restore is
-attempted. The age of `latest.json` against the nightly schedule is the
+The manifest checksums make silent corruption detectable before a restore
+attempt. The age of `latest.json` against the nightly schedule is the
 missed-backup signal.
 
 Run a backup manually:
@@ -51,42 +51,46 @@ set -a; . ./.env.production; set +a
 pnpm backup:run
 ```
 
-Configuration: `SHEETBASE_COMPOSE_PROJECT` (default `sheetbase-deploy`),
-`SHEETBASE_BACKUP_DIR` (default `/opt/sheetbase/backups`),
-`SHEETBASE_BACKUP_RETENTION_DAYS` (default `14`),
-`SHEETBASE_BACKUP_INCLUDE_OBJECTS` (set `false` to skip the storage archive).
+Configuration:
 
-**File permissions:** the backup runner creates the backup directory
-`0700` and every dump, archive and manifest `0600` — only the file owner
-reads backups. Backups contain the entire scientific record.
+| Variable                              | Default                  | Purpose                            |
+| ------------------------------------- | ------------------------ | ---------------------------------- |
+| `SHEETBASE_COMPOSE_PROJECT`           | `sheetbase-deploy`       | Compose project name               |
+| `SHEETBASE_BACKUP_DIR`                | `/opt/sheetbase/backups` | Backup directory                   |
+| `SHEETBASE_BACKUP_RETENTION_DAYS`     | `14`                     | Days of backup sets to keep        |
+| `SHEETBASE_BACKUP_INCLUDE_OBJECTS`    | —                        | Set `false` to skip the storage archive |
 
-**Encryption note:** backups live on the same encrypted-at-rest VPS volume as
-the live database, so the transport and at-rest protections are identical to
-the primary. Dedicated backup encryption (separate key, off-host copy) is
-PLAT-03 work and is deliberately not duplicated here. Until an off-VPS copy
-exists, a VPS-volume loss destroys both primary and backups; that limitation
-is reflected in the RPO/RTO assumptions below.
+**File permissions:** the backup runner creates the backup directory `0700`
+and every dump, archive, and manifest `0600`. Only the file owner reads
+backups. Backups contain the entire scientific record.
+
+**Encryption note:** backups live on the same encrypted-at-rest VPS volume
+as the live database. Transport and at-rest protections are identical to the
+primary. Dedicated backup encryption (separate key, off-host copy) is PLAT-03
+work and is not duplicated here. Until an off-VPS copy exists, loss of the
+VPS volume destroys both primary and backups. The RPO/RTO assumptions below
+reflect this limitation.
 
 ## Restore procedure
 
-Restore is always performed into a _replacement_ database/container, never
-in place against the running deployment:
+Do not restore in place against the running deployment. Always restore into
+a _replacement_ database or container:
 
 1. Stop the app container (keep PostgreSQL) or provision a fresh PostgreSQL
    container.
 2. Create an empty database and bootstrap the role skeleton
-   (`docker/db/init/00-roles.sh`) — production roles are created at container
-   init, not by migrations, and restored function bodies reference them.
+   (`docker/db/init/00-roles.sh`). Production roles are created at container
+   init, not by migrations. Restored function bodies reference them.
 3. Restore:
    `gunzip -dc <set>-db.sql.gz | psql -v ON_ERROR_STOP=1 -d <db>`
-4. Verify with the drill checks (below) before pointing the app at it.
-5. Restart the app container; `/api/health/ready` must report migration
+4. Run the drill checks (below) before you point the app at the database.
+5. Restart the app container. `/api/health/ready` must report migration
    compatibility before traffic resumes.
 
 ## Restore drill (proof)
 
 `pnpm backup:restore-drill` proves a backup recreates **usable Sheetbase
-state**, not merely that a file exists:
+state**, not only that a file exists:
 
 ```bash
 pnpm backup:restore-drill -- \
@@ -97,40 +101,43 @@ pnpm backup:restore-drill -- \
 
 The drill:
 
-1. Rejects truncated/corrupt gzip immediately (`--self-test` proves this by
-   truncating a copy and requiring the drill to fail).
+1. Rejects truncated or corrupt gzip immediately (`--self-test` proves this
+   by truncating a copy and requiring the drill to fail).
 2. Restores the dump into a **disposable** PostgreSQL container (never the
-   active development or production database), bootstrapping the same role
-   skeleton production uses.
+   active development or production database). It bootstraps the same role
+   skeleton that production uses.
 3. Verifies the restored state (`src/lib/restore-verification.ts`):
    migration journal applied, every core domain table present, RLS enabled
    on them, core RPC surface present, row counts reported.
-4. When an object archive is supplied, verifies every active
+4. When an object archive is supplied, verifies that every active
    `file_objects` row has matching bytes of matching size in the archive.
-5. Exits non-zero on any failed check.
+5. Exits non-zero when any check fails.
 
-Evidence from a passing drill (restored 99 tables, empty test workspace set):
+Evidence from a passing drill (99 restored tables, empty test workspace
+set):
 
 ```json
 {"message":"restore drill passed","verification":{"ok":true,"counts":{...}}}
 ```
 
-Run the drill after every backup-configuration change and periodically
-(monthly is the initial objective) against the newest nightly set.
+Run the drill after every backup-configuration change. Also run it
+periodically (monthly is the initial objective) against the newest nightly
+set.
 
 ## Recovery objectives (initial, evidence-based)
 
-These are initial engineering objectives for a single-VPS deployment, not
-contractual guarantees. They are revised when operational evidence exists.
+These are initial engineering objectives for a single-VPS deployment. They
+are not contractual guarantees. They are revised when operational evidence
+exists.
 
 | Objective | Target                                                                      | Assumptions                                                                                                                                       |
 | --------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **RPO**   | ≤ 24 h (nightly backup) + pre-deploy backup reduces release-window exposure | Single VPS; no WAL archiving/PITR yet. Accepting up to one day of data loss is a deliberate trade-off until usage justifies continuous archiving. |
 | **RTO**   | ≤ 4 h                                                                       | One competent engineer, runbook available, backups on-host. Dominated by restore + verification (~minutes) and operator response time.            |
 
-Escalation path when these objectives become insufficient: off-VPS backup
-copies, WAL archiving for point-in-time recovery, and automated drills.
-Those require evidence of real usage before they are built.
+When these objectives become insufficient, the escalation path is: off-VPS
+backup copies, WAL archiving for point-in-time recovery, and automated
+drills. Build these only when evidence of real usage exists.
 
 ## Rollback vs restore
 

@@ -1,7 +1,7 @@
 # VPS deployment runbook
 
-This runbook covers the Hostinger VPS deployment for Sheetbase ELN. The VPS is
-private, accessed only through Tailscale, with public traffic served through a
+This runbook describes the Hostinger VPS deployment for Sheetbase ELN. The VPS
+is private. You reach it only through Tailscale. Public traffic goes through a
 Cloudflare Tunnel.
 
 ## Architecture
@@ -22,12 +22,12 @@ Internet → Cloudflare Tunnel → localhost:3000 (VPS)
               └───────────┘ └──────────┘ └──────────┘
 ```
 
-- **No inbound ports** are open on the VPS. All access is via Tailscale.
+- **No inbound ports** are open on the VPS. All access goes through Tailscale.
 - **Cloudflare Tunnel** proxies `app.sheetbase.co.uk` → `http://localhost:3000`.
 - **Docker Compose** (`compose.deploy.yaml`) runs PostgreSQL, PostgREST, and the
   app as containers on a private Docker network.
 - **GitHub Actions** (`.github/workflows/deploy.yml`) builds immutable images,
-  pushes them to GHCR, and deploys via SSH over Tailscale.
+  pushes them to GHCR, and deploys by SSH over Tailscale.
 
 ## VPS prerequisites
 
@@ -38,11 +38,11 @@ curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker deploy
 ```
 
-Log out and back in for the group change to take effect.
+Log out and log back in for the group change to take effect.
 
 ### 2. Install Node.js 22 and pnpm
 
-The deploy controller (`deploy.ts`) runs on the VPS and needs Node.js and pnpm.
+The deploy controller (`deploy.ts`) runs on the VPS. It needs Node.js and pnpm.
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
@@ -58,8 +58,8 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 ```
 
-Record the VPS's Tailscale IP (`tailscale ip -4`). This is the address GitHub
-Actions uses for SSH.
+Record the Tailscale IP of the VPS (`tailscale ip -4`). GitHub Actions uses
+this address for SSH.
 
 ### 4. Create the deploy user and SSH key
 
@@ -68,7 +68,7 @@ sudo useradd -m -s /bin/bash deploy
 sudo usermod -aG docker deploy
 ```
 
-Generate an SSH key pair for the deploy user and add the private key to GitHub
+Generate an SSH key pair for the deploy user. Add the private key to GitHub
 Secrets as `VPS_SSH_PRIVATE_KEY`. Add the public key to
 `/home/deploy/.ssh/authorized_keys`.
 
@@ -95,7 +95,7 @@ sudo apt-get update && sudo apt-get install -y cloudflared
 
 ### 7. Configure the Cloudflare Tunnel
 
-Create a systemd service for the tunnel so it survives reboots:
+Create a systemd service for the tunnel. The tunnel then survives reboots:
 
 ```bash
 sudo tee /etc/systemd/system/cloudflared.service > /dev/null << 'UNIT'
@@ -123,12 +123,12 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now cloudflared
 ```
 
-Verify: `curl -sS -o /dev/null -w '%{http_code}' https://app.sheetbase.co.uk/`
-(should return 307 redirect to sign-in once the app is running).
+Verify: `curl -sS -o /dev/null -w '%{http_code}' https://app.sheetbase.co.uk/`.
+After the app starts, this returns a 307 redirect to sign-in.
 
 ## Production secrets
 
-Create `/opt/sheetbase/.env.production` (never committed):
+Create `/opt/sheetbase/.env.production`. Never commit this file:
 
 ```dotenv
 # ── Database ──────────────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ openssl rand -base64 32   # for POSTGRES_PASSWORD, auth secrets, JWT secrets
 2. Application name: `Sheetbase (production)`.
 3. Homepage URL: `https://app.sheetbase.co.uk`.
 4. Authorization callback URL: `https://app.sheetbase.co.uk/api/auth/callback/github`.
-5. Copy Client ID and generate Client Secret into `.env.production`.
+5. Copy the Client ID and generate the Client Secret into `.env.production`.
 
 ## GitHub Secrets
 
@@ -191,26 +191,26 @@ Set these in the repository settings (Settings → Secrets and variables → Act
 | `VPS_TAILSCALE_IP`    | Tailscale IP of the VPS (e.g. `100.x.y.z`)            |
 | `TAILSCALE_AUTH_KEY`  | Tailscale auth key for ephemeral GitHub Actions nodes |
 
-`GITHUB_TOKEN` is automatically available for GHCR authentication — no
-additional secret needed unless using a PAT.
+GHCR authentication uses the automatic `GITHUB_TOKEN`. No additional secret is
+necessary, unless you use a PAT.
 
 ## Deployment flow
 
 ### Automatic (push to main, when GitHub Actions is available)
 
-1. Push to `main` triggers `.github/workflows/deploy.yml`.
-2. The `build` job builds the app and PostgREST Docker images, pushes them to
-   GHCR with `@sha256` digests.
-3. The `deploy` job joins the VPS's Tailscale network, SSHes into the VPS,
+1. A push to `main` triggers `.github/workflows/deploy.yml`.
+2. The `build` job builds the app and PostgREST Docker images. It pushes them
+   to GHCR with `@sha256` digests.
+3. The `deploy` job joins the Tailscale network of the VPS, connects by SSH,
    pulls the latest code, loads `.env.production`, and runs:
    - `pnpm deploy:plan` — validates image/migration compatibility.
    - `pnpm deploy:apply` — runs migrations, starts the app, polls readiness.
-4. The Cloudflare Tunnel stays up throughout — only the app container restarts.
+4. The Cloudflare Tunnel stays up. Only the app container restarts.
 
 ### Local release (no GitHub Actions required)
 
-When the GitHub account cannot run Actions jobs (hosted-runner billing/limit
-blocks), release from the VPS itself with the same gate and controller:
+When the GitHub account cannot run Actions jobs (hosted-runner billing or
+limit blocks), release from the VPS itself. Use the same gate and controller:
 
 ```bash
 cd /opt/sheetbase
@@ -219,20 +219,20 @@ set -a; . ./.env.production; set +a
 RELEASE_SHA=<full-40-hex-commit-sha> pnpm release:local
 ```
 
-This runs the enforced gate (typecheck, lint, unit tests, db tests against a
-disposable container, build, production dependency audit), builds the
-immutable app + PostgREST images locally (no registry), then
-`deploy:plan` → `deploy:apply` with the identical readiness proof. Full
-contract in `docs/deployment.md` → "Releasing without GitHub Actions".
+This command runs the enforced gate (typecheck, lint, unit tests, db tests
+against a disposable container, build, production dependency audit). It then
+builds the immutable app and PostgREST images locally (no registry). Then it
+runs `deploy:plan` → `deploy:apply` with the identical readiness proof. Full
+contract: `docs/deployment.md` → "Releasing without GitHub Actions".
 
 ### Manual
 
-Trigger via GitHub Actions UI (Workflow dispatch). Type `deploy` in the
-confirmation field.
+Trigger the workflow from the GitHub Actions UI (workflow dispatch). Type
+`deploy` in the confirmation field.
 
 ### First-time deployment
 
-Before the first automated deploy, bootstrap the VPS manually:
+Before the first automated deploy, bootstrap the VPS by hand:
 
 ```bash
 ssh deploy@<VPS_TAILSCALE_IP>
@@ -263,30 +263,30 @@ pnpm deploy:plan
 pnpm deploy:apply
 ```
 
-After the first deploy, subsequent deploys are automatic via GitHub Actions and
-use immutable `@sha256` image references from GHCR.
+After the first deploy, GitHub Actions runs the later deploys. It uses
+immutable `@sha256` image references from GHCR.
 
 > **Note:** The first deploy uses local image tags without `@sha256` digests.
-> The `deploy.ts` controller validates `@sha256` references, so you may need to
-> bypass the controller for the initial bootstrap by running `docker compose -f
-compose.deploy.yaml up -d --wait` directly, then switch to the CI-driven flow
-> for all subsequent deploys.
+> The `deploy.ts` controller validates `@sha256` references. For the initial
+> bootstrap you may need to bypass the controller. Run `docker compose -f
+> compose.deploy.yaml up -d --wait` directly. Then use the CI-driven flow for
+> all later deploys.
 
 ## Rollback
 
 1. Find the previous image digest in GHCR or GitHub Actions run history.
-2. SSH into the VPS.
+2. Connect to the VPS by SSH.
 3. Set `SHEETBASE_APP_IMAGE` to the previous `@sha256` reference.
 4. Run `pnpm deploy:apply`.
-5. If a migration is incompatible, a forward-fix migration or database
-   restore applies — see `docs/deployment.md` (rollback strategy) and
+5. If a migration is incompatible, apply a forward-fix migration or restore
+   the database — see `docs/deployment.md` (rollback strategy) and
    `docs/recovery.md` (restore procedure).
 
 ## Database backups
 
-Use the backup runner, which produces one timestamped backup set (database
-dump, object-storage archive, manifest with checksums), enforces retention
-and emits JSON success/failure events suitable for cron log capture:
+Use the backup runner. It produces one timestamped backup set (database dump,
+object-storage archive, manifest with checksums). It enforces retention and
+emits JSON success/failure events for cron log capture:
 
 ```bash
 # crontab -e
@@ -294,10 +294,10 @@ and emits JSON success/failure events suitable for cron log capture:
   && pnpm backup:run >> /opt/sheetbase/backups/backup.log 2>&1
 ```
 
-Also run `pnpm backup:run` before every deployment. Full policy (what,
+Also run `pnpm backup:run` before every deployment. The full policy (what,
 frequency, retention, encryption, failure visibility) and the mandatory
-restore drill live in [`docs/recovery.md`](recovery.md). Backups without
-proven restore are treated as nonexistent.
+restore drill live in [`docs/recovery.md`](recovery.md). Treat backups
+without a proven restore as nonexistent.
 
 ## Logs and debugging
 
@@ -321,8 +321,8 @@ curl -sS https://app.sheetbase.co.uk/api/health/ready | jq .
 ## Retired PR preview infrastructure
 
 PR-specific preview hosts (`pr-<number>.sheetbase.co.uk`) are no longer
-deployed. After this change is on `main`, remove leftover preview resources
-without touching production or development:
+deployed. After this change lands on `main`, remove the leftover preview
+resources. Do not touch production or development:
 
 1. Stop and disable the preview router:
    `sudo systemctl disable --now sheetbase-preview-router`.
@@ -330,8 +330,8 @@ without touching production or development:
    `docker compose down --volumes --remove-orphans`.
 3. Delete `/opt/sheetbase-preview` and the GitHub Actions `preview`
    environment, including `PREVIEW_COMMENT_TOKEN`.
-4. Remove the Cloudflare Tunnel wildcard ingress for `*.sheetbase.co.uk`
-   while keeping `app.sheetbase.co.uk` → `127.0.0.1:3000` and
+4. Remove the Cloudflare Tunnel wildcard ingress for `*.sheetbase.co.uk`.
+   Keep `app.sheetbase.co.uk` → `127.0.0.1:3000` and
    `dev.sheetbase.co.uk` → `127.0.0.1:3100`.
 
 ## Secret rotation
@@ -339,11 +339,12 @@ without touching production or development:
 See `docs/deployment.md` → "Secret management and rotation" for the full
 rotation procedure. Summary:
 
-- **Database passwords:** create replacement → update `.env.production` →
-  `pnpm deploy:apply` → verify → revoke old.
-- **OAuth credentials:** create new OAuth app or rotate secret → update
-  `.env.production` → restart app.
+- **Database passwords:** create a replacement → update `.env.production` →
+  `pnpm deploy:apply` → verify → revoke the old password.
+- **OAuth credentials:** create a new OAuth app or rotate the secret → update
+  `.env.production` → restart the app.
 - **Signing secrets** (`BETTER_AUTH_SECRET`, `PGRST_JWT_SECRET`): coordinate a
-  single app + PostgREST rollout — existing sessions/tokens are invalidated.
+  single app + PostgREST rollout — the rollout invalidates existing sessions
+  and tokens.
 - Rotate immediately after suspected exposure. Otherwise review every 90 days
   (OAuth/DB) or 180 days (signing secrets).

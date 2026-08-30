@@ -1,19 +1,19 @@
 # Sheetbase ELN orb setup
 
-This runbook describes the non-Docker setup used to run Sheetbase ELN in an
-Amp orb.
+This runbook describes the non-Docker setup. Use it to run Sheetbase ELN in
+an Amp orb.
 
 ## Prerequisites
 
 - PostgreSQL 18, running as a system service. Docker is not available in
-  orbs, so do not use the Compose-based development commands.
+  orbs. Do not use the Compose-based development commands.
 - The PostgREST v14.5 Linux static binary on `PATH`.
 - Node.js 22.12 or newer (use the version in `.node-version`) and pnpm 11.
 - `curl`, `tar`, and `cloudflared` for health checks and the public tunnel.
 
-The orb's PostgreSQL cluster is pre-provisioned with the `sheetbase` database,
-application roles, and migrations. Confirm PostgreSQL is available before
-continuing:
+The orb pre-provisions the PostgreSQL cluster with the `sheetbase` database,
+application roles, and migrations. Confirm PostgreSQL is available before you
+continue:
 
 ```sh
 pg_isready -h localhost -p 5432
@@ -21,7 +21,7 @@ pg_isready -h localhost -p 5432
 
 ## Environment
 
-Start from the checked-in example rather than creating the file by hand:
+Start from the checked-in example. Do not create the file by hand:
 
 ```sh
 cp .env.example .env.local
@@ -47,15 +47,15 @@ POSTGREST_URL=http://localhost:3001
 POSTGREST_ADMIN_URL=http://localhost:3002
 ```
 
-Also leave the PostgREST settings from `.env.example` in place, particularly
+Also keep the PostgREST settings from `.env.example`, particularly
 `POSTGRES_DB`, `POSTGREST_AUTHENTICATOR_PASSWORD`, `POSTGREST_PORT`, and
-`POSTGREST_ADMIN_PORT`. `.env.local` contains secrets and must not be committed.
+`POSTGREST_ADMIN_PORT`. `.env.local` contains secrets. Do not commit it.
 
 ## Database and month-scale seed
 
-The month seed targets fixed IDs and therefore expects Gareth's user,
-workspace, and owner membership to exist first. Connect with a database role
-that can write both the `internal` and `api` schemas, then run:
+The month seed targets fixed IDs. It expects Gareth's user, workspace, and
+owner membership to exist first. Connect with a database role that can write
+both the `internal` and `api` schemas. Then run:
 
 ```sql
 INSERT INTO internal."user"
@@ -92,13 +92,13 @@ pnpm db:migrate                 # only if the cluster is behind
 pnpm db:seed:month
 ```
 
-The seed also requires `PGRST_DB_URI` from `.env.local`; for an orb it must use
-`localhost`, not Compose's `postgres` hostname.
+The seed also requires `PGRST_DB_URI` from `.env.local`. In an orb it must
+use `localhost`, not the Compose hostname `postgres`.
 
 ## PostgREST
 
-Download and install the v14.5 static x86-64 binary (use the matching static
-archive instead on another architecture):
+Download and install the v14.5 static x86-64 binary. On another
+architecture, use the matching static archive:
 
 ```sh
 curl -fL -o /tmp/postgrest.tar.xz \
@@ -109,8 +109,8 @@ rm -f /tmp/postgrest /tmp/postgrest.tar.xz
 postgrest --version
 ```
 
-`scripts/postgrest.sh` loads `.env.local`, changes `PGRST_DB_URI` to the orb's
-local PostgreSQL service, and sets the required values:
+`scripts/postgrest.sh` loads `.env.local`, changes `PGRST_DB_URI` to the
+orb's local PostgreSQL service, and sets these values:
 
 - `PGRST_DB_URI=postgresql://authenticator:<password>@localhost:5432/sheetbase`
 - `PGRST_DB_SCHEMAS=api`
@@ -128,7 +128,7 @@ curl -f http://127.0.0.1:3002/ready
 
 ## Build and start Sheetbase
 
-After dependency and database setup:
+After you set up dependencies and the database:
 
 ```sh
 pnpm build
@@ -136,14 +136,14 @@ amp orb service start prod --command 'PORT=3000 pnpm start'
 curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/
 ```
 
-The final command should print `200` (a redirect may be expected for a route
-that requires authentication). Use `amp orb service status prod` and
-`amp orb service logs prod` when diagnosing startup failures.
+The last command should print `200`. A redirect is also expected for a route
+that requires authentication. Use `amp orb service status prod` and
+`amp orb service logs prod` to diagnose startup failures.
 
 ## Cloudflare tunnel
 
-Install the `cloudflared` binary for the orb's architecture and verify it is on
-`PATH`. For x86-64 Linux:
+Install the `cloudflared` binary for the orb's architecture and verify it is
+on `PATH`. For x86-64 Linux:
 
 ```sh
 curl -fL -o /tmp/cloudflared \
@@ -153,17 +153,17 @@ rm -f /tmp/cloudflared
 cloudflared --version
 ```
 
-Fully stop `cloudflared` in the old orb before starting the tunnel in the new
-one; two connectors competing for this hostname can send traffic to the wrong
-orb.
+Fully stop `cloudflared` in the old orb before you start the tunnel in the
+new one. Two connectors competing for this hostname can send traffic to the
+wrong orb.
 
 ```sh
 amp orb service start tunnel --command 'cloudflared tunnel run --token <TOKEN>'
 curl -sS -o /dev/null -w '%{http_code}' https://app.sheetbase.co.uk/
 ```
 
-Treat the tunnel token as a secret: obtain it from the managed environment and
-do not save it in the repository or shell history.
+Treat the tunnel token as a secret. Get it from the managed environment.
+Do not save it in the repository or shell history.
 
 ## Storybook
 
@@ -178,10 +178,10 @@ pnpm storybook
 
 ## Common issues
 
-| Symptom                                            | Cause and fix                                                                                                                                                                                                                 |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tunnel returns `502`                               | The old orb's `cloudflared` is probably still running. Fully stop its tunnel service, then restart the new orb's tunnel. Also confirm the app is healthy on port 3000.                                                        |
-| Sign-in returns `403`                              | `BETTER_AUTH_URL` does not match the request origin. For the tunnel it must be `https://app.sheetbase.co.uk`; rebuild/restart after changing it.                                                                              |
-| No seeded data after GitHub sign-in                | Better Auth created a new user and empty workspace. Add that user's `internal."user".id` to `api.workspace_memberships` for workspace `798f250c-99bb-4460-9a2a-e9ec98fbecab` (with the appropriate role), then sign in again. |
-| Seed fails while inserting `workspace_memberships` | Gareth's fixed user and workspace do not exist. Run the prerequisite SQL above before `pnpm db:seed:month`.                                                                                                                   |
-| PostgREST cannot connect                           | Ensure `PGRST_DB_URI` uses `localhost`, not the Docker-only hostname `postgres`, and verify PostgreSQL and the `authenticator` role are available.                                                                            |
+| Symptom                                            | Cause and fix                                                                                                                                                              |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tunnel returns `502`                               | The old orb's `cloudflared` may still be running. Fully stop its tunnel service, then restart the new orb's tunnel. Also confirm the app is healthy on port 3000.           |
+| Sign-in returns `403`                              | `BETTER_AUTH_URL` does not match the request origin. For the tunnel it must be `https://app.sheetbase.co.uk`. Rebuild and restart after you change it.                      |
+| No seeded data after GitHub sign-in                | Better Auth created a new user and an empty workspace. Add that user's `internal."user".id` to `api.workspace_memberships` for workspace `798f250c-99bb-4460-9a2a-e9ec98fbecab` (with the appropriate role). Then sign in again. |
+| Seed fails while inserting `workspace_memberships` | Gareth's fixed user and workspace do not exist. Run the prerequisite SQL above before `pnpm db:seed:month`.                                                                 |
+| PostgREST cannot connect                           | Check that `PGRST_DB_URI` uses `localhost`, not the Docker-only hostname `postgres`. Verify PostgreSQL and the `authenticator` role are available.                          |

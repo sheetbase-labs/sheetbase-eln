@@ -1,12 +1,13 @@
 # Security headers
 
-PLAT-03 Low slice. Application responses now set a deliberate Content-Security-Policy
-and related browser security headers. This is not the rest of PLAT-03.
+PLAT-03 Low slice. Application responses now set a deliberate
+Content-Security-Policy and related browser security headers. This document
+does not cover the rest of PLAT-03.
 
-## What is set
+## What the app sets
 
 Every TanStack Start response (HTML, `/api/health/*`, `/api/db/*`, auth, SSE)
-goes through `src/start.ts` request middleware, which stamps:
+goes through the request middleware in `src/start.ts`. The middleware stamps:
 
 | Header                    | Value                                              | Why                                            |
 | ------------------------- | -------------------------------------------------- | ---------------------------------------------- |
@@ -16,9 +17,9 @@ goes through `src/start.ts` request middleware, which stamps:
 | `X-Frame-Options`         | `SAMEORIGIN`                                       | Clickjacking control for older browsers        |
 | `Permissions-Policy`      | camera/microphone/geolocation/payment/usb disabled | No ambient device access                       |
 
-Health handlers also stamp the same headers so probes are covered even when
-tested as functions. Production static-file servers
-(`scripts/serve-production.mjs`, `scripts/start-prod.mjs`) apply the
+Health handlers also stamp the same headers. Probes are then covered when
+tested as functions. The production static-file servers
+(`scripts/serve-production.mjs` and `scripts/start-prod.mjs`) apply the
 production set to `/assets` and Storybook files.
 
 ### CSP (production)
@@ -38,52 +39,53 @@ connect-src 'self'
 worker-src 'self' blob:
 ```
 
-`frame-ancestors 'self'` (and `X-Frame-Options: SAMEORIGIN`) rather than
-`none`/`DENY` so same-origin Storybook preview iframes still work when
+The policy uses `frame-ancestors 'self'` (and `X-Frame-Options: SAMEORIGIN`),
+not `none`/`DENY`. Same-origin Storybook preview iframes then still work when
 Storybook is served from this origin.
 
 ### Nonce CSP (PLAT-03)
 
-HTML documents receive a **per-request nonce** (`src/start.ts` middleware +
-`injectNonceIntoHtml` in `src/lib/security-headers.ts`): the nonce is
-generated per response, stamped into the `Content-Security-Policy`
-(`script-src 'self' 'nonce-<n>'`) and injected onto every inline
-`<script>`/`<style>` tag in the server-rendered HTML. Inline scripts are
-therefore allowlisted by nonce and **`script-src` no longer uses
-`'unsafe-inline'`** in production.
+HTML documents receive a **per-request nonce**. The middleware in
+`src/start.ts` and `injectNonceIntoHtml` in `src/lib/security-headers.ts`
+generate the nonce per response, stamp it into the `Content-Security-Policy`
+(`script-src 'self' 'nonce-<n>'`), and inject it onto every inline
+`<script>`/`<style>` tag in the server-rendered HTML. Inline scripts are then
+allowlisted by nonce. **`script-src` no longer uses `'unsafe-inline'`** in
+production.
 
-The inline scripts that exist today (verified against a production render):
+These inline scripts exist today (verified against a production render):
 
 1. the theme/density no-flash bootstrap (`src/routes/__root.tsx`);
 2. TanStack Router's history-state restore script;
 3. TanStack Start's `$tsr` stream-barrier script;
 4. the hydration-completion script.
 
-Hashes were considered and rejected: scripts 2–4 embed response-dependent
-values (stream ids, route ids), so hashes would break every render. Nonces
-work because the nonce is generated in the same middleware that sets the
-header and rewrites the tags.
+Hashes were considered and rejected. Scripts 2–4 embed response-dependent
+values (stream ids, route ids). Hashes would break every render. Nonces work
+because the same middleware generates the nonce, sets the header, and
+rewrites the tags.
 
-Implementation trade-off: HTML responses are buffered in the middleware
-before the nonce is injected. Pages are tens of kilobytes; the cost is a
-small TTFB increase versus streaming, in exchange for the nonce guarantee.
-Revisit buffering if streaming latency ever matters on large documents.
+Trade-off: the middleware buffers HTML responses before it injects the
+nonce. Pages are tens of kilobytes. The cost is a small TTFB increase versus
+streaming. The gain is the nonce guarantee. Revisit buffering if streaming
+latency matters on large documents.
 
-`style-src` deliberately keeps `'unsafe-inline'`: React inline `style`
-attributes are non-executable data and cannot be nonced; they are not an
-injection surface in this application. Development/test keeps `'unsafe-eval'`
+`style-src` deliberately keeps `'unsafe-inline'`. React inline `style`
+attributes are non-executable data and cannot be nonced. They are not an
+injection surface in this application. Development and test keep
+`'unsafe-eval'`:
 
 - `ws:`/`wss:` for Vite HMR (never enabled in production).
 
-## Remaining PLAT-03 (status after this slice)
+## Remaining PLAT-03 work
 
-Completed in PLAT-03: general API rate limiting (`docs/security.md`),
-SAST + dependency-audit pipeline (pre-merge PR audit +
-`security.yml` CodeQL on main/weekly + release-gate audit in `deploy.yml`),
-nonce CSP (this document), backup permissions/posture (`docs/recovery.md`),
-SECURITY DEFINER / RLS / grants audit (`docs/security.md`,
-`tests/db/plat-03-security-audit.test.ts`), H1 capability-mask completion
-for `api_client`, auth/session review (`docs/security.md`).
+Completed in PLAT-03: general API rate limiting (`docs/security.md`), SAST
+and dependency-audit pipeline (pre-merge PR audit + `security.yml` CodeQL on
+main/weekly + release-gate audit in `deploy.yml`), nonce CSP (this document),
+backup permissions and posture (`docs/recovery.md`), SECURITY DEFINER / RLS /
+grants audit (`docs/security.md`,
+`tests/db/plat-03-security-audit.test.ts`), H1 capability-mask completion for
+`api_client`, auth/session review (`docs/security.md`).
 
 Still queued: penetration testing (needs real usage). See
 `docs/security.md` §5.

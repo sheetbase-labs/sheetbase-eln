@@ -2,44 +2,45 @@
 
 SCI-004 uses the existing authenticated same-origin `/api/db` boundary
 (ADR 0029). A chart is a `blocks` row with `type='chart'` and a versioned
-JSONB `payload` (`payload_schema_version=1`). UUIDs and credentials below are
-placeholders.
+JSONB `payload` (`payload_schema_version=1`). UUIDs and credentials in this
+document are placeholders.
 
 ## Contract summary
 
-- A chart specification references canonical Datasets (`api.datasets`,
-  decision 0037) by UUID and binds fields by stable
-  `dataset_schema_version_fields.field_id`, keeps filters/transformations/
-  overlays explicit, and confines chart-type-specific logic to the `type`
-  discriminator (`line`, `scatter`, `scatter_line`, `connected_scatter`,
-  `bar`, `grouped_bar`, `stacked_bar`, `histogram`, `box`, `violin`,
-  `strip`, `summary`, `heatmap`). See `docs/visualisations.md`.
-- No chart-type-specific or dataset-specific columns live in shared
-  infrastructure; the spec is a validated JSONB payload.
-- A **live** chart reads rows through `query_dataset_rows` (field_id-keyed),
-  capped at 5000 rows client-side with an honest over-limit state. A
-  **frozen** chart carries an immutable materialised snapshot with
-  provenance (dataset id, schema version number, row count, checksum);
-  submission stamps `frozen.revisionId` automatically.
-- Frozen-chart mutations are rejected by ordinary CRUD; only the
+- A chart specification:
+  - references canonical Datasets (`api.datasets`, decision 0037) by UUID,
+  - binds fields by stable `dataset_schema_version_fields.field_id`,
+  - keeps filters, transformations, and overlays explicit,
+  - confines chart-type-specific logic to the `type` discriminator
+    (`line`, `scatter`, `scatter_line`, `connected_scatter`, `bar`,
+    `grouped_bar`, `stacked_bar`, `histogram`, `box`, `violin`, `strip`,
+    `summary`, `heatmap`). See `docs/visualisations.md`.
+- Shared infrastructure holds no chart-type-specific or dataset-specific
+  columns. The spec is a validated JSONB payload.
+- A **live** chart reads rows through `query_dataset_rows` (keyed by
+  field_id). The client caps reads at 5000 rows and shows a true
+  over-limit state. A **frozen** chart carries an immutable materialised
+  snapshot with provenance (dataset id, schema version number, row count,
+  checksum). Submission stamps `frozen.revisionId` automatically.
+- Ordinary CRUD rejects frozen-chart mutations. Only the
   `freeze_chart` / `unfreeze_chart` transactional SECURITY DEFINER RPCs may
-  write a frozen payload, and each re-validates JWT workspace/actor
+  write a frozen payload. Each RPC re-validates JWT workspace/actor
   authority.
 
 ## Resources
 
 - `GET /api/db/blocks?record_id=eq.<experiment-id>&type=eq.chart&order=order.asc`
   — list chart blocks for a record.
-- `GET /api/db/blocks?id=eq.<chart-block-id>&select=id,type,payload` — read a
-  single chart block.
+- `GET /api/db/blocks?id=eq.<chart-block-id>&select=id,type,payload` — read
+  one chart block.
 - `GET /api/db/datasets?lifecycle=eq.active&select=id,name,schema_version_id`
-  — list available Datasets (RLS limits to the active workspace).
+  — list available Datasets. RLS limits results to the active workspace.
 - `GET /api/db/dataset_schema_version_fields?schema_version_id=eq.<id>&lifecycle=eq.active`
   — fetch the pinned schema fields for field mapping.
 - `POST /api/db/rpc/query_dataset_rows` — read live rows (values keyed by
   field_id; limit ≤1000 per call, page with offset).
-- `POST /api/db/rpc/insert_block` — insert a chart block (draft `{}` is
-  valid).
+- `POST /api/db/rpc/insert_block` — insert a chart block. A draft `{}` is
+  valid.
 - `POST /api/db/rpc/update_block_payload` — ordinary content edit (title,
   spec, display settings). Rejected when the chart is frozen.
 
@@ -58,7 +59,7 @@ Content-Type: application/json
 }
 ```
 
-An empty draft `{}` is valid so the editor opens immediately. The response
+An empty draft `{}` is valid, so the editor opens immediately. The response
 contains the new block and the bumped `structure_version`.
 
 ## Update a chart specification
@@ -117,7 +118,7 @@ The DB trigger `validate_scientific_block` rejects:
 - an invalid chart type;
 - a dataset reference to a Dataset in another workspace or a non-active one;
 - a field binding that is not a UUID `fieldId` of the referenced Dataset's
-  pinned Schema Version;
+  pinned Schema Version.
 
 ## Freeze a chart into an immutable snapshot
 
@@ -132,19 +133,19 @@ Content-Type: application/json
 ```
 
 The RPC transactionally materialises the dataset into the `frozen` payload
-(rows, rendered series, referenced columns, md5 checksum, dataset provenance)
-and bumps `blocks.version`. A stale `p_expected_version` returns
+(rows, rendered series, referenced columns, md5 checksum, dataset
+provenance) and bumps `blocks.version`. A stale `p_expected_version` returns
 `stale_version` (SB001). An empty dataset returns a validation error. The
 frozen payload is immutable to ordinary `update_block_payload` edits.
 
 ## Revision binding at submission
 
 Submitting the record stamps `frozen.revisionId` on every frozen
-chart/analysis block of that record whose revisionId is still null — done
-inside the canonical submission transaction (`submit_record_revision`
-allocates the revision UUID, binds the evidence, then captures the
-snapshot and digest), so the submitted snapshot, live blocks and digest
-all agree. Once bound, `unfreeze_chart` is rejected.
+chart/analysis block of that record whose revisionId is still null. This
+happens inside the canonical submission transaction (`submit_record_revision`
+allocates the revision UUID, binds the evidence, then captures the snapshot
+and digest). The submitted snapshot, live blocks, and digest all agree.
+After binding, `unfreeze_chart` is rejected.
 
 ## Unfreeze (before submission)
 
@@ -158,8 +159,8 @@ Content-Type: application/json
 }
 ```
 
-Removes the frozen payload so the chart can be edited live again. Rejected
-once the chart is bound to a submitted revision.
+The RPC removes the frozen payload. The chart can then be edited live again.
+It is rejected once the chart is bound to a submitted revision.
 
 ## Error shapes
 
@@ -175,6 +176,7 @@ once the chart is bound to a submitted revision.
 | Cross-workspace read      | (empty result)     | RLS returns `[]` for blocks outside the active workspace.                                                                                                         |
 | Unauthenticated           | `unauthenticated`  | The proxy rejects before reaching PostgREST.                                                                                                                      |
 
-REST mutations produce the same durable `change_events` and audit attribution
-as UI mutations: `insert_block`, `update_block_payload`, and the lifecycle
-RPCs all emit `block.create` / `block.update` events with the JWT actor.
+REST mutations produce the same durable `change_events` and audit
+attribution as UI mutations. `insert_block`, `update_block_payload`, and the
+lifecycle RPCs all emit `block.create` / `block.update` events with the JWT
+actor.

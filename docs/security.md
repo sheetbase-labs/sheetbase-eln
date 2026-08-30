@@ -1,14 +1,15 @@
 # Security posture (PLAT-03)
 
-This document is the PLAT-03 inventory of Sheetbase's security surfaces: for
-each, the trust boundary, the authoritative permission check, the abuse risk,
-the current control, and any accepted gap. Controls described here are
-deliberate and tested (see §3 for the executable evidence), not accidental.
+This document is the PLAT-03 inventory of Sheetbase's security surfaces. For
+each surface it lists the trust boundary, the authoritative permission check,
+the abuse risk, the current control, and any accepted gap. The controls
+described here are deliberate and tested (see §3 for the executable
+evidence), not accidental.
 
 Pre-release context: Sheetbase has **no production users or production
-data**. Superseded or unsafe development-era paths are removed rather than
-shimmed. Enterprise-grade controls (WAF, formal penetration testing) are
-explicitly deferred until usage justifies them — see §5.
+data**. Superseded or unsafe development-era paths are removed, not shimmed.
+Enterprise-grade controls (WAF, formal penetration testing) are explicitly
+deferred until usage justifies them — see §5.
 
 ## 1. Surface inventory
 
@@ -40,18 +41,18 @@ Audited against the fully-migrated schema (and now continuously asserted in
 `tests/db/plat-03-security-audit.test.ts`):
 
 - **RLS:** 100/101 `api` tables have RLS enabled. The exception,
-  `workspace_change_seq`, is an allocation counter holding no workspace data
-  and is granted to `migrator` only.
-- **FORCE RLS:** not used. The table owner is `migrator`, a trusted DDL role;
-  application request roles always go through RLS. Revisit if any
+  `workspace_change_seq`, is an allocation counter that holds no workspace
+  data. It is granted to `migrator` only.
+- **FORCE RLS:** not used. The table owner is `migrator`, a trusted DDL role.
+  Application request roles always go through RLS. Revisit this if any
   application role ever owns tables.
-- **SECURITY DEFINER:** 203 functions, every one pins `SET search_path = ''`.
-- **Grants:** no `PUBLIC` or `anon` table privileges in `api`; every function
+- **SECURITY DEFINER:** 203 functions; every one pins `SET search_path = ''`.
+- **Grants:** no `PUBLIC` or `anon` table privileges in `api`. Every function
   carries an explicit ACL (a NULL ACL would restore the PostgreSQL default
   PUBLIC EXECUTE). `api_client` holds EXECUTE only on the API-07 allowlisted
   RPCs and workspace-pinned helpers.
-- **H1 capability mask:** honoured only for `session_user = 'migrator'`;
-  under the `api_client` role a mask in the request context now raises
+- **H1 capability mask:** honoured only for `session_user = 'migrator'`.
+  Under the `api_client` role, a mask in the request context now raises
   `42501` (migration 0139) instead of being silently ignored.
 
 ## 3. Executable evidence
@@ -76,21 +77,21 @@ Audited against the fully-migrated schema (and now continuously asserted in
   its dev server) and `postcss` (build-time). Re-triaged whenever the audit
   output changes.
 - **Pre-merge PR auditing — deferred (explicit).** A PR-triggered audit was
-  implemented and then removed: the GitHub account currently cannot start
-  any CI job (billing block), and GitHub marks a job that cannot start as
-  **failed** with no "skipped" outcome available from the workflow — so a PR
-  check would report red purely for environmental reasons while adding no
-  signal the release gate does not already enforce. The contract is
-  therefore **release-time enforcement on `main`** (a vulnerable dependency
-  fails the deploy gate before serving traffic), documented rather than
-  misclaimed. Re-add a PR-triggered audit workflow (identical command) when
-  the account can run CI reliably.
-- **Overrides:** `js-yaml`, `nanoid` (and `jsdom` upgraded) so the tree is
+  implemented and then removed. The GitHub account currently cannot start
+  any CI job (billing block). GitHub marks a job that cannot start as
+  **failed**; the workflow offers no "skipped" outcome. A PR check would
+  therefore report red for environmental reasons and add no signal that the
+  release gate does not already enforce. The contract is therefore
+  **release-time enforcement on `main`**: a vulnerable dependency fails the
+  deploy gate before it serves traffic. This is documented, not misclaimed.
+  Re-add a PR-triggered audit workflow (identical command) when the account
+  can run CI reliably.
+- **Overrides:** `js-yaml`, `nanoid` (and `jsdom` upgraded), so the tree is
   free of patched advisories rather than ignoring them.
 - **SAST:** CodeQL (`javascript-typescript`, `security-extended` queries) on
   main pushes and a weekly schedule in `security.yml`. Findings are triaged
-  on the Security tab; they intentionally do not block a release until the
-  initial alert set is baselined, after which new alerts gate like bugs.
+  on the Security tab. They intentionally do not block a release until the
+  initial alert set is baselined. After that, new alerts gate like bugs.
 
 ## 5. Deliberately deferred
 
@@ -98,13 +99,13 @@ Audited against the fully-migrated schema (and now continuously asserted in
   `docs/security-headers.md` — per-request nonce; production `script-src`
   no longer uses `'unsafe-inline'`).
 - **General nonce/2FA/hardening of Better Auth internals:** reviewed
-  (cookies httpOnly + Secure + revocable DB sessions); deeper session
+  (cookies httpOnly + Secure + revocable DB sessions). Deeper session
   hardening waits for real usage patterns.
 - **Penetration testing:** appropriate when there are production users and
-  an external attack surface worth testing at scale; before that, the
+  an external attack surface worth testing at scale. Before that, the
   boundaries above plus the API/browser test layers are the practical
   programme.
 - **Backup encryption key separation:** meaningful only once backups have an
-  off-VPS copy; tracked with that change.
-- **WAF / DDoS edge controls:** Cloudflare fronts the origin; custom rules
+  off-VPS copy. Tracked with that change.
+- **WAF / DDoS edge controls:** Cloudflare fronts the origin. Custom rules
   wait for traffic evidence.

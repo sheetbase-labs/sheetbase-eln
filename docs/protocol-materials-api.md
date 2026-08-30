@@ -12,9 +12,9 @@ and credentials below are placeholders.
 - `POST /api/db/rpc/update_block_payload` for one optimistic block-content
   update (notes, quantities, units, or completion intent).
 
-All resources accept normal bounded PostgREST equality, `in`, ordering, range,
-and selected-column filters allowed by the shared proxy. RLS limits every
-result to the active workspace.
+All resources accept the normal bounded PostgREST equality, `in`, ordering,
+range, and selected-column filters that the shared proxy allows. RLS limits
+every result to the active workspace.
 
 ## Pin a protocol
 
@@ -30,10 +30,11 @@ Content-Type: application/json
 }
 ```
 
-The response contains the canonical protocol-reference block, immutable
-revision, copied procedure-step blocks, and new experiment structure version.
-The operation is transactional. Repeating it against a pinned block or with a
-stale version fails rather than silently changing historical provenance.
+The response contains the canonical protocol-reference block, the immutable
+revision, copied procedure-step blocks, and the new experiment structure
+version. The operation is transactional. A repeat against a pinned block or
+with a stale version fails. It does not silently change historical
+provenance.
 
 ## Complete or reopen a procedure step
 
@@ -58,21 +59,21 @@ Content-Type: application/json
 }
 ```
 
-PostgreSQL replaces completion timestamps and actor ids from authenticated
-request claims. Reopening clears both fields. A stale block version returns the
-shared `stale_version` error.
+PostgreSQL replaces the completion timestamps and actor ids from
+authenticated request claims. Reopening clears both fields. A stale block
+version returns the shared `stale_version` error.
 
 ## Update materials
 
 Materials are one ordered block payload. Each item requires a same-workspace
-sample/reagent id, positive finite quantity, and structured unit. The database
-captures/validates link identity and ensures stable `record_links` in the same
-transaction. Archived records may remain referenced and readable; new
-cross-workspace, missing, or soft-deleted targets are rejected.
+sample or reagent id, a positive finite quantity, and a structured unit. The
+database captures and validates link identity and keeps `record_links`
+stable in the same transaction. Archived records may stay referenced and
+readable. New cross-workspace, missing, or soft-deleted targets are rejected.
 
-Live archived/expired/low-stock/unavailable indicators are composed from the
-current `records` representation. They do not modify the stored item or any
-revision snapshot.
+Live archived, expired, low-stock, and unavailable indicators are composed
+from the current `records` representation. They do not modify the stored
+item or any revision snapshot.
 
 ## Errors
 
@@ -89,5 +90,6 @@ Errors use the shared public envelope:
 ```
 
 Relevant categories are `unauthorized`, `permission_denied`,
-`validation_error`, `stale_version`, `missing_link`, and `not_found`. Callers
-must branch on the category rather than PostgreSQL/PostgREST messages.
+`validation_error`, `stale_version`, `missing_link`, and `not_found`.
+Callers must branch on the category, not on PostgreSQL or PostgREST
+messages.

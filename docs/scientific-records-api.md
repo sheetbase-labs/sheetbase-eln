@@ -1,6 +1,6 @@
 # Scientific Records API (SCI-001)
 
-Samples, reagents and protocols are record kinds within the existing notebook
+Samples, reagents and protocols are record kinds in the existing notebook
 `records` infrastructure (decision 0026). They reuse the same stable UUID
 identity, project/workspace ownership, RLS, durable change events and audit
 attribution as experiments and reports. This document maps the SCI-001
@@ -8,7 +8,7 @@ surface to HTTP through the same-origin `/api/db` PostgREST boundary.
 
 Decision records: 0015 (vocabulary), 0026 (scientific record kinds and
 configurable properties). `docs/notebook-api.md` covers the shared record and
-link resources; this document covers the SCI-001 additions.
+link resources. This document covers the SCI-001 additions.
 
 ## Record kinds and identifiers
 
@@ -18,15 +18,15 @@ link resources; this document covers the SCI-001 additions.
 | `reagent`           | `RGT-YYYY-NNNN`   | `available`, `reserved`, `consumed`, `expired`, `quarantined`, `low_stock` |
 | `protocol_template` | `PRT-YYYY-NNNN`   | `draft`, `active`, `under_review`                                          |
 
-Identifiers are project-scoped and sequential, assigned by the
-`create_record` RPC. They are independent of the display title and never
+Identifiers are project-scoped and sequential. The `create_record` RPC
+assigns them. They are independent of the display title and are never
 reused. `protocol_template` is the record kind; `protocol` is the link type
-used when referencing one from a notebook.
+used when a notebook references a scientific record.
 
 ## Configurable properties
 
-Scientific records carry a flat `properties` JSONB column. The shape is
-configured per workspace through `record_field_definitions`:
+Scientific records carry a flat `properties` JSONB column. Each workspace
+configures the shape through `record_field_definitions`:
 
 | Field          | Purpose                                                                  |
 | -------------- | ------------------------------------------------------------------------ |
@@ -38,12 +38,12 @@ configured per workspace through `record_field_definitions`:
 | `unit`         | `{ "symbol": "µg" }` display unit                                        |
 | `lifecycle`    | `active` or `retired` (retired fields keep historical values)            |
 
-A PostgreSQL trigger (`internal.validate_record_properties`) authoritatively
-validates `properties` against the workspace's active definitions on INSERT
-and whenever kind/properties change. The application library
-(`src/lib/scientific-records.ts`) mirrors the checks for better client-side
-errors. Experiment and report records skip validation (they have no field
-definitions).
+A PostgreSQL trigger (`internal.validate_record_properties`) validates
+`properties` against the active workspace definitions. It validates on INSERT
+and whenever kind or properties change. The application library
+(`src/lib/scientific-records.ts`) mirrors the checks to give better
+client-side errors. Experiment and report records skip validation because
+they have no field definitions.
 
 ## Resources
 
@@ -55,7 +55,7 @@ definitions).
 
 ### Examples
 
-All examples use placeholders, not real credentials.
+All examples use placeholders. They do not use real credentials.
 
 #### Create a sample
 
@@ -86,8 +86,8 @@ All examples use placeholders, not real credentials.
 GET /api/db/records?kind=eq.sample&order=archived_at.asc,identifier.asc
 ```
 
-Cross-workspace records are invisible under RLS; no client-side filter is
-needed.
+Cross-workspace records are invisible under RLS. Clients do not need a
+separate filter.
 
 #### Define a configurable field
 
@@ -106,18 +106,18 @@ needed.
 }
 ```
 
-Only workspace owners may write field definitions. The `field_name`, `kind`
+Only workspace owners may write field definitions. `field_name`, `kind`
 and `workspace_id` are immutable after creation.
 
 ## RPCs
 
-All RPCs are `POST /api/db/rpc/<name>` with a JSON body and run as
-`SECURITY INVOKER` so writes are still subject to RLS.
+All RPCs are `POST /api/db/rpc/<name>` with a JSON body. They run as
+`SECURITY INVOKER`, so RLS still applies to all writes.
 
 ### `transition_record_status`
 
-Controlled lifecycle transition with optimistic concurrency. Rejects
-archived records (frozen until restored).
+This RPC performs a controlled lifecycle transition with optimistic
+concurrency. It rejects archived records (frozen until restored).
 
 ```jsonc
 // POST /api/db/rpc/transition_record_status
@@ -128,15 +128,16 @@ archived records (frozen until restored).
 }
 ```
 
-Allowed transitions are defined per kind in decision 0026 and mirrored in
-`src/lib/scientific-records.ts`. Unknown or disallowed transitions raise
-`SB004` → `invalid_transition` (422). A metadata-version mismatch raises
-`SB001` → `stale_version` (409).
+Decision 0026 defines the allowed transitions per kind.
+`src/lib/scientific-records.ts` mirrors them. Unknown or disallowed
+transitions raise `SB004` → `invalid_transition` (422). A metadata-version
+mismatch raises `SB001` → `stale_version` (409).
 
 ### `create_record_link`
 
-Creates a durable link from a notebook record to a scientific record.
-Validates same-workspace membership and rejects cross-workspace targets.
+This RPC creates a durable link from a notebook record to a scientific
+record. It validates same-workspace membership and rejects cross-workspace
+targets.
 
 ```jsonc
 // POST /api/db/rpc/create_record_link
@@ -149,9 +150,9 @@ Validates same-workspace membership and rejects cross-workspace targets.
 }
 ```
 
-The preserved `target_identifier` keeps the link historically resolvable
-when the target is later archived or soft-deleted. Cross-workspace targets
-raise `SB002` → `missing_link` (422).
+The preserved `target_identifier` keeps the link resolvable when the target
+is later archived or soft-deleted. Cross-workspace targets raise `SB002` →
+`missing_link` (422).
 
 ## Error shapes
 
@@ -180,7 +181,7 @@ branch on `error.category`, not on messages or PostgREST-internal codes.
 
 ## Archived-record behavior
 
-Archiving sets `archived_at` via an authenticated `PATCH` on `records`.
+Archiving sets `archived_at` through an authenticated `PATCH` on `records`.
 Archived records:
 
 - remain **readable** (RLS does not hide them);
@@ -188,6 +189,6 @@ Archived records:
 - are **frozen**: `transition_record_status` rejects them with
   `invalid_transition` until they are restored (`archived_at = NULL`).
 
-The record picker excludes archived records from the active group by
-default but surfaces them under an "Archived" heading when
-`includeArchived` is set, so existing historical links render honestly.
+By default, the record picker excludes archived records from the active
+group. It shows them under an "Archived" heading when `includeArchived` is
+set. This keeps existing historical links visible and accurate.

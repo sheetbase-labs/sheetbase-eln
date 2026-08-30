@@ -1,9 +1,11 @@
 # Visualisations
 
-Canonical SCI-04 reference for scientific graphing in Sheetbase.
+This document is the canonical SCI-04 reference for scientific graphing in
+Sheetbase. Read it to learn how visualisations store data, which plot types
+exist, and how freezing preserves evidence.
 
-Visualisation is a primary scientific interaction, not decoration. The
-model is the existing `ChartSpec` (decision 0029, amended by 0041), not a
+Visualisation is a primary scientific interaction. It is not decoration. The
+model is the existing `ChartSpec` (decision 0029, amended by 0041). It is not a
 second chart product.
 
 ```text
@@ -18,39 +20,39 @@ optional frozen evidence (pinned Dataset Version + ChartSpec)
 
 ## Model
 
-A visualisation is a versioned JSON object (`specVersion` 1) stored on:
+A visualisation is a versioned JSON object (`specVersion` 1). It is stored on:
 
 - a Notebook `chart` block payload
 - a saved Analysis Studio view (`api.analysis_views.spec`)
 
-It references exactly one canonical Dataset by UUID and binds axes by
-stable Dataset Schema Version `field_id`. Labels and units are
-presentation metadata resolved from schema fields. Renaming a field does
+A visualisation references exactly one canonical Dataset by UUID. It binds
+axes by stable Dataset Schema Version `field_id`. Labels and units are
+presentation metadata. The schema fields resolve them. Renaming a field does
 not silently remap an existing graph.
 
-Versioning of the spec itself is not used as a substitute for scientific
-evidence. Frozen evidence pins a Dataset Version plus the configuration
-needed to reproduce the figure.
+Do not use spec versioning as a substitute for scientific evidence. Frozen
+evidence pins a Dataset Version plus the configuration needed to reproduce the
+figure.
 
 ## Data sources
 
-Supported inputs:
+The visualisation accepts these inputs:
 
 - live Dataset (`query_dataset_rows`)
 - frozen Dataset Version (`freeze_chart` snapshots via `snapshot_dataset`)
 - Sheet-originated work, only through the bound Dataset (a Sheet is not a
   second store)
 
-Local Sheet columns are not auto-promoted. The Sheet → `/analysis?dataset=`
-handoff maps bound field IDs only.
+The system does not auto-promote local Sheet columns. The Sheet →
+`/analysis?dataset=` handoff maps bound field IDs only.
 
-Do not persist copied row blobs merely to draw a live chart. Freeze pins
-a Dataset Version and the ChartSpec; the frozen payload stores column
-metadata and empty series. Rendering rematerialises from
-`dataset_version_rows` / `dataset_version_values` through the same
-TypeScript `materialiseChart` path as live charts. Version tables are the
-sole scientific data authority after freeze. Legacy snapshots without
-`datasetVersionId` still replay stored series.
+Do not persist copied row blobs only to draw a live chart. Freeze pins a
+Dataset Version and the ChartSpec. The frozen payload stores column metadata
+and empty series. Rendering rematerialises from `dataset_version_rows` /
+`dataset_version_values` through the same TypeScript `materialiseChart` path
+as live charts. Version tables are the sole scientific data authority after
+freeze. Legacy snapshots without `datasetVersionId` still replay stored
+series.
 
 ## Plot types
 
@@ -65,8 +67,8 @@ sole scientific data authority after freeze. Legacy snapshots without
 | `summary` | grouped mean or median with explicit interval |
 | `heatmap` | x×y grid; count or aggregate of `valueField` |
 
-Plot-type recommendation in the builder is deterministic (numeric+numeric →
-scatter, category+numeric → box, y-only → histogram). The user stays in
+The builder recommends plot types deterministically: numeric+numeric →
+scatter, category+numeric → box, y-only → histogram. The user stays in
 control.
 
 ## Mappings
@@ -90,26 +92,26 @@ Filters are part of the definition: `eq`, `ne`, `gt`/`gte`/`lt`/`lte`,
 
 Transforms are a bounded visualisation set: `aggregate`, `normalise`,
 `log10`, `ln`, `sqrt`, `abs`, `percentage`, `difference`, `ratio`. They do
-not mutate the Dataset and are not a second formula engine.
+not mutate the Dataset. They are not a second formula engine.
 
 ## Summaries and error bars
 
 Grouped summaries expose count, mean, median, min/max, SD and SEM. The
-interval on the figure always records how it was produced:
+interval on the figure always records how the system produced it:
 
 - `source: computed` with `basis` `sd` | `sem` | `ci` | `range`
 - `source: field` with `fieldId` (symmetric half-width) or
   `lowerFieldId` / `upperFieldId`
 
-Zeros are plotted. Nulls and non-numeric strings are omitted and counted
-in `droppedPoints`. Invalid log-axis values are not coerced.
+The figure plots zeros. It omits nulls and non-numeric strings and counts
+them in `droppedPoints`. It does not coerce invalid log-axis values.
 
 ## Fitting and overlays
 
-OLS (`overlays.fit.method = ols`, degree 1–4) reuses the SCI-02 kernel.
-The figure shows the equation, R² and n. Degree-1 fits may show a 95%
-mean confidence band. Insufficient data is an explicit error, not a
-silent empty line.
+OLS (`overlays.fit.method = ols`, degree 1–4) reuses the SCI-02 kernel. The
+figure shows the equation, R² and n. Degree-1 fits may show a 95% mean
+confidence band. Insufficient data is an explicit error. The system does not
+draw a silent empty line.
 
 Reference overlays (`hline`, `vline`, `band`, `identity`) are visual
 annotations (LLOQ, target titre, identity line). They are not hidden
@@ -127,9 +129,9 @@ unit symbol. This layer does not invent unit conversion.
 
 ## Large data
 
-Live reads cap at 10 000 rows (`SCI_ANALYSIS_ROW_LIMIT`). Datasets at or
-below that envelope are fetched in full for analysis; scatter marks may be
-evenly sampled to a chart-wide 4000-point display budget after statistics.
+Live reads cap at 10 000 rows (`SCI_ANALYSIS_ROW_LIMIT`). The system fetches
+Datasets at or below that envelope in full for analysis. After statistics, it
+may evenly sample scatter marks to a chart-wide 4000-point display budget.
 Above 10 000 rows the chart reports `dataset_too_large`. Sampling is
 deterministic and disclosed (`totalCount`, `sampledCount`, `analysisCount`).
 OLS, grouped statistics and violin density use the full analysis set, not
@@ -137,12 +139,12 @@ only displayed marks. Fit lines are not sampled.
 
 ## Live vs frozen
 
-A live visualisation re-reads current Dataset rows. `freeze_chart`
-snapshots a Dataset Version and stores provenance (`datasetId`,
-`datasetVersionId`, schema version, row count, checksum) without a second
-PL/pgSQL plot builder. Frozen rendering loads pinned Version rows and runs
-`materialiseChart`. Later Dataset edits change the live graph and leave
-frozen evidence unchanged. Submission stamps `frozen.revisionId`.
+A live visualisation re-reads current Dataset rows. `freeze_chart` snapshots
+a Dataset Version and stores provenance (`datasetId`, `datasetVersionId`,
+schema version, row count, checksum) without a second PL/pgSQL plot builder.
+Frozen rendering loads pinned Version rows and runs `materialiseChart`. Later
+Dataset edits change the live graph. They leave frozen evidence unchanged.
+Submission stamps `frozen.revisionId`.
 
 ## Notebook and Studio
 
@@ -150,20 +152,20 @@ Notebook chart blocks embed the same `ChartSpec` with a table alternative.
 They are the auditable scientific artefact: freeze, revision binding and
 `change_events` attach to Notebook blocks.
 
-Analysis Studio (`/analysis`) is the dense builder: source, encodings,
-plot type, analysis overlays, axes, save, SVG/PNG export. Saved
-`analysis_views` are disposable, owner-scoped UI (named ChartSpec drafts
-with a version bump). They are not on the workspace `change_events`
-vocabulary and are not a substitute for Notebook chart evidence. Applying a
-saved view to another Dataset requires explicit field remapping, never
-silent name matching.
+Analysis Studio (`/analysis`) is the dense builder: source, encodings, plot
+type, analysis overlays, axes, save, SVG/PNG export. Saved `analysis_views`
+are disposable, owner-scoped UI (named ChartSpec drafts with a version bump).
+They do not appear on the workspace `change_events` vocabulary. They are not
+a substitute for Notebook chart evidence. Applying a saved view to another
+Dataset requires explicit field remapping. The system never matches names
+silently.
 
-Export writes the figure SVG (or a PNG raster of that SVG), not a
-screenshot of application chrome. Presets: Notebook, Presentation,
+Export writes the figure SVG (or a PNG raster of that SVG). It does not write
+a screenshot of application chrome. Presets: Notebook, Presentation,
 Publication (`src/lib/visualisation-export.ts`).
 
-A selected point can be inspected from the figure (click or arrow keys)
-and shows Dataset row identity when the live query attached
+You can inspect a selected point from the figure (click or arrow keys). The
+figure shows Dataset row identity when the live query attached
 `__sheetbaseRowId`.
 
 ## Provenance

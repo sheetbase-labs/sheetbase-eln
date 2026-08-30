@@ -2,8 +2,8 @@
 
 SCI-006 uses the existing authenticated same-origin `/api/db` boundary
 (ADR 0031). Templates are ordinary records (`kind = protocol_template` or
-`kind = notebook_template`); their blocks, links, revisions, events and audit
-attribution are inherited from existing infrastructure. UUIDs and credentials
+`kind = notebook_template`). Their blocks, links, revisions, events, and
+audit attribution come from existing infrastructure. UUIDs and credentials
 below are placeholders.
 
 ## Contract summary
@@ -12,21 +12,23 @@ below are placeholders.
   - `protocol_template` (existing, `PRT-YYYY-NNNN`) — instantiable as
     `experiment` or `protocol_template`.
   - `notebook_template` (new, `NBK-YYYY-NNNN`) — instantiable as `experiment`.
-- Template type is discriminated by `records.kind`. No separate type column.
+- The `records.kind` column discriminates the template type. There is no
+  separate type column.
 - A template version is an immutable revision (existing `revisions` table)
-  created at instantiation time. The revision ID is the durable version the
-  instantiated record points to.
+  created at instantiation time. The revision ID is the durable version that
+  the instantiated record points to.
 - Lifecycle statuses reuse `records.status`:
   - `protocol_template`: `draft`, `under_review`, `active` (instantiable:
     `active`).
   - `notebook_template`: `draft`, `validated` (instantiable: `validated`).
-- Archived templates (`archived_at IS NOT NULL`) remain visible and resolvable
-  but cannot be instantiated or transitioned until restored.
-- Permission restriction is enforced by existing RLS (workspace isolation).
-- Instantiation is a transactional deep-copy: the new record is self-contained.
-  Later template edits, archiving, or deletion do not affect it.
-- Durable change events and audit attribution come from existing triggers; no
-  template-specific event names.
+- Archived templates (`archived_at IS NOT NULL`) stay visible and resolvable.
+  You cannot instantiate or transition them until you restore them.
+- Existing RLS enforces permission restriction (workspace isolation).
+- Instantiation is a transactional deep-copy. The new record is
+  self-contained. Later template edits, archiving, or deletion do not affect
+  it.
+- Existing triggers give durable change events and audit attribution. There
+  are no template-specific event names.
 
 ## Resources
 
@@ -47,9 +49,9 @@ below are placeholders.
 | Read template links     | GET    | `/api/db/record_links?source_record_id=eq.<uuid>`                          |
 | Read source revision    | GET    | `/api/db/revisions?id=eq.<revision-uuid>`                                  |
 
-All resources accept normal bounded PostgREST equality, `in`, ordering, range,
-and selected-column filters allowed by the shared proxy. RLS limits every
-result to the active workspace.
+All resources accept the normal bounded PostgREST equality, `in`, ordering,
+range, and selected-column filters that the shared proxy allows. RLS limits
+every result to the active workspace.
 
 ## Create a template
 
@@ -111,8 +113,8 @@ Content-Type: application/json
 }
 ```
 
-Archived templates remain visible in list responses but cannot be instantiated
-or transitioned. Restore with `rpc/restore_record` to unfreeze.
+Archived templates stay visible in list responses. You cannot instantiate or
+transition them. Restore with `rpc/restore_record` to unfreeze.
 
 ## Instantiate a template
 
@@ -128,7 +130,8 @@ Content-Type: application/json
 }
 ```
 
-The `p_title` parameter is optional; if omitted, the template's title is used.
+The `p_title` parameter is optional. If you omit it, the system uses the
+template's title.
 
 Response:
 
@@ -188,12 +191,12 @@ Response:
 ### Block copy semantics
 
 - `protocol_reference` blocks are skipped (experiment-specific pinning).
-- `procedure_step` blocks going to an `experiment` receive execution fields
+- `procedure_step` blocks that go to an `experiment` receive execution fields
   (`sourceProtocolRevisionId`, `sourceStepBlockId`, `completed`, `note`,
   `completedAt`, `completedByUserId`), matching the `pin_protocol_reference`
   pattern.
-- `procedure_step` blocks going to a `protocol_template` have execution fields
-  stripped (they are definitions, not execution copies).
+- `procedure_step` blocks that go to a `protocol_template` have the execution
+  fields stripped (they are definitions, not execution copies).
 - All other block types are deep-copied as-is with new IDs.
 
 ## Error shapes
@@ -225,38 +228,39 @@ Example error response:
 - `instantiate_template` rejects archived templates with `SB006`.
 - `transition_record_status` rejects archived templates with `SB004`
   (archived records are frozen).
-- Existing instantiated records and their source revisions are unaffected by
-  template archiving.
+- Template archiving does not affect existing instantiated records or their
+  source revisions.
 - Restore an archived template with `rpc/restore_record` to allow transitions
   again. Instantiation still requires the correct status.
 
 ## Cross-workspace enforcement
 
 - RLS on `api.records` limits reads to the active workspace.
-- `instantiate_template` explicitly verifies the template's `workspace_id`
-  matches the caller's active workspace (defence in depth alongside RLS).
+- `instantiate_template` explicitly verifies that the template's
+  `workspace_id` matches the caller's active workspace (defense in depth
+  alongside RLS).
 - The target project must be in the caller's workspace.
-- Cross-workspace instantiation is rejected with `42501` (`permission_denied`,
+- Cross-workspace instantiation fails with `42501` (`permission_denied`,
   HTTP 403).
 
 ## Stable link representations
 
-The `record_links` row with `link_type = 'template'` connects the instantiated
-record (`source_record_id`) to the source template (`target_record_id`). The
-`link_metadata.template_revision_id` field holds the UUID of the immutable
-revision created at instantiation time. This revision captures the exact
-template version — metadata, blocks, and structure — so the provenance is
-durable and verifiable even if the template is later edited, archived, or
-deleted.
+The `record_links` row with `link_type = 'template'` connects the
+instantiated record (`source_record_id`) to the source template
+(`target_record_id`). The `link_metadata.template_revision_id` field holds
+the UUID of the immutable revision created at instantiation time. This
+revision captures the exact template version — metadata, blocks, and
+structure. The provenance stays durable and verifiable even if the template
+is later edited, archived, or deleted.
 
 A CHECK constraint (`chk_record_links_template_metadata`) requires every
-`link_type = 'template'` link to carry a `template_revision_id` key, enforced
-at the DB boundary.
+`link_type = 'template'` link to carry a `template_revision_id` key. The
+database boundary enforces this.
 
 ## Durable events and audit parity
 
-All mutations — create, validate, archive, restore, instantiate — write to the
-same `records`, `blocks`, `record_links`, and `revisions` tables through the
-same proxy. The existing triggers emit durable change events transactionally
-with actor attribution from `api.current_user_id()`. REST mutations produce
-the same events and audit entries as UI mutations.
+All mutations — create, validate, archive, restore, instantiate — write to
+the same `records`, `blocks`, `record_links`, and `revisions` tables through
+the same proxy. The existing triggers emit durable change events
+transactionally with actor attribution from `api.current_user_id()`. REST
+mutations produce the same events and audit entries as UI mutations.

@@ -1,11 +1,11 @@
 # Pipelines
 
-Deterministic, versioned transformations over canonical Datasets. A Pipeline
-is a workspace-scoped identity with immutable published versions; every run
-pins the exact definition version, parameters and input Dataset Version ids,
-executes a single deterministic SQL transform inside a low-privilege sandbox,
-and lands its output only through the canonical governed Dataset operations
-(`commit_dataset_row_batch` / `snapshot_dataset`).
+Pipelines run deterministic, versioned transformations over canonical
+Datasets. A Pipeline is a workspace-scoped identity with immutable published
+versions. Every run pins the exact definition version, parameters, and input
+Dataset Version ids. The run executes one deterministic SQL transform inside
+a low-privilege sandbox. The output lands only through the canonical governed
+Dataset operations (`commit_dataset_row_batch` / `snapshot_dataset`).
 
 ```text
 Pipeline Definition
@@ -66,136 +66,138 @@ Provenance: pipeline_run_outputs + append-only run history
 Rules:
 
 - **Parameters** are typed (`text`, `integer`, `decimal`, `boolean`, `date`,
-  `timestamp`), referenced in the transform as `{{name}}` placeholders and
-  substituted as safe SQL literals. Required parameters have no default.
-- **Inputs** name the temp tables the transform reads. Each input is pinned
-  to an immutable Dataset Version at run start (not a live Dataset), so the
-  run is reproducible.
+  `timestamp`). The transform references them as `{{name}}` placeholders. The
+  runner substitutes them as safe SQL literals. Required parameters have no
+  default.
+- **Inputs** name the temp tables that the transform reads. At run start,
+  each input is pinned to an immutable Dataset Version (not a live Dataset).
+  This makes the run reproducible.
 - **The transform is exactly one deterministic `SELECT`** (optionally with a
   leading `WITH`). Comments, semicolons, dollar-quoting, schema-qualified
   names, `pg_*`/`lo_*` functions and DDL/DML keywords are rejected.
 - **Output columns** must match the output Schema's field slugs (stable,
   immutable within a Schema Version), or be mapped explicitly with
-  `fieldMapping`. Every non-nullable field must be produced; extra columns
-  are rejected rather than silently dropped. Multi-valued fields expose
-  their first value in v1 transforms.
+  `fieldMapping`. Every non-nullable field must be produced. Extra columns
+  are rejected, not silently dropped. In v1 transforms, multi-valued fields
+  expose their first value.
 
 ## Execution boundary (AUTO-02)
 
 Transforms run server-side (`src/lib/pipeline-execute.server.ts`) inside a
-dedicated **`pipeline_worker`** session role with:
+dedicated **`pipeline_worker`** session role. The role has:
 
-- zero table grants (the transform can only read its own temp tables),
+- zero table grants (the transform can read only its own temp tables),
 - a `search_path` pinned to the session temp schema,
 - a fixed `statement_timeout` (60s) and a 100,000-row result cap,
 - static statement validation as defense-in-depth.
 
-Input Dataset Versions are materialized into session temp tables by the
-trusted application connection; the sandbox role is granted SELECT on exactly
-those tables. Outputs are written with the run actor's JWT claims through the
-**same governed RPCs the browser uses** — `commit_dataset_row_batch` then
+The trusted application connection materializes input Dataset Versions into
+session temp tables. The sandbox role gets SELECT on exactly those tables.
+Outputs are written with the run actor's JWT claims through the **same
+governed RPCs the browser uses** — `commit_dataset_row_batch` then
 `snapshot_dataset` — never through a second writer.
 
 ## Run lifecycle
 
 1. **Start** — `api.start_pipeline_run` (workspace writer; only published
-   versions run). The **canonical run identity is computed server-side** —
+   versions run). **The server computes the canonical run identity** —
    sha-256 over (definition version, canonical parameters, canonical input
-   Dataset Versions) — never supplied by the caller, so replay, concurrency
-   and retry decisions are authoritative. Manual runs dedupe by this digest:
-   a prior success replays, a concurrent duplicate conflicts (`SB044`), a
-   failed attempt requires an explicit `retry_of_run_id` (`SB045`), and
-   abandoned running attempts are reconciled after a fixed staleness
-   threshold. Scheduled/event runs instead carry a **stable trigger
-   occurrence identity** (`sched:<id>:<due_at>` / `evt:<change_event_id>`)
-   and dedupe by occurrence: one running + one succeeded run per occurrence,
-   and a crashed occurrence (started but never executed) is reconciled by the
-   sweep and retried as a linked attempt.
+   Dataset Versions). The caller never supplies it. Replay, concurrency, and
+   retry decisions are therefore authoritative. Manual runs dedupe by this
+   digest: a prior success replays, a concurrent duplicate conflicts
+   (`SB044`), and a failed attempt requires an explicit `retry_of_run_id`
+   (`SB045`). The system reconciles abandoned running attempts after a fixed
+   staleness threshold. Scheduled and event runs instead carry a **stable
+   trigger occurrence identity** (`sched:<id>:<due_at>` /
+   `evt:<change_event_id>`) and dedupe by occurrence: one running and one
+   succeeded run per occurrence. When a run starts but never executes, the
+   sweep reconciles it and retries it as a linked attempt.
 2. **Execute** — `POST /api/pipelines/execute` runs the transform and
-   completes/fails the run. Cancellation is honoured at the next safe point
-   (`cancel_pipeline_run`); in-flight execution finishes. Only the run actor
-   can finalize a run; the executor re-stamps the run actor's identity after
-   the transform (so the output phase never inherits claims the transform
-   chose) and performs the output Dataset creation through the **canonical
-   RLS-gated writer path** (`authenticated` role, `datasets_insert_writer`
-   policy) — never a privileged second writer. A driver-level query timeout
-   backs up the statement timeout.
-3. **Record** — succeeded runs carry `rowCount`, output Dataset/Version ids
-   and the output label in `result`; outputs are also normalized in
+   completes or fails the run. Cancellation takes effect at the next safe
+   point (`cancel_pipeline_run`). In-flight execution finishes. Only the run
+   actor can finalize a run. The executor re-stamps the run actor's identity
+   after the transform. The output phase therefore never inherits claims that
+   the transform chose. The executor creates the output Dataset through the
+   **canonical RLS-gated writer path** (`authenticated` role,
+   `datasets_insert_writer` policy) — never a privileged second writer. A
+   driver-level query timeout backs up the statement timeout.
+3. **Record** — succeeded runs carry `rowCount`, output Dataset/Version ids,
+   and the output label in `result`. Outputs are also normalized in
    `pipeline_run_outputs` for reverse lookup from Dataset pages.
 
 ## Trigger reliability
 
-- **Duplicate sweeps** never double-start the same occurrence (one running +
-  one succeeded run per `trigger_occurrence_id`).
-- **Crash recovery** (scheduled and event runs): a run started but never
+- **Duplicate sweeps** never double-start the same occurrence. There is one
+  running and one succeeded run per `trigger_occurrence_id`.
+- **Crash recovery** (scheduled and event runs): a run that started but never
   executed stays `running` for at most the 900s staleness threshold. Runs
-  link back to their `schedule_id`; the next sweep fails any stale running
-  run for that schedule with `stale_run_reconciled` and starts a linked
-  retry of the **same** `trigger_occurrence_id` **and the same pinned
-  Pipeline Definition Version** (using the crashed run's own stored version,
-  inputs and parameters) — independent of the schedule's current
-  `next_run_at` or event cursor. A crashed occurrence is therefore
-  recovered reproducibly, never silently skipped or silently upgraded to a
-  newer version; only genuinely NEW occurrences resolve the latest published
-  version. The event cursor does not move backwards.
-- **Event delivery is at-least-once, not silently lossy**: the per-workspace
-  `change_events` sequence cursor advances when a run starts; if that run's
+  link back to their `schedule_id`. The next sweep fails any stale running
+  run for that schedule with `stale_run_reconciled`. It then starts a linked
+  retry of the **same** `trigger_occurrence_id` and the same pinned Pipeline
+  Definition Version. The retry uses the crashed run's own stored version,
+  inputs, and parameters. It does not depend on the schedule's current
+  `next_run_at` or event cursor. The system therefore recovers a crashed
+  occurrence reproducibly. It never silently skips the occurrence, and it
+  never silently upgrades it to a newer version. Only genuinely NEW
+  occurrences resolve the latest published version. The event cursor does not
+  move backwards.
+- **Event delivery is at-least-once, not silently lossy.** The per-workspace
+  `change_events` sequence cursor advances when a run starts. If that run's
   execution crashes, the sweep recovers it by its `evt:<event_id>` identity.
   A failed run _start_ keeps the cursor in place, records the failure in
-  `api.pipeline_trigger_failures`, and is retried on the next sweep; after
-  the retry budget it is explicitly **abandoned** (visible in the failures
-  table) and the cursor advances.
+  `api.pipeline_trigger_failures`, and retries on the next sweep. After the
+  retry budget, the system explicitly **abandons** the trigger (visible in
+  the failures table) and the cursor advances.
 
 ## Triggers
 
 - **Manual** — from the Pipeline definition page (Run/Retry buttons) or from
   a Dataset's Pipelines tab.
 - **Schedule** — interval (every N minutes) or daily (HH:MM in an **explicit
-  IANA time zone**, default UTC — never the server's zone) schedules run the
+  IANA time zone**, default UTC — never the server's zone). Schedules run the
   **latest published version** with the schedule's fixed inputs and
-  parameters. Evaluated by the server sweep (`pipeline-scheduler.server.ts`)
-  every 60s; schedule rows are locked only for the start decision so a long
+  parameters. The server sweep (`pipeline-scheduler.server.ts`) evaluates
+  them every 60s. Schedule rows lock only for the start decision, so a long
   run never blocks the next tick.
 - **Event** — `dataset_version_created` schedules fire when the platform
   sweep observes matching `change_events` (optionally filtered to one
-  Dataset). Delivery is a polling approximation, but **at-least-once**: the
-  cursor advances only with a durable disposition, failures are recorded in
-  `api.pipeline_trigger_failures` and retried, and abandonment after the
-  budget is explicit and visible.
+  Dataset). Delivery is a polling approximation, but **at-least-once**. The
+  cursor advances only with a durable disposition. Failures are recorded in
+  `api.pipeline_trigger_failures` and retried. Abandonment after the budget
+  is explicit and visible.
 
 ## Product integration
 
 - **Dataset → Pipeline**: the `/datasets` Pipelines tab lists every published
-  single-input Pipeline with a Run action pre-filled with the Dataset's
+  single-input Pipeline. Its Run action comes pre-filled with the Dataset's
   latest Version id.
 - **Sheet → Pipeline**: a Sheet Instance with a bound Dataset offers "Run
-  Pipelines on this Dataset", landing on that Dataset's Pipelines tab.
+  Pipelines on this Dataset". The link lands on that Dataset's Pipelines tab.
 - **Notebook → Pipeline**: a `pipeline_output` notebook block references a
-  Pipeline run and pins the Dataset Version it produced (run + Dataset
-  links; empty drafts allowed).
+  Pipeline run. It pins the Dataset Version that the run produced (run +
+  Dataset links; empty drafts are allowed).
 
 ## Permissions
 
-- **`pipelines.manage`** (owner/admin/steward): create/edit definitions,
+- **`pipelines.manage`** (owner/admin/steward): create and edit definitions,
   create/publish/retire versions, manage schedules, cancel any run, write run
   logs.
-- **Any workspace writer**: start manual runs, run/inspect history, cancel
-  their own runs.
-- **Run actor only**: finalizing a run (complete/fail), recording outputs and
-  writing stage logs — a non-actor writer can never forge a success result or
+- **Any workspace writer**: start manual runs, run and inspect history,
+  cancel their own runs.
+- **Run actor only**: finalize a run (complete/fail), record outputs, and
+  write stage logs. A non-actor writer can never forge a success result or
   inject misleading evidence. The executor runs as the run actor's identity.
 - **Viewer**: read-only.
-- Pipeline tables are read-only for request roles (RPCs only); the external
-  `api_client` credential surface is **not** granted Pipeline access — the
-  Pipeline API is out of scope for the external contract.
+- Pipeline tables are read-only for request roles (RPCs only). The external
+  `api_client` credential surface has **no** Pipeline access — the Pipeline
+  API is out of scope for the external contract.
 
 ## Reproducibility
 
 Same definition version + same parameters + same pinned input Dataset
-Versions = same logical output, with idempotent replay for identical manual
-requests. Row order in the result is preserved from the transform's `ORDER
-BY`; where no order is specified, row order is not part of the contract.
+Versions = same logical output. Identical manual requests replay
+idempotently. The result keeps the row order from the transform's `ORDER
+BY`. Where no order is specified, row order is not part of the contract.
 
 ## Limits (v1, fixed)
 

@@ -67,6 +67,78 @@ const provenance = {
   invocationId: 'auto05-invocation',
 }
 
+async function humanRequiredRowPlan(
+  owner: Client,
+  suffix: string,
+): Promise<ReturnType<typeof pipelinePlan>> {
+  const schema = await owner.query<{
+    result: { schema_version_id: string }
+  }>(
+    `SELECT api.create_dataset_schema_definition(
+      $1,$2,$3,NULL,
+      '[{"key":"value","label":"Value","logicalType":"integer","nullable":false}]'::jsonb
+    ) result`,
+    [WS, `auto05_${suffix}_schema`, `AUTO05 ${suffix}`],
+  )
+  const schemaVersionId = schema.rows[0].result.schema_version_id
+  await owner.query(`SELECT api.publish_dataset_schema_version($1)`, [
+    schemaVersionId,
+  ])
+  const field = await migrator.query<{ field_id: string }>(
+    `SELECT field_id FROM api.dataset_schema_version_fields
+      WHERE schema_version_id=$1`,
+    [schemaVersionId],
+  )
+  const dataset = await owner.query<{ id: string }>(
+    `INSERT INTO api.datasets(workspace_id,schema_version_id,name,created_by_user_id)
+     VALUES($1,$2,$3,$4) RETURNING id`,
+    [WS, schemaVersionId, `AUTO05 ${suffix} target`, OWNER],
+  )
+  const paddedRowId =
+    suffix === 'recovery'
+      ? 'a0050000-0000-4000-8000-000000000040'
+      : suffix === 'operation_budget'
+        ? 'a0050000-0000-4000-8000-000000000041'
+        : 'a0050000-0000-4000-8000-000000000042'
+  await owner.query(
+    `SELECT api.commit_dataset_row_batch($1,1,$2::jsonb,$3)`,
+    [
+      dataset.rows[0].id,
+      JSON.stringify([
+        {
+          operation: 'create',
+          rowId: paddedRowId,
+          values: { [field.rows[0].field_id]: 1 },
+        },
+      ]),
+      `auto05-${suffix}-seed`,
+    ],
+  )
+  return {
+    formatVersion: 1,
+    steps: [1, 2].map((number) => ({
+      key: `correct_${suffix}_${number}`,
+      title: `Correct ${suffix} ${number}`,
+      summary: 'Apply one reviewed Dataset update.',
+      tool: 'sheetbase.dataset_rows.commit',
+      operation: {
+        kind: 'dataset_rows.commit',
+        datasetId: dataset.rows[0].id,
+        expectedRevision: 2,
+        rows: [
+          {
+            operation: 'update',
+            rowId: paddedRowId,
+            expectedRevision: 1,
+            values: { [field.rows[0].field_id]: number },
+          },
+        ],
+      },
+      inputReferences: [],
+    })),
+  }
+}
+
 function pipelinePlan(suffix: string) {
   return {
     formatVersion: 1,
@@ -660,7 +732,10 @@ describe('AUTO-05 agentic scientific workflows', () => {
   it('pauses rejected work, requires a human resume, and cancels the retried proposal', async () => {
     const agent = await credential()
     const owner = await actor(OWNER, WS)
-    const created = await createWorkflow(agent, { key: 'recovery' })
+    const created = await createWorkflow(agent, {
+      key: 'recovery',
+      plan: await humanRequiredRowPlan(owner, 'recovery'),
+    })
     const first = await currentProposal(owner, created.id)
     await owner.query(
       `SELECT api.decide_agent_operation($1,1,'reject','Source not verified')`,
@@ -720,6 +795,7 @@ describe('AUTO-05 agentic scientific workflows', () => {
     const operationLimited = await createWorkflow(agent, {
       key: 'operation_budget',
       maxOperations: 2,
+      plan: await humanRequiredRowPlan(owner, 'operation_budget'),
     })
     let proposal = await currentProposal(owner, operationLimited.id)
     await owner.query(
@@ -758,6 +834,7 @@ describe('AUTO-05 agentic scientific workflows', () => {
       maxTokens: 600,
       maxCostMicrousd: 25_000,
       initialTokens: 590,
+      plan: await humanRequiredRowPlan(owner, 'usage_budget'),
     })
     const exhaustedUsage = await agent.query<{
       status: string

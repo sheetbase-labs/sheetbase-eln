@@ -103,15 +103,18 @@ export interface NotebookDocumentProps {
   /** SCI-004: remove the frozen snapshot so the chart can be edited again. */
   onUnfreezeChart?: (block: NotebookBlockData) => Promise<void>
   /** Duplicate an existing block (same type/payload, inserted after it). */
-  onDuplicateBlock: (block: NotebookBlockData) => Promise<void>
+  onDuplicateBlock: (block: NotebookBlockData) => Promise<string | undefined>
   /** Delete a block. */
   onDeleteBlock: (block: NotebookBlockData) => Promise<void>
   /** Re-insert a previously deleted block (undo). */
   onUndoDelete?: (
     type: string,
     payload: Record<string, unknown>,
-    afterBlockId: string | null,
-  ) => Promise<void>
+    destination: {
+      afterBlockId: string | null
+      beforeBlockId: string | null
+    },
+  ) => Promise<string | undefined>
   /**
    * Move a block to a new position described by its future neighbours
    * (ELN-006). Either neighbour may be null: (null, B) → start, (A, null)
@@ -158,6 +161,8 @@ const EDITABLE_TYPES = new Set([
   'materials',
   'file',
   'chart',
+  'analysis',
+  'pipeline_output',
   'plate_map',
 ])
 
@@ -194,6 +199,8 @@ function NotebookDocumentContent({
   className,
 }: NotebookDocumentProps) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [activeId, setActiveId] = React.useState<string | null>(null)
+  const pendingSelectionRef = React.useRef<string | null>(null)
   // Per-block error messages for insert / duplicate / delete (ELN-005).
   // Save errors are owned per-editor by `useAutosave` (ELN-007).
   const [errorById, setErrorById] = React.useState<Record<string, string>>({})
@@ -204,6 +211,7 @@ function NotebookDocumentContent({
     type: string
     payload: Record<string, unknown>
     afterBlockId: string | null
+    beforeBlockId: string | null
     label: string
   } | null>(null)
 
@@ -258,6 +266,33 @@ function NotebookDocumentContent({
     [],
   )
 
+  // Editors with unsaved work remain mounted when the user moves to another
+  // block, so a slow save, offline draft, validation failure, or conflict
+  // cannot disappear merely because selection changed. Remove status only
+  // after the canonical block itself is removed (delete/replace).
+  React.useEffect(() => {
+    const currentIds = new Set(blocks.map((block) => block.id))
+    const map = statusByIdRef.current
+    let changed = false
+    for (const id of map.keys()) {
+      if (!currentIds.has(id)) {
+        map.delete(id)
+        changed = true
+      }
+    }
+    if (changed) setUnsavedBlockIds(new Set(map.keys()))
+    if (
+      selectedId &&
+      !currentIds.has(selectedId) &&
+      pendingSelectionRef.current !== selectedId
+    ) {
+      setSelectedId(null)
+      setActiveId(null)
+      updateBlockHash(null)
+    }
+    pendingSelectionRef.current = null
+  }, [blocks, selectedId])
+
   const hasUnsavedWork = unsavedBlockIds.size > 0
   React.useEffect(() => {
     onUnsavedWorkChange?.(hasUnsavedWork)
@@ -287,30 +322,41 @@ function NotebookDocumentContent({
     }
   }, [])
 
-  function selectBlock(block: NotebookBlockData) {
-    setSelectedId(block.id)
+  function updateBlockHash(blockId: string | null) {
     try {
       // Replace, not navigate, so the route guard and queries do not refire.
-      window.history.replaceState(null, '', `#block-${block.id}`)
+      const next = blockId
+        ? `#block-${blockId}`
+        : `${window.location.pathname}${window.location.search}`
+      window.history.replaceState(null, '', next)
     } catch {
       /* jsdom/SSR: ignore */
     }
   }
 
+  function selectBlock(block: NotebookBlockData) {
+    setSelectedId(block.id)
+    updateBlockHash(block.id)
+  }
+
   async function handleInsert(type: string, afterBlockId?: string) {
     try {
-      await onInsertBlock(type, afterBlockId)
+      const newId = await onInsertBlock(type, afterBlockId)
+      if (newId) selectAndFocus(newId)
       setUndo(null)
+      return newId
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Could not insert the block.'
       setErrorById((prev) => ({ ...prev, __insert: message }))
+      return undefined
     }
   }
 
   async function handleDuplicate(block: NotebookBlockData) {
     try {
-      await onDuplicateBlock(block)
+      const duplicateId = await onDuplicateBlock(block)
+      if (duplicateId) selectAndFocus(duplicateId)
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Could not duplicate the block.'
@@ -320,16 +366,32 @@ function NotebookDocumentContent({
 
   async function handleConfirmDelete() {
     if (!confirmDelete) return
+    const index = orderedIds.indexOf(confirmDelete.id)
+    const afterBlockId = index > 0 ? (orderedIds[index - 1] ?? null) : null
+    const beforeBlockId =
+      index >= 0 && index < orderedIds.length - 1
+        ? (orderedIds[index + 1] ?? null)
+        : null
+    const focusAfterDelete = beforeBlockId ?? afterBlockId
     setPendingDelete(true)
     try {
       await onDeleteBlock(confirmDelete)
       setUndo({
         type: confirmDelete.type,
         payload: confirmDelete.payload,
-        afterBlockId: null,
+        afterBlockId,
+        beforeBlockId,
         label: `${confirmDelete.type} block`,
       })
       setConfirmDelete(null)
+      if (focusAfterDelete) {
+        selectAndFocus(focusAfterDelete)
+      } else {
+        setSelectedId(null)
+        setActiveId(null)
+        updateBlockHash(null)
+        focusEmptyNotebook()
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Could not delete the block.'
@@ -342,8 +404,12 @@ function NotebookDocumentContent({
   async function handleUndo() {
     if (!undo || !onUndoDelete) return
     try {
-      await onUndoDelete(undo.type, undo.payload, undo.afterBlockId)
+      const restoredId = await onUndoDelete(undo.type, undo.payload, {
+        afterBlockId: undo.afterBlockId,
+        beforeBlockId: undo.beforeBlockId,
+      })
       setUndo(null)
+      if (restoredId) selectAndFocus(restoredId)
     } catch {
       // If undo fails the user can still insert manually.
       setUndo(null)
@@ -396,11 +462,20 @@ function NotebookDocumentContent({
     // Defer so the reordered DOM has committed before we focus.
     requestAnimationFrame(() => {
       const el = document.getElementById(`block-${blockId}`)
-      if (el && typeof el.focus === 'function') {
-        el.focus()
-      } else if (el && typeof el.scrollIntoView === 'function') {
-        el.scrollIntoView({ block: 'nearest' })
+      if (!el) return
+      if (el.contains(document.activeElement)) {
+        if (typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ block: 'nearest' })
+        }
+        return
       }
+      el.focus()
+    })
+  }
+
+  function focusEmptyNotebook() {
+    requestAnimationFrame(() => {
+      document.getElementById('notebook-empty-start')?.focus()
     })
   }
 
@@ -442,8 +517,10 @@ function NotebookDocumentContent({
       // holds the canonical order returned by the RPC.
       setOptimisticOrder(null)
     } catch (err) {
-      // Roll back to the exact pre-move order and surface a contextual error.
-      setOptimisticOrder(baseline)
+      // Remove the optimistic override so the route's structure refetch can
+      // become visible. Until that refetch settles, the canonical props are
+      // still the exact pre-move order.
+      setOptimisticOrder(null)
       const stale =
         err instanceof Error && /stale|version|changed/i.test(err.message)
       const message = stale
@@ -476,7 +553,10 @@ function NotebookDocumentContent({
    * DOM has settled after reorders/inserts before we focus.
    */
   function selectAndFocus(blockId: string) {
+    pendingSelectionRef.current = blockId
     setSelectedId(blockId)
+    setActiveId(blockId)
+    updateBlockHash(blockId)
     requestAnimationFrame(() => {
       const el = document.getElementById(`block-${blockId}`)
       if (el && typeof el.focus === 'function') el.focus()
@@ -512,22 +592,31 @@ function NotebookDocumentContent({
     }
   }
 
-  /** Backspace at start of an empty block → delete and focus previous.
-   *  Does nothing if this is the only remaining block — a notebook must
-   *  always have at least one block. */
+  /** Backspace at start of an empty block → delete and focus its neighbour,
+   *  or return focus to the empty Notebook start affordance. */
   async function handleBackspaceAtStart(block: NotebookBlockData) {
-    if (orderedIds.length <= 1) return
     const idx = orderedIds.indexOf(block.id)
     const prevId = idx > 0 ? orderedIds[idx - 1] : null
+    const nextId =
+      idx >= 0 && idx < orderedIds.length - 1 ? orderedIds[idx + 1] : null
+    const focusAfterDelete = prevId ?? nextId
     try {
       await onDeleteBlock(block)
       setUndo({
         type: block.type,
         payload: block.payload,
-        afterBlockId: null,
+        afterBlockId: prevId,
+        beforeBlockId: nextId,
         label: `${block.type} block`,
       })
-      if (prevId) selectAndFocus(prevId)
+      if (focusAfterDelete) {
+        selectAndFocus(focusAfterDelete)
+      } else {
+        setSelectedId(null)
+        setActiveId(null)
+        updateBlockHash(null)
+        focusEmptyNotebook()
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Could not delete the block.'
@@ -553,9 +642,32 @@ function NotebookDocumentContent({
     e: React.KeyboardEvent<HTMLDivElement>,
     block: NotebookBlockData,
   ) {
+    const idx = orderedIds.indexOf(block.id)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') {
+      e.preventDefault()
+      const previousId = idx > 0 ? orderedIds[idx - 1] : null
+      if (previousId) selectAndFocus(previousId)
+      return
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowDown') {
+      e.preventDefault()
+      const nextId = idx >= 0 ? orderedIds[idx + 1] : null
+      if (nextId) selectAndFocus(nextId)
+      return
+    }
     if (e.altKey && e.key === 'Enter' && !isReadOnly) {
       e.preventDefault()
       void handleInsert('rich_text', block.id)
+      return
+    }
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      e.key === 'Backspace' &&
+      e.target === e.currentTarget &&
+      !isReadOnly
+    ) {
+      e.preventDefault()
+      setConfirmDelete(block)
       return
     }
     if (!canMove) return
@@ -569,9 +681,6 @@ function NotebookDocumentContent({
     } else if (e.altKey && e.key === 'ArrowDown') {
       e.preventDefault()
       moveByOne(block, 'down')
-    } else if (e.altKey && e.key === 'Enter') {
-      e.preventDefault()
-      void handleInsert('rich_text', block.id)
     }
   }
 
@@ -673,13 +782,44 @@ function NotebookDocumentContent({
         activeBlockId={selectedId}
         mode={selectedId ? 'editing' : 'viewing'}
       />
+      {orderedIds.length === 0 && !isReadOnly ? (
+        <div
+          className="rounded-lg border border-dashed bg-muted/20 px-6 py-8 text-center"
+          data-empty-notebook
+        >
+          <h2 className="font-display text-base font-semibold">
+            Start this Notebook
+          </h2>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            Begin with an objective, method, observation, or another scientific
+            block. The new block opens in place and saves automatically.
+          </p>
+          <div className="mx-auto mt-4 flex max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
+            <button
+              id="notebook-empty-start"
+              type="button"
+              onClick={() => void handleInsert('rich_text')}
+              className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Start writing
+            </button>
+            <BlockPicker
+              onInsert={(type) => void handleInsert(type)}
+              label="Choose block type"
+              className="sm:w-44"
+            />
+          </div>
+        </div>
+      ) : null}
       {orderedIds.map((id, index) => {
         const block = blockById.get(id)
         if (!block) return null
         const editable = EDITABLE_TYPES.has(block.type) && !isReadOnly
         const isSelected = selectedId === block.id
+        const isActive = activeId === block.id
         const isDragging = draggingId === block.id
         const isMoving = movingId === block.id
+        const hasUnsavedDraft = unsavedBlockIds.has(block.id)
         // Show exactly one insertion indicator per gap: "above" when this
         // block is the following neighbour, and "below" only for the
         // end-of-list position (after=block, before=null) where no
@@ -693,9 +833,11 @@ function NotebookDocumentContent({
           ? 'read-only'
           : isDragging
             ? 'dragging'
-            : isSelected
+            : isSelected && isActive && editable
               ? 'editing'
-              : 'default'
+              : isSelected
+                ? 'selected'
+                : 'default'
         return (
           <React.Fragment key={block.id}>
             {showAbove ? (
@@ -711,14 +853,22 @@ function NotebookDocumentContent({
                 'scroll-mt-28 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 isMoving && 'opacity-60',
               )}
-              tabIndex={canMove ? 0 : undefined}
-              role={canMove ? 'group' : undefined}
-              aria-label={
-                canMove
-                  ? `${block.type} block — drag or use Alt+Arrow keys to move`
-                  : undefined
-              }
-              onFocus={() => selectBlock(block)}
+              tabIndex={isReadOnly ? undefined : 0}
+              role={isReadOnly ? undefined : 'group'}
+              aria-label={`${blockLabel(block)} block${canMove ? ' — Alt+Arrow keys move; Ctrl+Arrow keys navigate' : ''}`}
+              data-active={isActive || undefined}
+              data-selected={isSelected || undefined}
+              onFocus={() => {
+                setActiveId(block.id)
+                selectBlock(block)
+              }}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setActiveId((current) =>
+                    current === block.id ? null : current,
+                  )
+                }
+              }}
               onClick={() => selectBlock(block)}
               onKeyDown={(e) => handleRowKeyDown(e, block)}
               onDragOver={(e) => handleDragOver(e, block)}
@@ -730,6 +880,8 @@ function NotebookDocumentContent({
               <NotebookBlock
                 label={blockLabel(block)}
                 title={
+                  // Display only: editable payload fields belong to the
+                  // block's single autosave/conflict state machine below.
                   // Chart and plate_map render their own payload.title
                   // internally (ChartFrame header, plate map caption).
                   // Suppress the wrapper title to avoid duplication.
@@ -738,15 +890,6 @@ function NotebookDocumentContent({
                   typeof block.payload.title === 'string' &&
                   block.payload.title.trim()
                     ? block.payload.title
-                    : undefined
-                }
-                onTitleChange={
-                  editable && !isPayloadImmutable(block)
-                    ? (newTitle) =>
-                        onSaveBlock(block, {
-                          ...block.payload,
-                          title: newTitle || undefined,
-                        })
                     : undefined
                 }
                 state={blockState}
@@ -821,7 +964,7 @@ function NotebookDocumentContent({
                     readOnly={isReadOnly}
                     frozenEvidence={frozenSheetEvidence?.get(block.id)}
                   />
-                ) : editable && isSelected ? (
+                ) : editable && (isSelected || hasUnsavedDraft) ? (
                   <BlockEditor
                     block={block}
                     save={(payload) => onSaveBlock(block, payload)}
@@ -857,7 +1000,7 @@ function NotebookDocumentContent({
                       handleStatusChange(block.id, status)
                     }
                     readOnly={isReadOnly}
-                    autoFocus={isSelected}
+                    autoFocus={isSelected && isActive}
                     onSlashCommand={(type) =>
                       void handleSlashCommand(block, type)
                     }
@@ -889,6 +1032,21 @@ function NotebookDocumentContent({
                 data-drop-indicator="below"
               />
             ) : null}
+            {!isReadOnly && index < orderedIds.length - 1 ? (
+              <div
+                className="group/insert relative flex h-4 items-center justify-center"
+                data-insertion-gap={`after-${block.id}`}
+                data-print-hide
+              >
+                <div className="absolute inset-x-0 h-px bg-border opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100" />
+                <BlockPicker
+                  onInsert={(type) => void handleInsert(type, block.id)}
+                  variant="icon"
+                  label={`Insert block after ${blockLabel(block)}`}
+                  className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
+                />
+              </div>
+            ) : null}
           </React.Fragment>
         )
       })}
@@ -899,7 +1057,7 @@ function NotebookDocumentContent({
         </p>
       ) : null}
 
-      {isReadOnly ? null : (
+      {isReadOnly || orderedIds.length === 0 ? null : (
         <div className="pt-2" data-print-hide>
           <BlockPicker
             onInsert={(type) => void handleInsert(type)}
@@ -909,11 +1067,11 @@ function NotebookDocumentContent({
           />
         </div>
       )}
-      {!isReadOnly ? (
+      {!isReadOnly && orderedIds.length > 0 ? (
         <p className="text-xs text-muted-foreground" data-print-hide>
           Type / in empty text to insert a block. Alt+↑/↓ reorders the focused
-          block. Alt+Enter or Insert text below adds a text block. The block
-          menu also duplicates or deletes.
+          block; Ctrl+↑/↓ moves focus between blocks. Alt+Enter adds text below.
+          The block menu also duplicates or deletes.
         </p>
       ) : null}
 
@@ -945,11 +1103,13 @@ function NotebookDocumentContent({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this block?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmDelete &&
-              confirmDelete.type === 'sheet' &&
-              isCanonicalSheetBlock(confirmDelete.payload)
-                ? 'The block will be removed from the notebook. The Sheet Instance is not archived or deleted, and you can undo immediately after deleting.'
-                : 'The block will be removed from the notebook. You can undo immediately after deleting.'}
+              {confirmDelete && unsavedBlockIds.has(confirmDelete.id)
+                ? 'This block has edits that have not saved. Deleting now discards those edits. You can undo immediately after deleting.'
+                : confirmDelete &&
+                    confirmDelete.type === 'sheet' &&
+                    isCanonicalSheetBlock(confirmDelete.payload)
+                  ? 'The block will be removed from the notebook. The Sheet Instance is not archived or deleted, and you can undo immediately after deleting.'
+                  : 'The block will be removed from the notebook. You can undo immediately after deleting.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -969,22 +1129,6 @@ function NotebookDocumentContent({
   )
 }
 
-/**
- * Some block payloads are immutable after a lifecycle event (pinned
- * protocol reference, frozen chart). The DB trigger rejects any payload
- * change for these, so title editing must be disabled to avoid silent
- * save failures.
- */
-function isPayloadImmutable(block: NotebookBlockData): boolean {
-  if (block.type === 'protocol_reference') {
-    return Boolean(block.payload.protocolRecordId)
-  }
-  if (block.type === 'chart') {
-    return Boolean(block.payload.frozen)
-  }
-  return false
-}
-
 function blockLabel(block: NotebookBlockData): string {
   const map: Record<string, string> = {
     rich_text: 'Text',
@@ -1000,6 +1144,8 @@ function blockLabel(block: NotebookBlockData): string {
     procedure_step: 'Procedure step',
     protocol_reference: 'Protocol',
     materials: 'Materials',
+    analysis: 'Analysis',
+    pipeline_output: 'Pipeline output',
   }
   return map[block.type] ?? block.type
 }

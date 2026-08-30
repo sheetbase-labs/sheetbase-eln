@@ -239,7 +239,10 @@ function useBlockAutosave<T>(
     touched,
   })
 
-  React.useEffect(() => {
+  // Report before the browser can move focus into another block. The
+  // document keeps non-clean editors mounted until autosave settles, which
+  // preserves drafts and conflict controls across block navigation.
+  React.useLayoutEffect(() => {
     onStatusChange?.(autosave.status)
   }, [autosave.status, onStatusChange])
 
@@ -1537,8 +1540,8 @@ function ChartBlockEditor({
   const previewLoading =
     (!frozen && datasetQuery.isLoading) ||
     Boolean(frozen && frozenPinsDatasetVersion(frozen) && pinnedRows.isLoading)
-  const frozenFacets = reconstructed?.facets
-    ?? (frozen ? materialiseFrozenFacets(frozen) : null)
+  const frozenFacets =
+    reconstructed?.facets ?? (frozen ? materialiseFrozenFacets(frozen) : null)
 
   return (
     <div className="space-y-4">

@@ -162,7 +162,8 @@ export function RichTextEditor({
           if (event.key === 'Enter') {
             event.preventDefault()
             const filtered = slashCommandFilteredOptions(menu.query)
-            const selected = filtered[menu.index]
+            const selected = filtered.at(menu.index)
+            if (!selected) return true
             if (selected.type === 'rich_text') {
               // Stay in the same block — just remove the /query text.
               removeSlashQuery(view)
@@ -185,15 +186,19 @@ export function RichTextEditor({
         if (!menu.open) {
           const { doc, selection } = view.state
           const isCollapsed = selection.from === selection.to
+          const hasModifier =
+            event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
 
           // Enter at end of the last top-level paragraph/heading → new block
-          if (event.key === 'Enter' && !event.shiftKey && isCollapsed) {
-            const isAtDocEnd = selection.to === doc.content.size
+          if (event.key === 'Enter' && !hasModifier && isCollapsed) {
             const $from = selection.$from
-            const isTopLevel = $from.depth === 1
+            const isLastTopLevel =
+              $from.depth === 1 && $from.index(0) === doc.content.childCount - 1
+            const isAtBlockEnd =
+              $from.parentOffset === $from.parent.content.size
             if (
-              isAtDocEnd &&
-              isTopLevel &&
+              isLastTopLevel &&
+              isAtBlockEnd &&
               $from.parent.textContent.length > 0
             ) {
               event.preventDefault()
@@ -203,7 +208,7 @@ export function RichTextEditor({
           }
 
           // Backspace at start of an empty block → delete and focus previous
-          if (event.key === 'Backspace' && isCollapsed) {
+          if (event.key === 'Backspace' && !hasModifier && isCollapsed) {
             const isEmpty = doc.textContent.trim() === ''
             const $from = selection.$from
             if (isEmpty && $from.parentOffset === 0) {
@@ -214,7 +219,7 @@ export function RichTextEditor({
           }
 
           // ArrowUp at start of first paragraph → previous block
-          if (event.key === 'ArrowUp' && !event.shiftKey && isCollapsed) {
+          if (event.key === 'ArrowUp' && !hasModifier && isCollapsed) {
             const $from = selection.$from
             const isFirstTopLevel = $from.depth === 1 && $from.index(0) === 0
             if ($from.parentOffset === 0 && isFirstTopLevel) {
@@ -225,7 +230,7 @@ export function RichTextEditor({
           }
 
           // ArrowDown at end of last paragraph → next block
-          if (event.key === 'ArrowDown' && !event.shiftKey && isCollapsed) {
+          if (event.key === 'ArrowDown' && !hasModifier && isCollapsed) {
             const $from = selection.$from
             const isLastTopLevel =
               $from.depth === 1 && $from.index(0) === doc.content.childCount - 1

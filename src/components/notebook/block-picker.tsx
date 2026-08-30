@@ -189,8 +189,9 @@ export function BlockPicker({
         size="icon-sm"
         aria-label={label}
         disabled={disabled}
+        className="rounded-full border bg-background shadow-xs"
       >
-        <Pilcrow className="size-4" />
+        <Plus className="size-3.5" />
       </Button>
     ) : (
       <Button

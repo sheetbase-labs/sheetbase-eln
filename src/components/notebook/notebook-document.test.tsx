@@ -5,8 +5,17 @@
  * are stubbed so no RPC or QueryClient context is required.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import * as React from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { NotebookDocument } from './notebook-document'
@@ -105,68 +114,73 @@ describe('NotebookDocument — rendering', () => {
   })
 
   it('renders an honest, labelled frozen chart preview', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
     render(
-      <NotebookDocument
-        record={record}
-        blocks={[
-          {
-            ...richTextBlock('chart-1', ''),
-            type: 'chart',
-            payload: {
-              title: 'Frozen stability snapshot (qPCR)',
-              spec: null,
-              frozen: {
-                revisionId: null,
-                frozenAt: '2025-07-14T10:00:00Z',
-                frozenByUserId: 'u1',
-                datasetProvenance: [
-                  {
-                    datasetId: '00000000-0000-4000-8000-000000000170',
-                    schemaVersion: 1,
-                    rowCount: 2,
-                    checksum: 'abc12345',
+      <QueryClientProvider client={client}>
+        <NotebookDocument
+          record={record}
+          blocks={[
+            {
+              ...richTextBlock('chart-1', ''),
+              type: 'chart',
+              payload: {
+                title: 'Frozen stability snapshot (qPCR)',
+                spec: null,
+                frozen: {
+                  revisionId: null,
+                  frozenAt: '2025-07-14T10:00:00Z',
+                  frozenByUserId: 'u1',
+                  datasetProvenance: [
+                    {
+                      datasetId: '00000000-0000-4000-8000-000000000170',
+                      schemaVersion: 1,
+                      rowCount: 2,
+                      checksum: 'abc12345',
+                    },
+                  ],
+                  data: {
+                    columns: [
+                      {
+                        fieldId: 'c1',
+                        label: 'Time (days)',
+                        logicalType: 'decimal',
+                        unit: { symbol: 'd' },
+                      },
+                      {
+                        fieldId: 'c2',
+                        label: 'Log titer',
+                        logicalType: 'decimal',
+                        unit: { symbol: 'log₁₀' },
+                      },
+                    ],
+                    rows: [
+                      { col_time: 0, col_titer: 7.2 },
+                      { col_time: 28, col_titer: 5.9 },
+                    ],
+                    series: [
+                      {
+                        identifier: '4 °C',
+                        label: '4 °C',
+                        color: '#006EDC',
+                        points: [
+                          { x: 0, y: 7.2, yError: null, label: '4 °C' },
+                          { x: 28, y: 5.9, yError: null, label: '4 °C' },
+                        ],
+                      },
+                    ],
                   },
-                ],
-                data: {
-                  columns: [
-                    {
-                      fieldId: 'c1',
-                      label: 'Time (days)',
-                      logicalType: 'decimal',
-                      unit: { symbol: 'd' },
-                    },
-                    {
-                      fieldId: 'c2',
-                      label: 'Log titer',
-                      logicalType: 'decimal',
-                      unit: { symbol: 'log₁₀' },
-                    },
-                  ],
-                  rows: [
-                    { col_time: 0, col_titer: 7.2 },
-                    { col_time: 28, col_titer: 5.9 },
-                  ],
-                  series: [
-                    {
-                      identifier: '4 °C',
-                      label: '4 °C',
-                      color: '#006EDC',
-                      points: [
-                        { x: 0, y: 7.2, yError: null, label: '4 °C' },
-                        { x: 28, y: 5.9, yError: null, label: '4 °C' },
-                      ],
-                    },
-                  ],
                 },
               },
             },
-          },
-        ]}
-        onSaveBlock={vi.fn()}
-        onInsertBlock={vi.fn()}
-        onDuplicateBlock={vi.fn()}
-        onDeleteBlock={vi.fn()}
-      />,
+          ]}
+          onSaveBlock={vi.fn()}
+          onInsertBlock={vi.fn()}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+        />
+      </QueryClientProvider>,
     )
 
     expect(
@@ -229,6 +243,201 @@ describe('NotebookDocument — insertion', () => {
     await user.click(screen.getByRole('button', { name: /Add block/ }))
     await user.click(screen.getByRole('menuitem', { name: /^Text/ }))
     expect(onInsertBlock).toHaveBeenCalledWith('rich_text', undefined)
+  })
+
+  it('turns an empty notebook into a focused first block', async () => {
+    const user = userEvent.setup()
+
+    function EmptyAuthoringHarness() {
+      const [blocks, setBlocks] = React.useState<NotebookBlock[]>([])
+      return (
+        <NotebookDocument
+          record={record}
+          blocks={blocks}
+          onSaveBlock={async () => ({ ok: true })}
+          onInsertBlock={async (type) => {
+            const inserted: NotebookBlock = {
+              id: 'new-block',
+              recordId: record.id,
+              type,
+              payload: {
+                doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+              },
+              payloadSchemaVersion: 1,
+              order: 1,
+              version: 1,
+            }
+            setBlocks([inserted])
+            return inserted.id
+          }}
+          onDuplicateBlock={async () => undefined}
+          onDeleteBlock={async () => undefined}
+        />
+      )
+    }
+
+    const { container } = render(<EmptyAuthoringHarness />)
+    expect(screen.getByText('Start this Notebook')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Start writing' }))
+
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    await waitFor(() => {
+      const anchor = container.querySelector('#block-new-block')
+      expect(anchor?.contains(document.activeElement)).toBe(true)
+      expect(anchor?.querySelector('[data-state="editing"]')).toBeTruthy()
+    })
+    expect(editor).toBe(document.activeElement)
+  })
+
+  it('deletes the sole empty text block and refocuses the empty Notebook start', async () => {
+    const user = userEvent.setup()
+    const onDeleteBlock = vi.fn()
+    const emptyBlock: NotebookBlock = {
+      ...richTextBlock('only-block', ''),
+      payload: {
+        doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+      },
+    }
+
+    function SoleEmptyBlockHarness() {
+      const [blocks, setBlocks] = React.useState([emptyBlock])
+      return (
+        <NotebookDocument
+          record={record}
+          blocks={blocks}
+          onSaveBlock={async () => ({ ok: true })}
+          onInsertBlock={async () => undefined}
+          onDuplicateBlock={async () => undefined}
+          onDeleteBlock={async (block) => {
+            onDeleteBlock(block)
+            setBlocks([])
+          }}
+        />
+      )
+    }
+
+    const { container } = render(<SoleEmptyBlockHarness />)
+    await user.click(container.querySelector('#block-only-block')!)
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    await waitFor(() => expect(editor).toBe(document.activeElement))
+
+    await user.keyboard('{Backspace}')
+
+    await waitFor(() => {
+      expect(onDeleteBlock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'only-block' }),
+      )
+      expect(screen.getByText('Start this Notebook')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Start writing' })).toBe(
+        document.activeElement,
+      )
+    })
+  })
+
+  it('offers a keyboard-reachable insertion point between blocks', async () => {
+    const user = userEvent.setup()
+    const onInsertBlock = vi.fn().mockResolvedValue(undefined)
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={onInsertBlock}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    await user.click(
+      screen.getAllByRole('button', { name: 'Insert block after Text' })[0],
+    )
+    await user.click(screen.getByRole('menuitem', { name: /^Checklist/ }))
+    expect(onInsertBlock).toHaveBeenCalledWith('checklist', 'b1')
+  })
+})
+
+describe('NotebookDocument — autosave state across block navigation', () => {
+  it('keeps an unselected draft and its conflict resolution mounted', async () => {
+    const user = userEvent.setup()
+    let resolveSave!: (result: {
+      ok: false
+      kind: 'conflict'
+      message: string
+      serverValue: Record<string, unknown>
+    }) => void
+    const onSaveBlock = vi.fn(
+      () =>
+        new Promise<{
+          ok: false
+          kind: 'conflict'
+          message: string
+          serverValue: Record<string, unknown>
+        }>((resolve) => {
+          resolveSave = resolve
+        }),
+    )
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={[
+          richTextBlock('b1', 'Objective'),
+          richTextBlock('b2', 'Methods'),
+        ]}
+        onSaveBlock={onSaveBlock}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    await user.click(container.querySelector('#block-b1')!)
+    const firstBlock = container.querySelector('#block-b1') as HTMLElement
+    const firstEditor = await within(firstBlock).findByRole('textbox', {
+      name: 'Text content',
+    })
+    await user.click(firstEditor)
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('Local objective')
+
+    await user.click(container.querySelector('#block-b2')!)
+    await waitFor(() => expect(onSaveBlock).toHaveBeenCalledTimes(1))
+    expect(
+      within(firstBlock).getByRole('textbox', { name: 'Text content' })
+        .textContent,
+    ).toBe('Local objective')
+
+    await act(async () => {
+      resolveSave({
+        ok: false,
+        kind: 'conflict',
+        message: 'This block changed elsewhere.',
+        serverValue: {
+          doc: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Server objective' }],
+              },
+            ],
+          },
+        },
+      })
+    })
+
+    expect(
+      await within(firstBlock).findByRole('button', {
+        name: /Use server version/,
+      }),
+    ).toBeTruthy()
+    expect(within(firstBlock).getByText('Server objective')).toBeTruthy()
+    expect(
+      within(firstBlock).getByRole('textbox', { name: 'Text content' })
+        .textContent,
+    ).toBe('Local objective')
+    expect(
+      container.querySelector('#block-b2')?.getAttribute('data-selected'),
+    ).toBe('true')
   })
 })
 
@@ -499,6 +708,46 @@ describe('NotebookDocument — movement via menu', () => {
 })
 
 describe('NotebookDocument — movement via keyboard', () => {
+  it('keeps even a single editable block keyboard selectable', () => {
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b1', 'A')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+    expect(container.querySelector('#block-b1')?.getAttribute('tabindex')).toBe(
+      '0',
+    )
+  })
+
+  it('Ctrl+Arrow navigates between blocks without changing their order', async () => {
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const first = container.querySelector('#block-b1') as HTMLElement
+    first.focus()
+    fireEvent.keyDown(first, { key: 'ArrowDown', ctrlKey: true })
+
+    await waitFor(() => {
+      const second = container.querySelector('#block-b2') as HTMLElement
+      expect(second.dataset.selected).toBe('true')
+      expect(second.contains(document.activeElement)).toBe(true)
+    })
+    expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
+  })
+
   it('Alt+ArrowDown moves the focused block down with the same destination as the menu', () => {
     const onMoveBlock = vi.fn().mockResolvedValue(undefined)
     const { container } = render(

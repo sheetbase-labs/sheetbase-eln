@@ -217,6 +217,8 @@ DECLARE
   v_workflow api.agent_workflows;
   v_step api.agent_workflow_steps;
   v_proposal api.agent_operation_proposals;
+  v_code text;
+  v_message text;
 BEGIN
   SELECT * INTO v_workflow
     FROM api.agent_workflows
@@ -251,14 +253,34 @@ BEGIN
     RETURN v_workflow;
   END IF;
 
-  v_proposal := api.propose_agent_operation(
-    v_workflow.workspace_id,
-    v_step.title,
-    v_step.summary,
-    v_step.operation,
-    v_workflow.provenance,
-    'workflow:' || v_workflow.id::text || ':' || v_step.step_key || ':' || (v_step.attempt + 1)::text
-  );
+  BEGIN
+    v_proposal := api.propose_agent_operation(
+      v_workflow.workspace_id,
+      v_step.title,
+      v_step.summary,
+      v_step.operation,
+      v_workflow.provenance,
+      'workflow:' || v_workflow.id::text || ':' || v_step.step_key || ':' || (v_step.attempt + 1)::text
+    );
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_code = RETURNED_SQLSTATE, v_message = MESSAGE_TEXT;
+    UPDATE api.agent_workflow_steps
+       SET status = 'failed', updated_at = now()
+     WHERE id = v_step.id;
+    UPDATE api.agent_workflows
+       SET status = 'paused', current_step = p_position,
+           revision = revision + 1, updated_at = now()
+     WHERE id = v_workflow.id
+     RETURNING * INTO v_workflow;
+    PERFORM internal.agent_workflow_append_event(
+      v_workflow, 'paused',
+      jsonb_build_object(
+        'stepKey',v_step.step_key,'position',p_position,
+        'errorCode',v_code,'message',left(v_message,2000)
+      )
+    );
+    RETURN v_workflow;
+  END;
 
   UPDATE api.agent_workflow_steps
      SET proposal_id = v_proposal.id, status = 'waiting_approval',
@@ -415,7 +437,14 @@ BEGIN
       RAISE EXCEPTION 'workflow step uses an unbounded or mismatched tool'
         USING ERRCODE = '22023';
     END IF;
-    PERFORM internal.agent_operation_contract(p_workspace_id, v_step->'operation');
+    -- The first operation must be valid against current state. Later
+    -- operations may deliberately name revisions produced by prior steps;
+    -- validate them immediately before proposal creation instead.
+    IF v_position = 0 THEN
+      PERFORM internal.agent_operation_contract(
+        p_workspace_id, v_step->'operation'
+      );
+    END IF;
     FOR v_reference IN
       SELECT value FROM jsonb_array_elements(v_step->'inputReferences')
     LOOP
@@ -582,12 +611,6 @@ BEGIN
     RAISE EXCEPTION 'workflow is not paused at the expected revision'
       USING ERRCODE = 'SB001';
   END IF;
-  PERFORM internal.agent_operation_contract(
-    v_workflow.workspace_id,
-    (SELECT operation FROM api.agent_workflow_steps
-      WHERE workflow_id = v_workflow.id
-        AND position = v_workflow.current_step)
-  );
   PERFORM internal.agent_workflow_append_event(
     v_workflow,'resumed',
     jsonb_build_object('position',v_workflow.current_step)

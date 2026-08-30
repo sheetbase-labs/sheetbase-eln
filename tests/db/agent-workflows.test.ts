@@ -324,6 +324,113 @@ describe('AUTO-05 agentic scientific workflows', () => {
     })
   })
 
+  it('revalidates future steps after prior Dataset writes change the revision', async () => {
+    const agent = await credential()
+    const owner = await actor(OWNER, WS)
+    const schema = await owner.query<{
+      result: { schema_version_id: string }
+    }>(
+      `SELECT api.create_dataset_schema_definition(
+        $1,'auto05_sequential_data','AUTO05 sequential data',NULL,
+        '[{"key":"value","label":"Value","logicalType":"integer","nullable":false}]'::jsonb
+      ) result`,
+      [WS],
+    )
+    const schemaVersionId = schema.rows[0].result.schema_version_id
+    await owner.query(`SELECT api.publish_dataset_schema_version($1)`, [
+      schemaVersionId,
+    ])
+    const field = await migrator.query<{ field_id: string }>(
+      `SELECT field_id FROM api.dataset_schema_version_fields
+        WHERE schema_version_id=$1`,
+      [schemaVersionId],
+    )
+    const dataset = await owner.query<{ id: string }>(
+      `INSERT INTO api.datasets(workspace_id,schema_version_id,name,created_by_user_id)
+       VALUES($1,$2,'AUTO05 sequential target',$3) RETURNING id`,
+      [WS, schemaVersionId, OWNER],
+    )
+    const rowIds = [
+      'a0050000-0000-4000-8000-000000000010',
+      'a0050000-0000-4000-8000-000000000011',
+    ]
+    await owner.query(
+      `SELECT api.commit_dataset_row_batch($1,1,$2::jsonb,'auto05-sequential-seed')`,
+      [
+        dataset.rows[0].id,
+        JSON.stringify(
+          rowIds.map((rowId, index) => ({
+            operation: 'create',
+            rowId,
+            values: { [field.rows[0].field_id]: index + 1 },
+          })),
+        ),
+      ],
+    )
+    const version = await owner.query<{ id: string }>(
+      `SELECT id FROM api.snapshot_dataset($1,2,'AUTO05 sequential input')`,
+      [dataset.rows[0].id],
+    )
+    const plan = {
+      formatVersion: 1,
+      steps: rowIds.map((rowId, index) => ({
+        key: `correct_${index + 1}`,
+        title: `Apply reviewed correction ${index + 1}`,
+        summary: 'Apply one reviewed result through the canonical Dataset RPC.',
+        tool: 'sheetbase.dataset_rows.commit',
+        operation: {
+          kind: 'dataset_rows.commit',
+          datasetId: dataset.rows[0].id,
+          expectedRevision: index + 2,
+          rows: [
+            {
+              operation: 'update',
+              rowId,
+              expectedRevision: 1,
+              values: { [field.rows[0].field_id]: (index + 1) * 10 },
+            },
+          ],
+        },
+        inputReferences: [{ kind: 'dataset_version', id: version.rows[0].id }],
+      })),
+    }
+    const workflow = await createWorkflow(agent, {
+      key: 'sequential_data',
+      plan,
+    })
+
+    for (const expectedWorkflowRevision of [2, 4]) {
+      const proposal = await currentProposal(owner, workflow.id)
+      await owner.query(
+        `SELECT api.decide_agent_operation($1,1,'approve',NULL)`,
+        [proposal.id],
+      )
+      await owner.query(`SELECT api.execute_agent_operation($1,2)`, [
+        proposal.id,
+      ])
+      await agent.query(`SELECT api.advance_agent_workflow($1,$2)`, [
+        workflow.id,
+        expectedWorkflowRevision,
+      ])
+    }
+
+    const completed = await owner.query<{ status: string }>(
+      `SELECT status FROM api.agent_workflows WHERE id=$1`,
+      [workflow.id],
+    )
+    expect(completed.rows[0].status).toBe('succeeded')
+    const values = await owner.query<{
+      result: { rows: Array<{ values: Record<string, unknown> }> }
+    }>(`SELECT api.query_dataset_rows($1,'{}'::jsonb,100,0) result`, [
+      dataset.rows[0].id,
+    ])
+    expect(
+      values.rows[0].result.rows
+        .map((row) => Number(row.values[field.rows[0].field_id]))
+        .sort((a, b) => a - b),
+    ).toEqual([10, 20])
+  })
+
   it('pauses rejected work, requires a human resume, and cancels the retried proposal', async () => {
     const agent = await credential()
     const owner = await actor(OWNER, WS)

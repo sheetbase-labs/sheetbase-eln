@@ -34,7 +34,19 @@ describe('SheetbaseGrid', () => {
 
   it('loads the vendor grid only after mounting in the browser', async () => {
     vi.stubEnv('VITE_HANDSONTABLE_LICENSE_KEY', 'test-commercial-key')
-    render(<SheetbaseGrid settings={{ data: [['Sample', 1]] }} />)
+    render(
+      <SheetbaseGrid
+        ariaLabel="Assay results Sheet"
+        settings={{ data: [['Sample', 1]] }}
+      />,
+    )
+    const region = screen.getByRole('region', {
+      name: 'Assay results Sheet',
+    })
+    expect(region.className).toContain('focus-within:ring-2')
+    expect(
+      screen.getByText(/Shift\+Arrow extends the active range/),
+    ).toBeTruthy()
     expect(screen.getByRole('status').textContent).toContain(
       'Preparing scientific sheet',
     )

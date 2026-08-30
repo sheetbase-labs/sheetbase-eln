@@ -3,6 +3,26 @@
 Electronic lab notebook for biopharma R&D. Full-stack TypeScript app with
 PostgreSQL, PostgREST, and a TanStack Start SSR frontend.
 
+## Development knowledge
+
+Before substantial product, domain or roadmap work, read [`docs/knowledge/README.md`](docs/knowledge/README.md). Canonical product/design/roadmap knowledge and ADRs now live under `docs/knowledge/`:
+
+- `docs/knowledge/PRODUCT.md`
+- `docs/knowledge/DESIGN.md`
+- `docs/knowledge/ROADMAP.md`
+- `docs/knowledge/roadmap-1/` — completed Roadmap 1 / Core Data Workspace
+- `docs/knowledge/roadmap-2/` — active Roadmap 2
+- `docs/knowledge/roadmap-3/` — Roadmap 3 direction
+- `docs/knowledge/decisions/` — ADRs and decision context
+- `docs/knowledge/concepts/` — historical runnable concepts/prototypes
+- `docs/knowledge/mockups/` — historical visual design/product artefacts
+
+For **reviewing a PR, proposing work, or implementing a roadmap/product change**, follow [`docs/knowledge/agent/workflows.md`](docs/knowledge/agent/workflows.md). Do not substitute PR summaries or historical planning for inspection of the current code and canonical contracts.
+
+When qmd is installed, use the committed [`.qmd/index.yml`](.qmd/index.yml) and [`docs/knowledge/agent/qmd.md`](docs/knowledge/agent/qmd.md) to search the knowledge base before consequential work. Search results are discovery only: open the relevant roadmap task, ADR and canonical documents in full before making architectural or merge judgements.
+
+Implementation/runbook documentation remains directly under `docs/`.
+
 ## Build & run
 
 | Command                          | Purpose                                                 |
@@ -97,76 +117,43 @@ See `.env.example` for all variables and documentation.
 
 ### Rollback
 
-Set `SHEETBASE_APP_IMAGE` to a previous `@sha256` digest and run
-`pnpm deploy:apply`. Restore DB from backup if a migration is incompatible.
+Set `SHEETBASE_APP_IMAGE` to a previous `@sha256` digest and run `pnpm deploy:apply`. Restore DB from backup if a migration is incompatible.
 
 ## Environments and automated delivery
 
-The Hostinger VPS is the shared delivery target. It has two separate Docker
-surfaces; do not combine their Compose projects, databases, volumes, or
-environment files.
+The Hostinger VPS is the shared delivery target. It has two separate Docker surfaces; do not combine their Compose projects, databases, volumes, or environment files.
 
-| Surface     | Public URL                    | Purpose                                | How it deploys                                                    |
-| ----------- | ----------------------------- | -------------------------------------- | ----------------------------------------------------------------- |
-| Production  | `https://app.sheetbase.co.uk` | Real authenticated app                 | Automatically from `main` via `.github/workflows/deploy.yml`      |
-| Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual, deliberate dispatch of `.github/workflows/deploy-dev.yml` |
+| Surface | Public URL | Purpose | How it deploys |
+| --- | --- | --- | --- |
+| Production | `https://app.sheetbase.co.uk` | Real authenticated app | Automatically from `main` via `.github/workflows/deploy.yml` |
+| Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual dispatch of `.github/workflows/deploy-dev.yml` |
 
 ### Development environment
 
-- The development app is a **non-production** demo surface. It uses
-  `SHEETBASE_ENV=development` and `SHEETBASE_DEV_AUTH_FREE=true` to create an
-  explicit auth-free fixture session. Never enable either setting in
-  production.
-- Its VPS checkout is `/opt/sheetbase-dev`, its secret file is
-  `/opt/sheetbase-dev/.env.development`, and it runs `compose.dev.yaml` on
-  loopback port `3100`.
-- To deploy, use **Actions → Deploy development environment**. Select the
-  intended Git ref and enter `deploy-dev` in the confirmation field. The
-  workflow builds immutable GHCR images, migrates, seeds the disposable demo
-  data, restarts only the development Compose project, then proves readiness.
-- Cloudflare Tunnel maps `dev.sheetbase.co.uk` to `127.0.0.1:3100`; it is a
-  one-time VPS/Tunnel configuration, not a per-deploy operation.
-- Development Actions secrets belong to the `development` GitHub environment:
-  `DEV_VPS_SSH_PRIVATE_KEY`, `DEV_VPS_TAILSCALE_IP`, and
-  `DEV_TAILSCALE_AUTH_KEY`.
+- The development app is a non-production demo surface. It uses `SHEETBASE_ENV=development` and `SHEETBASE_DEV_AUTH_FREE=true` to create an explicit auth-free fixture session. Never enable either setting in production.
+- Its VPS checkout is `/opt/sheetbase-dev`, its secret file is `/opt/sheetbase-dev/.env.development`, and it runs `compose.dev.yaml` on loopback port `3100`.
+- To deploy, use **Actions → Deploy development environment** and the deliberate confirmation flow.
+- Cloudflare Tunnel maps `dev.sheetbase.co.uk` to `127.0.0.1:3100`.
 
 ### Agent / AMP delivery workflow
 
-1. Work in a normal branch and open or update a PR. AMP only needs GitHub
-   access; it must not receive VPS, Tailscale, Cloudflare, OAuth, or secret
-   values.
-2. Review the PR locally or in an orb. Use the shared development environment
-   at `https://dev.sheetbase.co.uk` only when a deployed demo of a chosen ref
-   is wanted.
-3. Merge an approved PR to `main`. The production deployment workflow then
-   performs the immutable-image VPS deploy automatically.
-4. Use the development workflow only for an intentional shared demo update; it
-   is not automatic on every branch push.
+1. Work in a normal branch and open or update a PR. AMP only needs GitHub access; it must not receive VPS, Tailscale, Cloudflare, OAuth, or secret values.
+2. Review the PR locally or in an orb. Use the shared development environment only when a deployed demo is wanted.
+3. Merge an approved PR to `main`; production deployment then runs automatically.
+4. Use the development workflow only for an intentional shared demo update.
 
-**Required rules:** keep image references digest-pinned; keep development and
-production data isolated; never put `.env` values in GitHub issues, PR
-comments, logs, code, or agent messages; and validate `/api/health/ready`
-after any deployment change.
+**Required rules:** keep image references digest-pinned; keep development and production data isolated; never put `.env` values in GitHub issues, PR comments, logs, code, or agent messages; validate `/api/health/ready` after deployment changes.
 
 ## Orb / local development
 
-For Amp orb-specific setup (system PostgreSQL, no Docker), see
-`docs/orb-setup.md` and `.agents/setup`. The orb uses the system PostgreSQL
-cluster, not Docker Compose. PostgREST runs as a downloaded binary.
+For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/orb-setup.md` and `.agents/setup`. The orb uses the system PostgreSQL cluster, not Docker Compose. PostgREST runs as a downloaded binary.
 
 ## Project conventions
 
-- **TypeScript paths:** `#/` maps to `src/` (see `tsconfig.json`).
-- **Routing:** TanStack Router with file-based routes. `src/routeTree.gen.ts`
-  is committed — run `pnpm generate-routes` after adding/removing route files,
-  then commit the result. CI and `.agents/setup` do not regenerate it.
-- **API boundary:** The browser never talks to PostgREST directly. All data
-  goes through the same-origin `/api/db/*` proxy (`src/routes/api/db/$.ts`).
-- **Auth:** Better Auth with GitHub OAuth. Database-backed sessions. See
-  `docs/authentication.md`.
-- **Testing:** Vitest for unit/integration, Playwright for E2E. DB tests use a
-  real PostgreSQL instance. See `docs/testing.md`.
-- **Migrations:** Always use `pnpm db:generate` (never hand-edit generated SQL).
-  Migration files are named `NNNN_description.sql`.
-- **Deployment contract:** Images must be referenced by `@sha256` digest, never
-  by tag. The deploy controller validates this. See `docs/deployment.md`.
+- **TypeScript paths:** `#/` maps to `src/`.
+- **Routing:** TanStack Router with committed generated route tree; run `pnpm generate-routes` after route-file changes.
+- **API boundary:** browser data goes through the same-origin `/api/db/*` proxy, never directly to PostgREST.
+- **Auth:** Better Auth with GitHub OAuth and database-backed sessions.
+- **Testing:** Vitest for unit/integration, Playwright for E2E, real PostgreSQL for DB tests.
+- **Migrations:** use `pnpm db:generate`; do not hand-edit generated SQL.
+- **Deployment:** image references are digest-pinned.

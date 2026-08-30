@@ -40,28 +40,24 @@ docs/knowledge/
 ├── design/
 ├── decisions/
 │   ├── 0001-....md          # ADRs
-│   └── context/             # cross-cutting decision summaries
-├── roadmap-1/               # Core Data Workspace
-├── roadmap-2/               # Product & Platform Consolidation
-├── roadmap-3/               # post-Roadmap-2 direction
-├── concepts/                # historical runnable concepts/prototypes
-├── mockups/                 # historical visual design/product artefacts
+│   └── context/
+├── roadmap-1/               # complete
+├── roadmap-2/               # nearly complete / currently active
+├── roadmap-3/               # planned and implementation-ready, not active
+│   ├── PRODUCT_DIRECTION.md
+│   ├── PROGRAMME_MAP.md
+│   ├── tasks/               # 18 capability files / 60 numbered tasks
+│   └── prompts/             # one prompt per capability stream
+├── concepts/
+├── mockups/
 ├── references/
-│   ├── eln-competitors/     # dated competitor evidence
-│   └── competitor-learnings.md
 ├── history/
-│   ├── archive/             # superseded planning pointers/history
-│   └── sci-*.md             # pre-Core scientific programme evidence/plans
 └── agent/
-    ├── agent-context.md
-    ├── development-rules.md
-    ├── workflows.md
-    └── qmd.md
 ```
 
 ## Current work
 
-[`NEXT.md`](NEXT.md) is the only current hand-off file. Programme folders contain programme scope, task definitions, prompts, audits and historical completion evidence, but they do not own a competing `NEXT.md`.
+[`NEXT.md`](NEXT.md) is the only current hand-off file. Programme folders contain scope, task definitions, prompts, audits and historical completion evidence, but they do not own competing `NEXT.md` files.
 
 When merged reality changes what is active or next, update the root `NEXT.md`.
 
@@ -97,37 +93,32 @@ Accepted ADRs live directly under [`decisions/`](decisions/). Cross-cutting summ
 
 [`roadmap-2/`](roadmap-2/) is the Roadmap 2 programme corpus. Current work is tracked only in [`NEXT.md`](NEXT.md); programme-specific task definitions remain under `roadmap-2/tasks/`.
 
-### Roadmap 3
+### Roadmap 3 — Product & Scientific Maturity
 
-[`roadmap-3/README.md`](roadmap-3/README.md) captures the current post-Roadmap-2 direction. It is strategic until decomposed into implementation tasks.
+[`roadmap-3/`](roadmap-3/) is implementation-ready but deliberately inactive until [`NEXT.md`](NEXT.md) promotes it after Roadmap 2 closes.
 
-## Concepts and mockups
+Roadmap 3 now mirrors Roadmap 2's execution model: **18 capability streams containing 60 numbered tasks**, each independently assignable/reviewable with explicit goals, boundaries and exits. Each capability has a matching agent prompt. Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md), [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md).
 
-- [`concepts/`](concepts/) contains historical runnable concepts/prototypes, including the original UI-system prototype and its detailed reference inventory. These are design/product archaeology, not production implementation authority.
-- [`mockups/`](mockups/) contains historical visual product/design artefacts. They are evidence of design evolution, not stronger than current `PRODUCT.md`, `DESIGN.md`, ADRs or implemented product contracts.
+## Concepts, mockups, references and history
 
-## References and history
-
-- [`references/eln-competitors/`](references/eln-competitors/) — dated competitor research.
-- [`references/competitor-learnings.md`](references/competitor-learnings.md) — durable lessons drawn from that research.
-- [`history/evolution-of-sheetbase.md`](history/evolution-of-sheetbase.md)
-- [`history/conversation-synthesis.md`](history/conversation-synthesis.md)
-- [`history/archive/`](history/archive/) — superseded planning material retained only for historical investigation.
-- `history/sci-009-virus-stability-acceptance.md`, `history/sci-010-dataset-schema-registry-plan.md` and `history/sci-011-schema-relationships-plan.md` — pre-Core scientific programme evidence/plans retained as historical context, not current architecture.
+- [`concepts/`](concepts/) contains historical runnable concepts/prototypes. These are design/product archaeology, not production authority.
+- [`mockups/`](mockups/) contains historical visual product/design artefacts.
+- [`references/eln-competitors/`](references/eln-competitors/) contains dated competitor research; [`references/competitor-learnings.md`](references/competitor-learnings.md) records durable lessons.
+- [`history/`](history/) contains product evolution, conversation synthesis and superseded planning/evidence.
 
 ## Agent workflow and search
 
-- [`agent/workflows.md`](agent/workflows.md) defines the expected process for PR review, proposing roadmap/product work, implementation and hand-off.
+- [`agent/workflows.md`](agent/workflows.md) defines PR review, proposal, implementation and hand-off workflows.
 - [`agent/development-rules.md`](agent/development-rules.md) contains cross-cutting engineering constraints.
 - [`agent/qmd.md`](agent/qmd.md) describes qmd search, retrieval and MCP use.
 
-Search is a discovery layer only. Agents must open `NEXT.md`, the relevant roadmap task, ADR and canonical source documents in full before making consequential judgements.
+Search is discovery only. Agents must open `NEXT.md`, the relevant numbered task, ADR and canonical source documents in full before making consequential judgements.
 
 ## Implementation documentation
 
 Operational and subsystem-specific documentation remains directly under `docs/` when its primary purpose is to document the running implementation rather than durable product/roadmap knowledge. This includes deployment, authentication, testing, current API contracts, database access, pipelines, integrations, observability, performance, security, migration/seeding and current subsystem behaviour.
 
-`docs/assets/` remains outside the knowledge base because it contains implementation/PR documentation assets rather than durable product knowledge. `docs/openapi/` remains outside because it is a generated/executable API contract.
+`docs/assets/` remains outside the knowledge base because it contains implementation/PR documentation assets. `docs/openapi/` remains outside because it is a generated/executable API contract.
 
 ## Authority
 
@@ -138,7 +129,7 @@ When documents disagree:
 3. cross-cutting knowledge-base synthesis;
 4. historical conversation, concept, competitor, mockup or superseded planning material.
 
-For current priority/status, `NEXT.md` wins over programme-local historical status text.
+For current priority/status, `NEXT.md` wins over programme-local status text.
 
 ## Maintenance
 

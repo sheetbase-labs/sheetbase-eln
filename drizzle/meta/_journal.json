@@ -1049,6 +1049,13 @@
       "when": 1788116400000,
       "tag": "0151_auto_04_policy_credential",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1788117000000,
+      "tag": "0152_auto_05_agentic_workflows",
+      "breakpoints": true
     }
   ]
 }

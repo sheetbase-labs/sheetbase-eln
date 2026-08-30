@@ -301,6 +301,34 @@ describe('requiredScopes', () => {
     ).toThrow(ExternalTokenError)
   })
 
+  it('lets agents submit, inspect, advance, report, and cancel bounded workflows', () => {
+    for (const resource of [
+      'create_agent_workflow',
+      'advance_agent_workflow',
+      'report_agent_workflow_usage',
+      'cancel_agent_workflow',
+    ]) {
+      expect(requiredScopes('POST', { kind: 'rpc', resource })).toEqual([
+        'agent_operations:write',
+      ])
+    }
+    for (const resource of [
+      'agent_workflows',
+      'agent_workflow_steps',
+      'agent_workflow_events',
+    ]) {
+      expect(requiredScopes('GET', { kind: 'table', resource })).toEqual([
+        'agent_operations:read',
+      ])
+    }
+    expect(() =>
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'resume_agent_workflow',
+      }),
+    ).toThrow(ExternalTokenError)
+  })
+
   it('does not grant scientific:* scopes access to vestigial metadata tables', () => {
     expect(() =>
       requiredScopes('GET', {

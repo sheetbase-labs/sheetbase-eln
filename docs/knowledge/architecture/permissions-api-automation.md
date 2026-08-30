@@ -90,7 +90,9 @@ PostgreSQL derives their preview, impact, risk class and policy decision.
 Reads and previews do not enter this proposal model. Reversible draft
 creation/update is automatic by default when the actor has the matching
 canonical external scope. Dataset row commits remain human-required unless a
-workspace owner or steward delegates a canonical target with bounded limits.
+workspace owner or steward delegates create/append writes for one live service
+credential against a canonical target with a row limit. Updates, overwrites
+and other credentials stay human-required.
 The exact request executes through its canonical Dataset Schema, Sheet
 Definition, Pipeline Definition/version or Dataset row RPC.
 
@@ -103,7 +105,14 @@ evaluation evidence are durable and inspectable. Proposal events and
 normal audit/evidence effects and the proposal records the acting credential.
 
 Publish, submit, sign, amend and lock are not agent operation variants. AUTO-05
-may compose approved single operations, but it must preserve these boundaries.
+composes those proposals as digest-pinned sequential workflows and preserves
+these boundaries. Automatic or delegated proposals may complete a step without
+a human click; human-required steps still pause the workflow.
+
+Workflow resume remains human-only. Cancellation and operation, token, or cost
+budget exhaustion invalidate proposals that have not executed. External agents
+may submit and inspect workflows, report usage, advance completed steps, and
+cancel workflows they created. They cannot approve, execute, or resume a step.
 
 Longer term, contextual AI should assist inside the scientific workspace rather than become a separate “AI product” that ignores Sheetbase structure.
 

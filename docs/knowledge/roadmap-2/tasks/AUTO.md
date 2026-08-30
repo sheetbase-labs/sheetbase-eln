@@ -1,7 +1,6 @@
 # AUTO — Automation
 
-**Status:** AUTO-01/02/03 complete (deterministic Pipelines); AUTO-04
-complete; AUTO-05 later.
+**Status:** complete.
 
 ## Programme goal
 
@@ -108,6 +107,24 @@ are excluded. Multi-step goal orchestration remains AUTO-05. See
 Multi-step goal-driven operations over authorised Sheetbase primitives; bounded toolset; explicit approval boundaries; recovery; reproducibility; cost/usage visibility; no silent destructive action.
 
 **Exit:** agents can assist with meaningful scientific workflows without creating a parallel shadow system.
+
+**Complete.** Agents can submit digest-pinned plans containing 2 to 20
+sequential typed AUTO-04 operations with immutable Dataset Version or
+published Pipeline Version input references. PostgreSQL validates the full
+plan and creates one proposal at a time. AUTO-04 policy still classifies each
+proposal: safe drafts and credential-bound Dataset create/append writes can
+execute automatically and the workflow continues; other Dataset writes remain
+human-required. No workflow RPC mutates scientific data itself.
+
+Workflows pause on rejection or failure. Human-only resume reproposes the same
+pinned operation; cancellation and budget exhaustion invalidate pending or
+approved proposals. Operation, token, and cost budgets and usage remain
+visible with append-only workflow events. `/agent-operations` joins the
+workflow plan, attempts, references, budgets, provenance, and proposal
+evidence in one product workflow. External agents can submit, inspect,
+advance, report usage for, and cancel workflows they created, but cannot
+resume or cross an approval boundary. See ADR 0043 and
+`docs/agent-workflows.md`.
 
 ## Principle
 

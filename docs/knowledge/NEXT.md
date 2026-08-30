@@ -14,34 +14,28 @@ Do not infer current priority from historical roadmap task ordering, old hand-of
 
 ```text
 Roadmap 1    COMPLETE
-Roadmap 2    NEARLY COMPLETE
+Roadmap 2    COMPLETE
 Roadmap 3    PLANNED / IMPLEMENTATION-READY — not active
 ```
 
-## Active Roadmap 2 remainder
+## Roadmap 2 closure
 
-The substantive Roadmap 2 work still to complete is:
+The final active Roadmap 2 tasks are complete:
 
 ```text
 ✓ AUTO-04 — Agent-authored Operations
-▶ AUTO-05 — Agentic Scientific Workflows
+✓ AUTO-05 — Agentic Scientific Workflows
 ```
 
-These are whole named tasks. Do not implement ambiguous fractions of adjacent tasks or broaden one task into another without an explicit planning decision.
+AUTO-05 adds bounded digest-pinned multi-step workflows over AUTO-04 proposals.
+Product contracts: [`docs/agent-operations.md`](../agent-operations.md) and
+[`docs/agent-workflows.md`](../agent-workflows.md). Each operation retains
+canonical permissions, provenance, and evidence. This closes Roadmap 2 without
+adding the adaptive agent planning and autonomy assigned to Roadmap 3.
 
 ### Deferred, not active
 
 **GOV-02 — Organisation Model** remains deliberately ADR-gated/deferred. It is not required to declare Roadmap 2 complete unless a concrete product need causes that decision to be revisited.
-
-## Recommended sequence
-
-1. **AUTO-05 — Agentic Scientific Workflows**
-
-API-04 (Python SDK), API-05 (TypeScript SDK), API-06 (Webhooks), and AUTO-04
-(Agent-authored Operations) are complete. AUTO-05 must build on AUTO-04's
-single-operation proposal/approval boundary and the existing canonical
-Pipeline, permission, provenance, evidence and API contracts. It must not
-create a parallel agent-only workflow or mutation model.
 
 ## After Roadmap 2
 

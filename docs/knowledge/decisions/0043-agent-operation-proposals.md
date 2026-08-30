@@ -52,6 +52,19 @@ evidence trail. Human-attestation actions must remain human-only.
 7. Publish, submit, sign, amend, lock, and other attestation or evidence-boundary
    operations are absent from the operation union. Adding one requires an
    explicit policy decision, not a generic operation escape hatch.
+8. AUTO-05 composes proposals with `api.agent_workflows`, an immutable
+   digest-pinned sequential plan. Each step names one bounded AUTO-04 tool,
+   stores the exact operation and immutable scientific input references, and
+   creates no more than one active proposal.
+9. Workflow progression observes proposal results; it never executes a
+   scientific mutation. A rejected or failed proposal pauses the workflow.
+   Human-only resume revalidates and reproposes the same pinned operation.
+   Cancellation and budget exhaustion invalidate pending or approved
+   proposals so they cannot execute later.
+10. Workflow operation, token, and cost budgets are server-enforced and their
+    usage is visible in an append-only event timeline. External credentials may
+    submit and control workflows they created, but cannot resume, approve, or
+    execute proposals.
 
 ## Consequences
 
@@ -62,5 +75,9 @@ evidence trail. Human-attestation actions must remain human-only.
   failed proposal. Policy delegation does not widen the target or row limit
   captured in the proposal. A policy never applies to a different credential,
   a revoked credential, or a Dataset update.
-- AUTO-05 may orchestrate several proposals later, but it must not weaken this
-  per-operation approval and execution boundary.
+- AUTO-05 orchestrates several proposals without weakening this per-operation
+  policy, approval and execution boundary or changing the Pipeline
+  execution model or adding planning, autonomy, or adaptive tool use that
+  belongs to later intelligent-workspace work. Automatic or delegated AUTO-04
+  proposals may complete a step without a human click; human-required steps
+  still pause the workflow.

@@ -84,7 +84,13 @@ export type AgentOperationRiskClass = 'safe_draft' | 'consequential_write'
 export type AgentOperationApprovalPolicy =
   'automatic' | 'human_required' | 'delegated'
 export type AgentProposalStatus =
-  'pending' | 'approved' | 'rejected' | 'executing' | 'succeeded' | 'failed'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'executing'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
 
 export type AgentOperationPolicyTargetType =
   | 'workspace'
@@ -192,6 +198,7 @@ export interface AgentOperationEvent {
     | 'execution_started'
     | 'execution_succeeded'
     | 'execution_failed'
+    | 'cancelled'
   actor_user_id: string | null
   actor_credential_id: string | null
   detail: Record<string, unknown>

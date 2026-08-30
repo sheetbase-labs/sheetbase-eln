@@ -19,21 +19,22 @@ Roadmap 1/Core is preserved under [`../roadmap-1/`](../roadmap-1/). Roadmap 3 di
 
 ## Programmes
 
-| Prefix | Programme |
-| --- | --- |
-| `PC` | Product Consolidation |
-| `API` | API & Developer Platform |
-| `DATA` | Data Interoperability |
-| `GOV` | Identity, Administration & Governance |
-| `COLLAB` | Collaboration |
-| `SCI` | Scientific Analysis & Visualisation |
-| `INT` | Integrations |
-| `PLAT` | Platform, Operations & Security |
-| `AUTO` | Automation |
+| Prefix   | Programme                             |
+| -------- | ------------------------------------- |
+| `PC`     | Product Consolidation                 |
+| `API`    | API & Developer Platform              |
+| `DATA`   | Data Interoperability                 |
+| `GOV`    | Identity, Administration & Governance |
+| `COLLAB` | Collaboration                         |
+| `SCI`    | Scientific Analysis & Visualisation   |
+| `INT`    | Integrations                          |
+| `PLAT`   | Platform, Operations & Security       |
+| `AUTO`   | Automation                            |
 
 ## Current state
 
-The major product/platform streams are complete or substantially complete. The active Roadmap 2 remainder is tracked centrally in [`../NEXT.md`](../NEXT.md).
+Roadmap 2 is complete. The current cross-roadmap hand-off remains
+[`../NEXT.md`](../NEXT.md).
 
 **GOV-02 — Organisation Model** remains deliberately ADR-gated/deferred rather than an automatic completion requirement.
 

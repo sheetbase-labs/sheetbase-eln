@@ -7090,7 +7090,7 @@ export const agentOperationProposals = api.table(
     ),
     check(
       'chk_agent_operation_proposals_status',
-      sql`${table.status} IN ('pending','approved','rejected','executing','succeeded','failed')`,
+      sql`${table.status} IN ('pending','approved','rejected','executing','succeeded','failed','cancelled')`,
     ),
     check('chk_agent_operation_proposals_revision', sql`${table.revision} > 0`),
     check(
@@ -7156,7 +7156,7 @@ export const agentOperationEvents = api.table(
     ),
     check(
       'chk_agent_operation_events_type',
-      sql`${table.eventType} IN ('proposed','approved','rejected','execution_started','execution_succeeded','execution_failed')`,
+      sql`${table.eventType} IN ('proposed','approved','rejected','execution_started','execution_succeeded','execution_failed','cancelled')`,
     ),
     check(
       'chk_agent_operation_events_actor',
@@ -7164,6 +7164,203 @@ export const agentOperationEvents = api.table(
     ),
     index('idx_agent_operation_events_proposal').on(
       table.proposalId,
+      table.sequence,
+    ),
+  ],
+)
+
+// ---------------------------------------------------------------------------
+// AUTO-05 — bounded multi-step agent workflows.
+//
+// A workflow pins an ordered plan and emits one AUTO-04 proposal at a time.
+// It has no mutation executor of its own. Steps retain exact operations and
+// input references; proposals retain approval and canonical execution evidence.
+// ---------------------------------------------------------------------------
+
+export const agentWorkflows = api.table(
+  'agent_workflows',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    goal: text('goal').notNull(),
+    status: text('status').notNull().default('waiting_approval'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    plan: jsonb('plan').notNull(),
+    planDigest: text('plan_digest').notNull(),
+    provenance: jsonb('provenance').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    maxOperations: integer('max_operations').notNull(),
+    maxTokens: bigint('max_tokens', { mode: 'bigint' }).notNull(),
+    maxCostMicrousd: bigint('max_cost_microusd', { mode: 'bigint' }).notNull(),
+    usedOperations: integer('used_operations').notNull().default(0),
+    usedTokens: bigint('used_tokens', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    usedCostMicrousd: bigint('used_cost_microusd', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    currentStep: integer('current_step').notNull().default(0),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdByCredentialId: uuid('created_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    cancelledByUserId: text('cancelled_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    cancelledByCredentialId: uuid('cancelled_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    cancelledAt: timestamp('cancelled_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    cancellationReason: text('cancellation_reason'),
+    completedAt: timestamp('completed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_agent_workflows_workspace_id').on(table.workspaceId, table.id),
+    unique('uq_agent_workflows_idempotency').on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    check(
+      'chk_agent_workflows_status',
+      sql`${table.status} IN ('waiting_approval','paused','succeeded','cancelled','budget_exhausted')`,
+    ),
+    check('chk_agent_workflows_revision', sql`${table.revision} > 0`),
+    check(
+      'chk_agent_workflows_digest',
+      sql`${table.planDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_agent_workflows_budgets',
+      sql`${table.maxOperations} BETWEEN 1 AND 50 AND ${table.maxTokens} >= 0 AND ${table.maxCostMicrousd} >= 0`,
+    ),
+    check(
+      'chk_agent_workflows_usage',
+      sql`${table.usedOperations} >= 0 AND ${table.usedTokens} >= 0 AND ${table.usedCostMicrousd} >= 0`,
+    ),
+    check(
+      'chk_agent_workflows_author_xor',
+      sql`(${table.createdByUserId} IS NULL) <> (${table.createdByCredentialId} IS NULL)`,
+    ),
+    index('idx_agent_workflows_workspace_status').on(
+      table.workspaceId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+)
+
+export const agentWorkflowSteps = api.table(
+  'agent_workflow_steps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    workflowId: uuid('workflow_id').notNull(),
+    position: integer('position').notNull(),
+    stepKey: text('step_key').notNull(),
+    title: text('title').notNull(),
+    summary: text('summary').notNull(),
+    toolName: text('tool_name').notNull(),
+    operation: jsonb('operation').notNull(),
+    inputReferences: jsonb('input_references')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    status: text('status').notNull().default('planned'),
+    attempt: integer('attempt').notNull().default(0),
+    proposalId: uuid('proposal_id').references(
+      () => agentOperationProposals.id,
+      { onDelete: 'restrict' },
+    ),
+    completedAt: timestamp('completed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    foreignKey({
+      name: 'fk_agent_workflow_steps_workflow',
+      columns: [table.workspaceId, table.workflowId],
+      foreignColumns: [agentWorkflows.workspaceId, agentWorkflows.id],
+    }).onDelete('cascade'),
+    unique('uq_agent_workflow_steps_position').on(
+      table.workflowId,
+      table.position,
+    ),
+    unique('uq_agent_workflow_steps_key').on(table.workflowId, table.stepKey),
+    check('chk_agent_workflow_steps_position', sql`${table.position} >= 0`),
+    check(
+      'chk_agent_workflow_steps_status',
+      sql`${table.status} IN ('planned','waiting_approval','succeeded','rejected','failed','cancelled')`,
+    ),
+    check('chk_agent_workflow_steps_attempt', sql`${table.attempt} >= 0`),
+    index('idx_agent_workflow_steps_workflow').on(
+      table.workflowId,
+      table.position,
+    ),
+  ],
+)
+
+export const agentWorkflowEvents = api.table(
+  'agent_workflow_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    workflowId: uuid('workflow_id').notNull(),
+    sequence: integer('sequence').notNull(),
+    eventType: text('event_type').notNull(),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    actorCredentialId: uuid('actor_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    detail: jsonb('detail')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'fk_agent_workflow_events_workflow',
+      columns: [table.workspaceId, table.workflowId],
+      foreignColumns: [agentWorkflows.workspaceId, agentWorkflows.id],
+    }).onDelete('cascade'),
+    unique('uq_agent_workflow_events_sequence').on(
+      table.workflowId,
+      table.sequence,
+    ),
+    check(
+      'chk_agent_workflow_events_type',
+      sql`${table.eventType} IN ('created','step_proposed','step_succeeded','paused','resumed','usage_reported','budget_exhausted','cancelled','succeeded')`,
+    ),
+    check(
+      'chk_agent_workflow_events_actor',
+      sql`NOT (${table.actorUserId} IS NULL AND ${table.actorCredentialId} IS NULL)`,
+    ),
+    index('idx_agent_workflow_events_workflow').on(
+      table.workflowId,
       table.sequence,
     ),
   ],

@@ -1,9 +1,9 @@
 """Agent operation and workflow resources.
 
-These methods are thin wrappers over the AUTO-04/05 public RPCs. Operation,
-plan, budget and provenance payloads stay in their canonical wire shape and
-are validated by the server; the SDK does not reproduce policy or workflow
-rules.
+These methods are thin wrappers over the public agent operation and workflow
+RPCs. Operation, plan, budget and provenance payloads stay in their canonical
+wire shape and are validated by the server; the SDK does not reproduce policy
+or workflow rules.
 """
 
 from __future__ import annotations

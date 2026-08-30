@@ -3,7 +3,8 @@
  *
  * Operation, plan, budget and provenance values remain canonical wire
  * payloads. PostgreSQL validates policy and workflow semantics; this SDK only
- * maps language-idiomatic parameter names onto the public AUTO-04/05 RPCs.
+ * maps language-idiomatic parameter names onto the public agent operation and
+ * workflow RPCs.
  */
 import type { HttpTransport } from "../http.js";
 

@@ -56,6 +56,6 @@ does not claim method-for-method sync/async symmetry.
 The server remains authoritative for validation, permissions, agent operation
 policy, workflow transitions and budgets, webhook delivery behavior,
 calculation semantics, and all scientific/domain rules. In particular, the
-AUTO-04/05 wrappers accept and return canonical JSON; they do not duplicate
-those rules in an SDK. Dataframe/domain workflow conveniences and release
-automation are outside this matrix.
+agent operation and workflow wrappers accept and return canonical JSON; they
+do not duplicate those rules in an SDK. Dataframe/domain workflow conveniences
+and release automation are outside this matrix.

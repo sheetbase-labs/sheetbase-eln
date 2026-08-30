@@ -14,14 +14,15 @@ The goal is to make repository knowledge, rather than private conversational his
 
 Before substantial work:
 
-1. Read [`../README.md`](../README.md).
-2. Read [`../PRODUCT.md`](../PRODUCT.md), [`../DESIGN.md`](../DESIGN.md), and [`../ROADMAP.md`](../ROADMAP.md) as relevant.
-3. Read [`agent-context.md`](agent-context.md) and [`development-rules.md`](development-rules.md).
-4. Search the knowledge base for the concepts affected by the work. Prefer qmd when available; see [`qmd.md`](qmd.md).
-5. Read the relevant roadmap task and accepted ADRs in full.
-6. Inspect the current implementation and tests. Do not infer present behaviour from roadmap prose alone.
+1. Read [`../NEXT.md`](../NEXT.md) to establish what is currently active or next.
+2. Read [`../README.md`](../README.md).
+3. Read [`../PRODUCT.md`](../PRODUCT.md), [`../DESIGN.md`](../DESIGN.md), and [`../ROADMAP.md`](../ROADMAP.md) as relevant.
+4. Read [`agent-context.md`](agent-context.md) and [`development-rules.md`](development-rules.md).
+5. Search the knowledge base for the concepts affected by the work. Prefer qmd when available; see [`qmd.md`](qmd.md).
+6. Read the relevant roadmap task and accepted ADRs in full.
+7. Inspect the current implementation and tests. Do not infer present behaviour from roadmap prose alone.
 
-Historical documents can explain *why*, but they do not override later canonical decisions, accepted ADRs, or executable contracts.
+Historical documents can explain *why*, but they do not override later canonical decisions, accepted ADRs, executable contracts, or the current priority recorded in `NEXT.md`.
 
 # Reviewing a PR
 
@@ -242,11 +243,14 @@ Tests should prove the behaviour that matters scientifically and architecturally
 
 Update `docs/knowledge/` when the work changes:
 
+- current priority/status (`NEXT.md`);
 - a durable product concept;
-- a roadmap/task status or direction;
+- roadmap direction;
 - an accepted/rejected architectural decision;
 - a cross-cutting invariant;
 - the interpretation of historical material.
+
+Do not add duplicate programme-local hand-off files. `NEXT.md` is the single current cross-roadmap hand-off.
 
 Do not add duplicate knowledge documents for ordinary implementation detail; current subsystem/runbook docs can remain under `docs/`.
 
@@ -260,5 +264,7 @@ A PR should clearly state:
 - removed superseded paths;
 - known limits/non-goals;
 - validation performed.
+
+If merged work changes what is active or next, update `docs/knowledge/NEXT.md` in the same PR or an immediately following documentation PR.
 
 Do not claim completion until the named exit criterion is actually met.

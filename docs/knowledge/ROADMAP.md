@@ -8,6 +8,8 @@ Roadmap 2              NEARLY COMPLETE
 Roadmap 3              DIRECTION DEFINED
 ```
 
+Current priority and hand-off live in [`NEXT.md`](NEXT.md).
+
 ## Destination
 
 Sheetbase is a scientific data workspace where the Notebook provides scientific context and Excel-like Sheet Instances provide the primary structured-data interaction surface while PostgreSQL remains authoritative.
@@ -34,23 +36,13 @@ The Core programme established the canonical data model, reuse/version semantics
 
 ## Roadmap 2 — Product & Platform Consolidation
 
-[`roadmap-2/`](roadmap-2/) contains the active Roadmap 2 execution programme.
+[`roadmap-2/`](roadmap-2/) contains the Roadmap 2 programme corpus.
 
 Completed/substantially completed streams include Product Consolidation, Data, Collaboration, Scientific Analysis & Visualisation, Integrations and Platform maturity, with Governance largely complete.
 
-Active remainder after SCI-04:
-
-```text
-API-04  Python SDK
-API-05  TypeScript SDK
-API-06  Webhooks
-AUTO-04 Agent-authored Operations
-AUTO-05 Agentic Scientific Workflows
-```
+The remaining Roadmap 2 work is maintained in the repository-wide [`NEXT.md`](NEXT.md), not in a Roadmap-2-local hand-off.
 
 GOV-02 Organisation Model remains deliberately ADR-gated/deferred.
-
-Use [`roadmap-2/NEXT.md`](roadmap-2/NEXT.md) for the current execution hand-off.
 
 ## Roadmap 3 — Product and scientific maturity
 

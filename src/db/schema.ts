@@ -242,7 +242,7 @@ export const apiCredentials = internal.table(
     index('idx_api_credentials_secret_hash').on(table.secretHash),
     check(
       'chk_api_credentials_scopes',
-      sql`cardinality(${table.scopes}) > 0 AND ${table.scopes} <@ ARRAY['projects:read','projects:write','datasets:read','datasets:write','schema:read','schema:write','schema:publish','sheets:read','sheets:write','models:read','models:write','templates:read','templates:write','reviews:read','reviews:write','files:read','files:write']::text[]`,
+      sql`cardinality(${table.scopes}) > 0 AND ${table.scopes} <@ ARRAY['projects:read','projects:write','datasets:read','datasets:write','schema:read','schema:write','schema:publish','sheets:read','sheets:write','models:read','models:write','templates:read','templates:write','reviews:read','reviews:write','files:read','files:write','webhooks:read','webhooks:write','agent_operations:read','agent_operations:write']::text[]`,
     ),
     check(
       'chk_api_credentials_kind',
@@ -3561,7 +3561,7 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential')`,
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential', 'connector', 'connector_run', 'pipeline_definition', 'pipeline_definition_version', 'pipeline_run', 'pipeline_schedule', 'webhook_subscription', 'webhook_delivery', 'agent_operation_proposal')`,
     ),
     check(
       'chk_change_events_operation',
@@ -6303,7 +6303,9 @@ export const webhookSubscriptions = api.table(
     description: text('description'),
     url: text('url').notNull(),
     /** Stable event type filters (e.g. ["record.created","dataset.versioned"]). Empty = all. */
-    eventTypes: jsonb('event_types').notNull().default(sql`'[]'`),
+    eventTypes: jsonb('event_types')
+      .notNull()
+      .default(sql`'[]'`),
     maxRetries: integer('max_retries').notNull().default(5),
     consecutiveFailures: integer('consecutive_failures').notNull().default(0),
     /** Auto-disable after this many consecutive failures (0 = never). */
@@ -6338,7 +6340,10 @@ export const webhookSubscriptions = api.table(
     index('idx_webhook_subscriptions_active')
       .on(table.workspaceId)
       .where(sql`status = 'active'`),
-    check('chk_webhook_subscriptions_key', sql`${table.key} ~ '^[a-z][a-z0-9-]{0,48}$'`),
+    check(
+      'chk_webhook_subscriptions_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9-]{0,48}$'`,
+    ),
     check(
       'chk_webhook_subscriptions_url',
       sql`${table.url} ~ '^https://' AND length(${table.url}) <= 2048`,
@@ -6411,7 +6416,10 @@ export const webhookDeliveries = api.table(
     foreignKey({
       name: 'fk_webhook_deliveries_subscription',
       columns: [table.workspaceId, table.subscriptionId],
-      foreignColumns: [webhookSubscriptions.workspaceId, webhookSubscriptions.id],
+      foreignColumns: [
+        webhookSubscriptions.workspaceId,
+        webhookSubscriptions.id,
+      ],
     }).onDelete('cascade'),
     index('idx_webhook_deliveries_workspace').on(table.workspaceId),
     index('idx_webhook_deliveries_subscription').on(
@@ -6463,7 +6471,10 @@ export const webhookSecrets = internal.table(
     foreignKey({
       name: 'fk_webhook_secrets_subscription',
       columns: [table.workspaceId, table.subscriptionId],
-      foreignColumns: [webhookSubscriptions.workspaceId, webhookSubscriptions.id],
+      foreignColumns: [
+        webhookSubscriptions.workspaceId,
+        webhookSubscriptions.id,
+      ],
     }).onDelete('cascade'),
     index('idx_webhook_secrets_workspace').on(table.workspaceId),
     check(
@@ -6907,6 +6918,254 @@ export const pipelineTriggerFailures = api.table(
     check('chk_pipeline_trigger_failures_attempt', sql`${table.attempt} >= 1`),
     index('idx_pipeline_trigger_failures_workspace').on(table.workspaceId),
     index('idx_pipeline_trigger_failures_schedule').on(table.scheduleId),
+  ],
+)
+
+// ---------------------------------------------------------------------------
+// AUTO-04 — inspectable agent-authored operation policies and proposals.
+//
+// Policies delegate only bounded consequential writes. Proposals are durable
+// envelopes around ordinary canonical mutations. They never become a second
+// write path: execution RPCs call the Dataset Schema, Sheet Definition,
+// Pipeline Definition, or Dataset row RPC that a human client would call.
+// ---------------------------------------------------------------------------
+
+export const agentOperationPolicies = api.table(
+  'agent_operation_policies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    credentialId: uuid('credential_id')
+      .notNull()
+      .references(() => apiCredentials.id, { onDelete: 'restrict' }),
+    operationKind: text('operation_kind').notNull(),
+    targetType: text('target_type').notNull(),
+    targetId: uuid('target_id'),
+    limits: jsonb('limits')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    enabled: boolean('enabled').notNull().default(true),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_agent_operation_policies_workspace_name').on(
+      table.workspaceId,
+      table.name,
+    ),
+    check(
+      'chk_agent_operation_policies_kind',
+      sql`${table.operationKind} IN ('dataset_schema.create','sheet_definition.create','sheet_definition.update_draft','pipeline_definition.create','pipeline_definition.create_version','pipeline_definition.update_draft','dataset_rows.commit')`,
+    ),
+    check(
+      'chk_agent_operation_policies_target_type',
+      sql`${table.targetType} IN ('workspace','project','record','dataset','pipeline_definition','dataset_schema','sheet_definition','sheet_definition_version')`,
+    ),
+    check(
+      'chk_agent_operation_policies_target_id',
+      sql`(${table.targetType} = 'workspace' AND ${table.targetId} IS NULL) OR (${table.targetType} <> 'workspace' AND ${table.targetId} IS NOT NULL)`,
+    ),
+    check(
+      'chk_agent_operation_policies_limits',
+      sql`jsonb_typeof(${table.limits}) = 'object' AND (${table.limits}->>'maxAffectedRows' IS NULL OR ((${table.limits}->>'maxAffectedRows')::integer BETWEEN 1 AND 1000))`,
+    ),
+    index('idx_agent_operation_policies_workspace').on(
+      table.workspaceId,
+      table.enabled,
+      table.operationKind,
+    ),
+    index('idx_agent_operation_policies_credential').on(
+      table.workspaceId,
+      table.credentialId,
+      table.enabled,
+    ),
+  ],
+)
+
+export const agentOperationProposals = api.table(
+  'agent_operation_proposals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    title: text('title').notNull(),
+    summary: text('summary').notNull(),
+    operationKind: text('operation_kind').notNull(),
+    operation: jsonb('operation').notNull(),
+    preview: jsonb('preview').notNull(),
+    impact: jsonb('impact').notNull(),
+    riskClass: text('risk_class').notNull().default('consequential_write'),
+    approvalPolicy: text('approval_policy').notNull().default('human_required'),
+    policyId: uuid('policy_id').references(() => agentOperationPolicies.id, {
+      onDelete: 'restrict',
+    }),
+    policyReason: text('policy_reason').notNull().default(''),
+    policyLimits: jsonb('policy_limits')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    policyTarget: jsonb('policy_target')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    policyEvidence: jsonb('policy_evidence')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: text('status').notNull().default('pending'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    idempotencyKey: text('idempotency_key').notNull(),
+    requestDigest: text('request_digest').notNull(),
+    provenance: jsonb('provenance').notNull(),
+    proposedByUserId: text('proposed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    proposedByCredentialId: uuid('proposed_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    approvedByUserId: text('approved_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    approvedAt: timestamp('approved_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    rejectedByUserId: text('rejected_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    rejectedAt: timestamp('rejected_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    rejectionReason: text('rejection_reason'),
+    executedByUserId: text('executed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    executedByCredentialId: uuid('executed_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    executedAt: timestamp('executed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    result: jsonb('result'),
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_agent_operation_proposals_workspace_id').on(
+      table.workspaceId,
+      table.id,
+    ),
+    unique('uq_agent_operation_proposals_idempotency').on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    check(
+      'chk_agent_operation_proposals_kind',
+      sql`${table.operationKind} IN ('dataset_schema.create','sheet_definition.create','sheet_definition.update_draft','pipeline_definition.create','pipeline_definition.create_version','pipeline_definition.update_draft','dataset_rows.commit')`,
+    ),
+    check(
+      'chk_agent_operation_proposals_policy',
+      sql`${table.approvalPolicy} IN ('automatic','human_required','delegated')`,
+    ),
+    check(
+      'chk_agent_operation_proposals_risk',
+      sql`${table.riskClass} IN ('safe_draft','consequential_write')`,
+    ),
+    check(
+      'chk_agent_operation_proposals_policy_payload',
+      sql`jsonb_typeof(${table.policyLimits}) = 'object' AND jsonb_typeof(${table.policyTarget}) = 'object' AND jsonb_typeof(${table.policyEvidence}) = 'object'`,
+    ),
+    check(
+      'chk_agent_operation_proposals_status',
+      sql`${table.status} IN ('pending','approved','rejected','executing','succeeded','failed')`,
+    ),
+    check('chk_agent_operation_proposals_revision', sql`${table.revision} > 0`),
+    check(
+      'chk_agent_operation_proposals_digest',
+      sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_agent_operation_proposals_author_xor',
+      sql`(${table.proposedByUserId} IS NULL) <> (${table.proposedByCredentialId} IS NULL)`,
+    ),
+    check(
+      'chk_agent_operation_proposals_approval_actor',
+      sql`${table.approvalPolicy} <> 'human_required' OR ${table.status} NOT IN ('approved','executing','succeeded','failed') OR (${table.approvedByUserId} IS NOT NULL AND ${table.approvedAt} IS NOT NULL)`,
+    ),
+    check(
+      'chk_agent_operation_proposals_execution_actor',
+      sql`${table.status} NOT IN ('executing','succeeded','failed') OR ((${table.executedByUserId} IS NOT NULL)::int + (${table.executedByCredentialId} IS NOT NULL)::int) = 1`,
+    ),
+    index('idx_agent_operation_proposals_workspace_status').on(
+      table.workspaceId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+)
+
+export const agentOperationEvents = api.table(
+  'agent_operation_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    proposalId: uuid('proposal_id').notNull(),
+    sequence: integer('sequence').notNull(),
+    eventType: text('event_type').notNull(),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    actorCredentialId: uuid('actor_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    detail: jsonb('detail')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'fk_agent_operation_events_proposal',
+      columns: [table.workspaceId, table.proposalId],
+      foreignColumns: [
+        agentOperationProposals.workspaceId,
+        agentOperationProposals.id,
+      ],
+    }).onDelete('cascade'),
+    unique('uq_agent_operation_events_sequence').on(
+      table.proposalId,
+      table.sequence,
+    ),
+    check(
+      'chk_agent_operation_events_type',
+      sql`${table.eventType} IN ('proposed','approved','rejected','execution_started','execution_succeeded','execution_failed')`,
+    ),
+    check(
+      'chk_agent_operation_events_actor',
+      sql`NOT (${table.actorUserId} IS NULL AND ${table.actorCredentialId} IS NULL)`,
+    ),
+    index('idx_agent_operation_events_proposal').on(
+      table.proposalId,
+      table.sequence,
+    ),
   ],
 )
 

@@ -128,7 +128,12 @@ AUTO-01/02/03 established the canonical deterministic Pipeline definition/versio
 
 ### Agents use the same platform semantics
 
-Future agent-authored operations must respect canonical permissions, provenance, evidence and APIs.
+Agent-authored operations use typed, single-operation proposals with
+deterministic previews, human-session approval, optimistic concurrency and
+agent/tool/model provenance. Execution delegates to canonical Dataset Schema,
+Sheet Definition, Pipeline Definition/version and Dataset row RPCs.
+Attestation and evidence-boundary operations remain outside the agent
+operation contract. See ADR 0043.
 
 ## Scientific analysis
 

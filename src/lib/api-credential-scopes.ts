@@ -27,6 +27,8 @@ export const VALID_SCOPES = [
   'files:write',
   'webhooks:read',
   'webhooks:write',
+  'agent_operations:read',
+  'agent_operations:write',
 ] as const
 
 export type Scope = (typeof VALID_SCOPES)[number]
@@ -111,5 +113,12 @@ export const SCOPE_GROUPS: ReadonlyArray<{
       'Webhook subscription management and delivery history. Requires integrations.manage capability.',
     effective: true,
     scopes: ['webhooks:read', 'webhooks:write'],
+  },
+  {
+    title: 'Agent operations',
+    description:
+      'Submit and inspect typed operation proposals. Safe drafts may execute automatically; consequential writes remain human-required unless delegated by an owner or steward.',
+    effective: true,
+    scopes: ['agent_operations:read', 'agent_operations:write'],
   },
 ]

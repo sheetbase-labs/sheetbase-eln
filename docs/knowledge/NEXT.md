@@ -23,8 +23,8 @@ Roadmap 3    PLANNED / IMPLEMENTATION-READY — not active
 The substantive Roadmap 2 work still to complete is:
 
 ```text
-▶ AUTO-04 — Agent-authored Operations
-  AUTO-05 — Agentic Scientific Workflows
+✓ AUTO-04 — Agent-authored Operations
+▶ AUTO-05 — Agentic Scientific Workflows
 ```
 
 These are whole named tasks. Do not implement ambiguous fractions of adjacent tasks or broaden one task into another without an explicit planning decision.
@@ -35,10 +35,13 @@ These are whole named tasks. Do not implement ambiguous fractions of adjacent ta
 
 ## Recommended sequence
 
-1. **AUTO-04 — Agent-authored Operations**
-2. **AUTO-05 — Agentic Scientific Workflows**
+1. **AUTO-05 — Agentic Scientific Workflows**
 
-API-04 (Python SDK), API-05 (TypeScript SDK), and API-06 (Webhooks) are complete. The external platform surface is now complete. AUTO-04/05 should build on the existing canonical Pipeline, permission, provenance, evidence and API contracts rather than create parallel agent-only models.
+API-04 (Python SDK), API-05 (TypeScript SDK), API-06 (Webhooks), and AUTO-04
+(Agent-authored Operations) are complete. AUTO-05 must build on AUTO-04's
+single-operation proposal/approval boundary and the existing canonical
+Pipeline, permission, provenance, evidence and API contracts. It must not
+create a parallel agent-only workflow or mutation model.
 
 ## After Roadmap 2
 

@@ -67,12 +67,16 @@ exchange and rotation.
 | `reviews:read`                       | Preview a submission digest. Does not run revision checks             |
 | `reviews:write`                      | Mintable. Does not submit, sign or amend                              |
 | `schema:read`                        | Catalogue GET only                                                    |
+| `webhooks:read` / `webhooks:write`   | Subscriptions and delivery history                                    |
+| `agent_operations:read` / `agent_operations:write` | Inspect and submit typed proposals. Does not approve, execute, or create policies |
 
 ### Still fail-closed
 
 `schema:write`, `schema:publish` and `files:*` remain mintable but do not open
-authoring or file RPCs. `sheets:write` does not author Sheet Definitions.
-Dataset **data** scopes stay distinct from `schema:*`.
+direct authoring or file RPCs. `schema:write` does let
+`propose_agent_operation` auto-execute a safe draft (see
+[`agent-operations.md`](agent-operations.md)). `sheets:write` does not author
+Sheet Definitions. Dataset **data** scopes stay distinct from `schema:*`.
 
 `scientific:*` scopes are **removed**, not deprecated. Requesting them at
 `POST /api/token` returns `invalid_scope`.
@@ -109,6 +113,11 @@ model mappings. Project-domain RPCs still require `projects:write`.
 Direct INSERT/UPDATE/DELETE on `revisions` is not granted. Submit, sign,
 amend and revision checks stay human-session-only; a credential with
 `reviews:write` cannot call them.
+
+Agent operations: `propose_agent_operation` is on the allowlist under
+`agent_operations:write`. Policy create/disable, `decide_agent_operation`,
+and `execute_agent_operation` are not. See
+[`agent-operations.md`](agent-operations.md).
 
 ### Denied examples (fail closed)
 

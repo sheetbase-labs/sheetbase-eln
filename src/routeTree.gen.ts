@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AgentOperationsRouteImport } from './routes/agent-operations'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as ConfigureRouteImport } from './routes/configure'
@@ -75,6 +76,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentOperationsRoute = AgentOperationsRouteImport.update({
+  id: '/agent-operations',
+  path: '/agent-operations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalysisRoute = AnalysisRouteImport.update({
@@ -364,6 +370,7 @@ const ProjectsProjectIdExperimentsRecordIdOverviewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
   '/configure': typeof ConfigureRoute
@@ -423,6 +430,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
   '/configure': typeof ConfigureRoute
@@ -483,6 +491,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
   '/configure': typeof ConfigureRoute
@@ -544,6 +553,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/agent-operations'
     | '/analysis'
     | '/calendar'
     | '/configure'
@@ -603,6 +613,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/agent-operations'
     | '/analysis'
     | '/calendar'
     | '/configure'
@@ -662,6 +673,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/agent-operations'
     | '/analysis'
     | '/calendar'
     | '/configure'
@@ -722,6 +734,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  AgentOperationsRoute: typeof AgentOperationsRoute
   AnalysisRoute: typeof AnalysisRoute
   CalendarRoute: typeof CalendarRoute
   ConfigureRoute: typeof ConfigureRoute
@@ -785,6 +798,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent-operations': {
+      id: '/agent-operations'
+      path: '/agent-operations'
+      fullPath: '/agent-operations'
+      preLoaderRoute: typeof AgentOperationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analysis': {
@@ -1264,6 +1284,7 @@ const ReviewsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  AgentOperationsRoute: AgentOperationsRoute,
   AnalysisRoute: AnalysisRoute,
   CalendarRoute: CalendarRoute,
   ConfigureRoute: ConfigureRoute,

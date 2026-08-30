@@ -40,23 +40,23 @@ The Core programme established the canonical data model, reuse/version semantics
 
 Completed/substantially completed streams include Product Consolidation, Data, Collaboration, Scientific Analysis & Visualisation, Integrations and Platform maturity, with Governance largely complete.
 
-The remaining Roadmap 2 work is maintained in the repository-wide [`NEXT.md`](NEXT.md), not in a Roadmap-2-local hand-off.
+The remaining Roadmap 2 work is maintained in repository-wide [`NEXT.md`](NEXT.md), not in a Roadmap-2-local hand-off.
 
 GOV-02 Organisation Model remains deliberately ADR-gated/deferred.
 
 ## Roadmap 3 — Product & Scientific Maturity
 
-[`roadmap-3/`](roadmap-3/) is now implementation-ready but not active until [`NEXT.md`](NEXT.md) promotes it.
+[`roadmap-3/`](roadmap-3/) is implementation-ready but not active until [`NEXT.md`](NEXT.md) promotes it.
 
-It contains five programmes and 18 named tasks:
+Roadmap 3 uses the same execution shape as Roadmap 2: a capability stream owns a task file containing sequential numbered tasks plus a matching agent prompt. It currently contains **18 capability streams and 60 discrete tasks**:
 
-1. **Product Depth** — NAV-01, GRID-01, NOTE-01, FIND-01
-2. **Scientific Depth** — KNOW-01, VIEW-01, MODEL-01, REUSE-01
-3. **Open Platform** — SDK-01, EVENT-01, EXT-01, ADMIN-01
-4. **Intelligent Workspace** — AI-01, ASSIST-01, AUTO-PLUS-01
-5. **Institutionalise** — ENT-ORG-01, GXP-01, OPS-01
+1. **Product Depth — 15:** NAV-01..03, GRID-01..05, NOTE-01..04, FIND-01..03
+2. **Scientific Depth — 14:** KNOW-01..03, VIEW-01..04, MODEL-01..04, REUSE-01..03
+3. **Open Platform — 12:** SDK-01..03, EVENT-01..03, EXT-01..03, ADMIN-01..03
+4. **Intelligent Workspace — 9:** AI-01..03, ASSIST-01..03, AUTO-PLUS-01..03
+5. **Institutionalise — 10:** ENT-ORG-01..03, GXP-01..04, OPS-01..03
 
-Each task has explicit scope, non-goals, dependencies, required evidence and an exit criterion. See [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md).
+Each numbered task is independently assignable/reviewable and has an explicit goal, scope/boundaries and exit criterion. See [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md).
 
 Governing principle:
 

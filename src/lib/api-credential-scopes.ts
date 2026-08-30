@@ -117,7 +117,7 @@ export const SCOPE_GROUPS: ReadonlyArray<{
   {
     title: 'Agent operations',
     description:
-      'Submit and inspect typed operation proposals. Approval and execution always require a human session.',
+      'Submit and inspect typed proposals and bounded workflows. Approval, execution, and workflow resume require a human session.',
     effective: true,
     scopes: ['agent_operations:read', 'agent_operations:write'],
   },

@@ -160,6 +160,9 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   webhook_deliveries: { read: 'webhooks:read' },
   agent_operation_proposals: { read: 'agent_operations:read' },
   agent_operation_events: { read: 'agent_operations:read' },
+  agent_workflows: { read: 'agent_operations:read' },
+  agent_workflow_steps: { read: 'agent_operations:read' },
+  agent_workflow_events: { read: 'agent_operations:read' },
 }
 
 /**
@@ -230,6 +233,10 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   replay_webhook_delivery: ['webhooks:write'],
 
   propose_agent_operation: ['agent_operations:write'],
+  create_agent_workflow: ['agent_operations:write'],
+  advance_agent_workflow: ['agent_operations:write'],
+  report_agent_workflow_usage: ['agent_operations:write'],
+  cancel_agent_workflow: ['agent_operations:write'],
 }
 
 const READ_METHODS = new Set(['GET', 'HEAD'])

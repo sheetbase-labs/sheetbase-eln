@@ -4,7 +4,7 @@
 
 ```text
 Roadmap 1              COMPLETE
-Roadmap 2              NEARLY COMPLETE
+Roadmap 2              COMPLETE
 Roadmap 3              PLANNED / IMPLEMENTATION-READY
 ```
 
@@ -38,9 +38,10 @@ The Core programme established the canonical data model, reuse/version semantics
 
 [`roadmap-2/`](roadmap-2/) contains the Roadmap 2 programme corpus.
 
-Completed/substantially completed streams include Product Consolidation, Data, Collaboration, Scientific Analysis & Visualisation, Integrations and Platform maturity, with Governance largely complete.
-
-The remaining Roadmap 2 work is maintained in repository-wide [`NEXT.md`](NEXT.md), not in a Roadmap-2-local hand-off.
+Roadmap 2 is complete. Its streams consolidated the product, data,
+collaboration, scientific analysis, integrations, platform, API, governance,
+deterministic Pipelines, inspectable agent operations, and bounded agent
+workflows.
 
 GOV-02 Organisation Model remains deliberately ADR-gated/deferred.
 

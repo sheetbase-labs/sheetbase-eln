@@ -42,7 +42,7 @@ docs/knowledge/
 │   ├── 0001-....md          # ADRs
 │   └── context/
 ├── roadmap-1/               # complete
-├── roadmap-2/               # nearly complete / currently active
+├── roadmap-2/               # complete
 ├── roadmap-3/               # planned and implementation-ready, not active
 │   ├── PRODUCT_DIRECTION.md
 │   ├── PROGRAMME_MAP.md
@@ -91,7 +91,8 @@ Accepted ADRs live directly under [`decisions/`](decisions/). Cross-cutting summ
 
 ### Roadmap 2 — Product & Platform Consolidation
 
-[`roadmap-2/`](roadmap-2/) is the Roadmap 2 programme corpus. Current work is tracked only in [`NEXT.md`](NEXT.md); programme-specific task definitions remain under `roadmap-2/tasks/`.
+[`roadmap-2/`](roadmap-2/) is the completed Roadmap 2 programme corpus.
+Programme-specific task definitions remain under `roadmap-2/tasks/`.
 
 ### Roadmap 3 — Product & Scientific Maturity
 

@@ -1028,6 +1028,13 @@
       "when": 1788107137927,
       "tag": "0148_auto_04_agent_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1788108396164,
+      "tag": "0149_auto_05_agentic_workflows",
+      "breakpoints": true
     }
   ]
 }

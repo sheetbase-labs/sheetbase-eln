@@ -6359,6 +6359,11 @@ export const webhookSubscriptions = api.table(
       'chk_webhook_subscriptions_desc',
       sql`${table.description} IS NULL OR length(btrim(${table.description})) BETWEEN 1 AND 2000`,
     ),
+    check(
+      'chk_webhook_subscriptions_actor_xor',
+      sql`(${table.createdByUserId} IS NULL) <> (${table.createdByCredentialId} IS NULL)
+          OR (${table.createdByUserId} IS NULL AND ${table.createdByCredentialId} IS NULL)`,
+    ),
   ],
 )
 
@@ -6376,6 +6381,8 @@ export const webhookDeliveries = api.table(
     eventType: text('event_type').notNull(),
     /** Full signed JSON payload sent to the endpoint. */
     payload: jsonb('payload').notNull(),
+    /** Exact signed body text (preserved for retry/replay byte-accuracy). */
+    body: text('body').notNull(),
     /** HMAC-SHA256 signature hex for this payload. */
     signature: text('signature').notNull(),
     attempt: integer('attempt').notNull().default(0),

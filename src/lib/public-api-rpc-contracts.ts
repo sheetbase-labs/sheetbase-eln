@@ -67,6 +67,14 @@ function jsonMap(description: string): JsonSchema {
   }
 }
 
+function jsonArray(description: string): JsonSchema {
+  return {
+    type: 'array',
+    items: { $ref: '#/components/schemas/JsonValue' },
+    description,
+  }
+}
+
 const parameterInputs: JsonSchema = {
   type: 'array',
   maxItems: 64,
@@ -232,6 +240,8 @@ const datasetVersionRow = ref('DatasetVersionsRow')
 const sheetInstanceRow = ref('SheetInstancesRow')
 const recordLinkRow = ref('RecordLinksRow')
 const revisionRow = ref('RevisionsRow')
+const webhookSubscriptionRow = ref('WebhookSubscriptionsRow')
+const webhookDeliveryRow = ref('WebhookDeliveriesRow')
 
 const pgrstRow = (row: JsonSchema, description: string): JsonSchema => ({
   description: `${description} PostgREST returns a JSON array of composite rows by default.`,
@@ -1300,8 +1310,88 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_parameter_inputs: parameterInputs,
     },
     result: ref('NotebookUpgradeApplyResult'),
-  },
-}
+    },
+    // -- API-06: Webhooks -------------------------------------------------------
+    create_webhook_subscription: {
+    summary: 'Create a webhook subscription',
+    description:
+      'Creates a subscription in the JWT workspace. Returns the subscription row and a generated signing secret (returned exactly once).',
+    required: ['p_workspace_id', 'p_key', 'p_url'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_key: text('Subscription key (lowercase, hyphenated, max 49 chars).'),
+      p_url: text('HTTPS webhook endpoint URL.'),
+      p_event_types: jsonArray('JSON array of stable event type filters. Empty = all events.'),
+      p_description: text('Human-readable description.'),
+      p_max_retries: int('Maximum delivery retries (0–25).', { minimum: 0, maximum: 25 }),
+      p_failure_threshold: int('Auto-disable after this many consecutive failures (0 = never).', { minimum: 0, maximum: 100 }),
+      p_signing_secret: text('Optional signing secret (auto-generated if omitted).'),
+    },
+    result: ref('WebhookSubscriptionResult'),
+    },
+    update_webhook_subscription: {
+    summary: 'Update a webhook subscription',
+    description:
+      'Updates URL, event types, description, status, or retry config. Re-enabling resets consecutive_failures.',
+    required: ['p_workspace_id', 'p_subscription_id'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_subscription_id: uuid('Subscription UUID.'),
+      p_url: text('New HTTPS webhook endpoint URL.'),
+      p_event_types: jsonArray('JSON array of stable event type filters.'),
+      p_description: text('Human-readable description.'),
+      p_status: text('Subscription status (active, paused, disabled, archived).'),
+      p_max_retries: int('Maximum delivery retries (0–25).', { minimum: 0, maximum: 25 }),
+      p_failure_threshold: int('Auto-disable after this many consecutive failures.', { minimum: 0, maximum: 100 }),
+    },
+    result: pgrstRow(webhookSubscriptionRow, 'Updated subscription.'),
+    },
+    delete_webhook_subscription: {
+    summary: 'Archive a webhook subscription',
+    description: 'Soft-archives the subscription (status → archived).',
+    required: ['p_workspace_id', 'p_subscription_id'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_subscription_id: uuid('Subscription UUID.'),
+    },
+    result: pgrstRow(webhookSubscriptionRow, 'Archived subscription.'),
+    },
+    rotate_webhook_secret: {
+    summary: 'Rotate the webhook signing secret',
+    description:
+      'Generates a new signing secret and stores it. The new secret is returned exactly once.',
+    required: ['p_workspace_id', 'p_subscription_id'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_subscription_id: uuid('Subscription UUID.'),
+      p_new_secret: text('Optional new secret (auto-generated if omitted).'),
+    },
+    result: ref('WebhookSecretRotationResult'),
+    },
+    list_webhook_deliveries: {
+    summary: 'List webhook delivery history',
+    description: 'Returns paginated delivery history for the workspace, optionally filtered by subscription or status.',
+    required: ['p_workspace_id'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_subscription_id: uuid('Optional subscription UUID filter.'),
+      p_limit: int('Page size (1–200, default 50).', { minimum: 1, maximum: 200 }),
+      p_offset: int('Page offset (default 0).', { minimum: 0 }),
+      p_status: text('Optional status filter (pending, delivered, failed, retrying).'),
+    },
+    result: ref('WebhookDeliveryListResult'),
+    },
+    replay_webhook_delivery: {
+    summary: 'Replay a webhook delivery',
+    description: 'Creates a new pending delivery from an existing one, preserving the original payload and signature.',
+    required: ['p_workspace_id', 'p_delivery_id'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_delivery_id: uuid('Delivery UUID to replay.'),
+    },
+    result: pgrstRow(webhookDeliveryRow, 'New pending delivery row.'),
+    },
+    }
 
 const missing = Object.keys(EXTERNAL_RPC_SCOPES).filter(
   (name) => !Object.hasOwn(RPC_CONTRACTS, name),

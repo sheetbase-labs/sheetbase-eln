@@ -103,7 +103,7 @@ describe('API-06 Webhooks', () => {
     it('creates a subscription as workspace owner', async () => {
       const c = await asOwner()
       const { rows } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3, $4, $5)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3, $4, $5) AS result`,
         [
           WS_A,
           'test-hook-1',
@@ -113,7 +113,7 @@ describe('API-06 Webhooks', () => {
         ],
       )
       expect(rows).toHaveLength(1)
-      const sub = rows[0]
+      const sub = rows[0].result.subscription
       expect(sub.key).toBe('test-hook-1')
       expect(sub.url).toBe('https://example.com/webhook')
       expect(sub.status).toBe('active')
@@ -121,6 +121,8 @@ describe('API-06 Webhooks', () => {
       expect(sub.failure_threshold).toBe(10)
       expect(sub.consecutive_failures).toBe(0)
       expect(sub.created_by_user_id).toBe(OWNER_A)
+      // Signing secret is returned exactly once.
+      expect(rows[0].result.signing_secret).toMatch(/^[0-9a-f]{32,}$/)
     })
 
     it('rejects non-HTTPS URLs', async () => {
@@ -156,13 +158,14 @@ describe('API-06 Webhooks', () => {
     it('creates a subscription as api_client credential', async () => {
       const c = await asApiCredential()
       const { rows } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3, $4)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3, $4) AS result`,
         [WS_A, 'cred-hook-1', 'https://example.com/cred-webhook', JSON.stringify([])],
       )
       expect(rows).toHaveLength(1)
-      expect(rows[0].key).toBe('cred-hook-1')
-      expect(rows[0].created_by_credential_id).toBe(CRED_A)
-      expect(rows[0].created_by_user_id).toBeNull()
+      const sub = rows[0].result.subscription
+      expect(sub.key).toBe('cred-hook-1')
+      expect(sub.created_by_credential_id).toBe(CRED_A)
+      expect(sub.created_by_user_id).toBeNull()
     })
   })
 
@@ -170,10 +173,10 @@ describe('API-06 Webhooks', () => {
     it('updates URL and status', async () => {
       const c = await asOwner()
       const { rows: created } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
         [WS_A, 'update-test', 'https://example.com/initial'],
       )
-      const subId = created[0].id
+      const subId = created[0].result.subscription.id
 
       const { rows } = await c.query(
         `SELECT * FROM api.update_webhook_subscription($1, $2, $3, $4, $5)`,
@@ -187,10 +190,10 @@ describe('API-06 Webhooks', () => {
       const c = await asOwner()
       // Create a subscription, then manually set it to disabled with failures.
       const { rows: created } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
         [WS_A, 'reenable-test', 'https://example.com/re'],
       )
-      const subId = created[0].id
+      const subId = created[0].result.subscription.id
 
       await migrator.query(
         `UPDATE api.webhook_subscriptions SET consecutive_failures = 10, status = 'disabled' WHERE id = $1`,
@@ -208,10 +211,10 @@ describe('API-06 Webhooks', () => {
     it('rejects update from a viewer', async () => {
       const c = await asOwner()
       const { rows: created } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
         [WS_A, 'viewer-test', 'https://example.com/vt'],
       )
-      const subId = created[0].id
+      const subId = created[0].result.subscription.id
 
       const viewer = await asRole('authenticator')
       clients.push(viewer)
@@ -230,10 +233,10 @@ describe('API-06 Webhooks', () => {
     it('archives the subscription (soft delete)', async () => {
       const c = await asOwner()
       const { rows: created } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
         [WS_A, 'delete-test', 'https://example.com/del'],
       )
-      const subId = created[0].id
+      const subId = created[0].result.subscription.id
 
       const { rows } = await c.query(
         `SELECT * FROM api.delete_webhook_subscription($1, $2)`,
@@ -247,16 +250,18 @@ describe('API-06 Webhooks', () => {
     it('rotates the signing secret', async () => {
       const c = await asOwner()
       const { rows: created } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
         [WS_A, 'rotate-test', 'https://example.com/rot'],
       )
-      const subId = created[0].id
+      const subId = created[0].result.subscription.id
 
       const { rows } = await c.query(
         `SELECT api.rotate_webhook_secret($1, $2) AS result`,
         [WS_A, subId],
       )
       expect(rows[0].result.ok).toBe(true)
+      // The new signing secret is returned exactly once.
+      expect(rows[0].result.signing_secret).toMatch(/^[0-9a-f]{32,}$/)
     })
   })
 
@@ -289,19 +294,20 @@ describe('API-06 Webhooks', () => {
       const c = await asOwner()
       // Create a subscription.
       const { rows: subs } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
         [WS_A, 'replay-test', 'https://example.com/replay'],
       )
-      const subId = subs[0].id
+      const subId = subs[0].result.subscription.id
 
       // Insert a delivery record directly as migrator.
       const changeEventId = '00000000-0000-4000-8000-0000000000e1'
       const deliveryId = '00000000-0000-4000-8000-0000000000d1'
+      const body = JSON.stringify({ eventType: 'record.created' })
       await migrator.query(
         `INSERT INTO api.webhook_deliveries
           (id, workspace_id, subscription_id, change_event_id, event_type,
-           payload, signature, attempt, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 1, 'delivered')`,
+           payload, body, signature, attempt, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'delivered')`,
         [
           deliveryId,
           WS_A,
@@ -309,6 +315,7 @@ describe('API-06 Webhooks', () => {
           changeEventId,
           'record.created',
           JSON.stringify({ eventType: 'record.created' }),
+          body,
           'sha256=dummy',
         ],
       )
@@ -320,24 +327,25 @@ describe('API-06 Webhooks', () => {
       expect(rows[0].status).toBe('pending')
       expect(rows[0].attempt).toBe(0)
       expect(rows[0].event_type).toBe('record.created')
+      expect(rows[0].body).toBe(body)
       expect(rows[0].id).not.toBe(deliveryId) // new row
     })
 
     it('rejects replay from a viewer', async () => {
       const c = await asOwner()
       const { rows: subs } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
         [WS_A, 'replay-viewer-test', 'https://example.com/rvt'],
       )
-      const subId = subs[0].id
+      const subId = subs[0].result.subscription.id
 
       const deliveryId = '00000000-0000-4000-8000-0000000000d2'
       await migrator.query(
         `INSERT INTO api.webhook_deliveries
           (id, workspace_id, subscription_id, change_event_id, event_type,
-           payload, signature, status)
-         VALUES ($1, $2, $3, '00000000-0000-4000-8000-0000000000e2', 'dataset.updated', $4, 'sha256=x', 'delivered')`,
-        [deliveryId, WS_A, subId, JSON.stringify({ eventType: 'dataset.updated' })],
+           payload, body, signature, status)
+         VALUES ($1, $2, $3, '00000000-0000-4000-8000-0000000000e2', 'dataset.updated', $4, $5, 'sha256=x', 'delivered')`,
+        [deliveryId, WS_A, subId, JSON.stringify({ eventType: 'dataset.updated' }), JSON.stringify({ eventType: 'dataset.updated' })],
       )
 
       const viewer = await asRole('authenticator')
@@ -357,7 +365,7 @@ describe('API-06 Webhooks', () => {
     it('disables subscription after failure threshold is reached', async () => {
       const c = await asOwner()
       const { rows: subs } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3, $4, $5, $6, $7)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3, $4, $5, $6, $7) AS result`,
         [
           WS_A,
           'auto-disable-test',
@@ -368,16 +376,16 @@ describe('API-06 Webhooks', () => {
           3, // failure_threshold
         ],
       )
-      const subId = subs[0].id
+      const subId = subs[0].result.subscription.id
 
       // Create a delivery and fail it 3 times.
       const deliveryId = '00000000-0000-4000-8000-0000000000a1'
       await migrator.query(
         `INSERT INTO api.webhook_deliveries
           (id, workspace_id, subscription_id, change_event_id, event_type,
-           payload, signature, status)
-         VALUES ($1, $2, $3, '00000000-0000-4000-8000-0000000000a0', 'record.created', $4, 'sha256=x', 'pending')`,
-        [deliveryId, WS_A, subId, JSON.stringify({ eventType: 'record.created' })],
+           payload, body, signature, status)
+         VALUES ($1, $2, $3, '00000000-0000-4000-8000-0000000000a0', 'record.created', $4, $5, 'sha256=x', 'pending')`,
+        [deliveryId, WS_A, subId, JSON.stringify({ eventType: 'record.created' }), JSON.stringify({ eventType: 'record.created' })],
       )
 
       // Fail 3 times — should auto-disable.
@@ -389,11 +397,15 @@ describe('API-06 Webhooks', () => {
       }
 
       const { rows: statusRows } = await migrator.query(
-        `SELECT status, consecutive_failures FROM api.webhook_subscriptions WHERE id = $1`,
-        [subId],
+        `SELECT s.status, s.consecutive_failures, d.attempt
+           FROM api.webhook_subscriptions s, api.webhook_deliveries d
+          WHERE s.id = $1 AND d.id = $2`,
+        [subId, deliveryId],
       )
       expect(statusRows[0].status).toBe('disabled')
       expect(statusRows[0].consecutive_failures).toBe(3)
+      // attempt is incremented on each failure.
+      expect(statusRows[0].attempt).toBe(3)
     })
   })
 
@@ -401,10 +413,10 @@ describe('API-06 Webhooks', () => {
     it('stores a signing secret in internal.webhook_secrets', async () => {
       const c = await asOwner()
       const { rows: subs } = await c.query(
-        `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
         [WS_A, 'secret-test', 'https://example.com/sec'],
       )
-      const subId = subs[0].id
+      const subId = subs[0].result.subscription.id
 
       const { rows: secrets } = await migrator.query(
         `SELECT secret_name, ciphertext FROM internal.webhook_secrets WHERE subscription_id = $1`,
@@ -412,7 +424,9 @@ describe('API-06 Webhooks', () => {
       )
       expect(secrets).toHaveLength(1)
       expect(secrets[0].secret_name).toBe('signing_secret')
-      // The secret is a 64-char hex string.
+      // The RPC stores the raw secret as plaintext; the app server encrypts
+      // it on first read using the sealed-secret pattern (sealSecret/openSecret).
+      // The generated secret is a 64-char hex string (two UUIDs concatenated).
       expect(secrets[0].ciphertext.toString('utf8')).toMatch(/^[0-9a-f]{64}$/)
     })
   })

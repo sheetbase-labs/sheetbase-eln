@@ -22,6 +22,15 @@ const pipelineSchedulerMiddleware = createMiddleware().server(async ({ next }) =
   return next()
 })
 
+// API-06: webhook delivery engine. LISTENs for change events, matches
+// active subscriptions, and attempts signed HTTP POST delivery with
+// retries and auto-disablement. Started lazily per-process.
+const webhookDeliveryMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startWebhookDeliveryEngine } = await import('#/lib/webhook-delivery')
+  startWebhookDeliveryEngine()
+  return next()
+})
+
 // Preserve TanStack Start's default CSRF protection for server functions.
 // Providing requestMiddleware replaces the framework default list, so CSRF
 // must be declared here explicitly.
@@ -66,6 +75,7 @@ export const startInstance = createStart(() => ({
   requestMiddleware: [
     securityHeadersMiddleware,
     pipelineSchedulerMiddleware,
+    webhookDeliveryMiddleware,
     csrfMiddleware,
   ],
 }))

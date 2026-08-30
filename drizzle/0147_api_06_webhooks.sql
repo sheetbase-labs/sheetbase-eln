@@ -86,6 +86,8 @@ CREATE TABLE "api"."webhook_deliveries" (
   "event_type" text NOT NULL,
   -- The full signed payload (JSON body sent to the endpoint).
   "payload" jsonb NOT NULL,
+  -- The exact signed body text (preserved for retry/replay byte-accuracy).
+  "body" text NOT NULL,
   -- HMAC-SHA256 signature hex for this payload.
   "signature" text NOT NULL,
   -- Delivery attempt tracking.
@@ -191,6 +193,10 @@ ALTER TABLE internal.api_credentials
 
 -- ---------------------------------------------------------------------------
 -- Capability: api_client can manage webhooks via integrations.manage.
+--
+-- Additive change to the 0140 has_capability: add 'integrations.manage' to
+-- the api_client allowlist and GRANT EXECUTE to api_client. The full 0140
+-- function is preserved (mask guard, pipelines.manage branch, etc.).
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION api.has_capability(p_workspace_id uuid, p_capability text)
@@ -204,6 +210,12 @@ DECLARE
   v_role text;
   v_mask text;
 BEGIN
+  v_mask := nullif(btrim(current_setting('sheetbase.capability_mask', true)), '');
+  IF v_mask IS NOT NULL
+     AND coalesce(current_setting('role', true), '') = 'api_client' THEN
+    RAISE EXCEPTION 'capability mask is not caller-controlled'
+      USING ERRCODE = '42501';
+  END IF;
   IF p_workspace_id IS NULL
      OR p_capability IS NULL
      OR btrim(p_capability) = ''
@@ -225,7 +237,6 @@ BEGIN
     RETURN false;
   END IF;
   IF session_user = 'migrator' THEN
-    v_mask := nullif(btrim(current_setting('sheetbase.capability_mask', true)), '');
     IF v_mask IS NOT NULL THEN
       RETURN p_capability = ANY (
         string_to_array(regexp_replace(v_mask, '\s', '', 'g'), ',')
@@ -238,6 +249,9 @@ BEGIN
     WHEN p_capability IN ('schema.edit', 'schema.publish', 'schema.retire') THEN
       RETURN v_role IN ('owner', 'admin', 'steward');
     WHEN p_capability = 'integrations.manage' THEN
+      RETURN v_role IN ('owner', 'admin', 'steward');
+    -- AUTO-01/03: Pipeline Definition/Version/Schedule authoring surface.
+    WHEN p_capability = 'pipelines.manage' THEN
       RETURN v_role IN ('owner', 'admin', 'steward');
     WHEN p_capability IN ('record.link', 'record.create', 'instance.upgrade') THEN
       RETURN v_role IN (
@@ -279,7 +293,7 @@ CREATE OR REPLACE FUNCTION api.create_webhook_subscription(
   p_failure_threshold integer DEFAULT 10,
   p_signing_secret text DEFAULT NULL
 )
-RETURNS api.webhook_subscriptions
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
@@ -340,15 +354,16 @@ BEGIN
 
   -- Generate or store the signing secret in internal.webhook_secrets.
   v_secret_text := COALESCE(p_signing_secret, replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''));
-  -- The actual encryption happens server-side; the RPC stores a marker.
-  -- The app server setWebhookSecret function handles encryption.
-  -- For api_client path, we store the raw secret as ciphertext temporarily;
-  -- the app server re-encrypts on first use. This is acceptable because
-  -- internal.webhook_secrets is not accessible via PostgREST.
+  -- The secret is stored as raw UTF-8 text; the app server encrypts it on
+  -- first read using the sealed-secret pattern (sealSecret/openSecret with
+  -- a domain-separated key). internal.webhook_secrets is not accessible
+  -- via PostgREST so the plaintext window is bounded.
   INSERT INTO internal.webhook_secrets(workspace_id, subscription_id, secret_name, ciphertext, created_by_user_id)
   VALUES (p_workspace_id, v.id, 'signing_secret', convert_to(v_secret_text, 'UTF8'), v_actor_user);
 
-  RETURN v;
+  -- Return the subscription row and the generated signing secret exactly
+  -- once. The secret is never retrievable after this call.
+  RETURN jsonb_build_object('subscription', to_jsonb(v), 'signing_secret', v_secret_text);
 END $$;
 --> statement-breakpoint
 REVOKE EXECUTE ON FUNCTION api.create_webhook_subscription(uuid, text, text, jsonb, text, integer, integer, text) FROM PUBLIC;
@@ -535,7 +550,9 @@ BEGIN
   UPDATE internal.webhook_secrets
     SET ciphertext = convert_to(v_secret, 'UTF8'), updated_at = now()
    WHERE subscription_id = p_subscription_id AND secret_name = 'signing_secret';
-  RETURN jsonb_build_object('ok', true, 'subscriptionId', p_subscription_id);
+  -- Return the new signing secret exactly once. The secret is never
+  -- retrievable after this call.
+  RETURN jsonb_build_object('ok', true, 'subscriptionId', p_subscription_id, 'signing_secret', v_secret);
 END $$;
 --> statement-breakpoint
 REVOKE EXECUTE ON FUNCTION api.rotate_webhook_secret(uuid, uuid, text) FROM PUBLIC;
@@ -637,10 +654,10 @@ BEGIN
 
   INSERT INTO api.webhook_deliveries(
     workspace_id, subscription_id, change_event_id, event_type,
-    payload, signature, attempt, status, next_attempt_at
+    payload, body, signature, attempt, status, next_attempt_at
   ) VALUES (
     p_workspace_id, v_original.subscription_id, v_original.change_event_id,
-    v_original.event_type, v_original.payload, v_original.signature,
+    v_original.event_type, v_original.payload, v_original.body, v_original.signature,
     0, 'pending', now()
   ) RETURNING * INTO v_new;
   RETURN v_new;
@@ -686,6 +703,9 @@ BEGIN
 
   UPDATE api.webhook_deliveries SET
     status = p_status,
+    -- Increment attempt counter on each retry or permanent failure so the
+    -- engine does not re-read attempt 0 and retry indefinitely.
+    attempt = CASE WHEN p_status IN ('retrying', 'failed') THEN attempt + 1 ELSE attempt END,
     response_status = p_response_status,
     response_body = CASE
       WHEN p_response_body IS NOT NULL AND length(p_response_body) > 10000

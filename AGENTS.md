@@ -42,15 +42,16 @@ Implementation/runbook documentation remains directly under `docs/`.
 
 ## Database
 
-| Command              | Purpose                                    |
-| -------------------- | ------------------------------------------ |
-| `pnpm db:migrate`    | Apply Drizzle migrations                   |
-| `pnpm db:generate`   | Generate new migration from schema changes |
-| `pnpm db:seed:demo`  | Seed demo data                             |
-| `pnpm db:seed:month` | Seed month-scale data                      |
-| `pnpm db:fresh`      | Reset + migrate + seed                     |
+| Command              | Purpose                                          |
+| -------------------- | ------------------------------------------------ |
+| `pnpm db:migrate`    | Apply Drizzle migrations                         |
+| `pnpm db:generate`   | Generate new migration from schema changes       |
+| `pnpm db:seed:demo`  | Seed demo data                                   |
+| `pnpm db:seed:month` | Seed month-scale data                            |
+| `pnpm db:reset`      | Reset the database (guarded; local dev DBs only) |
+| `pnpm db:fresh`      | Reset + migrate + seed                           |
 
-Migrations are in `drizzle/` (55 files, 0000–0054). Schema source:
+Migrations are in `drizzle/` (148 files, 0000–0149). Schema source:
 `src/db/schema.ts`. Migration config: `drizzle.config.ts`. The migration
 connection uses `MIGRATION_DATABASE_URL` (dedicated `migrator` role), not the
 app `DATABASE_URL`.
@@ -90,8 +91,12 @@ See `.env.example` for all variables and documentation.
 - **VPS:** Private, accessed via Tailscale only. No open inbound ports.
 - **Public traffic:** Cloudflare Tunnel routes `app.sheetbase.co.uk` →
   `http://localhost:3000` on the VPS.
-- **CI/CD:** GitHub Actions (`.github/workflows/deploy.yml`) on push to `main`:
-  build immutable Docker image → push to GHCR → SSH deploy via Tailscale.
+- **CI/CD:** GitHub Actions (`.github/workflows/deploy.yml`) is **paused**
+  (PLAT-03): the trigger block is commented out. The canonical release path
+  is `pnpm release:local` (`scripts/release.sh`) run on the VPS. See
+  `docs/deployment.md`.
+- **Release gate:** the workflow and `scripts/release.sh` run the same gate:
+  typecheck, lint, tests, build, and a production dependency audit.
 - **Deploy controller:** `scripts/deploy.ts` validates `@sha256` image
   references, runs migrations as a one-shot, starts the app, and polls the
   readiness endpoint. See `docs/deployment.md` for the full contract.
@@ -100,20 +105,33 @@ See `.env.example` for all variables and documentation.
 
 ### Deploy workflow
 
-1. Push to `main` → GitHub Actions builds + pushes images to GHCR.
-2. Action joins Tailscale, SSHes to VPS at `/opt/sheetbase`.
-3. Loads `/opt/sheetbase/.env.production` (never committed).
-4. `pnpm deploy:plan` — validates image/migration compatibility.
-5. `pnpm deploy:apply` — migrate → start app → readiness check.
-6. Cloudflare Tunnel stays up — only the app container restarts.
+Canonical path today — run on the VPS:
+
+1. Fetch the release commit on the VPS checkout (`/opt/sheetbase`).
+2. `pnpm release:local` — release gate (typecheck, lint, unit tests,
+   production dependency audit, database tests against a disposable
+   PostgreSQL container), local image build with `@sha256` digest pinning,
+   then `deploy:plan` and `deploy:apply`.
+3. `pnpm deploy:plan` validates image/migration compatibility.
+4. `pnpm deploy:apply` — migrate (one-shot) → start app → readiness check
+   against `/api/health/ready`.
+5. Cloudflare Tunnel stays up — only the app container restarts.
+
+When the GitHub Actions trigger is re-enabled: push to `main` → `verify`
+gate job → `build` pushes images to GHCR → Action joins Tailscale, SSHes
+to the VPS, loads `/opt/sheetbase/.env.production` (never committed), and
+runs the same `deploy:plan` / `deploy:apply` steps.
 
 ### Required GitHub Secrets
 
-| Secret                | Purpose                         |
-| --------------------- | ------------------------------- |
-| `VPS_SSH_PRIVATE_KEY` | SSH key for the VPS deploy user |
-| `VPS_TAILSCALE_IP`    | Tailscale IP of the VPS         |
-| `TAILSCALE_AUTH_KEY`  | Tailscale auth key for CI nodes |
+| Secret                    | Purpose                              |
+| ------------------------- | ------------------------------------ |
+| `VPS_SSH_PRIVATE_KEY`     | SSH key for the VPS deploy user      |
+| `VPS_TAILSCALE_IP`        | Tailscale IP of the VPS              |
+| `TAILSCALE_AUTH_KEY`      | Tailscale auth key for CI nodes      |
+| `DEV_VPS_SSH_PRIVATE_KEY` | SSH key for the dev-surface VPS user |
+| `DEV_VPS_TAILSCALE_IP`    | Tailscale IP for the dev deploy      |
+| `DEV_TAILSCALE_AUTH_KEY`  | Tailscale auth key for dev CI nodes  |
 
 ### Rollback
 
@@ -123,23 +141,23 @@ Set `SHEETBASE_APP_IMAGE` to a previous `@sha256` digest and run `pnpm deploy:ap
 
 The Hostinger VPS is the shared delivery target. It has two separate Docker surfaces; do not combine their Compose projects, databases, volumes, or environment files.
 
-| Surface | Public URL | Purpose | How it deploys |
-| --- | --- | --- | --- |
-| Production | `https://app.sheetbase.co.uk` | Real authenticated app | Automatically from `main` via `.github/workflows/deploy.yml` |
-| Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual dispatch of `.github/workflows/deploy-dev.yml` |
+| Surface     | Public URL                    | Purpose                                | How it deploys                                                                   |
+| ----------- | ----------------------------- | -------------------------------------- | -------------------------------------------------------------------------------- |
+| Production  | `https://app.sheetbase.co.uk` | Real authenticated app                 | `pnpm release:local` on the VPS (workflow trigger paused, PLAT-03)               |
+| Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual dispatch of `.github/workflows/deploy-dev.yml` — trigger currently paused |
 
 ### Development environment
 
 - The development app is a non-production demo surface. It uses `SHEETBASE_ENV=development` and `SHEETBASE_DEV_AUTH_FREE=true` to create an explicit auth-free fixture session. Never enable either setting in production.
 - Its VPS checkout is `/opt/sheetbase-dev`, its secret file is `/opt/sheetbase-dev/.env.development`, and it runs `compose.dev.yaml` on loopback port `3100`.
-- To deploy, use **Actions → Deploy development environment** and the deliberate confirmation flow.
+- To deploy, use **Actions → Deploy development environment** and the deliberate confirmation flow. The trigger block in `deploy-dev.yml` is commented out (PLAT-03 pause); re-enable it first. Unlike production, this workflow builds images on a GitHub runner and pushes them to GHCR.
 - Cloudflare Tunnel maps `dev.sheetbase.co.uk` to `127.0.0.1:3100`.
 
 ### Agent / AMP delivery workflow
 
 1. Work in a normal branch and open or update a PR. AMP only needs GitHub access; it must not receive VPS, Tailscale, Cloudflare, OAuth, or secret values.
 2. Review the PR locally or in an orb. Use the shared development environment only when a deployed demo is wanted.
-3. Merge an approved PR to `main`; production deployment then runs automatically.
+3. Merge an approved PR to `main`. Deployment does not run automatically today; release with `pnpm release:local` on the VPS (see Deploy workflow above).
 4. Use the development workflow only for an intentional shared demo update.
 
 **Required rules:** keep image references digest-pinned; keep development and production data isolated; never put `.env` values in GitHub issues, PR comments, logs, code, or agent messages; validate `/api/health/ready` after deployment changes.

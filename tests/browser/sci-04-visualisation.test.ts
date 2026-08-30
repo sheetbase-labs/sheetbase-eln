@@ -133,5 +133,16 @@ test.describe('SCI-04 visualisation builder', () => {
     const box = await plot.boundingBox()
     const viewport = page.viewportSize()
     expect(box?.height ?? 0).toBeGreaterThan((viewport?.height ?? 0) * 0.5)
+    await expect(plot.locator('svg').first()).toBeVisible()
+    const svgInfo = await plot.locator('svg').first().evaluate((el) => ({
+      clientWidth: el.clientWidth,
+      clientHeight: el.clientHeight,
+      circleCount: el.querySelectorAll('circle').length,
+      pathCount: el.querySelectorAll('path').length,
+      snippet: el.innerHTML.slice(0, 800),
+    }))
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(svgInfo))
+    await expect(plot.locator('circle').first()).toBeVisible()
   })
 })

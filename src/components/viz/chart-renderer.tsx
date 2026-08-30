@@ -11,8 +11,6 @@ import {
   ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
-  Scatter,
-  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -405,12 +403,10 @@ function ChartPlot({
     />
   ))
   if (type === 'scatter' || type === 'scatter_line' || type === 'connected_scatter' || type === 'strip') {
-    // A fitted-curve overlay needs mixed point+line rendering, which only
-    // ComposedChart provides; plain scatters keep the lighter chart.
+    // Scatter types plot the same pivoted rows as line charts. Marks are
+    // Line dots so they share axes and the fill-height container.
     const connect =
       type === 'scatter_line' || type === 'connected_scatter'
-    const hasFitLine =
-      connect || materialised.series.some((s) => s.renderAs === 'line')
     const scatterChildren = (
       <>
         {grid}
@@ -429,15 +425,24 @@ function ChartPlot({
               strokeDasharray={series.renderAs === 'line' ? '6 4' : undefined}
               dot={series.renderAs === 'line' ? false : { r: 3 }}
               isAnimationActive={false}
+              onClick={(_data, index) =>
+                selectionProps.onSelect({
+                  seriesIdentifier: series.identifier,
+                  index,
+                })
+              }
             />
           ) : (
-            <Scatter
+            <Line
               key={series.identifier}
-              name={series.label}
               dataKey={series.identifier}
-              fill="var(--popover)"
+              name={series.label}
+              type="linear"
               stroke={series.color}
-              strokeWidth={2}
+              strokeWidth={0}
+              dot={{ r: 4, fill: series.color, stroke: series.color }}
+              isAnimationActive={false}
+              legendType="circle"
               onClick={(_data, index) =>
                 selectionProps.onSelect({
                   seriesIdentifier: series.identifier,
@@ -451,19 +456,11 @@ function ChartPlot({
         {annotationDots}
       </>
     )
-    if (hasFitLine) {
-      chart = (
-        <ComposedChart data={data} margin={margin} role="img">
-          {scatterChildren}
-        </ComposedChart>
-      )
-    } else {
-      chart = (
-        <ScatterChart margin={margin} role="img">
-          {scatterChildren}
-        </ScatterChart>
-      )
-    }
+    chart = (
+      <ComposedChart data={data} margin={margin} role="img">
+        {scatterChildren}
+      </ComposedChart>
+    )
   } else if (
     type === 'bar' ||
     type === 'grouped_bar' ||

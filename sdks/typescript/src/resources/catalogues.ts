@@ -25,10 +25,15 @@ export class CataloguesResource {
     return this.transport.get("/api/db/dataset_schema_definitions", { params });
   }
 
-  async getSchemaDefinition(definitionId: string): Promise<Record<string, any> | null> {
-    const rows = await this.transport.get("/api/db/dataset_schema_definitions", {
-      params: { id: `eq.${definitionId}`, limit: 1 },
-    });
+  async getSchemaDefinition(
+    definitionId: string,
+  ): Promise<Record<string, any> | null> {
+    const rows = await this.transport.get(
+      "/api/db/dataset_schema_definitions",
+      {
+        params: { id: `eq.${definitionId}`, limit: 1 },
+      },
+    );
     return rows[0] ?? null;
   }
 
@@ -53,7 +58,9 @@ export class CataloguesResource {
     if (options?.schemaVersionId) {
       params.dataset_schema_version_id = `eq.${options.schemaVersionId}`;
     }
-    return this.transport.get("/api/db/dataset_schema_version_fields", { params });
+    return this.transport.get("/api/db/dataset_schema_version_fields", {
+      params,
+    });
   }
 
   // ── Sheet Definitions ───────────────────────────────────────────────
@@ -100,7 +107,7 @@ export class CataloguesResource {
     versionId: string;
     targetProjectId: string;
     title: string;
-    parameterInputs: Record<string, unknown>;
+    parameterInputs: Record<string, unknown>[];
     idempotencyKey: string;
   }): Promise<any> {
     return this.transport.post(
@@ -136,20 +143,17 @@ export class CataloguesResource {
     recordId: string;
     expectedStructureVersion: number;
     targetVersionId: string;
-    decisions: Record<string, unknown>;
-    parameterInputs: Record<string, unknown>;
+    decisions: Record<string, unknown>[];
+    parameterInputs: Record<string, unknown>[];
   }): Promise<any> {
-    return this.transport.post(
-      "/api/db/rpc/apply_notebook_template_upgrade",
-      {
-        jsonBody: {
-          p_record_id: params.recordId,
-          p_expected_structure_version: params.expectedStructureVersion,
-          p_target_version_id: params.targetVersionId,
-          p_decisions: params.decisions,
-          p_parameter_inputs: params.parameterInputs,
-        },
+    return this.transport.post("/api/db/rpc/apply_notebook_template_upgrade", {
+      jsonBody: {
+        p_record_id: params.recordId,
+        p_expected_structure_version: params.expectedStructureVersion,
+        p_target_version_id: params.targetVersionId,
+        p_decisions: params.decisions,
+        p_parameter_inputs: params.parameterInputs,
       },
-    );
+    });
   }
 }

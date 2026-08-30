@@ -62,10 +62,12 @@ export class ProjectsResource {
     const body: Record<string, unknown> = {};
     if (fields.title !== undefined) body.title = fields.title;
     if (fields.status !== undefined) body.status = fields.status;
-    if (fields.customFields !== undefined) body.custom_fields = fields.customFields;
+    if (fields.customFields !== undefined)
+      body.custom_fields = fields.customFields;
     return this.transport.patch("/api/db/projects", {
       params: { id: `eq.${projectId}` },
       jsonBody: body,
+      headers: { Prefer: "return=representation" },
     });
   }
 
@@ -76,7 +78,10 @@ export class ProjectsResource {
     maxItems?: number;
   }): AsyncGenerator<Project> {
     const fetchPage = (limit: number, offset: number) => {
-      const params: Record<string, string | number | undefined> = { limit, offset };
+      const params: Record<string, string | number | undefined> = {
+        limit,
+        offset,
+      };
       if (options?.select) params.select = options.select;
       if (options?.order) params.order = options.order;
       return this.transport.get("/api/db/projects", { params });

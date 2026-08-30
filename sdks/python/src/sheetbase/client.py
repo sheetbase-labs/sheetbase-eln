@@ -37,15 +37,17 @@ from typing import Any, Optional, Sequence
 
 import httpx
 
-from sheetbase._http import HttpTransport
-from sheetbase._version import __version__
+from sheetbase._http import HttpTransport, TableHead
+from sheetbase._version import API_VERSION, __version__
 from sheetbase.resources import (
+    AgentOperationsResource,
     CataloguesResource,
     DatasetsResource,
     ProjectsResource,
     RecordsResource,
     SearchResource,
     SheetsResource,
+    WebhooksResource,
 )
 
 
@@ -83,6 +85,8 @@ class SheetbaseClient:
         self.sheets = SheetsResource(self._transport)
         self.search = SearchResource(self._transport)
         self.catalogues = CataloguesResource(self._transport)
+        self.agent_operations = AgentOperationsResource(self._transport)
+        self.webhooks = WebhooksResource(self._transport)
 
     # ── raw access ──────────────────────────────────────────────────────
 
@@ -109,10 +113,17 @@ class SheetbaseClient:
         self,
         resource: str,
         *,
+        params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> Any:
         """Raw POST on a PostgREST table resource."""
-        return self._transport.post(f"/api/db/{resource}", json_body=json_body)
+        return self._transport.post(
+            f"/api/db/{resource}",
+            params=params,
+            json_body=json_body,
+            headers=headers,
+        )
 
     def table_patch(
         self,
@@ -120,10 +131,26 @@ class SheetbaseClient:
         *,
         params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> Any:
         """Raw PATCH on a PostgREST table resource."""
         return self._transport.patch(
-            f"/api/db/{resource}", params=params, json_body=json_body
+            f"/api/db/{resource}",
+            params=params,
+            json_body=json_body,
+            headers=headers,
+        )
+
+    def table_head(
+        self,
+        resource: str,
+        *,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> TableHead:
+        """HEAD a table, including ``Content-Range`` count metadata."""
+        return self._transport.head(
+            f"/api/db/{resource}", params=params, headers=headers
         )
 
     # ── properties ──────────────────────────────────────────────────────
@@ -132,6 +159,11 @@ class SheetbaseClient:
     def version(self) -> str:
         """SDK version."""
         return __version__
+
+    @property
+    def api_version(self) -> str:
+        """Exact targeted OpenAPI contract version."""
+        return API_VERSION
 
     # ── lifecycle ───────────────────────────────────────────────────────
 

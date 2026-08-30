@@ -24,7 +24,13 @@ export { VERSION, API_VERSION } from "./version.js";
 export { SheetbaseClient } from "./client.js";
 export type { SheetbaseClientOptions } from "./client.js";
 export { HttpTransport } from "./http.js";
-export type { FetchLike, FetchInit, FetchResponse, RequestOptions } from "./http.js";
+export type {
+  FetchLike,
+  FetchInit,
+  FetchResponse,
+  RequestOptions,
+  TableHead,
+} from "./http.js";
 
 export {
   SheetbaseError,
@@ -44,7 +50,10 @@ export {
   ServiceUnavailableError,
   ServerError,
   dataPathError,
+  ERROR_CATEGORIES,
+  TOKEN_ERROR_CODES,
 } from "./errors.js";
+export type { ErrorCategory, TokenErrorCode } from "./errors.js";
 
 export {
   ProjectsResource,
@@ -54,8 +63,17 @@ export {
   SheetsResource,
   SearchResource,
   CataloguesResource,
+  AgentOperationsResource,
+  WebhooksResource,
 } from "./resources/index.js";
-export type { DatasetRowOperation } from "./resources/index.js";
+export type {
+  AgentOperation,
+  AgentProvenance,
+  AgentWorkflowBudget,
+  AgentWorkflowPlan,
+  AgentWorkflowUsage,
+  DatasetRowOperation,
+} from "./resources/index.js";
 
 export type {
   Project,

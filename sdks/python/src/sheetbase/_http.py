@@ -9,6 +9,7 @@ Wraps httpx to handle:
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 from urllib.parse import quote, urlparse
 
@@ -16,6 +17,16 @@ import httpx
 
 from sheetbase._version import __version__
 from sheetbase.errors import TokenError, data_path_error, DataPathError
+
+
+@dataclass(frozen=True)
+class TableHead:
+    """Metadata returned by a public table ``HEAD`` request."""
+
+    status_code: int
+    content_range: Optional[str]
+    total_count: Optional[int]
+    request_id: Optional[str]
 
 
 class HttpTransport:
@@ -115,6 +126,8 @@ class HttpTransport:
             headers=hdrs,
             timeout=self.timeout,
         )
+        if method == "HEAD" and resp.status_code < 400:
+            return _table_head(resp)
         return self._handle_response(resp)
 
     def get(
@@ -130,10 +143,24 @@ class HttpTransport:
         self,
         path: str,
         *,
+        params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> Any:
-        return self.request("POST", path, json_body=json_body, headers=headers)
+        return self.request(
+            "POST", path, params=params, json_body=json_body, headers=headers
+        )
+
+    def head(
+        self,
+        path: str,
+        *,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> TableHead:
+        result = self.request("HEAD", path, params=params, headers=headers)
+        assert isinstance(result, TableHead)
+        return result
 
     def patch(
         self,
@@ -292,6 +319,8 @@ class AsyncHttpTransport:
             headers=hdrs,
             timeout=self.timeout,
         )
+        if method == "HEAD" and resp.status_code < 400:
+            return _table_head(resp)
         return HttpTransport._handle_response(resp)
 
     async def get(
@@ -307,10 +336,24 @@ class AsyncHttpTransport:
         self,
         path: str,
         *,
+        params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> Any:
-        return await self.request("POST", path, json_body=json_body, headers=headers)
+        return await self.request(
+            "POST", path, params=params, json_body=json_body, headers=headers
+        )
+
+    async def head(
+        self,
+        path: str,
+        *,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> TableHead:
+        result = await self.request("HEAD", path, params=params, headers=headers)
+        assert isinstance(result, TableHead)
+        return result
 
     async def patch(
         self,
@@ -350,3 +393,21 @@ def _safe_json(resp: httpx.Response) -> Optional[dict[str, Any]]:
         return data if isinstance(data, dict) else None
     except Exception:
         return None
+
+
+def _table_head(resp: httpx.Response) -> TableHead:
+    content_range = resp.headers.get("content-range")
+    total_count: Optional[int] = None
+    if content_range and "/" in content_range:
+        total = content_range.rsplit("/", 1)[1]
+        if total != "*":
+            try:
+                total_count = int(total)
+            except ValueError:
+                pass
+    return TableHead(
+        status_code=resp.status_code,
+        content_range=content_range,
+        total_count=total_count,
+        request_id=resp.headers.get("x-request-id"),
+    )

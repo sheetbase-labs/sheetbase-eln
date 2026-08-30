@@ -20,6 +20,34 @@ from __future__ import annotations
 from typing import Optional
 
 
+TOKEN_ERROR_CODES = (
+    "invalid_request",
+    "invalid_scope",
+    "invalid_credential",
+    "revoked",
+    "expired",
+    "insufficient_scope",
+    "rate_limited",
+    "server_error",
+)
+
+ERROR_CATEGORIES = (
+    "validation_error",
+    "not_found",
+    "permission_denied",
+    "conflict",
+    "stale_version",
+    "missing_link",
+    "invalid_transition",
+    "invalid_properties",
+    "template_not_instantiable",
+    "unauthenticated",
+    "rate_limited",
+    "service_unavailable",
+    "server_error",
+)
+
+
 class SheetbaseError(Exception):
     """Base exception for all SDK errors."""
 
@@ -133,6 +161,8 @@ _CATEGORY_MAP: dict[str, type[DataPathError]] = {
     "service_unavailable": ServiceUnavailableError,
     "server_error": ServerError,
 }
+
+assert set(_CATEGORY_MAP) == set(ERROR_CATEGORIES)
 
 
 def data_path_error(

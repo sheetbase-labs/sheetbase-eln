@@ -10,10 +10,15 @@ export const TOKEN = "fake-jwt-token";
 export interface MockRoute {
   method: string;
   path: string;
-  handler: (call: { url: string; method: string; body: string | undefined }) => {
+  handler: (call: {
+    url: string;
+    method: string;
+    body: string | undefined;
+  }) => {
     status: number;
     json?: unknown;
     text?: string;
+    headers?: Record<string, string>;
   };
 }
 
@@ -23,12 +28,19 @@ export interface MockRoute {
  * - routes other requests based on the provided routes
  */
 export function createMockFetch(routes: MockRoute[] = []): FetchLike & {
-  calls: { url: string; method: string; body: string | undefined; signal?: AbortSignal }[];
+  calls: {
+    url: string;
+    method: string;
+    body: string | undefined;
+    headers?: Record<string, string>;
+    signal?: AbortSignal;
+  }[];
 } {
   const calls: {
     url: string;
     method: string;
     body: string | undefined;
+    headers?: Record<string, string>;
     signal?: AbortSignal;
   }[] = [];
 
@@ -36,7 +48,13 @@ export function createMockFetch(routes: MockRoute[] = []): FetchLike & {
     const url = new URL(input);
     const method = (init?.method ?? "GET").toUpperCase();
     const body = init?.body as string | undefined;
-    calls.push({ url: url.pathname + url.search, method, body, signal: init?.signal });
+    calls.push({
+      url: url.pathname + url.search,
+      method,
+      body,
+      headers: init?.headers,
+      signal: init?.signal,
+    });
 
     // Token exchange — always succeeds.
     if (url.pathname === "/api/token" && method === "POST") {
@@ -50,13 +68,24 @@ export function createMockFetch(routes: MockRoute[] = []): FetchLike & {
       const routePath = route.path;
       const requestPath = url.pathname;
       if (requestPath === routePath) {
-        const result = route.handler({ url: url.pathname + url.search, method, body });
-        return makeResponse(result.status, result.json, result.text);
+        const result = route.handler({
+          url: url.pathname + url.search,
+          method,
+          body,
+        });
+        return makeResponse(
+          result.status,
+          result.json,
+          result.text,
+          result.headers,
+        );
       }
     }
 
     // Default: 404
-    return makeResponse(404, { error: { category: "not_found", message: "Not found" } });
+    return makeResponse(404, {
+      error: { category: "not_found", message: "Not found" },
+    });
   };
 
   return Object.assign(fn, { calls });
@@ -66,11 +95,18 @@ function makeResponse(
   status: number,
   json?: unknown,
   text?: string,
+  headers: Record<string, string> = {},
 ): FetchResponse {
   const body = json !== undefined ? JSON.stringify(json) : (text ?? "");
+  const normalizedHeaders = new Map(
+    Object.entries(headers).map(([name, value]) => [name.toLowerCase(), value]),
+  );
   return {
     ok: status < 400,
     status,
+    headers: {
+      get: (name) => normalizedHeaders.get(name.toLowerCase()) ?? null,
+    },
     async json() {
       return JSON.parse(body);
     },
@@ -88,7 +124,9 @@ export function responses(
   let i = 0;
   return () => {
     if (i >= responses.length) {
-      throw new Error(`Mock responses exhausted (got ${responses.length} calls)`);
+      throw new Error(
+        `Mock responses exhausted (got ${responses.length} calls)`,
+      );
     }
     return responses[i++];
   };

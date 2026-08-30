@@ -119,7 +119,11 @@ class DatasetsResource:
             body["description"] = description
         if primary_project_id is not None:
             body["primary_project_id"] = primary_project_id
-        rows = self._transport.post("/api/db/datasets", json_body=body)
+        rows = self._transport.post(
+            "/api/db/datasets",
+            json_body=body,
+            headers={"Prefer": "return=representation"},
+        )
         if isinstance(rows, list):
             return Dataset.from_dict(rows[0])
         return Dataset.from_dict(rows)

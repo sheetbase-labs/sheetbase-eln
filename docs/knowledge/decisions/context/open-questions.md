@@ -43,18 +43,13 @@ Fields carry quantity/unit metadata, but a broad conversion engine remains defer
 
 The API credential foundation exists. A richer named service-principal identity model remains a future design question and should receive an ADR before affecting audit/RLS identity semantics.
 
-## Agent-authored operations
+## Agentic workflows
 
-AUTO-04/05 still need detailed product boundaries around:
-
-- approval/confirmation;
-- attribution;
-- allowed mutation classes;
-- evidence/provenance;
-- reversibility;
-- use of canonical APIs/SDKs.
-
-The answer must not be a privileged agent bypass.
+AUTO-04 settled the single-operation boundary in ADR 0043: deterministic
+proposal previews, human approval, canonical execution, optimistic
+concurrency, attribution and evidence. AUTO-05 still needs bounded multi-step
+workflow semantics around recovery, cost visibility and repeated approval
+without weakening the AUTO-04 boundary.
 
 ## Roadmap 3 product depth sequencing
 

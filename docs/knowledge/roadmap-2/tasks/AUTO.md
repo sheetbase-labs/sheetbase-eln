@@ -1,7 +1,7 @@
 # AUTO — Automation
 
-**Status:** AUTO-01/02/03 complete (deterministic Pipelines); AUTO-04/05
-later.
+**Status:** AUTO-01/02/03 complete (deterministic Pipelines); AUTO-04
+complete; AUTO-05 later.
 
 ## Programme goal
 
@@ -80,6 +80,22 @@ per the task's guidance.
 Agents propose schema/Definition/Pipeline/data operations through normal APIs; preview/diff; user approval where required; same validation/capabilities; provenance identifying agent/tool/model context appropriately.
 
 **Exit:** agent-authored changes are inspectable and produce the same evidence as human/code-authored operations.
+
+**Complete.** Typed, single-operation proposals cover canonical Dataset Schema
+draft creation, Sheet Definition draft creation/update, Pipeline
+Definition/draft creation/update, and Dataset row commits. PostgreSQL derives
+the deterministic preview and impact, binds idempotency to an exact request,
+and applies optimistic proposal and target revisions. `/agent-operations`
+provides a dense inspection, approval, rejection, execution, provenance and
+evidence timeline.
+
+Every operation requires approval and execution from a human session holding
+the underlying canonical capability. Execution delegates to the existing
+Dataset Schema, Sheet Definition, Pipeline Definition/version or
+`commit_dataset_row_batch` RPC, so validation, permissions, canonical audit
+events and immutable published/evidence boundaries remain unchanged. Publish,
+submit, sign, amend and lock operations are excluded. Multi-step goal
+orchestration remains AUTO-05. See ADR 0043.
 
 ## AUTO-05 — Agentic Scientific Workflows
 

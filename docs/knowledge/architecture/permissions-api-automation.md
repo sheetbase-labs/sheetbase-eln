@@ -85,9 +85,20 @@ Do not create another automation model.
 
 ## Agents
 
-AUTO-04/05 should build on the same operations and permissions.
+AUTO-04 agent operations are typed durable proposals, not a mutation bypass.
+PostgreSQL derives their preview and impact, requires a human-session approval
+with the underlying capability, and executes the exact request through its
+canonical Dataset Schema, Sheet Definition, Pipeline Definition/version or
+Dataset row RPC.
 
-An agent-authored operation must not become a privileged bypass. Agent work should be attributable, auditable and subject to the same domain invariants as human/API/Pipeline clients.
+Proposal creation has actor-bound idempotency. Approval and execution use
+proposal revisions, while the target operation enforces its own optimistic
+revision. Agent, tool, model and invocation provenance remain attached to the
+proposal. Proposal events and `change_events` record the decision path; the
+canonical operation records its normal audit/evidence effects.
+
+Publish, submit, sign, amend and lock are not agent operation variants. AUTO-05
+may compose approved single operations, but it must preserve these boundaries.
 
 Longer term, contextual AI should assist inside the scientific workspace rather than become a separate “AI product” that ignores Sheetbase structure.
 

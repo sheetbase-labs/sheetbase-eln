@@ -79,7 +79,13 @@ export type AgentOperation =
 
 export type AgentOperationKind = AgentOperation['kind']
 export type AgentProposalStatus =
-  'pending' | 'approved' | 'rejected' | 'executing' | 'succeeded' | 'failed'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'executing'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
 
 export interface AgentOperationTarget {
   type: string
@@ -154,6 +160,7 @@ export interface AgentOperationEvent {
     | 'execution_started'
     | 'execution_succeeded'
     | 'execution_failed'
+    | 'cancelled'
   actor_user_id: string | null
   actor_credential_id: string | null
   detail: Record<string, unknown>

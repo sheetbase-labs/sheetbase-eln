@@ -98,7 +98,15 @@ proposal. Proposal events and `change_events` record the decision path; the
 canonical operation records its normal audit/evidence effects.
 
 Publish, submit, sign, amend and lock are not agent operation variants. AUTO-05
-may compose approved single operations, but it must preserve these boundaries.
+composes approved single operations as digest-pinned sequential workflows and
+preserves these boundaries. A workflow stores exact operations and immutable
+input references, emits one AUTO-04 proposal at a time, and never executes a
+scientific mutation itself.
+
+Workflow resume remains human-only. Cancellation and operation, token, or cost
+budget exhaustion invalidate proposals that have not executed. External agents
+may submit and inspect workflows, report usage, advance completed steps, and
+cancel workflows they created. They cannot approve, execute, or resume a step.
 
 Longer term, contextual AI should assist inside the scientific workspace rather than become a separate “AI product” that ignores Sheetbase structure.
 

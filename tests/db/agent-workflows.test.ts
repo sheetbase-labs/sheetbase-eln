@@ -2,8 +2,8 @@
  * AUTO-05 database proof.
  *
  * Workflows pin a bounded sequential plan, expose usage, and emit one AUTO-04
- * proposal at a time. Human approval remains mandatory for every canonical
- * operation. Recovery retries the same operation; cancellation and budget
+ * proposal at a time. AUTO-04 policy can auto-complete a step; human-required
+ * operations still pause until a human session approves and executes them.
  * exhaustion invalidate proposals that have not executed.
  */
 import type { Client } from 'pg'
@@ -18,6 +18,8 @@ const VIEWER = 'auto05-viewer'
 const OUTSIDER = 'auto05-outsider'
 const CREDENTIAL = 'a0050000-0000-4000-8000-000000000003'
 const OTHER_CREDENTIAL = 'a0050000-0000-4000-8000-000000000004'
+const DRAFT_CREDENTIAL = 'a0050000-0000-4000-8000-000000000005'
+const DATA_CREDENTIAL = 'a0050000-0000-4000-8000-000000000006'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -39,6 +41,7 @@ async function actor(userId: string, workspaceId: string): Promise<Client> {
 async function credential(
   workspaceId = WS,
   credentialId = CREDENTIAL,
+  scopes = ['agent_operations:read', 'agent_operations:write'],
 ): Promise<Client> {
   const key = `credential:${workspaceId}:${credentialId}`
   const existing = actorClients.get(key)
@@ -50,7 +53,7 @@ async function credential(
     role: 'api_client',
     sub: null,
     credential_id: credentialId,
-    scopes: ['agent_operations:read', 'agent_operations:write'],
+    scopes,
   })
   actorClients.set(key, client)
   return client
@@ -175,8 +178,21 @@ beforeAll(async () => {
     ),(
       $4,$2,'AUTO05 other agent','sb_auto05_other','auto05-other-hash',
       ARRAY['agent_operations:read','agent_operations:write'],$3
+    ),(
+      $5,$2,'AUTO05 draft agent','sb_auto05_draft','auto05-draft-hash',
+      ARRAY['agent_operations:read','agent_operations:write','schema:write'],$3
+    ),(
+      $6,$2,'AUTO05 data agent','sb_auto05_data','auto05-data-hash',
+      ARRAY['agent_operations:read','agent_operations:write','datasets:write'],$3
     )`,
-    [CREDENTIAL, WS, OWNER, OTHER_CREDENTIAL],
+    [
+      CREDENTIAL,
+      WS,
+      OWNER,
+      OTHER_CREDENTIAL,
+      DRAFT_CREDENTIAL,
+      DATA_CREDENTIAL,
+    ],
   )
 })
 
@@ -330,6 +346,207 @@ describe('AUTO-05 agentic scientific workflows', () => {
       id: created.id,
       status: 'succeeded',
       plan_digest: created.plan_digest,
+    })
+  })
+
+  it('auto-advances safe drafts when the credential has schema:write', async () => {
+    const agent = await credential(WS, DRAFT_CREDENTIAL, [
+      'agent_operations:read',
+      'agent_operations:write',
+      'schema:write',
+    ])
+    const owner = await actor(OWNER, WS)
+    const created = await createWorkflow(agent, { key: 'auto_drafts' })
+    expect(created).toMatchObject({
+      status: 'succeeded',
+      used_operations: 2,
+    })
+    const steps = await owner.query<{
+      status: string
+      proposal_status: string
+      approval_policy: string
+    }>(
+      `SELECT s.status, p.status AS proposal_status, p.approval_policy
+         FROM api.agent_workflow_steps s
+         JOIN api.agent_operation_proposals p ON p.id = s.proposal_id
+        WHERE s.workflow_id=$1
+        ORDER BY s.position`,
+      [created.id],
+    )
+    expect(steps.rows).toEqual([
+      {
+        status: 'succeeded',
+        proposal_status: 'succeeded',
+        approval_policy: 'automatic',
+      },
+      {
+        status: 'succeeded',
+        proposal_status: 'succeeded',
+        approval_policy: 'automatic',
+      },
+    ])
+  })
+
+  it('pauses a mixed plan on a human-required Dataset write', async () => {
+    const agent = await credential(WS, DATA_CREDENTIAL, [
+      'agent_operations:read',
+      'agent_operations:write',
+      'datasets:write',
+      'schema:write',
+    ])
+    const owner = await actor(OWNER, WS)
+    await migrator.query(
+      `UPDATE internal.api_credentials
+          SET scopes = ARRAY[
+            'agent_operations:read','agent_operations:write',
+            'datasets:write','schema:write'
+          ]
+        WHERE id=$1`,
+      [DATA_CREDENTIAL],
+    )
+    const schema = await owner.query<{
+      result: { schema_version_id: string }
+    }>(
+      `SELECT api.create_dataset_schema_definition(
+        $1,'auto05_mixed','AUTO05 mixed',NULL,
+        '[{"key":"value","label":"Value","logicalType":"integer","nullable":false}]'::jsonb
+      ) result`,
+      [WS],
+    )
+    await owner.query(`SELECT api.publish_dataset_schema_version($1)`, [
+      schema.rows[0].result.schema_version_id,
+    ])
+    const field = await migrator.query<{ field_id: string }>(
+      `SELECT field_id FROM api.dataset_schema_version_fields
+        WHERE schema_version_id=$1`,
+      [schema.rows[0].result.schema_version_id],
+    )
+    const dataset = await owner.query<{ id: string }>(
+      `INSERT INTO api.datasets(workspace_id,schema_version_id,name,created_by_user_id)
+       VALUES($1,$2,'AUTO05 mixed target',$3) RETURNING id`,
+      [WS, schema.rows[0].result.schema_version_id, OWNER],
+    )
+    const plan = {
+      formatVersion: 1,
+      steps: [
+        {
+          key: 'draft_pipeline',
+          title: 'Draft Pipeline',
+          summary: 'Create one governed Pipeline Definition.',
+          tool: 'sheetbase.pipeline_definition.draft',
+          operation: {
+            kind: 'pipeline_definition.create',
+            workspaceId: WS,
+            key: 'auto05_mixed_pipe',
+            name: 'AUTO05 mixed pipe',
+          },
+          inputReferences: [],
+        },
+        {
+          key: 'append_row',
+          title: 'Append Dataset row',
+          summary: 'Create one Dataset row through the canonical commit RPC.',
+          tool: 'sheetbase.dataset_rows.commit',
+          operation: {
+            kind: 'dataset_rows.commit',
+            datasetId: dataset.rows[0].id,
+            expectedRevision: 1,
+            rows: [
+              {
+                operation: 'create',
+                rowId: 'a0050000-0000-4000-8000-000000000020',
+                values: { [field.rows[0].field_id]: 7 },
+              },
+            ],
+          },
+          inputReferences: [],
+        },
+      ],
+    }
+    const created = await createWorkflow(agent, {
+      key: 'mixed_policy',
+      plan,
+    })
+    expect(created.status).toBe('waiting_approval')
+    expect(created.used_operations).toBe(2)
+    const first = await owner.query<{ status: string }>(
+      `SELECT status FROM api.agent_workflow_steps
+        WHERE workflow_id=$1 AND position=0`,
+      [created.id],
+    )
+    expect(first.rows[0].status).toBe('succeeded')
+    const second = await currentProposal(owner, created.id)
+    expect(second).toMatchObject({
+      status: 'pending',
+      attempt: 1,
+    })
+  })
+
+  it('auto-completes delegated Dataset create steps for the bound credential', async () => {
+    const agent = await credential(WS, DATA_CREDENTIAL, [
+      'agent_operations:read',
+      'agent_operations:write',
+      'datasets:write',
+    ])
+    const owner = await actor(OWNER, WS)
+    const schema = await owner.query<{
+      result: { schema_version_id: string }
+    }>(
+      `SELECT api.create_dataset_schema_definition(
+        $1,'auto05_delegated','AUTO05 delegated',NULL,
+        '[{"key":"value","label":"Value","logicalType":"integer","nullable":false}]'::jsonb
+      ) result`,
+      [WS],
+    )
+    await owner.query(`SELECT api.publish_dataset_schema_version($1)`, [
+      schema.rows[0].result.schema_version_id,
+    ])
+    const field = await migrator.query<{ field_id: string }>(
+      `SELECT field_id FROM api.dataset_schema_version_fields
+        WHERE schema_version_id=$1`,
+      [schema.rows[0].result.schema_version_id],
+    )
+    const dataset = await owner.query<{ id: string }>(
+      `INSERT INTO api.datasets(workspace_id,schema_version_id,name,created_by_user_id)
+       VALUES($1,$2,'AUTO05 delegated target',$3) RETURNING id`,
+      [WS, schema.rows[0].result.schema_version_id, OWNER],
+    )
+    await owner.query(
+      `SELECT api.create_agent_operation_policy(
+        $1,'AUTO05 append','dataset_rows.commit','dataset',$2,$3,
+        '{"maxAffectedRows":2}'::jsonb
+      )`,
+      [WS, dataset.rows[0].id, DATA_CREDENTIAL],
+    )
+    const plan = {
+      formatVersion: 1,
+      steps: [0, 1].map((index) => ({
+        key: `append_${index + 1}`,
+        title: `Append row ${index + 1}`,
+        summary: 'Create one Dataset row through the canonical commit RPC.',
+        tool: 'sheetbase.dataset_rows.commit',
+        operation: {
+          kind: 'dataset_rows.commit',
+          datasetId: dataset.rows[0].id,
+          expectedRevision: index + 1,
+          rows: [
+            {
+              operation: 'create',
+              rowId: `a0050000-0000-4000-8000-00000000003${index}`,
+              values: { [field.rows[0].field_id]: index + 1 },
+            },
+          ],
+        },
+        inputReferences: [],
+      })),
+    }
+    const created = await createWorkflow(agent, {
+      key: 'delegated_appends',
+      plan,
+    })
+    expect(created).toMatchObject({
+      status: 'succeeded',
+      used_operations: 2,
     })
   })
 

@@ -2,8 +2,10 @@
  * AUTO-04 typed contract for agent-authored operation proposals.
  *
  * The proposal envelope is durable, but execution always delegates to the
- * existing canonical RPC named by the operation variant. Publish, submit,
- * sign, amend, lock, and multi-step workflow actions are intentionally absent.
+ * existing canonical RPC named by the operation variant. Safe draft changes
+ * can run automatically; consequential writes use human approval or an
+ * explicit bounded policy. Publish, submit, sign, amend, lock, and multi-step
+ * workflow actions are intentionally absent.
  */
 import type { DataClient } from './data-client'
 import type { DatasetCommitRow } from './dataset-product'
@@ -78,6 +80,9 @@ export type AgentOperation =
     }
 
 export type AgentOperationKind = AgentOperation['kind']
+export type AgentOperationRiskClass = 'safe_draft' | 'consequential_write'
+export type AgentOperationApprovalPolicy =
+  'automatic' | 'human_required' | 'delegated'
 export type AgentProposalStatus =
   | 'pending'
   | 'approved'
@@ -86,6 +91,32 @@ export type AgentProposalStatus =
   | 'succeeded'
   | 'failed'
   | 'cancelled'
+
+export type AgentOperationPolicyTargetType =
+  | 'workspace'
+  | 'project'
+  | 'record'
+  | 'dataset'
+  | 'pipeline_definition'
+  | 'dataset_schema'
+  | 'sheet_definition'
+  | 'sheet_definition_version'
+
+export interface AgentOperationPolicy {
+  id: string
+  workspace_id: string
+  name: string
+  credential_id: string
+  operation_kind: AgentOperationKind
+  target_type: AgentOperationPolicyTargetType
+  target_id: string | null
+  limits: Record<string, unknown>
+  enabled: boolean
+  created_by_user_id: string
+  updated_by_user_id: string
+  created_at: string
+  updated_at: string
+}
 
 export interface AgentOperationTarget {
   type: string
@@ -127,7 +158,13 @@ export interface AgentOperationProposal {
   operation: AgentOperation
   preview: AgentOperationPreview
   impact: AgentOperationImpact
-  approval_policy: 'human_required'
+  risk_class: AgentOperationRiskClass
+  approval_policy: AgentOperationApprovalPolicy
+  policy_id: string | null
+  policy_reason: string
+  policy_limits: Record<string, unknown>
+  policy_target: Record<string, unknown>
+  policy_evidence: Record<string, unknown>
   status: AgentProposalStatus
   revision: number | string
   idempotency_key: string
@@ -141,6 +178,7 @@ export interface AgentOperationProposal {
   rejected_at: string | null
   rejection_reason: string | null
   executed_by_user_id: string | null
+  executed_by_credential_id: string | null
   executed_at: string | null
   result: unknown
   error_code: string | null
@@ -168,7 +206,7 @@ export interface AgentOperationEvent {
 }
 
 const PROPOSAL_FIELDS =
-  'id,workspace_id,title,summary,operation_kind,operation,preview,impact,approval_policy,status,revision,idempotency_key,request_digest,provenance,proposed_by_user_id,proposed_by_credential_id,approved_by_user_id,approved_at,rejected_by_user_id,rejected_at,rejection_reason,executed_by_user_id,executed_at,result,error_code,error_message,created_at,updated_at'
+  'id,workspace_id,title,summary,operation_kind,operation,preview,impact,risk_class,approval_policy,policy_id,policy_reason,policy_limits,policy_target,policy_evidence,status,revision,idempotency_key,request_digest,provenance,proposed_by_user_id,proposed_by_credential_id,approved_by_user_id,approved_at,rejected_by_user_id,rejected_at,rejection_reason,executed_by_user_id,executed_by_credential_id,executed_at,result,error_code,error_message,created_at,updated_at'
 
 export async function proposeAgentOperation(
   client: DataClient,
@@ -198,6 +236,48 @@ export async function listAgentOperationProposals(
     'agent_operation_proposals',
     `?select=${PROPOSAL_FIELDS}&order=created_at.desc`,
   )
+}
+
+export async function listAgentOperationPolicies(
+  client: DataClient,
+): Promise<AgentOperationPolicy[]> {
+  return client.list(
+    'agent_operation_policies',
+    '?select=id,workspace_id,name,credential_id,operation_kind,target_type,target_id,limits,enabled,created_by_user_id,updated_by_user_id,created_at,updated_at&order=created_at.desc',
+  )
+}
+
+export async function createAgentOperationPolicy(
+  client: DataClient,
+  input: {
+    workspaceId: string
+    name: string
+    operationKind: AgentOperationKind
+    credentialId: string
+    targetType: AgentOperationPolicyTargetType
+    targetId: string | null
+    maxAffectedRows: number
+  },
+): Promise<AgentOperationPolicy> {
+  return client.rpc('create_agent_operation_policy', {
+    p_workspace_id: input.workspaceId,
+    p_name: input.name,
+    p_operation_kind: input.operationKind,
+    p_target_type: input.targetType,
+    p_target_id: input.targetId,
+    p_credential_id: input.credentialId,
+    p_limits: { maxAffectedRows: input.maxAffectedRows },
+  })
+}
+
+export async function disableAgentOperationPolicy(
+  client: DataClient,
+  input: { workspaceId: string; policyId: string },
+): Promise<AgentOperationPolicy> {
+  return client.rpc('disable_agent_operation_policy', {
+    p_workspace_id: input.workspaceId,
+    p_policy_id: input.policyId,
+  })
 }
 
 export async function listAgentOperationEvents(
@@ -239,6 +319,7 @@ export async function executeAgentOperation(
 
 export const agentOperationQueryKeys = {
   proposals: ['agent-operations', 'proposals'] as const,
+  policies: ['agent-operations', 'policies'] as const,
   events: (proposalId: string) =>
     ['agent-operations', 'proposals', proposalId, 'events'] as const,
 }

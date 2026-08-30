@@ -69,7 +69,8 @@ export function WorkflowWorkbench({
         <EmptyTitle>No agent workflows</EmptyTitle>
         <EmptyDescription>
           Agent credentials submit pinned multi-step plans through the Sheetbase
-          API. The first typed operation then waits here for human approval.
+          API. Safe drafts and delegated create/append writes can run
+          automatically. Other Dataset writes wait here for human approval.
         </EmptyDescription>
       </Empty>
     )
@@ -140,7 +141,7 @@ export function WorkflowWorkbench({
             <div className="min-w-0">
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <WorkflowStatus status={selected.status} />
-                <Badge variant="outline">sequential · human approved</Badge>
+                <Badge variant="outline">sequential · policy gated</Badge>
                 <Badge variant="secondary">
                   {selected.plan.steps.length} pinned steps
                 </Badge>

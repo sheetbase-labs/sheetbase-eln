@@ -37,19 +37,22 @@ are absent.
 
 ## State and approval
 
-The workflow creates one AUTO-04 proposal for its current step and enters
-`waiting_approval`. A human session with the capability required by that
-operation must approve and execute the proposal. `advance_agent_workflow`
-only observes the proposal outcome:
+The workflow creates one AUTO-04 proposal for its current step. If AUTO-04
+classifies that proposal as `automatic` or `delegated`, the canonical mutation
+runs immediately and the workflow continues to the next step. If the proposal
+is `human_required`, the workflow enters `waiting_approval`. A human session
+with the capability required by that operation must then approve and execute
+it. `advance_agent_workflow` only observes the proposal outcome:
 
 - a pending, approved, or executing proposal leaves the workflow unchanged;
-- a succeeded proposal completes the step and creates the next proposal;
+- a succeeded proposal completes the step and creates the next proposal, which
+  may itself auto-execute;
 - a rejected, failed, or cancelled proposal pauses the workflow;
 - the final succeeded proposal completes the workflow.
 
 No workflow RPC executes a scientific mutation. AUTO-04 continues to call the
 canonical Dataset, Sheet Definition, Dataset Schema, or Pipeline Definition
-RPC after approval.
+RPC, either automatically under policy or after human approval.
 
 ## Recovery and cancellation
 

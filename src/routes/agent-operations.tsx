@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
+import { AgentOperationPolicyPanel } from '#/components/agent-operations/policy-panel'
 import { ProposalWorkbench } from '#/components/agent-operations/proposal-workbench'
 import { WorkflowWorkbench } from '#/components/agent-operations/workflow-workbench'
 import { useShell } from '#/components/app-shell'
@@ -15,9 +16,12 @@ import {
 } from '#/components/ui'
 import {
   agentOperationQueryKeys,
+  createAgentOperationPolicy,
   decideAgentOperation,
+  disableAgentOperationPolicy,
   executeAgentOperation,
   listAgentOperationEvents,
+  listAgentOperationPolicies,
   listAgentOperationProposals,
   proposalRevision,
 } from '#/lib/agent-operations'
@@ -32,6 +36,7 @@ import {
   resumeAgentWorkflow,
 } from '#/lib/agent-workflows'
 import type { AgentWorkflow } from '#/lib/agent-workflows'
+import { listApiCredentialsFn } from '#/lib/api-credential-admin'
 import { hasCapability } from '#/lib/capability'
 import { createDataClient } from '#/lib/data-client'
 
@@ -58,6 +63,19 @@ function AgentOperationsRoute() {
   const proposalsQuery = useQuery({
     queryKey: agentOperationQueryKeys.proposals,
     queryFn: () => listAgentOperationProposals(dataClient),
+    enabled: Boolean(context.workspace?.id),
+  })
+  const policiesQuery = useQuery({
+    queryKey: agentOperationQueryKeys.policies,
+    queryFn: () => listAgentOperationPolicies(dataClient),
+    enabled: Boolean(context.workspace?.id),
+  })
+  const credentialsQuery = useQuery({
+    queryKey: ['agent-operations', 'credentials', context.workspace?.id],
+    queryFn: () =>
+      listApiCredentialsFn({
+        data: { workspaceId: context.workspace?.id ?? '' },
+      }),
     enabled: Boolean(context.workspace?.id),
   })
   const proposals = proposalsQuery.data ?? []
@@ -121,8 +139,49 @@ function AgentOperationsRoute() {
       queryClient.invalidateQueries({
         queryKey: agentOperationQueryKeys.events(proposalId),
       }),
+      queryClient.invalidateQueries({
+        queryKey: agentOperationQueryKeys.policies,
+      }),
     ])
   }
+  const refreshPolicies = () =>
+    queryClient.invalidateQueries({
+      queryKey: agentOperationQueryKeys.policies,
+    })
+
+  const policyMutation = useMutation({
+    mutationFn: ({
+      name,
+      credentialId,
+      targetType,
+      targetId,
+      maxAffectedRows,
+    }: {
+      name: string
+      credentialId: string
+      targetType: Parameters<typeof createAgentOperationPolicy>[1]['targetType']
+      targetId: string | null
+      maxAffectedRows: number
+    }) =>
+      createAgentOperationPolicy(dataClient, {
+        workspaceId: context.workspace?.id ?? '',
+        name,
+        operationKind: 'dataset_rows.commit',
+        credentialId,
+        targetType,
+        targetId,
+        maxAffectedRows,
+      }),
+    onSuccess: refreshPolicies,
+  })
+  const disablePolicyMutation = useMutation({
+    mutationFn: (policyId: string) =>
+      disableAgentOperationPolicy(dataClient, {
+        workspaceId: context.workspace?.id ?? '',
+        policyId,
+      }),
+    onSuccess: refreshPolicies,
+  })
 
   const approveMutation = useMutation({
     mutationFn: (proposal: AgentOperationProposal) =>
@@ -204,6 +263,10 @@ function AgentOperationsRoute() {
   const error =
     proposalsQuery.error ??
     eventsQuery.error ??
+    policiesQuery.error ??
+    credentialsQuery.error ??
+    policyMutation.error ??
+    disablePolicyMutation.error ??
     approveMutation.error ??
     rejectMutation.error ??
     executeMutation.error ??
@@ -227,6 +290,8 @@ function AgentOperationsRoute() {
       : cancelWorkflowMutation.isPending
         ? 'cancel'
         : null
+  const canManagePolicies =
+    context.workspace?.role === 'owner' || context.workspace?.role === 'steward'
 
   useShell({
     context: {
@@ -247,7 +312,7 @@ function AgentOperationsRoute() {
         <PageHeader
           eyebrow={context.workspace?.name ?? undefined}
           title="Agent operations"
-          description="Inspect pinned multi-step plans and approve each canonical operation with a human session."
+          description="Inspect pinned plans and policy evidence. Safe drafts and delegated create/append writes can run automatically; other Dataset writes wait for a human."
           className="border-0 pb-4"
         />
       </div>
@@ -295,8 +360,19 @@ function AgentOperationsRoute() {
         </TabsContent>
         <TabsContent
           value="proposals"
-          className="mt-0 flex min-h-0 flex-1 flex-col"
+          className="mt-0 flex min-h-0 flex-col overflow-auto"
         >
+          <AgentOperationPolicyPanel
+            policies={policiesQuery.data ?? []}
+            credentials={(credentialsQuery.data ?? []).map((credential) => ({
+              id: credential.id,
+              name: credential.name,
+              displayPrefix: credential.displayPrefix,
+            }))}
+            canManage={canManagePolicies}
+            onCreate={(input) => policyMutation.mutate(input)}
+            onDisable={(policy) => disablePolicyMutation.mutate(policy.id)}
+          />
           {proposalsQuery.isLoading ? (
             <Skeleton className="m-4 h-72" />
           ) : (

@@ -83,18 +83,23 @@ Agents propose schema/Definition/Pipeline/data operations through normal APIs; p
 **Complete.** Typed, single-operation proposals cover canonical Dataset Schema
 draft creation, Sheet Definition draft creation/update, Pipeline
 Definition/draft creation/update, and Dataset row commits. PostgreSQL derives
-the deterministic preview and impact, binds idempotency to an exact request,
-and applies optimistic proposal and target revisions. `/agent-operations`
-provides a dense inspection, approval, rejection, execution, provenance and
-evidence timeline.
+the deterministic preview, impact, risk class and policy decision, binds
+idempotency to an exact request, and applies optimistic proposal and target
+revisions. `/agent-operations` provides policy management, dense inspection,
+approval, rejection, execution, provenance and evidence.
 
-Every operation requires approval and execution from a human session holding
-the underlying canonical capability. Execution delegates to the existing
-Dataset Schema, Sheet Definition, Pipeline Definition/version or
-`commit_dataset_row_batch` RPC, so validation, permissions, canonical audit
-events and immutable published/evidence boundaries remain unchanged. Publish,
-submit, sign, amend and lock operations are excluded. Multi-step goal
-orchestration remains AUTO-05. See ADR 0043.
+Reversible draft operations execute automatically by default when the existing
+canonical external scope is present. Dataset row commits remain
+human-required by default. An owner or steward can delegate create and append
+writes for one live service credential against a canonical workspace, project
+or Dataset target with an explicit row limit. Updates, overwrites and other
+credentials stay human-required. The matched policy, credential, reason,
+target, limits and evaluation evidence are stored on the proposal. Execution
+delegates to the existing Dataset Schema, Sheet Definition, Pipeline
+Definition/version or `commit_dataset_row_batch` RPC, so validation,
+permissions, canonical audit events and immutable published/evidence
+boundaries remain unchanged. Publish, submit, sign, amend and lock operations
+are excluded. Multi-step goal orchestration remains AUTO-05. See ADR 0043.
 
 ## AUTO-05 — Agentic Scientific Workflows
 
@@ -105,9 +110,10 @@ Multi-step goal-driven operations over authorised Sheetbase primitives; bounded 
 **Complete.** Agents can submit digest-pinned plans containing 2 to 20
 sequential typed AUTO-04 operations with immutable Dataset Version or
 published Pipeline Version input references. PostgreSQL validates the full
-plan and creates one proposal at a time. Every mutation still requires a
-human to approve and execute its proposal with the underlying canonical
-capability.
+plan and creates one proposal at a time. AUTO-04 policy still classifies each
+proposal: safe drafts and credential-bound Dataset create/append writes can
+execute automatically and the workflow continues; other Dataset writes remain
+human-required. No workflow RPC mutates scientific data itself.
 
 Workflows pause on rejection or failure. Human-only resume reproposes the same
 pinned operation; cancellation and budget exhaustion invalidate pending or

@@ -6922,13 +6922,73 @@ export const pipelineTriggerFailures = api.table(
 )
 
 // ---------------------------------------------------------------------------
-// AUTO-04 — inspectable agent-authored operation proposals.
+// AUTO-04 — inspectable agent-authored operation policies and proposals.
 //
-// Proposals are durable envelopes around ordinary canonical mutations. They
-// never become a second write path: execution RPCs call the Dataset Schema,
-// Sheet Definition, Pipeline Definition, or Dataset row RPC that a human
-// client would call. Approval is intentionally user-only.
+// Policies delegate only bounded consequential writes. Proposals are durable
+// envelopes around ordinary canonical mutations. They never become a second
+// write path: execution RPCs call the Dataset Schema, Sheet Definition,
+// Pipeline Definition, or Dataset row RPC that a human client would call.
 // ---------------------------------------------------------------------------
+
+export const agentOperationPolicies = api.table(
+  'agent_operation_policies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    credentialId: uuid('credential_id')
+      .notNull()
+      .references(() => apiCredentials.id, { onDelete: 'restrict' }),
+    operationKind: text('operation_kind').notNull(),
+    targetType: text('target_type').notNull(),
+    targetId: uuid('target_id'),
+    limits: jsonb('limits')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    enabled: boolean('enabled').notNull().default(true),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_agent_operation_policies_workspace_name').on(
+      table.workspaceId,
+      table.name,
+    ),
+    check(
+      'chk_agent_operation_policies_kind',
+      sql`${table.operationKind} IN ('dataset_schema.create','sheet_definition.create','sheet_definition.update_draft','pipeline_definition.create','pipeline_definition.create_version','pipeline_definition.update_draft','dataset_rows.commit')`,
+    ),
+    check(
+      'chk_agent_operation_policies_target_type',
+      sql`${table.targetType} IN ('workspace','project','record','dataset','pipeline_definition','dataset_schema','sheet_definition','sheet_definition_version')`,
+    ),
+    check(
+      'chk_agent_operation_policies_target_id',
+      sql`(${table.targetType} = 'workspace' AND ${table.targetId} IS NULL) OR (${table.targetType} <> 'workspace' AND ${table.targetId} IS NOT NULL)`,
+    ),
+    check(
+      'chk_agent_operation_policies_limits',
+      sql`jsonb_typeof(${table.limits}) = 'object' AND (${table.limits}->>'maxAffectedRows' IS NULL OR ((${table.limits}->>'maxAffectedRows')::integer BETWEEN 1 AND 1000))`,
+    ),
+    index('idx_agent_operation_policies_workspace').on(
+      table.workspaceId,
+      table.enabled,
+      table.operationKind,
+    ),
+    index('idx_agent_operation_policies_credential').on(
+      table.workspaceId,
+      table.credentialId,
+      table.enabled,
+    ),
+  ],
+)
 
 export const agentOperationProposals = api.table(
   'agent_operation_proposals',
@@ -6943,7 +7003,21 @@ export const agentOperationProposals = api.table(
     operation: jsonb('operation').notNull(),
     preview: jsonb('preview').notNull(),
     impact: jsonb('impact').notNull(),
+    riskClass: text('risk_class').notNull().default('consequential_write'),
     approvalPolicy: text('approval_policy').notNull().default('human_required'),
+    policyId: uuid('policy_id').references(() => agentOperationPolicies.id, {
+      onDelete: 'restrict',
+    }),
+    policyReason: text('policy_reason').notNull().default(''),
+    policyLimits: jsonb('policy_limits')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    policyTarget: jsonb('policy_target')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    policyEvidence: jsonb('policy_evidence')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     status: text('status').notNull().default('pending'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
@@ -6976,6 +7050,10 @@ export const agentOperationProposals = api.table(
     executedByUserId: text('executed_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    executedByCredentialId: uuid('executed_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
     executedAt: timestamp('executed_at', {
       withTimezone: true,
       mode: 'date',
@@ -7000,7 +7078,15 @@ export const agentOperationProposals = api.table(
     ),
     check(
       'chk_agent_operation_proposals_policy',
-      sql`${table.approvalPolicy} = 'human_required'`,
+      sql`${table.approvalPolicy} IN ('automatic','human_required','delegated')`,
+    ),
+    check(
+      'chk_agent_operation_proposals_risk',
+      sql`${table.riskClass} IN ('safe_draft','consequential_write')`,
+    ),
+    check(
+      'chk_agent_operation_proposals_policy_payload',
+      sql`jsonb_typeof(${table.policyLimits}) = 'object' AND jsonb_typeof(${table.policyTarget}) = 'object' AND jsonb_typeof(${table.policyEvidence}) = 'object'`,
     ),
     check(
       'chk_agent_operation_proposals_status',
@@ -7017,7 +7103,11 @@ export const agentOperationProposals = api.table(
     ),
     check(
       'chk_agent_operation_proposals_approval_actor',
-      sql`${table.status} NOT IN ('approved','executing','succeeded','failed') OR (${table.approvedByUserId} IS NOT NULL AND ${table.approvedAt} IS NOT NULL)`,
+      sql`${table.approvalPolicy} <> 'human_required' OR ${table.status} NOT IN ('approved','executing','succeeded','failed') OR (${table.approvedByUserId} IS NOT NULL AND ${table.approvedAt} IS NOT NULL)`,
+    ),
+    check(
+      'chk_agent_operation_proposals_execution_actor',
+      sql`${table.status} NOT IN ('executing','succeeded','failed') OR ((${table.executedByUserId} IS NOT NULL)::int + (${table.executedByCredentialId} IS NOT NULL)::int) = 1`,
     ),
     index('idx_agent_operation_proposals_workspace_status').on(
       table.workspaceId,

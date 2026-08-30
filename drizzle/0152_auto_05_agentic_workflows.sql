@@ -219,6 +219,7 @@ DECLARE
   v_proposal api.agent_operation_proposals;
   v_code text;
   v_message text;
+  v_step_count integer;
 BEGIN
   SELECT * INTO v_workflow
     FROM api.agent_workflows
@@ -283,13 +284,24 @@ BEGIN
   END;
 
   UPDATE api.agent_workflow_steps
-     SET proposal_id = v_proposal.id, status = 'waiting_approval',
-         attempt = attempt + 1, updated_at = now()
+     SET proposal_id = v_proposal.id,
+         status = CASE
+           WHEN v_proposal.status = 'succeeded' THEN 'succeeded'
+           WHEN v_proposal.status IN ('failed','rejected','cancelled') THEN v_proposal.status
+           ELSE 'waiting_approval'
+         END,
+         attempt = attempt + 1,
+         completed_at = CASE
+           WHEN v_proposal.status = 'succeeded' THEN now()
+           ELSE NULL
+         END,
+         updated_at = now()
    WHERE id = v_step.id;
   UPDATE api.agent_workflows
-     SET status = 'waiting_approval', current_step = p_position,
+     SET current_step = p_position,
          used_operations = used_operations + 1,
-         revision = revision + 1, updated_at = now()
+         revision = revision + 1,
+         updated_at = now()
    WHERE id = v_workflow.id
    RETURNING * INTO v_workflow;
   PERFORM internal.agent_workflow_append_event(
@@ -297,10 +309,61 @@ BEGIN
     jsonb_build_object(
       'stepKey',v_step.step_key,'position',p_position,
       'attempt',v_step.attempt + 1,'proposalId',v_proposal.id,
-      'tool',v_step.tool_name
+      'tool',v_step.tool_name,
+      'approvalPolicy',v_proposal.approval_policy,
+      'proposalStatus',v_proposal.status
     )
   );
-  RETURN v_workflow;
+
+  IF v_proposal.status IN ('failed','rejected','cancelled') THEN
+    UPDATE api.agent_workflows
+       SET status = 'paused', revision = revision + 1, updated_at = now()
+     WHERE id = v_workflow.id
+     RETURNING * INTO v_workflow;
+    PERFORM internal.agent_workflow_append_event(
+      v_workflow, 'paused',
+      jsonb_build_object(
+        'stepKey',v_step.step_key,'position',p_position,
+        'proposalId',v_proposal.id,
+        'proposalStatus',v_proposal.status,
+        'errorCode',v_proposal.error_code
+      )
+    );
+    RETURN v_workflow;
+  END IF;
+
+  IF v_proposal.status <> 'succeeded' THEN
+    UPDATE api.agent_workflows
+       SET status = 'waiting_approval'
+     WHERE id = v_workflow.id
+     RETURNING * INTO v_workflow;
+    RETURN v_workflow;
+  END IF;
+
+  PERFORM internal.agent_workflow_append_event(
+    v_workflow, 'step_succeeded',
+    jsonb_build_object(
+      'stepKey',v_step.step_key,'proposalId',v_proposal.id,
+      'canonicalResult',v_proposal.result,
+      'approvalPolicy',v_proposal.approval_policy
+    )
+  );
+  SELECT count(*)::integer INTO v_step_count
+    FROM api.agent_workflow_steps
+   WHERE workflow_id = v_workflow.id;
+  IF p_position + 1 >= v_step_count THEN
+    UPDATE api.agent_workflows
+       SET status = 'succeeded', completed_at = now(),
+           revision = revision + 1, updated_at = now()
+     WHERE id = v_workflow.id
+     RETURNING * INTO v_workflow;
+    PERFORM internal.agent_workflow_append_event(
+      v_workflow,'succeeded',
+      jsonb_build_object('planDigest',v_workflow.plan_digest)
+    );
+    RETURN v_workflow;
+  END IF;
+  RETURN internal.agent_workflow_propose_step(v_workflow.id, p_position + 1);
 END;
 $$;
 REVOKE EXECUTE ON FUNCTION internal.agent_workflow_propose_step(uuid,integer)

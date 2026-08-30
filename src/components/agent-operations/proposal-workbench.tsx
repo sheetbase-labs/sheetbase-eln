@@ -105,7 +105,12 @@ export function ProposalWorkbench({
             <div className="min-w-0">
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <ProposalStatus status={selected.status} />
-                <Badge variant="outline">human approval required</Badge>
+                <Badge variant="outline">
+                  {selected.approval_policy.replaceAll('_', ' ')}
+                </Badge>
+                <Badge variant="outline">
+                  {selected.risk_class.replaceAll('_', ' ')}
+                </Badge>
                 <Badge variant="secondary">
                   {selected.impact.mutationClass}
                 </Badge>
@@ -144,7 +149,7 @@ export function ProposalWorkbench({
             <div className="space-y-5">
               <section aria-labelledby="proposal-impact">
                 <h3 id="proposal-impact" className="text-sm font-semibold">
-                  Deterministic impact
+                  Policy decision and impact
                 </h3>
                 <dl className="border-border mt-2 grid grid-cols-2 overflow-hidden rounded-md border text-sm sm:grid-cols-4">
                   <Metric label="Target" value={selected.impact.target.label} />
@@ -158,6 +163,31 @@ export function ProposalWorkbench({
                   />
                   <Metric label="Destructive" value="No" />
                 </dl>
+                <div className="bg-muted mt-2 rounded-md p-3 text-sm">
+                  <p className="font-medium">{selected.policy_reason}</p>
+                  <dl className="text-muted-foreground mt-2 grid gap-1 text-xs sm:grid-cols-2">
+                    <Property
+                      label="Matched policy"
+                      value={selected.policy_id ?? 'Default risk policy'}
+                      mono={Boolean(selected.policy_id)}
+                    />
+                    <Property
+                      label="Policy limits"
+                      value={JSON.stringify(selected.policy_limits)}
+                      mono
+                    />
+                    <Property
+                      label="Evaluation evidence"
+                      value={JSON.stringify(selected.policy_evidence)}
+                      mono
+                    />
+                    <Property
+                      label="Target boundary"
+                      value={JSON.stringify(selected.policy_target)}
+                      mono
+                    />
+                  </dl>
+                </div>
               </section>
 
               <section aria-labelledby="proposal-diff">

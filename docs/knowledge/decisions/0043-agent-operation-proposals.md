@@ -23,9 +23,15 @@ evidence trail. Human-attestation actions must remain human-only.
    and canonical Dataset row commits. It does not execute multi-step goals.
 3. Agents may submit and inspect proposals with the dedicated
    `agent_operations:write` / `agent_operations:read` credential scopes.
-   Every proposal requires explicit approval from a human session. The
-   approver must hold the capability required by the underlying operation.
-   Service credentials cannot approve or execute proposals.
+   Read and preview operations stay outside this proposal model. Reversible
+   draft creation and draft updates are classified as `safe_draft` and execute
+   automatically when the actor has the matching existing external scope.
+   Consequential writes are `human_required` by default. A workspace owner or
+   steward may create a policy that delegates a canonical target with bounded
+   limits **to one live service credential**. Automatic Dataset writes are
+   create and append only; updates and overwrites stay `human_required`.
+   Service credentials cannot approve proposals or create policies.
+   Human approval uses the underlying canonical capability.
 4. Execution calls the existing canonical RPC. Dataset rows still use
    `commit_dataset_row_batch`; Dataset Schema, Sheet Definition, and Pipeline
    changes use their existing Definition/version RPCs. Their validation,
@@ -35,8 +41,11 @@ evidence trail. Human-attestation actions must remain human-only.
    id is the canonical Dataset commit idempotency key, while proposal creation
    has an actor-bound request digest and caller idempotency key.
 6. `api.agent_operation_events` records the append-only proposal timeline.
-   Proposal lifecycle also enters `change_events`, and the underlying canonical
-   mutation emits its ordinary audit/evidence events.
+   Proposals retain the risk class, policy decision, matched policy, reason,
+   target, limits and evaluation evidence. Proposal lifecycle also enters
+   `change_events`, and the underlying canonical mutation emits its ordinary
+   audit/evidence events. Automatic execution records the acting credential
+   separately from the proposing credential when applicable.
 7. Publish, submit, sign, amend, lock, and other attestation or evidence-boundary
    operations are absent from the operation union. Adding one requires an
    explicit policy decision, not a generic operation escape hatch.
@@ -60,8 +69,12 @@ evidence trail. Human-attestation actions must remain human-only.
   result and audit effects as the corresponding product action.
 - Approval does not reserve the target. A conflicting change between preview
   and execution fails through optimistic concurrency and remains visible as a
-  failed proposal.
+  failed proposal. Policy delegation does not widen the target or row limit
+  captured in the proposal. A policy never applies to a different credential,
+  a revoked credential, or a Dataset update.
 - AUTO-05 orchestrates several proposals without weakening this per-operation
-  approval and execution boundary or changing the Pipeline
+  policy, approval and execution boundary or changing the Pipeline
   execution model or adding planning, autonomy, or adaptive tool use that
-  belongs to later intelligent-workspace work.
+  belongs to later intelligent-workspace work. Automatic or delegated AUTO-04
+  proposals may complete a step without a human click; human-required steps
+  still pause the workflow.

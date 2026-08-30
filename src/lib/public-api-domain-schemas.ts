@@ -1602,4 +1602,46 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       structure_version: INT,
     },
   },
+  // -- API-06: Webhook result schemas -----------------------------------------
+  WebhookSubscriptionResult: {
+    type: 'object',
+    required: ['subscription', 'signing_secret'],
+    additionalProperties: false,
+    properties: {
+      subscription: { $ref: '#/components/schemas/WebhookSubscriptionsRow' },
+      signing_secret: {
+        type: 'string',
+        description:
+          'HMAC-SHA256 signing secret. Returned exactly once at creation; never retrievable after.',
+      },
+    },
+  },
+  WebhookSecretRotationResult: {
+    type: 'object',
+    required: ['ok', 'subscriptionId', 'signing_secret'],
+    additionalProperties: false,
+    properties: {
+      ok: BOOL,
+      subscriptionId: UUID,
+      signing_secret: {
+        type: 'string',
+        description:
+          'New HMAC-SHA256 signing secret. Returned exactly once at rotation; never retrievable after.',
+      },
+    },
+  },
+  WebhookDeliveryListResult: {
+    type: 'object',
+    required: ['data', 'total', 'limit', 'offset'],
+    additionalProperties: false,
+    properties: {
+      data: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/WebhookDeliveriesRow' },
+      },
+      total: INT,
+      limit: INT,
+      offset: INT,
+    },
+  },
 } as const satisfies Record<string, JsonSchema>

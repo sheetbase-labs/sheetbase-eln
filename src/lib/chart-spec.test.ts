@@ -5,6 +5,7 @@ import {
   CHART_SPEC_VERSION,
   applyFilters,
   formatScientific,
+  chartSpecReferencedFieldIds,
   materialiseChart,
   materialiseFacetedCharts,
   validateChartPayload,
@@ -720,6 +721,64 @@ describe('SCI-01 distribution chart types', () => {
     expect(m.droppedPoints).toBe(3)
     expect(m.heatmap).toBeDefined()
     expect(m.heatmap!.cells.reduce((a, c) => a + c.count, 0)).toBe(2)
+  })
+
+  it('lists every ChartSpec field id including heatmap valueField', () => {
+    const spec = distSpec({
+      type: 'heatmap',
+      fields: {
+        x: { fieldId: COL_REP },
+        y: { fieldId: COL_DAYS },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      filters: [{ fieldId: COL_REP, op: 'eq', value: '4C' }],
+      typeParams: {
+        heatmap: {
+          aggregate: 'mean',
+          valueField: { fieldId: COL_GCN },
+        },
+      },
+    })
+    expect(chartSpecReferencedFieldIds(spec)).toEqual(
+      [COL_DAYS, COL_GCN, COL_REP].sort(),
+    )
+  })
+
+  it('means a heatmap over a third numeric value field', () => {
+    const spec = distSpec({
+      type: 'heatmap',
+      fields: {
+        x: { fieldId: COL_REP },
+        y: { fieldId: COL_DAYS },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      typeParams: {
+        heatmap: {
+          aggregate: 'mean',
+          valueField: { fieldId: COL_GCN },
+          yBins: 2,
+        },
+      },
+    })
+    const live = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
+    expect(live.state.kind).toBe('ok')
+    expect(live.heatmap?.aggregate).toBe('mean')
+    expect(live.heatmap?.cells.some((cell) => cell.value !== null)).toBe(true)
+    const missingValue = materialiseChart(
+      spec,
+      DIST_COLUMNS.filter((column) => column.id !== COL_GCN),
+      DIST_ROWS,
+    )
+    expect(missingValue.state).toEqual({
+      kind: 'missing_field',
+      fields: ['value'],
+    })
   })
 
   it('facets charts into sorted small multiples with an honest total', () => {

@@ -6,7 +6,11 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { ChartSpec, FrozenChart } from '#/lib/chart-spec'
-import { materialiseChart, validateChartSpec } from '#/lib/chart-spec'
+import {
+  chartSpecReferencedFieldIds,
+  materialiseChart,
+  validateChartSpec,
+} from '#/lib/chart-spec'
 
 import { prepareTestDatabase } from './helpers'
 import {
@@ -241,6 +245,97 @@ describe('SCI-04 visualisation freeze', () => {
     expect(
       chart.series[0].points.map((point) => point.y).sort((a, b) => Number(a) - Number(b)),
     ).toEqual([2, 4, 6])
+  })
+
+  it('freezes a mean heatmap over a third value field', async () => {
+    const ds = await insertDataset(
+      'heatmap_mean',
+      [
+        { key: 'row_key', label: 'Row', type: 'text' },
+        { key: 'col_key', label: 'Column', type: 'text' },
+        { key: 'signal', label: 'Signal', type: 'decimal' },
+      ],
+      [
+        ['A', '1', 10],
+        ['A', '1', 20],
+        ['B', '1', 30],
+      ],
+    )
+    const [fieldRow, fieldCol, fieldSignal] = ds.fieldIds
+    const spec = {
+      specVersion: 1,
+      type: 'heatmap',
+      datasets: [{ datasetId: ds.datasetId }],
+      fields: {
+        x: { fieldId: fieldRow },
+        y: { fieldId: fieldCol },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      filters: [],
+      transformations: [],
+      typeParams: {
+        heatmap: {
+          aggregate: 'mean',
+          valueField: { fieldId: fieldSignal },
+        },
+      },
+      display: {
+        axes: { x: { scale: 'linear' }, y: { scale: 'linear' } },
+        series: [],
+        legend: { visible: true },
+      },
+      overlays: { errorBars: null },
+    }
+    const columns = [
+      { id: fieldRow, label: 'Row', logicalType: 'text' },
+      { id: fieldCol, label: 'Column', logicalType: 'text' },
+      { id: fieldSignal, label: 'Signal', logicalType: 'decimal' },
+    ]
+    const liveRows = [
+      { [fieldRow]: 'A', [fieldCol]: '1', [fieldSignal]: 10 },
+      { [fieldRow]: 'A', [fieldCol]: '1', [fieldSignal]: 20 },
+      { [fieldRow]: 'B', [fieldCol]: '1', [fieldSignal]: 30 },
+    ]
+    const live = materialiseChart(spec as ChartSpec, columns, liveRows)
+    expect(live.state.kind).toBe('ok')
+    expect(live.heatmap?.aggregate).toBe('mean')
+    const cellA = live.heatmap!.cells.find(
+      (cell) => live.heatmap!.xLabels[cell.x] === 'A',
+    )
+    expect(cellA?.value).toBe(15)
+
+    const sqlIds = await migrator.query<{ ids: string[] }>(
+      `SELECT api.chart_spec_referenced_field_ids($1::jsonb) AS ids`,
+      [JSON.stringify(spec)],
+    )
+    expect([...sqlIds.rows[0].ids].sort()).toEqual(
+      chartSpecReferencedFieldIds(spec as ChartSpec),
+    )
+    expect(sqlIds.rows[0].ids).toContain(fieldSignal)
+
+    const block = await insertChartBlock(spec)
+    const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
+      block.id,
+      block.version,
+    ])
+    const frozen = res.rows[0].payload.frozen as FrozenChart
+    expect(
+      frozen.data.columns.map((column) => column.fieldId).sort(),
+    ).toEqual([fieldRow, fieldCol, fieldSignal].sort())
+
+    const reconstructed = rematerialiseFrozenChart(
+      spec as ChartSpec,
+      frozen,
+      await loadPinnedVersionRows(
+        migrator,
+        frozen.datasetProvenance[0].datasetVersionId!,
+      ),
+    )
+    expect(reconstructed.state.kind).toBe('ok')
+    expect(reconstructed.heatmap).toEqual(live.heatmap)
   })
 
   it('keeps the pinned Version after the live Dataset is mutated', async () => {

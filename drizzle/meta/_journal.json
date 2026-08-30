@@ -1007,6 +1007,13 @@
       "when": 1788025000000,
       "tag": "0145_sci_04_chart_spec_parity",
       "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1788030000000,
+      "tag": "0146_sci_04_heatmap_value_field_freeze",
+      "breakpoints": true
     }
   ]
 }

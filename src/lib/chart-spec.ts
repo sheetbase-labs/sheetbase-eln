@@ -1427,6 +1427,52 @@ export function resolveColumn(
   return columns.find((c) => c.id === binding.fieldId) ?? null
 }
 
+const TRANSFORM_FIELD_PARAM_KEYS = [
+  'fieldId',
+  'xField',
+  'yField',
+  'seriesField',
+] as const
+
+/**
+ * Field IDs a ChartSpec actually reads. Freeze metadata and reconstruction
+ * must keep this set, including `typeParams.heatmap.valueField`.
+ */
+export function chartSpecReferencedFieldIds(spec: ChartSpec): string[] {
+  const ids = new Set<string>()
+  const take = (value: unknown) => {
+    if (isUuid(value)) ids.add(value)
+  }
+  const takeBinding = (binding: FieldBinding | null | undefined) => {
+    if (binding) take(binding.fieldId)
+  }
+  takeBinding(spec.fields.x)
+  takeBinding(spec.fields.y)
+  takeBinding(spec.fields.series)
+  takeBinding(spec.fields.color)
+  takeBinding(spec.fields.size)
+  takeBinding(spec.fields.facet)
+  takeBinding(spec.fields.facetRow)
+  takeBinding(spec.fields.facetCol)
+  takeBinding(spec.fields.shape)
+  takeBinding(spec.fields.group)
+  takeBinding(spec.fields.label)
+  for (const filter of spec.filters) take(filter.fieldId)
+  const errorBars = spec.overlays.errorBars
+  if (errorBars) {
+    take(errorBars.fieldId)
+    take(errorBars.lowerFieldId)
+    take(errorBars.upperFieldId)
+  }
+  takeBinding(spec.typeParams.heatmap?.valueField)
+  for (const transformation of spec.transformations) {
+    for (const key of TRANSFORM_FIELD_PARAM_KEYS) {
+      take(transformation.params[key])
+    }
+  }
+  return [...ids].sort()
+}
+
 /** Render-time state the chart surfaces honestly instead of blank axes. */
 export type ChartRenderState =
   | { kind: 'ok' }

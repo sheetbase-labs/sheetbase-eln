@@ -81,36 +81,49 @@ export class RecordsResource {
     });
   }
 
-  async archive(recordId: string): Promise<any> {
+  async archive(recordId: string, expectedMetadataVersion: number): Promise<any> {
     return this.transport.post("/api/db/rpc/archive_record", {
-      jsonBody: { p_record_id: recordId },
+      jsonBody: { p_record_id: recordId, p_expected_metadata_version: expectedMetadataVersion },
     });
   }
 
-  async restore(recordId: string): Promise<any> {
+  async restore(recordId: string, expectedMetadataVersion: number): Promise<any> {
     return this.transport.post("/api/db/rpc/restore_record", {
-      jsonBody: { p_record_id: recordId },
+      jsonBody: { p_record_id: recordId, p_expected_metadata_version: expectedMetadataVersion },
     });
   }
 
-  async transitionStatus(recordId: string, status: string): Promise<any> {
-    return this.transport.post("/api/db/rpc/transition_record_status", {
-      jsonBody: { p_record_id: recordId, p_status: status },
-    });
-  }
-
-  async createLink(
-    sourceRecordId: string,
-    targetRecordId: string,
-    options?: { linkType?: string },
+  async transitionStatus(
+    recordId: string,
+    targetStatus: string,
+    expectedMetadataVersion: number,
   ): Promise<any> {
-    const body: Record<string, unknown> = {
-      p_source_record_id: sourceRecordId,
-      p_target_record_id: targetRecordId,
-    };
-    if (options?.linkType) body.p_link_type = options.linkType;
+    return this.transport.post("/api/db/rpc/transition_record_status", {
+      jsonBody: {
+        p_record_id: recordId,
+        p_target_status: targetStatus,
+        p_expected_metadata_version: expectedMetadataVersion,
+      },
+    });
+  }
+
+  async createLink(params: {
+    sourceRecordId: string;
+    targetKind: string;
+    targetIdentifier: string;
+    linkType: string;
+    targetRecordId?: string | null;
+    label?: string | null;
+  }): Promise<any> {
     return this.transport.post("/api/db/rpc/create_record_link", {
-      jsonBody: body,
+      jsonBody: {
+        p_source_record_id: params.sourceRecordId,
+        p_target_kind: params.targetKind,
+        p_target_identifier: params.targetIdentifier,
+        p_link_type: params.linkType,
+        p_target_record_id: params.targetRecordId ?? null,
+        p_label: params.label ?? null,
+      },
     });
   }
 

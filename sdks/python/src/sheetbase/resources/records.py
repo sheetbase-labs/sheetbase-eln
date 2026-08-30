@@ -99,42 +99,50 @@ class RecordsResource:
             json_body=body,
         )
 
-    def archive(self, record_id: str) -> Any:
+    def archive(self, record_id: str, expected_metadata_version: int) -> Any:
         return self._transport.post(
             "/api/db/rpc/archive_record",
-            json_body={"p_record_id": record_id},
+            json_body={"p_record_id": record_id, "p_expected_metadata_version": expected_metadata_version},
         )
 
-    def restore(self, record_id: str) -> Any:
+    def restore(self, record_id: str, expected_metadata_version: int) -> Any:
         return self._transport.post(
             "/api/db/rpc/restore_record",
-            json_body={"p_record_id": record_id},
+            json_body={"p_record_id": record_id, "p_expected_metadata_version": expected_metadata_version},
         )
 
-    def transition_status(self, record_id: str, status: str) -> Any:
+    def transition_status(self, record_id: str, target_status: str, expected_metadata_version: int) -> Any:
         """Transition a record's lifecycle status."""
         return self._transport.post(
             "/api/db/rpc/transition_record_status",
-            json_body={"p_record_id": record_id, "p_status": status},
+            json_body={
+                "p_record_id": record_id,
+                "p_target_status": target_status,
+                "p_expected_metadata_version": expected_metadata_version,
+            },
         )
 
     def create_link(
         self,
-        source_record_id: str,
-        target_record_id: str,
         *,
-        link_type: Optional[str] = None,
+        source_record_id: str,
+        target_kind: str,
+        target_identifier: str,
+        link_type: str,
+        target_record_id: Optional[str] = None,
+        label: Optional[str] = None,
     ) -> Any:
         """Create a record link between two records."""
-        body: dict[str, Any] = {
-            "p_source_record_id": source_record_id,
-            "p_target_record_id": target_record_id,
-        }
-        if link_type:
-            body["p_link_type"] = link_type
         return self._transport.post(
             "/api/db/rpc/create_record_link",
-            json_body=body,
+            json_body={
+                "p_source_record_id": source_record_id,
+                "p_target_kind": target_kind,
+                "p_target_identifier": target_identifier,
+                "p_link_type": link_type,
+                "p_target_record_id": target_record_id,
+                "p_label": label,
+            },
         )
 
     def iter(

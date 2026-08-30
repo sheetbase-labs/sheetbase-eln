@@ -1,4 +1,5 @@
 """Tests for the AsyncSheetbaseClient."""
+import httpx
 import pytest
 
 from sheetbase import AsyncSheetbaseClient
@@ -22,6 +23,17 @@ class TestAsyncClient:
             await client.projects.list()
             await client.projects.list()
         assert mock_transport["token"].call_count == 1
+
+    async def test_unauthenticated_reexchanges_and_retries(self, mock_transport, project_row):
+        route = mock_transport.get("/api/db/projects")
+        route.mock(side_effect=[
+            httpx.Response(401, json={"error": {"category": "unauthenticated"}}),
+            httpx.Response(200, json=[project_row]),
+        ])
+        async with AsyncSheetbaseClient(BASE_URL, CREDENTIAL, ["projects:read"]) as client:
+            assert len(await client.projects.list()) == 1
+        assert route.call_count == 2
+        assert mock_transport["token"].call_count == 2
 
     async def test_token_error(self):
         import respx

@@ -89,51 +89,47 @@ class CataloguesResource:
 
     def instantiate_template(
         self,
-        template_version_id: str,
         *,
-        project_id: Optional[str] = None,
-        parameters: Optional[dict[str, Any]] = None,
+        version_id: str,
+        target_project_id: str,
+        title: str,
+        parameter_inputs: dict[str, Any],
+        idempotency_key: str,
     ) -> Any:
         """Instantiate a notebook template version."""
-        body: dict[str, Any] = {
-            "p_template_version_id": template_version_id,
-        }
-        if project_id:
-            body["p_project_id"] = project_id
-        if parameters:
-            body["p_parameters"] = parameters
         return self._transport.post(
             "/api/db/rpc/instantiate_notebook_template_version",
-            json_body=body,
+            json_body={"p_version_id": version_id, "p_target_project_id": target_project_id,
+                       "p_title": title, "p_parameter_inputs": parameter_inputs,
+                       "p_idempotency_key": idempotency_key},
         )
 
     def preview_template_upgrade(
         self,
-        notebook_record_id: str,
-        target_template_version_id: str,
+        record_id: str,
+        target_version_id: str,
     ) -> Any:
         return self._transport.post(
             "/api/db/rpc/preview_notebook_template_upgrade",
             json_body={
-                "p_notebook_record_id": notebook_record_id,
-                "p_target_template_version_id": target_template_version_id,
+                "p_record_id": record_id,
+                "p_target_version_id": target_version_id,
             },
         )
 
     def apply_template_upgrade(
         self,
-        notebook_record_id: str,
-        target_template_version_id: str,
         *,
-        decisions: Optional[list[dict[str, Any]]] = None,
+        record_id: str,
+        expected_structure_version: int,
+        target_version_id: str,
+        decisions: dict[str, Any],
+        parameter_inputs: dict[str, Any],
     ) -> Any:
-        body: dict[str, Any] = {
-            "p_notebook_record_id": notebook_record_id,
-            "p_target_template_version_id": target_template_version_id,
-        }
-        if decisions:
-            body["p_decisions"] = decisions
         return self._transport.post(
             "/api/db/rpc/apply_notebook_template_upgrade",
-            json_body=body,
+            json_body={"p_record_id": record_id,
+                       "p_expected_structure_version": expected_structure_version,
+                       "p_target_version_id": target_version_id, "p_decisions": decisions,
+                       "p_parameter_inputs": parameter_inputs},
         )

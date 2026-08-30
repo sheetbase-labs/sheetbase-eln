@@ -1,4 +1,6 @@
 """Tests for the Records resource."""
+import json
+
 import httpx
 import pytest
 
@@ -62,6 +64,40 @@ class TestRecordsResource:
         with SheetbaseClient(BASE_URL, CREDENTIAL, ["projects:write"]) as client:
             result = client.records.update(record_row["id"], title="Updated Title")
         assert result[0]["title"] == "Updated Title"
+
+    @pytest.mark.parametrize(
+        ("method", "path"),
+        [("archive", "archive_record"), ("restore", "restore_record")],
+    )
+    def test_archive_restore_contract(self, mock_transport, record_row, method, path):
+        route = mock_transport.post(f"/api/db/rpc/{path}").respond(200, json=[])
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["projects:write"]) as client:
+            getattr(client.records, method)(record_row["id"], expected_metadata_version=1)
+        assert json.loads(route.calls[0].request.content) == {
+            "p_record_id": record_row["id"], "p_expected_metadata_version": 1
+        }
+
+    def test_transition_status_contract(self, mock_transport, record_row):
+        route = mock_transport.post("/api/db/rpc/transition_record_status").respond(200, json=[])
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["projects:write"]) as client:
+            client.records.transition_status(record_row["id"], "complete", 1)
+        assert json.loads(route.calls[0].request.content) == {
+            "p_record_id": record_row["id"], "p_target_status": "complete",
+            "p_expected_metadata_version": 1,
+        }
+
+    def test_create_link_contract(self, mock_transport, record_row):
+        route = mock_transport.post("/api/db/rpc/create_record_link").respond(200, json=[])
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["projects:write"]) as client:
+            client.records.create_link(
+                source_record_id=record_row["id"], target_kind="doi",
+                target_identifier="10.1/example", link_type="references",
+            )
+        assert json.loads(route.calls[0].request.content) == {
+            "p_source_record_id": record_row["id"], "p_target_kind": "doi",
+            "p_target_identifier": "10.1/example", "p_link_type": "references",
+            "p_target_record_id": None, "p_label": None,
+        }
 
     def test_iter_records(self, mock_transport, record_row):
         route = mock_transport.get("/api/db/records")

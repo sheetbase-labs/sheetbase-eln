@@ -34,43 +34,66 @@ export class SheetsResource {
   }
 
   async create(params: {
+    workspaceId: string;
     name: string;
-    notebookRecordId?: string;
-    configuration?: Record<string, unknown>;
+    description?: string | null;
+    sourceDefinitionVersionId?: string | null;
+    projectId?: string | null;
+    notebookRecordId?: string | null;
+    state: Record<string, unknown>;
   }): Promise<any> {
-    const body: Record<string, unknown> = { p_name: params.name };
-    if (params.notebookRecordId) body.p_notebook_record_id = params.notebookRecordId;
-    if (params.configuration) body.p_configuration = params.configuration;
-    return this.transport.post("/api/db/rpc/create_sheet_instance", { jsonBody: body });
+    return this.transport.post("/api/db/rpc/create_sheet_instance", {
+      jsonBody: {
+        p_workspace_id: params.workspaceId,
+        p_name: params.name,
+        p_description: params.description ?? null,
+        p_source_definition_version_id: params.sourceDefinitionVersionId ?? null,
+        p_project_id: params.projectId ?? null,
+        p_notebook_record_id: params.notebookRecordId ?? null,
+        p_state: params.state,
+      },
+    });
   }
 
   async createFromDefinition(params: {
-    sheetDefinitionVersionId: string;
+    workspaceId: string;
     name: string;
-    notebookRecordId?: string;
+    sourceDefinitionVersionId: string;
+    state: Record<string, unknown>;
+    parameterInputs: Record<string, unknown>;
+    description?: string | null;
+    projectId?: string | null;
+    notebookRecordId?: string | null;
   }): Promise<any> {
-    const body: Record<string, unknown> = {
-      p_sheet_definition_version_id: params.sheetDefinitionVersionId,
-      p_name: params.name,
-    };
-    if (params.notebookRecordId) body.p_notebook_record_id = params.notebookRecordId;
     return this.transport.post(
       "/api/db/rpc/create_sheet_instance_from_definition",
-      { jsonBody: body },
+      {
+        jsonBody: {
+          p_workspace_id: params.workspaceId,
+          p_name: params.name,
+          p_description: params.description ?? null,
+          p_source_definition_version_id: params.sourceDefinitionVersionId,
+          p_project_id: params.projectId ?? null,
+          p_notebook_record_id: params.notebookRecordId ?? null,
+          p_state: params.state,
+          p_parameter_inputs: params.parameterInputs,
+        },
+      },
     );
   }
 
   async update(
     instanceId: string,
     expectedRevision: number,
-    options?: { name?: string },
+    state: Record<string, unknown>,
   ): Promise<any> {
-    const body: Record<string, unknown> = {
-      p_instance_id: instanceId,
-      p_expected_revision: expectedRevision,
-    };
-    if (options?.name !== undefined) body.p_name = options.name;
-    return this.transport.post("/api/db/rpc/update_sheet_instance", { jsonBody: body });
+    return this.transport.post("/api/db/rpc/update_sheet_instance", {
+      jsonBody: {
+        p_instance_id: instanceId,
+        p_expected_revision: expectedRevision,
+        p_state: state,
+      },
+    });
   }
 
   async queryRows(params: {
@@ -105,68 +128,103 @@ export class SheetsResource {
     });
   }
 
-  async archive(instanceId: string): Promise<any> {
+  async archive(instanceId: string, expectedRevision: number): Promise<any> {
     return this.transport.post("/api/db/rpc/archive_sheet_instance", {
-      jsonBody: { p_instance_id: instanceId },
+      jsonBody: { p_instance_id: instanceId, p_expected_revision: expectedRevision },
     });
   }
 
-  async restore(instanceId: string): Promise<any> {
+  async restore(instanceId: string, expectedRevision: number): Promise<any> {
     return this.transport.post("/api/db/rpc/restore_sheet_instance", {
-      jsonBody: { p_instance_id: instanceId },
+      jsonBody: { p_instance_id: instanceId, p_expected_revision: expectedRevision },
     });
   }
 
-  async duplicate(instanceId: string, options?: { name?: string }): Promise<any> {
-    const body: Record<string, unknown> = { p_instance_id: instanceId };
-    if (options?.name) body.p_name = options.name;
-    return this.transport.post("/api/db/rpc/duplicate_sheet_instance", { jsonBody: body });
-  }
-
-  async materialize(instanceId: string, expectedRevision: number): Promise<any> {
-    return this.transport.post("/api/db/rpc/materialize_sheet_instance", {
+  async duplicate(
+    instanceId: string,
+    expectedRevision: number,
+    name: string,
+  ): Promise<any> {
+    return this.transport.post("/api/db/rpc/duplicate_sheet_instance", {
       jsonBody: {
         p_instance_id: instanceId,
         p_expected_revision: expectedRevision,
+        p_name: name,
       },
     });
   }
 
-  async previewMaterialize(instanceId: string): Promise<any> {
-    return this.transport.post("/api/db/rpc/preview_sheet_materialization", {
-      jsonBody: { p_instance_id: instanceId },
+  async materialize(params: {
+    instanceId: string;
+    expectedInstanceRevision: number;
+    outputName: string;
+    outputSchemaVersionId: string;
+    previewDigest: string;
+    idempotencyKey: string;
+  }): Promise<any> {
+    return this.transport.post("/api/db/rpc/materialize_sheet_instance", {
+      jsonBody: {
+        p_instance_id: params.instanceId,
+        p_expected_instance_revision: params.expectedInstanceRevision,
+        p_output_name: params.outputName,
+        p_output_schema_version_id: params.outputSchemaVersionId,
+        p_preview_digest: params.previewDigest,
+        p_idempotency_key: params.idempotencyKey,
+      },
     });
   }
 
-  async mutateLocalState(
-    instanceId: string,
-    expectedRevision: number,
-    localState: Record<string, unknown>,
-  ): Promise<any> {
+  async previewMaterialize(params: {
+    instanceId: string;
+    expectedInstanceRevision: number;
+    outputSchemaVersionId: string;
+  }): Promise<any> {
+    return this.transport.post("/api/db/rpc/preview_sheet_materialization", {
+      jsonBody: {
+        p_instance_id: params.instanceId,
+        p_expected_instance_revision: params.expectedInstanceRevision,
+        p_output_schema_version_id: params.outputSchemaVersionId,
+      },
+    });
+  }
+
+  async mutateLocalState(params: {
+    instanceId: string;
+    expectedRevision: number;
+    retryToken: string;
+    fieldChanges: Record<string, unknown>[];
+    rows: Record<string, unknown>[];
+    cells: { rowKey: string; fieldId: string; value: unknown }[];
+  }): Promise<any> {
     return this.transport.post(
       "/api/db/rpc/mutate_sheet_instance_local_state",
       {
         jsonBody: {
-          p_instance_id: instanceId,
-          p_expected_revision: expectedRevision,
-          p_local_state: localState,
+          p_instance_id: params.instanceId,
+          p_expected_revision: params.expectedRevision,
+          p_retry_token: params.retryToken,
+          p_field_changes: params.fieldChanges,
+          p_rows: params.rows,
+          p_cells: params.cells,
         },
       },
     );
   }
 
-  async mutateCalculations(
-    instanceId: string,
-    expectedRevision: number,
-    calculations: Record<string, unknown>[],
-  ): Promise<any> {
+  async mutateCalculations(params: {
+    instanceId: string;
+    expectedRevision: number;
+    retryToken: string;
+    changes: Record<string, unknown>[];
+  }): Promise<any> {
     return this.transport.post(
       "/api/db/rpc/mutate_sheet_instance_calculations",
       {
         jsonBody: {
-          p_instance_id: instanceId,
-          p_expected_revision: expectedRevision,
-          p_calculations: calculations,
+          p_instance_id: params.instanceId,
+          p_expected_revision: params.expectedRevision,
+          p_retry_token: params.retryToken,
+          p_changes: params.changes,
         },
       },
     );

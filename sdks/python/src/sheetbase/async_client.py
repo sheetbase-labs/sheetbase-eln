@@ -194,6 +194,29 @@ class AsyncRecords:
             return Record.from_dict(result[0])
         return Record.from_dict(result)
 
+    async def archive(self, record_id: str, expected_metadata_version: int) -> Any:
+        return await self._t.post("/api/db/rpc/archive_record", json_body={
+            "p_record_id": record_id, "p_expected_metadata_version": expected_metadata_version})
+
+    async def restore(self, record_id: str, expected_metadata_version: int) -> Any:
+        return await self._t.post("/api/db/rpc/restore_record", json_body={
+            "p_record_id": record_id, "p_expected_metadata_version": expected_metadata_version})
+
+    async def transition_status(self, record_id: str, target_status: str,
+                                expected_metadata_version: int) -> Any:
+        return await self._t.post("/api/db/rpc/transition_record_status", json_body={
+            "p_record_id": record_id, "p_target_status": target_status,
+            "p_expected_metadata_version": expected_metadata_version})
+
+    async def create_link(self, *, source_record_id: str, target_kind: str,
+                          target_identifier: str, link_type: str,
+                          target_record_id: Optional[str] = None,
+                          label: Optional[str] = None) -> Any:
+        return await self._t.post("/api/db/rpc/create_record_link", json_body={
+            "p_source_record_id": source_record_id, "p_target_kind": target_kind,
+            "p_target_identifier": target_identifier, "p_link_type": link_type,
+            "p_target_record_id": target_record_id, "p_label": label})
+
 
 class AsyncDatasets:
     def __init__(self, transport: AsyncHttpTransport) -> None:
@@ -353,16 +376,16 @@ class AsyncDatasets:
             return DatasetVersion.from_dict(result[0])
         return DatasetVersion.from_dict(result)
 
-    async def archive(self, dataset_id: str) -> Any:
+    async def archive(self, dataset_id: str, expected_revision: int) -> Any:
         return await self._t.post(
             "/api/db/rpc/archive_dataset",
-            json_body={"p_dataset_id": dataset_id},
+            json_body={"p_dataset_id": dataset_id, "p_expected_revision": expected_revision},
         )
 
-    async def restore(self, dataset_id: str) -> Any:
+    async def restore(self, dataset_id: str, expected_revision: int) -> Any:
         return await self._t.post(
             "/api/db/rpc/restore_dataset",
-            json_body={"p_dataset_id": dataset_id},
+            json_body={"p_dataset_id": dataset_id, "p_expected_revision": expected_revision},
         )
 
     async def to_dataframe(

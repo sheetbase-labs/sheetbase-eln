@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 from typing import Any, Optional, Sequence
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import httpx
 
@@ -31,6 +31,12 @@ class HttpTransport:
         token_ttl_buffer: float = 30.0,
         client: Optional[httpx.Client] = None,
     ) -> None:
+        parsed = urlparse(base_url.rstrip("/"))
+        if parsed.scheme != "https" and parsed.hostname not in ("localhost", "127.0.0.1"):
+            raise ValueError(
+                f"Sheetbase base URL must be HTTPS (got {parsed.scheme}). "
+                "Use http://localhost or http://127.0.0.1 for local development."
+            )
         self.base_url = base_url.rstrip("/")
         self.credential = credential
         self.scopes = list(scopes)
@@ -39,7 +45,7 @@ class HttpTransport:
         self._token: Optional[str] = None
         self._token_expires: float = 0.0
         self._client = client or httpx.Client(timeout=timeout)
-        self._closed = client is None  # we own the client if we created it
+        self._closed = client is not None  # we don't own a client passed from outside
 
     # ── token management ────────────────────────────────────────────────
 
@@ -77,6 +83,20 @@ class HttpTransport:
         path: str,
         *,
         params: Optional[dict[str, Any]] = None,
+        json_body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Any:
+        try:
+            return self._do_request(method, path, params=params, json_body=json_body, headers=headers)
+        except DataPathError as err:
+            if err.category == "unauthenticated":
+                self._token = None
+                self._token_expires = 0.0
+                return self._do_request(method, path, params=params, json_body=json_body, headers=headers)
+            raise
+
+    def _do_request(
+        self, method: str, path: str, *, params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> Any:
@@ -189,6 +209,12 @@ class AsyncHttpTransport:
         token_ttl_buffer: float = 30.0,
         client: Optional[httpx.AsyncClient] = None,
     ) -> None:
+        parsed = urlparse(base_url.rstrip("/"))
+        if parsed.scheme != "https" and parsed.hostname not in ("localhost", "127.0.0.1"):
+            raise ValueError(
+                f"Sheetbase base URL must be HTTPS (got {parsed.scheme}). "
+                "Use http://localhost or http://127.0.0.1 for local development."
+            )
         self.base_url = base_url.rstrip("/")
         self.credential = credential
         self.scopes = list(scopes)
@@ -197,7 +223,7 @@ class AsyncHttpTransport:
         self._token: Optional[str] = None
         self._token_expires: float = 0.0
         self._client = client or httpx.AsyncClient(timeout=timeout)
-        self._closed = client is None
+        self._closed = client is not None
 
     async def _ensure_token(self) -> str:
         if self._token and time.monotonic() < self._token_expires:
@@ -230,6 +256,24 @@ class AsyncHttpTransport:
         path: str,
         *,
         params: Optional[dict[str, Any]] = None,
+        json_body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Any:
+        try:
+            return await self._do_request(
+                method, path, params=params, json_body=json_body, headers=headers
+            )
+        except DataPathError as err:
+            if err.category == "unauthenticated":
+                self._token = None
+                self._token_expires = 0.0
+                return await self._do_request(
+                    method, path, params=params, json_body=json_body, headers=headers
+                )
+            raise
+
+    async def _do_request(
+        self, method: str, path: str, *, params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> Any:

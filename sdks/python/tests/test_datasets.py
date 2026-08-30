@@ -30,6 +30,18 @@ class TestDatasetsResource:
         assert str(ds.id) == dataset_row["id"]
         assert ds.revision == 3
 
+    @pytest.mark.parametrize(
+        ("method", "path"),
+        [("archive", "archive_dataset"), ("restore", "restore_dataset")],
+    )
+    def test_archive_restore_contract(self, mock_transport, dataset_row, method, path):
+        route = mock_transport.post(f"/api/db/rpc/{path}").respond(200, json=[])
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write"]) as client:
+            getattr(client.datasets, method)(dataset_row["id"], expected_revision=3)
+        assert json.loads(route.calls[0].request.content) == {
+            "p_dataset_id": dataset_row["id"], "p_expected_revision": 3
+        }
+
     def test_query_rows(self, mock_transport, dataset_rows_response):
         mock_transport.post("/api/db/rpc/query_dataset_rows").respond(
             200, json=dataset_rows_response

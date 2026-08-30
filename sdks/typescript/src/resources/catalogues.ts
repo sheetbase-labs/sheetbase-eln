@@ -97,49 +97,59 @@ export class CataloguesResource {
   }
 
   async instantiateTemplate(params: {
-    templateVersionId: string;
-    projectId?: string;
-    parameters?: Record<string, unknown>;
+    versionId: string;
+    targetProjectId: string;
+    title: string;
+    parameterInputs: Record<string, unknown>;
+    idempotencyKey: string;
   }): Promise<any> {
-    const body: Record<string, unknown> = {
-      p_template_version_id: params.templateVersionId,
-    };
-    if (params.projectId) body.p_project_id = params.projectId;
-    if (params.parameters) body.p_parameters = params.parameters;
     return this.transport.post(
       "/api/db/rpc/instantiate_notebook_template_version",
-      { jsonBody: body },
-    );
-  }
-
-  async previewTemplateUpgrade(
-    notebookRecordId: string,
-    targetTemplateVersionId: string,
-  ): Promise<any> {
-    return this.transport.post(
-      "/api/db/rpc/preview_notebook_template_upgrade",
       {
         jsonBody: {
-          p_notebook_record_id: notebookRecordId,
-          p_target_template_version_id: targetTemplateVersionId,
+          p_version_id: params.versionId,
+          p_target_project_id: params.targetProjectId,
+          p_title: params.title,
+          p_parameter_inputs: params.parameterInputs,
+          p_idempotency_key: params.idempotencyKey,
         },
       },
     );
   }
 
-  async applyTemplateUpgrade(
-    notebookRecordId: string,
-    targetTemplateVersionId: string,
-    options?: { decisions?: Record<string, unknown>[] },
+  async previewTemplateUpgrade(
+    recordId: string,
+    targetVersionId: string,
   ): Promise<any> {
-    const body: Record<string, unknown> = {
-      p_notebook_record_id: notebookRecordId,
-      p_target_template_version_id: targetTemplateVersionId,
-    };
-    if (options?.decisions) body.p_decisions = options.decisions;
+    return this.transport.post(
+      "/api/db/rpc/preview_notebook_template_upgrade",
+      {
+        jsonBody: {
+          p_record_id: recordId,
+          p_target_version_id: targetVersionId,
+        },
+      },
+    );
+  }
+
+  async applyTemplateUpgrade(params: {
+    recordId: string;
+    expectedStructureVersion: number;
+    targetVersionId: string;
+    decisions: Record<string, unknown>;
+    parameterInputs: Record<string, unknown>;
+  }): Promise<any> {
     return this.transport.post(
       "/api/db/rpc/apply_notebook_template_upgrade",
-      { jsonBody: body },
+      {
+        jsonBody: {
+          p_record_id: params.recordId,
+          p_expected_structure_version: params.expectedStructureVersion,
+          p_target_version_id: params.targetVersionId,
+          p_decisions: params.decisions,
+          p_parameter_inputs: params.parameterInputs,
+        },
+      },
     );
   }
 }

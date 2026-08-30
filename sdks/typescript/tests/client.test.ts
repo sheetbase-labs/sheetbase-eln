@@ -20,6 +20,37 @@ function makeClient(routes: MockRoute[] = []) {
 }
 
 describe("SheetbaseClient", () => {
+  it("rejects non-HTTPS non-loopback base URLs", () => {
+    expect(
+      () =>
+        new SheetbaseClient({
+          baseUrl: "http://api.example.com",
+          credential: CREDENTIAL,
+          scopes: [],
+        }),
+    ).toThrow("must be HTTPS");
+  });
+
+  it("passes a timeout signal to token and data fetches", async () => {
+    const fetch = createMockFetch([
+      {
+        method: "GET",
+        path: "/api/db/projects",
+        handler: () => ({ status: 200, json: [] }),
+      },
+    ]);
+    const client = new SheetbaseClient({
+      baseUrl: BASE_URL,
+      credential: CREDENTIAL,
+      scopes: ["projects:read"],
+      timeout: 1000,
+      fetch,
+    });
+    await client.projects.list();
+    expect(fetch.calls[0].signal).toBeInstanceOf(AbortSignal);
+    expect(fetch.calls[1].signal).toBeInstanceOf(AbortSignal);
+  });
+
   it("exchanges token on first request", async () => {
     const { client, fetch } = makeClient([
       {

@@ -10,6 +10,16 @@ from tests.conftest import BASE_URL, CREDENTIAL, SCOPES
 
 
 class TestSheetbaseClient:
+    def test_non_https_rejected(self):
+        with pytest.raises(ValueError, match="HTTPS"):
+            SheetbaseClient("http://api.example.com", CREDENTIAL, ["projects:read"])
+
+    def test_close_closes_owned_client(self):
+        client = SheetbaseClient(BASE_URL, CREDENTIAL, ["projects:read"])
+        assert not client._transport._closed
+        client.close()
+        assert client._transport._client.is_closed
+
     def test_context_manager_closes(self, mock_transport, project_row):
         mock_transport.get("/api/db/projects").respond(200, json=[project_row])
         with SheetbaseClient(BASE_URL, CREDENTIAL, SCOPES) as client:
@@ -31,6 +41,17 @@ class TestSheetbaseClient:
             client.projects.list()
         # Token endpoint should only be called once
         assert mock_transport["token"].call_count == 1
+
+    def test_unauthenticated_reexchanges_and_retries(self, mock_transport, project_row):
+        route = mock_transport.get("/api/db/projects")
+        route.mock(side_effect=[
+            httpx.Response(401, json={"error": {"category": "unauthenticated"}}),
+            httpx.Response(200, json=[project_row]),
+        ])
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["projects:read"]) as client:
+            assert len(client.projects.list()) == 1
+        assert route.call_count == 2
+        assert mock_transport["token"].call_count == 2
 
     def test_token_error_on_bad_credential(self):
         with respx.mock(base_url=BASE_URL, assert_all_called=False) as router:

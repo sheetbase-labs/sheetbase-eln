@@ -23,15 +23,20 @@ export interface MockRoute {
  * - routes other requests based on the provided routes
  */
 export function createMockFetch(routes: MockRoute[] = []): FetchLike & {
-  calls: { url: string; method: string; body: string | undefined }[];
+  calls: { url: string; method: string; body: string | undefined; signal?: AbortSignal }[];
 } {
-  const calls: { url: string; method: string; body: string | undefined }[] = [];
+  const calls: {
+    url: string;
+    method: string;
+    body: string | undefined;
+    signal?: AbortSignal;
+  }[] = [];
 
   const fn: FetchLike = async (input: string, init?: any) => {
     const url = new URL(input);
     const method = (init?.method ?? "GET").toUpperCase();
     const body = init?.body as string | undefined;
-    calls.push({ url: url.pathname + url.search, method, body });
+    calls.push({ url: url.pathname + url.search, method, body, signal: init?.signal });
 
     // Token exchange — always succeeds.
     if (url.pathname === "/api/token" && method === "POST") {

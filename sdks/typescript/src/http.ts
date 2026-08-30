@@ -42,6 +42,7 @@ export class HttpTransport {
 
   private readonly tokenTtlBuffer: number;
   private readonly fetchFn: FetchLike;
+  private readonly timeout: number | undefined;
   private token: string | null = null;
   private tokenExpires = 0;
 
@@ -55,12 +56,24 @@ export class HttpTransport {
       fetch?: FetchLike;
     },
   ) {
-    this.baseUrl = baseUrl.replace(/\/$/, "");
+    const cleaned = baseUrl.replace(/\/$/, "");
+    const url = new URL(cleaned);
+    if (
+      url.protocol !== "https:" &&
+      url.hostname !== "localhost" &&
+      url.hostname !== "127.0.0.1"
+    ) {
+      throw new Error(
+        `Sheetbase base URL must be HTTPS (got ${url.protocol}). Use http://localhost or http://127.0.0.1 for local development.`,
+      );
+    }
+    this.baseUrl = cleaned;
     this.credential = credential;
     this.scopes = scopes;
 
     this.tokenTtlBuffer = options?.tokenTtlBuffer ?? 30;
     this.fetchFn = options?.fetch ?? globalThis.fetch.bind(globalThis);
+    this.timeout = options?.timeout;
   }
 
   // ── token management ────────────────────────────────────────────────
@@ -74,6 +87,7 @@ export class HttpTransport {
   }
 
   private async exchange(): Promise<void> {
+    const signal = this.timeout ? AbortSignal.timeout(this.timeout) : undefined;
     const resp = await this.fetchFn(`${this.baseUrl}/api/token`, {
       method: "POST",
       headers: {
@@ -84,6 +98,7 @@ export class HttpTransport {
         credential: this.credential,
         scopes: this.scopes,
       }),
+      signal,
     });
 
     if (!resp.ok) {
@@ -108,6 +123,23 @@ export class HttpTransport {
     path: string,
     options?: RequestOptions,
   ): Promise<any> {
+    try {
+      return await this.doRequest(method, path, options);
+    } catch (err: any) {
+      if (err?.category === "unauthenticated") {
+        this.token = null;
+        this.tokenExpires = 0;
+        return this.doRequest(method, path, options);
+      }
+      throw err;
+    }
+  }
+
+  private async doRequest(
+    method: string,
+    path: string,
+    options?: RequestOptions,
+  ): Promise<any> {
     const token = await this.ensureToken();
     const url = buildUrl(`${this.baseUrl}${path}`, options?.params);
     const headers: Record<string, string> = {
@@ -121,10 +153,12 @@ export class HttpTransport {
       Object.assign(headers, options.headers);
     }
 
+    const signal = this.timeout ? AbortSignal.timeout(this.timeout) : undefined;
     const resp = await this.fetchFn(url, {
       method,
       headers,
       body: options?.jsonBody ? JSON.stringify(options.jsonBody) : undefined,
+      signal,
     });
 
     return handleResponse(resp);

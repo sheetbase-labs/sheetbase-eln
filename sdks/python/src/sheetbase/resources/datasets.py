@@ -340,18 +340,18 @@ class DatasetsResource:
             return DatasetVersion.from_dict(result[0])
         return DatasetVersion.from_dict(result)
 
-    def archive(self, dataset_id: str) -> Any:
+    def archive(self, dataset_id: str, expected_revision: int) -> Any:
         """Archive a dataset."""
         return self._transport.post(
             "/api/db/rpc/archive_dataset",
-            json_body={"p_dataset_id": dataset_id},
+            json_body={"p_dataset_id": dataset_id, "p_expected_revision": expected_revision},
         )
 
-    def restore(self, dataset_id: str) -> Any:
+    def restore(self, dataset_id: str, expected_revision: int) -> Any:
         """Restore an archived dataset."""
         return self._transport.post(
             "/api/db/rpc/restore_dataset",
-            json_body={"p_dataset_id": dataset_id},
+            json_body={"p_dataset_id": dataset_id, "p_expected_revision": expected_revision},
         )
 
     # ── bulk upload/download ─────────────────────────────────────────────

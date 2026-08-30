@@ -314,15 +314,15 @@ export class DatasetsResource {
     return fromDatasetVersion(result);
   }
 
-  async archive(datasetId: string): Promise<any> {
+  async archive(datasetId: string, expectedRevision: number): Promise<any> {
     return this.transport.post("/api/db/rpc/archive_dataset", {
-      jsonBody: { p_dataset_id: datasetId },
+      jsonBody: { p_dataset_id: datasetId, p_expected_revision: expectedRevision },
     });
   }
 
-  async restore(datasetId: string): Promise<any> {
+  async restore(datasetId: string, expectedRevision: number): Promise<any> {
     return this.transport.post("/api/db/rpc/restore_dataset", {
-      jsonBody: { p_dataset_id: datasetId },
+      jsonBody: { p_dataset_id: datasetId, p_expected_revision: expectedRevision },
     });
   }
 }

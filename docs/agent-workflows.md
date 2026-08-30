@@ -17,9 +17,13 @@ An external agent or human client calls `create_agent_workflow` with:
 - maximum operations, tokens, and cost in micro-US dollars;
 - planning usage and an actor-bound idempotency key.
 
-PostgreSQL validates every step with the AUTO-04 operation contract before it
-stores the plan. It hashes the complete plan, goal, budget, initial usage, and
-provenance. The stored plan and digest never change.
+PostgreSQL validates each step's bounded tool and operation shape before it
+stores the plan, and validates the first operation against current state. It
+revalidates every exact operation against current state immediately before
+creating that step's proposal. This permits a later step to name the Dataset
+revision produced by an earlier step without weakening execution-time
+optimistic concurrency. The complete plan, goal, budget, initial usage, and
+provenance are hashed; the stored plan and digest never change.
 
 The v1 tool allowlist contains only:
 
@@ -53,6 +57,9 @@ Only a human session can call `resume_agent_workflow`. Resume revalidates the
 same pinned operation and creates a new proposal attempt. It cannot edit or
 substitute a step. A stale operation therefore stays paused until the user
 cancels it and an agent submits a new plan.
+
+If a future step no longer validates when reached, the workflow records the
+error and pauses without creating an executable proposal.
 
 The creating external credential or a workspace writer can cancel a workflow.
 Cancellation records a reason, cancels a pending or approved proposal, and

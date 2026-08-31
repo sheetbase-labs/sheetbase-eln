@@ -32,13 +32,14 @@ from sheetbase._http import AsyncHttpTransport, TableHead
 from sheetbase._version import API_VERSION, __version__
 from sheetbase._query_result import DatasetRowPage, DatasetVersionRowPage, SearchPage
 from sheetbase.errors import NotFoundError, StaleVersionError
-from sheetbase.resources.datasets import DatasetRowBatch
+from sheetbase.resources.datasets import DatasetRowBatch, _rows_to_dataframe
 from sheetbase.types import (
     CommitResult,
     Dataset,
     DatasetVersion,
     Project,
     Record,
+    SchemaField,
     SearchResult,
     SheetInstance,
     ValidationResult,
@@ -431,15 +432,67 @@ class AsyncDatasets:
             json_body={"p_dataset_id": dataset_id, "p_expected_revision": expected_revision},
         )
 
+    async def list_versions(
+        self,
+        dataset_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[DatasetVersion]:
+        """List the immutable Dataset Versions of a dataset (table read)."""
+        rows = await self._t.get(
+            "/api/db/dataset_versions",
+            params={
+                "dataset_id": f"eq.{dataset_id}",
+                "order": "created_at.desc",
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+        return [DatasetVersion.from_dict(r) for r in rows]
+
+    async def schema_fields(
+        self,
+        schema_version_id: str,
+        *,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[SchemaField]:
+        """List field definitions for a dataset schema version (table read)."""
+        rows = await self._t.get(
+            "/api/db/dataset_schema_version_fields",
+            params={
+                "schema_version_id": f"eq.{schema_version_id}",
+                "order": "display_order.asc",
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+        return [SchemaField.from_dict(r) for r in rows]
+
+    async def field_label_map(self, schema_version_id: str) -> dict[str, str]:
+        """Return ``{field_id: label}`` for a dataset schema version.
+
+        Display convenience only: stable field IDs remain the durable
+        identifiers in commits and row values.
+        """
+        fields = await self.schema_fields(schema_version_id)
+        return {str(f.field_id): f.label for f in fields}
+
     async def to_dataframe(
         self,
         dataset_id: str,
         *,
         filters: Optional[list[dict[str, Any]]] = None,
         sort: Optional[dict[str, str]] = None,
+        field_labels: Optional[dict[str, str]] = None,
         max_items: Optional[int] = None,
     ):
-        """Fetch all matching rows and return a pandas DataFrame."""
+        """Fetch all matching rows and return a pandas DataFrame.
+
+        ``field_labels`` optionally renames field-UUID columns (see
+        :meth:`field_label_map`).
+        """
         all_rows: list[dict[str, Any]] = []
         offset = 0
         while True:
@@ -455,13 +508,48 @@ class AsyncDatasets:
                 break
             offset += len(page.rows)
 
-        import pandas as pd
-        records: list[dict[str, Any]] = []
-        for row in all_rows:
-            record: dict[str, Any] = {"row_id": str(row.row_id), "revision": row.revision}
-            record.update(row.values)
-            records.append(record)
-        return pd.DataFrame(records)
+        raw_rows = [
+            {"rowId": str(row.row_id), "revision": row.revision, "values": row.values}
+            for row in all_rows
+        ]
+        return _rows_to_dataframe(raw_rows, field_labels=field_labels)
+
+    async def version_to_dataframe(
+        self,
+        dataset_version_id: str,
+        *,
+        field_labels: Optional[dict[str, str]] = None,
+        max_items: Optional[int] = None,
+    ):
+        """Download all rows from an immutable Dataset Version into a DataFrame.
+
+        Frozen version rows reconstruct exactly the pinned revision rather
+        than live data. ``field_labels`` optionally renames field-UUID columns.
+        """
+        all_rows: list[dict[str, Any]] = []
+        offset = 0
+        while True:
+            remaining = None if max_items is None else max_items - len(all_rows)
+            limit = min(1000, remaining) if remaining else 1000
+            if limit <= 0:
+                break
+            page = await self.query_version_rows(
+                dataset_version_id, limit=limit, offset=offset
+            )
+            all_rows.extend(page.rows)
+            if (
+                len(page.rows) < limit
+                or (max_items and len(all_rows) >= max_items)
+                or (page.total_count and offset + len(page.rows) >= page.total_count)
+            ):
+                break
+            offset += len(page.rows)
+
+        raw_rows = [
+            {"rowId": str(row.row_id), "revision": row.revision, "values": row.values}
+            for row in all_rows
+        ]
+        return _rows_to_dataframe(raw_rows, field_labels=field_labels)
 
 
 class AsyncSheets:

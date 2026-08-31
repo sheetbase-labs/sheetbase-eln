@@ -3,7 +3,7 @@ import httpx
 import pytest
 
 from sheetbase import AsyncSheetbaseClient
-from sheetbase.types import Project, Dataset, CommitResult
+from sheetbase.types import Project, Dataset, DatasetVersion, CommitResult
 from sheetbase.errors import TokenError
 
 from tests.conftest import BASE_URL, CREDENTIAL
@@ -86,3 +86,60 @@ class TestAsyncClient:
         async with AsyncSheetbaseClient(BASE_URL, CREDENTIAL, ["projects:read"]) as client:
             result = await client.rpc("search", query="test")
         assert isinstance(result, list)
+
+    async def test_datasets_to_dataframe_with_labels(
+        self, mock_transport, dataset_rows_response, schema_field_rows
+    ):
+        mock_transport.post("/api/db/rpc/query_dataset_rows").respond(
+            200, json=dataset_rows_response
+        )
+        mock_transport.get("/api/db/dataset_schema_version_fields").respond(
+            200, json=schema_field_rows
+        )
+        async with AsyncSheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            labels = await client.datasets.field_label_map(
+                schema_field_rows[0]["schema_version_id"]
+            )
+            df = await client.datasets.to_dataframe(
+                dataset_rows_response["datasetId"], field_labels=labels
+            )
+        assert "Titer (vp/mL)" in df.columns
+        assert "Cell Line" in df.columns
+
+    async def test_datasets_list_versions(self, mock_transport, dataset_version_row):
+        mock_transport.get("/api/db/dataset_versions").respond(
+            200, json=[dataset_version_row]
+        )
+        async with AsyncSheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            versions = await client.datasets.list_versions(dataset_version_row["dataset_id"])
+        assert len(versions) == 1
+        assert isinstance(versions[0], DatasetVersion)
+        assert versions[0].label == "Day 14 freeze"
+
+    async def test_datasets_version_to_dataframe(
+        self, mock_transport, dataset_version_row
+    ):
+        rows_response = {
+            "datasetVersionId": dataset_version_row["id"],
+            "datasetId": dataset_version_row["dataset_id"],
+            "schemaVersionId": dataset_version_row["schema_version_id"],
+            "sourceDatasetRevision": dataset_version_row["source_dataset_revision"],
+            "offset": 0,
+            "limit": 200,
+            "totalCount": 1,
+            "hasMore": False,
+            "rows": [
+                {
+                    "rowId": "aaa11111-2222-3333-4444-555555555501",
+                    "revision": 3,
+                    "values": {"fff00000-0000-0000-0000-000000000001": 1.2e9},
+                }
+            ],
+        }
+        mock_transport.post("/api/db/rpc/query_dataset_version_rows").respond(
+            200, json=rows_response
+        )
+        async with AsyncSheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            df = await client.datasets.version_to_dataframe(dataset_version_row["id"])
+        assert len(df) == 1
+        assert df.iloc[0]["fff00000-0000-0000-0000-000000000001"] == 1.2e9

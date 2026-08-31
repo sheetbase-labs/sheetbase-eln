@@ -164,6 +164,102 @@ class DatasetVersion:
 
 
 @dataclass(frozen=True)
+class SchemaField:
+    """A field definition within a dataset schema version.
+
+    ``field_id`` is the stable identifier used as the column key in row
+    ``values`` dicts and DataFrame columns; ``label`` is the human-readable
+    name suitable for analysis surfaces.
+    """
+
+    id: UUID
+    schema_version_id: UUID
+    field_id: UUID
+    key: str
+    label: str
+    logical_type: str
+    nullable: bool
+    cardinality: str
+    lifecycle: str
+    display_order: int
+    description: Optional[str] = None
+    default_value: Optional[Any] = None
+    validation: Optional[Any] = None
+    category: Optional[Any] = None
+    relationship: Optional[Any] = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> SchemaField:
+        return cls(
+            id=UUID(d["id"]),
+            schema_version_id=UUID(d["schema_version_id"]),
+            field_id=UUID(d["field_id"]),
+            key=d["key"],
+            label=d["label"],
+            logical_type=d["logical_type"],
+            nullable=d["nullable"],
+            cardinality=d["cardinality"],
+            lifecycle=d["lifecycle"],
+            display_order=d["display_order"],
+            description=d.get("description"),
+            default_value=d.get("default_value"),
+            validation=d.get("validation"),
+            category=d.get("category"),
+            relationship=d.get("relationship"),
+        )
+
+
+@dataclass(frozen=True)
+class RecordRevision:
+    """An immutable record revision with its integrity digest.
+
+    Revisions are the audit/provenance trail for a record. ``canonical_snapshot``
+    and ``integrity_digest`` describe the frozen revision content; they are
+    distinct from live record state.
+    """
+
+    id: UUID
+    record_id: UUID
+    workspace_id: UUID
+    structure_version: int
+    metadata_version: int
+    reason: str
+    created_at: datetime
+    updated_at: datetime
+    created_by_user_id: str
+    metadata_snapshot: dict[str, Any] = field(default_factory=dict)
+    block_snapshot: Optional[dict[str, Any]] = None
+    canonical_snapshot: Optional[dict[str, Any]] = None
+    integrity_algorithm: Optional[str] = None
+    integrity_digest: Optional[str] = None
+    superseded_by_revision_id: Optional[UUID] = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> RecordRevision:
+        return cls(
+            id=UUID(d["id"]),
+            record_id=UUID(d["record_id"]),
+            workspace_id=UUID(d["workspace_id"]),
+            structure_version=d["structure_version"],
+            metadata_version=d["metadata_version"],
+            reason=d["reason"],
+            created_at=_parse_dt(d["created_at"]),  # type: ignore[arg-type]
+            updated_at=_parse_dt(d["updated_at"]),  # type: ignore[arg-type]
+            created_by_user_id=d["created_by_user_id"],
+            metadata_snapshot=d.get("metadata_snapshot") or {},
+            block_snapshot=d.get("block_snapshot"),
+            canonical_snapshot=d.get("canonical_snapshot"),
+            integrity_algorithm=d.get("integrity_algorithm"),
+            integrity_digest=d.get("integrity_digest"),
+            superseded_by_revision_id=(
+                UUID(d["superseded_by_revision_id"])
+                if d.get("superseded_by_revision_id")
+                else None
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class DatasetRow:
     """A single row from ``query_dataset_rows`` or ``query_dataset_version_rows``."""
 

@@ -151,3 +151,79 @@ def commit_response() -> dict[str, Any]:
         ],
         "idempotent": False,
     }
+
+
+@pytest.fixture
+def dataset_version_row() -> dict[str, Any]:
+    return {
+        "id": "990e8400-e29b-41d4-a716-446655440040",
+        "dataset_id": "770e8400-e29b-41d4-a716-446655440020",
+        "workspace_id": "550e8400-e29b-41d4-a716-446655440001",
+        "schema_version_id": "880e8400-e29b-41d4-a716-446655440030",
+        "source_dataset_revision": 3,
+        "label": "Day 14 freeze",
+        "created_at": "2026-01-17T09:00:00Z",
+        "created_by_user_id": "user-001",
+        "created_by_credential_id": None,
+    }
+
+
+@pytest.fixture
+def schema_field_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "cc000000-0000-0000-0000-000000000001",
+            "schema_version_id": "880e8400-e29b-41d4-a716-446655440030",
+            "field_id": "fff00000-0000-0000-0000-000000000001",
+            "key": "titer",
+            "label": "Titer (vp/mL)",
+            "logical_type": "decimal",
+            "nullable": False,
+            "cardinality": "one",
+            "lifecycle": "active",
+            "display_order": 1,
+            "description": None,
+            "default_value": None,
+            "validation": None,
+            "category": None,
+            "relationship": None,
+        },
+        {
+            "id": "cc000000-0000-0000-0000-000000000002",
+            "schema_version_id": "880e8400-e29b-41d4-a716-446655440030",
+            "field_id": "fff00000-0000-0000-0000-000000000002",
+            "key": "cell_line",
+            "label": "Cell Line",
+            "logical_type": "text",
+            "nullable": False,
+            "cardinality": "one",
+            "lifecycle": "active",
+            "display_order": 2,
+            "description": None,
+            "default_value": None,
+            "validation": None,
+            "category": None,
+            "relationship": None,
+        },
+    ]
+
+
+@pytest.fixture
+def revision_row() -> dict[str, Any]:
+    return {
+        "id": "dd000000-0000-0000-0000-000000000001",
+        "record_id": "660e8400-e29b-41d4-a716-446655440010",
+        "workspace_id": "550e8400-e29b-41d4-a716-446655440001",
+        "structure_version": 2,
+        "metadata_version": 5,
+        "reason": "update",
+        "metadata_snapshot": {"title": "Purification run 1"},
+        "block_snapshot": None,
+        "canonical_snapshot": {"title": "Purification run 1"},
+        "integrity_algorithm": "sha256",
+        "integrity_digest": "abc123",
+        "superseded_by_revision_id": None,
+        "created_at": "2026-01-15T10:30:00Z",
+        "updated_at": "2026-01-15T10:30:00Z",
+        "created_by_user_id": "user-001",
+    }

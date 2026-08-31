@@ -5,6 +5,7 @@ import {
   CREDENTIAL,
   createMockFetch,
   recordRow,
+  revisionRow,
   type MockRoute,
 } from "./helpers.js";
 import { NotFoundError } from "../src/errors.js";
@@ -131,6 +132,42 @@ describe("RecordsResource", () => {
       records.push(r);
     }
     expect(records).toHaveLength(2);
+    client.close();
+  });
+});
+
+describe("RecordsResource history", () => {
+  it("history returns typed revisions", async () => {
+    const { client } = makeClient([
+      {
+        method: "GET",
+        path: "/api/db/revisions",
+        handler: () => ({ status: 200, json: [revisionRow] }),
+      },
+    ]);
+    const history = await client.records.history(revisionRow.record_id);
+    expect(history).toHaveLength(1);
+    expect(history[0].reason).toBe("update");
+    expect(history[0].integrityAlgorithm).toBe("sha256");
+    expect(history[0].integrityDigest).toBe("abc123");
+    expect(history[0].metadataSnapshot).toEqual({ title: "Purification run 1" });
+    client.close();
+  });
+
+  it("iterHistory paginates revisions", async () => {
+    const { client } = makeClient([
+      {
+        method: "GET",
+        path: "/api/db/revisions",
+        handler: () => ({ status: 200, json: [revisionRow] }),
+      },
+    ]);
+    const revisions = [];
+    for await (const rev of client.records.iterHistory(revisionRow.record_id)) {
+      revisions.push(rev);
+    }
+    expect(revisions).toHaveLength(1);
+    expect(revisions[0].recordId).toBe(revisionRow.record_id);
     client.close();
   });
 });

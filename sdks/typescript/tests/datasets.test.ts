@@ -8,6 +8,9 @@ import {
   datasetRow,
   datasetRowsResponse,
   commitResponse,
+  datasetVersionRow,
+  datasetVersionRowsResponse,
+  schemaFieldRows,
   type MockRoute,
 } from "./helpers.js";
 import { StaleVersionError } from "../src/errors.js";
@@ -337,6 +340,123 @@ describe("DatasetsResource", () => {
       rows.push(row);
     }
     expect(rows).toHaveLength(5);
+    client.close();
+  });
+});
+
+describe("DatasetsResource version access", () => {
+  it("listVersions returns typed versions", async () => {
+    const { client } = makeClient([
+      {
+        method: "GET",
+        path: "/api/db/dataset_versions",
+        handler: () => ({ status: 200, json: [datasetVersionRow] }),
+      },
+    ]);
+    const versions = await client.datasets.listVersions(datasetVersionRow.dataset_id);
+    expect(versions).toHaveLength(1);
+    expect(versions[0].label).toBe("Day 14 freeze");
+    expect(versions[0].sourceDatasetRevision).toBe(3);
+    client.close();
+  });
+
+  it("schemaFields and fieldLabelMap expose analysis ergonomics", async () => {
+    const { client } = makeClient([
+      {
+        method: "GET",
+        path: "/api/db/dataset_schema_version_fields",
+        handler: () => ({ status: 200, json: schemaFieldRows }),
+      },
+    ]);
+    const fields = await client.datasets.schemaFields(datasetRow.schema_version_id);
+    expect(fields[0].label).toBe("Titer (vp/mL)");
+    expect(fields[0].logicalType).toBe("decimal");
+    const labels = await client.datasets.fieldLabelMap(datasetRow.schema_version_id);
+    expect(labels).toEqual({
+      "fff00000-0000-0000-0000-000000000001": "Titer (vp/mL)",
+      "fff00000-0000-0000-0000-000000000002": "Cell Line",
+    });
+    client.close();
+  });
+
+  it("downloadRecords expands values and applies field labels", async () => {
+    const { client } = makeClient([
+      {
+        method: "POST",
+        path: "/api/db/rpc/query_dataset_rows",
+        handler: () => ({ status: 200, json: datasetRowsResponse }),
+      },
+      {
+        method: "GET",
+        path: "/api/db/dataset_schema_version_fields",
+        handler: () => ({ status: 200, json: schemaFieldRows }),
+      },
+    ]);
+    const labels = await client.datasets.fieldLabelMap(datasetRow.schema_version_id);
+    const records = await client.datasets.downloadRecords(datasetRow.id, {
+      fieldLabels: labels,
+    });
+    expect(records).toHaveLength(2);
+    expect(records[0].rowId).toBe("aaa11111-2222-3333-4444-555555555501");
+    expect(records[0]["Titer (vp/mL)"]).toBe(1.2e9);
+    expect(records[1]["Cell Line"]).toBe("Vero");
+    client.close();
+  });
+
+  it("downloadVersionRecords reads frozen version rows", async () => {
+    const { client } = makeClient([
+      {
+        method: "POST",
+        path: "/api/db/rpc/query_dataset_version_rows",
+        handler: () => ({ status: 200, json: datasetVersionRowsResponse }),
+      },
+      {
+        method: "GET",
+        path: "/api/db/dataset_schema_version_fields",
+        handler: () => ({ status: 200, json: schemaFieldRows }),
+      },
+    ]);
+    const labels = await client.datasets.fieldLabelMap(datasetRow.schema_version_id);
+    const records = await client.datasets.downloadVersionRecords(
+      datasetVersionRow.id,
+      { fieldLabels: labels },
+    );
+    expect(records).toHaveLength(1);
+    expect(records[0].revision).toBe(3);
+    expect(records[0]["Titer (vp/mL)"]).toBe(1.2e9);
+    client.close();
+  });
+
+  it("uploadRecords batches commits and chains revisions", async () => {
+    const { client, fetch } = makeClient([
+      {
+        method: "POST",
+        path: "/api/db/rpc/commit_dataset_row_batch",
+        handler: () => ({ status: 200, json: commitResponse }),
+      },
+    ]);
+    const records = Array.from({ length: 3 }, (_, i) => ({
+      "fff00000-0000-0000-0000-000000000001": 1e6 + i,
+    }));
+    const results = await client.datasets.uploadRecords(
+      datasetRow.id,
+      3,
+      records,
+      { batchSize: 2, idempotencyKey: "bulk-1" },
+    );
+    // 3 records at batch size 2 → two batches.
+    expect(results).toHaveLength(2);
+    const commits = fetch.calls.filter(
+      (c) => c.url.includes("/api/db/rpc/commit_dataset_row_batch"),
+    );
+    expect(commits).toHaveLength(2);
+    const first = JSON.parse(commits[0].body!);
+    const second = JSON.parse(commits[1].body!);
+    expect(first.p_expected_dataset_revision).toBe(3);
+    expect(first.p_rows).toHaveLength(2);
+    expect(second.p_expected_dataset_revision).toBe(commitResponse.datasetRevision);
+    expect(second.p_rows).toHaveLength(1);
+    expect(second.p_idempotency_key).not.toBe(first.p_idempotency_key);
     client.close();
   });
 });

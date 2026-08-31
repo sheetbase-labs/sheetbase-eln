@@ -4,6 +4,8 @@ Covers:
 - querying live and versioned rows with pagination iterators and pandas conversion;
 - validating and committing row batches with idempotency and optimistic concurrency;
 - snapshotting, archiving and restoring datasets;
+- version access (list/iterate immutable Dataset Versions);
+- schema field reads and field-label DataFrame ergonomics;
 - bulk upload/download helpers.
 """
 from __future__ import annotations
@@ -13,10 +15,43 @@ from collections.abc import Iterator
 from typing import Any, Optional, Sequence
 
 from sheetbase._http import HttpTransport
-from sheetbase._pagination import iter_rpc
+from sheetbase._pagination import iter_rpc, iter_table
 from sheetbase._query_result import DatasetRowPage, DatasetVersionRowPage
 from sheetbase.errors import StaleVersionError
-from sheetbase.types import CommitResult, Dataset, DatasetVersion, ValidationResult
+from sheetbase.types import (
+    CommitResult,
+    Dataset,
+    DatasetVersion,
+    SchemaField,
+    ValidationResult,
+)
+
+
+def _rows_to_dataframe(
+    raw_rows: list[dict[str, Any]],
+    *,
+    field_labels: Optional[dict[str, str]] = None,
+):
+    """Expand raw ``rowId``/``revision``/``values`` rows into a DataFrame.
+
+    ``field_labels`` optionally renames field-UUID columns to display labels.
+    """
+    import pandas as pd
+
+    records: list[dict[str, Any]] = []
+    for row in raw_rows:
+        record: dict[str, Any] = {
+            "row_id": row.get("rowId"),
+            "revision": row.get("revision"),
+        }
+        record.update(row.get("values") or {})
+        records.append(record)
+    df = pd.DataFrame(records)
+    if field_labels and not df.empty:
+        df = df.rename(
+            columns={k: v for k, v in field_labels.items() if k in df.columns}
+        )
+    return df
 
 
 class DatasetRowBatch:
@@ -233,28 +268,103 @@ class DatasetsResource:
         *,
         filters: Optional[list[dict[str, Any]]] = None,
         sort: Optional[dict[str, str]] = None,
+        field_labels: Optional[dict[str, str]] = None,
         max_items: Optional[int] = None,
     ):
         """Fetch all matching rows and return a single pandas DataFrame.
 
         Each row's ``values`` dict (field UUID → value) is expanded into
         columns. ``row_id`` and ``revision`` are included as metadata columns.
+
+        ``field_labels`` optionally maps field UUIDs to display labels (see
+        :meth:`field_label_map`); matching columns are renamed. Field UUIDs
+        remain the canonical identifiers.
         """
         raw_rows = list(
             self.iter_rows(
                 dataset_id, filters=filters, sort=sort, max_items=max_items
             )
         )
-        import pandas as pd
-        records: list[dict[str, Any]] = []
-        for row in raw_rows:
-            record: dict[str, Any] = {
-                "row_id": row.get("rowId"),
-                "revision": row.get("revision"),
-            }
-            record.update(row.get("values") or {})
-            records.append(record)
-        return pd.DataFrame(records)
+        return _rows_to_dataframe(raw_rows, field_labels=field_labels)
+
+    # ── version access ──────────────────────────────────────────────────
+
+    def list_versions(
+        self,
+        dataset_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[DatasetVersion]:
+        """List the immutable Dataset Versions of a dataset (table read).
+
+        Versions pin a source dataset revision and are the frozen-evidence
+        entry points for ``query_version_rows``/``iter_version_rows``.
+        """
+        rows = self._transport.get(
+            "/api/db/dataset_versions",
+            params={
+                "dataset_id": f"eq.{dataset_id}",
+                "order": "created_at.desc",
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+        return [DatasetVersion.from_dict(r) for r in rows]
+
+    def iter_versions(
+        self,
+        dataset_id: str,
+        *,
+        page_size: int = 100,
+        max_items: Optional[int] = None,
+    ) -> Iterator[DatasetVersion]:
+        """Iterate all Dataset Versions of a dataset, newest first."""
+
+        def fetch(*, limit: int, offset: int) -> list[dict[str, Any]]:
+            return self._transport.get(
+                "/api/db/dataset_versions",
+                params={
+                    "dataset_id": f"eq.{dataset_id}",
+                    "order": "created_at.desc",
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+
+        for row in iter_table(fetch, page_size=page_size, max_items=max_items):
+            yield DatasetVersion.from_dict(row)
+
+    # ── schema fields (analysis ergonomics) ─────────────────────────────
+
+    def schema_fields(
+        self,
+        schema_version_id: str,
+        *,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[SchemaField]:
+        """List field definitions for a dataset schema version (table read)."""
+        rows = self._transport.get(
+            "/api/db/dataset_schema_version_fields",
+            params={
+                "schema_version_id": f"eq.{schema_version_id}",
+                "order": "display_order.asc",
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+        return [SchemaField.from_dict(r) for r in rows]
+
+    def field_label_map(self, schema_version_id: str) -> dict[str, str]:
+        """Return ``{field_id: label}`` for a dataset schema version.
+
+        Use this to rename field-UUID DataFrame columns into human-readable
+        labels. The mapping is display convenience only: stable field IDs
+        remain the durable identifiers in commits and row values.
+        """
+        fields = self.schema_fields(schema_version_id)
+        return {str(f.field_id): f.label for f in fields}
 
     # ── validation ──────────────────────────────────────────────────────
 
@@ -407,6 +517,7 @@ class DatasetsResource:
         *,
         filters: Optional[list[dict[str, Any]]] = None,
         sort: Optional[dict[str, str]] = None,
+        field_labels: Optional[dict[str, str]] = None,
         max_items: Optional[int] = None,
     ):
         """Download all rows from a dataset into a pandas DataFrame.
@@ -415,5 +526,27 @@ class DatasetsResource:
         ``row_id`` and ``revision`` are included as metadata columns.
         """
         return self.to_dataframe(
-            dataset_id, filters=filters, sort=sort, max_items=max_items
+            dataset_id,
+            filters=filters,
+            sort=sort,
+            field_labels=field_labels,
+            max_items=max_items,
         )
+
+    def version_to_dataframe(
+        self,
+        dataset_version_id: str,
+        *,
+        field_labels: Optional[dict[str, str]] = None,
+        max_items: Optional[int] = None,
+    ):
+        """Download all rows from an immutable Dataset Version into a DataFrame.
+
+        Frozen version rows are the analysis-safe view: they reconstruct
+        exactly the pinned revision rather than live data. ``field_labels``
+        optionally renames field-UUID columns (see :meth:`field_label_map`).
+        """
+        raw_rows = list(
+            self.iter_version_rows(dataset_version_id, max_items=max_items)
+        )
+        return _rows_to_dataframe(raw_rows, field_labels=field_labels)

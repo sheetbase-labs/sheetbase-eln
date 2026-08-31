@@ -1,6 +1,6 @@
 # GRID — Spreadsheet Interaction Depth
 
-**Status:** active; GRID-01 in review (#99), GRID-02 and GRID-03 implemented on the same stack, GRID-04..05 planned.
+**Status:** active; GRID-01 in review (#99), GRID-02, GRID-03 and GRID-04 implemented on the same stack, GRID-05 planned.
 
 ## Programme goal
 
@@ -140,6 +140,8 @@ Users can enter and correct typed data efficiently, with client feedback matchin
 
 ## GRID-04 — Sort, Filter, Freeze & View Ergonomics
 
+**Status:** completed 2026-08-31.
+
 ### Goal
 
 Make large working Sheets practical to inspect and organise.
@@ -155,6 +157,61 @@ Make large working Sheets practical to inspect and organise.
 ### Exit
 
 A user can configure and restore a useful working view of a large Sheet without changing the Dataset or analysis semantics accidentally.
+
+### Implemented contract
+
+- **Presentation is local working state with one authority.** Sorts, filters,
+  freeze, hidden columns, widths and column order live in
+  `instance.state.presentation` (the existing bounded presentation schema:
+  `columnOrder`, `hiddenColumnIds`, `columnWidths`, `frozenColumnCount`,
+  `density`, `filters`, `sorts`) and are written through the existing
+  `update_sheet_instance` path with an expected revision. The RPC already
+  rejects any change to `localFields`/`localValues` and validates
+  filters/sorts against the Sheet's real columns server-side, so a
+  presentation write can never smuggle a scientific data change.
+- **Display-only column resequencing.** `applySheetPresentation` projects the
+  canonical matrix through `columnOrder` and `hiddenColumnIds` for display:
+  unknown/duplicate order entries are ignored, hidden columns are concealed
+  (not deleted) and canonical column order, row identity and data values are
+  untouched — mirroring the frozen-sheet evidence reconstruction. The
+  workspace's toolbar exposes freeze ±/count, unhide, save/restore/reset view.
+- **Write attribution survives sorting, filtering, hiding and moves.** Every
+  Handsontable coordinate passes through a visual→physical mapping before
+  attribution: rows via `toPhysicalRow` (GRID-02) and now columns via
+  `toPhysicalColumn` in `beforeChange`, `afterChange`, selection, and
+  clear-contents. Column identity is stable UUID, never position.
+- **Column move is presentation-only by construction.** The composed matrix
+  is rebuilt in the persisted order, so after each drag the
+  `manualColumnMove` plugin's visual index map is reset and the new order is
+  persisted as column IDs; Handsontable never becomes a second authority for
+  column order, and repeated settings updates cannot double-apply a move.
+- **Multi-column sort persists and restores.** The `filters` and
+  `columnSorting` plugins work over the composed grid client-side; the
+  destination sort config is persisted as `presentation.sorts` (stable column
+  ids, capped at 8) with an equality guard, and restored via the
+  `columnSorting.initialConfig`. Sort state is clearly visual: it never
+  reorders rowKeys or write targets.
+- **Freeze and hide are display-only concealment.** `fixedColumnsStart` is
+  driven by `frozenColumnCount` ("Freeze up to this column" / "Unfreeze" in
+  the column dropdown menu, plus ± controls); hidden columns are removed from
+  the display matrix and restorable in one click. Delete/move/write semantics
+  continue to operate on canonical columns regardless of concealment.
+- **Column widths persist.** `manualColumnResize` is on; resized widths are
+  clamped into the canonical 40–2000 range and persisted per column id into
+  `presentation.columnWidths` (`stretchH: 'last'` keeps the grid filling the
+  workspace).
+- **Saved working views are untrusted local state.** The whole presentation
+  object is stored in localStorage per Sheet Instance
+  (`sheetbase-sheet-view-v1:<id>`) and re-validated against the active
+  columns before restore (`sanitizeSheetPresentation`, the Dataset Explorer
+  `DatasetViewSpec` pattern): unknown columns are dropped, widths and freeze
+  counts clamped, filters/sorts shape-checked. No server-side saved-view
+  table was added. Storage failures degrade to a session-only view.
+- **Presentation filtering is visibly distinct from analysis filtering.**
+  The grid footer states that sorting, filters, freezing, hiding and sizing
+  are a display-only working view that never change the Dataset or the
+  scientific query filters used by the Dataset Explorer (DATA-007) and
+  `ChartSpec` analysis.
 
 ## GRID-05 — Large-Sheet Performance & Reliability
 

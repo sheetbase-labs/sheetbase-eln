@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  applySheetPresentation,
   canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
   categoryCellDisplayText,
@@ -447,5 +448,90 @@ describe('column header and category display (GRID-03)', () => {
     )
     expect(categoryCellDisplayText(categoryField, null)).toBe('')
     expect(categoryCellDisplayText(null, 12)).toBe('12')
+  })
+})
+
+describe('applySheetPresentation (GRID-04)', () => {
+  const third: CanonicalSheetGridColumn = {
+    ...readOnly,
+    id: 'col-third',
+    label: 'Notes',
+  }
+  const baseMatrix = {
+    columns: bulkColumns,
+    rowKeys: [rowId],
+    rowKinds: ['local' as const],
+    data: [[12, 'derived']],
+  }
+  const fullPresentation = {
+    columnOrder: [],
+    hiddenColumnIds: [],
+    columnWidths: {},
+    frozenColumnCount: 0,
+    density: 'standard' as const,
+    filters: [],
+    sorts: [],
+  }
+
+  it('reorders columns and realigns row data by column id', () => {
+    const matrix = applySheetPresentation(baseMatrix, {
+      ...fullPresentation,
+      columnOrder: ['col-readonly', 'col-editable'],
+    })
+    expect(matrix.columns.map((column) => column.label)).toEqual([
+      'Recovery',
+      'Titer',
+    ])
+    expect(matrix.data).toEqual([['derived', 12]])
+    // Row identity is untouched by presentation resequencing.
+    expect(matrix.rowKeys).toEqual([rowId])
+  })
+
+  it('drops hidden columns from the display matrix only', () => {
+    const matrix = applySheetPresentation(baseMatrix, {
+      ...fullPresentation,
+      hiddenColumnIds: ['col-readonly'],
+    })
+    expect(matrix.columns.map((column) => column.id)).toEqual(['col-editable'])
+    expect(matrix.data).toEqual([[12]])
+  })
+
+  it('ignores unknown and duplicate order entries and appends the rest canonically', () => {
+    const matrix = applySheetPresentation(
+      { ...baseMatrix, columns: [...bulkColumns, third] },
+      {
+        ...fullPresentation,
+        columnOrder: ['col-third', 'col-third', 'unknown-column'],
+      },
+    )
+    expect(matrix.columns.map((column) => column.id)).toEqual([
+      'col-third',
+      'col-editable',
+      'col-readonly',
+    ])
+  })
+
+  it('keeps the canonical order untouched for an empty presentation', () => {
+    const matrix = applySheetPresentation(baseMatrix, fullPresentation)
+    expect(matrix.columns.map((column) => column.id)).toEqual([
+      'col-editable',
+      'col-readonly',
+    ])
+    expect(matrix.data).toEqual([[12, 'derived']])
+  })
+})
+
+describe('clear contents with visual→physical columns (GRID-04)', () => {
+  it('resolves the typed contract on the physical column behind a moved visual column', () => {
+    // Visual column 0 actually shows the physical column 1 (Recovery,
+    // derived): the clear must skip it even though the matrix's editable
+    // column sits at visual position 1.
+    const updates = clearContentsUpdates(
+      bulkColumns,
+      [{ from: { row: 0, col: 0 }, to: { row: 0, col: 1 } }],
+      () => 'filled',
+      (visual) => (visual === 0 ? 1 : 0),
+    )
+    expect(updates).toEqual([[0, 1, null]])
   })
 })

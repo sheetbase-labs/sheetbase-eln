@@ -5,37 +5,48 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { mutateSheetLocalState } from '#/lib/sheet-local-data'
+import { updateSheetInstance } from '#/lib/sheet-instance-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 
 import { AdHocSheetWorkspace } from './ad-hoc-sheet-workspace'
 
 const gridRender = vi.hoisted(() => vi.fn())
+let gridReady: ((hot: unknown) => void) | undefined | null = null
 
 vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   ...(await importOriginal()),
   mutateSheetLocalState: vi.fn(),
 }))
 
+// GRID-04: presentation writes go through the existing sheet-instance state
+// mutation path; the tests assert on that contract.
+vi.mock('#/lib/sheet-instance-data', async (importOriginal) => ({
+  ...(await importOriginal()),
+  updateSheetInstance: vi.fn(),
+}))
+
 vi.mock('./sheetbase-grid', () => ({
   SheetbaseGrid: ({
     settings,
+    onReady,
   }: {
-    settings: {
-      colHeaders?: string[]
-      columns?: Array<{ readOnly?: boolean }>
-    }
+    settings: Record<string, unknown>
+    onReady?: (instance: unknown) => void
   }) => {
     gridRender(settings)
+    gridReady = onReady
     return (
       <table>
         <thead>
           <tr>
-            {(settings.colHeaders ?? []).map((header) => (
-              <th key={header} scope="col">
-                {header}
-              </th>
-            ))}
+            {((settings.colHeaders as string[] | undefined) ?? []).map(
+              (header) => (
+                <th key={header} scope="col">
+                  {header}
+                </th>
+              ),
+            )}
           </tr>
         </thead>
       </table>
@@ -46,6 +57,7 @@ vi.mock('./sheetbase-grid', () => ({
 afterEach(() => {
   cleanup()
   gridRender.mockClear()
+  gridReady = null
 })
 
 function instance(): SheetInstance {
@@ -278,6 +290,296 @@ describe('CanonicalSheetEditor typed editing and validation UX (GRID-03)', () =>
       .map((element) => element.textContent)
       .join(' ')
     expect(statuses).toContain('Paste rejected: invalid_value in Count')
+    expect(mutateSheetLocalState).not.toHaveBeenCalled()
+  })
+})
+
+describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)', () => {
+  const countId = countFieldId
+  const observedId = '15000000-0000-4000-8000-000000000003'
+
+  function presentationInstance(): SheetInstance {
+    const base = typedInstance()
+    return base
+  }
+
+  function lastSettings(): Record<string, any> {
+    return gridRender.mock.lastCall?.[0] as Record<string, any>
+  }
+
+  function fakeHot(physicalForVisual: (visual: number) => number) {
+    return {
+      toPhysicalRow: (visual: number) => visual,
+      toPhysicalColumn: physicalForVisual,
+      countCols: () => 6,
+      columnIndexMapper: {
+        setIndexesSequence: vi.fn(),
+        getIndexesSequence: () => [],
+      },
+    }
+  }
+
+  beforeEach(() => {
+    vi.mocked(updateSheetInstance).mockReset()
+    vi.mocked(updateSheetInstance).mockResolvedValue(presentationInstance())
+  })
+
+  it('wires freeze, widths, sort restore and drag-reorder settings', () => {
+    const base = presentationInstance()
+    const instance: SheetInstance = {
+      ...base,
+      state: {
+        ...base.state,
+        presentation: {
+          ...base.state.presentation,
+          frozenColumnCount: 1,
+          columnWidths: { [countId]: 220 },
+          sorts: [{ columnId: countId, direction: 'desc' }],
+        },
+      },
+    }
+    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
+    const settings = lastSettings()
+    expect(settings.fixedColumnsStart).toBe(1)
+    expect(settings.manualColumnMove).toBe(true)
+    expect(settings.manualColumnResize).toBe(true)
+    // Widths resolve through the persisted per-column map.
+    expect(settings.colWidths(0)).toBe(220)
+    // Persisted sorts restore as the columnSorting initial config.
+    expect(settings.columnSorting).toEqual({
+      initialConfig: [{ column: 0, sortOrder: 'desc' }],
+    })
+    // The column menu keeps the filter surface and adds freeze/hide items.
+    const menu = settings.dropdownMenu.items
+    expect(Object.keys(menu)).toEqual(
+      expect.arrayContaining([
+        'filter_by_condition',
+        'filter_by_value',
+        'freeze_to_column',
+        'unfreeze_columns',
+        'hide_column',
+      ]),
+    )
+  })
+
+  it('hides presentation-hidden columns and restores them via the toolbar', async () => {
+    const user = userEvent.setup()
+    const base = typedInstance()
+    const instance: SheetInstance = {
+      ...base,
+      state: {
+        ...base.state,
+        presentation: {
+          ...base.state.presentation,
+          hiddenColumnIds: [countId],
+        },
+      },
+    }
+    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
+    // Display-only concealment: the hidden column is not rendered.
+    expect(lastSettings().colHeaders).not.toContain('Count (cells)')
+    await user.click(
+      screen.getByRole('button', { name: 'Show 1 hidden column' }),
+    )
+    expect(updateSheetInstance).toHaveBeenCalledWith(
+      instance.id,
+      instance.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({ hiddenColumnIds: [] }),
+      }),
+      expect.anything(),
+    )
+  })
+
+  it('freezes and unfreezes columns through the working-view controls', async () => {
+    const user = userEvent.setup()
+    // Frozen state starts at zero: freeze controls only the leftmost columns.
+    const cold = presentationInstance()
+    renderWorkspace(<AdHocSheetWorkspace instance={cold} />)
+    expect(
+      screen
+        .getByRole('button', { name: 'Freeze one fewer column' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    await user.click(
+      screen.getByRole('button', { name: 'Freeze one more column' }),
+    )
+    expect(updateSheetInstance).toHaveBeenCalledWith(
+      cold.id,
+      cold.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({ frozenColumnCount: 1 }),
+      }),
+      expect.anything(),
+    )
+    // Start frozen: unfreezing decrements through the same state path.
+    cleanup()
+    const frozen = presentationInstance()
+    frozen.state = {
+      ...frozen.state,
+      presentation: {
+        ...frozen.state.presentation,
+        frozenColumnCount: 2,
+      },
+    }
+    renderWorkspace(<AdHocSheetWorkspace instance={frozen} />)
+    await user.click(
+      screen.getByRole('button', { name: 'Freeze one fewer column' }),
+    )
+    expect(updateSheetInstance).toHaveBeenLastCalledWith(
+      frozen.id,
+      frozen.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({ frozenColumnCount: 1 }),
+      }),
+      expect.anything(),
+    )
+  })
+
+  it('persists a resized column width against the physical column', async () => {
+    const instance = presentationInstance()
+    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
+    const settings = lastSettings()
+    await act(async () => {
+      settings.afterColumnResize(300.4, 0)
+    })
+    expect(updateSheetInstance).toHaveBeenCalledWith(
+      instance.id,
+      instance.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({
+          columnWidths: expect.objectContaining({ [countId]: 300 }),
+        }),
+      }),
+      expect.anything(),
+    )
+  })
+
+  it('persists a manual column move as stable ids and resets the index map', async () => {
+    const instance = presentationInstance()
+    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
+    const hot = fakeHot((visual) =>
+      visual === 0 ? 1 : visual === 1 ? 0 : visual,
+    )
+    act(() => {
+      gridReady?.(hot)
+    })
+    const settings = lastSettings()
+    await act(async () => {
+      settings.afterColumnMove([0], 1, 1, true, true)
+    })
+    // Visual column 0 showed the physical column 1 (Observed) after the drag.
+    expect(updateSheetInstance).toHaveBeenCalledWith(
+      instance.id,
+      instance.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({
+          columnOrder: [
+            observedId,
+            countId,
+            '15000000-0000-4000-8000-000000000004',
+            '15000000-0000-4000-8000-000000000002',
+            '15000000-0000-4000-8000-000000000005',
+            '10000000-0000-4000-8000-000000000004',
+          ],
+        }),
+      }),
+      expect.anything(),
+    )
+    expect(hot.columnIndexMapper.setIndexesSequence).toHaveBeenCalled()
+  })
+
+  it('persists a sort as presentation state and guards identical restores', async () => {
+    const instance = presentationInstance()
+    // The first persist resolves to state that already carries the new sort,
+    // so the restored initialConfig must not re-write identical state.
+    const updated: SheetInstance = {
+      ...instance,
+      revision: 2,
+      state: {
+        ...instance.state,
+        presentation: {
+          ...instance.state.presentation,
+          sorts: [{ columnId: countId, direction: 'desc' }],
+        },
+      },
+    }
+    vi.mocked(updateSheetInstance).mockResolvedValueOnce(updated)
+    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
+    const settings = lastSettings()
+    await act(async () => {
+      settings.afterColumnSort([], [{ column: 0, sortOrder: 'desc' }])
+    })
+    expect(updateSheetInstance).toHaveBeenCalledWith(
+      instance.id,
+      instance.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({
+          sorts: [{ columnId: countId, direction: 'desc' }],
+        }),
+      }),
+      expect.anything(),
+    )
+    const callsAfterFirst = vi.mocked(updateSheetInstance).mock.calls.length
+    await act(async () => {
+      settings.afterColumnSort([], [{ column: 0, sortOrder: 'desc' }])
+    })
+    expect(vi.mocked(updateSheetInstance).mock.calls).toHaveLength(
+      callsAfterFirst,
+    )
+  })
+
+  it('restores a saved working view after re-validating it', async () => {
+    const user = userEvent.setup()
+    const viewed = presentationInstance()
+    viewed.state = {
+      ...viewed.state,
+      presentation: {
+        ...viewed.state.presentation,
+        frozenColumnCount: 1,
+        columnWidths: { [countId]: 260 },
+      },
+    }
+    renderWorkspace(<AdHocSheetWorkspace instance={viewed} />)
+    await user.click(screen.getByRole('button', { name: 'Save view' }))
+    cleanup()
+    // A fresh editor with canonical presentation restores the saved view.
+    renderWorkspace(<AdHocSheetWorkspace instance={presentationInstance()} />)
+    await user.click(screen.getByRole('button', { name: 'Restore view' }))
+    expect(updateSheetInstance).toHaveBeenLastCalledWith(
+      viewed.id,
+      viewed.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({
+          frozenColumnCount: 1,
+          columnWidths: expect.objectContaining({ [countId]: 260 }),
+        }),
+      }),
+      expect.anything(),
+    )
+    localStorage.removeItem(`sheetbase-sheet-view-v1:${viewed.id}`)
+  })
+
+  it('maps beforeChange columns through the visual→physical move map', async () => {
+    const instance = presentationInstance()
+    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
+    // Visual column 0 currently shows the physical column 1 (Observed, date).
+    act(() => {
+      gridReady?.(fakeHot((visual) => (visual === 0 ? 1 : 0)))
+    })
+    const settings = lastSettings()
+    act(() => {
+      expect(settings.beforeChange([[0, 0, 100, 'not-a-date']], 'edit')).toBe(
+        false,
+      )
+    })
+    const statuses = screen
+      .getAllByRole('status')
+      .map((element) => element.textContent)
+      .join(' ')
+    // The rejection names the column the visual position actually resolves
+    // to — not the neighbouring column the user sees in that slot.
+    expect(statuses).toContain('invalid_value in Observed')
     expect(mutateSheetLocalState).not.toHaveBeenCalled()
   })
 })

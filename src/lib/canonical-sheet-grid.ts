@@ -6,6 +6,7 @@ import type { FieldEditorPresentation } from './field-presentation'
 import type { FieldDefinition, FieldOption } from './field-definition'
 import { sheetLocalValueError } from './sheet-local-data'
 import type { SheetInstance } from './sheet-instance-data'
+import type { SheetPresentation } from './sheet-instance'
 
 export type CanonicalSheetColumnOrigin = 'bound' | 'local' | 'calculation'
 
@@ -240,6 +241,52 @@ export function validateCanonicalCell(
 }
 
 /**
+ * GRID-04 — project the canonical matrix through the presentation working
+ * state: columns are reordered per `columnOrder` and hidden columns removed.
+ * This is display-only resequencing — the underlying canonical column order
+ * (definition/configuration or local field order) is untouched, row identity
+ * is unaffected and no data value changes. Unknown, duplicate or hidden
+ * `columnOrder` entries are ignored; canonical columns missing from the saved
+ * order keep their canonical position at the end, mirroring the frozen-sheet
+ * evidence reconstruction.
+ */
+export function applySheetPresentation(
+  matrix: CanonicalSheetGridMatrix,
+  presentation: SheetPresentation,
+): CanonicalSheetGridMatrix {
+  const byId = new Map(matrix.columns.map((column) => [column.id, column]))
+  const hidden = new Set(
+    presentation.hiddenColumnIds.filter((id) => byId.has(id)),
+  )
+  const ordered: CanonicalSheetGridColumn[] = []
+  const seen = new Set<string>()
+  for (const id of presentation.columnOrder) {
+    if (hidden.has(id) || seen.has(id)) continue
+    const column = byId.get(id)
+    if (!column) continue
+    seen.add(id)
+    ordered.push(column)
+  }
+  for (const column of matrix.columns) {
+    if (hidden.has(column.id) || seen.has(column.id)) continue
+    seen.add(column.id)
+    ordered.push(column)
+  }
+  const sourceIndex = new Map(
+    matrix.columns.map((column, index) => [column.id, index]),
+  )
+  const data = matrix.data.map((row) =>
+    ordered.map((column) => row[sourceIndex.get(column.id) as number]),
+  )
+  return {
+    columns: ordered,
+    rowKeys: matrix.rowKeys,
+    rowKinds: matrix.rowKinds,
+    data,
+  }
+}
+
+/**
  * GRID-02/GRID-03 — resolve a change set (paste, fill, clear, single edit)
  * against the typed column contract before Handsontable applies anything.
  * Every value is coerced through `parseSheetCellInput` (canonical category
@@ -312,6 +359,8 @@ export function firstBulkChangeRejection(
  * are skipped, so clearing never mints phantom spare-row entries and the
  * workspace `beforeChange` validation remains the fail-closed gate for
  * required fields.
+ * contract is resolved, mirroring GRID-02's `toPhysicalRow` row mapping;
+ * returned coordinates stay visual so `setDataAtCell` applies them unchanged.
  */
 export function clearContentsUpdates(
   columns: CanonicalSheetGridColumn[],
@@ -320,6 +369,7 @@ export function clearContentsUpdates(
     to: { row: number | null; col: number | null }
   }>,
   readCell: (row: number, col: number) => unknown,
+  toPhysicalColumn: (visualColumn: number) => number = (col) => col,
 ): Array<[number, number, unknown]> {
   const updates: Array<[number, number, unknown]> = []
   for (const range of ranges) {
@@ -333,7 +383,7 @@ export function clearContentsUpdates(
     const endCol = Math.max(fromCol, toCol)
     for (let row = startRow; row <= endRow; row += 1) {
       for (let col = startCol; col <= endCol; col += 1) {
-        const column = columns.at(col)
+        const column = columns.at(toPhysicalColumn(col))
         if (!column || !column.editable) continue
         const current = readCell(row, col)
         if (current == null || current === '') continue

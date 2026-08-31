@@ -297,7 +297,13 @@ function DatasetExplorerRoute() {
 
   useShell({
     context: shellContext,
-    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Datasets' }],
+    breadcrumbs: [
+      { label: 'Home', to: '/' },
+      { label: 'Datasets', to: '/datasets' },
+      // NAV-02: the selected dataset is context, resolved from the stable
+      // `?dataset=` ID — never from browser history.
+      ...(selectedTable ? [{ label: selectedTable.name }] : []),
+    ],
     fullBleed: true,
   })
 

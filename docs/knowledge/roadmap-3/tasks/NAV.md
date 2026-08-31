@@ -1,6 +1,6 @@
 # NAV — Workspace Navigation & Information Architecture
 
-**Status:** active; NAV-01 completed 2026-08-30, NAV-02 and NAV-03 planned.
+**Status:** active; NAV-01 and NAV-02 completed, NAV-03 planned.
 
 ## Programme goal
 
@@ -49,6 +49,8 @@ A user can predict where canonical object types live and move among workspace, p
 
 ## NAV-02 — Context-Preserving Object Navigation
 
+**Status:** completed 2026-08-31.
+
 ### Goal
 
 Keep scientific context visible while moving between related objects.
@@ -63,6 +65,22 @@ Keep scientific context visible while moving between related objects.
 ### Exit
 
 Opening a related scientific object and returning preserves understandable project/object context without relying on accidental browser state.
+
+### Implemented contract
+
+- Object pages reconstruct their ancestor breadcrumbs from stable IDs on the
+  object itself, never from browser history or the referring page. Sheets
+  derive project and owning-notebook context from the instance's
+  `projectId`/`notebookRecordId` via the shared sheet-instance query; the
+  Dataset explorer names the selected dataset from the canonical
+  `?dataset=` ID.
+- The `objectContextBreadcrumbs` helper (`src/lib/navigation.ts`) is the one
+  implementation of the Home → Projects → project → owning record → object
+  contract; ancestor links carry stable IDs.
+- Sheet footer provenance is navigable: dataset provenance resolves to
+  `/datasets?dataset=…` and record provenance to `/records/:recordId`.
+- Read-only/write semantics (the `?projectId` search contract) are unchanged;
+  NAV-02 alters navigation surfaces only.
 
 ## NAV-03 — Navigation Productivity & Responsive Behaviour
 

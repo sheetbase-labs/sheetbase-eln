@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   datasetPath,
   notebookTemplatePath,
+  objectContextBreadcrumbs,
   projectPath,
   recordDestination,
   recordPath,
@@ -50,5 +51,45 @@ describe('canonical navigation destinations', () => {
 
   it('encodes IDs without depending on display labels', () => {
     expect(recordPath('stable/id')).toBe('/records/stable%2Fid')
+  })
+})
+
+describe('object context breadcrumbs (NAV-02)', () => {
+  it('derives sheet context from the instance stable IDs, not history', () => {
+    expect(
+      objectContextBreadcrumbs({
+        objectLabel: 'Purification sheet',
+        project: { id: 'project-1', title: 'Lentivector Purification' },
+        owningRecord: { id: 'record-1', title: 'Run 042' },
+      }),
+    ).toEqual([
+      { label: 'Home', to: '/' },
+      { label: 'Projects', to: '/projects' },
+      { label: 'Lentivector Purification', to: '/projects/project-1' },
+      { label: 'Run 042', to: '/records/record-1' },
+      { label: 'Purification sheet' },
+    ])
+  })
+
+  it('keeps partial context resolvable', () => {
+    expect(
+      objectContextBreadcrumbs({
+        objectLabel: 'Sheet',
+        project: { id: 'project-1', title: 'Assays' },
+        owningRecord: null,
+      }),
+    ).toEqual([
+      { label: 'Home', to: '/' },
+      { label: 'Projects', to: '/projects' },
+      { label: 'Assays', to: '/projects/project-1' },
+      { label: 'Sheet' },
+    ])
+  })
+
+  it('falls back to plane-only crumbs without context IDs', () => {
+    expect(objectContextBreadcrumbs({ objectLabel: 'Sheet' })).toEqual([
+      { label: 'Home', to: '/' },
+      { label: 'Sheet' },
+    ])
   })
 })

@@ -1,7 +1,7 @@
 ---
 title: Sheetbase Current Work
 status: canonical
-last_reviewed: 2026-08-30
+last_reviewed: 2026-08-31
 ---
 
 # Sheetbase — Current Work
@@ -41,33 +41,54 @@ or RLS topology changes.
 
 ## Active Roadmap 3 work
 
-Roadmap 3 is active. The initial Product Depth wave contains three independent
-assigned tasks:
+Roadmap 3 is active. Wave A (Product Depth) and the first Open Platform SDK
+tasks are delivered through one stacked PR chain, `#97 → #98 → #99 → #100 →
+#101 → #102`, reviewed bottom-up and merged in order:
 
 ```text
-▶ NAV-01  — Canonical Navigation Model
-▶ GRID-01 — Keyboard & Selection Model
-▶ NOTE-01 — Authoring Interaction Baseline
+✓ NAV-01  — Canonical Navigation Model        (#98, completed 2026-08-30)
+▶ GRID-01 — Keyboard & Selection Model        (#99, in review)
+▶ NOTE-01 — Authoring Interaction Baseline    (#100, in review)
+▶ SDK-01  — Contract Coverage & Parity        (#101, in review)
+▶ SDK-02  — Scientific Developer Ergonomics   (#102, in review)
 ```
 
-These tasks may proceed in parallel. Each owns its complete numbered-task exit
-criterion and must reconcile the current implementation before editing. FIND
-follows the NAV foundation; later streams become Ready only when their explicit
-dependencies and gates are satisfied.
+Wave A's foundation activation rides #97. Each task owns its complete
+numbered-task exit criterion. SDK-02 builds dataframe/analysis helpers, bulk
+transfer, version access and provenance ergonomics directly on SDK-01's
+support matrix and does not start SDK-03 implicitly.
 
-### Open Platform stream
+## Next tasks, in order
 
-The SDK stream follows Roadmap 2's API-04/05 foundation:
+The next work queue, in recommended start order. The first three are
+independent and may proceed in parallel once the stack above merges; each
+must reconcile the current implementation before editing.
 
 ```text
-▶ SDK-01 — Contract Coverage & Parity
-▶ SDK-02 — Scientific Developer Ergonomics
+1. NAV-02  — Context-Preserving Object Navigation
+2. GRID-02 — Clipboard, Fill & Range Operations
+3. NOTE-02 — Sections, Structure & Long-Document Navigation
+4. FIND-01 — Recents & Work Resumption
+5. SDK-03  — Lifecycle, Compatibility & Release Quality
 ```
 
-SDK-01 establishes the explicit support matrix and contract parity tests and
-must merge before SDK-02, which builds representative scientific workflows
-(dataframe/analysis helpers, bulk transfer, version access and provenance
-ergonomics) on that matrix. SDK-02 does not start SDK-03 implicitly.
+Ordering rationale:
+
+- **NAV-02** continues the completed NAV-01 foundation and is the depth task
+  navigation quality depends on.
+- **GRID-02** builds range operations on GRID-01's selection model.
+- **NOTE-02** adds structure/outline on NOTE-01's authoring baseline.
+- **FIND-01** becomes Ready after the stack merges (its NAV-01 prerequisite is
+  then merged reality); it should start once navigation context from NAV-02
+  is shaping the home/resume surfaces it feeds.
+- **SDK-03** follows SDK-02 and is release/lifecycle work; do not start it
+  implicitly while SDK-02 is in review.
+
+Beyond this queue, Wave B (KNOW, VIEW, MODEL, REUSE, EVENT, EXT, ADMIN)
+becomes Ready only through the gates in
+[`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md). Roadmap order
+alone does not assign work; promoting a Wave B task requires an explicit
+update to this file.
 
 ### Programme scope decisions
 

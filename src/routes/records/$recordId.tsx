@@ -133,7 +133,11 @@ import type {
   NotebookReviewActivity,
   NotebookReviewContext,
 } from '#/lib/notebook-experience'
-import { notebookOutline, notebookSectionSpans } from '#/lib/notebook-outline'
+import {
+  notebookOutline,
+  notebookSectionSpans,
+  sectionSpanHidesContent,
+} from '#/lib/notebook-outline'
 import { NotebookOutlinePanel } from '#/components/notebook/notebook-outline-panel'
 import type { NotebookOutlineControls } from '#/components/notebook/notebook-outline-panel'
 
@@ -275,13 +279,18 @@ function ExperimentNotebookRoute() {
     onToggleSection: toggleSection,
     onExpandAllSections: () => setCollapsedSections(new Set()),
     onCollapseAllSections: () => {
-      // Only sections that actually own blocks can usefully collapse; an
-      // empty-span section would render a meaningless "0 blocks" placeholder.
+      // Only sections that actually own something collapsible can usefully
+      // collapse: later blocks (block-granular) or content inside their own
+      // rich_text block (same-block node range). An empty span would render
+      // a meaningless placeholder.
       const spans = notebookSectionSpans(blocks)
       setCollapsedSections(
         new Set(
           notebookOutline(blocks)
-            .filter((entry) => (spans.get(entry.anchorId)?.length ?? 0) > 0)
+            .filter((entry) => {
+              const span = spans.get(entry.anchorId)
+              return !!span && sectionSpanHidesContent(span)
+            })
             .map((entry) => entry.anchorId),
         ),
       )

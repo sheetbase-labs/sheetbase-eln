@@ -26,6 +26,7 @@ import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
 import {
   collapsedSectionBlockIds,
+  collapsedSectionNodeIndexes,
   notebookOutline,
   notebookSectionSpans,
   sectionHiddenCounts,
@@ -449,6 +450,15 @@ function NotebookDocumentContent({
   )
   const hiddenBlockIds = React.useMemo(
     () => collapsedSectionBlockIds(sectionSpans, sectionCollapsed),
+    [sectionSpans, sectionCollapsed],
+  )
+  // NOTE-02 same-block collapse: nodes inside a collapsed section's own
+  // rich_text block are hidden at the node level (read preview skips them
+  // with a print-restoring class; the active Tiptap editor hides the
+  // matching ProseMirror nodes via node decorations). Still presentation
+  // state — nothing here touches the persisted payload.
+  const hiddenNodeIndexesByBlockId = React.useMemo(
+    () => collapsedSectionNodeIndexes(sectionSpans, sectionCollapsed),
     [sectionSpans, sectionCollapsed],
   )
   const hiddenCounts = React.useMemo(
@@ -1016,6 +1026,10 @@ function NotebookDocumentContent({
                 ) : editable && (isSelected || hasUnsavedDraft) ? (
                   <BlockEditor
                     block={block}
+                    headingAnchorPrefix={`section-${block.id}`}
+                    hiddenRichTextNodeIndexes={hiddenNodeIndexesByBlockId.get(
+                      block.id,
+                    )}
                     save={(payload) => onSaveBlock(block, payload)}
                     pinProtocol={
                       onPinProtocol
@@ -1061,7 +1075,10 @@ function NotebookDocumentContent({
                     onArrowDownFromEnd={() => handleArrowDownFromEnd(block)}
                   />
                 ) : (
-                  <BlockPreview block={block} />
+                  <BlockPreview
+                    block={block}
+                    hiddenNodeIndexes={hiddenNodeIndexesByBlockId.get(block.id)}
+                  />
                 )}
               </NotebookBlock>
               {moveError && moveError.blockId === block.id ? (
@@ -1103,10 +1120,14 @@ function NotebookDocumentContent({
                 data-print-hide
               >
                 <span>
-                  Section collapsed — {hiddenCounts.get(collapsedHere) ?? 0}{' '}
-                  block
-                  {(hiddenCounts.get(collapsedHere) ?? 0) === 1 ? '' : 's'}{' '}
-                  hidden.
+                  Section collapsed —{' '}
+                  {(() => {
+                    const blocksHidden = hiddenCounts.get(collapsedHere) ?? 0
+                    if (blocksHidden > 0) {
+                      return `${blocksHidden} block${blocksHidden === 1 ? '' : 's'} hidden.`
+                    }
+                    return 'content in this block is hidden.'
+                  })()}
                 </span>
                 <button
                   type="button"

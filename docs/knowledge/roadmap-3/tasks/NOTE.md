@@ -153,8 +153,9 @@ A user can understand exactly what will be frozen/submitted, complete review act
   `src/lib/notebook-submission.ts` from canonical state: NotebookDocument's
   unsaved-draft signal (now routed from `EditableNotebook` up to the record
   route and into the dialog, blocking submit while drafts are unsaved), the
-  lifecycle guards the submit RPC itself enforces (archived / locked /
-  active review), the server-owned `preview_submission_digest` check, and the
+  lifecycle guards the submit RPC itself enforces (archived / locked; an
+  active review blocks via the existing header gating, stricter than the
+  RPC), the server-owned `preview_submission_digest` check, and the
   ≥1-reviewer requirement. Checks the browser cannot evaluate are honest
   manual items that link to the authoritative surface: pending Sheet
   write-back lives inside the Sheet workspace's own state, so the dialog

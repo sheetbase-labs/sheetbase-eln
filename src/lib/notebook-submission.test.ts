@@ -148,7 +148,9 @@ describe('submissionSheetInstanceIds', () => {
     ]
     expect(submissionCompositionSummary(blocks)).toEqual({
       blockCount: 3,
-      sheetCount: 2,
+      // Distinct instances only — the same Sheet embedded twice is one
+      // Sheet to check before submitting.
+      sheetCount: 1,
     })
   })
 })

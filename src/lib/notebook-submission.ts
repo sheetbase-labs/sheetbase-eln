@@ -118,7 +118,7 @@ export function submissionSheetInstanceIds(blocks: NotebookBlock[]): string[] {
     if (block.type !== 'sheet' && block.type !== 'sheet_shared') continue
     if (!isCanonicalSheetBlock(block.payload)) continue
     const id = sheetBlockInstanceId(block.payload)
-    if (id) ids.push(id)
+    if (id && !ids.includes(id)) ids.push(id)
   }
   return ids
 }

@@ -123,6 +123,11 @@ export function SubmitNotebookDialog({
         params: { revisionId: result.revision.id },
       })
     },
+    // NOTE-04 review fix: a server rejection (e.g. SB001 — the source
+    // changed since the check snapshot) must invalidate the stale
+    // snapshot, or the checklist keeps claiming the digest is verified
+    // while Submit stays enabled against the same stale digest.
+    onError: () => setSnapshot(null),
   })
 
   const previewErrorMessage =

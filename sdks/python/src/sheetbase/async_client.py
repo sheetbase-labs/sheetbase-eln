@@ -575,7 +575,7 @@ class AsyncCatalogues:
     ) -> list[dict[str, Any]]:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if schema_version_id:
-            params["dataset_schema_version_id"] = f"eq.{schema_version_id}"
+            params["schema_version_id"] = f"eq.{schema_version_id}"
         return await self._t.get("/api/db/dataset_schema_version_fields", params=params)
 
     async def list_templates(

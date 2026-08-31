@@ -112,12 +112,21 @@ Users can enter and correct typed data efficiently, with client feedback matchin
   fields without a local option list keep a text editor. The server (and
   the shared local validator) remains the vocabulary authority — retired
   options and unknown text are still rejected, never remapped.
-- **Date/time columns get real editors.** `date` fields edit through the
-  Handsontable date editor in `YYYY-MM-DD` with format correction;
-  `datetime-local` (timestamp) fields use `YYYY-MM-DD HH:mm`, coerced to a
-  canonical UTC instant on commit because the grid carries no timezone
-  context. Numeric, boolean and Record/reference columns keep their
-  existing GRID-01/02 behaviour (numeric, checkbox, record-picker flow).
+- **Date/time columns edit safely.** `date` fields edit through the
+  Handsontable date editor (`YYYY-MM-DD`). Timestamp fields deliberately
+  keep the text editor: Handsontable 18's `date` cell type is a native
+  date-only input that cannot hold a time and rejects canonical `…Z`
+  instants, which would make timestamp columns uneditable. Bare timestamp
+  input is coerced to a canonical UTC instant on commit because the grid
+  carries no timezone context (deterministic and user-independent;
+  explicit offsets pass through). Numeric, boolean and Record/reference
+  columns keep their existing GRID-01/02 behaviour.
+- **Rejections do not pollute undo.** Every rejected change nullifies its
+  Handsontable change entries before cancelling, so the undo stack never
+  records a no-op step whose Ctrl+Z would re-persist unchanged values.
+- **Category editing opens on the label.** The dropdown editor seeds its
+  text input with the display label for the stored option id; picking a
+  label coerces back to the canonical id.
 - **Quantity columns surface their storage unit.** Column headers show the
   field's canonical `storageUnit` (for example `Titer (IU/mL)`). This is
   display only: no client-side unit conversion exists, so input units are

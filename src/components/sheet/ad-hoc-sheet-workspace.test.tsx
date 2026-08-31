@@ -221,15 +221,10 @@ describe('CanonicalSheetEditor typed editing and validation UX (GRID-03)', () =>
     ])
     expect(settings.columns).toEqual([
       expect.objectContaining({ type: 'numeric' }),
-      expect.objectContaining({
-        type: 'date',
-        dateFormat: 'YYYY-MM-DD',
-        correctFormat: true,
-      }),
-      expect.objectContaining({
-        type: 'date',
-        dateFormat: 'YYYY-MM-DD HH:mm',
-      }),
+      expect.objectContaining({ type: 'date' }),
+      // GRID-03 review fix: HT 18's date editor is date-only and rejects
+      // canonical …Z instants; timestamps keep a text editor + UTC coercion.
+      expect.objectContaining({ type: 'text' }),
       expect.objectContaining({
         type: 'dropdown',
         // Canonical vocabulary: active options only, displayed by label.

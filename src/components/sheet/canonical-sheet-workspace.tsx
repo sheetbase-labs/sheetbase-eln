@@ -94,14 +94,14 @@ function handsontableType(column: CanonicalSheetGridColumn): {
   const kind = column.presentation.kind
   if (kind === 'checkbox') return { type: 'checkbox' }
   if (kind === 'number') return { type: 'numeric' }
-  if (kind === 'date')
-    return { type: 'date', dateFormat: 'YYYY-MM-DD', correctFormat: true }
-  // GRID-03: timestamp fields edit through the date editor in minute
-  // precision; parseSheetCellInput coerces the editor output to a canonical
-  // UTC instant before validation. Bare input is interpreted as UTC because
-  // the grid carries no timezone context.
-  if (kind === 'datetime-local')
-    return { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', correctFormat: true }
+  if (kind === 'date') return { type: 'date' }
+  // GRID-03 review fix: Handsontable 18's `date` cell type is a native
+  // <input type="date"> — it cannot hold or produce a time and rejects
+  // canonical `…Z` instants on edit, which would make timestamp columns
+  // uneditable. Timestamps keep the text editor; parseSheetCellInput coerces
+  // bare input to a canonical UTC instant before validation (bare input is
+  // interpreted as UTC because the grid carries no timezone context).
+  if (kind === 'datetime-local') return { type: 'text' }
   if (kind === 'category-select' && column.field) {
     // GRID-03: the dropdown is seeded from the field's canonical vocabulary
     // (active embedded options). Vocabulary-backed fields without a local
@@ -629,6 +629,13 @@ export function CanonicalSheetEditor({
             ? `${verb} rejected: the range contains read-only or derived cells.`
             : `${verb} rejected: ${result.rejection.detail} in ${result.rejection.label}. The cell kept its previous value.`,
         )
+        // Nullify the entries instead of only returning false: Handsontable
+        // 18's undo plugin records any non-null change set regardless of a
+        // false return, so a bare rejection would leave a no-op undo step
+        // whose Ctrl+Z re-persists unchanged values to the server.
+        for (let index = 0; index < changes.length; index += 1) {
+          changes[index] = null as unknown as (typeof changes)[number]
+        }
         return false
       },
       contextMenu: {

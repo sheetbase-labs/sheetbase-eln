@@ -374,7 +374,13 @@ function RichTextEditor({
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {
-    return <RichTextContent className={className} payload={a.draft} />
+    return (
+      <RichTextContent
+        className={className}
+        payload={a.draft}
+        anchorPrefix={`section-${block.id}`}
+      />
+    )
   }
 
   return (

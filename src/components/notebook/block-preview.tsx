@@ -115,14 +115,20 @@ function asObject(value: unknown): Record<string, unknown> | null {
 
 export function BlockPreview({ block, className }: BlockPreviewProps) {
   const { type, payload } = block
-  const body = renderPayload(type, payload)
+  // NOTE-02: read previews carry the same stable heading anchors as the
+  // read-only editor view so outline links resolve in every mode.
+  const body = renderPayload(type, payload, `section-${block.id}`)
   return <div className={cn('text-sm leading-6', className)}>{body}</div>
 }
 
-function renderPayload(type: string, payload: unknown): React.ReactNode {
+function renderPayload(
+  type: string,
+  payload: unknown,
+  anchorPrefix?: string,
+): React.ReactNode {
   switch (type) {
     case 'rich_text':
-      return renderRichText(payload)
+      return renderRichText(payload, anchorPrefix)
     case 'checklist':
       return renderChecklist(payload)
     case 'callout':
@@ -156,9 +162,12 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
   }
 }
 
-function renderRichText(payload: unknown): React.ReactNode {
+function renderRichText(
+  payload: unknown,
+  anchorPrefix?: string,
+): React.ReactNode {
   return isRichTextPayload(payload) ? (
-    <RichTextContent payload={payload} />
+    <RichTextContent payload={payload} anchorPrefix={anchorPrefix} />
   ) : null
 }
 

@@ -24,6 +24,12 @@ import { BlockEditor } from './block-editor'
 import type { AutosaveStatus, SaveResult } from './block-editor'
 import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
+import {
+  collapsedSectionBlockIds,
+  notebookOutline,
+  notebookSectionSpans,
+  sectionHiddenCounts,
+} from '#/lib/notebook-outline'
 import { BlockPicker } from './block-picker'
 import { NotebookSheetBlock } from './notebook-sheet-block'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
@@ -140,6 +146,10 @@ export interface NotebookDocumentProps {
     options?: { datasetSchemaId?: string },
   ) => Promise<string | undefined>
   readOnly?: boolean
+  /** NOTE-02: anchors of currently collapsed sections (route presentation state). */
+  collapsedSections?: ReadonlySet<string>
+  /** NOTE-02: toggle a section's collapsed state. Absent on read-only canvases. */
+  onToggleSection?: (anchorId: string) => void
   frozenSheetEvidence?: Map<string, FrozenSheetEvidence>
   /**
    * COLLAB-02: active workspace id used to build block comment anchors;
@@ -174,6 +184,8 @@ export function NotebookDocument(props: NotebookDocumentProps) {
   )
 }
 
+const NOTE02_EMPTY_COLLAPSED_SECTIONS: ReadonlySet<string> = new Set<string>()
+
 function NotebookDocumentContent({
   record,
   blocks,
@@ -197,6 +209,9 @@ function NotebookDocumentContent({
   collaborationRole = 'viewer',
   frozenSheetEvidence,
   className,
+  /** NOTE-02 section collapse — presentation state only, route-owned. */
+  collapsedSections,
+  onToggleSection,
 }: NotebookDocumentProps) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [activeId, setActiveId] = React.useState<string | null>(null)
@@ -420,6 +435,35 @@ function NotebookDocumentContent({
   // COLLAB-02: block comment affordances render only when the deployment
   // has collaboration enabled; ThreadPanel further gates on room readiness.
   const collabComments = useCollaborationEnabled()
+
+  // --- Sections (NOTE-02) -------------------------------------------------
+  // The outline is a projection of rich_text heading nodes; collapse is
+  // presentation state owned by the route and never persisted. Collapsed
+  // content is removed from view but printed (print:contents), so printed
+  // and exported structure is always complete.
+  const sectionCollapsed = collapsedSections ?? NOTE02_EMPTY_COLLAPSED_SECTIONS
+  const outlineEntries = React.useMemo(() => notebookOutline(blocks), [blocks])
+  const sectionSpans = React.useMemo(
+    () => notebookSectionSpans(blocks),
+    [blocks],
+  )
+  const hiddenBlockIds = React.useMemo(
+    () => collapsedSectionBlockIds(sectionSpans, sectionCollapsed),
+    [sectionSpans, sectionCollapsed],
+  )
+  const hiddenCounts = React.useMemo(
+    () => sectionHiddenCounts(sectionSpans, sectionCollapsed),
+    [sectionSpans, sectionCollapsed],
+  )
+  const collapsedAnchorByBlockId = React.useMemo(() => {
+    const map = new Map<string, string>()
+    if (!onToggleSection) return map
+    for (const anchor of sectionCollapsed) {
+      const entry = outlineEntries.find((item) => item.anchorId === anchor)
+      if (entry) map.set(entry.blockId, anchor)
+    }
+    return map
+  }, [onToggleSection, outlineEntries, sectionCollapsed])
 
   // --- Movement (ELN-006) -------------------------------------------------
   // The effective ordered list is the canonical `blocks` unless an
@@ -838,6 +882,8 @@ function NotebookDocumentContent({
               : isSelected
                 ? 'selected'
                 : 'default'
+        const isHiddenSection = hiddenBlockIds.has(block.id)
+        const collapsedHere = collapsedAnchorByBlockId.get(block.id)
         return (
           <React.Fragment key={block.id}>
             {showAbove ? (
@@ -852,6 +898,9 @@ function NotebookDocumentContent({
               className={cn(
                 'scroll-mt-28 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 isMoving && 'opacity-60',
+                // NOTE-02: collapsed sections are removed from view but
+                // restored in print, so printed structure stays complete.
+                isHiddenSection && 'hidden print:contents',
               )}
               tabIndex={isReadOnly ? undefined : 0}
               role={isReadOnly ? undefined : 'group'}
@@ -1045,6 +1094,26 @@ function NotebookDocumentContent({
                   label={`Insert block after ${blockLabel(block)}`}
                   className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
                 />
+              </div>
+            ) : null}
+            {collapsedHere && !isHiddenSection ? (
+              <div
+                className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground"
+                data-testid={`section-collapsed-${collapsedHere}`}
+              >
+                <span>
+                  Section collapsed — {hiddenCounts.get(collapsedHere) ?? 0}{' '}
+                  block
+                  {(hiddenCounts.get(collapsedHere) ?? 0) === 1 ? '' : 's'}{' '}
+                  hidden.
+                </span>
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-foreground"
+                  onClick={() => onToggleSection?.(collapsedHere)}
+                >
+                  Show
+                </button>
               </div>
             ) : null}
           </React.Fragment>

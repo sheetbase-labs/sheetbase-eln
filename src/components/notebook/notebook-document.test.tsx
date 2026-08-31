@@ -1153,3 +1153,92 @@ describe('NotebookDocument — focus and selection after a move', () => {
     expect(b1Anchor.contains(document.activeElement)).toBe(true)
   })
 })
+
+describe('NOTE-02 sections and outline anchors', () => {
+  function paragraphBlock(id: string, order: number): NotebookBlock {
+    return {
+      id,
+      recordId: 'r1',
+      type: 'rich_text',
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: `Body ${id}` }],
+            },
+          ],
+        },
+      },
+      payloadSchemaVersion: 1,
+      order,
+      version: 1,
+    }
+  }
+
+  it('renders stable in-payload heading anchors for outline navigation', () => {
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b1', 'Objective')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+    const heading = document.getElementById('section-b1-h0')
+    expect(heading).toBeTruthy()
+    expect(heading!.getAttribute('id')).toBe('section-b1-h0')
+  })
+
+  it('collapses a section, hides its blocks and offers Show', () => {
+    const onToggleSection = vi.fn()
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[
+          richTextBlock('sec-1', 'Methods'),
+          paragraphBlock('body-1', 2),
+          paragraphBlock('body-2', 3),
+        ]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        collapsedSections={new Set(['section-sec-1-h0'])}
+        onToggleSection={onToggleSection}
+      />,
+    )
+    // Section body is hidden from view but still in the DOM (print keeps it).
+    const body = document.getElementById('block-body-1')!
+    expect(body.className).toContain('hidden')
+    expect(body.className).toContain('print:contents')
+    // Placeholder offers the way back, wired to the route toggle.
+    const placeholder = screen.getByTestId('section-collapsed-section-sec-1-h0')
+    expect(placeholder.textContent).toContain('2 blocks hidden')
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }))
+    expect(onToggleSection).toHaveBeenCalledWith('section-sec-1-h0')
+  })
+
+  it('does not collapse when the route provides no controls (read-only use)', () => {
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[
+          richTextBlock('sec-1', 'Methods'),
+          paragraphBlock('body-1', 2),
+        ]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        readOnly
+      />,
+    )
+    expect(document.getElementById('block-body-1')!.className).not.toContain(
+      'hidden',
+    )
+  })
+})

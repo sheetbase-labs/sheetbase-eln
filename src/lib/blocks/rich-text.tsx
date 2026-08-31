@@ -263,6 +263,7 @@ function renderText(node: RichTextTextNode, key: number): React.ReactNode {
 function renderNode(
   node: RichTextHeadingNode | RichTextParagraphNode | RichTextListNode,
   key: number,
+  anchorPrefix?: string,
 ): React.ReactNode {
   if (node.type === 'paragraph') {
     return <p key={key}>{node.content?.map(renderText) ?? null}</p>
@@ -271,11 +272,15 @@ function renderNode(
     const Tag = node.attrs.level === 2 ? 'h2' : 'h3'
     return (
       <Tag
-        className={
+        // NOTE-02: stable in-payload anchor. The ordinal is the heading's
+        // index within the block payload — the same key the outline uses.
+        id={anchorPrefix ? `${anchorPrefix}-h${key}` : undefined}
+        className={[
+          'scroll-mt-28',
           node.attrs.level === 2
             ? 'font-display text-lg font-semibold leading-7 tracking-tight'
-            : 'font-display text-base font-semibold leading-6 tracking-tight'
-        }
+            : 'font-display text-base font-semibold leading-6 tracking-tight',
+        ].join(' ')}
         key={key}
       >
         {node.content?.map(renderText) ?? null}
@@ -289,7 +294,9 @@ function renderNode(
       start={node.type === 'orderedList' ? node.attrs?.start : undefined}
     >
       {node.content.map((item, itemIndex) => (
-        <li key={itemIndex}>{item.content.map(renderNode)}</li>
+        <li key={itemIndex}>
+          {item.content.map((child, childKey) => renderNode(child, childKey))}
+        </li>
       ))}
     </Tag>
   )
@@ -298,9 +305,12 @@ function renderNode(
 export function RichTextContent({
   payload,
   className,
+  anchorPrefix,
 }: {
   payload: RichTextPayload
   className?: string
+  /** NOTE-02: when set, H2/H3 nodes get stable `#<prefix>-h<index>` anchors. */
+  anchorPrefix?: string
 }) {
   return (
     <div
@@ -311,7 +321,9 @@ export function RichTextContent({
         .filter(Boolean)
         .join(' ')}
     >
-      {payload.doc.content.map(renderNode)}
+      {payload.doc.content.map((node, key) =>
+        renderNode(node, key, anchorPrefix),
+      )}
     </div>
   )
 }

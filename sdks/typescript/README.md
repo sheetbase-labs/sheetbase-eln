@@ -16,6 +16,21 @@ This package targets public API contract `0.1.0`. The complete TypeScript /
 Python operation inventory and shared wire-semantics decisions live in the
 [SDK support matrix](../SUPPORT_MATRIX.md).
 
+### Versioning & compatibility
+
+- Package versions follow SemVer; the package version and the supported
+  public API contract version (`API_VERSION`) are separate numbers, and each
+  release documents which contract version it supports in the
+  [compatibility table](../SUPPORT_MATRIX.md#package-compatibility).
+- `API_VERSION` is machine-checked against the committed OpenAPI contract
+  (`docs/openapi/external-api-v0.json` `info.version`) and the support
+  matrix by the test suite, so taxonomy or version drift fails CI.
+- The error taxonomy (`TOKEN_ERROR_CODES`, `ERROR_CATEGORIES` and the typed
+  error classes) is stable public surface: additions go through the support
+  matrix in both SDKs; removals or renames are breaking changes.
+- Release procedure, change policy and reproducibility notes:
+  [`sdks/RELEASE.md`](../RELEASE.md).
+
 ## Quick start
 
 ```ts
@@ -301,6 +316,7 @@ The SDK uses the global `fetch` API. No Node-specific APIs are used at runtime. 
 
 ```bash
 npm install
-npm test          # run vitest
+npm test          # run vitest (contract parity, smoke, resources)
 npm run typecheck # tsc --noEmit
+npm run build     # standalone tsc build → dist/ (no app source tree needed)
 ```

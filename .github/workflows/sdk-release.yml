@@ -1,0 +1,149 @@
+# Build, test and package both SDKs as release candidates.
+#
+# Deliberately separate from deploy.yml: this workflow never publishes, never
+# reads VPS/Tailscale/Cloudflare secrets, and touches nothing beyond the
+# sdks/ tree plus the root contract gate. Publishing is a manual maintainer
+# step afterwards (see sdks/RELEASE.md) so registry credentials never live in
+# GitHub. Trigger is manual dispatch only — releases are deliberate acts.
+#
+# Note (PLAT-03): the GitHub account currently cannot run hosted-runner jobs
+# (see deploy.yml). This workflow is left dispatch-enabled because it is
+# build-only and side-effect free; until hosted runners are available, run
+# the same steps locally with the commands documented in sdks/RELEASE.md.
+
+name: SDK release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version being released (must match both SDK manifests, e.g. 0.1.0)'
+        required: true
+        default: '0.1.0'
+
+concurrency:
+  group: sdk-release
+  cancel-in-progress: false
+
+jobs:
+  # SDK-03 compatibility gate: the support matrix and both SDKs must match
+  # the committed public contract before any artifact is built.
+  contract:
+    name: Contract gate (support matrix + parity)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.9.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: SDK support-matrix contract tests
+        run: npx vitest run src/lib/sdk-support-matrix.test.ts
+
+      - name: Verify package versions match the dispatch input
+        run: |
+          VERSION="${{ inputs.version }}"
+          NPM_VERSION="$(node -p "require('./sdks/typescript/package.json').version")"
+          PY_VERSION="$(sed -n 's/^version\s*=\s*"\(.*\)"/\1/p' sdks/python/pyproject.toml)"
+          if [ "$NPM_VERSION" != "$VERSION" ] || [ "$PY_VERSION" != "$VERSION" ]; then
+            echo "Dispatch version $VERSION but manifests declare npm=$NPM_VERSION python=$PY_VERSION"
+            exit 1
+          fi
+
+  typescript:
+    name: Build and pack @sheetbase/eln-sdk
+    runs-on: ubuntu-latest
+    needs: contract
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sdks/typescript/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sdks/typescript
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: sdks/typescript
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: sdks/typescript
+        run: npm test
+
+      - name: Build standalone package
+        working-directory: sdks/typescript
+        run: npm run build
+
+      - name: Import built dist as a standalone consumer would
+        working-directory: sdks/typescript
+        run: |
+          node --input-type=module -e "
+            const m = await import('./dist/index.js');
+            if (!m.SheetbaseClient || !m.API_VERSION) {
+              throw new Error('built package does not export the public surface');
+            }
+            console.log('dist import OK, API_VERSION', m.API_VERSION);
+          "
+
+      - name: Pack
+        working-directory: sdks/typescript
+        run: npm pack --dry-run=false
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-pack
+          path: sdks/typescript/*.tgz
+          if-no-files-found: error
+
+  python:
+    name: Build sheetbase wheel and sdist
+    runs-on: ubuntu-latest
+    needs: contract
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test
+        working-directory: sdks/python
+        run: |
+          uv run --with pandas,httpx,pytest,respx,pytest-asyncio \
+            --python 3.12 --with-editable . python -m pytest -q
+
+      - name: Build wheel and sdist
+        working-directory: sdks/python
+        run: uv build --python 3.12
+
+      - name: Install the built wheel standalone and import it
+        working-directory: sdks/python
+        run: |
+          uv run --python 3.12 --isolated --no-project \
+            --with dist/*.whl python -c "
+            import sheetbase
+            print('wheel import OK, API_VERSION', sheetbase.API_VERSION)
+          "
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: sdks/python/dist/*
+          if-no-files-found: error

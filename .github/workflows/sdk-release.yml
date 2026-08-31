@@ -7,19 +7,23 @@
 # GitHub. Trigger is manual dispatch only — releases are deliberate acts.
 #
 # Note (PLAT-03): the GitHub account currently cannot run hosted-runner jobs
-# (see deploy.yml). This workflow is left dispatch-enabled because it is
-# build-only and side-effect free; until hosted runners are available, run
-# the same steps locally with the commands documented in sdks/RELEASE.md.
+# (see deploy.yml). The trigger is commented out accordingly — see the `on:`
+# block below and sdks/RELEASE.md for the local-commands fallback.
 
 name: SDK release
 
-on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Package version being released (must match both SDK manifests, e.g. 0.1.0)'
-        required: true
-        default: '0.1.0'
+# PAUSED — the GitHub account currently cannot run hosted-runner jobs (see
+# deploy.yml). Dispatching would only produce a red failed run, so the trigger
+# is commented out like the sibling deploy workflows. Until runners are
+# available, run the build/test/pack steps locally per sdks/RELEASE.md, then
+# uncomment this block to re-enable.
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       version:
+#         description: 'Package version being released (must match both SDK manifests, e.g. 0.1.0)'
+#         required: true
+#         default: '0.1.0'
 
 concurrency:
   group: sdk-release
@@ -47,8 +51,9 @@ jobs:
         run: npx vitest run src/lib/sdk-support-matrix.test.ts
 
       - name: Verify package versions match the dispatch input
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          VERSION="${{ inputs.version }}"
           NPM_VERSION="$(node -p "require('./sdks/typescript/package.json').version")"
           PY_VERSION="$(sed -n 's/^version\s*=\s*"\(.*\)"/\1/p' sdks/python/pyproject.toml)"
           if [ "$NPM_VERSION" != "$VERSION" ] || [ "$PY_VERSION" != "$VERSION" ]; then

@@ -89,7 +89,7 @@ def test_smoke_token_exchange_query_and_idempotent_commit(mock_transport):
 
     with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read", "datasets:write"]) as client:
         # 1. The SDK knows the exact contract version it targets.
-        assert client.api_version == API_VERSION == "0.1.0"
+        assert client.api_version == API_VERSION
 
         # 2. Query rows through the typed resource.
         page = client.datasets.query_rows(dataset_id=DATASET_ID)

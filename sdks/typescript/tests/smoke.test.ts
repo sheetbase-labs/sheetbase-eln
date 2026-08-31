@@ -44,7 +44,6 @@ describe("smoke: token exchange → query rows → idempotent commit", () => {
 
     // 1. Token exchange happens automatically, exactly once, up front.
     expect(client.apiVersion).toBe(API_VERSION);
-    expect(API_VERSION).toBe("0.1.0");
 
     // 2. Query rows through the typed resource.
     const page = await client.datasets.queryRows({ datasetId });

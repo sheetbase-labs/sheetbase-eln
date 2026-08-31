@@ -73,4 +73,6 @@ Artifacts are built from a clean checkout by the workflow with pinned tool
 versions (Node 22 + repo `package-lock.json`; Python 3.12 via `uv build`).
 Re-running the workflow on the same commit reproduces the same artifacts
 byte-for-byte for the Python wheel/sdist; npm pack output is likewise
-deterministic given the same source tree. Never publish from a dirty tree.
+reproducible for Python via hatchling (normalised timestamps). npm pack
+determinism requires an unchanged working tree — npm does not normalise tarball
+mtimes across fresh checkouts. Never publish from a dirty tree.

@@ -318,6 +318,18 @@ function validateLinkedRecord(payload: unknown): FieldErrors {
       message: 'linkType is required',
     })
   }
+  // NOTE-03: targetId is optional — the stable UUID of the linked canonical
+  // object (Dataset UUID for targetKind 'dataset', Record UUID otherwise).
+  // It is captured when the link is picked from search; older payloads
+  // predate it and carry only the human identifier, which never builds a
+  // canonical link.
+  if (payload.targetId !== undefined && !isNonEmptyString(payload.targetId)) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'targetId',
+      message: 'targetId must be a non-empty string when present',
+    })
+  }
   // label is optional. Empty string is treated as "no label"; only a
   // whitespace-only label (present but blank) is rejected.
   if (

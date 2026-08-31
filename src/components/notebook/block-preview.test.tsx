@@ -1,9 +1,34 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { BlockPreview } from './block-preview'
+import type * as sheetInstanceData from '#/lib/sheet-instance-data'
+import { fetchSheetInstance } from '#/lib/sheet-instance-data'
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    children,
+    ...rest
+  }: {
+    to: string
+    children?: ReactNode
+    [key: string]: unknown
+  }) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
+  ),
+}))
+
+vi.mock('#/lib/sheet-instance-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof sheetInstanceData>()
+  return { ...actual, fetchSheetInstance: vi.fn() }
+})
+
+const mockFetchSheetInstance = vi.mocked(fetchSheetInstance)
 
 afterEach(() => cleanup())
 
@@ -159,5 +184,80 @@ describe('BlockPreview metric (number formatting)', () => {
       />,
     )
     expect(screen.getByText('Pass')).toBeTruthy()
+  })
+})
+
+describe('BlockPreview linked_record (NOTE-03 canonical open affordance)', () => {
+  it('links to the canonical Dataset UUID when targetId is present', () => {
+    const datasetId = '00000000-0000-4000-8000-000000000170'
+    renderWithQuery(
+      <BlockPreview
+        block={block('linked_record', {
+          targetKind: 'dataset',
+          targetIdentifier: 'Stability readings',
+          targetId: datasetId,
+          linkType: 'dataset',
+          label: '',
+        })}
+      />,
+    )
+    const open = screen.getByRole('link', { name: 'Open' })
+    expect(open.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent(datasetId)}`,
+    )
+  })
+
+  it('links non-dataset targets through recordDestination by UUID', () => {
+    const sampleId = '10000000-0000-4000-8000-000000000042'
+    renderWithQuery(
+      <BlockPreview
+        block={block('linked_record', {
+          targetKind: 'sample',
+          targetIdentifier: 'SMP-2025-0001',
+          targetId: sampleId,
+          linkType: 'sample',
+          label: '',
+        })}
+      />,
+    )
+    const open = screen.getByRole('link', { name: 'Open' })
+    expect(open.getAttribute('href')).toBe(
+      `/samples?selected=${encodeURIComponent(sampleId)}`,
+    )
+  })
+
+  it('never renders a link for legacy payloads that only carry a label', () => {
+    renderWithQuery(
+      <BlockPreview
+        block={block('linked_record', {
+          targetKind: 'experiment',
+          targetIdentifier: 'EXP-2025-0001',
+          linkType: 'general',
+          label: '',
+        })}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: 'Open' })).toBeNull()
+  })
+})
+
+describe('BlockPreview sheet (NOTE-03 read-preview open affordance)', () => {
+  it('offers the canonical Open full sheet link built from the instance UUID', async () => {
+    const instanceId = '00000000-0000-4000-8000-00000000abc1'
+    mockFetchSheetInstance.mockResolvedValue({
+      id: instanceId,
+      name: 'Titration working sheet',
+      lifecycle: 'active',
+      sourceDefinitionVersionId: null,
+    } as never)
+    renderWithQuery(
+      <BlockPreview
+        block={block('sheet', {
+          instanceId,
+        })}
+      />,
+    )
+    const open = await screen.findByRole('link', { name: 'Open full sheet' })
+    expect(open.getAttribute('href')).toBe(`/sheets/${instanceId}`)
   })
 })

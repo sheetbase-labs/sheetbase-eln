@@ -36,6 +36,22 @@ vi.mock('#/lib/dataset-explorer-data', () => ({
   fetchDatasetSummaries: vi.fn().mockResolvedValue([]),
 }))
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    children,
+    ...rest
+  }: {
+    to: string
+    children?: ReactNode
+    [key: string]: unknown
+  }) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
+  ),
+}))
+
 function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -361,6 +377,121 @@ describe('BlockEditor — linked_record', () => {
       'report',
     ])
     expect(screen.getByLabelText('Search records or Datasets')).toBeTruthy()
+  })
+})
+
+describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
+  const SAMPLE_ROW = {
+    id: 'sample-uuid-1',
+    identifier: 'SMP-2025-0001',
+    title: 'Sample A',
+  }
+
+  it('captures the canonical UUID when a record is picked from search', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn(async () => ({ ok: true }))
+    const { notebookDataClient } = await import('#/lib/notebook-data')
+    ;(notebookDataClient.list as ReturnType<typeof vi.fn>)
+      .mockReset()
+      .mockResolvedValue([SAMPLE_ROW])
+    renderWithQuery(
+      <BlockEditor
+        block={block({
+          type: 'linked_record',
+          payload: {
+            targetKind: 'sample',
+            targetIdentifier: '',
+            linkType: 'general',
+            label: '',
+          },
+        })}
+        save={save}
+      />,
+    )
+    await user.type(
+      screen.getByRole('textbox', { name: 'Search records or Datasets' }),
+      'SMP',
+    )
+    await user.click(await screen.findByText('SMP-2025-0001'))
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetIdentifier: 'SMP-2025-0001',
+          targetId: 'sample-uuid-1',
+        }),
+      ),
+    )
+  })
+
+  it('drops the stored UUID when the identifier is retyped by hand', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn(async () => ({ ok: true }))
+    renderWithQuery(
+      <BlockEditor
+        block={block({
+          type: 'linked_record',
+          payload: {
+            targetKind: 'sample',
+            targetIdentifier: 'SMP-2025-0001',
+            targetId: 'sample-uuid-1',
+            linkType: 'general',
+            label: '',
+          },
+        })}
+        save={save}
+      />,
+    )
+    const idInput = screen.getByPlaceholderText('EXP-2025-0001')
+    await user.type(idInput, 'X')
+    await user.tab()
+    await waitFor(() => expect(save).toHaveBeenCalled())
+    // A manually typed identifier is a label, not identity — the payload
+    // must not keep a UUID it no longer corresponds to.
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ targetId: undefined }),
+    )
+  })
+
+  it('offers the canonical Open affordance in read-only mode', () => {
+    renderWithQuery(
+      <BlockEditor
+        block={block({
+          type: 'linked_record',
+          payload: {
+            targetKind: 'dataset',
+            targetIdentifier: 'Stability readings',
+            targetId: '00000000-0000-4000-8000-000000000170',
+            linkType: 'dataset',
+            label: '',
+          },
+        })}
+        save={okSave}
+        readOnly
+      />,
+    )
+    const open = screen.getByRole('link', { name: 'Open' })
+    expect(open.getAttribute('href')).toBe(
+      '/datasets?dataset=00000000-0000-4000-8000-000000000170',
+    )
+  })
+
+  it('offers no Open affordance when only a label is stored', () => {
+    renderWithQuery(
+      <BlockEditor
+        block={block({
+          type: 'linked_record',
+          payload: {
+            targetKind: 'sample',
+            targetIdentifier: 'SMP-2025-0001',
+            linkType: 'general',
+            label: '',
+          },
+        })}
+        save={okSave}
+        readOnly
+      />,
+    )
+    expect(screen.queryByRole('link', { name: 'Open' })).toBeNull()
   })
 })
 

@@ -57,6 +57,7 @@ import { validateSheetRecordBatch } from '#/lib/sheet-record-mapping'
 import {
   resolveSheetWriteTarget,
   SheetBatchValidationError,
+  SheetMixedAuthorityWriteError,
   sheetCellWriteError,
   writeSheetCells,
 } from '#/lib/sheet-write-back'
@@ -444,6 +445,14 @@ export function CanonicalSheetEditor({
             error.errors[0]?.code ?? 'validation_failed'
           }. Nothing was written.`,
         )
+        return
+      }
+      if (error instanceof SheetMixedAuthorityWriteError) {
+        // GRID-02: the range operation spanned more than one authoritative
+        // target and was rejected before any write. Keep the pending values
+        // so the scientist can split the edit; do not claim all-or-nothing
+        // semantics that were never attempted.
+        setWriteStatus(error.message)
         return
       }
       setWriteStatus(`Write-back ${sheetCellWriteError(error)}.`)

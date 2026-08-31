@@ -87,15 +87,19 @@ Favourites persist across sessions, respect visibility/lifecycle, and do not dup
   timestamp — it never owns, duplicates or mutates the underlying scientific
   object, and identity is stable IDs only, never labels.
 - **Writes go through one SECURITY DEFINER RPC.** `set_record_favourite(
-  p_object_kind, p_object_id, p_favourite)` resolves the object's workspace
-  from its canonical table, verifies `api.is_workspace_member`, then upserts
+  p_object_kind, p_object_id, p_favourite)` has two paths. Removal
+  (`p_favourite = false`) deletes the CALLER-OWNED pin immediately, BEFORE
+  any object-resolution or membership check, so users can unfavourite
+  objects that have since been deleted or whose workspace they left; the
+  `user_id` predicate makes it impossible to remove another user's favourite.
+  Creation (`p_favourite = true`) resolves the object's workspace from its
+  canonical table, verifies `api.is_workspace_member`, then upserts
   (preserving the original `created_at` — re-starring never moves a favourite
-  to the top) or deletes. Unknown or no-longer-visible objects return NULL
+  to the top). Unknown or no-longer-visible objects return NULL
   and are ignored, never errors. Deleted records resolve to no workspace and
-  can no longer be (re)favourited. No retention cap: favourites are
-  deliberate and persist until the user unfavourites. Direct
-  INSERT/UPDATE/DELETE is revoked; SELECT is RLS-locked to
-  `user_id = api.current_user_id()`; the table and RPC are revoked from
+  can no longer be (re)favourited, but they CAN be unfavourited. No retention
+  cap: favourites are deliberate and persist until the user unfavourites.
+  Direct INSERT/UPDATE/DELETE is revoked; the table and RPC are revoked from
   `anon`/`api_client`, and favourites are NOT in the external-token
   allowlists (`src/lib/external-token.ts` untouched — fail-closed by
   default). Migration generated with `pnpm db:generate` (clean delta over
@@ -103,6 +107,13 @@ Favourites persist across sessions, respect visibility/lifecycle, and do not dup
   RPC/grants/RLS hand-authored per the 0154 pattern. **Not yet executed
   against a database** — this environment has no PostgreSQL; run
   `pnpm db:migrate` before deploy.
+- **RLS requires continued workspace visibility.** The
+  `user_favourites_select` policy is
+  `user_id = api.current_user_id() AND api.is_workspace_member(workspace_id)`:
+  the user_id predicate alone would keep exposing favourite metadata (kind,
+  object id, workspace id, timestamps) to a former member after workspace
+  access was revoked. No drizzle snapshot change was needed — RLS policies
+  are not captured in snapshots (same as every earlier hand-authored policy).
 - **Toggle UX.** `FavouriteToggle`
   (`src/components/favourites/favourite-toggle.tsx`) renders a star in the
   page header of the five surfaces FIND-01 tracks views on:
@@ -118,8 +129,11 @@ Favourites persist across sessions, respect visibility/lifecycle, and do not dup
 - **Home surface.** A "Favourites" section on the home route above "Recent":
   persistent across sessions, deterministic ordering `created_at` desc with
   a kind-then-id tiebreak, capped at 12 (`FAVOURITES_LIMIT`), with a
-  per-item remove-star control. Unfavouriting (star on an object page or the
-  remove control here) is the only removal path.
+  per-item remove-star control. The cap applies to RESOLVED items:
+  `fetchFavouriteItems` resolves a wider window (40 raw favourites) first,
+  so hidden archived/retired/deleted favourites do not consume the visible
+  budget. Unfavouriting (star on an object page, the remove control here,
+  or from a workspace the user has since left) is the only removal path.
 - **Lifecycle at read time.** `resolveFavouriteItems` in
   `src/lib/favourites.ts` batch-fetches canonical labels and drops archived,
   deleted, retired and no-longer-resolvable objects — a favourite of a
@@ -127,10 +141,15 @@ Favourites persist across sessions, respect visibility/lifecycle, and do not dup
   the favourite back, and destinations come exclusively from
   `src/lib/navigation.ts` helpers so favourites never link somewhere the
   user cannot go.
-- **Navigation/search integration kept minimal.** No app-shell nav changes
-  (NAV owns navigation structure); the shell context does not carry a user
-  id, so favourites were not added to the command palette. The star toggle
-  on each object page and the home section are the integration.
+- **Navigation/search integration kept minimal.** Favourites surface in the
+  ⌘K command palette (`src/components/app-shell.tsx`): a "Favourites"
+  group above Actions listing the same resolved items the home section uses
+  (canonical labels/destinations, `FAVOURITES_LIMIT` cap, queried via the
+  shared `favouritesQueryKeys.items()` cache only while the palette is
+  open; failures render no group, never an error UI). No app-shell nav
+  changes (NAV owns navigation structure) and no parallel search model —
+  the star toggle on each object page, the home section, and the palette
+  group are the integration.
 - **Boundaries honoured:** PostgreSQL/RLS stays authoritative (server-side
   per-user persistence through the RPC, RLS-scoped reads); no saved
   searches/views (GRID-04 owns Sheet presentation state); no recents

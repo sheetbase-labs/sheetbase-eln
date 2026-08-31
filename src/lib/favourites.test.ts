@@ -350,8 +350,7 @@ describe('resolveFavouriteItems', () => {
 // ---------------------------------------------------------------------------
 
 describe('fetchFavouriteItems', () => {
-  it('fetches rows then resolves labels, preserving the order and cap', async () => {
-    const client = {
+  it('fetches rows then resolves labels, preserving the order and cap', async () => {    const client = {
       list: (resource: string, query: string) => {
         if (resource === 'user_favourites') {
           expect(query).toContain('order=created_at.desc')
@@ -397,6 +396,60 @@ describe('fetchFavouriteItems', () => {
       id: 'r-1',
       label: 'Experiment one',
       destination: '/records/r-1',
+    })
+  })
+
+  it('resolves past hidden favourites before applying the visible cap', async () => {
+    // A hidden (archived) favourite sits newest. Capping raw rows before
+    // resolution would consume the whole visible budget on it; resolving a
+    // wider window first must surface the next open favourite instead.
+    const client = {
+      list: (resource: string) => {
+        if (resource === 'user_favourites') {
+          return Promise.resolve([
+            {
+              user_id: 'u',
+              object_kind: 'record',
+              object_id: 'r-hidden',
+              created_at: T2,
+            },
+            {
+              user_id: 'u',
+              object_kind: 'record',
+              object_id: 'r-visible',
+              created_at: T1,
+            },
+          ])
+        }
+        if (resource === 'records') {
+          return Promise.resolve([
+            {
+              id: 'r-hidden',
+              kind: 'experiment',
+              identifier: 'EXP-0',
+              title: 'Archived experiment',
+              archived_at: T0,
+              deleted_at: null,
+            },
+            {
+              id: 'r-visible',
+              kind: 'experiment',
+              identifier: 'EXP-1',
+              title: 'Open experiment',
+              archived_at: null,
+              deleted_at: null,
+            },
+          ])
+        }
+        return Promise.resolve([])
+      },
+    } as unknown as DataClient
+    const items = await fetchFavouriteItems(client, 1)
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      kind: 'record',
+      id: 'r-visible',
+      label: 'Open experiment',
     })
   })
 })

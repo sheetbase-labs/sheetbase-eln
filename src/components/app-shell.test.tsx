@@ -6,6 +6,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Folder, Home, ListTodo } from 'lucide-react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -19,11 +20,27 @@ import {
   useShell,
 } from './app-shell'
 import type { AppShellNavItem } from './app-shell'
+import type { FavouriteItem } from '#/lib/favourites'
 
 // Stub auth-client so signOut never hits the network.
 vi.mock('#/lib/auth-client', () => ({
   authClient: { signOut: vi.fn(() => Promise.resolve()) },
 }))
+
+// FIND-02: the command palette lists favourites. Stub the data layer so
+// palette tests are deterministic and never touch the network; tests that
+// need specific items override the returned fixtures. vi.hoisted keeps the
+// mock usable inside the hoisted vi.mock factory.
+const fetchFavouriteItemsMock = vi.hoisted(
+  () => vi.fn<() => Promise<FavouriteItem[]>>(() => Promise.resolve([])),
+)
+vi.mock('#/lib/favourites', async () => {
+  const actual = await vi.importActual<object>('#/lib/favourites')
+  return {
+    ...actual,
+    fetchFavouriteItems: fetchFavouriteItemsMock,
+  }
+})
 
 // Theme provider stubs to a fixed value so the shell renders deterministically.
 vi.mock('#/components/theme-provider', () => ({
@@ -60,11 +77,19 @@ afterEach(() => {
   cleanup()
   localStorage.clear()
   currentPathname = '/projects'
+  fetchFavouriteItemsMock.mockReset()
+  fetchFavouriteItemsMock.mockImplementation(() => Promise.resolve([]))
 })
 
 function renderShell(props: Parameters<typeof AppShell>[0]) {
   const user = userEvent.setup()
-  const utils = render(<AppShell {...props} />)
+  // The palette reads favourites through TanStack Query; the real app gets
+  // its provider from @tanstack/react-router-ssr-query, tests provide one.
+  const utils = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <AppShell {...props} />
+    </QueryClientProvider>,
+  )
   return { user, ...utils }
 }
 
@@ -266,6 +291,47 @@ describe('AppShell', () => {
     expect(dialog).toBeTruthy()
     expect(dialog.textContent).toContain('Projects')
     expect(dialog.textContent).not.toContain('Tasks')
+  })
+
+  it('lists resolved favourites in the command palette (FIND-02)', async () => {
+    fetchFavouriteItemsMock.mockImplementation(() =>
+      Promise.resolve([
+        {
+          kind: 'project',
+          id: 'p-1',
+          label: 'Stability study',
+          identifier: 'LV-1',
+          destination: '/projects/p-1',
+          createdAt: '2026-08-31T10:00:00Z',
+        },
+      ]),
+    )
+    const { user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      children: null,
+    })
+    await user.keyboard('{Meta>}k{/Meta}')
+    const dialog = screen.getByRole('dialog', { name: 'Command palette' })
+    await waitFor(() => {
+      expect(dialog.textContent).toContain('Stability study')
+    })
+    expect(dialog.textContent).toContain('Favourites')
+    // Unfavouriting/removal keeps the group out of the palette entirely.
+  })
+
+  it('omits the favourites group when the user has none', async () => {
+    const { user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      children: null,
+    })
+    await user.keyboard('{Meta>}k{/Meta}')
+    const dialog = screen.getByRole('dialog', { name: 'Command palette' })
+    await waitFor(() => {
+      expect(fetchFavouriteItemsMock).toHaveBeenCalled()
+    })
+    expect(dialog.textContent).not.toContain('Favourites')
   })
 
   it('persists the collapsed state via the collapse toggle', async () => {

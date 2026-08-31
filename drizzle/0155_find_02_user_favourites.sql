@@ -14,8 +14,15 @@
 -- retired or (for records) deleted is HIDDEN from the read surfaces by the
 -- application resolving canonical rows at read time — it is NOT deleted
 -- here. Unfavouriting through the RPC is the only removal path, so restoring
--- the object brings the favourite back. Deleted records resolve to no
--- workspace and can no longer be (re)favourited.
+-- the object brings the favourite back. Unfavouriting works even for objects
+-- that have since been deleted or whose workspace the caller left: the
+-- removal path below deletes the caller-owned pin BEFORE any
+-- object-resolution or membership checks (creation keeps the checks).
+--
+-- RLS: direct SELECT is scoped to the caller's own rows AND to workspaces
+-- the caller is still a member of. The user_id predicate alone would keep
+-- exposing favourite metadata (kind, object id, workspace id, timestamps)
+-- for objects in workspaces whose access has since been revoked.
 --
 -- Note: the table DDL below is the drizzle-generated delta for
 -- `src/db/schema.ts`. Because 0154 is a full-database snapshot checkpoint,
@@ -42,12 +49,17 @@ CREATE INDEX "idx_user_favourites_user_created" ON "api"."user_favourites" USING
 -- ---------------------------------------------------------------------------
 -- set_record_favourite — the only write path for favourites.
 --
--- Resolves the object's workspace from its canonical table, verifies the
--- caller is still a member (RLS-visible objects only), then upserts (p_favourite
--- = true) or deletes (p_favourite = false) the pin. Unknown or
--- no-longer-visible objects are ignored rather than erroring: the star toggle
--- is presentation-support state and must never fail a page render. Returns
--- the favourite's created_at when favourited, NULL when removed or ignored.
+-- For p_favourite = true: resolves the object's workspace from its canonical
+-- table, verifies the caller is still a member (RLS-visible objects only),
+-- then upserts the pin. For p_favourite = false: deletes the CALLER-OWNED pin
+-- immediately, BEFORE any object-resolution or membership check, so users can
+-- unfavourite objects that have since been deleted or whose workspace they
+-- left — the removal only ever touches rows where user_id is the caller, so
+-- a caller can never remove another user's favourite. Unknown or
+-- no-longer-visible objects cannot be (re)favourited but are ignored rather
+-- than erroring: the star toggle is presentation-support state and must never
+-- fail a page render. Returns the favourite's created_at when favourited,
+-- NULL when removed or ignored.
 --
 -- Unlike `recently_viewed`, no retention cap: favourites are deliberate and
 -- persist until the user unfavourites.
@@ -74,6 +86,19 @@ BEGIN
   END IF;
   IF p_object_kind NOT IN ('record', 'dataset', 'sheet', 'project', 'notebook_template') THEN
     RAISE EXCEPTION 'unknown favourite-object kind' USING ERRCODE = '22023';
+  END IF;
+
+  -- Unfavouriting (p_favourite = false) removes the CALLER-OWNED pin before
+  -- any object-resolution or membership check: an object that has since been
+  -- deleted (no canonical row) or whose workspace the caller left must still
+  -- be unfavouritable. The user_id predicate makes this caller-scoped only;
+  -- no other user's favourite can be touched.
+  IF NOT p_favourite THEN
+    DELETE FROM "api"."user_favourites"
+    WHERE user_id = v_user_id
+      AND object_kind = p_object_kind
+      AND object_id = p_object_id;
+    RETURN NULL;
   END IF;
 
   v_workspace_id := CASE p_object_kind
@@ -114,13 +139,6 @@ BEGIN
     RETURN v_created_at;
   END IF;
 
-  -- Unfavouriting is the only removal path; deleting the underlying object
-  -- leaves the pin in place (hidden at read time, restored if the object is).
-  DELETE FROM "api"."user_favourites"
-  WHERE user_id = v_user_id
-    AND object_kind = p_object_kind
-    AND object_id = p_object_id;
-
   RETURN NULL;
 END;
 $$;
@@ -140,7 +158,15 @@ ALTER TABLE "api"."user_favourites" ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY user_favourites_select ON "api"."user_favourites"
   FOR SELECT TO authenticated
-  USING (user_id = "api"."current_user_id"());
+  USING (
+    user_id = "api"."current_user_id"()
+    -- Continued workspace visibility: a former member must not keep reading
+    -- favourite metadata (kind, object id, workspace id, timestamps) for a
+    -- workspace whose access was revoked. The same membership predicate the
+    -- canonical object policies use (is_workspace_member: membership row
+    -- with suspended_at IS NULL) gates every row's workspace.
+    AND "api"."is_workspace_member"("api"."user_favourites"."workspace_id")
+  );
 
 --> statement-breakpoint
 

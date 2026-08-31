@@ -82,8 +82,19 @@ export const favouritesQueryKeys = {
 /** How many resolved favourites the compact home surface shows. */
 export const FAVOURITES_LIMIT = 12
 
-/** Fetch window for the raw rows; tiebreak/cap happens client-side. */
+/**
+ * Fetch window for the raw rows; tiebreak/cap happens client-side.
+ */
 const FAVOURITES_FETCH_LIMIT = 200
+
+/**
+ * How many raw favourites are resolved (canonical labels fetched, hidden
+ * archived/retired/deleted objects dropped) BEFORE the visible cap is
+ * applied. Hidden favourites must not consume the visible budget: resolving
+ * a window strictly larger than the visible cap keeps the home surface full
+ * when older favourites have gone stale. Must exceed FAVOURITES_LIMIT.
+ */
+const FAVOURITES_RESOLVE_WINDOW = 40
 
 // ---------------------------------------------------------------------------
 // Ordering & toggle semantics (pure).
@@ -371,16 +382,23 @@ export async function resolveFavouriteItems(
 
 /**
  * One-shot read for the home surface: fetch the user's favourite rows, order
- * deterministically, then resolve labels/destinations. Archived/deleted/
- * retired objects are dropped, so the visible count may be below the limit.
+ * deterministically, resolve labels/destinations over a window LARGER than
+ * the visible cap (so hidden archived/retired/deleted favourites do not
+ * consume the visible budget), then cap the RESOLVED items. Archived/
+ * deleted/retired objects are dropped, so the visible count may be below
+ * the limit.
  */
 export async function fetchFavouriteItems(
   client: DataClient,
   limit = FAVOURITES_LIMIT,
 ): Promise<FavouriteItem[]> {
   const favourites = await fetchFavourites(client)
-  const capped = orderFavourites(favourites, limit)
-  return resolveFavouriteItems(client, capped)
+  const windowed = orderFavourites(
+    favourites,
+    Math.max(limit, FAVOURITES_RESOLVE_WINDOW),
+  )
+  const resolved = await resolveFavouriteItems(client, windowed)
+  return resolved.slice(0, limit)
 }
 
 // ---------------------------------------------------------------------------
@@ -427,8 +445,15 @@ export function useSetFavourite(
       await setFavourite(client, kind, objectId, favourite)
     },
     onMutate: async ({ kind, objectId, favourite }) => {
+      // Snapshot BOTH caches before any optimistic write so onError can
+      // restore the exact pre-mutation state — capturing the items cache
+      // after the list write would still be fine, but capturing it after the
+      // items write would restore the already-mutated list.
       const previous =
         queryClient.getQueryData<Favourite[]>(favouritesQueryKeys.list()) ?? []
+      const previousItems = queryClient.getQueryData<FavouriteItem[]>(
+        favouritesQueryKeys.items(),
+      )
       queryClient.setQueryData<Favourite[]>(
         favouritesQueryKeys.list(),
         orderFavourites(
@@ -446,9 +471,6 @@ export function useSetFavourite(
             ),
         )
       }
-      const previousItems = queryClient.getQueryData<FavouriteItem[]>(
-        favouritesQueryKeys.items(),
-      )
       return { previous, previousItems }
     },
     onError: (_error, _variables, context) => {

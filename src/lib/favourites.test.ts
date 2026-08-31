@@ -350,7 +350,8 @@ describe('resolveFavouriteItems', () => {
 // ---------------------------------------------------------------------------
 
 describe('fetchFavouriteItems', () => {
-  it('fetches rows then resolves labels, preserving the order and cap', async () => {    const client = {
+  it('fetches rows then resolves labels, preserving the order and cap', async () => {
+    const client = {
       list: (resource: string, query: string) => {
         if (resource === 'user_favourites') {
           expect(query).toContain('order=created_at.desc')

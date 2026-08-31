@@ -20,8 +20,10 @@ import {
   canonicalSheetGridMatrix,
   categoryCellDisplayText,
   clearContentsUpdates,
+  filterAdditionsToDisplayColumns,
   hotFiltersToPresentationFilters,
   parseSheetCellInput,
+  preserveHiddenColumnFilters,
   presentationFiltersToHotAdditions,
   resolveCanonicalCellChanges,
   validateCanonicalCell,
@@ -363,6 +365,11 @@ export function CanonicalSheetEditor({
   )
   const matrixRef = useRef(matrix)
   matrixRef.current = matrix
+  // GRID-04 #113: the canonical matrix behind the display projection —
+  // filters resolve condition column IDs through it so a saved filter on a
+  // hidden column survives.
+  const canonicalMatrixRef = useRef(canonicalMatrix)
+  canonicalMatrixRef.current = canonicalMatrix
   const compositionRef = useRef(composition.data ?? null)
   compositionRef.current = composition.data ?? null
 
@@ -1197,8 +1204,18 @@ export function CanonicalSheetEditor({
       // state, and the JSON guard catches any identical user action.
       afterFilter: (conditionsStack: HotFilterConditionStack[]) => {
         if (applyingFiltersRef.current) return
-        const filters = hotFiltersToPresentationFilters(
+        const captured = hotFiltersToPresentationFilters(
           conditionsStack,
+          matrixRef.current.columns,
+        )
+        // GRID-04 #113: a hidden column has no grid column at all, so its
+        // condition cannot exist in the plugin's stack — carry the previous
+        // persisted filters for hidden columns across, or they would be
+        // silently dropped by any later capture.
+        const filters = preserveHiddenColumnFilters(
+          captured,
+          instanceRef.current.state.presentation.filters,
+          canonicalMatrixRef.current.columns,
           matrixRef.current.columns,
         )
         const previous = instanceRef.current.state.presentation.filters
@@ -1266,8 +1283,14 @@ export function CanonicalSheetEditor({
     applyingFiltersRef.current = true
     try {
       filtersPlugin.clearConditions()
-      for (const addition of presentationFiltersToHotAdditions(
-        filters,
+      // GRID-04 #113: resolve condition columns through the CANONICAL
+      // column list, not the display subset — a saved filter on a hidden
+      // column must survive the replay (it is applied the moment the
+      // column is shown again), instead of being silently dropped.
+      const canonicalColumns = canonicalMatrixRef.current.columns
+      for (const addition of filterAdditionsToDisplayColumns(
+        presentationFiltersToHotAdditions(filters, canonicalColumns),
+        canonicalColumns,
         matrix.columns,
       )) {
         filtersPlugin.addCondition(

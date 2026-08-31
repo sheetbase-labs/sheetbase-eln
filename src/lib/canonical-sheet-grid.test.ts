@@ -6,9 +6,11 @@ import {
   canonicalSheetGridMatrix,
   categoryCellDisplayText,
   clearContentsUpdates,
+  filterAdditionsToDisplayColumns,
   firstBulkChangeRejection,
   hotFiltersToPresentationFilters,
   parseSheetCellInput,
+  preserveHiddenColumnFilters,
   presentationFiltersToHotAdditions,
   resolveCanonicalCellChanges,
   validateCanonicalCell,
@@ -19,6 +21,7 @@ import type {
 } from './canonical-sheet-grid'
 import type { FieldDefinition } from './field-definition'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
+import type { SheetPresentation } from './sheet-instance'
 import { validSheetInstanceState } from './sheet-instance.test'
 import { sanitizeSheetPresentation } from './sheet-presentation-view'
 
@@ -683,5 +686,95 @@ describe('Handsontable filter ⇄ presentation.filters mapping (GRID-04)', () =>
     expect(
       hotFiltersToPresentationFilters([...reStack.values()], columns),
     ).toEqual(sanitized?.filters)
+  })
+
+  // #113 — a saved filter on a column that the view itself hides must not
+  // vanish: the restore maps condition column IDs through the canonical
+  // (full, pre-hidden-projection) column list, and the capture carries
+  // hidden-column filters across instead of overwriting them.
+  it('restores a saved filter on a hidden column through the canonical columns (#113)', () => {
+    // Canonical [col-a, col-x, col-b]; the view hides col-x → display
+    // [col-a, col-b]. col-x remains a restorable canonical column.
+    const canonicalColumns = [
+      { id: 'col-a' },
+      { id: 'col-x' },
+      { id: 'col-b' },
+    ]
+    const displayColumns = [{ id: 'col-a' }, { id: 'col-b' }]
+    const savedFilters: SheetPresentation['filters'] = [
+      { columnId: 'col-x', operator: 'equals', value: 5 },
+    ]
+
+    // Mapping through the DISPLAY subset would silently drop the filter.
+    expect(presentationFiltersToHotAdditions(savedFilters, displayColumns)).toEqual(
+      [],
+    )
+    // Through the canonical list the condition survives as a plugin
+    // addition at the canonical index even though the column is hidden.
+    const additions = presentationFiltersToHotAdditions(
+      savedFilters,
+      canonicalColumns,
+    )
+    expect(additions).toEqual([{ column: 1, name: 'eq', args: [5] }])
+    // The plugin can only hold conditions for columns the grid contains
+    // (an out-of-range condition trims every row), so the projection
+    // withholds the hidden column's condition while keeping visible ones
+    // at their display indexes.
+    expect(
+      filterAdditionsToDisplayColumns(
+        [
+          ...additions,
+          { column: 0, name: 'eq', args: ['visible'] },
+        ],
+        canonicalColumns,
+        displayColumns,
+      ),
+    ).toEqual([{ column: 0, name: 'eq', args: ['visible'] }])
+  })
+
+  it('keeps a hidden column’s saved filter when another column is captured (#113)', () => {
+    const canonicalColumns = [{ id: 'col-a' }, { id: 'col-x' }]
+    const displayColumns = [{ id: 'col-a' }]
+    const previous: SheetPresentation['filters'] = [
+      // Hidden while col-x is concealed — the plugin cannot express it.
+      { columnId: 'col-x', operator: 'equals', value: 5 },
+    ]
+    // The user now filters col-a; the capture must not evict col-x.
+    const captured: SheetPresentation['filters'] = [
+      { columnId: 'col-a', operator: 'is-empty' },
+    ]
+    expect(
+      preserveHiddenColumnFilters(
+        captured,
+        previous,
+        canonicalColumns,
+        displayColumns,
+      ),
+    ).toEqual([
+      { columnId: 'col-x', operator: 'equals', value: 5 },
+      { columnId: 'col-a', operator: 'is-empty' },
+    ])
+  })
+
+  it('drops retired-column filters and dedupes on capture (#113)', () => {
+    const canonicalColumns = [{ id: 'col-a' }]
+    const displayColumns = [{ id: 'col-a' }]
+    const previous: SheetPresentation['filters'] = [
+      // Retired column — not restorable, must not resurrect.
+      { columnId: 'col-gone', operator: 'is-empty' },
+      // Still applied through the plugin — already in the capture.
+      { columnId: 'col-a', operator: 'equals', value: 1 },
+    ]
+    const captured: SheetPresentation['filters'] = [
+      { columnId: 'col-a', operator: 'equals', value: 1 },
+    ]
+    expect(
+      preserveHiddenColumnFilters(
+        captured,
+        previous,
+        canonicalColumns,
+        displayColumns,
+      ),
+    ).toEqual([{ columnId: 'col-a', operator: 'equals', value: 1 }])
   })
 })

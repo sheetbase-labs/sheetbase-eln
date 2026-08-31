@@ -527,8 +527,12 @@ export function hotFiltersToPresentationFilters(
 
 /**
  * GRID-04 — convert canonical `presentation.filters` into `addCondition`
- * calls for the Filters plugin. Columns resolve through the display matrix;
- * a filter on a hidden or retired column has no visual index and is skipped.
+ * calls for the Filters plugin. Columns resolve through the CANONICAL
+ * (full, pre-hidden-projection) column list, so a saved filter on a column
+ * that is currently hidden still yields an addition (#113) — the caller
+ * projects additions onto the display matrix with
+ * `filterAdditionsToDisplayColumns` before calling `addCondition`. Only a
+ * filter on a retired (no longer canonical) column is dropped here.
  */
 export function presentationFiltersToHotAdditions(
   filters: SheetPresentation['filters'],
@@ -558,4 +562,61 @@ export function presentationFiltersToHotAdditions(
     }
   }
   return additions
+}
+
+/**
+ * GRID-04 #113 — project canonical-index filter additions onto the display
+ * matrix. A condition can only be added for a column the grid actually
+ * contains (an out-of-range condition evaluates every row as empty and
+ * trims them all), so an addition whose column is currently hidden is
+ * withheld from the plugin. The saved filter itself stays in
+ * `presentation.filters` — `preserveHiddenColumnFilters` keeps it alive
+ * across captures — and it is applied here the moment the column is shown
+ * again.
+ */
+export function filterAdditionsToDisplayColumns(
+  additions: HotFilterAddition[],
+  canonicalColumns: ReadonlyArray<{ id: string }>,
+  displayColumns: ReadonlyArray<{ id: string }>,
+): HotFilterAddition[] {
+  const displayByColumnId = new Map(
+    displayColumns.map((column, index) => [column.id, index]),
+  )
+  const projected: HotFilterAddition[] = []
+  for (const addition of additions) {
+    const columnId = canonicalColumns.at(addition.column)?.id
+    if (!columnId) continue
+    const display = displayByColumnId.get(columnId)
+    if (display === undefined) continue
+    projected.push({ ...addition, column: display })
+  }
+  return projected
+}
+
+/**
+ * GRID-04 #113 — keep saved filters on hidden columns alive when the
+ * Filters plugin reports a fresh conditions stack. While a column is hidden
+ * it has no grid column at all, so its condition cannot exist in the plugin;
+ * a naive capture would overwrite the persisted filters without it and the
+ * filter would silently vanish. Filters on columns that are still canonical
+ * but absent from the display matrix are carried over from the previous
+ * state; filters on retired columns are dropped. Preserved entries come
+ * first so the schema cap cannot evict exactly the filters the plugin
+ * cannot express while their column is hidden.
+ */
+export function preserveHiddenColumnFilters(
+  captured: SheetPresentation['filters'],
+  previous: SheetPresentation['filters'],
+  canonicalColumns: ReadonlyArray<{ id: string }>,
+  displayColumns: ReadonlyArray<{ id: string }>,
+): SheetPresentation['filters'] {
+  const displayIds = new Set(displayColumns.map((column) => column.id))
+  const capturedIds = new Set(captured.map((filter) => filter.columnId))
+  const preserved = previous.filter(
+    (filter) =>
+      !displayIds.has(filter.columnId) &&
+      !capturedIds.has(filter.columnId) &&
+      canonicalColumns.some((column) => column.id === filter.columnId),
+  )
+  return [...preserved, ...captured].slice(0, CAPTURED_FILTER_CAP)
 }

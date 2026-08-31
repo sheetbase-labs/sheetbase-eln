@@ -1,9 +1,11 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
+import { notebookQueryKeys } from '#/lib/notebook-data'
 
 import {
   ArchivedBanner,
@@ -57,6 +59,15 @@ vi.mock('@tanstack/react-router', () => ({
 
 afterEach(() => {
   cleanup()
+})
+
+// jsdom lacks the Range geometry prosemirror reads when the editor scrolls
+// the selection into view after an undo/redo; stub it like the
+// NotebookDocument tests do.
+beforeAll(() => {
+  document.elementFromPoint = () => null
+  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  Range.prototype.getBoundingClientRect = () => new DOMRect()
 })
 
 const record: NotebookRecord = {
@@ -804,5 +815,172 @@ describe('NotebookCanvas — editable path', () => {
     expect(screen.getByRole('button', { name: /Add block/ })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Editable' })).toBeTruthy()
     expect(screen.queryByRole('textbox')).toBeNull()
+  })
+})
+
+// NOTE-01: the undo of a first-block deletion cannot be a single server
+// operation — insert_block only supports insert-after/append, so the route
+// restores via insert-then-move and keeps a retryable status when the move
+// fails. These tests prove the position contract end to end: while the
+// corrective move is failing, the restored block sits at its appended
+// (wrong) position and the status never claims restoration; only a
+// successful retry move puts it back at the head.
+function blockWire(id: string, text: string, order: number) {
+  return {
+    id,
+    record_id: 'r1',
+    type: 'rich_text',
+    payload: {
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'heading',
+            attrs: { level: 2 },
+            content: [{ type: 'text', text }],
+          },
+        ],
+      },
+    },
+    payload_schema_version: 1,
+    order,
+    version: 1,
+    created_at: '2026-07-18T12:00:00.000Z',
+    updated_at: '2026-07-18T12:00:00.000Z',
+  }
+}
+
+function richDomainBlock(id: string, text: string, order: number) {
+  const wire = blockWire(id, text, order)
+  return {
+    id: wire.id,
+    recordId: wire.record_id,
+    type: wire.type,
+    payload: wire.payload,
+    payloadSchemaVersion: wire.payload_schema_version,
+    order: wire.order,
+    version: wire.version,
+  }
+}
+
+describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
+  it('moves the restored first block to its original position only when the retry move succeeds', async () => {
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    queryClient.setQueryData(notebookQueryKeys.record('r1'), record)
+    queryClient.setQueryData(notebookQueryKeys.blocks('r1'), [
+      blockWire('b1', 'A', 1),
+      blockWire('b2', 'B', 2),
+    ])
+    const blocksKey = notebookQueryKeys.blocks('r1')
+    const cachedIds = () =>
+      (queryClient.getQueryData<{ id: string }[]>(blocksKey) ?? []).map(
+        (b) => b.id,
+      )
+
+    // delete_block succeeds; insert_block re-creates the first block but can
+    // only append (order 3); the corrective move_block fails twice (transient)
+    // and succeeds on the third attempt with the restored (id, order) list.
+    let moveCalls = 0
+    const rpc = vi.fn(async (name: string) => {
+      switch (name) {
+        case 'delete_block':
+          return { structure_version: 2, order: [{ id: 'b2', order: 2 }] }
+        case 'insert_block':
+          return { block: blockWire('b1', 'A', 3), structure_version: 3 }
+        case 'move_block': {
+          moveCalls += 1
+          if (moveCalls <= 2) throw new Error('move failed')
+          return {
+            block: blockWire('b1', 'A', 1),
+            structure_version: 4,
+            rebalanced: false,
+            order: [
+              { id: 'b1', order: 1 },
+              { id: 'b2', order: 2 },
+            ],
+          }
+        }
+        default:
+          throw new Error(`unexpected rpc: ${name}`)
+      }
+    })
+    const fakeClient = {
+      list: () => Promise.resolve([]),
+      rpc,
+    } as unknown as DataClient
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookCanvas
+          record={record}
+          blocks={[
+            richDomainBlock('b1', 'A', 1),
+            richDomainBlock('b2', 'B', 2),
+          ]}
+          isLoading={false}
+          error={null}
+          onRetry={() => {}}
+          client={fakeClient}
+          queryClient={queryClient}
+        />
+      </QueryClientProvider>,
+    )
+
+    // Delete the first block and undo the deletion. The insert lands, but the
+    // corrective move fails, so the restored block must sit appended at the
+    // end — never presented as restored at its original position.
+    await user.click(screen.getAllByRole('button', { name: /Block actions/ })[0])
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(rpc).toHaveBeenCalledWith(
+      'insert_block',
+      expect.objectContaining({
+        p_record_id: 'r1',
+        p_after_block_id: null,
+        p_expected_structure_version: 2,
+      }),
+    )
+    expect(rpc).toHaveBeenCalledWith(
+      'move_block',
+      expect.objectContaining({
+        p_block_id: 'b1',
+        p_after_block_id: null,
+        p_before_block_id: 'b2',
+        p_expected_structure_version: 3,
+      }),
+    )
+    // Wrong position (appended), honestly reported: incomplete-undo status
+    // with a retry affordance, not a success message.
+    expect(cachedIds()).toEqual(['b2', 'b1'])
+    expect(
+      screen.getByText(
+        'Undo incomplete — the block was restored but its move failed.',
+      ),
+    ).toBeTruthy()
+
+    // A failed retry changes nothing on the server or in the cache: the
+    // block is never silently repositioned or declared restored.
+    await user.click(screen.getByRole('button', { name: 'Retry move' }))
+    expect(cachedIds()).toEqual(['b2', 'b1'])
+    expect(
+      screen.getByText(
+        'Undo incomplete — the block was restored but its move failed.',
+      ),
+    ).toBeTruthy()
+
+    // The successful retry move restores the original position and clears
+    // the incomplete-undo status.
+    await user.click(screen.getByRole('button', { name: 'Retry move' }))
+    expect(cachedIds()).toEqual(['b1', 'b2'])
+    expect(
+      screen.queryByText(
+        'Undo incomplete — the block was restored but its move failed.',
+      ),
+    ).toBeNull()
   })
 })

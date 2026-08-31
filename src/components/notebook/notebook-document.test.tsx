@@ -534,6 +534,68 @@ describe('NotebookDocument — undo delete', () => {
     await user.click(undoDelete!)
     expect(onUndoDelete).toHaveBeenCalled()
   })
+
+  it('keeps a retryable status when the undo insert succeeds but the move fails', async () => {
+    const user = userEvent.setup()
+    const onDeleteBlock = vi.fn().mockResolvedValue(undefined)
+    // Undo: insert persisted, corrective move failed (e.g. first-block
+    // restoration where insert appends and the canonical move is rejected).
+    const onUndoDelete = vi
+      .fn()
+      .mockResolvedValue({ id: 'b1-restored', moved: false })
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    // blocks mirrors the route's cache after the undo insert upserts the
+    // restored block: the original neighbour and the restored block itself.
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b2', 'B'), richTextBlock('b1-restored', 'A')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={onDeleteBlock}
+        onUndoDelete={onUndoDelete}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[0],
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    // The restored block is still present in the document.
+    expect(screen.getByText('A')).toBeTruthy()
+    // The status must not claim full restoration: it stays visible, names
+    // the incomplete undo, and offers a retry wired to the move mutation.
+    expect(
+      screen.getByText(
+        'Undo incomplete — the block was restored but its move failed.',
+      ),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Retry move' })).toBeTruthy()
+    expect(screen.queryByText('Block deleted.')).toBeNull()
+    // Retrying reuses the move mutation with the original destination.
+    onMoveBlock.mockRejectedValueOnce(new Error('move failed'))
+    await user.click(screen.getByRole('button', { name: 'Retry move' }))
+    expect(onMoveBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b1-restored' }),
+      { afterBlockId: null, beforeBlockId: 'b1-restored' },
+    )
+    // A failed retry keeps the honest status and its retry affordance.
+    expect(
+      screen.getByText(
+        'Undo incomplete — the block was restored but its move failed.',
+      ),
+    ).toBeTruthy()
+    // A successful retry completes the undo and dismisses the status.
+    await user.click(screen.getByRole('button', { name: 'Retry move' }))
+    expect(
+      screen.queryByText(
+        'Undo incomplete — the block was restored but its move failed.',
+      ),
+    ).toBeNull()
+  })
 })
 
 describe('NotebookDocument — read-only', () => {

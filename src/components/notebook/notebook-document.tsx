@@ -106,7 +106,12 @@ export interface NotebookDocumentProps {
   onDuplicateBlock: (block: NotebookBlockData) => Promise<string | undefined>
   /** Delete a block. */
   onDeleteBlock: (block: NotebookBlockData) => Promise<void>
-  /** Re-insert a previously deleted block (undo). */
+  /**
+   * Re-insert a previously deleted block (undo). Resolves with the restored
+   * block id and whether it also landed at its original position. `moved:
+   * false` means the insert persisted but the corrective move failed — the
+   * caller must not dismiss the undo status as fully restored.
+   */
   onUndoDelete?: (
     type: string,
     payload: Record<string, unknown>,
@@ -114,7 +119,7 @@ export interface NotebookDocumentProps {
       afterBlockId: string | null
       beforeBlockId: string | null
     },
-  ) => Promise<string | undefined>
+  ) => Promise<{ id: string; moved: boolean } | undefined>
   /**
    * Move a block to a new position described by its future neighbours
    * (ELN-006). Either neighbour may be null: (null, B) → start, (A, null)
@@ -213,6 +218,8 @@ function NotebookDocumentContent({
     afterBlockId: string | null
     beforeBlockId: string | null
     label: string
+    /** Set when the undo insert persisted but its corrective move failed. */
+    restoredBlockId?: string | null
   } | null>(null)
 
   // --- Movement (ELN-006) -------------------------------------------------
@@ -404,15 +411,49 @@ function NotebookDocumentContent({
   async function handleUndo() {
     if (!undo || !onUndoDelete) return
     try {
-      const restoredId = await onUndoDelete(undo.type, undo.payload, {
+      const result = await onUndoDelete(undo.type, undo.payload, {
+        afterBlockId: undo.afterBlockId,
+        beforeBlockId: undo.beforeBlockId,
+      })
+      if (!result) {
+        setUndo(null)
+        return
+      }
+      if (result.moved) {
+        setUndo(null)
+      } else {
+        // The insert persisted but the corrective move failed: the block is
+        // back (appended) but not at its original position. Keep the undo
+        // status visible with a retryable move instead of dismissing it as
+        // though restoration succeeded.
+        setUndo((prev) =>
+          prev ? { ...prev, restoredBlockId: result.id } : prev,
+        )
+      }
+      selectAndFocus(result.id)
+    } catch {
+      // The insert itself failed; nothing was restored.
+      setUndo(null)
+    }
+  }
+
+  /** Retry the corrective move of an incompletely restored undo. */
+  async function handleRetryUndoMove() {
+    if (!undo?.restoredBlockId || !onMoveBlock) return
+    const block = blockById.get(undo.restoredBlockId)
+    if (!block) {
+      setUndo(null)
+      return
+    }
+    try {
+      await onMoveBlock(block, {
         afterBlockId: undo.afterBlockId,
         beforeBlockId: undo.beforeBlockId,
       })
       setUndo(null)
-      if (restoredId) selectAndFocus(restoredId)
+      selectAndFocus(block.id)
     } catch {
-      // If undo fails the user can still insert manually.
-      setUndo(null)
+      // Keep the status visible so the move can be retried again.
     }
   }
 
@@ -1080,8 +1121,22 @@ function NotebookDocumentContent({
           role="status"
           className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2 text-xs"
         >
-          <span>Block deleted.</span>
-          {onUndoDelete ? (
+          <span>
+            {undo.restoredBlockId
+              ? 'Undo incomplete — the block was restored but its move failed.'
+              : 'Block deleted.'}
+          </span>
+          {undo.restoredBlockId ? (
+            onMoveBlock ? (
+              <button
+                type="button"
+                onClick={() => void handleRetryUndoMove()}
+                className="font-medium text-primary underline"
+              >
+                Retry move
+              </button>
+            ) : null
+          ) : onUndoDelete ? (
             <button
               type="button"
               onClick={() => void handleUndo()}

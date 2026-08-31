@@ -1118,6 +1118,10 @@ function EditableNotebook({
   // Undo restores the deleted payload at its original neighbours. Insert can
   // address an `after` neighbour directly; restoring the first block needs a
   // second canonical move because insert_block's null anchor means append.
+  // The insert and the corrective move are not atomic on the server, so a
+  // move failure must not be swallowed: the mutation resolves with
+  // `moved: false` and the inserted block id so the UI can keep the undo
+  // status visible with a retryable move instead of claiming restoration.
   const undoDeleteMutation = useMutation({
     mutationFn: async ({
       type,
@@ -1141,15 +1145,25 @@ function EditableNotebook({
           current?.structureVersion ?? record.structureVersion,
       })
       if (destination.afterBlockId === null && destination.beforeBlockId) {
-        const moved = await moveBlock(client, {
-          blockId: inserted.block.id,
-          afterBlockId: null,
-          beforeBlockId: destination.beforeBlockId,
-          expectedStructureVersion: inserted.structureVersion,
-        })
-        return { ...inserted, ...moved, order: moved.order }
+        try {
+          const moved = await moveBlock(client, {
+            blockId: inserted.block.id,
+            afterBlockId: null,
+            beforeBlockId: destination.beforeBlockId,
+            expectedStructureVersion: inserted.structureVersion,
+          })
+          return { ...inserted, ...moved, order: moved.order, moved: true }
+        } catch (error) {
+          if (
+            error instanceof DataClientError &&
+            error.code === 'stale_version'
+          ) {
+            await refreshStructure()
+          }
+          return { ...inserted, order: null, moved: false }
+        }
       }
-      return { ...inserted, order: null }
+      return { ...inserted, order: null, moved: true }
     },
     onSuccess: (res) => {
       upsertBlock(res.block)
@@ -1426,7 +1440,7 @@ function EditableNotebook({
       payload,
       destination,
     })
-    return restored.block.id
+    return { id: restored.block.id, moved: restored.moved }
   }
 
   async function handleMove(

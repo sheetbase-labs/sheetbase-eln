@@ -59,3 +59,10 @@ calculation semantics, and all scientific/domain rules. In particular, the
 agent operation and workflow wrappers accept and return canonical JSON; they
 do not duplicate those rules in an SDK. Dataframe/domain workflow conveniences
 and release automation are outside this matrix.
+
+Scientific-developer ergonomics helpers (bulk transfer, expanded record
+reads, field-label mapping, version listing, revision history) are
+conveniences composed from operations this matrix already covers. They add no
+new public operations and are not part of the coverage boundary: labelled
+columns are display convenience only, and stable field/row/revision IDs remain
+the durable identifiers.

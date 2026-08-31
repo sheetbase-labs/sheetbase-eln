@@ -55,6 +55,20 @@ criterion and must reconcile the current implementation before editing. FIND
 follows the NAV foundation; later streams become Ready only when their explicit
 dependencies and gates are satisfied.
 
+### Open Platform stream
+
+The SDK stream follows Roadmap 2's API-04/05 foundation:
+
+```text
+▶ SDK-01 — Contract Coverage & Parity
+▶ SDK-02 — Scientific Developer Ergonomics
+```
+
+SDK-01 establishes the explicit support matrix and contract parity tests and
+must merge before SDK-02, which builds representative scientific workflows
+(dataframe/analysis helpers, bulk transfer, version access and provenance
+ergonomics) on that matrix. SDK-02 does not start SDK-03 implicitly.
+
 ### Programme scope decisions
 
 - ENT-ORG and GXP remain in scope. Their first tasks must establish and accept

@@ -134,6 +134,10 @@ await client.records.restore("uuid");
 await client.records.transitionStatus("uuid", "completed");
 await client.records.createLink("source-uuid", "target-uuid");
 for await (const r of client.records.iter({ pageSize: 100 })) { ... }
+
+// Provenance — immutable revision trail (audit history, not live state)
+await client.records.history("uuid");
+for await (const rev of client.records.iterHistory("uuid")) { ... }
 ```
 
 ### Datasets
@@ -165,6 +169,20 @@ for await (const row of client.datasets.iterRows("uuid")) { ... }
 await client.datasets.snapshot("uuid", 3, "v1.0");
 await client.datasets.archive("uuid");
 await client.datasets.restore("uuid");
+
+// Version access — frozen-evidence entry points
+await client.datasets.listVersions("uuid");
+for await (const v of client.datasets.iterVersions("uuid")) { ... }
+
+// Bulk transfer — batched commits with revision chaining / expanded reads
+await client.datasets.uploadRecords("uuid", 3, records, { batchSize: 500 });
+const expanded = await client.datasets.downloadRecords("uuid");
+const frozen = await client.datasets.downloadVersionRecords("version-uuid");
+
+// Analysis ergonomics — field labels from the schema version
+const fields = await client.datasets.schemaFields(dataset.schemaVersionId);
+const labels = await client.datasets.fieldLabelMap(dataset.schemaVersionId);
+const labelled = await client.datasets.downloadRecords("uuid", { fieldLabels: labels });
 ```
 
 ### Sheets

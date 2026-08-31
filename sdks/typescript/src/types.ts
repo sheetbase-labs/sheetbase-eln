@@ -166,6 +166,86 @@ export function fromDatasetVersion(d: Record<string, any>): DatasetVersion {
 
 // ── DatasetRow ─────────────────────────────────────────────────────────────
 
+export interface SchemaField {
+  id: string;
+  schemaVersionId: string;
+  fieldId: string;
+  key: string;
+  label: string;
+  logicalType: string;
+  nullable: boolean;
+  cardinality: string;
+  lifecycle: string;
+  displayOrder: number;
+  description?: string | null;
+  defaultValue?: unknown;
+  validation?: unknown;
+  category?: unknown;
+  relationship?: unknown;
+}
+
+export function fromSchemaField(d: Record<string, any>): SchemaField {
+  return {
+    id: d.id,
+    schemaVersionId: d.schema_version_id,
+    fieldId: d.field_id,
+    key: d.key,
+    label: d.label,
+    logicalType: d.logical_type,
+    nullable: d.nullable,
+    cardinality: d.cardinality,
+    lifecycle: d.lifecycle,
+    displayOrder: d.display_order,
+    description: d.description ?? null,
+    defaultValue: d.default_value,
+    validation: d.validation,
+    category: d.category,
+    relationship: d.relationship,
+  };
+}
+
+// ── RecordRevision ─────────────────────────────────────────────────────────
+
+export interface RecordRevision {
+  id: string;
+  recordId: string;
+  workspaceId: string;
+  structureVersion: number;
+  metadataVersion: number;
+  reason: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId: string;
+  metadataSnapshot: Record<string, unknown>;
+  blockSnapshot?: Record<string, unknown> | null;
+  canonicalSnapshot?: Record<string, unknown> | null;
+  integrityAlgorithm?: string | null;
+  integrityDigest?: string | null;
+  supersededByRevisionId?: string | null;
+}
+
+export function fromRecordRevision(d: Record<string, any>): RecordRevision {
+  return {
+    id: d.id,
+    recordId: d.record_id,
+    workspaceId: d.workspace_id,
+    structureVersion: d.structure_version,
+    metadataVersion: d.metadata_version,
+    reason: d.reason,
+    createdAt: d.created_at,
+    updatedAt: d.updated_at,
+    createdByUserId: d.created_by_user_id,
+    metadataSnapshot: d.metadata_snapshot ?? {},
+    blockSnapshot: d.block_snapshot ?? null,
+    canonicalSnapshot: d.canonical_snapshot ?? null,
+    integrityAlgorithm: d.integrity_algorithm ?? null,
+    integrityDigest: d.integrity_digest ?? null,
+    supersededByRevisionId: parseUUID(d.superseded_by_revision_id),
+  };
+}
+
+// ── DatasetRow ─────────────────────────────────────────────────────────────
+
 export interface DatasetRow {
   rowId: string;
   revision: number;

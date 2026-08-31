@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from sheetbase._http import HttpTransport
 from sheetbase._pagination import iter_table
-from sheetbase.types import Record
+from sheetbase.types import Record, RecordRevision
 
 
 class RecordsResource:
@@ -301,3 +301,49 @@ class RecordsResource:
 
         for row in iter_table(fetch, page_size=page_size, max_items=max_items):
             yield Record.from_dict(row)
+
+    def history(
+        self,
+        record_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[RecordRevision]:
+        """List the immutable revisions of a record, newest first (table read).
+
+        Revisions are the record's audit/provenance trail: each pins a frozen
+        ``canonical_snapshot`` and ``integrity_digest``. Audit history is not
+        the same as submitted evidence; it reconstructs what changed and when.
+        """
+        rows = self._transport.get(
+            "/api/db/revisions",
+            params={
+                "record_id": f"eq.{record_id}",
+                "order": "created_at.desc",
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+        return [RecordRevision.from_dict(r) for r in rows]
+
+    def iter_history(
+        self,
+        record_id: str,
+        *,
+        page_size: int = 100,
+        max_items: Optional[int] = None,
+    ) -> Iterator[RecordRevision]:
+        """Iterate all revisions of a record, newest first, auto-paginating."""
+        def fetch(*, limit: int, offset: int) -> list[dict[str, Any]]:
+            return self._transport.get(
+                "/api/db/revisions",
+                params={
+                    "record_id": f"eq.{record_id}",
+                    "order": "created_at.desc",
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+
+        for row in iter_table(fetch, page_size=page_size, max_items=max_items):
+            yield RecordRevision.from_dict(row)

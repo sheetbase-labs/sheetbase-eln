@@ -60,6 +60,17 @@ client.datasets.upload_dataframe(
     df=df,
 )
 
+# Version access — frozen-evidence entry points
+versions = client.datasets.list_versions(dataset_id="...")
+frozen_df = client.datasets.version_to_dataframe(str(versions[0].id))
+
+# Analysis ergonomics — field labels from the schema version
+labels = client.datasets.field_label_map(str(dataset.schema_version_id))
+df = client.datasets.to_dataframe(dataset_id="...", field_labels=labels)
+
+# Provenance — immutable record revision trail
+history = client.records.history(record_id="...")
+
 # Context manager closes the HTTP connection pool
 with SheetbaseClient(...) as client:
     ...
@@ -121,8 +132,8 @@ Token-path errors use `TokenError` with a `.code` attribute (`invalid_credential
 | Resource                  | Operations                                                                                                                                                                                  |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `client.projects`         | List, get, get_by_key, create, update, iter                                                                                                                                                 |
-| `client.records`          | Record, block, custom-field, template and submission-preview operations                                                                                                                     |
-| `client.datasets`         | List, get, create, query_rows, query_version_rows, iter_rows, iter_version_rows, validate_rows, commit_rows, snapshot, archive, restore, to_dataframe, upload_dataframe, download_dataframe |
+| `client.records`          | Record, block, custom-field, template, submission-preview and revision-history operations                                                                                                   |
+| `client.datasets`         | List, get, create, query_rows, query_version_rows, iter_rows, iter_version_rows, validate_rows, commit_rows, snapshot, archive, restore, list_versions, iter_versions, schema_fields, field_label_map, to_dataframe, upload_dataframe, download_dataframe, version_to_dataframe |
 | `client.sheets`           | Sheet-instance queries/mutations, calculation results, composition/definition upgrades, materialization, notebook blocks and model write-back                                               |
 | `client.search`           | search, search_sheet_records, iter                                                                                                                                                          |
 | `client.catalogues`       | Schema/sheet-definition/template reads and notebook-template instantiate/upgrade RPCs                                                                                                       |

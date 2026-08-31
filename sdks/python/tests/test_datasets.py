@@ -314,3 +314,92 @@ class TestDatasetsResource:
         assert len(df) == 2
         assert "row_id" in df.columns
         assert "fff00000-0000-0000-0000-000000000001" in df.columns
+
+
+class TestVersionAccess:
+    def test_list_versions(self, mock_transport, dataset_version_row):
+        route = mock_transport.get("/api/db/dataset_versions").respond(
+            200, json=[dataset_version_row]
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            versions = client.datasets.list_versions(dataset_version_row["dataset_id"])
+        assert len(versions) == 1
+        assert isinstance(versions[0], DatasetVersion)
+        assert versions[0].label == "Day 14 freeze"
+        assert versions[0].source_dataset_revision == 3
+        assert route.calls[0].request.url.params["dataset_id"] == f"eq.{dataset_version_row["dataset_id"]}"
+        assert route.calls[0].request.url.params["order"] == "created_at.desc"
+
+    def test_iter_versions_pagination(self, mock_transport, dataset_version_row):
+        mock_transport.get("/api/db/dataset_versions").respond(
+            200, json=[dataset_version_row]
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            versions = list(client.datasets.iter_versions(dataset_version_row["dataset_id"]))
+        assert len(versions) == 1
+        assert versions[0].label == "Day 14 freeze"
+
+
+class TestSchemaFields:
+    def test_schema_fields(self, mock_transport, schema_field_rows):
+        route = mock_transport.get("/api/db/dataset_schema_version_fields").respond(
+            200, json=schema_field_rows
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            fields = client.datasets.schema_fields(schema_field_rows[0]["schema_version_id"])
+        assert len(fields) == 2
+        assert fields[0].label == "Titer (vp/mL)"
+        assert fields[0].logical_type == "decimal"
+        assert route.calls[0].request.url.params["schema_version_id"] == f"eq.{schema_field_rows[0]["schema_version_id"]}"
+
+    def test_field_label_map(self, mock_transport, schema_field_rows):
+        mock_transport.get("/api/db/dataset_schema_version_fields").respond(
+            200, json=schema_field_rows
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            labels = client.datasets.field_label_map(schema_field_rows[0]["schema_version_id"])
+        assert labels == {
+            "fff00000-0000-0000-0000-000000000001": "Titer (vp/mL)",
+            "fff00000-0000-0000-0000-000000000002": "Cell Line",
+        }
+
+    def test_to_dataframe_with_field_labels(self, mock_transport, dataset_rows_response, schema_field_rows):
+        mock_transport.post("/api/db/rpc/query_dataset_rows").respond(
+            200, json=dataset_rows_response
+        )
+        mock_transport.get("/api/db/dataset_schema_version_fields").respond(
+            200, json=schema_field_rows
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            labels = client.datasets.field_label_map(schema_field_rows[0]["schema_version_id"])
+            df = client.datasets.to_dataframe(
+                dataset_id=dataset_rows_response["datasetId"],
+                field_labels=labels,
+            )
+        assert "Titer (vp/mL)" in df.columns
+        assert "Cell Line" in df.columns
+        assert "fff00000-0000-0000-0000-000000000001" not in df.columns
+
+    def test_version_to_dataframe(self, mock_transport, dataset_version_row):
+        rows_response = {
+            "datasetVersionId": dataset_version_row["id"],
+            "offset": 0,
+            "limit": 200,
+            "totalCount": 1,
+            "hasMore": False,
+            "rows": [
+                {
+                    "rowId": "aaa11111-2222-3333-4444-555555555501",
+                    "revision": 3,
+                    "values": {"fff00000-0000-0000-0000-000000000001": 1.2e9},
+                }
+            ],
+        }
+        mock_transport.post("/api/db/rpc/query_dataset_version_rows").respond(
+            200, json=rows_response
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            df = client.datasets.version_to_dataframe(dataset_version_row["id"])
+        assert len(df) == 1
+        assert df.iloc[0]["row_id"] == "aaa11111-2222-3333-4444-555555555501"
+        assert df.iloc[0]["fff00000-0000-0000-0000-000000000001"] == 1.2e9

@@ -1,5 +1,6 @@
 """Tests for the Records resource."""
 import json
+import uuid
 
 import httpx
 import pytest
@@ -109,3 +110,24 @@ class TestRecordsResource:
             records = list(client.records.iter(page_size=2))
         assert len(records) == 2
         assert all(isinstance(r, Record) for r in records)
+
+
+class TestRecordHistory:
+    def test_history(self, mock_transport, revision_row):
+        route = mock_transport.get("/api/db/revisions").respond(200, json=[revision_row])
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["projects:read"]) as client:
+            history = client.records.history(revision_row["record_id"])
+        assert len(history) == 1
+        assert history[0].reason == "update"
+        assert history[0].integrity_algorithm == "sha256"
+        assert history[0].integrity_digest == "abc123"
+        assert history[0].metadata_snapshot == {"title": "Purification run 1"}
+        assert route.calls[0].request.url.params["record_id"] == f"eq.{revision_row["record_id"]}"
+        assert route.calls[0].request.url.params["order"] == "created_at.desc"
+
+    def test_iter_history(self, mock_transport, revision_row):
+        mock_transport.get("/api/db/revisions").respond(200, json=[revision_row])
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["projects:read"]) as client:
+            revisions = list(client.records.iter_history(revision_row["record_id"]))
+        assert len(revisions) == 1
+        assert revisions[0].record_id == uuid.UUID(revision_row["record_id"])

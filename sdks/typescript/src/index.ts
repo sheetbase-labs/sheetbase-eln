@@ -73,6 +73,7 @@ export type {
   AgentWorkflowPlan,
   AgentWorkflowUsage,
   DatasetRowOperation,
+  DatasetRecord,
 } from "./resources/index.js";
 
 export type {
@@ -81,6 +82,8 @@ export type {
   Dataset,
   DatasetVersion,
   DatasetRow,
+  SchemaField,
+  RecordRevision,
   SheetInstance,
   SearchResult,
   CommitResult,

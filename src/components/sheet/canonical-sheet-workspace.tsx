@@ -2,11 +2,13 @@ import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type Handsontable from 'handsontable/base'
+import type { BaseEditor } from 'handsontable/editors/baseEditor'
 import type { BaseRenderer } from 'handsontable/renderers'
 
 import type { FieldDefinition } from '#/lib/field-definition'
 import { SheetbaseGrid } from '#/components/sheet/sheetbase-grid'
 import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
+import { createRecordPickerEditor } from '#/components/sheet/record-picker-editor'
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
@@ -52,7 +54,10 @@ import {
   sheetRecordSearchHitsAsNotebookRecords,
 } from '#/lib/sheet-record-search'
 import { linkSheetRecordReference } from '#/lib/sheet-record-link'
-import { RECORD_REFERENCE_CELL_FORMAT } from '#/lib/record-reference-cell'
+import {
+  formatRecordReferenceLabel,
+  RECORD_REFERENCE_CELL_FORMAT,
+} from '#/lib/record-reference-cell'
 import {
   nextSheetRecordGridError,
   sheetRecordGridErrorsFromValidation,
@@ -84,11 +89,59 @@ function categoryCellRenderer(field: FieldDefinition): BaseRenderer {
   }
 }
 
-function handsontableType(column: CanonicalSheetGridColumn): {
+/**
+ * GRID-03 — the target Model key of a Record-reference field's relationship,
+ * or null when the field is not a Model-scoped reference.
+ */
+export function recordPickerTargetModelKey(
+  field: FieldDefinition | null,
+): string | null {
+  const target = field?.relationship?.target
+  return target?.kind === 'model' ? target.modelKey : null
+}
+
+/**
+ * GRID-03 — display-only text for a Record-reference cell. The canonical
+ * stored value is the Record UUID; a known pick's human label
+ * (`RECORD_REFERENCE_CELL_FORMAT` label/identity form) is shown instead.
+ * Unknown or persisted-without-session-label values render the UUID as-is —
+ * the display never invents identity that the server did not confirm.
+ */
+export function recordCellDisplayText(
+  labels: Record<string, { identifier: string; title: string } | undefined>,
+  value: unknown,
+): string {
+  const recordId = typeof value === 'string' ? value : null
+  if (recordId === null) return ''
+  const snapshot = labels[recordId]
+  return snapshot ? formatRecordReferenceLabel(snapshot) : recordId
+}
+
+/** GRID-03 — display renderer for Record-reference cells (label, not UUID). */
+function recordCellRenderer(
+  labels: () => Record<
+    string,
+    { identifier: string; title: string } | undefined
+  >,
+): BaseRenderer {
+  return (_instance, td, _row, _col, _prop, value) => {
+    td.textContent = recordCellDisplayText(labels(), value)
+    return td
+  }
+}
+
+function handsontableType(
+  column: CanonicalSheetGridColumn,
+  recordPicker?: {
+    editor: typeof BaseEditor
+    renderer: BaseRenderer
+  } | null,
+): {
   type: string
   dateFormat?: string
   correctFormat?: boolean
   source?: string[]
+  editor?: typeof BaseEditor
   renderer?: BaseRenderer
 } {
   const kind = column.presentation.kind
@@ -102,6 +155,16 @@ function handsontableType(column: CanonicalSheetGridColumn): {
   // bare input to a canonical UTC instant before validation (bare input is
   // interpreted as UTC because the grid carries no timezone context).
   if (kind === 'datetime-local') return { type: 'text' }
+  if (kind === 'record-picker' && recordPicker) {
+    // GRID-03: Record/reference cells edit through the shared search-select
+    // Record picker. Selection writes the canonical Record UUID through the
+    // normal change pipeline; the human label is display only.
+    return {
+      type: 'text',
+      editor: recordPicker.editor,
+      renderer: recordPicker.renderer,
+    }
+  }
   if (kind === 'category-select' && column.field) {
     // GRID-03: the dropdown is seeded from the field's canonical vocabulary
     // (active embedded options). Vocabulary-backed fields without a local
@@ -179,7 +242,18 @@ export function CanonicalSheetEditor({
     col: 0,
   })
   const [writeStatus, setWriteStatus] = useState<string | null>(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
+  // GRID-03: the shared Record picker serves both the toolbar link flow and
+  // record-picker cell edits. `cell` is set when the edit originated in a
+  // specific cell (the pick writes that cell's UUID); null means the toolbar
+  // link flow. The label map feeds the display renderer only — display never
+  // changes stored state.
+  const [picker, setPicker] = useState<{
+    modelKey: string
+    cell: { row: number; col: number } | null
+  } | null>(null)
+  const recordLabelsRef = useRef<
+    Record<string, { identifier: string; title: string } | undefined>
+  >({})
   const [createOpen, setCreateOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [custom, setCustom] = useState<Record<string, string | boolean>>({})
@@ -262,9 +336,10 @@ export function CanonicalSheetEditor({
     enabled: Boolean(modelKey) && createOpen,
   })
   const search = useQuery({
-    queryKey: ['sheet-record-search', modelKey, query],
-    queryFn: () => searchSheetRecords({ modelKey: modelKey!, query }, client),
-    enabled: Boolean(modelKey) && pickerOpen,
+    queryKey: ['sheet-record-search', picker?.modelKey, query],
+    queryFn: () =>
+      searchSheetRecords({ modelKey: picker!.modelKey, query }, client),
+    enabled: picker !== null && Boolean(picker.modelKey),
   })
   const actions = resolveSheetRecordActions(
     composition.data?.definitionConfiguration ?? null,
@@ -570,6 +645,34 @@ export function CanonicalSheetEditor({
     hotInstanceRef.current = hot
   }, [])
 
+  // GRID-03: editing a record-picker cell opens the shared Record picker
+  // scoped to the column's own relationship target. The opener only reads
+  // refs, so it stays identity-stable and the memoised grid settings (and its
+  // editors) never re-create.
+  const openPickerForCell = useCallback(
+    (cell: { row: number; col: number }) => {
+      const column = matrixRef.current.columns.at(cell.col)
+      const targetModelKey = recordPickerTargetModelKey(column?.field ?? null)
+      if (
+        !column ||
+        column.presentation.kind !== 'record-picker' ||
+        !column.editable ||
+        !targetModelKey
+      ) {
+        return
+      }
+      setPicker({ modelKey: targetModelKey, cell })
+    },
+    [],
+  )
+  const recordPicker = useMemo(
+    () => ({
+      editor: createRecordPickerEditor(openPickerForCell),
+      renderer: recordCellRenderer(() => recordLabelsRef.current),
+    }),
+    [openPickerForCell],
+  )
+
   const settings = useMemo(
     () => ({
       data: matrix.data,
@@ -577,7 +680,7 @@ export function CanonicalSheetEditor({
       // (display only; units are never converted client-side).
       colHeaders: matrix.columns.map(canonicalSheetColumnHeader),
       columns: matrix.columns.map((column) => ({
-        ...handsontableType(column),
+        ...handsontableType(column, canWrite ? recordPicker : null),
         readOnly: !canWrite || !column.editable,
       })),
       rowHeaders: true,
@@ -776,7 +879,12 @@ export function CanonicalSheetEditor({
         }
       },
     }),
-    [matrix, canWrite, instance.state.presentation.frozenColumnCount],
+    [
+      matrix,
+      canWrite,
+      instance.state.presentation.frozenColumnCount,
+      recordPicker,
+    ],
   )
 
   useEffect(() => {
@@ -886,7 +994,7 @@ export function CanonicalSheetEditor({
         <ComposedSheetRecordToolbar
           actions={actions}
           errors={errors}
-          onLink={() => setPickerOpen(true)}
+          onLink={() => setPicker({ modelKey: modelKey ?? '', cell: null })}
           onCreate={() => setCreateOpen(true)}
           onValidate={async () => {
             if (!projectId || !composition.data || !modelKey) return
@@ -1031,10 +1139,10 @@ export function CanonicalSheetEditor({
           }
         />
       ) : null}
-      {canWrite && pickerOpen && modelKey ? (
+      {canWrite && picker && picker.modelKey ? (
         <div className="border-t">
           <SheetRecordPicker
-            modelKey={modelKey}
+            modelKey={picker.modelKey}
             results={sheetRecordSearchHitsAsNotebookRecords(
               search.data ?? [],
               projectId ?? '',
@@ -1042,8 +1150,27 @@ export function CanonicalSheetEditor({
             loading={search.isLoading}
             onSearch={setQuery}
             onSelect={(result) => {
-              link.mutate(result.id)
-              setPickerOpen(false)
+              // Record the human label for the display renderer, then persist
+              // the canonical Record UUID. A cell-edit pick flows through the
+              // grid's own change pipeline (beforeChange → afterChange →
+              // parse → validate → authoritative target); the toolbar link
+              // flow keeps its dedicated write path. The server remains the
+              // authority on whether the Record exists and is accessible.
+              recordLabelsRef.current[result.id] = {
+                identifier: result.identifier,
+                title: result.title,
+              }
+              if (picker.cell) {
+                hotInstanceRef.current?.setDataAtCell(
+                  picker.cell.row,
+                  picker.cell.col,
+                  result.id,
+                  'sheetbase.record-picker',
+                )
+              } else {
+                link.mutate(result.id)
+              }
+              setPicker(null)
             }}
           />
         </div>

@@ -119,8 +119,21 @@ Users can enter and correct typed data efficiently, with client feedback matchin
   instants, which would make timestamp columns uneditable. Bare timestamp
   input is coerced to a canonical UTC instant on commit because the grid
   carries no timezone context (deterministic and user-independent;
-  explicit offsets pass through). Numeric, boolean and Record/reference
-  columns keep their existing GRID-01/02 behaviour.
+  explicit offsets pass through). Numeric and boolean columns keep their
+  existing GRID-01/02 behaviour.
+- **Record/reference columns edit through the canonical Record picker.** A
+  `record-picker` cell (Model-scoped reference field) opens the shared
+  search-select `SheetRecordPicker` scoped to the column's own relationship
+  target Model — editing never shows a text input. Selection persists the
+  canonical Record UUID through the normal change pipeline
+  (`setDataAtCell` → beforeChange → parse → validate → authoritative
+  target); the human label (`RECORD_REFERENCE_CELL_FORMAT`
+  `identifier · title` form) is display only. Unknown or persisted-without-
+  session-label values render the UUID as-is — the display never invents
+  identity the server did not confirm. A typed non-UUID value still fails
+  closed through the existing validation, and inaccessible Records never
+  appear because the search RPC is Model-scoped and RLS-filtered; existence
+  and permission remain authoritative server checks at write time.
 - **Rejections do not pollute undo.** Every rejected change nullifies its
   Handsontable change entries before cancelling, so the undo stack never
   records a no-op step whose Ctrl+Z would re-persist unchanged values.

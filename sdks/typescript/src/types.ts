@@ -416,7 +416,6 @@ export interface DatasetVersionRowPage {
   offset: number;
   limit: number;
   totalCount: number;
-  hasMore: boolean;
   rows: DatasetRow[];
 }
 
@@ -429,7 +428,6 @@ export function fromDatasetVersionRowPage(d: Record<string, any>): DatasetVersio
     offset: d.offset,
     limit: d.limit,
     totalCount: d.totalCount,
-    hasMore: d.hasMore ?? false,
     rows: (d.rows ?? []).map(fromDatasetRow),
   };
 }

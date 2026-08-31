@@ -190,7 +190,15 @@ A user can configure and restore a useful working view of a large Sheet without 
   destination sort config is persisted as `presentation.sorts` (stable column
   ids, capped at 8) with an equality guard, and restored via the
   `columnSorting.initialConfig`. Sort state is clearly visual: it never
-  reorders rowKeys or write targets.
+  reorders rowKeys or write targets. Dropdown-menu **filters are
+  session-visual only** — Handsontable's filter-plugin state is not
+  serialisable into `presentation.filters` today, so saved views restore
+  sorts/freeze/hide/widths/order but not filters; the distinction is stated
+  in the saved-view affordance rather than silently dropped.
+- **Presentation writes retry once on a stale revision.** Rapid view
+  controls read the same expected revision; a stale-rejection re-reads the
+  authoritative instance and retries the write once before surfacing an
+  error, so quick resize/freeze/hide sequences never silently drop a change.
 - **Freeze and hide are display-only concealment.** `fixedColumnsStart` is
   driven by `frozenColumnCount` ("Freeze up to this column" / "Unfreeze" in
   the column dropdown menu, plus ± controls); hidden columns are removed from

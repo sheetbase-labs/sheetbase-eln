@@ -358,9 +358,9 @@ export function firstBulkChangeRejection(
  * `[2]` as the new value). Read-only/derived columns and already-empty cells
  * are skipped, so clearing never mints phantom spare-row entries and the
  * workspace `beforeChange` validation remains the fail-closed gate for
- * required fields.
- * contract is resolved, mirroring GRID-02's `toPhysicalRow` row mapping;
- * returned coordinates stay visual so `setDataAtCell` applies them unchanged.
+ * required fields. Column resolution mirrors GRID-02's `toPhysicalRow` row
+ * mapping via `toPhysicalColumn`; returned coordinates stay visual so
+ * `setDataAtCell` applies them unchanged.
  */
 export function clearContentsUpdates(
   columns: CanonicalSheetGridColumn[],

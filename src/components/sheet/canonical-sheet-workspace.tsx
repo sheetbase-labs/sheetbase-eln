@@ -345,7 +345,8 @@ export function CanonicalSheetEditor({
   // presentation write can never smuggle scientific data changes through.
   async function persistPresentation(
     patch: Partial<SheetPresentation>,
-  ): Promise<void> {
+    attempt = 0,
+  ): Promise<boolean> {
     const current = instanceRef.current
     try {
       const next = await updateSheetInstance(
@@ -359,11 +360,27 @@ export function CanonicalSheetEditor({
       )
       instanceRef.current = next
       queryClient.setQueryData(['sheet-instance', instance.id], next)
+      return true
     } catch (error) {
+      // GRID-04 review fix: rapid view controls read the same expected
+      // revision, so a stale-revision rejection would silently drop the
+      // second write. Re-read the authoritative instance and retry once.
+      const message = errorText(error) ?? ''
+      if (attempt === 0 && /stale/i.test(message)) {
+        const fresh = await queryClient.fetchQuery({
+          queryKey: ['sheet-instance', instance.id],
+          queryFn: () =>
+            fetchSheetInstance(instance.id, sheetInstanceDataClient),
+        })
+        if (fresh) {
+          instanceRef.current = fresh
+          return persistPresentation(patch, attempt + 1)
+        }
+      }
       setWriteStatus(
-        errorText(error) ??
-          'The working view could not be saved to the Sheet state.',
+        message || 'The working view could not be saved to the Sheet state.',
       )
+      return false
     }
   }
 
@@ -447,7 +464,8 @@ export function CanonicalSheetEditor({
       setWriteStatus('No usable saved view for this Sheet on this device.')
       return
     }
-    void persistPresentation(restored).then(() => {
+    void persistPresentation(restored).then((saved) => {
+      if (!saved) return
       setWriteStatus('Working view restored.')
     })
   }
@@ -460,7 +478,8 @@ export function CanonicalSheetEditor({
       frozenColumnCount: 0,
       filters: [],
       sorts: [],
-    }).then(() => {
+    }).then((saved) => {
+      if (!saved) return
       setWriteStatus('Working view reset to the canonical layout.')
     })
   }
@@ -763,8 +782,11 @@ export function CanonicalSheetEditor({
             callback: (_key: string, selection: MenuSelection) => {
               const range = selection.at(0)
               if (!range) return
-              const from = Math.min(range.start.col ?? 0, range.end.col ?? 0)
-              const to = Math.max(range.start.col ?? 0, range.end.col ?? 0)
+              // GRID-04 review fix: never coerce null coordinates into
+              // "hide column 0" — a header menu always carries the anchor.
+              if (range.start.col == null || range.end.col == null) return
+              const from = Math.min(range.start.col, range.end.col)
+              const to = Math.max(range.start.col, range.end.col)
               const hidden = new Set(
                 instanceRef.current.state.presentation.hiddenColumnIds,
               )
@@ -1017,14 +1039,19 @@ export function CanonicalSheetEditor({
         const hot = hotInstanceRef.current
         if (!hot || !movePossible || !orderChanged) return
         const count = hot.countCols()
-        hot.columnIndexMapper.setIndexesSequence(
-          Array.from({ length: count }, (_, index) => index),
-        )
+        // GRID-04 review fix: the ManualColumnMove plugin has ALREADY applied
+        // its index-mapper move by the time this hook runs, so the new order
+        // must be read through the mapper BEFORE it is reset to identity —
+        // resetting first collapses toPhysicalColumn to identity and the
+        // pre-move order gets persisted (the drag would silently snap back).
         const order: string[] = []
         for (let visual = 0; visual < count; visual += 1) {
           const column = matrixRef.current.columns.at(physicalColumn(visual))
           if (column) order.push(column.id)
         }
+        hot.columnIndexMapper.setIndexesSequence(
+          Array.from({ length: count }, (_, index) => index),
+        )
         void persistPresentation({ columnOrder: order })
       },
       // GRID-04: sorting is visual only. Persist the destination sort config

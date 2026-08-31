@@ -8,6 +8,17 @@
 -- surface. Edited/reviewed recency is never stored here — it derives from the
 -- canonical `change_events` audit trail at read time.
 --
+-- RLS: reads require BOTH the row's owner and continued visibility of the
+-- workspace recorded on the row (`api.is_workspace_member(workspace_id)`,
+-- which resolves `api.workspace_memberships` and excludes suspended
+-- memberships). Without the membership predicate a user removed from a
+-- workspace would keep SELECTing their stale recently_viewed rows for that
+-- workspace; with it, revoked rows vanish from the Recent surface immediately
+-- while rows in workspaces the user still belongs to are unaffected. Rows
+-- are written exclusively via the `record_recent_view` SECURITY DEFINER RPC
+-- (no INSERT/UPDATE/DELETE policies exist), so no membership re-check is
+-- needed on writes.
+--
 -- Note: the table DDL below is the drizzle-generated delta for
 -- `src/db/schema.ts`. The generated file also re-emitted CREATE TABLE
 -- statements for `api.agent_workflows`/`agent_workflow_steps`/
@@ -126,9 +137,18 @@ ALTER TABLE "api"."recently_viewed" ENABLE ROW LEVEL SECURITY;
 
 --> statement-breakpoint
 
+-- Reads are doubly scoped: only the row's own user, AND only while the
+-- user still holds an unsuspended membership of the workspace recorded on
+-- the row. Revoking workspace membership therefore also revokes access to
+-- that workspace's stale view-tracking rows (the policy reuses the
+-- SECURITY DEFINER `api.is_workspace_member` helper, so the membership
+-- EXISTS-check cannot recurse through this table's own RLS).
 CREATE POLICY recently_viewed_select ON "api"."recently_viewed"
   FOR SELECT TO authenticated
-  USING (user_id = "api"."current_user_id"());
+  USING (
+    user_id = "api"."current_user_id"()
+    AND "api"."is_workspace_member"(workspace_id)
+  );
 
 --> statement-breakpoint
 

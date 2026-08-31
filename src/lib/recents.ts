@@ -105,6 +105,20 @@ export const recentsQueryKeys = {
 /** How many items the compact Recent surface shows. */
 export const RECENTS_LIMIT = 20
 
+/**
+ * Recents replenishment: the derivation runs over a candidate set this many
+ * times larger than the visible cap, and the cap is applied to RESOLVED
+ * (still-visible) items only. Capping raw candidates first would let
+ * archived/deleted/no-longer-visible objects starve the surface.
+ */
+export const RECENTS_CANDIDATE_MULTIPLIER = 3
+
+/** Raw change_events fetched per page while hunting for distinct objects. */
+export const RECENTS_SIGNAL_PAGE_SIZE = 100
+
+/** Hard page bound for the signal hunt; anything older falls out naturally. */
+export const RECENTS_SIGNAL_MAX_PAGES = 5
+
 // ---------------------------------------------------------------------------
 // Signal derivation from the canonical change-event audit trail.
 // ---------------------------------------------------------------------------
@@ -310,20 +324,53 @@ export function fetchRecentViews(
 }
 
 /**
- * The current user's recent canonical edit/review events. Bounded so the
- * derivation stays cheap; anything older falls out of recents naturally.
+ * The current user's recent canonical edit/review events.
+ *
+ * Raw change_events are fetched in pages of `pageSize`, newest first, until
+ * EITHER the target number of DISTINCT objects carrying signals has been
+ * seen, the feed is exhausted, or `maxPages` is reached. Deduplicating by
+ * distinct object BEFORE the raw-window limit matters: without it, a burst
+ * of edits to a single object can fill the first page and push every other
+ * recently-worked object out of recents entirely. Anything older than the
+ * page budget falls out of recents naturally.
  */
-export function fetchMyRecentSignals(
+export async function fetchMyRecentSignals(
   client: DataClient,
   userId: string,
-  limit = 100,
+  options: {
+    /** Stop once this many distinct objects carry signals. */
+    targetDistinct?: number
+    /** Raw change_events rows per page. */
+    pageSize?: number
+    /** Hard page bound so pathological histories cannot fetch forever. */
+    maxPages?: number
+  } = {},
 ): Promise<RecentSignalEvent[]> {
-  return client
-    .list<ChangeEventRecordWire>(
+  const targetDistinct =
+    options.targetDistinct ?? RECENTS_LIMIT * RECENTS_CANDIDATE_MULTIPLIER
+  const pageSize = options.pageSize ?? RECENTS_SIGNAL_PAGE_SIZE
+  const maxPages = options.maxPages ?? RECENTS_SIGNAL_MAX_PAGES
+  const baseQuery =
+    `?actor_user_id=eq.${userId}&operation=in.(create,update,amend)` +
+    `&order=created_at.desc&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at`
+
+  const signals: RecentSignalEvent[] = []
+  let offset = 0
+  for (let page = 0; page < maxPages; page += 1) {
+    const query =
+      `${baseQuery}&limit=${pageSize}` +
+      (offset > 0 ? `&offset=${offset}` : '')
+    const rows = await client.list<ChangeEventRecordWire>(
       'change_events',
-      `?actor_user_id=eq.${userId}&operation=in.(create,update,amend)&order=created_at.desc&limit=${limit}&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at`,
+      query,
     )
-    .then((rows) => signalEventsFromChangeEvents(rows))
+    signals.push(...signalEventsFromChangeEvents(rows))
+    offset += rows.length
+    const distinct = new Set(signals.map((s) => `${s.kind}:${s.id}`)).size
+    // Feed exhausted, or enough distinct objects already: stop paging.
+    if (rows.length < pageSize || distinct >= targetDistinct) break
+  }
+  return signals
 }
 
 /**
@@ -541,20 +588,27 @@ export async function resolveRecentItems(
 /**
  * Fetches the user's recents end-to-end: per-user views + canonical
  * edit/review events → deterministic merge → label/destination resolution.
- * Objects that no longer resolve (archived/deleted/retired) are dropped, so
- * the visible count may be below the limit.
+ *
+ * Replenishment order matters: the derivation runs over a candidate set
+ * `RECENTS_CANDIDATE_MULTIPLIER`× the visible limit, items whose canonical
+ * object no longer resolves (archived/deleted/retired) are dropped, and only
+ * then is the visible cap applied to the resolved items. Capping raw
+ * candidates first would let hidden objects crowd visible ones off the
+ * surface.
  */
 export async function fetchRecentItems(
   client: DataClient,
   userId: string,
   limit = RECENTS_LIMIT,
 ): Promise<RecentItem[]> {
+  const candidateLimit = limit * RECENTS_CANDIDATE_MULTIPLIER
   const [views, signals] = await Promise.all([
-    fetchRecentViews(client, limit * 5),
-    fetchMyRecentSignals(client, userId),
+    fetchRecentViews(client, candidateLimit * 2),
+    fetchMyRecentSignals(client, userId, { targetDistinct: candidateLimit }),
   ])
-  const derived = buildRecentItems({ views, signals, limit })
-  return resolveRecentItems(client, derived)
+  const derived = buildRecentItems({ views, signals, limit: candidateLimit })
+  const resolved = await resolveRecentItems(client, derived)
+  return resolved.slice(0, limit)
 }
 
 // ---------------------------------------------------------------------------

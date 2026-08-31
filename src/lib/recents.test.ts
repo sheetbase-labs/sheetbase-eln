@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildRecentItems,
   fetchMyRecentSignals,
+  fetchRecentItems,
   recordRecentView,
   resolveRecentItems,
   signalEventsFromChangeEvents,
@@ -386,8 +387,170 @@ describe('fetchMyRecentSignals', () => {
     )
     expect(signals).toEqual([])
     expect(queries).toEqual([
-      'change_events?actor_user_id=eq.user-1&operation=in.(create,update,amend)&order=created_at.desc&limit=100&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at',
+      'change_events?actor_user_id=eq.user-1&operation=in.(create,update,amend)&order=created_at.desc&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at&limit=100',
     ])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// fetchMyRecentSignals — distinct-object paging (concentrated bursts).
+// ---------------------------------------------------------------------------
+
+describe('fetchMyRecentSignals paging', () => {
+  /** Serves change_events pages from a fixed newest-first array. */
+  function pagedClient(events: ChangeEventRecordWire[]): {
+    client: DataClient
+    queries: string[]
+  } {
+    const queries: string[] = []
+    const client = {
+      list: (_resource: string, query: string) => {
+        queries.push(_resource + query)
+        const params = new URLSearchParams(query)
+        const offset = Number(params.get('offset') ?? 0)
+        const pageSize = Number(params.get('limit') ?? 100)
+        return Promise.resolve(events.slice(offset, offset + pageSize))
+      },
+    } as unknown as DataClient
+    return { client, queries }
+  }
+
+  it('pages past a concentrated burst until other objects appear', async () => {
+    // 120 events all for one record, then one each for two others. The old
+    // single 100-row raw window was entirely filled by the burst, so r-a and
+    // r-b never reached the derivation at all.
+    const events = [
+      ...Array.from({ length: 120 }, (_, i) =>
+        changeEvent({
+          id: `burst-${i}`,
+          entity_uuid: 'r-burst',
+          created_at: new Date(Date.parse(T2) - i * 1000).toISOString(),
+        }),
+      ),
+      changeEvent({ id: 'e-a', entity_uuid: 'r-a', created_at: T0 }),
+      changeEvent({ id: 'e-b', entity_uuid: 'r-b', created_at: T0 }),
+    ]
+    const { client } = pagedClient(events)
+    const signals = await fetchMyRecentSignals(client, 'user-1', {
+      targetDistinct: 3,
+    })
+    const ids = new Set(signals.map((s) => s.id))
+    expect(ids).toContain('r-burst')
+    expect(ids).toContain('r-a')
+    expect(ids).toContain('r-b')
+  })
+
+  it('stops paging once the target distinct-object count is reached', async () => {
+    const { client, queries } = pagedClient([
+      changeEvent({ id: 'a', entity_uuid: 'r-1', created_at: T2 }),
+      changeEvent({ id: 'b', entity_uuid: 'r-2', created_at: T1 }),
+    ])
+    const signals = await fetchMyRecentSignals(client, 'user-1', {
+      targetDistinct: 2,
+      pageSize: 1,
+    })
+    expect(queries).toHaveLength(2)
+    expect(new Set(signals.map((s) => s.id))).toEqual(
+      new Set(['r-1', 'r-2']),
+    )
+  })
+
+  it('stops at the end of the feed without a final empty-page request', async () => {
+    const { client, queries } = pagedClient([
+      changeEvent({ id: 'a', entity_uuid: 'r-1', created_at: T1 }),
+    ])
+    const signals = await fetchMyRecentSignals(client, 'user-1', {
+      pageSize: 2,
+    })
+    expect(queries).toHaveLength(1)
+    expect(signals).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// fetchRecentItems — replenishment after resolution and distinct objects.
+// ---------------------------------------------------------------------------
+
+describe('fetchRecentItems', () => {
+  const visibleRecord = (id: string) => ({
+    id,
+    kind: 'experiment',
+    identifier: `EXP-${id}`,
+    title: `Record ${id}`,
+    archived_at: null,
+    deleted_at: null,
+  })
+
+  /** Reads the `id=in.(a,b)` filter out of a PostgREST query string. */
+  function idsFromInQuery(query: string): string[] {
+    const raw = new URLSearchParams(query).get('id') ?? ''
+    return raw.replace(/^in\.\(/, '').replace(/\)$/, '').split(',')
+  }
+
+  it('replenishes from older candidates when the newest are hidden', async () => {
+    // 30 views; the newest 10 (r-20…r-29) are archived, so resolution drops
+    // them. Capping candidates before resolving would strand 10 slots; the
+    // older visible records must fill the surface instead.
+    const views = Array.from({ length: 30 }, (_, i) => ({
+      user_id: 'user-1',
+      object_kind: 'record' as const,
+      object_id: `r-${i}`,
+      viewed_at: new Date(Date.parse(T0) + i * 1000).toISOString(),
+    }))
+    const visible = new Set(Array.from({ length: 20 }, (_, i) => `r-${i}`))
+    const client = {
+      list: (resource: string, query: string) => {
+        if (resource === 'recently_viewed') return Promise.resolve(views)
+        if (resource === 'records') {
+          const rows = idsFromInQuery(query)
+            .filter((id) => visible.has(id))
+            .map(visibleRecord)
+          return Promise.resolve(rows)
+        }
+        return Promise.resolve([])
+      },
+    } as unknown as DataClient
+
+    const items = await fetchRecentItems(client, 'user-1')
+    expect(items).toHaveLength(20)
+    expect(items.map((i) => i.id)).toEqual(
+      Array.from({ length: 20 }, (_, i) => `r-${19 - i}`),
+    )
+  })
+
+  it('keeps other objects when one object owns the entire raw window', async () => {
+    const events = [
+      ...Array.from({ length: 120 }, (_, i) =>
+        changeEvent({
+          id: `burst-${i}`,
+          entity_uuid: 'r-burst',
+          created_at: new Date(Date.parse(T2) - i * 1000).toISOString(),
+        }),
+      ),
+      changeEvent({ id: 'e-a', entity_uuid: 'r-a', created_at: T0 }),
+      changeEvent({ id: 'e-b', entity_uuid: 'r-b', created_at: T0 }),
+    ]
+    const client = {
+      list: (resource: string, query: string) => {
+        if (resource === 'change_events') {
+          const params = new URLSearchParams(query)
+          const offset = Number(params.get('offset') ?? 0)
+          const pageSize = Number(params.get('limit') ?? 100)
+          return Promise.resolve(events.slice(offset, offset + pageSize))
+        }
+        if (resource === 'records') {
+          const rows = idsFromInQuery(query).map(visibleRecord)
+          return Promise.resolve(rows)
+        }
+        return Promise.resolve([])
+      },
+    } as unknown as DataClient
+
+    const items = await fetchRecentItems(client, 'user-1')
+    const ids = items.map((i) => i.id)
+    expect(ids).toContain('r-burst')
+    expect(ids).toContain('r-a')
+    expect(ids).toContain('r-b')
   })
 })
 

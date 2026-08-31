@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
+  categoryCellDisplayText,
   clearContentsUpdates,
   firstBulkChangeRejection,
   parseSheetCellInput,
+  resolveCanonicalCellChanges,
   validateCanonicalCell,
 } from './canonical-sheet-grid'
 import type { CanonicalSheetGridColumn } from './canonical-sheet-grid'
+import type { FieldDefinition } from './field-definition'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
 import { validSheetInstanceState } from './sheet-instance.test'
 
@@ -166,6 +170,127 @@ const readOnly: CanonicalSheetGridColumn = {
 }
 const bulkColumns = [editableNumeric, readOnly]
 
+const categoryField: FieldDefinition = {
+  ...editableNumeric.field!,
+  logicalType: 'category',
+  category: {
+    kind: 'embedded',
+    options: [
+      {
+        id: '40000000-0000-4000-8000-000000000001',
+        key: 'active',
+        label: 'Active',
+        displayOrder: 0,
+        lifecycle: 'active',
+      },
+      {
+        id: '40000000-0000-4000-8000-000000000002',
+        key: 'paused',
+        label: 'Paused',
+        displayOrder: 1,
+        lifecycle: 'active',
+      },
+      {
+        id: '40000000-0000-4000-8000-000000000003',
+        key: 'retired',
+        label: 'Retired label',
+        displayOrder: 2,
+        lifecycle: 'retired',
+      },
+    ],
+  },
+}
+
+describe('typed editing coercion (GRID-03)', () => {
+  it('maps category labels, keys and ids to the canonical option id', () => {
+    expect(parseSheetCellInput(categoryField, 'Active')).toBe(
+      '40000000-0000-4000-8000-000000000001',
+    )
+    expect(parseSheetCellInput(categoryField, 'paused')).toBe(
+      '40000000-0000-4000-8000-000000000002',
+    )
+    expect(
+      parseSheetCellInput(
+        categoryField,
+        '40000000-0000-4000-8000-000000000001',
+      ),
+    ).toBe('40000000-0000-4000-8000-000000000001')
+    expect(
+      validateCanonicalCell(
+        categoryField,
+        parseSheetCellInput(categoryField, 'Active'),
+      ),
+    ).toBeNull()
+  })
+
+  it('fails closed on retired and unknown category text', () => {
+    expect(parseSheetCellInput(categoryField, 'Retired label')).toBe(
+      'Retired label',
+    )
+    expect(
+      validateCanonicalCell(
+        categoryField,
+        parseSheetCellInput(categoryField, 'Retired label'),
+      ),
+    ).toBe('invalid_value')
+    // A retired option's id parses but is not selectable vocabulary.
+    expect(
+      validateCanonicalCell(
+        categoryField,
+        parseSheetCellInput(
+          categoryField,
+          '40000000-0000-4000-8000-000000000003',
+        ),
+      ),
+    ).toBe('invalid_category_option')
+    expect(
+      validateCanonicalCell(
+        categoryField,
+        parseSheetCellInput(categoryField, 'Nope'),
+      ),
+    ).toBe('invalid_value')
+  })
+
+  it('coerces bare date-time input to canonical UTC instants', () => {
+    const timestamp = {
+      ...editableNumeric.field!,
+      logicalType: 'timestamp' as const,
+    }
+    expect(parseSheetCellInput(timestamp, '2026-01-05 14:30')).toBe(
+      '2026-01-05T14:30:00Z',
+    )
+    expect(parseSheetCellInput(timestamp, '2026-01-05T14:30:05.250')).toBe(
+      '2026-01-05T14:30:05.250Z',
+    )
+    expect(parseSheetCellInput(timestamp, '2026-01-05T14:30:05+02:00')).toBe(
+      '2026-01-05T14:30:05+02:00',
+    )
+    expect(parseSheetCellInput(timestamp, '2026-08-15T10:20:30Z')).toBe(
+      '2026-08-15T10:20:30Z',
+    )
+    expect(parseSheetCellInput(timestamp, '2026-01-01 00:00:00')).toBe(
+      '2026-01-01T00:00:00Z',
+    )
+    expect(validateCanonicalCell(timestamp, '2026-13-05T14:30:00Z')).toBe(
+      'invalid_value',
+    )
+  })
+
+  it('coerces thousands-separated clipboard numbers when unambiguous', () => {
+    const integer = {
+      ...editableNumeric.field!,
+      logicalType: 'integer' as const,
+    }
+    const decimal = editableNumeric.field!
+    expect(parseSheetCellInput(decimal, '1,200.5')).toBe(1200.5)
+    expect(parseSheetCellInput(integer, '1,200')).toBe(1200)
+    expect(parseSheetCellInput(integer, '-12,345')).toBe(-12345)
+    // Ambiguous or malformed groupings never coerce; they fail closed.
+    expect(parseSheetCellInput(decimal, '12,34')).toBe('12,34')
+    expect(validateCanonicalCell(decimal, '12,34')).toBe('invalid_value')
+  })
+})
+
 describe('bulk change validation (GRID-02)', () => {
   const columns = bulkColumns
 
@@ -242,5 +367,85 @@ describe('clear contents updates (GRID-02 review fixes)', () => {
         () => null,
       ),
     ).toEqual([])
+  })
+})
+
+describe('resolveCanonicalCellChanges (GRID-03)', () => {
+  const categoryColumn: CanonicalSheetGridColumn = {
+    ...editableNumeric,
+    field: categoryField,
+    presentation: { kind: 'category-select', inputType: null },
+  }
+
+  it('coerces editor output to canonical values and keeps positions', () => {
+    const result = resolveCanonicalCellChanges(bulkColumns, [
+      [3, 0, null, '8,000'],
+      [4, 0, null, '12'],
+    ])
+    expect(result.rejection).toBeNull()
+    expect(result.changes).toEqual([
+      [3, 0, null, 8000],
+      [4, 0, null, 12],
+    ])
+  })
+
+  it('rejects a single typed edit like a bulk write', () => {
+    const result = resolveCanonicalCellChanges(bulkColumns, [
+      [0, 0, 1.2, 'not-a-number'],
+    ])
+    expect(result.rejection).toEqual({
+      kind: 'invalid_value',
+      label: 'Titer',
+      detail: 'invalid_value',
+    })
+  })
+
+  it('keeps the GRID-02 read-only wholesale rejection', () => {
+    expect(
+      resolveCanonicalCellChanges(bulkColumns, [[0, 1, null, 'x']]).rejection,
+    ).toEqual({ kind: 'read_only_column', label: 'Recovery' })
+  })
+
+  it('coerces pasted category text to the canonical option id', () => {
+    const result = resolveCanonicalCellChanges(
+      [categoryColumn],
+      [[0, 0, null, 'Paused']],
+    )
+    expect(result.rejection).toBeNull()
+    expect(result.changes[0]?.[3]).toBe('40000000-0000-4000-8000-000000000002')
+  })
+})
+
+describe('column header and category display (GRID-03)', () => {
+  it('surfaces the quantity storage unit in the header, display only', () => {
+    expect(canonicalSheetColumnHeader(editableNumeric)).toBe('Titer')
+    const quantified: CanonicalSheetGridColumn = {
+      ...editableNumeric,
+      field: {
+        ...editableNumeric.field!,
+        quantity: {
+          kind: 'titer',
+          dimension: 'concentration',
+          storageUnit: 'IU/mL',
+        },
+      },
+    }
+    expect(canonicalSheetColumnHeader(quantified)).toBe('Titer (IU/mL)')
+    expect(canonicalSheetColumnHeader(readOnly)).toBe('Recovery')
+  })
+
+  it('renders known category values as labels and unknown values as-is', () => {
+    expect(
+      categoryCellDisplayText(
+        categoryField,
+        '40000000-0000-4000-8000-000000000002',
+      ),
+    ).toBe('Paused')
+    expect(categoryCellDisplayText(categoryField, 'paused')).toBe('Paused')
+    expect(categoryCellDisplayText(categoryField, 'Retired label')).toBe(
+      'Retired label',
+    )
+    expect(categoryCellDisplayText(categoryField, null)).toBe('')
+    expect(categoryCellDisplayText(null, 12)).toBe('12')
   })
 })

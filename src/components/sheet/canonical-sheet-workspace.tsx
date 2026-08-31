@@ -2,7 +2,9 @@ import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type Handsontable from 'handsontable/base'
+import type { BaseRenderer } from 'handsontable/renderers'
 
+import type { FieldDefinition } from '#/lib/field-definition'
 import { SheetbaseGrid } from '#/components/sheet/sheetbase-grid'
 import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
@@ -11,12 +13,15 @@ import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { Button, Input, Label } from '#/components/ui'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import {
+  canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
+  categoryCellDisplayText,
   clearContentsUpdates,
-  firstBulkChangeRejection,
   parseSheetCellInput,
+  resolveCanonicalCellChanges,
   validateCanonicalCell,
 } from '#/lib/canonical-sheet-grid'
+import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import { selectableFieldOptions } from '#/lib/field-presentation'
 import {
@@ -70,25 +75,46 @@ function errorText(error: unknown) {
   return null
 }
 
-function handsontableType(column: {
-  presentation: { kind: string }
-  field: {
-    category?: {
-      kind: string
-      options?: Array<{ key: string; lifecycle: string }>
-    } | null
-  } | null
-}): { type: string; dateFormat?: string; source?: string[] } {
+function categoryCellRenderer(field: FieldDefinition): BaseRenderer {
+  // GRID-03: category cells store the canonical option id but display the
+  // human label. Display only — the value never changes here.
+  return (_instance, td, _row, _col, _prop, value) => {
+    td.textContent = categoryCellDisplayText(field, value)
+    return td
+  }
+}
+
+function handsontableType(column: CanonicalSheetGridColumn): {
+  type: string
+  dateFormat?: string
+  correctFormat?: boolean
+  source?: string[]
+  renderer?: BaseRenderer
+} {
   const kind = column.presentation.kind
   if (kind === 'checkbox') return { type: 'checkbox' }
   if (kind === 'number') return { type: 'numeric' }
-  if (kind === 'date') return { type: 'date', dateFormat: 'YYYY-MM-DD' }
+  if (kind === 'date')
+    return { type: 'date', dateFormat: 'YYYY-MM-DD', correctFormat: true }
+  // GRID-03: timestamp fields edit through the date editor in minute
+  // precision; parseSheetCellInput coerces the editor output to a canonical
+  // UTC instant before validation. Bare input is interpreted as UTC because
+  // the grid carries no timezone context.
+  if (kind === 'datetime-local')
+    return { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', correctFormat: true }
   if (kind === 'category-select' && column.field) {
-    return {
-      type: 'dropdown',
-      source: selectableFieldOptions(column.field as never, null).map(
-        (option) => option.key,
-      ),
+    // GRID-03: the dropdown is seeded from the field's canonical vocabulary
+    // (active embedded options). Vocabulary-backed fields without a local
+    // option list keep a text editor — the server still owns validation.
+    const source = selectableFieldOptions(column.field, null).map(
+      (option) => option.label,
+    )
+    if (source.length > 0) {
+      return {
+        type: 'dropdown',
+        source,
+        renderer: categoryCellRenderer(column.field),
+      }
     }
   }
   return { type: 'text' }
@@ -547,7 +573,9 @@ export function CanonicalSheetEditor({
   const settings = useMemo(
     () => ({
       data: matrix.data,
-      colHeaders: matrix.columns.map((column) => column.label),
+      // GRID-03: quantity columns surface their storage unit in the header
+      // (display only; units are never converted client-side).
+      colHeaders: matrix.columns.map(canonicalSheetColumnHeader),
       columns: matrix.columns.map((column) => ({
         ...handsontableType(column),
         readOnly: !canWrite || !column.editable,
@@ -564,36 +592,42 @@ export function CanonicalSheetEditor({
       manualColumnFreeze: true,
       fixedColumnsStart: instance.state.presentation.frozenColumnCount,
       autoWrapRow: false,
-      // GRID-02: bulk writes fail closed on value semantics too. Paste,
-      // fill and clear-contents are validated against the typed column
-      // contract before Handsontable applies anything, so the visible grid
-      // can never diverge from the authoritative state over an invalid bulk
-      // write.
+      // GRID-02/GRID-03: every write source — bulk paste/fill/clear and
+      // single typed edits alike — is coerced and validated against the
+      // typed column contract before Handsontable applies anything. An
+      // invalid value cancels the whole change, so the cell visibly keeps
+      // its previous value and the canonical reason is announced: the
+      // visible grid can never diverge from the authoritative state.
       beforeChange: (
         changes: Array<[number, string | number, unknown, unknown]> | null,
         source: string,
       ) => {
-        const bulkSources = new Set([
-          'CopyPaste.paste',
-          'Autofill.fill',
-          'sheetbase.clear-contents',
-        ])
-        if (!changes || !bulkSources.has(source)) return undefined
-        const rejection = firstBulkChangeRejection(
+        if (!changes || changes.length === 0) return undefined
+        const result = resolveCanonicalCellChanges(
           matrixRef.current.columns,
           changes,
         )
-        if (!rejection) return undefined
+        if (!result.rejection) {
+          // GRID-03: apply the coerced canonical values (category option id,
+          // UTC instant, grouped-number) so the grid shows what will be
+          // written, not the raw editor output.
+          for (let index = 0; index < changes.length; index += 1) {
+            changes[index][3] = result.changes[index]?.[3]
+          }
+          return undefined
+        }
         const verb =
           source === 'CopyPaste.paste'
             ? 'Paste'
             : source === 'Autofill.fill'
               ? 'Fill'
-              : 'Clear'
+              : source === 'sheetbase.clear-contents'
+                ? 'Clear'
+                : 'Edit'
         setWriteStatus(
-          rejection.kind === 'read_only_column'
+          result.rejection.kind === 'read_only_column'
             ? `${verb} rejected: the range contains read-only or derived cells.`
-            : `${verb} rejected: ${rejection.detail} in ${rejection.label}.`,
+            : `${verb} rejected: ${result.rejection.detail} in ${result.rejection.label}. The cell kept its previous value.`,
         )
         return false
       },
@@ -697,6 +731,9 @@ export function CanonicalSheetEditor({
             created.set(physicalIndex, rowKey)
           }
           const value = parseSheetCellInput(column.field, change[3])
+          // GRID-03 safety net: beforeChange already rejected and reverted
+          // invalid values for every write source, so this branch only fires
+          // if a change reaches afterChange without passing through it.
           const invalid = validateCanonicalCell(column.field, value)
           if (invalid) {
             setWriteStatus(`Invalid value (${invalid}) in ${column.label}.`)

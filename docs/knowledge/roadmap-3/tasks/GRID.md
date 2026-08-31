@@ -1,6 +1,6 @@
 # GRID — Spreadsheet Interaction Depth
 
-**Status:** active; GRID-01 in review (#99), GRID-02 implemented on the same stack, GRID-03..05 planned.
+**Status:** active; GRID-01 in review (#99), GRID-02 and GRID-03 implemented on the same stack, GRID-04..05 planned.
 
 ## Programme goal
 
@@ -69,6 +69,8 @@ Common range operations work predictably over local, governed and read-only/deri
 
 ## GRID-03 — Typed Editing & Validation UX
 
+**Status:** completed 2026-08-31.
+
 ### Goal
 
 Make typed scientific data entry fast without hiding data semantics.
@@ -84,6 +86,48 @@ Make typed scientific data entry fast without hiding data semantics.
 ### Exit
 
 Users can enter and correct typed data efficiently, with client feedback matching server/domain validation rather than creating a second rules engine.
+
+### Implemented contract
+
+- **Single typed edits fail closed like bulk writes.** The workspace
+  `beforeChange` guard now validates every write source — keyboard edits
+  included — against the typed column contract via
+  `resolveCanonicalCellChanges`. An invalid value cancels the change, so the
+  cell visibly keeps its previous value and the canonical reason
+  (`invalid_value`, `required_value`, …) is announced with the column label;
+  the visible grid never diverges from the authoritative state. The
+  GRID-02 bulk verbs (paste/fill/clear) keep their wholesale rejection.
+- **Editor output is coerced to canonical values before it is applied.** The
+  same resolution pass rewrites Handsontable's change values through
+  `parseSheetCellInput`, so the grid shows what will be written: category
+  labels/keys resolve to the canonical option id, bare date-time input
+  (with or without seconds, space or `T` separator) becomes a canonical UTC
+  instant, and unambiguous thousands-separated clipboard numbers
+  (`1,200.5` → `1200.5`) coerce. Ambiguous input is left untouched and
+  fails closed at validation; no coercion invents new rules beyond the
+  existing canonical parse contract.
+- **Category columns use the canonical vocabulary.** The dropdown editor is
+  seeded from the field's active embedded option labels; a display-only
+  renderer shows stored option ids as their labels. Vocabulary-backed
+  fields without a local option list keep a text editor. The server (and
+  the shared local validator) remains the vocabulary authority — retired
+  options and unknown text are still rejected, never remapped.
+- **Date/time columns get real editors.** `date` fields edit through the
+  Handsontable date editor in `YYYY-MM-DD` with format correction;
+  `datetime-local` (timestamp) fields use `YYYY-MM-DD HH:mm`, coerced to a
+  canonical UTC instant on commit because the grid carries no timezone
+  context. Numeric, boolean and Record/reference columns keep their
+  existing GRID-01/02 behaviour (numeric, checkbox, record-picker flow).
+- **Quantity columns surface their storage unit.** Column headers show the
+  field's canonical `storageUnit` (for example `Titer (IU/mL)`). This is
+  display only: no client-side unit conversion exists, so input units are
+  never silently translated.
+- **Server validation remains authoritative.** The client affordances only
+  pre-screen through the existing `sheetLocalValueError` /
+  `validateCanonicalCell` contract and the GRID-02 bulk
+  validate-before-commit path (`validate_dataset_row_batch`); no new
+  client-side validation rules were added, and GRID-04/GRID-05 behaviour is
+  untouched.
 
 ## GRID-04 — Sort, Filter, Freeze & View Ergonomics
 

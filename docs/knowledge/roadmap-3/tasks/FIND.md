@@ -1,6 +1,6 @@
 # FIND — Contextual Discovery, Recents & Favourites
 
-**Status:** active; FIND-01 completed 2026-08-31.
+**Status:** active; FIND-01 completed 2026-08-31; FIND-02 completed 2026-08-31.
 
 ## Programme goal
 
@@ -76,6 +76,65 @@ Let users deliberately pin important scientific work for fast return.
 
 ### Exit
 Favourites persist across sessions, respect visibility/lifecycle, and do not duplicate or own the underlying scientific object.
+
+### Implemented contract
+
+- **One thin per-user pin table.** `api.user_favourites` (migration
+  `0155_find_02_user_favourites`): `(user_id, object_kind, object_id,
+  created_at)`, unique per user/kind/object, same five-kind check constraint
+  as `recently_viewed` (`record | dataset | sheet | project |
+  notebook_template`). A favourite is only a (kind, uuid) pair plus a
+  timestamp — it never owns, duplicates or mutates the underlying scientific
+  object, and identity is stable IDs only, never labels.
+- **Writes go through one SECURITY DEFINER RPC.** `set_record_favourite(
+  p_object_kind, p_object_id, p_favourite)` resolves the object's workspace
+  from its canonical table, verifies `api.is_workspace_member`, then upserts
+  (preserving the original `created_at` — re-starring never moves a favourite
+  to the top) or deletes. Unknown or no-longer-visible objects return NULL
+  and are ignored, never errors. Deleted records resolve to no workspace and
+  can no longer be (re)favourited. No retention cap: favourites are
+  deliberate and persist until the user unfavourites. Direct
+  INSERT/UPDATE/DELETE is revoked; SELECT is RLS-locked to
+  `user_id = api.current_user_id()`; the table and RPC are revoked from
+  `anon`/`api_client`, and favourites are NOT in the external-token
+  allowlists (`src/lib/external-token.ts` untouched — fail-closed by
+  default). Migration generated with `pnpm db:generate` (clean delta over
+  the 0154 checkpoint — no earlier hand-authored DDL re-emitted), with the
+  RPC/grants/RLS hand-authored per the 0154 pattern. **Not yet executed
+  against a database** — this environment has no PostgreSQL; run
+  `pnpm db:migrate` before deploy.
+- **Toggle UX.** `FavouriteToggle`
+  (`src/components/favourites/favourite-toggle.tsx`) renders a star in the
+  page header of the five surfaces FIND-01 tracks views on:
+  `records/$recordId` (record header actions), `projects/$projectId`
+  (project header), `datasets` (explorer header actions),
+  `templates` (via a new optional `headerActions` slot on
+  `VersionedNotebookTemplatePanel`), and `sheets/$instanceId` (shell
+  top-bar `primaryAction` slot — the Sheet workspace is full-bleed with no
+  page header). Optimistic via TanStack Query cache updates with rollback
+  and a surfaced inline error; a failed write never blocks the page. The
+  pre-existing templates-route localStorage "favourites" filter (protocol
+  template catalogue list filter) is untouched and unrelated.
+- **Home surface.** A "Favourites" section on the home route above "Recent":
+  persistent across sessions, deterministic ordering `created_at` desc with
+  a kind-then-id tiebreak, capped at 12 (`FAVOURITES_LIMIT`), with a
+  per-item remove-star control. Unfavouriting (star on an object page or the
+  remove control here) is the only removal path.
+- **Lifecycle at read time.** `resolveFavouriteItems` in
+  `src/lib/favourites.ts` batch-fetches canonical labels and drops archived,
+  deleted, retired and no-longer-resolvable objects — a favourite of a
+  since-archived object is HIDDEN, not deleted; restoring the object brings
+  the favourite back, and destinations come exclusively from
+  `src/lib/navigation.ts` helpers so favourites never link somewhere the
+  user cannot go.
+- **Navigation/search integration kept minimal.** No app-shell nav changes
+  (NAV owns navigation structure); the shell context does not carry a user
+  id, so favourites were not added to the command palette. The star toggle
+  on each object page and the home section are the integration.
+- **Boundaries honoured:** PostgreSQL/RLS stays authoritative (server-side
+  per-user persistence through the RPC, RLS-scoped reads); no saved
+  searches/views (GRID-04 owns Sheet presentation state); no recents
+  changes beyond reading the same kind vocabulary; `NEXT.md` untouched.
 
 ## FIND-03 — Contextual Discovery & Related Work
 

@@ -23,6 +23,7 @@ import {
   Pin,
   Plus,
   Search,
+  Star,
   TestTube,
   Upload,
 } from 'lucide-react'
@@ -48,6 +49,13 @@ import {
   formatRelativeTime,
 } from '#/lib/notebook-data'
 import type { NotebookRecord, Project, ProjectWire } from '#/lib/notebook-data'
+import {
+  fetchFavouriteItems,
+  favouritesQueryKeys,
+  FAVOURITES_LIMIT,
+  useSetFavourite,
+} from '#/lib/favourites'
+import type { FavouriteItem } from '#/lib/favourites'
 import {
   activitySentence,
   computeMyWorkMetrics,
@@ -248,6 +256,15 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
     queryFn: () => fetchRecentItems(notebookDataClient, userId, RECENTS_LIMIT),
   })
 
+  // FIND-02 — deliberate per-user favourites for fast return. Server-persisted
+  // per user; archived/deleted/retired objects are dropped at read time, and
+  // unfavouriting (the star on an object page or here) is the only removal.
+  const favouritesQuery = useQuery({
+    queryKey: favouritesQueryKeys.items(),
+    queryFn: () => fetchFavouriteItems(notebookDataClient, FAVOURITES_LIMIT),
+  })
+  const favouriteMutation = useSetFavourite()
+
   // All projects for quick access.
   const projectsQuery = useQuery({
     queryKey: notebookQueryKeys.projectsList(),
@@ -394,6 +411,20 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
       </section>
 
       <QuickActionsGrid />
+
+      <FavouritesSection
+        items={favouritesQuery.data ?? []}
+        isLoading={favouritesQuery.isLoading}
+        error={favouritesQuery.error}
+        onRetry={() => favouritesQuery.refetch()}
+        onRemove={(item) =>
+          favouriteMutation.mutate({
+            kind: item.kind,
+            objectId: item.id,
+            favourite: false,
+          })
+        }
+      />
 
       <RecentSection
         items={recentsQuery.data ?? []}
@@ -669,6 +700,100 @@ function QuickActionsGrid() {
         open={createOpen}
         onOpenChange={setCreateOpen}
       />
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Favourites (FIND-02) — deliberate per-user pins across canonical objects.
+// Persistent across sessions; ordering is created_at desc (most recently
+// favourited first) with a kind-then-id tiebreak, resolved to canonical
+// labels/destinations by the data layer. Favourites of archived, deleted or
+// retired objects never render here — they are hidden at read time, NOT
+// deleted; unfavouriting (star or the remove control here) is the only way a
+// favourite disappears.
+// ---------------------------------------------------------------------------
+
+export function FavouritesSection({
+  items,
+  isLoading,
+  error,
+  onRetry,
+  onRemove,
+}: {
+  items: FavouriteItem[]
+  isLoading: boolean
+  error: unknown
+  onRetry: () => void
+  onRemove: (item: FavouriteItem) => void
+}) {
+  return (
+    <section
+      aria-label="Favourites"
+      className="rounded-lg border border-border bg-card"
+    >
+      <SectionHeader
+        title="Favourites"
+        count={isLoading ? undefined : items.length}
+      />
+      {isLoading ? (
+        <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : error ? (
+        <ErrorState message="Could not load favourites." onRetry={onRetry} />
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={Star}
+          title="No favourites yet"
+          body="Use the star on any Notebook, Sheet, Dataset, project or template to pin the work you return to most."
+        />
+      ) : (
+        <ul className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => {
+            const Icon = RECENT_KIND_ICONS[item.kind]
+            return (
+              <li
+                key={`${item.kind}:${item.id}`}
+                className="flex items-center bg-card"
+              >
+                <Link
+                  to={item.destination}
+                  className="flex h-full min-w-0 flex-1 items-center gap-3 px-4 py-3 no-underline transition-colors hover:bg-muted/40"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {item.label}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {RECENT_KIND_LABELS[item.kind]}
+                      {item.identifier ? ` · ${item.identifier}` : ''} ·{' '}
+                      {formatRelativeTime(item.createdAt)}
+                    </span>
+                  </span>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="mr-2 shrink-0"
+                  aria-label={`Remove ${item.label} from favourites`}
+                  onClick={() => onRemove(item)}
+                >
+                  <Star
+                    className="size-3.5 fill-amber-400 text-amber-500"
+                    aria-hidden="true"
+                  />
+                </Button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </section>
   )
 }

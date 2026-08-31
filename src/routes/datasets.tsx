@@ -49,6 +49,7 @@ import { ObjectHistoryTimeline } from '#/components/audit'
 import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
 import { useRecentViewTracking } from '#/lib/recents'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { RegistryComposition } from '#/components/registry'
 import type { DataGridField } from '#/components/data-grid'
 import {
@@ -345,14 +346,18 @@ function DatasetExplorerRoute() {
           }}
           onSelect={selectDataset}
           actions={
-            <DatasetProductActions
-              table={selectedTable}
-              client={datasetExplorerDataClient}
-              archived={selectedTable?.lifecycle === 'archived'}
-              workspaceId={context.workspace?.id ?? ''}
-              onRefresh={refreshDatasets}
-              onCreate={selectDataset}
-            />
+            <>
+              {/* FIND-02: deliberate pin for the selected dataset. */}
+              <FavouriteToggle kind="dataset" objectId={selectedTableId} />
+              <DatasetProductActions
+                table={selectedTable}
+                client={datasetExplorerDataClient}
+                archived={selectedTable?.lifecycle === 'archived'}
+                workspaceId={context.workspace?.id ?? ''}
+                onRefresh={refreshDatasets}
+                onCreate={selectDataset}
+              />
+            </>
           }
         />
         {selectedTable ? (

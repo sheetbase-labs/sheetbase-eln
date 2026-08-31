@@ -17,6 +17,7 @@ import {
 } from '#/lib/notebook-data'
 import { objectContextBreadcrumbs } from '#/lib/navigation'
 import { useRecentViewTracking } from '#/lib/recents'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import {
   fetchSheetInstance,
   sheetInstanceDataClient,
@@ -106,6 +107,9 @@ function ComposedSheetRoute() {
       },
     },
     breadcrumbs,
+    // FIND-02: the Sheet workspace is full-bleed with no page header, so the
+    // star lives in the shell top bar's primary action slot.
+    primaryAction: <FavouriteToggle kind="sheet" objectId={instanceId} />,
   })
 
   // COLLAB-01: presence awareness for the canonical Sheet Instance. The

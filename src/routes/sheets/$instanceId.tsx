@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
@@ -61,6 +62,35 @@ function ComposedSheetRoute() {
     enabled: Boolean(owningRecordId),
   })
 
+  // Stable identity so query updates that don't change the crumbs don't
+  // re-render the app shell on every route render (review finding).
+  const breadcrumbs = useMemo(
+    () =>
+      objectContextBreadcrumbs({
+        objectLabel: instance?.name ?? 'Sheet',
+        project: instanceProjectId
+          ? {
+              id: instanceProjectId,
+              title: projectQuery.data?.title ?? 'Project',
+            }
+          : null,
+        owningRecord:
+          owningRecordId && owningRecordQuery.data
+            ? {
+                id: owningRecordId,
+                title: owningRecordQuery.data.title,
+              }
+            : null,
+      }),
+    [
+      instance?.name,
+      instanceProjectId,
+      owningRecordId,
+      projectQuery.data,
+      owningRecordQuery.data,
+    ],
+  )
+
   useShell({
     fullBleed: true,
     context: {
@@ -71,22 +101,7 @@ function ComposedSheetRoute() {
         role: context.workspace?.role,
       },
     },
-    breadcrumbs: objectContextBreadcrumbs({
-      objectLabel: instance?.name ?? 'Sheet',
-      project: instanceProjectId
-        ? {
-            id: instanceProjectId,
-            title: projectQuery.data?.title ?? 'Project',
-          }
-        : null,
-      owningRecord:
-        owningRecordId && owningRecordQuery.data
-          ? {
-              id: owningRecordId,
-              title: owningRecordQuery.data.title,
-            }
-          : null,
-    }),
+    breadcrumbs,
   })
 
   // COLLAB-01: presence awareness for the canonical Sheet Instance. The

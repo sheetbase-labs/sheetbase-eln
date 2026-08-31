@@ -47,7 +47,10 @@ function cloneBlock(block: NotebookBlock): NotebookBlock {
     payload:
       typeof structuredClone === 'function'
         ? structuredClone(block.payload)
-        : (JSON.parse(JSON.stringify(block.payload)) as Record<string, unknown>),
+        : (JSON.parse(JSON.stringify(block.payload)) as Record<
+            string,
+            unknown
+          >),
   }
 }
 
@@ -180,9 +183,10 @@ export function SubmitNotebookDialog({
   useEffect(() => {
     inputsRef.current = { record, blocks }
   }, [record, blocks])
-  // Inputs as of the moment the verify request was issued; if the live
-  // inputs drift while the RPC is in flight, the frozen signature differs
-  // from the live signature and the effect above invalidates immediately.
+  // Inputs as of the moment the verify request was issued. If the live
+  // inputs drift while the RPC is in flight, the response-time signature
+  // check in onSuccess discards the response, and any drift after a
+  // verified snapshot exists invalidates via the effect above.
   const requestInputsRef = useRef(inputsRef.current)
 
   const preview = useMutation({
@@ -193,16 +197,27 @@ export function SubmitNotebookDialog({
     onSuccess: (result) => {
       const { record: verifiedRecord, blocks: verifiedBlocks } =
         requestInputsRef.current
+      // NOTE-04 in-flight race: capture the canonical signature AT RESPONSE
+      // time and compare it against the request-time signature. If the
+      // inputs changed while the RPC was pending, this response verifies
+      // stale content — discard it (do not set the snapshot) and leave the
+      // checklist pending until a fresh verification.
+      const requestSignature = submissionCanonicalSignature({
+        record: verifiedRecord,
+        blocks: verifiedBlocks,
+      })
+      const responseSignature = submissionCanonicalSignature(inputsRef.current)
+      if (responseSignature !== requestSignature) {
+        setInvalidated(true)
+        return
+      }
       setVerified({
         digest: result,
         blocks: verifiedBlocks.map(cloneBlock),
         record: verifiedRecord ? frozenRecordMeta(verifiedRecord) : null,
         // Bind the frozen snapshot to the signature of the inputs the
         // server verified — any later drift invalidates the snapshot.
-        signature: submissionCanonicalSignature({
-          record: verifiedRecord,
-          blocks: verifiedBlocks,
-        }),
+        signature: requestSignature,
       })
       setInvalidated(false)
     },
@@ -430,9 +445,8 @@ export function SubmitNotebookDialog({
             </p>
           ) : invalidated ? (
             <p className="text-muted-foreground" role="status">
-              The Notebook changed since the last check — the snapshot above
-              was cleared. Run “Check snapshot” again to verify the current
-              content.
+              The Notebook changed since the last check — the snapshot above was
+              cleared. Run “Check snapshot” again to verify the current content.
             </p>
           ) : (
             <p className="text-muted-foreground">

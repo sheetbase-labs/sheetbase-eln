@@ -1258,7 +1258,9 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
               key={ref.recordId}
               to={recordDestination('sample', ref.recordId)}
             >
-              {ref.identifier}
+              {/* Identity is the recordId; an empty identifier label would
+                  render an invisible anchor, so fall back to the id. */}
+              {ref.identifier.trim() || ref.recordId}
             </OpenLink>
           ))}
         </div>

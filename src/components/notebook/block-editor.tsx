@@ -757,7 +757,15 @@ function LinkedRecordEditor({
             value={a.draft.targetKind}
             onChange={(e) => {
               a.setTouched(true)
-              a.setDraft({ ...a.draft, targetKind: e.target.value })
+              // NOTE-03 review fix: identity is (kind, id) — changing the
+              // kind invalidates a previously captured targetId, so it must
+              // be dropped or the Open link would point at the wrong object
+              // type. The label is also re-typed by the user afterwards.
+              a.setDraft({
+                ...a.draft,
+                targetKind: e.target.value,
+                targetId: undefined,
+              })
             }}
           >
             {TARGET_KINDS.map((k) => (

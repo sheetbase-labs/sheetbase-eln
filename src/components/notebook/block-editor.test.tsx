@@ -382,7 +382,7 @@ describe('BlockEditor — linked_record', () => {
 
 describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
   const SAMPLE_ROW = {
-    id: 'sample-uuid-1',
+    id: '7dc5c1a4-9f3e-4c8b-9a44-2f1b6c9d5e10',
     identifier: 'SMP-2025-0001',
     title: 'Sample A',
   }
@@ -417,7 +417,7 @@ describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
       expect(save).toHaveBeenCalledWith(
         expect.objectContaining({
           targetIdentifier: 'SMP-2025-0001',
-          targetId: 'sample-uuid-1',
+          targetId: '7dc5c1a4-9f3e-4c8b-9a44-2f1b6c9d5e10',
         }),
       ),
     )
@@ -433,7 +433,7 @@ describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
           payload: {
             targetKind: 'sample',
             targetIdentifier: 'SMP-2025-0001',
-            targetId: 'sample-uuid-1',
+            targetId: '7dc5c1a4-9f3e-4c8b-9a44-2f1b6c9d5e10',
             linkType: 'general',
             label: '',
           },

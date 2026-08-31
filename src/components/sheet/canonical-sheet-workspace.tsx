@@ -18,11 +18,16 @@ import {
   canonicalSheetGridMatrix,
   categoryCellDisplayText,
   clearContentsUpdates,
+  hotFiltersToPresentationFilters,
   parseSheetCellInput,
+  presentationFiltersToHotAdditions,
   resolveCanonicalCellChanges,
   validateCanonicalCell,
 } from '#/lib/canonical-sheet-grid'
-import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
+import type {
+  CanonicalSheetGridColumn,
+  HotFilterConditionStack,
+} from '#/lib/canonical-sheet-grid'
 import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import { selectableFieldOptions } from '#/lib/field-presentation'
 import {
@@ -688,6 +693,10 @@ export function CanonicalSheetEditor({
   // keeps the memoised settings stable; onReady stays identity-stable so the
   // memoised grid client never re-renders (editors stay alive).
   const hotInstanceRef = useRef<Handsontable | null>(null)
+  // GRID-04: set while saved filters are being (re)applied through the Filters
+  // plugin, so the resulting `afterFilter` echo never re-persists the state it
+  // was restoring.
+  const applyingFiltersRef = useRef(false)
   // GRID-04: Handsontable reports visual indexes; sorting, filters, hidden
   // columns and manual column moves all shift them. Resolve to the composed
   // matrix's physical coordinates before any column/row attribution so
@@ -1075,6 +1084,23 @@ export function CanonicalSheetEditor({
         if (JSON.stringify(sorts) === JSON.stringify(previous)) return
         void persistPresentation({ sorts })
       },
+      // GRID-04: dropdown-menu filter state is captured as presentation
+      // state. `afterFilter` hands over the plugin's conditions stack keyed
+      // by physical column index; it is mapped to stable column ids (equality
+      // operators only — see `hotFiltersToPresentationFilters`) and persisted
+      // with the same equality guard as sorts. Restores echo through this
+      // hook; `applyingFiltersRef` keeps that from re-writing identical
+      // state, and the JSON guard catches any identical user action.
+      afterFilter: (conditionsStack: HotFilterConditionStack[]) => {
+        if (applyingFiltersRef.current) return
+        const filters = hotFiltersToPresentationFilters(
+          conditionsStack,
+          matrixRef.current.columns,
+        )
+        const previous = instanceRef.current.state.presentation.filters
+        if (JSON.stringify(filters) === JSON.stringify(previous)) return
+        void persistPresentation({ filters })
+      },
     }
   }, [matrix, canWrite, presentation, physicalRow, physicalColumn])
 
@@ -1099,6 +1125,50 @@ export function CanonicalSheetEditor({
       mapper.setIndexesSequence(identity)
     }
   }, [columnIdsKey])
+
+  // GRID-04: saved filters are applied through the Filters plugin on mount
+  // and re-applied after every grid rebuild — a presentation change reloads
+  // Handsontable's data (new matrix identity), which clears in-session plugin
+  // state, so the persisted presentation must be replayed onto the fresh grid.
+  // The apply sets `applyingFiltersRef` first: `filter()` fires `afterFilter`
+  // synchronously and that echo must not re-persist restored state.
+  const filtersKey = JSON.stringify(presentation.filters)
+  useEffect(() => {
+    const hot = hotInstanceRef.current
+    if (!hot) return
+    const filtersPlugin = hot.getPlugin('filters') as
+      | {
+          clearConditions: () => void
+          addCondition: (
+            column: number,
+            name: string,
+            args: unknown[],
+            operation?: string,
+          ) => void
+          filter: () => void
+        }
+      | undefined
+    if (!filtersPlugin) return
+    const filters = instanceRef.current.state.presentation.filters
+    applyingFiltersRef.current = true
+    try {
+      filtersPlugin.clearConditions()
+      for (const addition of presentationFiltersToHotAdditions(
+        filters,
+        matrix.columns,
+      )) {
+        filtersPlugin.addCondition(
+          addition.column,
+          addition.name,
+          addition.args,
+          'conjunction',
+        )
+      }
+      filtersPlugin.filter()
+    } finally {
+      applyingFiltersRef.current = false
+    }
+  }, [matrix, filtersKey])
 
   useEffect(() => {
     if (composition.error) {

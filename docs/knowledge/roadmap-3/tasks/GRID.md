@@ -190,11 +190,24 @@ A user can configure and restore a useful working view of a large Sheet without 
   destination sort config is persisted as `presentation.sorts` (stable column
   ids, capped at 8) with an equality guard, and restored via the
   `columnSorting.initialConfig`. Sort state is clearly visual: it never
-  reorders rowKeys or write targets. Dropdown-menu **filters are
-  session-visual only** — Handsontable's filter-plugin state is not
-  serialisable into `presentation.filters` today, so saved views restore
-  sorts/freeze/hide/widths/order but not filters; the distinction is stated
-  in the saved-view affordance rather than silently dropped.
+  reorders rowKeys or write targets.
+- **Dropdown-menu filters persist and restore (equality-shaped subset).**
+  Handsontable 18's Filters plugin state is fully serialisable — `afterFilter`
+  hands over the conditions stack keyed by physical column index and
+  `addCondition(…)`/`filter()` rebuild it — so filter changes are captured
+  into `presentation.filters` (`afterFilter` hook, stable column ids, capped
+  at 32, equality guard) and re-applied through
+  `filtersPlugin.addCondition`/`filter()` on mount and after every grid
+  rebuild (a presentation change reloads the data and clears in-session
+  plugin state, so the persisted presentation is replayed onto the fresh
+  grid; the `afterFilter` echo never re-persists restored state). The
+  canonical schema expresses four equality operators, so exactly these
+  conditions round-trip: `eq`/`neq` (scalar values), `empty`, `not_empty` and
+  the `true`/`false` checkbox conditions (as boolean equality) — and only
+  under a plain AND group. By-value checkbox lists, contains/text/date
+  predicates and OR groups have no canonical counterpart and stay
+  session-visual; they are honestly omitted from the saved view rather than
+  approximated.
 - **Presentation writes retry once on a stale revision.** Rapid view
   controls read the same expected revision; a stale-rejection re-reads the
   authoritative instance and retries the write once before surfacing an

@@ -538,6 +538,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
         ...viewed.state.presentation,
         frozenColumnCount: 1,
         columnWidths: { [countId]: 260 },
+        filters: [{ columnId: countId, operator: 'equals', value: 260 }],
       },
     }
     renderWorkspace(<AdHocSheetWorkspace instance={viewed} />)
@@ -553,11 +554,142 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
         presentation: expect.objectContaining({
           frozenColumnCount: 1,
           columnWidths: expect.objectContaining({ [countId]: 260 }),
+          filters: [{ columnId: countId, operator: 'equals', value: 260 }],
         }),
       }),
       expect.anything(),
     )
     localStorage.removeItem(`sheetbase-sheet-view-v1:${viewed.id}`)
+  })
+
+  const statusId = '15000000-0000-4000-8000-000000000002'
+
+  /** Fake hot with a recording Filters plugin (GRID-04 filter persistence). */
+  function fakeHotWithFilters() {
+    const additions: Array<{
+      column: number
+      name: string
+      args: unknown[]
+      operation?: string
+    }> = []
+    const plugin = {
+      clearConditions: vi.fn(() => {
+        additions.length = 0
+      }),
+      addCondition: vi.fn(
+        (
+          column: number,
+          name: string,
+          args: unknown[],
+          operation?: string,
+        ) => {
+          additions.push({ column, name, args, operation })
+        },
+      ),
+      filter: vi.fn(),
+    }
+    const hot = {
+      ...fakeHot((visual) => visual),
+      getPlugin: (name: string) => (name === 'filters' ? plugin : null),
+    }
+    return { hot, plugin, additions }
+  }
+
+  it('persists dropdown-menu filters as canonical presentation state', async () => {
+    const current = presentationInstance()
+    renderWorkspace(<AdHocSheetWorkspace instance={current} />)
+    const settings = lastSettings()
+    // Two columns with conditions, as `afterFilter` reports them: physical
+    // column indexes, conjunction groups, HT 18 condition names.
+    await act(async () => {
+      settings.afterFilter([
+        {
+          column: 0,
+          conditions: [{ name: 'eq', args: [1_200] }],
+          operation: 'conjunction',
+        },
+        { column: 3, conditions: [{ name: 'not_empty' }] },
+      ])
+    })
+    expect(updateSheetInstance).toHaveBeenCalledWith(
+      current.id,
+      current.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({
+          filters: [
+            { columnId: countId, operator: 'equals', value: 1_200 },
+            { columnId: statusId, operator: 'is-not-empty' },
+          ],
+        }),
+      }),
+      expect.anything(),
+    )
+  })
+
+  it('keeps non-serialisable filter conditions session-visual', async () => {
+    const current = presentationInstance()
+    current.state = {
+      ...current.state,
+      presentation: { ...current.state.presentation, filters: [] },
+    }
+    renderWorkspace(<AdHocSheetWorkspace instance={current} />)
+    const settings = lastSettings()
+    await act(async () => {
+      settings.afterFilter([
+        {
+          column: 0,
+          conditions: [{ name: 'by_value', args: [['kept', 'shown']] }],
+        },
+      ])
+    })
+    // Nothing canonical to capture and nothing changed: no write at all.
+    expect(updateSheetInstance).not.toHaveBeenCalled()
+  })
+
+  it('re-applies persisted filters through the Filters plugin after a reload', async () => {
+    const filtered = presentationInstance()
+    filtered.state = {
+      ...filtered.state,
+      presentation: {
+        ...filtered.state.presentation,
+        filters: [
+          { columnId: countId, operator: 'equals', value: 1_200 },
+          { columnId: statusId, operator: 'is-not-empty' },
+        ],
+      },
+    }
+    const { hot, plugin, additions } = fakeHotWithFilters()
+    const view = renderWorkspace(<AdHocSheetWorkspace instance={filtered} />)
+    act(() => {
+      gridReady?.(hot)
+    })
+    // A data reload (any matrix identity change) clears plugin state; the
+    // workspace must replay the persisted presentation onto the fresh grid.
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AdHocSheetWorkspace instance={{ ...filtered }} />
+      </QueryClientProvider>,
+    )
+    expect(plugin.clearConditions).toHaveBeenCalled()
+    expect(additions).toEqual([
+      { column: 0, name: 'eq', args: [1_200], operation: 'conjunction' },
+      { column: 3, name: 'not_empty', args: [], operation: 'conjunction' },
+    ])
+    expect(plugin.filter).toHaveBeenCalled()
+    // The restore's own afterFilter echo must not re-persist identical state.
+    const callsBefore = vi.mocked(updateSheetInstance).mock.calls.length
+    const settings = lastSettings()
+    await act(async () => {
+      settings.afterFilter([
+        {
+          column: 0,
+          conditions: [{ name: 'eq', args: [1_200] }],
+          operation: 'conjunction',
+        },
+        { column: 3, conditions: [{ name: 'not_empty' }] },
+      ])
+    })
+    expect(vi.mocked(updateSheetInstance).mock.calls).toHaveLength(callsBefore)
   })
 
   it('maps beforeChange columns through the visual→physical move map', async () => {

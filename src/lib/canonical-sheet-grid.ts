@@ -424,3 +424,138 @@ export function categoryCellDisplayText(
   }
   return String(value)
 }
+
+/**
+ * GRID-04 — typed mapping between Handsontable 18's Filters plugin state and
+ * `presentation.filters`.
+ *
+ * The plugin's condition collection is deterministic and serialisable:
+ * `afterFilter` hands over `{ column, conditions, operation }` stacks keyed by
+ * the grid's physical column index (`Filters#exportConditions`), and
+ * `addCondition(…)` + `filter()` rebuild them. The canonical presentation
+ * schema accepts only four equality operators on stable column ids, so only
+ * plugin conditions with an exact typed counterpart round-trip; everything
+ * else (by-value checkbox lists, contains/date predicates, OR groups) stays
+ * session-visual and is honestly omitted from the saved view.
+ */
+export interface HotFilterConditionStack {
+  /** Physical column index into the grid data (== index into `columns`). */
+  column: number
+  conditions: Array<{ name: string; args?: unknown[] }>
+  operation?: string
+}
+
+/** One `addCondition` call for the Filters plugin, visual column indexes. */
+export interface HotFilterAddition {
+  column: number
+  name: 'eq' | 'neq' | 'empty' | 'not_empty' | 'true' | 'false'
+  args: unknown[]
+}
+
+const CAPTURED_FILTER_CAP = 32
+
+function isFilterValue(
+  value: unknown,
+): value is string | number | boolean | null {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+}
+
+/**
+ * GRID-04 — convert a Handsontable `afterFilter` conditions stack into
+ * canonical `presentation.filters`. Column coordinates resolve through the
+ * composed matrix's physical column order; only equality-shaped conditions
+ * under a plain AND group are captured (the `true`/`false` checkbox conditions
+ * map to `equals` with a boolean value). Anything the schema cannot express is
+ * dropped, capped at the schema's 32-entry limit.
+ */
+export function hotFiltersToPresentationFilters(
+  conditionsStack: readonly HotFilterConditionStack[],
+  columns: ReadonlyArray<{ id: string }>,
+): SheetPresentation['filters'] {
+  const filters: SheetPresentation['filters'] = []
+  for (const entry of conditionsStack) {
+    // The schema has no per-column OR: a disjunction group cannot be restored
+    // faithfully, so the whole group stays session-visual.
+    if (entry.operation !== undefined && entry.operation !== 'conjunction')
+      continue
+    if (
+      !Number.isInteger(entry.column) ||
+      entry.column < 0 ||
+      entry.column >= columns.length
+    )
+      continue
+    const columnId = columns[entry.column]?.id
+    if (!columnId) continue
+    for (const condition of entry.conditions) {
+      if (filters.length >= CAPTURED_FILTER_CAP) return filters
+      const name = condition.name
+      if (name === 'true') {
+        filters.push({ columnId, operator: 'equals', value: true })
+        continue
+      }
+      if (name === 'false') {
+        filters.push({ columnId, operator: 'equals', value: false })
+        continue
+      }
+      if (name === 'empty') {
+        filters.push({ columnId, operator: 'is-empty' })
+        continue
+      }
+      if (name === 'not_empty') {
+        filters.push({ columnId, operator: 'is-not-empty' })
+        continue
+      }
+      if (name === 'eq' || name === 'neq') {
+        const value = condition.args?.at(0)
+        if (!isFilterValue(value)) continue
+        filters.push({
+          columnId,
+          operator: name === 'eq' ? 'equals' : 'not-equals',
+          value,
+        })
+      }
+      // Any other condition name has no canonical counterpart — omit it.
+    }
+  }
+  return filters
+}
+
+/**
+ * GRID-04 — convert canonical `presentation.filters` into `addCondition`
+ * calls for the Filters plugin. Columns resolve through the display matrix;
+ * a filter on a hidden or retired column has no visual index and is skipped.
+ */
+export function presentationFiltersToHotAdditions(
+  filters: SheetPresentation['filters'],
+  columns: ReadonlyArray<{ id: string }>,
+): HotFilterAddition[] {
+  const additions: HotFilterAddition[] = []
+  const visualByColumnId = new Map(
+    columns.map((column, index) => [column.id, index]),
+  )
+  for (const filter of filters) {
+    const column = visualByColumnId.get(filter.columnId)
+    if (column === undefined) continue
+    if (filter.operator === 'equals') {
+      if (filter.value === true) {
+        additions.push({ column, name: 'true', args: [] })
+      } else if (filter.value === false) {
+        additions.push({ column, name: 'false', args: [] })
+      } else {
+        additions.push({ column, name: 'eq', args: [filter.value ?? null] })
+      }
+    } else if (filter.operator === 'not-equals') {
+      additions.push({ column, name: 'neq', args: [filter.value ?? null] })
+    } else if (filter.operator === 'is-empty') {
+      additions.push({ column, name: 'empty', args: [] })
+    } else {
+      additions.push({ column, name: 'not_empty', args: [] })
+    }
+  }
+  return additions
+}

@@ -7,14 +7,20 @@ import {
   categoryCellDisplayText,
   clearContentsUpdates,
   firstBulkChangeRejection,
+  hotFiltersToPresentationFilters,
   parseSheetCellInput,
+  presentationFiltersToHotAdditions,
   resolveCanonicalCellChanges,
   validateCanonicalCell,
 } from './canonical-sheet-grid'
-import type { CanonicalSheetGridColumn } from './canonical-sheet-grid'
+import type {
+  CanonicalSheetGridColumn,
+  HotFilterConditionStack,
+} from './canonical-sheet-grid'
 import type { FieldDefinition } from './field-definition'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
 import { validSheetInstanceState } from './sheet-instance.test'
+import { sanitizeSheetPresentation } from './sheet-presentation-view'
 
 const fieldId = '10000000-0000-4000-8000-000000000004'
 const rowId = '10000000-0000-4000-8000-000000000005'
@@ -533,5 +539,149 @@ describe('clear contents with visual→physical columns (GRID-04)', () => {
       (visual) => (visual === 0 ? 1 : 0),
     )
     expect(updates).toEqual([[0, 1, null]])
+  })
+})
+
+describe('Handsontable filter ⇄ presentation.filters mapping (GRID-04)', () => {
+  const columns = [{ id: 'col-a' }, { id: 'col-b' }, { id: 'col-c' }]
+  const columnIds = new Set(columns.map((column) => column.id))
+  const emptyPresentation = {
+    columnOrder: [],
+    hiddenColumnIds: [],
+    columnWidths: {},
+    frozenColumnCount: 0,
+    density: 'standard' as const,
+    filters: [],
+    sorts: [],
+  }
+
+  it('maps equality-shaped plugin conditions onto canonical operators', () => {
+    expect(
+      hotFiltersToPresentationFilters(
+        [
+          {
+            column: 0,
+            conditions: [{ name: 'eq', args: [1_200] }],
+            operation: 'conjunction',
+          },
+          { column: 1, conditions: [{ name: 'not_empty' }], operation: 'conjunction' },
+          { column: 2, conditions: [{ name: 'neq', args: ['draft'] }] },
+        ],
+        columns,
+      ),
+    ).toEqual([
+      { columnId: 'col-a', operator: 'equals', value: 1_200 },
+      { columnId: 'col-b', operator: 'is-not-empty' },
+      { columnId: 'col-c', operator: 'not-equals', value: 'draft' },
+    ])
+  })
+
+  it('maps the checkbox true/false conditions to boolean equality', () => {
+    expect(
+      hotFiltersToPresentationFilters(
+        [
+          { column: 0, conditions: [{ name: 'true' }] },
+          { column: 1, conditions: [{ name: 'false' }] },
+          { column: 2, conditions: [{ name: 'empty' }] },
+        ],
+        columns,
+      ),
+    ).toEqual([
+      { columnId: 'col-a', operator: 'equals', value: true },
+      { columnId: 'col-b', operator: 'equals', value: false },
+      { columnId: 'col-c', operator: 'is-empty' },
+    ])
+  })
+
+  it('keeps non-serialisable conditions session-visual', () => {
+    expect(
+      hotFiltersToPresentationFilters(
+        [
+          // By-value checkbox list and text/date predicates have no
+          // canonical counterpart.
+          {
+            column: 0,
+            conditions: [{ name: 'by_value', args: [['x', 'y']] }],
+          },
+          { column: 1, conditions: [{ name: 'contains', args: ['a'] }] },
+          // OR groups cannot be restored faithfully as AND entries.
+          {
+            column: 2,
+            conditions: [
+              { name: 'eq', args: [1] },
+              { name: 'eq', args: [2] },
+            ],
+            operation: 'disjunction',
+          },
+          // Coordinates outside the display matrix are never writes.
+          { column: 9, conditions: [{ name: 'eq', args: [1] }] },
+        ],
+        columns,
+      ),
+    ).toEqual([])
+  })
+
+  it('caps the captured filter list at the schema limit', () => {
+    const stack = Array.from({ length: 40 }, (_, index) => ({
+      column: 0,
+      conditions: [{ name: 'eq', args: [index] }],
+      operation: 'conjunction',
+    }))
+    expect(hotFiltersToPresentationFilters(stack, columns)).toHaveLength(32)
+  })
+
+  it('rebuilds addCondition calls, skipping hidden or unknown columns', () => {
+    expect(
+      presentationFiltersToHotAdditions(
+        [
+          { columnId: 'col-a', operator: 'equals', value: 5 },
+          { columnId: 'col-a', operator: 'is-empty' },
+          { columnId: 'col-retired', operator: 'equals', value: 'x' },
+        ],
+        columns,
+      ),
+    ).toEqual([
+      { column: 0, name: 'eq', args: [5] },
+      { column: 0, name: 'empty', args: [] },
+    ])
+  })
+
+  it('round-trips captured filters through sanitize and re-apply', () => {
+    const stack: HotFilterConditionStack[] = [
+      {
+        column: 0,
+        conditions: [{ name: 'eq', args: ['ACME'] }],
+        operation: 'conjunction',
+      },
+      { column: 2, conditions: [{ name: 'not_empty' }] },
+      // Session-visual: dropped on capture, so it must not resurrect.
+      { column: 1, conditions: [{ name: 'begins_with', args: ['S'] }] },
+    ]
+    const captured = hotFiltersToPresentationFilters(stack, columns)
+    expect(captured).toHaveLength(2)
+    const sanitized = sanitizeSheetPresentation(
+      { ...emptyPresentation, filters: captured },
+      columnIds,
+    )
+    const additions = presentationFiltersToHotAdditions(
+      sanitized?.filters ?? [],
+      columns,
+    )
+    // Re-capturing what was applied reproduces exactly the persisted shape.
+    const reStack = new Map<
+      number,
+      { column: number; conditions: Array<{ name: string; args: unknown[] }> }
+    >()
+    for (const addition of additions) {
+      const entry = reStack.get(addition.column) ?? {
+        column: addition.column,
+        conditions: [],
+      }
+      entry.conditions.push({ name: addition.name, args: addition.args })
+      reStack.set(addition.column, entry)
+    }
+    expect(
+      hotFiltersToPresentationFilters([...reStack.values()], columns),
+    ).toEqual(sanitized?.filters)
   })
 })

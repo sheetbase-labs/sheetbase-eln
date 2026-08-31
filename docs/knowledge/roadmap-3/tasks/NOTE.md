@@ -1,6 +1,6 @@
 # NOTE — Notebook Authoring & Composition Depth
 
-**Status:** active; NOTE-01 in review (#100), NOTE-02 and NOTE-03 implemented on the same stack, NOTE-04 planned.
+**Status:** active; NOTE-01 in review (#100), NOTE-02 and NOTE-03 completed on the same stack, NOTE-04 completed 2026-08-31.
 
 ## Programme goal
 
@@ -129,6 +129,8 @@ Scientific blocks feel like coherent Notebook content while still exposing their
 
 ## NOTE-04 — Review, Submission & Evidence Authoring UX
 
+**Status:** completed 2026-08-31.
+
 ### Goal
 
 Make the transition from working Notebook to reviewed/submitted evidence understandable.
@@ -143,6 +145,39 @@ Make the transition from working Notebook to reviewed/submitted evidence underst
 ### Exit
 
 A user can understand exactly what will be frozen/submitted, complete review actions, and later inspect the resulting evidence without confusing audit history with snapshots.
+
+### Implemented contract
+
+- **Readiness is derived, never invented.** The submit dialog
+  (`SubmitNotebookDialog`) shows a per-item readiness checklist computed in
+  `src/lib/notebook-submission.ts` from canonical state: NotebookDocument's
+  unsaved-draft signal (now routed from `EditableNotebook` up to the record
+  route and into the dialog, blocking submit while drafts are unsaved), the
+  lifecycle guards the submit RPC itself enforces (archived / locked /
+  active review), the server-owned `preview_submission_digest` check, and the
+  ≥1-reviewer requirement. Checks the browser cannot evaluate are honest
+  manual items that link to the authoritative surface: pending Sheet
+  write-back lives inside the Sheet workspace's own state, so the dialog
+  lists each embedded Sheet as a link to `/sheets/$instanceId` instead of
+  fabricating a pass/fail. No new validation rules, no new tables.
+- **The preview is not evidence.** After the server verifies the snapshot
+  (`preview_submission_digest`), the dialog renders what submitting will pin
+  using the existing read-only `BlockPreview` machinery in document order,
+  plus a digest/structure-version/metadata-version/calculation-input summary.
+  The section is explicitly labelled "Preview — what submitting will pin",
+  distinct from submitted evidence; already-frozen charts/analyses keep
+  their pinned versions and embedded Sheets are flagged as freezing at
+  submission time. The frozen snapshot and digest are created only when
+  `submit_record_revision` succeeds; submission RPC semantics are untouched.
+- **Post-submission flow keeps both surfaces reachable.** Submit success
+  still lands on `/reviews/$revisionId`; the review workspace header now
+  links "Open working Notebook" and "View submitted evidence"
+  (`/records/$recordId?revision=…`), which shows the existing
+  HistoricalEvidenceBanner and revision evidence view. Audit history (the
+  review, decisions, timeline) remains distinct from the frozen snapshot.
+- **Unchanged.** Review decision UI, signature mechanics (SIGN-002),
+  amendment flow, review RPCs, and NOTE-02/03 outline anchors, collapse and
+  block composition links.
 
 ## Boundaries
 

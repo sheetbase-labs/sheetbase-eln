@@ -243,6 +243,14 @@ function ExperimentNotebookRoute() {
     enabled: isNotebookIndex,
   })
 
+  // NOTE-04: the document-level unsaved-work signal lives at the route so the
+  // submit dialog's readiness checklist reflects unsaved drafts. It mirrors
+  // NotebookDocument's own signal; the document re-emits on record change.
+  const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
+  useEffect(() => {
+    setHasUnsavedWork(false)
+  }, [recordId, historicalRevisionId])
+
   // Child routes (e.g. /overview) render through the Outlet; the notebook
   // queries only run for the exact record path.
   if (!isNotebookIndex) return <Outlet />
@@ -475,6 +483,7 @@ function ExperimentNotebookRoute() {
             blocks={historicalEvidence?.blocks ?? blocks}
             historicalRevisionId={historicalRevisionId}
             review={review}
+            hasUnsavedWork={hasUnsavedWork}
             liveLockedAt={record.lockedAt}
             liveLockedByRevisionId={record.lockedByRevisionId}
           />
@@ -513,6 +522,7 @@ function ExperimentNotebookRoute() {
               collaborationWorkspaceId={context.workspace?.id}
               outline={outlineControls}
               collaborationRole={context.workspace?.role}
+              onUnsavedWorkChange={setHasUnsavedWork}
             />
           )}
         </div>
@@ -552,6 +562,8 @@ export function StickyRecordHeader({
   blocks = [],
   historicalRevisionId,
   review = null,
+  /** NOTE-04: document-level unsaved-work signal for the submit dialog. */
+  hasUnsavedWork = false,
   liveLockedAt,
   liveLockedByRevisionId,
 }: {
@@ -564,6 +576,8 @@ export function StickyRecordHeader({
   blocks?: NotebookBlockDomain[]
   historicalRevisionId?: string
   review?: NotebookReviewContext | null
+  /** NOTE-04: NotebookDocument's unsaved-work signal. */
+  hasUnsavedWork?: boolean
   /** Live lock fields when `record` is a historical snapshot overlay. */
   liveLockedAt?: string | null
   liveLockedByRevisionId?: string | null
@@ -577,6 +591,10 @@ export function StickyRecordHeader({
   const lockedAt = liveLockedAt ?? record.lockedAt
   const lockedByRevisionId = liveLockedByRevisionId ?? record.lockedByRevisionId
   const reviewActivity = notebookReviewActivity(review)
+  // NOTE-04: defensive for the submit dialog's readiness checklist — the
+  // dialog only opens from a submittable header, but an active review that
+  // appears between render and confirm is surfaced honestly.
+  const activeReview = reviewActivity !== 'none'
   const lifecycle = notebookLifecycleLabel({
     lockedAt,
     archivedAt: record.archivedAt,
@@ -741,6 +759,11 @@ export function StickyRecordHeader({
           projectId={projectId}
           reviewerUserId={currentUserId}
           workspaceId={workspaceId}
+          blocks={blocks}
+          hasUnsavedWork={hasUnsavedWork}
+          archivedAt={record.archivedAt}
+          lockedAt={liveLockedAt ?? record.lockedAt}
+          activeReview={activeReview}
         />
       ) : null}
       {duplicateOpen && projectId && !historicalRevisionId ? (
@@ -895,6 +918,8 @@ export function NotebookCanvas({
   collaborationRole?: string
   /** NOTE-02: shared section-collapse controls (route-owned presentation state). */
   outline?: NotebookOutlineControls
+  /** NOTE-04: notified with NotebookDocument's unsaved-work signal. */
+  onUnsavedWorkChange?: (hasUnsavedWork: boolean) => void
 }) {
   if (isLoading) {
     return (
@@ -985,6 +1010,7 @@ function EditableNotebook({
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
   outline,
+  onUnsavedWorkChange,
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
@@ -996,6 +1022,8 @@ function EditableNotebook({
   collaborationRole?: string
   /** NOTE-02: shared section-collapse controls. */
   outline?: NotebookOutlineControls
+  /** NOTE-04: notified with NotebookDocument's unsaved-work signal. */
+  onUnsavedWorkChange?: (hasUnsavedWork: boolean) => void
 }) {
   const blocksKey = notebookQueryKeys.blocks(record.id)
   const recordKey = notebookQueryKeys.record(record.id)
@@ -1494,7 +1522,10 @@ function EditableNotebook({
         blocks={blocks}
         onSaveBlock={handleSave}
         offline={offline}
-        onUnsavedWorkChange={setHasUnsavedWork}
+        onUnsavedWorkChange={(value) => {
+          setHasUnsavedWork(value)
+          onUnsavedWorkChange?.(value)
+        }}
         onInsertBlock={handleInsert}
         onPinProtocol={handlePinProtocol}
         onAttachFile={handleAttachFile}

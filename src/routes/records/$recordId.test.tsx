@@ -120,6 +120,28 @@ describe('StickyRecordHeader', () => {
     expect(screen.queryByText('stability')).toBeNull()
     expect(screen.queryByText('qPCR')).toBeNull()
   })
+
+  // NOTE-04: the submit dialog's readiness checklist reflects the live
+  // unsaved-draft signal routed from NotebookDocument.
+  it('surfaces unsaved drafts in the submit dialog readiness checklist', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+        hasUnsavedWork
+      />,
+    )
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Submit' }))
+    expect(await screen.findByText('No unsaved drafts')).toBeTruthy()
+    expect(
+      screen.getByText(/save or discard them before submitting/i),
+    ).toBeTruthy()
+  })
 })
 
 describe('ArchivedBanner', () => {

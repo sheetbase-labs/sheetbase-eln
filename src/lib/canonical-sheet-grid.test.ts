@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   canonicalSheetGridMatrix,
+  clearContentsUpdates,
+  firstBulkChangeRejection,
   parseSheetCellInput,
   validateCanonicalCell,
 } from './canonical-sheet-grid'
+import type { CanonicalSheetGridColumn } from './canonical-sheet-grid'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
 import { validSheetInstanceState } from './sheet-instance.test'
 
@@ -127,5 +130,117 @@ describe('validateCanonicalCell', () => {
     ).toBe('invalid_value')
     expect(validateCanonicalCell(field, 'ok')).toBeNull()
     expect(fieldId).toHaveLength(36)
+  })
+})
+
+const editableNumeric: CanonicalSheetGridColumn = {
+  id: 'col-editable',
+  label: 'Titer',
+  origin: 'bound',
+  field: {
+    fieldId: 'field-titer',
+    key: 'titer',
+    label: 'Titer',
+    description: null,
+    logicalType: 'decimal',
+    nullable: true,
+    defaultValue: null,
+    cardinality: 'one',
+    quantity: null,
+    validation: {},
+    category: null,
+    relationship: null,
+    computation: { mode: 'stored' },
+    lifecycle: 'active',
+  },
+  presentation: { kind: 'number', inputType: 'number' },
+  editable: true,
+}
+const readOnly: CanonicalSheetGridColumn = {
+  id: 'col-readonly',
+  label: 'Recovery',
+  origin: 'calculation',
+  field: null,
+  presentation: { kind: 'text', inputType: null },
+  editable: false,
+}
+const bulkColumns = [editableNumeric, readOnly]
+
+describe('bulk change validation (GRID-02)', () => {
+  const columns = bulkColumns
+
+  it('accepts a fully editable, type-safe bulk change set', () => {
+    expect(
+      firstBulkChangeRejection(columns, [
+        [0, 0, null, 1.2e9],
+        [1, 0, null, '8.5e8'],
+      ]),
+    ).toBeNull()
+  })
+
+  it('rejects the whole bulk write when any target is read-only or derived', () => {
+    expect(
+      firstBulkChangeRejection(columns, [
+        [0, 0, null, 1],
+        [0, 1, null, 'nope'],
+      ]),
+    ).toEqual({ kind: 'read_only_column', label: 'Recovery' })
+  })
+
+  it('rejects the whole bulk write on a value that violates the field type', () => {
+    expect(
+      firstBulkChangeRejection(columns, [[0, 0, null, 'not-a-number']]),
+    ).toEqual({
+      kind: 'invalid_value',
+      label: 'Titer',
+      detail: 'invalid_value',
+    })
+  })
+
+  it('ignores non-matrix columns and treats empty input as null', () => {
+    expect(
+      firstBulkChangeRejection(columns, [
+        [0, 7, null, 'header-cell'],
+        [2, 0, null, ''],
+      ]),
+    ).toBeNull()
+  })
+})
+
+describe('clear contents updates (GRID-02 review fixes)', () => {
+  const columns = bulkColumns
+
+  it('emits [row, col, null] triples — never the old value as the new value', () => {
+    const updates = clearContentsUpdates(
+      columns,
+      [{ from: { row: 0, col: 0 }, to: { row: 1, col: 1 } }],
+      (row, col) => (row === 0 && col === 0 ? 1.2e9 : 'filled'),
+    )
+    // Row 0 col 0 is editable and filled; col 1 is derived (skipped);
+    // row 1 col 0 is editable and filled; row 1 col 1 derived (skipped).
+    expect(updates).toEqual([
+      [0, 0, null],
+      [1, 0, null],
+    ])
+    for (const [, , newValue] of updates) expect(newValue).toBeNull()
+  })
+
+  it('skips nullish and empty cells so spare rows mint no phantom rows', () => {
+    const updates = clearContentsUpdates(
+      columns,
+      [{ from: { row: 0, col: 0 }, to: { row: 2, col: 0 } }],
+      (row) => (row === 0 ? 5 : row === 1 ? undefined : null),
+    )
+    expect(updates).toEqual([[0, 0, null]])
+  })
+
+  it('returns an empty list for an all-empty selection', () => {
+    expect(
+      clearContentsUpdates(
+        columns,
+        [{ from: { row: 0, col: 1 }, to: { row: 0, col: 1 } }],
+        () => null,
+      ),
+    ).toEqual([])
   })
 })

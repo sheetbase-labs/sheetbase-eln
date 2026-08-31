@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import type Handsontable from 'handsontable/base'
 
 import { SheetbaseGrid } from '#/components/sheet/sheetbase-grid'
 import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
@@ -11,6 +12,8 @@ import { Button, Input, Label } from '#/components/ui'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import {
   canonicalSheetGridMatrix,
+  clearContentsUpdates,
+  firstBulkChangeRejection,
   parseSheetCellInput,
   validateCanonicalCell,
 } from '#/lib/canonical-sheet-grid'
@@ -53,6 +56,7 @@ import { fetchModelFields } from '#/lib/model-fields'
 import { validateSheetRecordBatch } from '#/lib/sheet-record-mapping'
 import {
   resolveSheetWriteTarget,
+  SheetBatchValidationError,
   sheetCellWriteError,
   writeSheetCells,
 } from '#/lib/sheet-write-back'
@@ -432,6 +436,16 @@ export function CanonicalSheetEditor({
       })
     },
     onError: (error) => {
+      if (error instanceof SheetBatchValidationError) {
+        // GRID-02: the server rejected the batch before any authoritative
+        // write. Surface the canonical reason; nothing was committed.
+        setWriteStatus(
+          `Write-back rejected before commit: ${
+            error.errors[0]?.code ?? 'validation_failed'
+          }. Nothing was written.`,
+        )
+        return
+      }
       setWriteStatus(`Write-back ${sheetCellWriteError(error)}.`)
     },
   })
@@ -521,6 +535,15 @@ export function CanonicalSheetEditor({
   deleteRowRef.current = deleteSelectedRow
   deleteColumnRef.current = deleteSelectedColumn
 
+  // GRID-02: the clear-contents context-menu action edits through the grid's
+  // own change pipeline, so it needs the live instance. The ref pattern keeps
+  // the memoised settings stable; onReady stays identity-stable so the
+  // memoised grid client never re-renders (editors stay alive).
+  const hotInstanceRef = useRef<Handsontable | null>(null)
+  const handleGridReady = useCallback((hot: Handsontable | null) => {
+    hotInstanceRef.current = hot
+  }, [])
+
   const settings = useMemo(
     () => ({
       data: matrix.data,
@@ -541,6 +564,39 @@ export function CanonicalSheetEditor({
       manualColumnFreeze: true,
       fixedColumnsStart: instance.state.presentation.frozenColumnCount,
       autoWrapRow: false,
+      // GRID-02: bulk writes fail closed on value semantics too. Paste,
+      // fill and clear-contents are validated against the typed column
+      // contract before Handsontable applies anything, so the visible grid
+      // can never diverge from the authoritative state over an invalid bulk
+      // write.
+      beforeChange: (
+        changes: Array<[number, string | number, unknown, unknown]> | null,
+        source: string,
+      ) => {
+        const bulkSources = new Set([
+          'CopyPaste.paste',
+          'Autofill.fill',
+          'sheetbase.clear-contents',
+        ])
+        if (!changes || !bulkSources.has(source)) return undefined
+        const rejection = firstBulkChangeRejection(
+          matrixRef.current.columns,
+          changes,
+        )
+        if (!rejection) return undefined
+        const verb =
+          source === 'CopyPaste.paste'
+            ? 'Paste'
+            : source === 'Autofill.fill'
+              ? 'Fill'
+              : 'Clear'
+        setWriteStatus(
+          rejection.kind === 'read_only_column'
+            ? `${verb} rejected: the range contains read-only or derived cells.`
+            : `${verb} rejected: ${rejection.detail} in ${rejection.label}.`,
+        )
+        return false
+      },
       contextMenu: {
         items: {
           insert_row: {
@@ -570,6 +626,36 @@ export function CanonicalSheetEditor({
           sp1: { name: '---------' },
           copy: {},
           cut: {},
+          sp2: { name: '---------' },
+          clear_contents: {
+            name: 'Clear contents',
+            disabled: () => !canWrite,
+            callback: () => {
+              // GRID-02: clearing writes nulls through the same per-cell
+              // semantics as editing (parse → validate → authoritative
+              // target). Read-only/derived cells and empty spare-row cells
+              // are skipped; the workspace beforeChange bulk-validation
+              // rejects the whole operation if any cleared cell violates
+              // the typed contract (e.g. a required field), so the visible
+              // grid never diverges from the authoritative state.
+              const hot = hotInstanceRef.current
+              if (!hot) return
+              const ranges = hot.getSelectedRange()
+              if (!ranges || ranges.length === 0) return
+              const updates = clearContentsUpdates(
+                matrixRef.current.columns,
+                ranges,
+                (row, col) => hot.getDataAtCell(row, col),
+              )
+              if (updates.length === 0) {
+                setWriteStatus(
+                  'Nothing to clear: the selection has no editable, non-empty cells.',
+                )
+                return
+              }
+              hot.setDataAtCell(updates, 'sheetbase.clear-contents')
+            },
+          },
         },
       },
       afterSelectionEnd: (row: number, col: number) => {
@@ -589,16 +675,26 @@ export function CanonicalSheetEditor({
         }> = []
         const pending: Record<string, Record<string, unknown>> = {}
         const created = new Map<number, string>()
+        // GRID-02: Handsontable reports visual row indexes; with column
+        // sorting active they diverge from the canonical matrix's physical
+        // order. Resolve the physical row first so a change is attributed to
+        // the rowKey it was actually edited on — never a neighbour's.
+        const hot = hotInstanceRef.current
+        const physicalRow = (visualRow: number) => {
+          const mapped = hot?.toPhysicalRow(visualRow)
+          return typeof mapped === 'number' && mapped >= 0 ? mapped : visualRow
+        }
         for (const change of changes) {
           const columnIndex =
             typeof change[1] === 'number' ? change[1] : Number(change[1])
           const column = currentMatrix.columns.at(columnIndex)
           if (!column || !column.editable) continue
+          const physicalIndex = physicalRow(change[0])
           let rowKey =
-            currentMatrix.rowKeys[change[0]] ?? created.get(change[0])
+            currentMatrix.rowKeys[physicalIndex] ?? created.get(physicalIndex)
           if (!rowKey) {
             rowKey = crypto.randomUUID()
-            created.set(change[0], rowKey)
+            created.set(physicalIndex, rowKey)
           }
           const value = parseSheetCellInput(column.field, change[3])
           const invalid = validateCanonicalCell(column.field, value)
@@ -659,10 +755,7 @@ export function CanonicalSheetEditor({
       <div className="flex shrink-0 items-center justify-end gap-2 border-b px-2 py-1">
         {visualiseDatasetId ? (
           <Button asChild size="sm" variant="outline">
-            <Link
-              to="/analysis"
-              search={{ dataset: visualiseDatasetId }}
-            >
+            <Link to="/analysis" search={{ dataset: visualiseDatasetId }}>
               Visualise
             </Link>
           </Button>
@@ -816,7 +909,11 @@ export function CanonicalSheetEditor({
         </p>
       ) : (
         <div className="min-h-0 flex-1">
-          <SheetbaseGrid ariaLabel="Sheet" settings={settings} />
+          <SheetbaseGrid
+            ariaLabel="Sheet"
+            settings={settings}
+            onReady={handleGridReady}
+          />
         </div>
       )}
       <div className="space-y-1 border-t px-3 py-2 text-xs text-muted-foreground">
@@ -849,9 +946,36 @@ export function CanonicalSheetEditor({
               : ''}
             {provenance &&
             provenance.kind === 'present' &&
-            provenance.provenance.sourceKind === 'dataset'
-              ? ` · dataset ${provenance.provenance.sourceDatasetId}`
-              : ''}
+            provenance.provenance.sourceKind === 'dataset' ? (
+              <>
+                {' · dataset '}
+                {/* NAV-02: provenance resolves to the canonical object. */}
+                <Link
+                  className="underline underline-offset-2 hover:text-foreground"
+                  to="/datasets"
+                  search={{
+                    dataset: provenance.provenance.sourceDatasetId,
+                    archived: false,
+                  }}
+                >
+                  {provenance.provenance.sourceDatasetId}
+                </Link>
+              </>
+            ) : null}
+            {provenance &&
+            provenance.kind === 'present' &&
+            provenance.provenance.sourceKind === 'record' ? (
+              <>
+                {' · record '}
+                <Link
+                  className="underline underline-offset-2 hover:text-foreground"
+                  to="/records/$recordId"
+                  params={{ recordId: provenance.provenance.sourceRecordId }}
+                >
+                  {provenance.provenance.sourceRecordId}
+                </Link>
+              </>
+            ) : null}
           </p>
         ) : null}
       </div>

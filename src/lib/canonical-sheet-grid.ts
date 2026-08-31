@@ -184,3 +184,77 @@ export function validateCanonicalCell(
   if (!field) return null
   return sheetLocalValueError(field, value)
 }
+
+/**
+ * GRID-02 — validate a bulk change set (paste/fill) against the typed column
+ * contract before Handsontable applies anything. A bulk write is accepted
+ * only when every target cell is editable and every value parses and
+ * validates; otherwise the whole operation fails closed, so the visible grid
+ * can never diverge from the authoritative state over an invalid bulk write.
+ */
+export type BulkChangeRejection =
+  | { kind: 'read_only_column'; label: string }
+  | { kind: 'invalid_value'; label: string; detail: string }
+
+export function firstBulkChangeRejection(
+  columns: CanonicalSheetGridColumn[],
+  changes: Array<[number, string | number, unknown, unknown]>,
+): BulkChangeRejection | null {
+  for (const change of changes) {
+    const columnIndex =
+      typeof change[1] === 'number' ? change[1] : Number(change[1])
+    const column = columns.at(columnIndex)
+    // Columns outside the canonical matrix (row headers etc.) are not writes.
+    if (!column) continue
+    if (!column.editable) {
+      return { kind: 'read_only_column', label: column.label }
+    }
+    const value = parseSheetCellInput(column.field, change[3])
+    const invalid = validateCanonicalCell(column.field, value)
+    if (invalid) {
+      return { kind: 'invalid_value', label: column.label, detail: invalid }
+    }
+  }
+  return null
+}
+
+/**
+ * GRID-02 — compute the change list for a "clear contents" bulk operation.
+ *
+ * Returns `[row, col, null]` triples for every editable, non-empty cell in
+ * the selection (Handsontable's `setDataAtCell` change format reads element
+ * `[2]` as the new value). Read-only/derived columns and already-empty cells
+ * are skipped, so clearing never mints phantom spare-row entries and the
+ * workspace `beforeChange` validation remains the fail-closed gate for
+ * required fields.
+ */
+export function clearContentsUpdates(
+  columns: CanonicalSheetGridColumn[],
+  ranges: Array<{
+    from: { row: number | null; col: number | null }
+    to: { row: number | null; col: number | null }
+  }>,
+  readCell: (row: number, col: number) => unknown,
+): Array<[number, number, unknown]> {
+  const updates: Array<[number, number, unknown]> = []
+  for (const range of ranges) {
+    const fromRow = range.from.row ?? 0
+    const toRow = range.to.row ?? 0
+    const fromCol = range.from.col ?? 0
+    const toCol = range.to.col ?? 0
+    const startRow = Math.max(0, Math.min(fromRow, toRow))
+    const endRow = Math.max(fromRow, toRow)
+    const startCol = Math.max(0, Math.min(fromCol, toCol))
+    const endCol = Math.max(fromCol, toCol)
+    for (let row = startRow; row <= endRow; row += 1) {
+      for (let col = startCol; col <= endCol; col += 1) {
+        const column = columns.at(col)
+        if (!column || !column.editable) continue
+        const current = readCell(row, col)
+        if (current == null || current === '') continue
+        updates.push([row, col, null])
+      }
+    }
+  }
+  return updates
+}

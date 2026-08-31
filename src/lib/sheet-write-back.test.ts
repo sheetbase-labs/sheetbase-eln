@@ -7,6 +7,7 @@ import type { ComposedSheetSnapshot } from './sheet-composition-data'
 import { parseSheetDefinitionConfiguration } from './sheet-definition'
 import {
   resolveSheetWriteTarget,
+  SheetBatchValidationError,
   sheetCellWriteError,
   writeSheetCell,
   writeSheetCells,
@@ -410,8 +411,8 @@ describe('composed Sheet write-back', () => {
       },
       clientWithRpc(rpc),
     )
-    // One grouped commit instead of one RPC per cell.
-    expect(rpc).toHaveBeenCalledTimes(1)
+    // One grouped commit instead of one RPC per cell (plus GRID-02 validate).
+    expect(rpc).toHaveBeenCalledTimes(2)
     expect(rpc).toHaveBeenCalledWith('commit_dataset_row_batch', {
       p_dataset_id: DATASET,
       p_expected_dataset_revision: 9,
@@ -431,6 +432,27 @@ describe('composed Sheet write-back', () => {
       ],
       p_idempotency_key: expect.stringContaining(TOKEN),
     })
+    // GRID-02: the same batch shape is validated before the commit.
+    expect(rpc).toHaveBeenNthCalledWith(1, 'validate_dataset_row_batch', {
+      p_dataset_id: DATASET,
+      p_expected_dataset_revision: 9,
+      p_rows: [
+        {
+          operation: 'update',
+          rowId: ROW,
+          expectedRevision: 4,
+          values: { [mappedSource.sourceFieldId]: RECORD },
+        },
+        {
+          operation: 'update',
+          rowId: ROW2,
+          expectedRevision: 5,
+          values: { [mappedSource.sourceFieldId]: RECORD2 },
+        },
+      ],
+    })
+    expect(rpc).toHaveBeenNthCalledWith(2, 'commit_dataset_row_batch',
+      expect.anything())
   })
 
   it('groups record-bound cells per record and local cells into one mutation', async () => {
@@ -483,6 +505,40 @@ describe('composed Sheet write-back', () => {
     )
   })
 
+  it('validates the bulk batch before the authoritative commit (GRID-02)', async () => {
+    const composition = await snapshot(datasetWire())
+    const rpc = vi.fn().mockImplementation((name: string) => {
+      if (name === 'validate_dataset_row_batch') {
+        return Promise.resolve({
+          ok: false,
+          errors: [{ code: 'invalid_value', rowId: ROW }],
+        })
+      }
+      return Promise.resolve({ ok: true })
+    })
+    await expect(
+      writeSheetCells(
+        {
+          composition,
+          cells: [
+            {
+              rowKey: composition.rows[0].rowKey,
+              columnId: mappedColumn.id,
+              value: RECORD,
+            },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toThrow('sheet_batch_validation_failed')
+    // The authoritative commit must not run when validation rejects.
+    expect(rpc).not.toHaveBeenCalledWith(
+      'commit_dataset_row_batch',
+      expect.anything(),
+    )
+  })
+
   it('fails fast before any write when a cell target is unresolvable', async () => {
     const composition = await snapshot(datasetWire())
     const rpc = vi.fn().mockResolvedValue({})
@@ -525,7 +581,8 @@ describe('composed Sheet write-back', () => {
       },
       clientWithRpc(rpc),
     )
-    expect(rpc).toHaveBeenCalledTimes(1)
+    // GRID-02: one validate + one commit for the grouped batch.
+    expect(rpc).toHaveBeenCalledTimes(2)
     expect(rpc).toHaveBeenCalledWith('commit_dataset_row_batch', {
       p_dataset_id: DATASET,
       p_expected_dataset_revision: 9,
@@ -585,8 +642,8 @@ describe('composed Sheet write-back', () => {
       },
       clientWithRpc(rpc),
     )
-    // 4 cells → 1 commit with exactly 2 row entries (one per row).
-    expect(rpc).toHaveBeenCalledTimes(1)
+    // 4 cells → 1 validate + 1 commit with exactly 2 row entries (one per row).
+    expect(rpc).toHaveBeenCalledTimes(2)
     expect(rpc).toHaveBeenCalledWith('commit_dataset_row_batch', {
       p_dataset_id: DATASET,
       p_expected_dataset_revision: 9,
@@ -637,8 +694,8 @@ describe('composed Sheet write-back', () => {
         clientWithRpc(rpc),
       ),
     ).rejects.toThrow('stop after local dispatch')
-    // Dataset → commit; record → update_record_custom_fields; local → mutate.
-    expect(rpc).toHaveBeenCalledTimes(2)
+    // Dataset → validate + commit; local → mutate.
+    expect(rpc).toHaveBeenCalledTimes(3)
     expect(rpc).toHaveBeenCalledWith('commit_dataset_row_batch', {
       p_dataset_id: DATASET,
       p_expected_dataset_revision: 9,
@@ -665,5 +722,62 @@ describe('composed Sheet write-back', () => {
         ],
       }),
     )
+  })
+})
+
+describe('GRID-02 review fixes', () => {
+  it('treats a commit that returns ok:false as a rejected write, not success', async () => {
+    const composition = await snapshot(datasetWire())
+    const rpc = vi.fn().mockImplementation((name: string) => {
+      if (name === 'validate_dataset_row_batch')
+        return Promise.resolve({ ok: true })
+      return Promise.resolve({
+        ok: false,
+        errors: [{ code: 'stale_row_revision', rowId: ROW }],
+      })
+    })
+    await expect(
+      writeSheetCells(
+        {
+          composition,
+          cells: [
+            {
+              rowKey: composition.rows[0].rowKey,
+              columnId: mappedColumn.id,
+              value: RECORD,
+            },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toThrow('sheet_batch_validation_failed')
+  })
+
+  it('propagates a validate→commit revision race as a rejected batch', async () => {
+    const composition = await snapshot(datasetWire())
+    const rpc = vi
+      .fn()
+      .mockImplementation((name: string) =>
+        name === 'validate_dataset_row_batch'
+          ? Promise.resolve({ ok: true })
+          : Promise.resolve({ ok: false }),
+      )
+    await expect(
+      writeSheetCells(
+        {
+          composition,
+          cells: [
+            {
+              rowKey: composition.rows[0].rowKey,
+              columnId: mappedColumn.id,
+              value: RECORD,
+            },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toBeInstanceOf(SheetBatchValidationError)
   })
 })

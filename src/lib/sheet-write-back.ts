@@ -7,6 +7,28 @@ import { mutateSheetLocalState } from './sheet-local-data'
 
 const uuid = z.string().uuid()
 
+/**
+ * GRID-02 — the server rejected a bulk write during pre-commit validation.
+ * Carries the canonical per-row/field error list so the workspace can point
+ * the scientist at the offending cell instead of committing partial state.
+ */
+export class SheetBatchValidationError extends Error {
+  readonly errors: Array<{ code: string; rowId?: string; fieldId?: string }>
+
+  constructor(
+    errors: Array<{ code: string; rowId?: string; fieldId?: string }> | undefined,
+  ) {
+    const first = errors?.[0]
+    super(
+      first
+        ? `sheet_batch_validation_failed: ${first.code}`
+        : 'sheet_batch_validation_failed',
+    )
+    this.name = 'SheetBatchValidationError'
+    this.errors = errors ?? []
+  }
+}
+
 export type SheetWriteTarget =
   | {
       kind: 'dataset'
@@ -107,6 +129,7 @@ export function sheetCellWriteError(error: unknown): SheetCellWriteError {
       ? String(error.code)
       : ''
   const message = error instanceof Error ? error.message : String(error)
+  if (error instanceof SheetBatchValidationError) return 'invalid_value'
   if (message.includes('ambiguous_target')) return 'ambiguous_target'
   if (message.includes('calculated_read_only')) return 'calculated_read_only'
   if (message.includes('unresolved_target')) return 'unresolved_target'
@@ -331,19 +354,46 @@ export async function writeSheetCells(
       }
       entry.values[t.fieldId] = cell.value
     }
-    await client.rpc('commit_dataset_row_batch', {
+    const rows = [...rowsByRowId.values()].map(
+      ({ rowId, expectedRevision, values }) => ({
+        operation: 'update' as const,
+        rowId,
+        expectedRevision,
+        values,
+      }),
+    )
+
+    // GRID-02: bulk validation runs before the authoritative commit so a
+    // rejected batch never reaches the write path. The server remains the
+    // validation authority; this call surfaces its decision before writes.
+    const validated = await client.rpc<{
+      ok?: boolean
+      errors?: Array<{ code: string }>
+    }>('validate_dataset_row_batch', {
       p_dataset_id: dataset,
       p_expected_dataset_revision: Number(expectedDatasetRevision),
-      p_rows: [...rowsByRowId.values()].map(
-        ({ rowId, expectedRevision, values }) => ({
-          operation: 'update',
-          rowId,
-          expectedRevision,
-          values,
-        }),
-      ),
+      p_rows: rows,
+    })
+    if (validated.ok === false) {
+      throw new SheetBatchValidationError(validated.errors)
+    }
+
+    // GRID-02: the commit RPC also returns ok:false (instead of throwing)
+    // when its internal validation fails — e.g. the dataset revision moved
+    // between validate and commit. A silent ok:false would report
+    // "Write-back saved." with nothing written; fail closed instead.
+    const committed = await client.rpc<{
+      ok?: boolean
+      errors?: Array<{ code: string }>
+    }>('commit_dataset_row_batch', {
+      p_dataset_id: dataset,
+      p_expected_dataset_revision: Number(expectedDatasetRevision),
+      p_rows: rows,
       p_idempotency_key: `${input.retryToken}-${key.slice(0, 24)}`,
     })
+    if (committed.ok === false) {
+      throw new SheetBatchValidationError(committed.errors)
+    }
   }
 
   // One update per record.

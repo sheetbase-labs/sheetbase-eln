@@ -446,12 +446,21 @@ export function useSetFavourite(
             ),
         )
       }
-      return { previous }
+      const previousItems = queryClient.getQueryData<FavouriteItem[]>(
+        favouritesQueryKeys.items(),
+      )
+      return { previous, previousItems }
     },
     onError: (_error, _variables, context) => {
-      // Roll the optimistic state back; the surfaced error tells the user.
+      // Roll both optimistic caches back; the surfaced error tells the user.
       if (context?.previous) {
         queryClient.setQueryData(favouritesQueryKeys.list(), context.previous)
+      }
+      if (context?.previousItems !== undefined) {
+        queryClient.setQueryData(
+          favouritesQueryKeys.items(),
+          context.previousItems,
+        )
       }
     },
     onSettled: () => {

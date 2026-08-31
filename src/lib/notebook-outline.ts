@@ -83,8 +83,8 @@ interface OpenSection {
 /**
  * For each outline entry, the blocks it owns: the blocks after its own
  * (in document order) until the next heading of the same or higher level.
- * Content inside the heading's own block can never be hidden — collapse is
- * a block-level affordance only.
+ * A heading's own span never hides its own block (a heading may still be
+ * hidden when an *enclosing* section is collapsed — nested collapse).
  */
 export function notebookSectionSpans(
   blocks: ReadonlyArray<
@@ -99,18 +99,25 @@ export function notebookSectionSpans(
   }
   for (const block of ordered) {
     const headings = block.type === 'rich_text' ? blockHeadings(block) : []
-    // Close open sections at this boundary (same or higher level).
+    // Close at this block's first boundary (same or higher level) BEFORE
+    // ownership, so the boundary block belongs to the new section, not the
+    // old one.
     for (const head of headings) {
       while (open.length > 0 && open[open.length - 1].level >= head.level) {
         close(open.pop()!)
       }
     }
-    // Still-open sections own this block (unless they started here).
+    // Sections opened by earlier blocks own this whole block (block-granular
+    // collapse). Sections started in THIS block never own it.
     for (const section of open) {
       if (section.startBlockId !== block.id) section.span.push(block.id)
     }
-    // Open new sections; their span starts with the *next* block.
     for (const head of headings) {
+      // A second heading in the same block closes the earlier one (same
+      // block, same start), so spans never overlap.
+      while (open.length > 0 && open[open.length - 1].level >= head.level) {
+        close(open.pop()!)
+      }
       open.push({
         anchorId: head.anchorId,
         level: head.level,

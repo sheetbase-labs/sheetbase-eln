@@ -130,3 +130,46 @@ describe('notebookSectionSpans + collapse helpers (NOTE-02)', () => {
     )
   })
 })
+
+describe('NOTE-02 review fixes', () => {
+  it('multiple headings in one block never produce overlapping spans', () => {
+    seq = 0
+    // One rich_text block containing H2a and H2b back to back.
+    const block = richTextBlock([{ level: 2 }, { level: 2 }], 1)
+    const body = richTextBlock([], 2)
+    const spans = notebookSectionSpans([block, body])
+    // First heading is superseded by the second in the same block: empty span.
+    expect(spans.get(`section-${block.id}-h0`)).toEqual([])
+    // Second heading owns the following block.
+    expect(spans.get(`section-${block.id}-h1`)).toEqual([body.id])
+  })
+
+  it('a heading mid-block leaves the block in the prior section, but the boundary heading is not hidden by its own span', () => {
+    seq = 0
+    const h2a = richTextBlock([{ level: 2 }], 1)
+    // Block with a paragraph then an H2: belongs to the prior section.
+    const boundary = {
+      ...richTextBlock([{ level: 2 }], 2),
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'lead' }] },
+            {
+              type: 'heading',
+              attrs: { level: 2 },
+              content: [{ type: 'text', text: 'H2 2' }],
+            },
+          ],
+        },
+      },
+    } as NotebookBlock
+    const tail = richTextBlock([], 3)
+    const spans = notebookSectionSpans([h2a, boundary, tail])
+    // Block-granular: the boundary block (lead paragraph + heading) belongs
+    // to the NEW section — the prior section's span ends before it.
+    expect(spans.get(`section-${h2a.id}-h0`)).toEqual([])
+    // New section's anchor is h1 (heading ordinal inside the payload).
+    expect(spans.get(`section-${boundary.id}-h1`)).toEqual([tail.id])
+  })
+})

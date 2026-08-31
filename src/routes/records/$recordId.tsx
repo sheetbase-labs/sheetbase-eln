@@ -133,7 +133,7 @@ import type {
   NotebookReviewActivity,
   NotebookReviewContext,
 } from '#/lib/notebook-experience'
-import { notebookOutline } from '#/lib/notebook-outline'
+import { notebookOutline, notebookSectionSpans } from '#/lib/notebook-outline'
 import { NotebookOutlinePanel } from '#/components/notebook/notebook-outline-panel'
 import type { NotebookOutlineControls } from '#/components/notebook/notebook-outline-panel'
 
@@ -274,10 +274,18 @@ function ExperimentNotebookRoute() {
     collapsedSections,
     onToggleSection: toggleSection,
     onExpandAllSections: () => setCollapsedSections(new Set()),
-    onCollapseAllSections: () =>
+    onCollapseAllSections: () => {
+      // Only sections that actually own blocks can usefully collapse; an
+      // empty-span section would render a meaningless "0 blocks" placeholder.
+      const spans = notebookSectionSpans(blocks)
       setCollapsedSections(
-        new Set(notebookOutline(blocks).map((entry) => entry.anchorId)),
-      ),
+        new Set(
+          notebookOutline(blocks)
+            .filter((entry) => (spans.get(entry.anchorId)?.length ?? 0) > 0)
+            .map((entry) => entry.anchorId),
+        ),
+      )
+    },
   }
 
   const shellContext = {
@@ -432,7 +440,11 @@ function ExperimentNotebookRoute() {
         inspector={
           <NotebookInspector
             record={displayRecord}
-            outlineControls={historicalRevisionId ? undefined : outlineControls}
+            outlineControls={
+              historicalRevisionId || record.lockedAt || record.archivedAt
+                ? undefined
+                : outlineControls
+            }
             projectName={project?.title ?? null}
             ownerName={context.user.name}
             currentUserId={context.user.id}

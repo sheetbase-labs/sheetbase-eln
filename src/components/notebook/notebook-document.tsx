@@ -1100,6 +1100,7 @@ function NotebookDocumentContent({
               <div
                 className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground"
                 data-testid={`section-collapsed-${collapsedHere}`}
+                data-print-hide
               >
                 <span>
                   Section collapsed — {hiddenCounts.get(collapsedHere) ?? 0}{' '}

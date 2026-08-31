@@ -79,6 +79,13 @@ Opening a related scientific object and returning preserves understandable proje
   contract; ancestor links carry stable IDs.
 - Sheet footer provenance is navigable: dataset provenance resolves to
   `/datasets?dataset=…` and record provenance to `/records/:recordId`.
+- Notebook ↔ Sheet is a two-way link: the embedded Sheet block offers
+  "Open full sheet", carrying the canonical `?projectId` context so the
+  full page opens with the same write affordances; the Sheet page links back
+  through its breadcrumbs.
+- The Analysis studio names the analysed dataset in its breadcrumbs and
+  links back to `/datasets?dataset=…`, so analysis context is preserved in
+  both directions.
 - Read-only/write semantics (the `?projectId` search contract) are unchanged;
   NAV-02 alters navigation surfaces only.
 

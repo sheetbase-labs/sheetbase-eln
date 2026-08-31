@@ -1411,23 +1411,37 @@ describe('NOTE-02 sections and outline anchors', () => {
     )
     const paras = () =>
       Array.from(document.getElementById('block-b1')!.querySelectorAll('p'))
-    // Collapsing the H2 hides only its prose; the H3 and its prose remain.
+    const headings = () =>
+      Array.from(
+        document
+          .getElementById('block-b1')!
+          .querySelectorAll('[data-type="heading"], h2, h3'),
+      )
+    // Collapsing the H2 hides its prose AND the nested H3 content (heading
+    // + prose) until the next same-level heading.
     expect(paras()[0].className).toContain('hidden')
-    expect(paras()[1].className).not.toContain('hidden')
-    // Collapsing the H3 too hides its prose as well — independent sections.
+    expect(paras()[1].className).toContain('hidden')
+    expect(headings()).toHaveLength(2)
+    expect(
+      (headings()[1] as HTMLElement).className,
+    ).toContain('hidden')
+    // Collapsing only the H3 hides just its own prose — independent of H2.
     rerender(
       <NotebookDocument
         record={record}
         blocks={[block]}
         onSaveBlock={vi.fn()}
         onInsertBlock={vi.fn()}
-        onDuplicateBlock={vi.fn()}
         onDeleteBlock={vi.fn()}
-        collapsedSections={new Set(['section-b1-h0', 'section-b1-h2'])}
+        onDuplicateBlock={vi.fn()}
+        collapsedSections={new Set(['section-b1-h2'])}
         onToggleSection={vi.fn()}
       />,
     )
-    expect(paras()[0].className).toContain('hidden')
+    expect(paras()[0].className).not.toContain('hidden')
     expect(paras()[1].className).toContain('hidden')
+    expect(
+      (headings()[1] as HTMLElement).className,
+    ).not.toContain('hidden')
   })
 })

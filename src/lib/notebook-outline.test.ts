@@ -206,22 +206,22 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
     ).toBe(false)
   })
 
-  it('multiple headings in one block are independently collapsible', () => {
+  it('multiple sibling headings in one block are independently collapsible', () => {
     seq = 0
     const block = proseBlock('b1', 1, [
       heading(2, 'Intro'),
       paragraph('intro prose'),
-      heading(3, 'Detail'),
+      heading(2, 'Detail'),
       paragraph('detail prose'),
     ])
     const spans = notebookSectionSpans([block])
-    // H2's same-block range ends at the next heading (any level).
+    // H2's same-block range ends at the next same-level heading.
     expect(spans.get(`section-b1-h0`)?.nodeRange).toEqual({
       blockId: 'b1',
       from: 1,
       to: 2,
     })
-    // H3's range runs to the end of the block.
+    // Second H2's range runs to the end of the block.
     expect(spans.get(`section-b1-h2`)?.nodeRange).toEqual({
       blockId: 'b1',
       from: 3,
@@ -234,6 +234,88 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
       new Set([`section-b1-h0`, `section-b1-h2`]),
     )
     expect(both.get('b1')).toEqual(new Set([1, 3]))
+  })
+
+  it('collapsing an H2 encompasses its nested H3 content in the same block', () => {
+    seq = 0
+    const block = proseBlock('b1', 1, [
+      heading(2, 'Methods'),
+      paragraph('methods prose'),
+      heading(3, 'Detail'),
+      paragraph('detail prose'),
+    ])
+    const spans = notebookSectionSpans([block])
+    // H2's same-block range runs past the H3 to the end of the block, so
+    // collapsing it hides the methods prose, the H3 heading node and the
+    // detail prose (indexes 1–3; the H2 heading at 0 stays visible).
+    expect(spans.get(`section-b1-h0`)?.nodeRange).toEqual({
+      blockId: 'b1',
+      from: 1,
+      to: 4,
+    })
+    expect(collapsedSectionNodeIndexes(spans, new Set([`section-b1-h0`]))).toEqual(
+      new Map([['b1', new Set([1, 2, 3])]]),
+    )
+  })
+
+  it('a nested H3 stays independently collapsible inside an H2 section', () => {
+    seq = 0
+    const block = proseBlock('b1', 1, [
+      heading(2, 'Methods'),
+      paragraph('methods prose'),
+      heading(3, 'Detail'),
+      paragraph('detail prose'),
+    ])
+    const spans = notebookSectionSpans([block])
+    // H3's own range stops at the end of the block and covers only its own
+    // prose — the H3 heading itself is never hidden by its own collapse.
+    expect(spans.get(`section-b1-h2`)?.nodeRange).toEqual({
+      blockId: 'b1',
+      from: 3,
+      to: 4,
+    })
+    expect(collapsedSectionNodeIndexes(spans, new Set([`section-b1-h2`]))).toEqual(
+      new Map([['b1', new Set([3])]]),
+    )
+    // Collapsing both H2 and H3 unions to the same hidden set as the H2
+    // alone — the H3 collapse adds nothing extra but stays independent.
+    const both = collapsedSectionNodeIndexes(
+      spans,
+      new Set([`section-b1-h0`, `section-b1-h2`]),
+    )
+    expect(both.get('b1')).toEqual(new Set([1, 2, 3]))
+  })
+
+  it('a nested H3 does not extend an H2 section across a later H2 boundary', () => {
+    seq = 0
+    const block = proseBlock('b1', 1, [
+      heading(2, 'Methods'),
+      paragraph('methods prose'),
+      heading(3, 'Detail'),
+      paragraph('detail prose'),
+      heading(2, 'Results'),
+      paragraph('results prose'),
+    ])
+    const spans = notebookSectionSpans([block])
+    // First H2's range ends at the next H2, hiding everything in between.
+    expect(spans.get(`section-b1-h0`)?.nodeRange).toEqual({
+      blockId: 'b1',
+      from: 1,
+      to: 4,
+    })
+    expect(spans.get(`section-b1-h2`)?.nodeRange).toEqual({
+      blockId: 'b1',
+      from: 3,
+      to: 4,
+    })
+    expect(spans.get(`section-b1-h4`)?.nodeRange).toEqual({
+      blockId: 'b1',
+      from: 5,
+      to: 6,
+    })
+    expect(collapsedSectionNodeIndexes(spans, new Set([`section-b1-h0`]))).toEqual(
+      new Map([['b1', new Set([1, 2, 3])]]),
+    )
   })
 
   it('a section closed by a heading in a later block still owns the rest of its own block', () => {

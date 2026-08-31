@@ -292,7 +292,13 @@ function renderNode(
           node.attrs.level === 2
             ? 'font-display text-lg font-semibold leading-7 tracking-tight'
             : 'font-display text-base font-semibold leading-6 tracking-tight',
-        ].join(' ')}
+          // NOTE-02 nested collapse: a lower-level heading inside a
+          // collapsed enclosing section (e.g. an H3 inside a collapsed H2)
+          // is hidden from view but kept for print, like other nodes.
+          hiddenClass,
+        ]
+          .filter(Boolean)
+          .join(' ')}
         key={key}
       >
         {node.content?.map(renderText) ?? null}

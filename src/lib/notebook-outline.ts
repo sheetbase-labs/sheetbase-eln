@@ -80,12 +80,16 @@ export function notebookOutline(
  *   NOTE-02 behaviour).
  * - `nodeRange`: the range of top-level nodes INSIDE the heading's own
  *   rich_text block that the section owns — from the node after the heading
- *   up to (a) the next heading in the same block (any level) or (b) the end
- *   of the block. Same-block content is hidden at the node level while
- *   later blocks stay block-granular, so a rich_text block containing
- *   `H2 + prose` can collapse its own prose and multiple headings in one
- *   block are independently collapsible. Same-block ranges are disjoint by
- *   construction (each ends at the next heading).
+ *   up to (a) the next heading of the same or higher level in the same
+ *   block, or (b) the end of the block. Same-block content is hidden at the
+ *   node level while later blocks stay block-granular, so a rich_text block
+ *   containing `H2 + prose` can collapse its own prose and multiple headings
+ *   in one block are independently collapsible. A lower-level heading does
+ *   NOT bound an enclosing section's range: an H2's range encompasses the
+ *   nested H3 headings and their content (collapsing the H2 hides them),
+ *   while each H3 keeps its own narrower range for independent collapse.
+ *   Same-block ranges may therefore nest; hidden node indexes are the union
+ *   across collapsed sections.
  */
 export interface NotebookSectionSpan {
   blockIds: string[]
@@ -103,9 +107,11 @@ interface OpenSection {
   /** Index of the heading node within its own block payload. */
   startNodeIndex: number
   /**
-   * Index of the next heading in the same block (any level), once seen.
-   * Bounds the same-block node range independently of the block-granular
-   * nesting rules.
+   * Index of the next heading of the same or higher level in the same
+   * block, once seen. Bounds the same-block node range independently of the
+   * block-granular nesting rules. A lower-level heading in the same block
+   * (e.g. an H3 inside an H2 section) does NOT bound this range — its
+   * content stays inside the enclosing section's same-block range.
    */
   nodeEnd: number | null
 }
@@ -129,8 +135,10 @@ export function notebookSectionSpans(
   const close = (section: OpenSection) => {
     if (spans.has(section.anchorId)) return
     // Same-block ownership: nodes after the heading up to the closing
-    // boundary (the next heading in the same block, any level) or the end
-    // of the block when no in-block boundary exists.
+    // boundary (the next heading of the same or higher level in the same
+    // block) or the end of the block when no in-block boundary exists.
+    // Lower-level headings in the same block stay inside the range, so an
+    // H2's collapse hides its nested H3 content too.
     let nodeRange: NotebookSectionSpan['nodeRange']
     const to = section.nodeEnd ?? section.startNodeCount
     if (section.startNodeIndex + 1 < to) {
@@ -162,12 +170,18 @@ export function notebookSectionSpans(
       if (section.startBlockId !== block.id) section.span.push(block.id)
     }
     for (const head of headings) {
-      // Any heading in the same block bounds the same-block node range of
-      // sections started in this block (regardless of level), while those
-      // sections stay open for block-granular ownership until the level
-      // rule below closes them.
+      // A heading bounds the same-block node range of sections started in
+      // this block only when its level is the same or higher — an H3 does
+      // not close an H2's same-block range (the H3 content is nested inside
+      // it), while any heading closes an H3's range. Those sections stay
+      // open for block-granular ownership until the level rule below closes
+      // them.
       for (const section of open) {
-        if (section.startBlockId === block.id && section.nodeEnd === null) {
+        if (
+          section.startBlockId === block.id &&
+          section.nodeEnd === null &&
+          head.level <= section.level
+        ) {
           section.nodeEnd = head.index
         }
       }
@@ -231,8 +245,10 @@ export function collapsedSectionBlockIds(
 
 /**
  * Node indexes to hide inside a heading's own rich_text block for the
- * currently collapsed sections, keyed by block id. Ranges are disjoint per
- * block, so index sets never overlap.
+ * currently collapsed sections, keyed by block id. Same-block ranges may
+ * nest (an H2's range encompasses its H3 content), so collapsed sections'
+ * ranges are unioned per block. A heading node is never inside its own
+ * section's range.
  */
 export function collapsedSectionNodeIndexes(
   spans: Map<string, NotebookSectionSpan>,

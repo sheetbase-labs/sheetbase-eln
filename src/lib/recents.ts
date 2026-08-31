@@ -1,0 +1,579 @@
+/**
+ * FIND-01 — Recents & work resumption data layer.
+ *
+ * Recents are derived from two complementary signals, never from browser
+ * history:
+ *
+ * - **Viewed** — the thin per-user `api.recently_viewed` table (FIND-01
+ *   migration). Written through the `record_recent_view` SECURITY DEFINER
+ *   RPC when a canonical object page is opened; read back under RLS.
+ * - **Edited / reviewed** — the canonical `change_events` audit trail. Every
+ *   durable mutation already emits an event with actor attribution, so "what
+ *   was I last working on" is a read over existing canonical activity. No
+ *   server persistence is added for these signals.
+ *
+ * Ordering is deterministic: per object, last activity =
+ * max(viewed_at, latest edit, latest review), newest first, capped. Labels
+ * come from the canonical records and destinations exclusively from
+ * `src/lib/navigation.ts` — never hand-built URLs.
+ */
+import { useEffect } from 'react'
+
+import type { DataClient } from './data-client'
+import { notebookDataClient } from './notebook-data'
+import type { ChangeEventRecordWire, ProjectWire } from './notebook-data'
+import {
+  datasetPath,
+  notebookTemplatePath,
+  projectPath,
+  recordDestination,
+  sheetPath,
+} from './navigation'
+
+// ---------------------------------------------------------------------------
+// Domain shapes.
+// ---------------------------------------------------------------------------
+
+/** Canonical object kinds that participate in recents. */
+export type RecentObjectKind =
+  'record' | 'dataset' | 'sheet' | 'project' | 'notebook_template'
+
+/** How the user last touched an object. */
+export type RecentSignal = 'edited' | 'reviewed' | 'viewed'
+
+/** Wire shape of `api.recently_viewed` (snake_case via PostgREST). */
+export interface RecentViewWire {
+  user_id: string
+  object_kind: RecentObjectKind
+  object_id: string
+  viewed_at: string
+}
+
+export interface RecentView {
+  kind: RecentObjectKind
+  id: string
+  viewedAt: string
+}
+
+/**
+ * One canonical-activity signal: the user edited or submitted-for-review an
+ * object at a point in time. Derived from `change_events`, never stored.
+ */
+export interface RecentSignalEvent {
+  kind: RecentObjectKind
+  id: string
+  at: string
+  signal: 'edited' | 'reviewed'
+}
+
+/** Derivation output before canonical labels/destinations are resolved. */
+export interface DerivedRecentItem {
+  kind: RecentObjectKind
+  id: string
+  /** max(view, edit, review) — the ordering timestamp. */
+  lastActivityAt: string
+  /** The most recent signal; ties resolve edited > reviewed > viewed. */
+  signal: RecentSignal
+  viewedAt: string | null
+  editedAt: string | null
+  reviewedAt: string | null
+}
+
+/** A resolved recent item ready to render. */
+export interface RecentItem {
+  kind: RecentObjectKind
+  id: string
+  label: string
+  /** Secondary identity line (identifier/key) when the canonical object has one. */
+  identifier: string | null
+  destination: string
+  signal: RecentSignal
+  lastActivityAt: string
+  viewedAt: string | null
+  editedAt: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Query keys.
+// ---------------------------------------------------------------------------
+
+export const recentsQueryKeys = {
+  recents: (userId: string, limit: number) =>
+    ['recents', 'recents', userId, limit] as const,
+}
+
+/** How many items the compact Recent surface shows. */
+export const RECENTS_LIMIT = 20
+
+// ---------------------------------------------------------------------------
+// Signal derivation from the canonical change-event audit trail.
+// ---------------------------------------------------------------------------
+
+/** Change-event operations that represent genuine work on an object. */
+const EDIT_OPERATIONS = new Set(['create', 'update', 'amend'])
+
+/**
+ * Maps canonical change events authored by the current user to per-object
+ * recency signals. Only entity types that directly identify a resumable
+ * object are mapped; block/link events attribute to their owning record via
+ * the `record_id` scoping hint the emit trigger writes.
+ */
+export function signalEventsFromChangeEvents(
+  rows: ChangeEventRecordWire[],
+): RecentSignalEvent[] {
+  const signals: RecentSignalEvent[] = []
+  for (const row of rows) {
+    if (!EDIT_OPERATIONS.has(row.operation)) continue
+    const at = row.created_at
+    switch (row.entity_type) {
+      case 'record':
+        signals.push({
+          kind: 'record',
+          id: row.entity_uuid,
+          at,
+          signal: 'edited',
+        })
+        break
+      case 'block':
+      case 'record_link':
+        if (row.record_id) {
+          signals.push({
+            kind: 'record',
+            id: row.record_id,
+            at,
+            signal: 'edited',
+          })
+        }
+        break
+      case 'review_submission':
+        if (row.record_id) {
+          signals.push({
+            kind: 'record',
+            id: row.record_id,
+            at,
+            signal: 'reviewed',
+          })
+        }
+        break
+      case 'sheet_instance':
+        signals.push({
+          kind: 'sheet',
+          id: row.entity_uuid,
+          at,
+          signal: 'edited',
+        })
+        break
+      case 'dataset':
+        signals.push({
+          kind: 'dataset',
+          id: row.entity_uuid,
+          at,
+          signal: 'edited',
+        })
+        break
+      case 'project':
+        signals.push({
+          kind: 'project',
+          id: row.entity_uuid,
+          at,
+          signal: 'edited',
+        })
+        break
+      case 'notebook_template':
+        signals.push({
+          kind: 'notebook_template',
+          id: row.entity_uuid,
+          at,
+          signal: 'edited',
+        })
+        break
+      default:
+        break
+    }
+  }
+  return signals
+}
+
+// ---------------------------------------------------------------------------
+// Derivation — merge views and canonical signals into one ordered list.
+// ---------------------------------------------------------------------------
+
+interface RecentAccumulator {
+  kind: RecentObjectKind
+  id: string
+  viewedAt: string | null
+  editedAt: string | null
+  reviewedAt: string | null
+}
+
+function newer(a: string | null, b: string | null): string | null {
+  if (!a) return b
+  if (!b) return a
+  return Date.parse(b) > Date.parse(a) ? b : a
+}
+
+/**
+ * Merges per-user views with canonical edit/review signals into a
+ * deterministic, capped recency list.
+ *
+ * - One entry per object, keyed by (kind, id).
+ * - `lastActivityAt` is max(viewedAt, editedAt, reviewedAt).
+ * - `signal` reflects whichever timestamp is newest; ties resolve
+ *   edited > reviewed > viewed so an object just edited after being viewed
+ *   reads as "edited".
+ * - Ordering: lastActivityAt desc, then kind asc, then id asc (stable across
+ *   fetches).
+ */
+export function buildRecentItems(args: {
+  views: RecentView[]
+  signals: RecentSignalEvent[]
+  limit?: number
+}): DerivedRecentItem[] {
+  const limit = args.limit ?? RECENTS_LIMIT
+  const byKey = new Map<string, RecentAccumulator>()
+  const keyFor = (kind: RecentObjectKind, id: string) => `${kind}:${id}`
+
+  for (const view of args.views) {
+    const key = keyFor(view.kind, view.id)
+    const acc = byKey.get(key) ?? {
+      kind: view.kind,
+      id: view.id,
+      viewedAt: null,
+      editedAt: null,
+      reviewedAt: null,
+    }
+    acc.viewedAt = newer(acc.viewedAt, view.viewedAt)
+    byKey.set(key, acc)
+  }
+
+  for (const signal of args.signals) {
+    const key = keyFor(signal.kind, signal.id)
+    const acc = byKey.get(key) ?? {
+      kind: signal.kind,
+      id: signal.id,
+      viewedAt: null,
+      editedAt: null,
+      reviewedAt: null,
+    }
+    if (signal.signal === 'edited')
+      acc.editedAt = newer(acc.editedAt, signal.at)
+    else acc.reviewedAt = newer(acc.reviewedAt, signal.at)
+    byKey.set(key, acc)
+  }
+
+  const items: DerivedRecentItem[] = []
+  for (const acc of byKey.values()) {
+    const lastActivityAt = newer(
+      newer(acc.editedAt, acc.reviewedAt),
+      acc.viewedAt,
+    )
+    if (!lastActivityAt) continue
+    let signal: RecentSignal = 'viewed'
+    if (acc.editedAt === lastActivityAt) signal = 'edited'
+    else if (acc.reviewedAt === lastActivityAt) signal = 'reviewed'
+    items.push({ ...acc, lastActivityAt, signal })
+  }
+
+  items.sort((a, b) => {
+    const diff = Date.parse(b.lastActivityAt) - Date.parse(a.lastActivityAt)
+    if (diff !== 0) return diff
+    if (a.kind !== b.kind) return a.kind < b.kind ? -1 : 1
+    return a.id < b.id ? -1 : 1
+  })
+  return items.slice(0, limit)
+}
+
+// ---------------------------------------------------------------------------
+// Fetch helpers — through the same /api/db PostgREST boundary as the rest of
+// the app, so every read respects the same RLS boundaries.
+// ---------------------------------------------------------------------------
+
+export function toRecentView(row: RecentViewWire): RecentView {
+  return {
+    kind: row.object_kind,
+    id: row.object_id,
+    viewedAt: row.viewed_at,
+  }
+}
+
+/** Per-user view rows, newest first. RLS restricts to the current user. */
+export function fetchRecentViews(
+  client: DataClient = notebookDataClient,
+  limit = 50,
+): Promise<RecentView[]> {
+  return client
+    .list<RecentViewWire>(
+      'recently_viewed',
+      `?order=viewed_at.desc&limit=${limit}&select=user_id,object_kind,object_id,viewed_at`,
+    )
+    .then((rows) => rows.map(toRecentView))
+}
+
+/**
+ * The current user's recent canonical edit/review events. Bounded so the
+ * derivation stays cheap; anything older falls out of recents naturally.
+ */
+export function fetchMyRecentSignals(
+  client: DataClient,
+  userId: string,
+  limit = 100,
+): Promise<RecentSignalEvent[]> {
+  return client
+    .list<ChangeEventRecordWire>(
+      'change_events',
+      `?actor_user_id=eq.${userId}&operation=in.(create,update,amend)&order=created_at.desc&limit=${limit}&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at`,
+    )
+    .then((rows) => signalEventsFromChangeEvents(rows))
+}
+
+/**
+ * Record a view of a canonical object. Fire-and-forget by callers; the RPC
+ * upserts one row per (user, kind, object) and is a no-op for objects the
+ * caller can no longer see. Returns the upserted timestamp, or null when the
+ * view was ignored. PostgREST renders the scalar timestamptz return as a
+ * bare JSON string.
+ */
+export function recordRecentView(
+  client: DataClient,
+  kind: RecentObjectKind,
+  objectId: string,
+): Promise<string | null> {
+  return client
+    .rpc<string | { viewed_at?: string } | null>('record_recent_view', {
+      p_object_kind: kind,
+      p_object_id: objectId,
+    })
+    .then((row) => {
+      if (typeof row === 'string') return row
+      return row?.viewed_at ?? null
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Resolution — canonical labels and destinations.
+// ---------------------------------------------------------------------------
+
+interface RecordLabelWire {
+  id: string
+  kind: string
+  identifier: string
+  title: string
+  archived_at: string | null
+  deleted_at: string | null
+}
+
+interface DatasetLabelWire {
+  id: string
+  name: string
+  lifecycle: string
+}
+
+interface SheetLabelWire {
+  id: string
+  name: string
+  lifecycle: string
+}
+
+interface TemplateLabelWire {
+  id: string
+  key: string
+  name: string
+  lifecycle: string
+}
+
+/**
+ * Resolves derived items to renderable RecentItems with canonical labels and
+ * navigation destinations. Items whose canonical object is gone, archived,
+ * retired or otherwise not resumable are dropped — recents never link to
+ * objects the user could not open right now. Input order (the derivation
+ * order) is preserved.
+ */
+export async function resolveRecentItems(
+  client: DataClient,
+  items: DerivedRecentItem[],
+): Promise<RecentItem[]> {
+  if (items.length === 0) return []
+
+  const idsByKind = new Map<RecentObjectKind, string[]>()
+  for (const item of items) {
+    const ids = idsByKind.get(item.kind) ?? []
+    ids.push(item.id)
+    idsByKind.set(item.kind, ids)
+  }
+
+  const [recordRows, datasetRows, sheetRows, projectRows, templateRows] =
+    await Promise.all([
+      idsByKind.has('record')
+        ? client.list<RecordLabelWire & { project_id: string | null }>(
+            'records',
+            `?id=in.(${idsByKind.get('record')!.join(',')})&select=id,kind,identifier,title,archived_at,deleted_at`,
+          )
+        : Promise.resolve([]),
+      idsByKind.has('dataset')
+        ? client.list<DatasetLabelWire>(
+            'datasets',
+            `?id=in.(${idsByKind.get('dataset')!.join(',')})&select=id,name,lifecycle`,
+          )
+        : Promise.resolve([]),
+      idsByKind.has('sheet')
+        ? client.list<SheetLabelWire>(
+            'sheet_instances',
+            `?id=in.(${idsByKind.get('sheet')!.join(',')})&select=id,name,lifecycle`,
+          )
+        : Promise.resolve([]),
+      idsByKind.has('project')
+        ? client.list<ProjectWire>(
+            'projects',
+            `?id=in.(${idsByKind.get('project')!.join(',')})&select=id,key,title,archived_at`,
+          )
+        : Promise.resolve([]),
+      idsByKind.has('notebook_template')
+        ? client.list<TemplateLabelWire>(
+            'notebook_templates',
+            `?id=in.(${idsByKind.get('notebook_template')!.join(',')})&select=id,key,name,lifecycle`,
+          )
+        : Promise.resolve([]),
+    ])
+
+  const recordById = new Map(
+    recordRows.map((r) => [
+      r.id,
+      {
+        kind: r.kind,
+        identifier: r.identifier,
+        title: r.title,
+        resumable: r.deleted_at === null && r.archived_at === null,
+      },
+    ]),
+  )
+  const datasetById = new Map(
+    datasetRows.map((d) => [
+      d.id,
+      { name: d.name, resumable: d.lifecycle === 'active' },
+    ]),
+  )
+  const sheetById = new Map(
+    sheetRows.map((s) => [
+      s.id,
+      { name: s.name, resumable: s.lifecycle === 'active' },
+    ]),
+  )
+  const templateById = new Map(
+    templateRows.map((t) => [
+      t.id,
+      { key: t.key, name: t.name, resumable: t.lifecycle === 'active' },
+    ]),
+  )
+  const projectById = new Map(
+    projectRows.map((p) => [
+      p.id,
+      { key: p.key, title: p.title, resumable: p.archived_at === null },
+    ]),
+  )
+
+  const resolved: RecentItem[] = []
+  for (const item of items) {
+    switch (item.kind) {
+      case 'record': {
+        const record = recordById.get(item.id)
+        if (!record || !record.resumable) break
+        resolved.push({
+          ...item,
+          label: record.title,
+          identifier: record.identifier,
+          destination: recordDestination(record.kind, item.id),
+        })
+        break
+      }
+      case 'dataset': {
+        const dataset = datasetById.get(item.id)
+        if (!dataset || !dataset.resumable) break
+        resolved.push({
+          ...item,
+          label: dataset.name,
+          identifier: null,
+          destination: datasetPath(item.id),
+        })
+        break
+      }
+      case 'sheet': {
+        const sheet = sheetById.get(item.id)
+        if (!sheet || !sheet.resumable) break
+        resolved.push({
+          ...item,
+          label: sheet.name,
+          identifier: null,
+          destination: sheetPath(item.id),
+        })
+        break
+      }
+      case 'project': {
+        const project = projectById.get(item.id)
+        if (!project || !project.resumable) break
+        resolved.push({
+          ...item,
+          label: project.title,
+          identifier: project.key,
+          destination: projectPath(item.id),
+        })
+        break
+      }
+      case 'notebook_template': {
+        const template = templateById.get(item.id)
+        if (!template || !template.resumable) break
+        resolved.push({
+          ...item,
+          label: template.name,
+          identifier: template.key,
+          destination: notebookTemplatePath(item.id),
+        })
+        break
+      }
+    }
+  }
+  return resolved
+}
+
+// ---------------------------------------------------------------------------
+// One-shot read for the home surface: fetch both signals, derive, resolve.
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the user's recents end-to-end: per-user views + canonical
+ * edit/review events → deterministic merge → label/destination resolution.
+ * Objects that no longer resolve (archived/deleted/retired) are dropped, so
+ * the visible count may be below the limit.
+ */
+export async function fetchRecentItems(
+  client: DataClient,
+  userId: string,
+  limit = RECENTS_LIMIT,
+): Promise<RecentItem[]> {
+  const [views, signals] = await Promise.all([
+    fetchRecentViews(client, limit * 5),
+    fetchMyRecentSignals(client, userId),
+  ])
+  const derived = buildRecentItems({ views, signals, limit })
+  return resolveRecentItems(client, derived)
+}
+
+// ---------------------------------------------------------------------------
+// View tracking — one fire-and-forget write per object page mount.
+// ---------------------------------------------------------------------------
+
+/**
+ * Records a view of a canonical object while the calling page is mounted.
+ * Failures are swallowed on purpose: view tracking is presentation-support
+ * state and must never disturb the object page itself.
+ */
+export function useRecentViewTracking(
+  kind: RecentObjectKind,
+  objectId: string | null | undefined,
+): void {
+  useEffect(() => {
+    if (!objectId) return
+    recordRecentView(notebookDataClient, kind, objectId).catch(() => {
+      /* best-effort: a failed view write never blocks the page */
+    })
+  }, [kind, objectId])
+}

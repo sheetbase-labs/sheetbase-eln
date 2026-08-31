@@ -13,7 +13,7 @@
  * A preview is not evidence: these derivations never mutate data and never
  * create revisions.
  */
-import type { NotebookBlock } from '#/lib/notebook-data'
+import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 import { isCanonicalSheetBlock, sheetBlockInstanceId } from '#/lib/sheet-block'
 
 export type SubmissionCheckState = 'pass' | 'fail' | 'pending' | 'manual'
@@ -132,4 +132,77 @@ export function submissionCompositionSummary(blocks: NotebookBlock[]): {
     blockCount: blocks.length,
     sheetCount: submissionSheetInstanceIds(blocks).length,
   }
+}
+
+// ---------------------------------------------------------------------------
+// NOTE-04 review fix: canonical signature for the verified-snapshot binding.
+// ---------------------------------------------------------------------------
+
+/** Key-stable JSON serialisation so payloads compare regardless of key order. */
+export function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`
+  }
+  const entries = Object.entries(value as Record<string, unknown>).filter(
+    ([, v]) => v !== undefined,
+  )
+  entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  return `{${entries
+    .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`)
+    .join(',')}}`
+}
+
+/** Compact FNV-1a hash — change detection only, not cryptographic. */
+function fnv1a(input: string): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16)
+}
+
+export interface SubmissionCanonicalInput {
+  /** The live record from the route's query cache, when loaded. */
+  record: NotebookRecord | null
+  /** The live blocks in cache order. */
+  blocks: NotebookBlock[]
+}
+
+/**
+ * Lightweight signature over the same canonical signals the server digest
+ * covers: record metadata (title/status/tags/properties and the structure and
+ * metadata versions) plus every block's id, placement, version and payload.
+ * Used client-side to bind the dialog's frozen preview to the verified
+ * digest and invalidate it the moment any input changes. When a signal
+ * cannot be observed here (e.g. pending Sheet edits, surfaced as a manual
+ * check instead), the signature deliberately says nothing about it.
+ */
+export function submissionCanonicalSignature(
+  input: SubmissionCanonicalInput,
+): string {
+  const { record, blocks } = input
+  const blockPart = [...blocks]
+    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
+    .map(
+      (block) =>
+        `${block.id}:${block.type}:${block.order}:${block.version}:${block.payloadSchemaVersion}:${fnv1a(stableStringify(block.payload))}`,
+    )
+    .join(',')
+  const recordPart = record
+    ? [
+        record.id,
+        record.title,
+        record.status,
+        String(record.structureVersion),
+        String(record.metadataVersion),
+        record.updatedAt,
+        String(record.lockedAt),
+        String(record.archivedAt),
+        stableStringify(record.tags),
+        stableStringify(record.properties),
+      ].join('|')
+    : 'no-record'
+  return `${recordPart}#${blockPart}`
 }

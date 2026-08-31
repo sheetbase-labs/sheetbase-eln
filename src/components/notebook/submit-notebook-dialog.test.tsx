@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { NotebookRecord } from '#/lib/notebook-data'
 import { SubmitNotebookDialog } from './submit-notebook-dialog'
 import { fetchWorkspaceMembers } from '#/lib/workspace-admin'
 
@@ -56,6 +57,27 @@ function renderDialog(ui: ReactNode) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
+const testRecord: NotebookRecord = {
+  id: 'r1',
+  projectId: 'p1',
+  kind: 'experiment',
+  identifier: 'EXP-001',
+  title: 'Binding assay',
+  status: 'working',
+  tags: [],
+  structureVersion: 3,
+  metadataVersion: 1,
+  createdAt: '2026-08-01T00:00:00.000Z',
+  updatedAt: '2026-08-01T00:00:00.000Z',
+  archivedAt: null,
+  deletedAt: null,
+  createdByUserId: 'u1',
+  updatedByUserId: null,
+  properties: {},
+  lockedAt: null,
+  lockedByRevisionId: null,
+}
+
 describe('SubmitNotebookDialog', () => {
   it('requires a snapshot check and a reviewer before submit', async () => {
     const { previewSubmissionDigest, submitRecordRevision } =
@@ -101,6 +123,7 @@ describe('SubmitNotebookDialog', () => {
         projectId="p1"
         reviewerUserId="u1"
         workspaceId="ws"
+        record={testRecord}
       />,
     )
     expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
@@ -144,6 +167,7 @@ describe('SubmitNotebookDialog', () => {
         recordId="r1"
         projectId="p1"
         reviewerUserId="u1"
+        record={testRecord}
         hasUnsavedWork
       />,
     )
@@ -182,6 +206,7 @@ describe('SubmitNotebookDialog', () => {
         recordId="r1"
         projectId="p1"
         reviewerUserId="u1"
+        record={testRecord}
         blocks={[
           {
             id: 'b2',
@@ -251,6 +276,7 @@ describe('SubmitNotebookDialog', () => {
         recordId="r1"
         projectId="p1"
         reviewerUserId="u1"
+        record={testRecord}
         blocks={[
           {
             id: 'b1',
@@ -275,5 +301,143 @@ describe('SubmitNotebookDialog', () => {
     expect(
       screen.getByRole('link', { name: 'Sheet aaaaaaaa' }).getAttribute('href'),
     ).toBe('/sheets/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
+  })
+
+  it('invalidates the verified snapshot when a block changes after verification', async () => {
+    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
+    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+      recordId: 'r1',
+      sourceDigest: 'abc123digest',
+      structureVersion: 3,
+      metadataVersion: 1,
+      calculationInputRevision: 1,
+    })
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const block = {
+      id: 'b1',
+      recordId: 'r1',
+      type: 'rich_text',
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Before edit.' }],
+            },
+          ],
+        },
+      },
+      payloadSchemaVersion: 1,
+      order: 1,
+      version: 1,
+    }
+    const ui = (currentBlocks: Array<typeof block>) => (
+      <QueryClientProvider client={client}>
+        <SubmitNotebookDialog
+          open
+          onOpenChange={vi.fn()}
+          recordId="r1"
+          projectId="p1"
+          reviewerUserId="u1"
+          record={testRecord}
+          blocks={currentBlocks}
+        />
+      </QueryClientProvider>
+    )
+    const user = userEvent.setup()
+    const { rerender } = render(ui([block]))
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    expect(
+      await screen.findByText(/Integrity check: abc123digest/),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('region', { name: 'Evidence preview' }),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      false,
+    )
+
+    // A live block edit lands after verification: payload change + version.
+    rerender(
+      ui([
+        {
+          ...block,
+          version: 2,
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                { type: 'paragraph', content: [{ type: 'text', text: 'After.' }] },
+              ],
+            },
+          },
+        },
+      ]),
+    )
+
+    // The dialog must not stay "verified" against the stale digest: the
+    // frozen preview is cleared, the checklist drops back to pending, and
+    // Submit disables until the snapshot is re-checked.
+    expect(
+      screen.queryByRole('region', { name: 'Evidence preview' }),
+    ).toBeNull()
+    expect(screen.queryByText(/Integrity check: abc123digest/)).toBeNull()
+    expect(
+      screen.getByText(/changed since the last check/),
+    ).toBeTruthy()
+    expect(
+      screen.getByTestId('submission-readiness').textContent,
+    ).toContain('Run “Check snapshot”')
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+  })
+
+  it('invalidates the verified snapshot when record metadata changes after verification', async () => {
+    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
+    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+      recordId: 'r1',
+      sourceDigest: 'abc123digest',
+      structureVersion: 3,
+      metadataVersion: 1,
+      calculationInputRevision: 1,
+    })
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const ui = (currentRecord: NotebookRecord) => (
+      <QueryClientProvider client={client}>
+        <SubmitNotebookDialog
+          open
+          onOpenChange={vi.fn()}
+          recordId="r1"
+          projectId="p1"
+          reviewerUserId="u1"
+          record={currentRecord}
+        />
+      </QueryClientProvider>
+    )
+    const user = userEvent.setup()
+    const { rerender } = render(ui(testRecord))
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    expect(
+      await screen.findByText(/Integrity check: abc123digest/),
+    ).toBeTruthy()
+
+    // Title edit bumps metadata: the verified binding must drop.
+    rerender(ui({ ...testRecord, title: 'Renamed assay', metadataVersion: 2 }))
+
+    expect(screen.queryByText(/Integrity check: abc123digest/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      true,
+    )
   })
 })

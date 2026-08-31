@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   Button,
@@ -19,9 +19,11 @@ import {
 } from '#/lib/notebook-data'
 import type {
   NotebookBlock,
+  NotebookRecord,
   SubmissionDigestPreview,
 } from '#/lib/notebook-data'
 import {
+  submissionCanonicalSignature,
   submissionCompositionSummary,
   submissionHasBlockingChecks,
   submissionReadinessChecks,
@@ -38,13 +40,67 @@ import { BlockPreview } from './block-preview'
 const WORKFLOW_KEY = 'default-scientific-review'
 const WORKFLOW_VERSION = 1
 
+/** Deep copy of a block so the frozen preview cannot observe later edits. */
+function cloneBlock(block: NotebookBlock): NotebookBlock {
+  return {
+    ...block,
+    payload:
+      typeof structuredClone === 'function'
+        ? structuredClone(block.payload)
+        : (JSON.parse(JSON.stringify(block.payload)) as Record<string, unknown>),
+  }
+}
+
+/** The frozen record metadata the preview renders while the digest holds. */
+interface FrozenRecordMeta {
+  title: string
+  status: string
+  properties: Record<string, unknown>
+  structureVersion: number
+  metadataVersion: number
+}
+
+function frozenRecordMeta(record: NotebookRecord): FrozenRecordMeta {
+  return {
+    title: record.title,
+    status: record.status,
+    properties:
+      typeof structuredClone === 'function'
+        ? structuredClone(record.properties)
+        : (JSON.parse(JSON.stringify(record.properties)) as Record<
+            string,
+            unknown
+          >),
+    structureVersion: record.structureVersion,
+    metadataVersion: record.metadataVersion,
+  }
+}
+
+/**
+ * Everything the dialog needs to describe "what submitting will pin", bound
+ * to the digest the server verified. Rendered exclusively from this snapshot
+ * — never from the live props — while it stays valid.
+ */
+interface VerifiedSubmission {
+  digest: SubmissionDigestPreview
+  blocks: NotebookBlock[]
+  record: FrozenRecordMeta | null
+  /** Canonical signature of the inputs at verification time. */
+  signature: string
+}
+
 /**
  * NOTE-04 — submit dialog with an honest readiness checklist and an evidence
  * preview. The checklist is derived from canonical state (unsaved drafts,
  * lifecycle state, the server digest check, reviewer requirements) and the
  * preview reuses the read-only block previews to show what submission will
- * pin. The preview is explicitly not evidence: the frozen snapshot and the
- * record lock are created only when the submit RPC succeeds.
+ * pin. When `preview_submission_digest` verifies, an exact snapshot of the
+ * verified inputs (blocks, record metadata) is frozen into dialog state and
+ * bound to the digest via `submissionCanonicalSignature`; any later change to
+ * those inputs invalidates the snapshot immediately, so the checklist drops
+ * back to pending and the preview is withheld until re-verification. The
+ * preview is explicitly not evidence: the frozen snapshot and the record lock
+ * are created only when the submit RPC succeeds.
  */
 export function SubmitNotebookDialog({
   open,
@@ -53,6 +109,7 @@ export function SubmitNotebookDialog({
   projectId,
   reviewerUserId,
   workspaceId,
+  record = null,
   blocks = [],
   hasUnsavedWork = false,
   archivedAt = null,
@@ -65,6 +122,8 @@ export function SubmitNotebookDialog({
   projectId: string
   reviewerUserId: string
   workspaceId?: string
+  /** NOTE-04: live record from the route's query cache, for snapshot binding. */
+  record?: NotebookRecord | null
   /** NOTE-04: live blocks in document order, for the evidence preview. */
   blocks?: NotebookBlock[]
   /** NOTE-04: NotebookDocument's unsaved-work signal. */
@@ -75,17 +134,34 @@ export function SubmitNotebookDialog({
   activeReview?: boolean
 }) {
   const navigate = useNavigate()
-  const [snapshot, setSnapshot] = useState<SubmissionDigestPreview | null>(null)
+  const [verified, setVerified] = useState<VerifiedSubmission | null>(null)
+  // Set when a previously verified snapshot was invalidated by a live
+  // change, so the dialog can say why the checklist dropped back to pending.
+  const [invalidated, setInvalidated] = useState(false)
   const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([
     reviewerUserId,
   ])
 
   useEffect(() => {
     if (open) {
-      setSnapshot(null)
+      setVerified(null)
+      setInvalidated(false)
       setSelectedReviewerIds([reviewerUserId])
     }
   }, [open, reviewerUserId])
+
+  // NOTE-04 review fix: the live signature of the canonical inputs the
+  // digest covers. While a verified snapshot exists, any drift between this
+  // and the signature captured at verification time (record metadata, block
+  // ids/versions/payloads) invalidates the snapshot immediately.
+  const liveSignature = submissionCanonicalSignature({ record, blocks })
+  useEffect(() => {
+    setVerified((current) => {
+      if (!current || current.signature === liveSignature) return current
+      setInvalidated(true)
+      return null
+    })
+  }, [liveSignature])
 
   const members = useQuery({
     queryKey: adminQueryKeys.members(workspaceId ?? 'none'),
@@ -98,14 +174,43 @@ export function SubmitNotebookDialog({
       ? reviewers
       : [{ userId: reviewerUserId, role: 'member', suspendedAt: null }]
 
+  // Latest observed canonical inputs, so verification freezes what the
+  // dialog actually sees at the moment the RPC lands.
+  const inputsRef = useRef({ record, blocks })
+  useEffect(() => {
+    inputsRef.current = { record, blocks }
+  }, [record, blocks])
+  // Inputs as of the moment the verify request was issued; if the live
+  // inputs drift while the RPC is in flight, the frozen signature differs
+  // from the live signature and the effect above invalidates immediately.
+  const requestInputsRef = useRef(inputsRef.current)
+
   const preview = useMutation({
-    mutationFn: () => previewSubmissionDigest(notebookDataClient, recordId),
-    onSuccess: (result) => setSnapshot(result),
+    mutationFn: () => {
+      requestInputsRef.current = inputsRef.current
+      return previewSubmissionDigest(notebookDataClient, recordId)
+    },
+    onSuccess: (result) => {
+      const { record: verifiedRecord, blocks: verifiedBlocks } =
+        requestInputsRef.current
+      setVerified({
+        digest: result,
+        blocks: verifiedBlocks.map(cloneBlock),
+        record: verifiedRecord ? frozenRecordMeta(verifiedRecord) : null,
+        // Bind the frozen snapshot to the signature of the inputs the
+        // server verified — any later drift invalidates the snapshot.
+        signature: submissionCanonicalSignature({
+          record: verifiedRecord,
+          blocks: verifiedBlocks,
+        }),
+      })
+      setInvalidated(false)
+    },
   })
   const submit = useMutation({
     mutationFn: async () => {
       const expected =
-        snapshot ??
+        verified?.digest ??
         (await previewSubmissionDigest(notebookDataClient, recordId))
       return submitRecordRevision(notebookDataClient, {
         recordId,
@@ -127,7 +232,7 @@ export function SubmitNotebookDialog({
     // changed since the check snapshot) must invalidate the stale
     // snapshot, or the checklist keeps claiming the digest is verified
     // while Submit stays enabled against the same stale digest.
-    onError: () => setSnapshot(null),
+    onError: () => setVerified(null),
   })
 
   const previewErrorMessage =
@@ -149,14 +254,20 @@ export function SubmitNotebookDialog({
     lockedAt,
     activeReview,
     reviewerCount: selectedReviewerIds.length,
-    digest: snapshot?.sourceDigest ?? null,
+    digest: verified?.digest.sourceDigest ?? null,
     digestPending: preview.isPending,
     digestError: previewErrorMessage,
   })
   const blocked = submissionHasBlockingChecks(checks)
+  // NOTE-04 review fix: the evidence preview and its composition summary
+  // render from the FROZEN snapshot, never from the live blocks, so the
+  // dialog cannot claim "verified" while showing different content. The
+  // "Sheets to check" links stay live — they are readiness navigation, not
+  // the evidence preview.
+  const frozenBlocks = verified?.blocks ?? []
   const sheetInstanceIds = submissionSheetInstanceIds(blocks)
-  const composition = submissionCompositionSummary(blocks)
-  const orderedBlocks = [...blocks].sort((a, b) => a.order - b.order)
+  const composition = submissionCompositionSummary(frozenBlocks)
+  const orderedBlocks = [...frozenBlocks].sort((a, b) => a.order - b.order)
 
   function toggleReviewer(userId: string) {
     setSelectedReviewerIds((current) =>
@@ -170,7 +281,10 @@ export function SubmitNotebookDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) setSnapshot(null)
+        if (!next) {
+          setVerified(null)
+          setInvalidated(false)
+        }
         onOpenChange(next)
       }}
     >
@@ -261,9 +375,10 @@ export function SubmitNotebookDialog({
             ) : null}
           </fieldset>
 
-          {/* NOTE-04: preview of what submission will pin. Reuses the
+          {/* NOTE-04: preview of what submission will pin, rendered from
+              the frozen snapshot bound to the verified digest. Reuses the
               read-only block previews; labelled as a preview, not evidence. */}
-          {snapshot ? (
+          {verified ? (
             <section
               aria-label="Evidence preview"
               className="space-y-2 rounded-md border p-3"
@@ -282,9 +397,9 @@ export function SubmitNotebookDialog({
                 {composition.blockCount === 1 ? '' : 's'} ·{' '}
                 {composition.sheetCount} embedded Sheet
                 {composition.sheetCount === 1 ? '' : 's'} · structure version{' '}
-                {snapshot.structureVersion} · metadata version{' '}
-                {snapshot.metadataVersion} · calculation input revision{' '}
-                {snapshot.calculationInputRevision}
+                {verified.digest.structureVersion} · metadata version{' '}
+                {verified.digest.metadataVersion} · calculation input revision{' '}
+                {verified.digest.calculationInputRevision}
               </p>
               <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
                 {orderedBlocks.length === 0 ? (
@@ -306,12 +421,18 @@ export function SubmitNotebookDialog({
             </section>
           ) : null}
 
-          {snapshot ? (
+          {verified ? (
             <p className="text-muted-foreground" role="status">
               Snapshot is ready to submit.
               <span className="mt-1 block break-all font-mono text-xs">
-                Integrity check: {snapshot.sourceDigest}
+                Integrity check: {verified.digest.sourceDigest}
               </span>
+            </p>
+          ) : invalidated ? (
+            <p className="text-muted-foreground" role="status">
+              The Notebook changed since the last check — the snapshot above
+              was cleared. Run “Check snapshot” again to verify the current
+              content.
             </p>
           ) : (
             <p className="text-muted-foreground">
@@ -344,7 +465,7 @@ export function SubmitNotebookDialog({
               submit.isPending ||
               preview.isPending ||
               blocked ||
-              !snapshot ||
+              !verified ||
               selectedReviewerIds.length === 0
             }
             onClick={() => submit.mutate()}

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { NotebookBlock } from '#/lib/notebook-data'
+import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 import {
+  submissionCanonicalSignature,
   submissionCompositionSummary,
   submissionHasBlockingChecks,
   submissionReadinessChecks,
@@ -151,6 +152,100 @@ describe('submissionSheetInstanceIds', () => {
       // Distinct instances only — the same Sheet embedded twice is one
       // Sheet to check before submitting.
       sheetCount: 1,
+    })
+  })
+
+  describe('submissionCanonicalSignature', () => {
+    const record: NotebookRecord = {
+      id: 'r1',
+      projectId: 'p1',
+      kind: 'experiment',
+      identifier: 'EXP-001',
+      title: 'Assay',
+      status: 'working',
+      tags: ['a'],
+      structureVersion: 2,
+      metadataVersion: 1,
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+      archivedAt: null,
+      deletedAt: null,
+      createdByUserId: 'u1',
+      updatedByUserId: null,
+      properties: { dose: 10 },
+      lockedAt: null,
+      lockedByRevisionId: null,
+    }
+    const block: NotebookBlock = {
+      id: 'b1',
+      recordId: 'r1',
+      type: 'rich_text',
+      payload: { doc: { type: 'doc' } },
+      payloadSchemaVersion: 1,
+      order: 1,
+      version: 1,
+    }
+
+    it('is stable for identical inputs, regardless of payload key order', () => {
+      const a = submissionCanonicalSignature({ record, blocks: [block] })
+      const reordered: NotebookRecord = {
+        ...record,
+        properties: { dose: 10 },
+      }
+      const b = submissionCanonicalSignature({
+        record: reordered,
+        blocks: [{ ...block, payload: { doc: { type: 'doc' } } }],
+      })
+      expect(b).toBe(a)
+    })
+
+    it('changes when a block payload, version or order changes', () => {
+      const base = submissionCanonicalSignature({ record, blocks: [block] })
+      expect(
+        submissionCanonicalSignature({
+          record,
+          blocks: [{ ...block, version: 2 }],
+        }),
+      ).not.toBe(base)
+      expect(
+        submissionCanonicalSignature({
+          record,
+          blocks: [{ ...block, payload: { doc: { type: 'doc', x: 1 } } }],
+        }),
+      ).not.toBe(base)
+      expect(
+        submissionCanonicalSignature({
+          record,
+          blocks: [{ ...block, order: 2 }],
+        }),
+      ).not.toBe(base)
+    })
+
+    it('changes when record metadata or structure versions change', () => {
+      const base = submissionCanonicalSignature({ record, blocks: [block] })
+      const changed = (overrides: Partial<NotebookRecord>) =>
+        submissionCanonicalSignature({
+          record: { ...record, ...overrides },
+          blocks: [block],
+        })
+      expect(changed({ title: 'Renamed' })).not.toBe(base)
+      expect(changed({ metadataVersion: 2 })).not.toBe(base)
+      expect(changed({ structureVersion: 3 })).not.toBe(base)
+      expect(changed({ properties: { dose: 11 } })).not.toBe(base)
+      expect(changed({ status: 'archived' })).not.toBe(base)
+    })
+
+    it('changes when the record identity changes or is absent', () => {
+      const base = submissionCanonicalSignature({ record, blocks: [block] })
+      expect(
+        submissionCanonicalSignature({
+          record: { ...record, id: 'r2' },
+          blocks: [block],
+        }),
+      ).not.toBe(base)
+      expect(
+        submissionCanonicalSignature({ record: null, blocks: [block] }),
+      ).not.toBe(base)
     })
   })
 })

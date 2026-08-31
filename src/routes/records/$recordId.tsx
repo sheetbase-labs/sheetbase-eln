@@ -759,6 +759,7 @@ export function StickyRecordHeader({
           projectId={projectId}
           reviewerUserId={currentUserId}
           workspaceId={workspaceId}
+          record={record}
           blocks={blocks}
           hasUnsavedWork={hasUnsavedWork}
           archivedAt={record.archivedAt}

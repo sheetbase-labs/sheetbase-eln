@@ -536,6 +536,43 @@ describe('NotebookDocument — undo delete', () => {
     await user.click(undoDelete!)
     expect(onUndoDelete).toHaveBeenCalled()
   })
+
+  it('dismisses the undo status once the atomic restore resolves', async () => {
+    const user = userEvent.setup()
+    const onDeleteBlock = vi.fn().mockResolvedValue(undefined)
+    // Undo restores the block in a single server-authoritative insert; a
+    // resolved call means the block is back at its original position.
+    const onUndoDelete = vi
+      .fn()
+      .mockResolvedValue({ id: 'b1-restored' })
+    // blocks mirrors the route's cache after the undo insert upserts the
+    // restored block: the original neighbour and the restored block itself.
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b2', 'B'), richTextBlock('b1-restored', 'A')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={onDeleteBlock}
+        onUndoDelete={onUndoDelete}
+      />,
+    )
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[0],
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    // The restored block is present and the undo status is dismissed: the
+    // server resolved position and content in one atomic operation.
+    expect(screen.getByText('A')).toBeTruthy()
+    expect(screen.queryByText('Block deleted.')).toBeNull()
+    expect(onUndoDelete).toHaveBeenCalledWith('rich_text', expect.anything(), {
+      afterBlockId: null,
+      beforeBlockId: 'b1-restored',
+    })
+  })
 })
 
 describe('NotebookDocument — read-only', () => {

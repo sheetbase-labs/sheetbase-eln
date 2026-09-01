@@ -13,6 +13,7 @@
  * PostgreSQL and RLS remain authoritative; these helpers improve the UI and
  * drive validation.
  */
+import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
@@ -478,6 +479,21 @@ describe('searchQueryKeys', () => {
     expect(key1).not.toEqual(key2)
     expect(key1[0]).toBe('search-001')
   })
+
+  it('produces distinct keys for distinct object-class filters', () => {
+    const base: SearchFilters = { query: 'virus' }
+    const recordsKey = searchQueryKeys.search({ ...base, resultType: 'record' })
+    const datasetsKey = searchQueryKeys.search({
+      ...base,
+      resultType: 'dataset',
+    })
+    const allKey = searchQueryKeys.search(base)
+    expect(recordsKey).not.toEqual(datasetsKey)
+    expect(recordsKey).not.toEqual(allKey)
+    expect(datasetsKey).not.toEqual(allKey)
+    expect(recordsKey).toContain('record')
+    expect(datasetsKey).toContain('dataset')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -507,6 +523,53 @@ describe('executeSearch', () => {
       query: 'virus',
     })
     expect(results).toHaveLength(1)
+  })
+})
+
+describe('search cache behaviour (resultType in query key)', () => {
+  function countingClient(): { client: DataClient; calls: string[] } {
+    const calls: string[] = []
+    return {
+      calls,
+      client: {
+        list: async () => [],
+        insert: async () => ({}),
+        patch: async () => [],
+        rpc: async (_name: string, args: Record<string, unknown>) => {
+          const resultType =
+            (args as { p_result_type?: string }).p_result_type ?? 'all'
+          calls.push(resultType)
+          return [
+            wireRow({
+              result_type: resultType === 'all' ? 'record' : resultType,
+            }),
+          ]
+        },
+      } as unknown as DataClient,
+    }
+  }
+
+  it('refetches instead of serving the previous cache when resultType changes', async () => {
+    const { client, calls } = countingClient()
+    const queryClient = new QueryClient()
+
+    // Mirror the search route: staleTime keeps entries cached between renders.
+    const fetch = async (filters: SearchFilters) =>
+      queryClient.fetchQuery({
+        queryKey: searchQueryKeys.search(filters),
+        queryFn: () => executeSearch(client, filters),
+        staleTime: 10_000,
+      })
+
+    const recordResults = await fetch({ query: 'virus', resultType: 'record' })
+    const datasetResults = await fetch({ query: 'virus', resultType: 'dataset' })
+
+    // Two distinct object-class filters must fire two distinct requests.
+    expect(calls).toEqual(['record', 'dataset'])
+    expect(recordResults[0].resultType).toBe('record')
+    expect(datasetResults[0].resultType).toBe('dataset')
+    // The pre-fix bug: the dataset fetch was served from the record cache.
+    expect(datasetResults).not.toEqual(recordResults)
   })
 })
 

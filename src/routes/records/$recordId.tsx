@@ -133,6 +133,13 @@ import type {
   NotebookReviewActivity,
   NotebookReviewContext,
 } from '#/lib/notebook-experience'
+import {
+  notebookOutline,
+  notebookSectionSpans,
+  sectionSpanHidesContent,
+} from '#/lib/notebook-outline'
+import { NotebookOutlinePanel } from '#/components/notebook/notebook-outline-panel'
+import type { NotebookOutlineControls } from '#/components/notebook/notebook-outline-panel'
 
 function RouteShell({
   children,
@@ -249,6 +256,46 @@ function ExperimentNotebookRoute() {
   const blocks = blocksQuery.data ?? []
   const links = linksQuery.data ?? []
   const activity = activityQuery.data ?? []
+
+  // NOTE-02: section collapse is presentation state owned by the route so
+  // the inspector's Outline tab and the canvas stay in sync. It resets when
+  // the record or the viewed revision changes — never persisted.
+  const [collapsedSections, setCollapsedSections] = useState<
+    ReadonlySet<string>
+  >(() => new Set<string>())
+  useEffect(() => {
+    setCollapsedSections(new Set())
+  }, [recordId, historicalRevisionId])
+  const toggleSection = (anchorId: string) => {
+    setCollapsedSections((current) => {
+      const next = new Set(current)
+      if (next.has(anchorId)) next.delete(anchorId)
+      else next.add(anchorId)
+      return next
+    })
+  }
+  const outlineControls = {
+    collapsedSections,
+    onToggleSection: toggleSection,
+    onExpandAllSections: () => setCollapsedSections(new Set()),
+    onCollapseAllSections: () => {
+      // Only sections that actually own something collapsible can usefully
+      // collapse: later blocks (block-granular) or content inside their own
+      // rich_text block (same-block node range). An empty span would render
+      // a meaningless placeholder.
+      const spans = notebookSectionSpans(blocks)
+      setCollapsedSections(
+        new Set(
+          notebookOutline(blocks)
+            .filter((entry) => {
+              const span = spans.get(entry.anchorId)
+              return !!span && sectionSpanHidesContent(span)
+            })
+            .map((entry) => entry.anchorId),
+        ),
+      )
+    },
+  }
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -402,6 +449,11 @@ function ExperimentNotebookRoute() {
         inspector={
           <NotebookInspector
             record={displayRecord}
+            outlineControls={
+              historicalRevisionId || record.lockedAt || record.archivedAt
+                ? undefined
+                : outlineControls
+            }
             projectName={project?.title ?? null}
             ownerName={context.user.name}
             currentUserId={context.user.id}
@@ -468,6 +520,7 @@ function ExperimentNotebookRoute() {
               client={notebookDataClient}
               queryClient={queryClient}
               collaborationWorkspaceId={context.workspace?.id}
+              outline={outlineControls}
               collaborationRole={context.workspace?.role}
             />
           )}
@@ -831,6 +884,7 @@ export function NotebookCanvas({
   queryClient,
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
+  outline,
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
@@ -848,6 +902,8 @@ export function NotebookCanvas({
   collaborationWorkspaceId?: string
   /** COLLAB-02: workspace role hint for the block comment composer. */
   collaborationRole?: string
+  /** NOTE-02: shared section-collapse controls (route-owned presentation state). */
+  outline?: NotebookOutlineControls
 }) {
   if (isLoading) {
     return (
@@ -916,6 +972,7 @@ export function NotebookCanvas({
       queryClient={queryClient}
       collaborationWorkspaceId={collaborationWorkspaceId}
       collaborationRole={collaborationRole}
+      outline={outline}
     />
   )
 }
@@ -936,6 +993,7 @@ function EditableNotebook({
   queryClient,
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
+  outline,
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
@@ -945,6 +1003,8 @@ function EditableNotebook({
   collaborationWorkspaceId?: string
   /** COLLAB-02: workspace role hint for the block comment composer. */
   collaborationRole?: string
+  /** NOTE-02: shared section-collapse controls. */
+  outline?: NotebookOutlineControls
 }) {
   const blocksKey = notebookQueryKeys.blocks(record.id)
   const recordKey = notebookQueryKeys.record(record.id)
@@ -1452,6 +1512,8 @@ function EditableNotebook({
         onReplaceBlock={handleReplaceBlock}
         collaborationWorkspaceId={collaborationWorkspaceId}
         collaborationRole={collaborationRole}
+        collapsedSections={outline?.collapsedSections}
+        onToggleSection={outline?.onToggleSection}
       />
       <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
         <DialogContent>
@@ -1957,6 +2019,7 @@ export function NotebookInspector({
   reviewActivity = 'none',
   isHistorical = false,
   revisionEvidence,
+  outlineControls,
 }: {
   record: NotebookRecord
   projectName?: string | null
@@ -1978,6 +2041,8 @@ export function NotebookInspector({
     blocks: NotebookBlockDomain[]
     links: NotebookLink[]
   }
+  /** NOTE-02: section-collapse controls; absent on read-only/historical views. */
+  outlineControls?: NotebookOutlineControls
 }) {
   const evidenceBlocks = isHistorical
     ? (revisionEvidence?.blocks ?? [])
@@ -2002,6 +2067,10 @@ export function NotebookInspector({
     reviewActivity,
     isHistorical,
   })
+
+  // NOTE-02: the outline is a projection of the (evidence or live) blocks —
+  // the same heading nodes the editor writes, never a second structure.
+  const outlineEntries = notebookOutline(evidenceBlocks)
 
   const tabs = [
     {
@@ -2126,6 +2195,16 @@ export function NotebookInspector({
             <FileList items={fileItems} />
           </InspectorSection>
         </div>
+      ),
+    },
+    {
+      id: 'outline',
+      label: 'Outline',
+      content: (
+        <NotebookOutlinePanel
+          entries={outlineEntries}
+          controls={outlineControls}
+        />
       ),
     },
     {

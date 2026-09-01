@@ -263,19 +263,42 @@ function renderText(node: RichTextTextNode, key: number): React.ReactNode {
 function renderNode(
   node: RichTextHeadingNode | RichTextParagraphNode | RichTextListNode,
   key: number,
+  anchorPrefix?: string,
+  /**
+   * NOTE-02 same-block collapse: the node belongs to a collapsed section.
+   * Hidden from view but kept in the DOM with `print:contents` so printed
+   * and exported output stays fully expanded — the same mechanism the
+   * block-granular collapse uses.
+   */
+  hidden = false,
 ): React.ReactNode {
+  const hiddenClass = hidden ? 'hidden print:contents' : undefined
   if (node.type === 'paragraph') {
-    return <p key={key}>{node.content?.map(renderText) ?? null}</p>
+    return (
+      <p key={key} className={hiddenClass}>
+        {node.content?.map(renderText) ?? null}
+      </p>
+    )
   }
   if (node.type === 'heading') {
     const Tag = node.attrs.level === 2 ? 'h2' : 'h3'
     return (
       <Tag
-        className={
+        // NOTE-02: stable in-payload anchor. The ordinal is the heading's
+        // index within the block payload — the same key the outline uses.
+        id={anchorPrefix ? `${anchorPrefix}-h${key}` : undefined}
+        className={[
+          'scroll-mt-28',
           node.attrs.level === 2
             ? 'font-display text-lg font-semibold leading-7 tracking-tight'
-            : 'font-display text-base font-semibold leading-6 tracking-tight'
-        }
+            : 'font-display text-base font-semibold leading-6 tracking-tight',
+          // NOTE-02 nested collapse: a lower-level heading inside a
+          // collapsed enclosing section (e.g. an H3 inside a collapsed H2)
+          // is hidden from view but kept for print, like other nodes.
+          hiddenClass,
+        ]
+          .filter(Boolean)
+          .join(' ')}
         key={key}
       >
         {node.content?.map(renderText) ?? null}
@@ -286,10 +309,13 @@ function renderNode(
   return (
     <Tag
       key={key}
+      className={hiddenClass}
       start={node.type === 'orderedList' ? node.attrs?.start : undefined}
     >
       {node.content.map((item, itemIndex) => (
-        <li key={itemIndex}>{item.content.map(renderNode)}</li>
+        <li key={itemIndex}>
+          {item.content.map((child, childKey) => renderNode(child, childKey))}
+        </li>
       ))}
     </Tag>
   )
@@ -298,9 +324,19 @@ function renderNode(
 export function RichTextContent({
   payload,
   className,
+  anchorPrefix,
+  hiddenNodeIndexes,
 }: {
   payload: RichTextPayload
   className?: string
+  /** NOTE-02: when set, H2/H3 nodes get stable `#<prefix>-h<index>` anchors. */
+  anchorPrefix?: string
+  /**
+   * NOTE-02 same-block collapse: top-level node indexes inside this payload
+   * hidden by a collapsed section. Hidden nodes stay in the DOM with
+   * `hidden print:contents` so print output remains fully expanded.
+   */
+  hiddenNodeIndexes?: ReadonlySet<number>
 }) {
   return (
     <div
@@ -311,7 +347,9 @@ export function RichTextContent({
         .filter(Boolean)
         .join(' ')}
     >
-      {payload.doc.content.map(renderNode)}
+      {payload.doc.content.map((node, key) =>
+        renderNode(node, key, anchorPrefix, hiddenNodeIndexes?.has(key)),
+      )}
     </div>
   )
 }

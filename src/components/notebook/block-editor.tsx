@@ -136,6 +136,17 @@ export interface BlockEditorProps {
   readOnly?: boolean
   autoFocus?: boolean
   className?: string
+  /**
+   * NOTE-02: when set (rich_text only), headings in the editable Tiptap DOM
+   * get stable `#<prefix>-h<index>` outline anchors, matching read view.
+   */
+  headingAnchorPrefix?: string
+  /**
+   * NOTE-02 same-block collapse: rich_text node indexes hidden by a
+   * collapsed section. Hidden from view, preserved for print, never removed
+   * from the payload.
+   */
+  hiddenRichTextNodeIndexes?: ReadonlySet<number>
   /** Transactionally pin a selected protocol and copy its procedure steps. */
   pinProtocol?: (protocolRecordId: string) => Promise<void>
   /** SCI-003: attach an uploaded file to an empty file block. */
@@ -364,6 +375,8 @@ function RichTextEditor({
   readOnly,
   autoFocus,
   className,
+  headingAnchorPrefix,
+  hiddenRichTextNodeIndexes,
   onSlashCommand,
   onEnterAtEnd,
   onBackspaceAtStart,
@@ -374,7 +387,14 @@ function RichTextEditor({
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {
-    return <RichTextContent className={className} payload={a.draft} />
+    return (
+      <RichTextContent
+        className={className}
+        payload={a.draft}
+        anchorPrefix={headingAnchorPrefix ?? `section-${block.id}`}
+        hiddenNodeIndexes={hiddenRichTextNodeIndexes}
+      />
+    )
   }
 
   return (
@@ -382,6 +402,8 @@ function RichTextEditor({
       <TiptapRichTextEditor
         payload={a.draft}
         autoFocus={autoFocus}
+        anchorPrefix={headingAnchorPrefix ?? `section-${block.id}`}
+        hiddenNodeIndexes={hiddenRichTextNodeIndexes}
         onChange={(payload) => {
           a.setTouched(true)
           a.setDraft(payload)

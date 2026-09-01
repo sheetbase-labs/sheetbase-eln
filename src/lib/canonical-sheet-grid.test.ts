@@ -1,19 +1,29 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  applySheetPresentation,
   canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
   categoryCellDisplayText,
   clearContentsUpdates,
+  filterAdditionsToDisplayColumns,
   firstBulkChangeRejection,
+  hotFiltersToPresentationFilters,
   parseSheetCellInput,
+  preserveHiddenColumnFilters,
+  presentationFiltersToHotAdditions,
   resolveCanonicalCellChanges,
   validateCanonicalCell,
 } from './canonical-sheet-grid'
-import type { CanonicalSheetGridColumn } from './canonical-sheet-grid'
+import type {
+  CanonicalSheetGridColumn,
+  HotFilterConditionStack,
+} from './canonical-sheet-grid'
 import type { FieldDefinition } from './field-definition'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
+import type { SheetPresentation } from './sheet-instance'
 import { validSheetInstanceState } from './sheet-instance.test'
+import { sanitizeSheetPresentation } from './sheet-presentation-view'
 
 const fieldId = '10000000-0000-4000-8000-000000000004'
 const rowId = '10000000-0000-4000-8000-000000000005'
@@ -447,5 +457,324 @@ describe('column header and category display (GRID-03)', () => {
     )
     expect(categoryCellDisplayText(categoryField, null)).toBe('')
     expect(categoryCellDisplayText(null, 12)).toBe('12')
+  })
+})
+
+describe('applySheetPresentation (GRID-04)', () => {
+  const third: CanonicalSheetGridColumn = {
+    ...readOnly,
+    id: 'col-third',
+    label: 'Notes',
+  }
+  const baseMatrix = {
+    columns: bulkColumns,
+    rowKeys: [rowId],
+    rowKinds: ['local' as const],
+    data: [[12, 'derived']],
+  }
+  const fullPresentation = {
+    columnOrder: [],
+    hiddenColumnIds: [],
+    columnWidths: {},
+    frozenColumnCount: 0,
+    density: 'standard' as const,
+    filters: [],
+    sorts: [],
+  }
+
+  it('reorders columns and realigns row data by column id', () => {
+    const matrix = applySheetPresentation(baseMatrix, {
+      ...fullPresentation,
+      columnOrder: ['col-readonly', 'col-editable'],
+    })
+    expect(matrix.columns.map((column) => column.label)).toEqual([
+      'Recovery',
+      'Titer',
+    ])
+    expect(matrix.data).toEqual([['derived', 12]])
+    // Row identity is untouched by presentation resequencing.
+    expect(matrix.rowKeys).toEqual([rowId])
+  })
+
+  it('drops hidden columns from the display matrix only', () => {
+    const matrix = applySheetPresentation(baseMatrix, {
+      ...fullPresentation,
+      hiddenColumnIds: ['col-readonly'],
+    })
+    expect(matrix.columns.map((column) => column.id)).toEqual(['col-editable'])
+    expect(matrix.data).toEqual([[12]])
+  })
+
+  it('ignores unknown and duplicate order entries and appends the rest canonically', () => {
+    const matrix = applySheetPresentation(
+      { ...baseMatrix, columns: [...bulkColumns, third] },
+      {
+        ...fullPresentation,
+        columnOrder: ['col-third', 'col-third', 'unknown-column'],
+      },
+    )
+    expect(matrix.columns.map((column) => column.id)).toEqual([
+      'col-third',
+      'col-editable',
+      'col-readonly',
+    ])
+  })
+
+  it('keeps the canonical order untouched for an empty presentation', () => {
+    const matrix = applySheetPresentation(baseMatrix, fullPresentation)
+    expect(matrix.columns.map((column) => column.id)).toEqual([
+      'col-editable',
+      'col-readonly',
+    ])
+    expect(matrix.data).toEqual([[12, 'derived']])
+  })
+})
+
+describe('clear contents with visual→physical columns (GRID-04)', () => {
+  it('resolves the typed contract on the physical column behind a moved visual column', () => {
+    // Visual column 0 actually shows the physical column 1 (Recovery,
+    // derived): the clear must skip it even though the matrix's editable
+    // column sits at visual position 1.
+    const updates = clearContentsUpdates(
+      bulkColumns,
+      [{ from: { row: 0, col: 0 }, to: { row: 0, col: 1 } }],
+      () => 'filled',
+      (visual) => (visual === 0 ? 1 : 0),
+    )
+    expect(updates).toEqual([[0, 1, null]])
+  })
+})
+
+describe('Handsontable filter ⇄ presentation.filters mapping (GRID-04)', () => {
+  const columns = [{ id: 'col-a' }, { id: 'col-b' }, { id: 'col-c' }]
+  const columnIds = new Set(columns.map((column) => column.id))
+  const emptyPresentation = {
+    columnOrder: [],
+    hiddenColumnIds: [],
+    columnWidths: {},
+    frozenColumnCount: 0,
+    density: 'standard' as const,
+    filters: [],
+    sorts: [],
+  }
+
+  it('maps equality-shaped plugin conditions onto canonical operators', () => {
+    expect(
+      hotFiltersToPresentationFilters(
+        [
+          {
+            column: 0,
+            conditions: [{ name: 'eq', args: [1_200] }],
+            operation: 'conjunction',
+          },
+          { column: 1, conditions: [{ name: 'not_empty' }], operation: 'conjunction' },
+          { column: 2, conditions: [{ name: 'neq', args: ['draft'] }] },
+        ],
+        columns,
+      ),
+    ).toEqual([
+      { columnId: 'col-a', operator: 'equals', value: 1_200 },
+      { columnId: 'col-b', operator: 'is-not-empty' },
+      { columnId: 'col-c', operator: 'not-equals', value: 'draft' },
+    ])
+  })
+
+  it('maps the checkbox true/false conditions to boolean equality', () => {
+    expect(
+      hotFiltersToPresentationFilters(
+        [
+          { column: 0, conditions: [{ name: 'true' }] },
+          { column: 1, conditions: [{ name: 'false' }] },
+          { column: 2, conditions: [{ name: 'empty' }] },
+        ],
+        columns,
+      ),
+    ).toEqual([
+      { columnId: 'col-a', operator: 'equals', value: true },
+      { columnId: 'col-b', operator: 'equals', value: false },
+      { columnId: 'col-c', operator: 'is-empty' },
+    ])
+  })
+
+  it('keeps non-serialisable conditions session-visual', () => {
+    expect(
+      hotFiltersToPresentationFilters(
+        [
+          // By-value checkbox list and text/date predicates have no
+          // canonical counterpart.
+          {
+            column: 0,
+            conditions: [{ name: 'by_value', args: [['x', 'y']] }],
+          },
+          { column: 1, conditions: [{ name: 'contains', args: ['a'] }] },
+          // OR groups cannot be restored faithfully as AND entries.
+          {
+            column: 2,
+            conditions: [
+              { name: 'eq', args: [1] },
+              { name: 'eq', args: [2] },
+            ],
+            operation: 'disjunction',
+          },
+          // Coordinates outside the display matrix are never writes.
+          { column: 9, conditions: [{ name: 'eq', args: [1] }] },
+        ],
+        columns,
+      ),
+    ).toEqual([])
+  })
+
+  it('caps the captured filter list at the schema limit', () => {
+    const stack = Array.from({ length: 40 }, (_, index) => ({
+      column: 0,
+      conditions: [{ name: 'eq', args: [index] }],
+      operation: 'conjunction',
+    }))
+    expect(hotFiltersToPresentationFilters(stack, columns)).toHaveLength(32)
+  })
+
+  it('rebuilds addCondition calls, skipping hidden or unknown columns', () => {
+    expect(
+      presentationFiltersToHotAdditions(
+        [
+          { columnId: 'col-a', operator: 'equals', value: 5 },
+          { columnId: 'col-a', operator: 'is-empty' },
+          { columnId: 'col-retired', operator: 'equals', value: 'x' },
+        ],
+        columns,
+      ),
+    ).toEqual([
+      { column: 0, name: 'eq', args: [5] },
+      { column: 0, name: 'empty', args: [] },
+    ])
+  })
+
+  it('round-trips captured filters through sanitize and re-apply', () => {
+    const stack: HotFilterConditionStack[] = [
+      {
+        column: 0,
+        conditions: [{ name: 'eq', args: ['ACME'] }],
+        operation: 'conjunction',
+      },
+      { column: 2, conditions: [{ name: 'not_empty' }] },
+      // Session-visual: dropped on capture, so it must not resurrect.
+      { column: 1, conditions: [{ name: 'begins_with', args: ['S'] }] },
+    ]
+    const captured = hotFiltersToPresentationFilters(stack, columns)
+    expect(captured).toHaveLength(2)
+    const sanitized = sanitizeSheetPresentation(
+      { ...emptyPresentation, filters: captured },
+      columnIds,
+    )
+    const additions = presentationFiltersToHotAdditions(
+      sanitized?.filters ?? [],
+      columns,
+    )
+    // Re-capturing what was applied reproduces exactly the persisted shape.
+    const reStack = new Map<
+      number,
+      { column: number; conditions: Array<{ name: string; args: unknown[] }> }
+    >()
+    for (const addition of additions) {
+      const entry = reStack.get(addition.column) ?? {
+        column: addition.column,
+        conditions: [],
+      }
+      entry.conditions.push({ name: addition.name, args: addition.args })
+      reStack.set(addition.column, entry)
+    }
+    expect(
+      hotFiltersToPresentationFilters([...reStack.values()], columns),
+    ).toEqual(sanitized?.filters)
+  })
+
+  // #113 — a saved filter on a column that the view itself hides must not
+  // vanish: the restore maps condition column IDs through the canonical
+  // (full, pre-hidden-projection) column list, and the capture carries
+  // hidden-column filters across instead of overwriting them.
+  it('restores a saved filter on a hidden column through the canonical columns (#113)', () => {
+    // Canonical [col-a, col-x, col-b]; the view hides col-x → display
+    // [col-a, col-b]. col-x remains a restorable canonical column.
+    const canonicalColumns = [
+      { id: 'col-a' },
+      { id: 'col-x' },
+      { id: 'col-b' },
+    ]
+    const displayColumns = [{ id: 'col-a' }, { id: 'col-b' }]
+    const savedFilters: SheetPresentation['filters'] = [
+      { columnId: 'col-x', operator: 'equals', value: 5 },
+    ]
+
+    // Mapping through the DISPLAY subset would silently drop the filter.
+    expect(presentationFiltersToHotAdditions(savedFilters, displayColumns)).toEqual(
+      [],
+    )
+    // Through the canonical list the condition survives as a plugin
+    // addition at the canonical index even though the column is hidden.
+    const additions = presentationFiltersToHotAdditions(
+      savedFilters,
+      canonicalColumns,
+    )
+    expect(additions).toEqual([{ column: 1, name: 'eq', args: [5] }])
+    // The plugin can only hold conditions for columns the grid contains
+    // (an out-of-range condition trims every row), so the projection
+    // withholds the hidden column's condition while keeping visible ones
+    // at their display indexes.
+    expect(
+      filterAdditionsToDisplayColumns(
+        [
+          ...additions,
+          { column: 0, name: 'eq', args: ['visible'] },
+        ],
+        canonicalColumns,
+        displayColumns,
+      ),
+    ).toEqual([{ column: 0, name: 'eq', args: ['visible'] }])
+  })
+
+  it('keeps a hidden column’s saved filter when another column is captured (#113)', () => {
+    const canonicalColumns = [{ id: 'col-a' }, { id: 'col-x' }]
+    const displayColumns = [{ id: 'col-a' }]
+    const previous: SheetPresentation['filters'] = [
+      // Hidden while col-x is concealed — the plugin cannot express it.
+      { columnId: 'col-x', operator: 'equals', value: 5 },
+    ]
+    // The user now filters col-a; the capture must not evict col-x.
+    const captured: SheetPresentation['filters'] = [
+      { columnId: 'col-a', operator: 'is-empty' },
+    ]
+    expect(
+      preserveHiddenColumnFilters(
+        captured,
+        previous,
+        canonicalColumns,
+        displayColumns,
+      ),
+    ).toEqual([
+      { columnId: 'col-x', operator: 'equals', value: 5 },
+      { columnId: 'col-a', operator: 'is-empty' },
+    ])
+  })
+
+  it('drops retired-column filters and dedupes on capture (#113)', () => {
+    const canonicalColumns = [{ id: 'col-a' }]
+    const displayColumns = [{ id: 'col-a' }]
+    const previous: SheetPresentation['filters'] = [
+      // Retired column — not restorable, must not resurrect.
+      { columnId: 'col-gone', operator: 'is-empty' },
+      // Still applied through the plugin — already in the capture.
+      { columnId: 'col-a', operator: 'equals', value: 1 },
+    ]
+    const captured: SheetPresentation['filters'] = [
+      { columnId: 'col-a', operator: 'equals', value: 1 },
+    ]
+    expect(
+      preserveHiddenColumnFilters(
+        captured,
+        previous,
+        canonicalColumns,
+        displayColumns,
+      ),
+    ).toEqual([{ columnId: 'col-a', operator: 'equals', value: 1 }])
   })
 })

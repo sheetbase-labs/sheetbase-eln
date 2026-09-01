@@ -47,6 +47,14 @@ vi.mock('./sheetbase-grid', () => ({
     onReady?.({
       setDataAtCell,
       toPhysicalRow: (row: number) => row,
+      toPhysicalColumn: (col: number) => col,
+      countCols: () => settings.colHeaders?.length ?? 0,
+      columnIndexMapper: {
+        getIndexesSequence: () =>
+          Array.from({ length: settings.colHeaders?.length ?? 0 }, (_, i) => i),
+        setIndexesSequence: () => {},
+      },
+      getPlugin: () => undefined,
       getShortcutManager: () => ({ setActiveContextName: () => {} }),
     })
     return (

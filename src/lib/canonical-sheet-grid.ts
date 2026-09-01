@@ -6,6 +6,7 @@ import type { FieldEditorPresentation } from './field-presentation'
 import type { FieldDefinition, FieldOption } from './field-definition'
 import { sheetLocalValueError } from './sheet-local-data'
 import type { SheetInstance } from './sheet-instance-data'
+import type { SheetPresentation } from './sheet-instance'
 
 export type CanonicalSheetColumnOrigin = 'bound' | 'local' | 'calculation'
 
@@ -240,6 +241,52 @@ export function validateCanonicalCell(
 }
 
 /**
+ * GRID-04 — project the canonical matrix through the presentation working
+ * state: columns are reordered per `columnOrder` and hidden columns removed.
+ * This is display-only resequencing — the underlying canonical column order
+ * (definition/configuration or local field order) is untouched, row identity
+ * is unaffected and no data value changes. Unknown, duplicate or hidden
+ * `columnOrder` entries are ignored; canonical columns missing from the saved
+ * order keep their canonical position at the end, mirroring the frozen-sheet
+ * evidence reconstruction.
+ */
+export function applySheetPresentation(
+  matrix: CanonicalSheetGridMatrix,
+  presentation: SheetPresentation,
+): CanonicalSheetGridMatrix {
+  const byId = new Map(matrix.columns.map((column) => [column.id, column]))
+  const hidden = new Set(
+    presentation.hiddenColumnIds.filter((id) => byId.has(id)),
+  )
+  const ordered: CanonicalSheetGridColumn[] = []
+  const seen = new Set<string>()
+  for (const id of presentation.columnOrder) {
+    if (hidden.has(id) || seen.has(id)) continue
+    const column = byId.get(id)
+    if (!column) continue
+    seen.add(id)
+    ordered.push(column)
+  }
+  for (const column of matrix.columns) {
+    if (hidden.has(column.id) || seen.has(column.id)) continue
+    seen.add(column.id)
+    ordered.push(column)
+  }
+  const sourceIndex = new Map(
+    matrix.columns.map((column, index) => [column.id, index]),
+  )
+  const data = matrix.data.map((row) =>
+    ordered.map((column) => row[sourceIndex.get(column.id) as number]),
+  )
+  return {
+    columns: ordered,
+    rowKeys: matrix.rowKeys,
+    rowKinds: matrix.rowKinds,
+    data,
+  }
+}
+
+/**
  * GRID-02/GRID-03 — resolve a change set (paste, fill, clear, single edit)
  * against the typed column contract before Handsontable applies anything.
  * Every value is coerced through `parseSheetCellInput` (canonical category
@@ -311,7 +358,9 @@ export function firstBulkChangeRejection(
  * `[2]` as the new value). Read-only/derived columns and already-empty cells
  * are skipped, so clearing never mints phantom spare-row entries and the
  * workspace `beforeChange` validation remains the fail-closed gate for
- * required fields.
+ * required fields. Column resolution mirrors GRID-02's `toPhysicalRow` row
+ * mapping via `toPhysicalColumn`; returned coordinates stay visual so
+ * `setDataAtCell` applies them unchanged.
  */
 export function clearContentsUpdates(
   columns: CanonicalSheetGridColumn[],
@@ -320,6 +369,7 @@ export function clearContentsUpdates(
     to: { row: number | null; col: number | null }
   }>,
   readCell: (row: number, col: number) => unknown,
+  toPhysicalColumn: (visualColumn: number) => number = (col) => col,
 ): Array<[number, number, unknown]> {
   const updates: Array<[number, number, unknown]> = []
   for (const range of ranges) {
@@ -333,7 +383,7 @@ export function clearContentsUpdates(
     const endCol = Math.max(fromCol, toCol)
     for (let row = startRow; row <= endRow; row += 1) {
       for (let col = startCol; col <= endCol; col += 1) {
-        const column = columns.at(col)
+        const column = columns.at(toPhysicalColumn(col))
         if (!column || !column.editable) continue
         const current = readCell(row, col)
         if (current == null || current === '') continue
@@ -373,4 +423,200 @@ export function categoryCellDisplayText(
     if (option) return option.label
   }
   return String(value)
+}
+
+/**
+ * GRID-04 — typed mapping between Handsontable 18's Filters plugin state and
+ * `presentation.filters`.
+ *
+ * The plugin's condition collection is deterministic and serialisable:
+ * `afterFilter` hands over `{ column, conditions, operation }` stacks keyed by
+ * the grid's physical column index (`Filters#exportConditions`), and
+ * `addCondition(…)` + `filter()` rebuild them. The canonical presentation
+ * schema accepts only four equality operators on stable column ids, so only
+ * plugin conditions with an exact typed counterpart round-trip; everything
+ * else (by-value checkbox lists, contains/date predicates, OR groups) stays
+ * session-visual and is honestly omitted from the saved view.
+ */
+export interface HotFilterConditionStack {
+  /** Physical column index into the grid data (== index into `columns`). */
+  column: number
+  conditions: Array<{ name: string; args?: unknown[] }>
+  operation?: string
+}
+
+/** One `addCondition` call for the Filters plugin, visual column indexes. */
+export interface HotFilterAddition {
+  column: number
+  name: 'eq' | 'neq' | 'empty' | 'not_empty' | 'true' | 'false'
+  args: unknown[]
+}
+
+const CAPTURED_FILTER_CAP = 32
+
+function isFilterValue(
+  value: unknown,
+): value is string | number | boolean | null {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+}
+
+/**
+ * GRID-04 — convert a Handsontable `afterFilter` conditions stack into
+ * canonical `presentation.filters`. Column coordinates resolve through the
+ * composed matrix's physical column order; only equality-shaped conditions
+ * under a plain AND group are captured (the `true`/`false` checkbox conditions
+ * map to `equals` with a boolean value). Anything the schema cannot express is
+ * dropped, capped at the schema's 32-entry limit.
+ */
+export function hotFiltersToPresentationFilters(
+  conditionsStack: readonly HotFilterConditionStack[],
+  columns: ReadonlyArray<{ id: string }>,
+): SheetPresentation['filters'] {
+  const filters: SheetPresentation['filters'] = []
+  for (const entry of conditionsStack) {
+    // The schema has no per-column OR: a disjunction group cannot be restored
+    // faithfully, so the whole group stays session-visual.
+    if (entry.operation !== undefined && entry.operation !== 'conjunction')
+      continue
+    if (
+      !Number.isInteger(entry.column) ||
+      entry.column < 0 ||
+      entry.column >= columns.length
+    )
+      continue
+    const columnId = columns[entry.column]?.id
+    if (!columnId) continue
+    for (const condition of entry.conditions) {
+      if (filters.length >= CAPTURED_FILTER_CAP) return filters
+      const name = condition.name
+      if (name === 'true') {
+        filters.push({ columnId, operator: 'equals', value: true })
+        continue
+      }
+      if (name === 'false') {
+        filters.push({ columnId, operator: 'equals', value: false })
+        continue
+      }
+      if (name === 'empty') {
+        filters.push({ columnId, operator: 'is-empty' })
+        continue
+      }
+      if (name === 'not_empty') {
+        filters.push({ columnId, operator: 'is-not-empty' })
+        continue
+      }
+      if (name === 'eq' || name === 'neq') {
+        const value = condition.args?.at(0)
+        if (!isFilterValue(value)) continue
+        filters.push({
+          columnId,
+          operator: name === 'eq' ? 'equals' : 'not-equals',
+          value,
+        })
+      }
+      // Any other condition name has no canonical counterpart — omit it.
+    }
+  }
+  return filters
+}
+
+/**
+ * GRID-04 — convert canonical `presentation.filters` into `addCondition`
+ * calls for the Filters plugin. Columns resolve through the CANONICAL
+ * (full, pre-hidden-projection) column list, so a saved filter on a column
+ * that is currently hidden still yields an addition (#113) — the caller
+ * projects additions onto the display matrix with
+ * `filterAdditionsToDisplayColumns` before calling `addCondition`. Only a
+ * filter on a retired (no longer canonical) column is dropped here.
+ */
+export function presentationFiltersToHotAdditions(
+  filters: SheetPresentation['filters'],
+  columns: ReadonlyArray<{ id: string }>,
+): HotFilterAddition[] {
+  const additions: HotFilterAddition[] = []
+  const visualByColumnId = new Map(
+    columns.map((column, index) => [column.id, index]),
+  )
+  for (const filter of filters) {
+    const column = visualByColumnId.get(filter.columnId)
+    if (column === undefined) continue
+    if (filter.operator === 'equals') {
+      if (filter.value === true) {
+        additions.push({ column, name: 'true', args: [] })
+      } else if (filter.value === false) {
+        additions.push({ column, name: 'false', args: [] })
+      } else {
+        additions.push({ column, name: 'eq', args: [filter.value ?? null] })
+      }
+    } else if (filter.operator === 'not-equals') {
+      additions.push({ column, name: 'neq', args: [filter.value ?? null] })
+    } else if (filter.operator === 'is-empty') {
+      additions.push({ column, name: 'empty', args: [] })
+    } else {
+      additions.push({ column, name: 'not_empty', args: [] })
+    }
+  }
+  return additions
+}
+
+/**
+ * GRID-04 #113 — project canonical-index filter additions onto the display
+ * matrix. A condition can only be added for a column the grid actually
+ * contains (an out-of-range condition evaluates every row as empty and
+ * trims them all), so an addition whose column is currently hidden is
+ * withheld from the plugin. The saved filter itself stays in
+ * `presentation.filters` — `preserveHiddenColumnFilters` keeps it alive
+ * across captures — and it is applied here the moment the column is shown
+ * again.
+ */
+export function filterAdditionsToDisplayColumns(
+  additions: HotFilterAddition[],
+  canonicalColumns: ReadonlyArray<{ id: string }>,
+  displayColumns: ReadonlyArray<{ id: string }>,
+): HotFilterAddition[] {
+  const displayByColumnId = new Map(
+    displayColumns.map((column, index) => [column.id, index]),
+  )
+  const projected: HotFilterAddition[] = []
+  for (const addition of additions) {
+    const columnId = canonicalColumns.at(addition.column)?.id
+    if (!columnId) continue
+    const display = displayByColumnId.get(columnId)
+    if (display === undefined) continue
+    projected.push({ ...addition, column: display })
+  }
+  return projected
+}
+
+/**
+ * GRID-04 #113 — keep saved filters on hidden columns alive when the
+ * Filters plugin reports a fresh conditions stack. While a column is hidden
+ * it has no grid column at all, so its condition cannot exist in the plugin;
+ * a naive capture would overwrite the persisted filters without it and the
+ * filter would silently vanish. Filters on columns that are still canonical
+ * but absent from the display matrix are carried over from the previous
+ * state; filters on retired columns are dropped. Preserved entries come
+ * first so the schema cap cannot evict exactly the filters the plugin
+ * cannot express while their column is hidden.
+ */
+export function preserveHiddenColumnFilters(
+  captured: SheetPresentation['filters'],
+  previous: SheetPresentation['filters'],
+  canonicalColumns: ReadonlyArray<{ id: string }>,
+  displayColumns: ReadonlyArray<{ id: string }>,
+): SheetPresentation['filters'] {
+  const displayIds = new Set(displayColumns.map((column) => column.id))
+  const capturedIds = new Set(captured.map((filter) => filter.columnId))
+  const preserved = previous.filter(
+    (filter) =>
+      !displayIds.has(filter.columnId) &&
+      !capturedIds.has(filter.columnId) &&
+      canonicalColumns.some((column) => column.id === filter.columnId),
+  )
+  return [...preserved, ...captured].slice(0, CAPTURED_FILTER_CAP)
 }

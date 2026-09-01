@@ -15,15 +15,23 @@ import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { Button, Input, Label } from '#/components/ui'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import {
+  applySheetPresentation,
   canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
   categoryCellDisplayText,
   clearContentsUpdates,
+  filterAdditionsToDisplayColumns,
+  hotFiltersToPresentationFilters,
   parseSheetCellInput,
+  preserveHiddenColumnFilters,
+  presentationFiltersToHotAdditions,
   resolveCanonicalCellChanges,
   validateCanonicalCell,
 } from '#/lib/canonical-sheet-grid'
-import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
+import type {
+  CanonicalSheetGridColumn,
+  HotFilterConditionStack,
+} from '#/lib/canonical-sheet-grid'
 import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import { selectableFieldOptions } from '#/lib/field-presentation'
 import {
@@ -31,6 +39,13 @@ import {
   sheetInstanceDataClient,
   updateSheetInstance,
 } from '#/lib/sheet-instance-data'
+import type { SheetPresentation } from '#/lib/sheet-instance'
+import {
+  hasSavedSheetView,
+  loadSheetView,
+  sanitizeSheetPresentation,
+  saveSheetView,
+} from '#/lib/sheet-presentation-view'
 import { ExportMenu } from '#/components/export/export-menu'
 import { ObjectHistoryDialog } from '#/components/audit'
 import type { BoundColumnProvenance } from '#/lib/sheet-bound-columns'
@@ -81,6 +96,17 @@ function errorText(error: unknown) {
   if (error instanceof Error) return error.message
   return null
 }
+
+/** GRID-04: keep persisted column widths inside the canonical 40–2000 range. */
+function clampColumnWidth(width: number): number {
+  return Math.min(2_000, Math.max(40, Math.round(width)))
+}
+
+/** Visual-coordinate selection ranges handed to context/dropdown callbacks. */
+type MenuSelection = Array<{
+  start: { row: number | null; col: number | null }
+  end: { row: number | null; col: number | null }
+}>
 
 function categoryCellRenderer(field: FieldDefinition): BaseRenderer {
   // GRID-03: category cells store the canonical option id but display the
@@ -244,6 +270,12 @@ export function CanonicalSheetEditor({
     col: 0,
   })
   const [writeStatus, setWriteStatus] = useState<string | null>(null)
+  // GRID-04: saved working view lives in localStorage per Sheet Instance and
+  // is re-validated against the active columns before restore (untrusted
+  // persisted state, Dataset Explorer saved-view pattern).
+  const [savedViewExists, setSavedViewExists] = useState(() =>
+    hasSavedSheetView(instance.id),
+  )
   // GRID-03: the shared Record picker serves both the toolbar link flow and
   // record-picker cell edits. `cell` is set when the edit originated in a
   // specific cell (the pick writes that cell's UUID); null means the toolbar
@@ -315,7 +347,7 @@ export function CanonicalSheetEditor({
     },
   })
 
-  const matrix = useMemo(
+  const canonicalMatrix = useMemo(
     () =>
       canonicalSheetGridMatrix({
         instance,
@@ -324,8 +356,22 @@ export function CanonicalSheetEditor({
       }),
     [instance, composition.data, calculations.data],
   )
+  // GRID-04: presentation (sort/filter/freeze/hide/widths/order) is local
+  // working state. It resequences the *display* columns only — the canonical
+  // matrix, row identity and write attribution are untouched, and the Dataset
+  // explorer / ChartSpec analysis filters are entirely separate surfaces.
+  const presentation = instance.state.presentation
+  const matrix = useMemo(
+    () => applySheetPresentation(canonicalMatrix, presentation),
+    [canonicalMatrix, presentation],
+  )
   const matrixRef = useRef(matrix)
   matrixRef.current = matrix
+  // GRID-04 #113: the canonical matrix behind the display projection —
+  // filters resolve condition column IDs through it so a saved filter on a
+  // hidden column survives.
+  const canonicalMatrixRef = useRef(canonicalMatrix)
+  canonicalMatrixRef.current = canonicalMatrix
   const compositionRef = useRef(composition.data ?? null)
   compositionRef.current = composition.data ?? null
 
@@ -379,6 +425,52 @@ export function CanonicalSheetEditor({
     })
     instanceRef.current = next
     return next
+  }
+
+  // GRID-04: presentation writes go through the existing sheet-instance state
+  // mutation path (`update_sheet_instance` with an expected revision), which
+  // is the same optimistic-revision contract the rest of the editor uses. The
+  // server rejects any change to localFields/localValues here, so a
+  // presentation write can never smuggle scientific data changes through.
+  async function persistPresentation(
+    patch: Partial<SheetPresentation>,
+    attempt = 0,
+  ): Promise<boolean> {
+    const current = instanceRef.current
+    try {
+      const next = await updateSheetInstance(
+        current.id,
+        current.revision,
+        {
+          ...current.state,
+          presentation: { ...current.state.presentation, ...patch },
+        },
+        sheetInstanceDataClient,
+      )
+      instanceRef.current = next
+      queryClient.setQueryData(['sheet-instance', instance.id], next)
+      return true
+    } catch (error) {
+      // GRID-04 review fix: rapid view controls read the same expected
+      // revision, so a stale-revision rejection would silently drop the
+      // second write. Re-read the authoritative instance and retry once.
+      const message = errorText(error) ?? ''
+      if (attempt === 0 && /stale/i.test(message)) {
+        const fresh = await queryClient.fetchQuery({
+          queryKey: ['sheet-instance', instance.id],
+          queryFn: () =>
+            fetchSheetInstance(instance.id, sheetInstanceDataClient),
+        })
+        if (fresh) {
+          instanceRef.current = fresh
+          return persistPresentation(patch, attempt + 1)
+        }
+      }
+      setWriteStatus(
+        message || 'The working view could not be saved to the Sheet state.',
+      )
+      return false
+    }
   }
 
   async function addColumn() {
@@ -436,6 +528,48 @@ export function CanonicalSheetEditor({
     if (!column || column.origin === 'bound') return
     await persistLocalCells([], {
       fieldChanges: [{ operation: 'retire', fieldId: column.id }],
+    })
+  }
+
+  // GRID-04 — saved working views. The snapshot is the presentation object
+  // only: sorts, filters, freeze, hidden columns, widths, order, density. It
+  // never carries scientific values, definitions or analysis specs.
+  function saveView() {
+    saveSheetView(instance.id, instanceRef.current.state.presentation)
+    setSavedViewExists(true)
+    setWriteStatus('Working view saved on this device.')
+  }
+
+  function restoreView() {
+    const raw = loadSheetView(instance.id)
+    // Validate against the canonical column set, not the display matrix:
+    // columns the view itself hides are absent from the display matrix but
+    // remain restorable canonical columns.
+    const columnIds = new Set(
+      canonicalMatrix.columns.map((column) => column.id),
+    )
+    const restored = raw ? sanitizeSheetPresentation(raw, columnIds) : null
+    if (!restored) {
+      setWriteStatus('No usable saved view for this Sheet on this device.')
+      return
+    }
+    void persistPresentation(restored).then((saved) => {
+      if (!saved) return
+      setWriteStatus('Working view restored.')
+    })
+  }
+
+  function resetView() {
+    void persistPresentation({
+      columnOrder: [],
+      hiddenColumnIds: [],
+      columnWidths: {},
+      frozenColumnCount: 0,
+      filters: [],
+      sorts: [],
+    }).then((saved) => {
+      if (!saved) return
+      setWriteStatus('Working view reset to the canonical layout.')
     })
   }
 
@@ -646,11 +780,28 @@ export function CanonicalSheetEditor({
   deleteRowRef.current = deleteSelectedRow
   deleteColumnRef.current = deleteSelectedColumn
 
-  // GRID-02: the clear-contents context-menu action edits through the grid's
-  // own change pipeline, so it needs the live instance. The ref pattern keeps
-  // the memoised settings stable; onReady stays identity-stable so the
+  // GRID-02/GRID-04: the clear-contents context-menu action edits through the
+  // grid's own change pipeline, so it needs the live instance. The ref pattern
+  // keeps the memoised settings stable; onReady stays identity-stable so the
   // memoised grid client never re-renders (editors stay alive).
   const hotInstanceRef = useRef<Handsontable | null>(null)
+  // GRID-04: set while saved filters are being (re)applied through the Filters
+  // plugin, so the resulting `afterFilter` echo never re-persists the state it
+  // was restoring.
+  const applyingFiltersRef = useRef(false)
+  // GRID-04: Handsontable reports visual indexes; sorting, filters, hidden
+  // columns and manual column moves all shift them. Resolve to the composed
+  // matrix's physical coordinates before any column/row attribution so
+  // presentation changes never scramble writes — the same contract GRID-02
+  // established for rows with `toPhysicalRow`.
+  const physicalRow = useCallback((visualRow: number) => {
+    const mapped = hotInstanceRef.current?.toPhysicalRow(visualRow)
+    return typeof mapped === 'number' && mapped >= 0 ? mapped : visualRow
+  }, [])
+  const physicalColumn = useCallback((visualColumn: number) => {
+    const mapped = hotInstanceRef.current?.toPhysicalColumn(visualColumn)
+    return typeof mapped === 'number' && mapped >= 0 ? mapped : visualColumn
+  }, [])
   const handleGridReady = useCallback((hot: Handsontable | null) => {
     hotInstanceRef.current = hot
   }, [])
@@ -684,7 +835,17 @@ export function CanonicalSheetEditor({
   )
 
   const settings = useMemo(
-    () => ({
+    () => {
+    // GRID-04: persisted sorts restore as the columnSorting initial config.
+    // Handsontable sorts rows client-side over the composed matrix; the
+    // physical data order (and therefore rowKey attribution) is untouched.
+    const sortInitialConfig = presentation.sorts.flatMap((sort) => {
+      const column = matrix.columns.findIndex(
+        (item) => item.id === sort.columnId,
+      )
+      return column >= 0 ? [{ column, sortOrder: sort.direction }] : []
+    })
+    return {
       data: matrix.data,
       // GRID-03: quantity columns surface their storage unit in the header
       // (display only; units are never converted client-side).
@@ -694,16 +855,94 @@ export function CanonicalSheetEditor({
         readOnly: !canWrite || !column.editable,
       })),
       rowHeaders: true,
-      stretchH: 'all' as const,
+      // GRID-04: manual widths need non-stretching columns; the last column
+      // still stretches so the grid keeps filling the workspace.
+      stretchH: 'last' as const,
+      colWidths: (visualColumn: number) => {
+        const column = matrix.columns.at(physicalColumn(visualColumn))
+        return column
+          ? instanceRef.current.state.presentation.columnWidths[column.id]
+          : undefined
+      },
       height: '100%',
       copyPaste: true,
       fillHandle: true,
       minSpareRows: canWrite ? 1 : 0,
-      columnSorting: true,
+      // GRID-04: multi-column sort is visual only — it reorders rows through
+      // Handsontable's row index map and is persisted as presentation state,
+      // never as Dataset or analysis semantics.
+      columnSorting:
+        sortInitialConfig.length > 0
+          ? { initialConfig: sortInitialConfig }
+          : true,
       filters: true,
-      dropdownMenu: true,
-      manualColumnFreeze: true,
-      fixedColumnsStart: instance.state.presentation.frozenColumnCount,
+      dropdownMenu: {
+        items: {
+          filter_by_condition: {},
+          filter_operators: {},
+          filter_by_condition2: {},
+          filter_by_value: {},
+          filter_action_bar: {},
+          sp_filters: { name: '---------' },
+          freeze_to_column: {
+            name: 'Freeze up to this column',
+            disabled: () => !canWrite,
+            callback: (_key: string, selection: MenuSelection) => {
+              const start = selection.at(0)?.start.col
+              if (typeof start !== 'number' || start < 0) return
+              void persistPresentation({
+                frozenColumnCount: Math.min(
+                  matrixRef.current.columns.length,
+                  start + 1,
+                ),
+              })
+            },
+          },
+          unfreeze_columns: {
+            name: 'Unfreeze columns',
+            disabled: () => presentation.frozenColumnCount === 0,
+            callback: () => {
+              void persistPresentation({ frozenColumnCount: 0 })
+            },
+          },
+          sp_presentation: { name: '---------' },
+          hide_column: {
+            name: 'Hide selected columns',
+            disabled: () => !canWrite,
+            callback: (_key: string, selection: MenuSelection) => {
+              const range = selection.at(0)
+              if (!range) return
+              // GRID-04 review fix: never coerce null coordinates into
+              // "hide column 0" — a header menu always carries the anchor.
+              if (range.start.col == null || range.end.col == null) return
+              const from = Math.min(range.start.col, range.end.col)
+              const to = Math.max(range.start.col, range.end.col)
+              const hidden = new Set(
+                instanceRef.current.state.presentation.hiddenColumnIds,
+              )
+              for (let col = from; col <= to; col += 1) {
+                const column = matrixRef.current.columns.at(physicalColumn(col))
+                if (column) hidden.add(column.id)
+              }
+              void persistPresentation({
+                hiddenColumnIds: [...hidden],
+              })
+            },
+          },
+        },
+      },
+      // GRID-04: drag-to-reorder is presentation-only. The composed matrix is
+      // rebuilt in the persisted order (applySheetPresentation), so after each
+      // move the plugin's visual index map is reset and the new order is
+      // persisted as column IDs — Handsontable never becomes a second
+      // authority for column identity, and toPhysicalColumn keeps write
+      // attribution correct in the meantime.
+      manualColumnMove: true,
+      manualColumnResize: true,
+      fixedColumnsStart: Math.min(
+        presentation.frozenColumnCount,
+        matrix.columns.length,
+      ),
       autoWrapRow: false,
       // GRID-02/GRID-03: every write source — bulk paste/fill/clear and
       // single typed edits alike — is coerced and validated against the
@@ -711,6 +950,9 @@ export function CanonicalSheetEditor({
       // invalid value cancels the whole change, so the cell visibly keeps
       // its previous value and the canonical reason is announced: the
       // visible grid can never diverge from the authoritative state.
+      // GRID-04: change columns arrive as visual indexes; they are mapped
+      // onto the composed matrix before the typed contract is resolved so a
+      // moved or hidden column never misattributes a write.
       beforeChange: (
         changes: Array<[number, string | number, unknown, unknown]> | null,
         source: string,
@@ -718,7 +960,17 @@ export function CanonicalSheetEditor({
         if (!changes || changes.length === 0) return undefined
         const result = resolveCanonicalCellChanges(
           matrixRef.current.columns,
-          changes,
+          changes.map((change) => {
+            const columnIndex =
+              typeof change[1] === 'number' ? change[1] : Number(change[1])
+            if (!Number.isFinite(columnIndex)) return change
+            return [
+              change[0],
+              physicalColumn(columnIndex),
+              change[2],
+              change[3],
+            ]
+          }),
         )
         if (!result.rejection) {
           // GRID-03: apply the coerced canonical values (category option id,
@@ -800,6 +1052,7 @@ export function CanonicalSheetEditor({
                 matrixRef.current.columns,
                 ranges,
                 (row, col) => hot.getDataAtCell(row, col),
+                physicalColumn,
               )
               if (updates.length === 0) {
                 setWriteStatus(
@@ -812,8 +1065,12 @@ export function CanonicalSheetEditor({
           },
         },
       },
+      // GRID-04: selection is stored in physical coordinates so delete,
+      // provenance and status resolve the column/row the user actually
+      // selected, whatever the current sort/filter/move state is.
       afterSelectionEnd: (row: number, col: number) => {
-        if (row >= 0 && col >= 0) setSelected({ row, col })
+        if (row >= 0 && col >= 0)
+          setSelected({ row: physicalRow(row), col: physicalColumn(col) })
       },
       afterChange: (
         changes: Array<[number, string | number, unknown, unknown]> | null,
@@ -833,15 +1090,14 @@ export function CanonicalSheetEditor({
         // sorting active they diverge from the canonical matrix's physical
         // order. Resolve the physical row first so a change is attributed to
         // the rowKey it was actually edited on — never a neighbour's.
-        const hot = hotInstanceRef.current
-        const physicalRow = (visualRow: number) => {
-          const mapped = hot?.toPhysicalRow(visualRow)
-          return typeof mapped === 'number' && mapped >= 0 ? mapped : visualRow
-        }
+        // GRID-04: columns resolve through the same visual→physical mapping
+        // so moved or hidden columns keep write attribution too.
         for (const change of changes) {
           const columnIndex =
             typeof change[1] === 'number' ? change[1] : Number(change[1])
-          const column = currentMatrix.columns.at(columnIndex)
+          const column = currentMatrix.columns.at(
+            Number.isFinite(columnIndex) ? physicalColumn(columnIndex) : -1,
+          )
           if (!column || !column.editable) continue
           const physicalIndex = physicalRow(change[0])
           let rowKey =
@@ -888,14 +1144,177 @@ export function CanonicalSheetEditor({
           })
         }
       },
-    }),
+      // GRID-04: persist resized column widths (presentation state only).
+      afterColumnResize: (newSize: number, visualColumn: number) => {
+        const column = matrixRef.current.columns.at(
+          physicalColumn(visualColumn),
+        )
+        if (!column) return
+        const current = instanceRef.current.state.presentation.columnWidths
+        void persistPresentation({
+          columnWidths: { ...current, [column.id]: clampColumnWidth(newSize) },
+        })
+      },
+      // GRID-04: persist the new column order as stable column IDs and reset
+      // the plugin's visual index map — the rebuilt matrix already carries
+      // the persisted order, so the map must stay identity or the next
+      // data reload would double-apply the move.
+      afterColumnMove: (
+        _movedColumns: number[],
+        _finalIndex: number,
+        _dropIndex: number | undefined,
+        movePossible: boolean,
+        orderChanged: boolean,
+      ) => {
+        const hot = hotInstanceRef.current
+        if (!hot || !movePossible || !orderChanged) return
+        const count = hot.countCols()
+        // GRID-04 review fix: the ManualColumnMove plugin has ALREADY applied
+        // its index-mapper move by the time this hook runs, so the new order
+        // must be read through the mapper BEFORE it is reset to identity —
+        // resetting first collapses toPhysicalColumn to identity and the
+        // pre-move order gets persisted (the drag would silently snap back).
+        const order: string[] = []
+        for (let visual = 0; visual < count; visual += 1) {
+          const column = matrixRef.current.columns.at(physicalColumn(visual))
+          if (column) order.push(column.id)
+        }
+        hot.columnIndexMapper.setIndexesSequence(
+          Array.from({ length: count }, (_, index) => index),
+        )
+        void persistPresentation({ columnOrder: order })
+      },
+      // GRID-04: sorting is visual only. Persist the destination sort config
+      // (mapped back to stable column IDs); an equality guard stops the
+      // restored initialConfig from re-writing identical state.
+      afterColumnSort: (
+        _currentSortConfig: Array<{ column: number; sortOrder: string }>,
+        destinationSortConfigs: Array<{ column: number; sortOrder: string }>,
+      ) => {
+        const sorts: SheetPresentation['sorts'] = []
+        for (const config of destinationSortConfigs) {
+          if (config.sortOrder !== 'asc' && config.sortOrder !== 'desc')
+            continue
+          const column = matrixRef.current.columns.at(
+            physicalColumn(config.column),
+          )
+          if (column)
+            sorts.push({ columnId: column.id, direction: config.sortOrder })
+        }
+        const previous = instanceRef.current.state.presentation.sorts
+        if (JSON.stringify(sorts) === JSON.stringify(previous)) return
+        void persistPresentation({ sorts })
+      },
+      // GRID-04: dropdown-menu filter state is captured as presentation
+      // state. `afterFilter` hands over the plugin's conditions stack keyed
+      // by physical column index; it is mapped to stable column ids (equality
+      // operators only — see `hotFiltersToPresentationFilters`) and persisted
+      // with the same equality guard as sorts. Restores echo through this
+      // hook; `applyingFiltersRef` keeps that from re-writing identical
+      // state, and the JSON guard catches any identical user action.
+      afterFilter: (conditionsStack: HotFilterConditionStack[]) => {
+        if (applyingFiltersRef.current) return
+        const captured = hotFiltersToPresentationFilters(
+          conditionsStack,
+          matrixRef.current.columns,
+        )
+        // GRID-04 #113: a hidden column has no grid column at all, so its
+        // condition cannot exist in the plugin's stack — carry the previous
+        // persisted filters for hidden columns across, or they would be
+        // silently dropped by any later capture.
+        const filters = preserveHiddenColumnFilters(
+          captured,
+          instanceRef.current.state.presentation.filters,
+          canonicalMatrixRef.current.columns,
+          matrixRef.current.columns,
+        )
+        const previous = instanceRef.current.state.presentation.filters
+        if (JSON.stringify(filters) === JSON.stringify(previous)) return
+        void persistPresentation({ filters })
+      },
+    }
+    },
     [
       matrix,
       canWrite,
-      instance.state.presentation.frozenColumnCount,
+      presentation,
+      physicalRow,
+      physicalColumn,
       recordPicker,
     ],
   )
+
+  // GRID-04: whenever the display column set changes (reorder persisted,
+  // hide/show, column added/retired), the grid is rebuilt from the canonical
+  // matrix in presentation order — make sure the manualColumnMove plugin's
+  // visual index map never lingers over a different matrix shape.
+  const columnIdsKey = matrix.columns.map((column) => column.id).join('|')
+  useEffect(() => {
+    const hot = hotInstanceRef.current
+    if (!hot) return
+    const mapper = hot.columnIndexMapper
+    const identity = Array.from(
+      { length: hot.countCols() },
+      (_, index) => index,
+    )
+    const current = mapper.getIndexesSequence()
+    if (
+      current.length !== identity.length ||
+      current.some((p, i) => p !== identity[i])
+    ) {
+      mapper.setIndexesSequence(identity)
+    }
+  }, [columnIdsKey])
+
+  // GRID-04: saved filters are applied through the Filters plugin on mount
+  // and re-applied after every grid rebuild — a presentation change reloads
+  // Handsontable's data (new matrix identity), which clears in-session plugin
+  // state, so the persisted presentation must be replayed onto the fresh grid.
+  // The apply sets `applyingFiltersRef` first: `filter()` fires `afterFilter`
+  // synchronously and that echo must not re-persist restored state.
+  const filtersKey = JSON.stringify(presentation.filters)
+  useEffect(() => {
+    const hot = hotInstanceRef.current
+    if (!hot) return
+    const filtersPlugin = hot.getPlugin('filters') as
+      | {
+          clearConditions: () => void
+          addCondition: (
+            column: number,
+            name: string,
+            args: unknown[],
+            operation?: string,
+          ) => void
+          filter: () => void
+        }
+      | undefined
+    if (!filtersPlugin) return
+    const filters = instanceRef.current.state.presentation.filters
+    applyingFiltersRef.current = true
+    try {
+      filtersPlugin.clearConditions()
+      // GRID-04 #113: resolve condition columns through the CANONICAL
+      // column list, not the display subset — a saved filter on a hidden
+      // column must survive the replay (it is applied the moment the
+      // column is shown again), instead of being silently dropped.
+      const canonicalColumns = canonicalMatrixRef.current.columns
+      for (const addition of filterAdditionsToDisplayColumns(
+        presentationFiltersToHotAdditions(filters, canonicalColumns),
+        canonicalColumns,
+        matrix.columns,
+      )) {
+        filtersPlugin.addCondition(
+          addition.column,
+          addition.name,
+          addition.args,
+          'conjunction',
+        )
+      }
+      filtersPlugin.filter()
+    } finally {
+      applyingFiltersRef.current = false
+    }
+  }, [matrix, filtersKey])
 
   useEffect(() => {
     if (composition.error) {
@@ -1000,6 +1419,82 @@ export function CanonicalSheetEditor({
           ) : null}
         </div>
       ) : null}
+      {canWrite && matrix.columns.length > 0 ? (
+        <div
+          className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs"
+          role="group"
+          aria-label="Working view controls"
+        >
+          <span className="text-muted-foreground">Working view</span>
+          <span className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label="Freeze one fewer column"
+              disabled={presentation.frozenColumnCount === 0}
+              onClick={() =>
+                void persistPresentation({
+                  frozenColumnCount: Math.max(
+                    0,
+                    presentation.frozenColumnCount - 1,
+                  ),
+                })
+              }
+            >
+              −
+            </Button>
+            <span aria-live="polite">
+              {presentation.frozenColumnCount} frozen
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label="Freeze one more column"
+              disabled={presentation.frozenColumnCount >= matrix.columns.length}
+              onClick={() =>
+                void persistPresentation({
+                  frozenColumnCount: Math.min(
+                    matrix.columns.length,
+                    presentation.frozenColumnCount + 1,
+                  ),
+                })
+              }
+            >
+              +
+            </Button>
+          </span>
+          {presentation.hiddenColumnIds.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void persistPresentation({ hiddenColumnIds: [] })}
+            >
+              Show {presentation.hiddenColumnIds.length} hidden column
+              {presentation.hiddenColumnIds.length === 1 ? '' : 's'}
+            </Button>
+          ) : null}
+          <span className="ml-auto flex items-center gap-2">
+            <Button type="button" size="sm" variant="ghost" onClick={saveView}>
+              Save view
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={!savedViewExists}
+              onClick={restoreView}
+            >
+              Restore view
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={resetView}>
+              Reset view
+            </Button>
+          </span>
+        </div>
+      ) : null}
       {composed && canWrite ? (
         <ComposedSheetRecordToolbar
           actions={actions}
@@ -1079,6 +1574,12 @@ export function CanonicalSheetEditor({
         </div>
       )}
       <div className="space-y-1 border-t px-3 py-2 text-xs text-muted-foreground">
+        <p>
+          Sorting, filters, freezing, hidden columns and sizes are a
+          display-only working view. They never change the Dataset, the Sheet's
+          data or the filters used by analysis (Dataset Explorer and charts keep
+          their own scientific query filters).
+        </p>
         {staleCalc ? (
           <p role="status">
             Calculation results are stale. Recalculate after edits.

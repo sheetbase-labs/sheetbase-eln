@@ -45,7 +45,7 @@ export function validSheetInstanceState() {
     localValues: { [ids.row]: { [ids.field]: 'independent value' } },
     calculationOverrides: {},
     presentation: {
-      columnOrder: [ids.field],
+      columnOrder: [],
       hiddenColumnIds: [],
       columnWidths: { [ids.field]: 180 },
       frozenColumnCount: 0,

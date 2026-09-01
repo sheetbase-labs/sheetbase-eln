@@ -286,6 +286,9 @@ export const sheetInstanceStateSchema = z
   })
 
 export type SheetInstanceState = z.infer<typeof sheetInstanceStateSchema>
+/** GRID-04 — presentation preferences (sort/filter/freeze/hide/widths/order).
+ * Local working state only: it never changes Dataset or analysis semantics. */
+export type SheetPresentation = SheetInstanceState['presentation']
 export type SheetInstanceParseResult = ReturnType<
   typeof safeParseSheetInstanceState
 >

@@ -507,6 +507,7 @@ export function ReviewWorkspaceRoute() {
             isLocked={isLocked}
             lockedAt={record?.locked_at ?? null}
             lockedByRevisionId={record?.locked_by_revision_id ?? null}
+            recordId={recordId}
           />
 
           <Tabs
@@ -638,7 +639,8 @@ function shellContext(context: {
 // Workspace header — record identity, status, stale/superseded banners.
 // ---------------------------------------------------------------------------
 
-function WorkspaceHeader({
+/** NOTE-04: exported for tests — asserts the working-Notebook/evidence links. */
+export function WorkspaceHeader({
   submission,
   record,
   projectTitle,
@@ -647,6 +649,7 @@ function WorkspaceHeader({
   isLocked,
   lockedAt,
   lockedByRevisionId,
+  recordId,
 }: {
   submission: ReviewSubmissionWire | null
   record: { identifier?: string; title?: string; kind?: string } | null
@@ -656,6 +659,8 @@ function WorkspaceHeader({
   isLocked: boolean
   lockedAt: string | null
   lockedByRevisionId: string | null
+  /** NOTE-04: the reviewed record, for working-Notebook/evidence links. */
+  recordId?: string | null
 }) {
   const isSuperseded =
     revision?.superseded_by_revision_id !== null && revision !== null
@@ -684,6 +689,28 @@ function WorkspaceHeader({
           <p className="truncate font-mono text-xs text-muted-foreground">
             {record?.identifier ?? revision?.id}
           </p>
+          {/* NOTE-04: from the submit flow's success state, the working
+              Notebook and the frozen evidence view must both stay reachable —
+              audit history (this review) is not the same as the snapshot. */}
+          {recordId && revision ? (
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+              <Link
+                to="/records/$recordId"
+                params={{ recordId }}
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                Open working Notebook
+              </Link>
+              <Link
+                to="/records/$recordId"
+                params={{ recordId }}
+                search={{ revision: revision.id } as never}
+                className="text-muted-foreground underline-offset-4 hover:underline"
+              >
+                View submitted evidence
+              </Link>
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-col items-end gap-1">
           {/* COLLAB-04: who else is reviewing right now; renders null before
@@ -1907,7 +1934,6 @@ function InspectorPropStatic({
 // 'amend' revision, supersedes the locked revision and unlocks the record.
 // ---------------------------------------------------------------------------
 
-
 // ---------------------------------------------------------------------------
 // GOV-04 — Amendment chain. Ordered oldest-first from the authoritative
 // superseded_by edges; makes "signed, then amended" legible without moving
@@ -1954,7 +1980,10 @@ export function RevisionChainSection({
                 {formatDate(entry.createdAt)}
               </span>
               {isCurrent ? (
-                <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px]">
+                <Badge
+                  variant="outline"
+                  className="h-4 shrink-0 px-1 text-[10px]"
+                >
                   viewed
                 </Badge>
               ) : null}

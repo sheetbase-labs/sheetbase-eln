@@ -1,9 +1,16 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { NotebookRecord } from '#/lib/notebook-data'
 import { SubmitNotebookDialog } from './submit-notebook-dialog'
 import { fetchWorkspaceMembers } from '#/lib/workspace-admin'
 
@@ -20,6 +27,28 @@ vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
+  Link: ({
+    to,
+    params,
+    children,
+    ...props
+  }: {
+    to?: string
+    params?: Record<string, string>
+    children: React.ReactNode
+  } & Record<string, unknown>) => {
+    let href = typeof to === 'string' ? to : '#'
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        href = href.replace(`$${k}`, encodeURIComponent(v))
+      }
+    }
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    )
+  },
 }))
 
 afterEach(() => {
@@ -32,6 +61,27 @@ function renderDialog(ui: ReactNode) {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
+
+const testRecord: NotebookRecord = {
+  id: 'r1',
+  projectId: 'p1',
+  kind: 'experiment',
+  identifier: 'EXP-001',
+  title: 'Binding assay',
+  status: 'working',
+  tags: [],
+  structureVersion: 3,
+  metadataVersion: 1,
+  createdAt: '2026-08-01T00:00:00.000Z',
+  updatedAt: '2026-08-01T00:00:00.000Z',
+  archivedAt: null,
+  deletedAt: null,
+  createdByUserId: 'u1',
+  updatedByUserId: null,
+  properties: {},
+  lockedAt: null,
+  lockedByRevisionId: null,
 }
 
 describe('SubmitNotebookDialog', () => {
@@ -79,6 +129,7 @@ describe('SubmitNotebookDialog', () => {
         projectId="p1"
         reviewerUserId="u1"
         workspaceId="ws"
+        record={testRecord}
       />,
     )
     expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
@@ -101,6 +152,413 @@ describe('SubmitNotebookDialog', () => {
       expect.objectContaining({
         reviewerUserIds: ['u1', '22222222-reviewer'],
       }),
+    )
+  })
+
+  it('fails the readiness checklist and blocks submit while drafts are unsaved', async () => {
+    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
+    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+      recordId: 'r1',
+      sourceDigest: 'abc123digest',
+      structureVersion: 2,
+      metadataVersion: 1,
+      calculationInputRevision: 7,
+    })
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    const user = userEvent.setup()
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="u1"
+        record={testRecord}
+        hasUnsavedWork
+      />,
+    )
+    expect(await screen.findByText('No unsaved drafts')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Blocks with unsaved drafts are not part of the server snapshot — save or discard them before submitting.',
+      ),
+    ).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    expect(
+      await screen.findByText(/Integrity check: abc123digest/),
+    ).toBeTruthy()
+    // The digest verified, but the unsaved-draft failure still blocks.
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+  })
+
+  it('previews what submission will pin, labelled as a preview not evidence', async () => {
+    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
+    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+      recordId: 'r1',
+      sourceDigest: 'abc123digest',
+      structureVersion: 2,
+      metadataVersion: 1,
+      calculationInputRevision: 7,
+    })
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    const user = userEvent.setup()
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="u1"
+        record={testRecord}
+        blocks={[
+          {
+            id: 'b2',
+            recordId: 'r1',
+            type: 'rich_text',
+            payload: {
+              doc: {
+                type: 'doc',
+                content: [
+                  {
+                    type: 'paragraph',
+                    content: [{ type: 'text', text: 'Results summary.' }],
+                  },
+                ],
+              },
+            },
+            payloadSchemaVersion: 1,
+            order: 2,
+            version: 1,
+          },
+          {
+            id: 'b1',
+            recordId: 'r1',
+            type: 'rich_text',
+            payload: {
+              doc: {
+                type: 'doc',
+                content: [
+                  {
+                    type: 'heading',
+                    attrs: { level: 2 },
+                    content: [{ type: 'text', text: 'Objective' }],
+                  },
+                ],
+              },
+            },
+            payloadSchemaVersion: 1,
+            order: 1,
+            version: 1,
+          },
+        ]}
+      />,
+    )
+    // No preview before the server verifies the snapshot.
+    expect(
+      screen.queryByRole('region', { name: 'Evidence preview' }),
+    ).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    const previewRegion = await screen.findByRole('region', {
+      name: 'Evidence preview',
+    })
+    expect(previewRegion.textContent).toContain('not yet evidence')
+    expect(previewRegion.textContent).toContain('2 blocks')
+    expect(previewRegion.textContent).toContain('structure version 2')
+    // Blocks render read-only in document order.
+    const headings = within(previewRegion).getAllByText('Objective')
+    expect(headings.length).toBeGreaterThan(0)
+    expect(within(previewRegion).getByText('Results summary.')).toBeTruthy()
+  })
+
+  it('lists embedded Sheets as manual checks that link to the Sheet surface', async () => {
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="u1"
+        record={testRecord}
+        blocks={[
+          {
+            id: 'b1',
+            recordId: 'r1',
+            type: 'sheet',
+            payload: { instanceId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' },
+            payloadSchemaVersion: 1,
+            order: 1,
+            version: 1,
+          },
+        ]}
+      />,
+    )
+    expect(
+      screen.getByText('Embedded Sheets checked for pending edits'),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Sheet evidence is captured at submission time. This dialog cannot see pending cell edits inside a Sheet — confirm each Sheet is saved on the Sheet itself.',
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Sheet aaaaaaaa' }).getAttribute('href'),
+    ).toBe('/sheets/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
+  })
+
+  it('invalidates the verified snapshot when a block changes after verification', async () => {
+    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
+    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+      recordId: 'r1',
+      sourceDigest: 'abc123digest',
+      structureVersion: 3,
+      metadataVersion: 1,
+      calculationInputRevision: 1,
+    })
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    const block = {
+      id: 'b1',
+      recordId: 'r1',
+      type: 'rich_text',
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Before edit.' }],
+            },
+          ],
+        },
+      },
+      payloadSchemaVersion: 1,
+      order: 1,
+      version: 1,
+    }
+    const ui = (currentBlocks: Array<typeof block>) => (
+      <QueryClientProvider client={client}>
+        <SubmitNotebookDialog
+          open
+          onOpenChange={vi.fn()}
+          recordId="r1"
+          projectId="p1"
+          reviewerUserId="u1"
+          record={testRecord}
+          blocks={currentBlocks}
+        />
+      </QueryClientProvider>
+    )
+    const user = userEvent.setup()
+    const { rerender } = render(ui([block]))
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    expect(
+      await screen.findByText(/Integrity check: abc123digest/),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('region', { name: 'Evidence preview' }),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      false,
+    )
+
+    // A live block edit lands after verification: payload change + version.
+    rerender(
+      ui([
+        {
+          ...block,
+          version: 2,
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'After.' }],
+                },
+              ],
+            },
+          },
+        },
+      ]),
+    )
+
+    // The dialog must not stay "verified" against the stale digest: the
+    // frozen preview is cleared, the checklist drops back to pending, and
+    // Submit disables until the snapshot is re-checked.
+    expect(
+      screen.queryByRole('region', { name: 'Evidence preview' }),
+    ).toBeNull()
+    expect(screen.queryByText(/Integrity check: abc123digest/)).toBeNull()
+    expect(screen.getByText(/changed since the last check/)).toBeTruthy()
+    expect(screen.getByTestId('submission-readiness').textContent).toContain(
+      'Run “Check snapshot”',
+    )
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+  })
+
+  it('invalidates the verified snapshot when record metadata changes after verification', async () => {
+    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
+    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+      recordId: 'r1',
+      sourceDigest: 'abc123digest',
+      structureVersion: 3,
+      metadataVersion: 1,
+      calculationInputRevision: 1,
+    })
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    const ui = (currentRecord: NotebookRecord) => (
+      <QueryClientProvider client={client}>
+        <SubmitNotebookDialog
+          open
+          onOpenChange={vi.fn()}
+          recordId="r1"
+          projectId="p1"
+          reviewerUserId="u1"
+          record={currentRecord}
+        />
+      </QueryClientProvider>
+    )
+    const user = userEvent.setup()
+    const { rerender } = render(ui(testRecord))
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    expect(
+      await screen.findByText(/Integrity check: abc123digest/),
+    ).toBeTruthy()
+
+    // Title edit bumps metadata: the verified binding must drop.
+    rerender(ui({ ...testRecord, title: 'Renamed assay', metadataVersion: 2 }))
+
+    expect(screen.queryByText(/Integrity check: abc123digest/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+  })
+
+  it('discards the verification response when inputs change while the check is in flight', async () => {
+    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
+    // Hold the RPC pending until the test releases it, simulating a slow
+    // preview_submission_digest while the Notebook is edited.
+    const deferred: {
+      resolve:
+        | ((value: Awaited<ReturnType<typeof previewSubmissionDigest>>) => void)
+        | null
+    } = { resolve: null }
+    vi.mocked(previewSubmissionDigest).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          deferred.resolve = resolve
+        }),
+    )
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    const block = {
+      id: 'b1',
+      recordId: 'r1',
+      type: 'rich_text',
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Before edit.' }],
+            },
+          ],
+        },
+      },
+      payloadSchemaVersion: 1,
+      order: 1,
+      version: 1,
+    }
+    const ui = (currentBlocks: Array<typeof block>) => (
+      <QueryClientProvider client={client}>
+        <SubmitNotebookDialog
+          open
+          onOpenChange={vi.fn()}
+          recordId="r1"
+          projectId="p1"
+          reviewerUserId="u1"
+          record={testRecord}
+          blocks={currentBlocks}
+        />
+      </QueryClientProvider>
+    )
+    const user = userEvent.setup()
+    const { rerender } = render(ui([block]))
+
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+
+    // The inputs change while the digest RPC is still pending.
+    rerender(
+      ui([
+        {
+          ...block,
+          version: 2,
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'After.' }],
+                },
+              ],
+            },
+          },
+        },
+      ]),
+    )
+
+    // The response lands for content that is no longer on screen.
+    deferred.resolve!({
+      recordId: 'r1',
+      sourceDigest: 'abc123digest',
+      structureVersion: 3,
+      metadataVersion: 1,
+      calculationInputRevision: 1,
+    })
+
+    // The stale response must NOT enable a verified preview: no evidence
+    // preview region, no verified digest line, no invalidation lie — the
+    // checklist stays pending and Submit stays disabled.
+    await waitFor(() => {
+      expect(vi.mocked(previewSubmissionDigest)).toHaveBeenCalled()
+    })
+    expect(
+      screen.queryByRole('region', { name: 'Evidence preview' }),
+    ).toBeNull()
+    expect(screen.queryByText(/Integrity check: abc123digest/)).toBeNull()
+    expect(screen.getByTestId('submission-readiness').textContent).toContain(
+      'Run “Check snapshot”',
+    )
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      true,
     )
   })
 })

@@ -30,6 +30,7 @@ import {
   buildStepperState,
   renderError,
   statusLabel,
+  WorkspaceHeader,
 } from './$revisionId'
 
 vi.mock('@tanstack/react-router', () => ({
@@ -41,16 +42,21 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     params,
+    search,
     children,
     ...props
   }: {
     to: string
     params?: Record<string, string>
+    search?: Record<string, unknown>
     children: React.ReactNode
   } & Record<string, unknown>) => {
     let href = to
     for (const [key, value] of Object.entries(params ?? {}))
       href = href.replace(`$${key}`, encodeURIComponent(value))
+    if (search && 'revision' in search) {
+      href += `?revision=${encodeURIComponent(String(search.revision))}`
+    }
     return (
       <a href={href} {...props}>
         {children}
@@ -491,5 +497,66 @@ describe('deriveReviewActionPermission integration', () => {
     })
     expect(p.canReview).toBe(false)
     expect(p.canWithdraw).toBe(false)
+  })
+})
+
+// NOTE-04: from the submit flow's success state (the review workspace), the
+// working Notebook and the frozen evidence snapshot must both stay reachable.
+describe('WorkspaceHeader — post-submission navigation', () => {
+  const revision = {
+    id: 'rev-1',
+    record_id: 'rec-1',
+    structure_version: 1,
+    metadata_version: 1,
+    metadata_snapshot: {},
+    block_snapshot: [],
+    reason: 'submit',
+    superseded_by_revision_id: null,
+    created_at: '2026-08-19T00:00:00.000Z',
+    created_by_user_id: 'owner-a',
+  }
+
+  it('links the working Notebook and the submitted evidence snapshot', () => {
+    render(
+      <WorkspaceHeader
+        submission={submission()}
+        record={{ identifier: 'EXP-2025-0001', title: 'Virus Stability' }}
+        projectTitle="Stability"
+        revision={revision}
+        permission={null}
+        isLocked={false}
+        lockedAt={null}
+        lockedByRevisionId={null}
+        recordId="rec-1"
+      />,
+    )
+    expect(
+      screen
+        .getByRole('link', { name: 'Open working Notebook' })
+        .getAttribute('href'),
+    ).toBe('/records/rec-1')
+    expect(
+      screen
+        .getByRole('link', { name: 'View submitted evidence' })
+        .getAttribute('href'),
+    ).toBe('/records/rec-1?revision=rev-1')
+  })
+
+  it('omits the links when the record is unknown', () => {
+    render(
+      <WorkspaceHeader
+        submission={null}
+        record={null}
+        projectTitle={null}
+        revision={revision}
+        permission={null}
+        isLocked={false}
+        lockedAt={null}
+        lockedByRevisionId={null}
+        recordId={null}
+      />,
+    )
+    expect(screen.queryByText('Open working Notebook')).toBeNull()
+    expect(screen.queryByText('View submitted evidence')).toBeNull()
   })
 })

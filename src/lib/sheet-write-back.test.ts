@@ -8,6 +8,7 @@ import { parseSheetDefinitionConfiguration } from './sheet-definition'
 import {
   resolveSheetWriteTarget,
   SheetBatchValidationError,
+  SheetMixedAuthorityWriteError,
   sheetCellWriteError,
   writeSheetCell,
   writeSheetCells,
@@ -192,6 +193,127 @@ function twoColumnDatasetWire(matched = true) {
       },
     ],
   }
+}
+
+// GRID-02 mixed-authority rejection: a second writable binding with its own
+// Dataset, so a range operation can span two authoritative commit groups.
+const DATASET_B = '30000000-0000-4000-8000-000000000019'
+const ROW_B = '30000000-0000-4000-8000-000000000020'
+const RECORD_B = '30000000-0000-4000-8000-000000000021'
+
+const secondColumnSource = (() => {
+  if (unmappedColumn.source.kind !== 'bound')
+    throw new Error('invalid test fixture')
+  return unmappedColumn.source
+})()
+
+function twoWritableBindingConfiguration() {
+  const configuration = validSheetDefinitionConfiguration()
+  configuration.writeBackRules.push({
+    id: '70000000-0000-4000-8000-000000000002',
+    bindingId: configuration.bindings[1].id,
+    mode: 'update',
+    mappings: [
+      { columnId: unmappedColumn.id, targetFieldId: secondColumnSource.sourceFieldId },
+    ],
+  })
+  return parseSheetDefinitionConfiguration(configuration)
+}
+
+function twoWritableBindingWire(
+  secondSource:
+    | {
+        sourceKind: 'dataset'
+        datasetId: string
+        rowId: string
+        revision: number
+        datasetRevision: number
+      }
+    | {
+        sourceKind: 'record'
+        recordId: string
+        metadataVersion: number
+        fieldName: string
+      },
+) {
+  const config = twoWritableBindingConfiguration()
+  return {
+    instanceId: INSTANCE,
+    definitionVersionId: VERSION,
+    definitionConfiguration: config,
+    revision: 6,
+    offset: 4,
+    limit: 50,
+    hasMore: false,
+    localFieldIds: [LOCAL_FIELD],
+    identity: {
+      kind: 'source' as const,
+      columnIds: [config.columns[0].id],
+      logicalTypes: ['reference' as const],
+    },
+    rows: [
+      {
+        identityValues: [RECORD],
+        sources: [
+          {
+            sourceKind: 'dataset' as const,
+            bindingId: config.bindings[0].id,
+            datasetId: DATASET,
+            datasetRevision: 9,
+            rowId: ROW,
+            revision: 4,
+            matched: true,
+            values: { [mappedSource.sourceFieldId]: RECORD },
+          },
+          secondSource.sourceKind === 'dataset'
+            ? {
+                sourceKind: 'dataset' as const,
+                bindingId: config.bindings[1].id,
+                datasetId: secondSource.datasetId,
+                datasetRevision: secondSource.datasetRevision,
+                rowId: secondSource.rowId,
+                revision: secondSource.revision,
+                matched: true,
+                values: {
+                  [secondColumnSource.sourceFieldId]: 'b-value',
+                },
+              }
+            : {
+                sourceKind: 'record' as const,
+                bindingId: config.bindings[1].id,
+                recordId: secondSource.recordId,
+                metadataVersion: secondSource.metadataVersion,
+                fieldNames: {
+                  [secondColumnSource.sourceFieldId]: secondSource.fieldName,
+                },
+                matched: true as const,
+                values: {
+                  [secondColumnSource.sourceFieldId]: 'b-value',
+                },
+              },
+        ],
+      },
+    ],
+  }
+}
+
+function twoDatasetWire() {
+  return twoWritableBindingWire({
+    sourceKind: 'dataset',
+    datasetId: DATASET_B,
+    rowId: ROW_B,
+    revision: 7,
+    datasetRevision: 8,
+  })
+}
+
+function datasetAndRecordWire() {
+  return twoWritableBindingWire({
+    sourceKind: 'record',
+    recordId: RECORD_B,
+    metadataVersion: 2,
+    fieldName: 'stable_sample_field',
+  })
 }
 
 describe('composed Sheet write-back', () => {
@@ -455,54 +577,29 @@ describe('composed Sheet write-back', () => {
       expect.anything())
   })
 
-  it('groups record-bound cells per record and local cells into one mutation', async () => {
+  it('groups record-bound cells per record and keeps single-record batches atomic', async () => {
     const record = await snapshot(recordWire())
-    const rpc = vi.fn().mockImplementation((name: string) => {
-      if (name === 'mutate_sheet_instance_local_state')
-        return Promise.reject(new Error('stop after local dispatch'))
-      return Promise.resolve({})
-    })
-    await expect(
-      writeSheetCells(
-        {
-          composition: record,
-          cells: [
-            {
-              rowKey: record.rows[0].rowKey,
-              columnId: mappedColumn.id,
-              value: RECORD,
-            },
-            {
-              rowKey: record.rows[0].rowKey,
-              columnId: LOCAL_FIELD,
-              value: 'local value',
-            },
-          ],
-          retryToken: TOKEN,
-        },
-        clientWithRpc(rpc),
-      ),
-    ).rejects.toThrow('stop after local dispatch')
-    expect(rpc).toHaveBeenCalledTimes(2)
+    const rpc = vi.fn().mockResolvedValue({})
+    await writeSheetCells(
+      {
+        composition: record,
+        cells: [
+          {
+            rowKey: record.rows[0].rowKey,
+            columnId: mappedColumn.id,
+            value: RECORD,
+          },
+        ],
+        retryToken: TOKEN,
+      },
+      clientWithRpc(rpc),
+    )
+    expect(rpc).toHaveBeenCalledTimes(1)
     expect(rpc).toHaveBeenCalledWith('update_record_custom_fields', {
       p_record_id: RECORD,
       p_expected_metadata_version: 3,
       p_values: { stable_sample_field: RECORD },
     })
-    expect(rpc).toHaveBeenCalledWith(
-      'mutate_sheet_instance_local_state',
-      expect.objectContaining({
-        p_instance_id: INSTANCE,
-        p_expected_revision: 6,
-        p_cells: [
-          {
-            rowKey: record.rows[0].rowKey,
-            fieldId: LOCAL_FIELD,
-            value: 'local value',
-          },
-        ],
-      }),
-    )
   })
 
   it('validates the bulk batch before the authoritative commit (GRID-02)', async () => {
@@ -671,14 +768,116 @@ describe('composed Sheet write-back', () => {
     })
   })
 
-  it('dispatches mixed Dataset / Record / local cells with minimal RPC count (PLAT-05)', async () => {
-    // Dataset cell on row 0 (single row, single column), record cell on the
-    // same row, and a local cell — three distinct RPC kinds, one call each.
+  it('rejects a mixed Dataset + local range operation before any RPC (GRID-02)', async () => {
+    const composition = await snapshot(datasetWire())
+    const rpc = vi.fn().mockResolvedValue({ ok: true })
+    const rowKey = composition.rows[0].rowKey
+    await expect(
+      writeSheetCells(
+        {
+          composition,
+          cells: [
+            { rowKey, columnId: mappedColumn.id, value: RECORD },
+            { rowKey, columnId: LOCAL_FIELD, value: 'local' },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toBeInstanceOf(SheetMixedAuthorityWriteError)
+    // Nothing was attempted: no validate, no commit, no local mutation.
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('still dispatches a pure-local batch as a single mutation (GRID-02)', async () => {
+    const composition = await snapshot(datasetWire())
+    const rpc = vi.fn().mockRejectedValue(new Error('stop after local dispatch'))
+    const rowKey = composition.rows[0].rowKey
+    await expect(
+      writeSheetCells(
+        {
+          composition,
+          cells: [
+            { rowKey, columnId: LOCAL_FIELD, value: 'local-1' },
+            { rowKey, columnId: LOCAL_FIELD, value: 'local-2' },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toThrow('stop after local dispatch')
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith(
+      'mutate_sheet_instance_local_state',
+      expect.objectContaining({
+        p_instance_id: INSTANCE,
+        p_expected_revision: 6,
+        p_cells: [
+          { rowKey, fieldId: LOCAL_FIELD, value: 'local-1' },
+          { rowKey, fieldId: LOCAL_FIELD, value: 'local-2' },
+        ],
+      }),
+    )
+  })
+})
+
+describe('GRID-02 mixed-authority rejection', () => {
+  it('maps a mixed-authority rejection to the canonical cell error code', () => {
+    expect(sheetCellWriteError(new SheetMixedAuthorityWriteError())).toBe(
+      'mixed_authority_write',
+    )
+  })
+
+  it('rejects Dataset A + Dataset B before any commit, even when each would validate', async () => {
+    const composition = await snapshot(twoDatasetWire())
+    const rpc = vi.fn().mockResolvedValue({ ok: true })
+    const rowKey = composition.rows[0].rowKey
+    await expect(
+      writeSheetCells(
+        {
+          composition,
+          cells: [
+            { rowKey, columnId: mappedColumn.id, value: 'a-value' },
+            { rowKey, columnId: unmappedColumn.id, value: 'b-value' },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toThrow(
+      'Range operation rejected: it spans more than one authoritative target; nothing was written.',
+    )
+    // Sequential per-dataset commits are no longer attempted: no validate,
+    // no commit, for either dataset.
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('rejects Dataset + Record before any commit', async () => {
+    const composition = await snapshot(datasetAndRecordWire())
+    const rpc = vi.fn().mockResolvedValue({ ok: true })
+    const rowKey = composition.rows[0].rowKey
+    await expect(
+      writeSheetCells(
+        {
+          composition,
+          cells: [
+            { rowKey, columnId: mappedColumn.id, value: 'a-value' },
+            { rowKey, columnId: unmappedColumn.id, value: 'b-value' },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toBeInstanceOf(SheetMixedAuthorityWriteError)
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('rejects Dataset + local even when the bound batch would fail validation — nothing is written', async () => {
     const composition = await snapshot(datasetWire())
     const rpc = vi.fn().mockImplementation((name: string) => {
-      if (name === 'mutate_sheet_instance_local_state')
-        return Promise.reject(new Error('stop after local dispatch'))
-      return Promise.resolve({})
+      if (name === 'validate_dataset_row_batch')
+        return Promise.resolve({ ok: false, errors: [{ code: 'invalid_value' }] })
+      return Promise.resolve({ ok: true })
     })
     const rowKey = composition.rows[0].rowKey
     await expect(
@@ -693,35 +892,8 @@ describe('composed Sheet write-back', () => {
         },
         clientWithRpc(rpc),
       ),
-    ).rejects.toThrow('stop after local dispatch')
-    // Dataset → validate + commit; local → mutate.
-    expect(rpc).toHaveBeenCalledTimes(3)
-    expect(rpc).toHaveBeenCalledWith('commit_dataset_row_batch', {
-      p_dataset_id: DATASET,
-      p_expected_dataset_revision: 9,
-      p_rows: [
-        {
-          operation: 'update',
-          rowId: ROW,
-          expectedRevision: 4,
-          values: { [mappedSource.sourceFieldId]: RECORD },
-        },
-      ],
-      p_idempotency_key: expect.stringContaining(TOKEN),
-    })
-    expect(rpc).toHaveBeenCalledWith(
-      'mutate_sheet_instance_local_state',
-      expect.objectContaining({
-        p_instance_id: INSTANCE,
-        p_cells: [
-          {
-            rowKey,
-            fieldId: LOCAL_FIELD,
-            value: 'local',
-          },
-        ],
-      }),
-    )
+    ).rejects.toBeInstanceOf(SheetMixedAuthorityWriteError)
+    expect(rpc).not.toHaveBeenCalled()
   })
 })
 

@@ -15,9 +15,11 @@ import {
   DATASET_MAX_FILTERS,
   DATASET_MAX_TRANSFORMATIONS,
   DATASET_PAGE_SIZES,
+  fetchDatasetLifecycleById,
   getNextDatasetPageParam,
   fetchDatasetRowPage,
   fetchDatasetSummaries,
+  resolveDatasetDeepLinkSelection,
   sanitizeDatasetView,
   validateTransformations,
 } from './dataset-explorer-data'
@@ -454,5 +456,112 @@ describe('createDatasetSavedViewStore', () => {
       storage,
     })
     expect(store.list('t-1')).toEqual([])
+  })
+})
+
+describe('fetchDatasetLifecycleById', () => {
+  it('reads one Dataset lifecycle by stable ID regardless of archive state', async () => {
+    const queries: string[] = []
+    const client = {
+      list: async (_resource: string, query: string) => {
+        queries.push(query)
+        return [{ lifecycle: 'archived' }]
+      },
+    } as unknown as DataClient
+    const lifecycle = await fetchDatasetLifecycleById(client, 'd-archived')
+    expect(lifecycle).toBe('archived')
+    expect(queries[0]).toBe('?id=eq.d-archived&select=lifecycle')
+  })
+
+  it('returns null when the Dataset does not exist', async () => {
+    const client = {
+      list: async () => [],
+    } as unknown as DataClient
+    await expect(
+      fetchDatasetLifecycleById(client, 'd-missing'),
+    ).resolves.toBeNull()
+  })
+})
+
+describe('resolveDatasetDeepLinkSelection', () => {
+  const listed = [{ id: 'd-active-1' }, { id: 'd-active-2' }]
+
+  it('selects the exact requested Dataset when it is in the list', () => {
+    expect(
+      resolveDatasetDeepLinkSelection({
+        datasets: listed,
+        requestedDatasetId: 'd-active-2',
+        requestedLifecycle: undefined,
+        summariesLoaded: true,
+      }),
+    ).toEqual({ selectedDatasetId: 'd-active-2', flipToArchived: false })
+  })
+
+  it('holds the requested Dataset while its lifecycle is still resolving', () => {
+    // The requested ID is absent from the active-only list, but the lookup
+    // has not answered yet: falling back now could select the wrong object.
+    expect(
+      resolveDatasetDeepLinkSelection({
+        datasets: listed,
+        requestedDatasetId: 'd-archived',
+        requestedLifecycle: undefined,
+        summariesLoaded: true,
+      }),
+    ).toEqual({ selectedDatasetId: null, flipToArchived: false })
+  })
+
+  it('flips to the archived view for an archived deep-linked Dataset', () => {
+    expect(
+      resolveDatasetDeepLinkSelection({
+        datasets: listed,
+        requestedDatasetId: 'd-archived',
+        requestedLifecycle: 'archived',
+        summariesLoaded: true,
+      }),
+    ).toEqual({ selectedDatasetId: null, flipToArchived: true })
+  })
+
+  it('never selects a different active Dataset for a retired deep link', () => {
+    expect(
+      resolveDatasetDeepLinkSelection({
+        datasets: listed,
+        requestedDatasetId: 'd-retired',
+        requestedLifecycle: 'retired',
+        summariesLoaded: true,
+      }),
+    ).toEqual({ selectedDatasetId: null, flipToArchived: true })
+  })
+
+  it('falls back to the list default only for an unknown Dataset', () => {
+    expect(
+      resolveDatasetDeepLinkSelection({
+        datasets: listed,
+        requestedDatasetId: 'd-missing',
+        requestedLifecycle: null,
+        summariesLoaded: true,
+      }),
+    ).toEqual({ selectedDatasetId: 'd-active-1', flipToArchived: false })
+  })
+
+  it('defaults to the first Dataset when no deep link is present', () => {
+    expect(
+      resolveDatasetDeepLinkSelection({
+        datasets: listed,
+        requestedDatasetId: null,
+        requestedLifecycle: undefined,
+        summariesLoaded: true,
+      }),
+    ).toEqual({ selectedDatasetId: 'd-active-1', flipToArchived: false })
+  })
+
+  it('selects nothing before the summaries list has loaded', () => {
+    expect(
+      resolveDatasetDeepLinkSelection({
+        datasets: [],
+        requestedDatasetId: null,
+        requestedLifecycle: undefined,
+        summariesLoaded: false,
+      }),
+    ).toEqual({ selectedDatasetId: null, flipToArchived: false })
   })
 })

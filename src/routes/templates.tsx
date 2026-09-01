@@ -37,6 +37,8 @@ import {
   templateQueryKeys,
 } from '#/lib/templates'
 import type { TargetKind } from '#/lib/templates'
+import { useRecentViewTracking } from '#/lib/recents'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 
 /**
  * Template Library. Versioned notebook templates are the notebook catalogue.
@@ -73,6 +75,10 @@ function TemplateLibraryRoute() {
   const routeSearch = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // FIND-01: an opened template counts as a "view" for the Recent surface;
+  // browsing the library without a selection does not.
+  useRecentViewTracking('notebook_template', routeSearch.template ?? null)
 
   const currentUserId = context.user.id
   const role = context.workspace?.role ?? null
@@ -520,6 +526,15 @@ function TemplateLibraryRoute() {
           projects={projects}
           selectedTemplateId={routeSearch.template ?? null}
           onSelectedTemplateIdChange={setSelectedNotebookTemplateId}
+          // FIND-02: star the selected canonical notebook template. The
+          // separate localStorage "favourites" filter below is the protocol
+          // template catalogue's own list filter, not FIND-02 state.
+          headerActions={
+            <FavouriteToggle
+              kind="notebook_template"
+              objectId={routeSearch.template ?? null}
+            />
+          }
         />
 
         <section className="space-y-4">

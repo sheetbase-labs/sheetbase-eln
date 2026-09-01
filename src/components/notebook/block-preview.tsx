@@ -95,6 +95,11 @@ import { sheetBlockInstanceId } from '#/lib/sheet-block'
 export interface BlockPreviewProps {
   block: NotebookBlock
   className?: string
+  /**
+   * NOTE-02 same-block collapse: rich_text node indexes hidden by a
+   * collapsed section (kept in the DOM for print). Absent elsewhere.
+   */
+  hiddenNodeIndexes?: ReadonlySet<number>
 }
 
 function asString(value: unknown): string | null {
@@ -138,11 +143,20 @@ export function OpenLink({
   )
 }
 
-export function BlockPreview({ block, className }: BlockPreviewProps) {
+export function BlockPreview({
+  block,
+  className,
+  hiddenNodeIndexes,
+}: BlockPreviewProps) {
   const { type, payload } = block
   // NOTE-02: read previews carry the same stable heading anchors as the
   // read-only editor view so outline links resolve in every mode.
-  const body = renderPayload(type, payload, `section-${block.id}`)
+  const body = renderPayload(
+    type,
+    payload,
+    `section-${block.id}`,
+    hiddenNodeIndexes,
+  )
   return <div className={cn('text-sm leading-6', className)}>{body}</div>
 }
 
@@ -150,10 +164,11 @@ function renderPayload(
   type: string,
   payload: unknown,
   anchorPrefix?: string,
+  hiddenNodeIndexes?: ReadonlySet<number>,
 ): React.ReactNode {
   switch (type) {
     case 'rich_text':
-      return renderRichText(payload, anchorPrefix)
+      return renderRichText(payload, anchorPrefix, hiddenNodeIndexes)
     case 'checklist':
       return renderChecklist(payload)
     case 'callout':
@@ -190,9 +205,14 @@ function renderPayload(
 function renderRichText(
   payload: unknown,
   anchorPrefix?: string,
+  hiddenNodeIndexes?: ReadonlySet<number>,
 ): React.ReactNode {
   return isRichTextPayload(payload) ? (
-    <RichTextContent payload={payload} anchorPrefix={anchorPrefix} />
+    <RichTextContent
+      payload={payload}
+      anchorPrefix={anchorPrefix}
+      hiddenNodeIndexes={hiddenNodeIndexes}
+    />
   ) : null
 }
 
@@ -912,13 +932,14 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
     )
   }
 
-  // NOTE-03: canonical Dataset affordance, shared by live and frozen charts.
-  // A frozen chart prefers the pinned provenance's Dataset identity; a live
-  // chart resolves the spec's primary dataset. Both carry a stable UUID.
-  const datasetId =
-    frozen?.datasetProvenance[0]?.datasetId ??
-    spec?.datasets[0]?.datasetId ??
-    null
+  // NOTE-03: canonical Dataset affordances, shared by live and frozen charts.
+  // Both spec.datasets and frozen.datasetProvenance are ARRAYS — a chart can
+  // bind multiple sources, so every source gets its own stable-ID link.
+  // A frozen chart prefers the pinned provenance's identities; a live chart
+  // resolves the spec's sources. Both carry a stable UUID.
+  const frozenSources = frozen ? chartSourcesFromFrozen(frozen) : []
+  const sources =
+    frozenSources.length > 0 ? frozenSources : chartSourcesFromSpec(spec)
 
   // Frozen charts render the immutable snapshot directly — no live re-read,
   // no stale detection.
@@ -929,7 +950,7 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
         provenance={provenance}
         spec={spec}
         frozen={frozen}
-        datasetId={datasetId}
+        sources={sources}
       />
     )
   }
@@ -940,24 +961,71 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
       title={title}
       provenance={provenance}
       spec={spec}
-      datasetId={datasetId}
+      sources={chartSourcesFromSpec(spec)}
     />
   )
 }
 
 /**
- * NOTE-03 — "Open dataset" affordance rendered inside the ChartFrame header
- * so both live and frozen chart blocks expose their canonical source.
+ * NOTE-03 — one Dataset source a chart binds to. Live charts carry only the
+ * stable Dataset UUID; frozen charts additionally pin the immutable Dataset
+ * Version (SCI-04) the snapshot was reconstructed from.
  */
-function ChartOpenDatasetAction({ datasetId }: { datasetId: string | null }) {
-  if (!datasetId) return null
+interface ChartDatasetSource {
+  datasetId: string
+  versionId?: string
+}
+
+function chartSourcesFromSpec(spec: ChartSpec | null): ChartDatasetSource[] {
+  return (spec?.datasets ?? [])
+    .filter((d) => typeof d.datasetId === 'string' && d.datasetId.length > 0)
+    .map((d) => ({ datasetId: d.datasetId }))
+}
+
+function chartSourcesFromFrozen(
+  frozen: NonNullable<ChartBlockPayload['frozen']>,
+): ChartDatasetSource[] {
+  return frozen.datasetProvenance
+    .filter((p) => typeof p.datasetId === 'string' && p.datasetId.length > 0)
+    .map((p) => ({
+      datasetId: p.datasetId,
+      versionId:
+        typeof p.datasetVersionId === 'string' && p.datasetVersionId.length > 0
+          ? p.datasetVersionId
+          : undefined,
+    }))
+}
+
+/**
+ * NOTE-03 — "Open dataset" affordances rendered inside the ChartFrame header
+ * so both live and frozen chart blocks expose every canonical source. One
+ * stable-ID link per source: single-source charts keep the plain "Open
+ * dataset" label; multi-source charts disambiguate ("Dataset 1", "Dataset 2")
+ * and frozen multi-source charts also surface each pinned Version short-id.
+ */
+function ChartOpenDatasetActions({ sources }: { sources: ChartDatasetSource[] }) {
+  if (sources.length === 0) return null
+  const multi = sources.length > 1
   return (
-    <Link
-      to={datasetPath(datasetId)}
-      className="mr-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-    >
-      Open dataset
-    </Link>
+    <span className="mr-1 flex flex-wrap items-center gap-x-3">
+      {sources.map((source, index) => (
+        <Link
+          key={
+            source.versionId
+              ? `${source.datasetId}@${source.versionId}`
+              : source.datasetId
+          }
+          to={datasetPath(source.datasetId)}
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        >
+          {multi
+            ? source.versionId
+              ? `Dataset ${index + 1} · version ${source.versionId.slice(0, 8)}`
+              : `Dataset ${index + 1}`
+            : 'Open dataset'}
+        </Link>
+      ))}
+    </span>
   )
 }
 
@@ -966,17 +1034,24 @@ function PinnedFrozenChartPreview({
   provenance,
   spec,
   frozen,
-  datasetId,
+  sources,
 }: {
   title: string
   provenance?: string
   spec: ChartSpec | null
   frozen: NonNullable<ChartBlockPayload['frozen']>
-  datasetId: string | null
+  sources: ChartDatasetSource[]
 }) {
   const versionId = frozenPinsDatasetVersion(frozen)
   const pinned = useFrozenPinnedRows(frozen)
-  const openDataset = <ChartOpenDatasetAction datasetId={datasetId} />
+  const openDataset = <ChartOpenDatasetActions sources={sources} />
+  // NOTE-03: the version subtitle only works when the chart pins exactly one
+  // Dataset Version; with multiple sources every pinned Version short-id is
+  // surfaced on its own link instead.
+  const versionSubtitle =
+    versionId && sources.length === 1
+      ? `Dataset Version ${versionId.slice(0, 8)}`
+      : undefined
   if (versionId && spec) {
     if (pinned.isLoading) {
       return (
@@ -989,7 +1064,7 @@ function PinnedFrozenChartPreview({
           loading
           // NOTE-03: pin the Dataset Version at a glance, not only in the
           // sr-only description.
-          subtitle={`Dataset Version ${versionId.slice(0, 8)}`}
+          subtitle={versionSubtitle}
           actions={openDataset}
         />
       )
@@ -1003,7 +1078,7 @@ function PinnedFrozenChartPreview({
           materialised={emptyMaterialised(spec)}
           frozen={frozen}
           error="Frozen Dataset Version could not be reconstructed."
-          subtitle={`Dataset Version ${versionId.slice(0, 8)}`}
+          subtitle={versionSubtitle}
           actions={openDataset}
         />
       )
@@ -1022,7 +1097,7 @@ function PinnedFrozenChartPreview({
         frozen={frozen}
         facets={reconstructed.facets?.panels}
         facetTotal={reconstructed.facets?.total}
-        subtitle={`Dataset Version ${versionId.slice(0, 8)}`}
+        subtitle={versionSubtitle}
         actions={openDataset}
       />
     )
@@ -1047,15 +1122,15 @@ function LiveChartPreview({
   title,
   provenance,
   spec,
-  datasetId,
+  sources,
 }: {
   title: string
   provenance?: string
   spec: ChartSpec | null
-  datasetId: string | null
+  sources: ChartDatasetSource[]
 }) {
   const { datasetQuery } = useLiveChartDataset(spec)
-  const openDataset = <ChartOpenDatasetAction datasetId={datasetId} />
+  const openDataset = <ChartOpenDatasetActions sources={sources} />
   const loading = datasetQuery.isLoading
   if (loading) {
     return (

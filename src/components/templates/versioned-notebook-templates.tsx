@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
@@ -93,12 +94,15 @@ export function VersionedNotebookTemplatePanel({
   projects,
   selectedTemplateId: selectedTemplateIdProp,
   onSelectedTemplateIdChange,
+  headerActions,
 }: {
   workspaceId: string
   canEdit: boolean
   projects: TemplateProject[]
   selectedTemplateId?: string | null
   onSelectedTemplateIdChange?: (templateId: string | null) => void
+  /** Optional per-selected-template actions (e.g. the FIND-02 favourite star). */
+  headerActions?: ReactNode
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -408,16 +412,19 @@ export function VersionedNotebookTemplatePanel({
             version.
           </p>
         </div>
-        {canEdit ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setDraftOpen(true)}
-            disabled={create.isPending}
-          >
-            New draft
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {headerActions}
+          {canEdit ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setDraftOpen(true)}
+              disabled={create.isPending}
+            >
+              New draft
+            </Button>
+          ) : null}
+        </div>
       </div>
       <label htmlFor="notebook-template-search" className="sr-only">
         Search notebook templates

@@ -16,6 +16,8 @@ import {
   notebookQueryKeys,
 } from '#/lib/notebook-data'
 import { objectContextBreadcrumbs } from '#/lib/navigation'
+import { useRecentViewTracking } from '#/lib/recents'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import {
   fetchSheetInstance,
   sheetInstanceDataClient,
@@ -38,6 +40,9 @@ function ComposedSheetRoute() {
   const { instanceId } = Route.useParams()
   const { projectId: projectIdParam } = Route.useSearch()
   const { context } = Route.useRouteContext()
+
+  // FIND-01: this page counts as a "view" for the Recent surface.
+  useRecentViewTracking('sheet', instanceId)
 
   // NAV-02: context-preserving navigation. The Sheet reconstructs its
   // project/owning-notebook context from stable IDs on the instance itself —
@@ -102,6 +107,9 @@ function ComposedSheetRoute() {
       },
     },
     breadcrumbs,
+    // FIND-02: the Sheet workspace is full-bleed with no page header, so the
+    // star lives in the shell top bar's primary action slot.
+    primaryAction: <FavouriteToggle kind="sheet" objectId={instanceId} />,
   })
 
   // COLLAB-01: presence awareness for the canonical Sheet Instance. The

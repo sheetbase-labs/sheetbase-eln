@@ -66,3 +66,19 @@ conveniences composed from operations this matrix already covers. They add no
 new public operations and are not part of the coverage boundary: labelled
 columns are display convenience only, and stable field/row/revision IDs remain
 the durable identifiers.
+
+## Package compatibility
+
+| Package              | Package version | Supported contract (`info.version`) | Compatibility tests                                                                     |
+| -------------------- | --------------- | ----------------------------------- | --------------------------------------------------------------------------------------- |
+| `@sheetbase/eln-sdk` | `0.1.x`         | `0.1.0`                             | `sdks/typescript/tests/contract-parity.test.ts` + `sdks/typescript/tests/smoke.test.ts` |
+| `sheetbase` (PyPI)   | `0.1.x`         | `0.1.0`                             | `sdks/python/tests/test_contract_parity.py` + `sdks/python/tests/test_smoke.py`         |
+
+Each SDK release targets exactly one public API contract version, asserted
+against the committed OpenAPI document and this matrix by the SDK test suites
+and the root `src/lib/sdk-support-matrix.test.ts`. A contract change without
+a matching SDK decision fails CI. The release procedure for both packages,
+including the versioning and deprecation policy, is [`RELEASE.md`](RELEASE.md).
+Both packages build, test and install independently of the application source
+tree; the tests above read the contract and matrix from the repository, but
+the packages themselves depend on nothing from the app.

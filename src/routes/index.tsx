@@ -16,12 +16,14 @@ import {
   Database,
   FlaskConical,
   Folder,
+  GanttChart,
   Inbox,
   Layers,
   LayoutTemplate,
   Pin,
   Plus,
   Search,
+  Star,
   TestTube,
   Upload,
 } from 'lucide-react'
@@ -48,6 +50,13 @@ import {
 } from '#/lib/notebook-data'
 import type { NotebookRecord, Project, ProjectWire } from '#/lib/notebook-data'
 import {
+  fetchFavouriteItems,
+  favouritesQueryKeys,
+  FAVOURITES_LIMIT,
+  useSetFavourite,
+} from '#/lib/favourites'
+import type { FavouriteItem } from '#/lib/favourites'
+import {
   activitySentence,
   computeMyWorkMetrics,
   dashboardQueryKeys,
@@ -68,6 +77,12 @@ import type {
   DashboardPinnedItem,
 } from '#/lib/dashboard-data'
 import type { ReviewItem } from '#/lib/reviews'
+import {
+  fetchRecentItems,
+  recentsQueryKeys,
+  RECENTS_LIMIT,
+} from '#/lib/recents'
+import type { RecentItem } from '#/lib/recents'
 import { recordDestination, recordPath } from '#/lib/navigation'
 import { cn } from '#/lib/utils'
 import { useUserNames } from '#/lib/user-names'
@@ -233,6 +248,23 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
     queryFn: () => fetchRecentActivity(notebookDataClient, 25),
   })
 
+  // FIND-01 — cross-object recents for work resumption: per-user views plus
+  // the canonical edit/review audit trail, merged deterministically and
+  // resolved to canonical labels/destinations.
+  const recentsQuery = useQuery({
+    queryKey: recentsQueryKeys.recents(userId, RECENTS_LIMIT),
+    queryFn: () => fetchRecentItems(notebookDataClient, userId, RECENTS_LIMIT),
+  })
+
+  // FIND-02 — deliberate per-user favourites for fast return. Server-persisted
+  // per user; archived/deleted/retired objects are dropped at read time, and
+  // unfavouriting (the star on an object page or here) is the only removal.
+  const favouritesQuery = useQuery({
+    queryKey: favouritesQueryKeys.items(),
+    queryFn: () => fetchFavouriteItems(notebookDataClient, FAVOURITES_LIMIT),
+  })
+  const favouriteMutation = useSetFavourite()
+
   // All projects for quick access.
   const projectsQuery = useQuery({
     queryKey: notebookQueryKeys.projectsList(),
@@ -379,6 +411,27 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
       </section>
 
       <QuickActionsGrid />
+
+      <FavouritesSection
+        items={favouritesQuery.data ?? []}
+        isLoading={favouritesQuery.isLoading}
+        error={favouritesQuery.error}
+        onRetry={() => favouritesQuery.refetch()}
+        onRemove={(item) =>
+          favouriteMutation.mutate({
+            kind: item.kind,
+            objectId: item.id,
+            favourite: false,
+          })
+        }
+      />
+
+      <RecentSection
+        items={recentsQuery.data ?? []}
+        isLoading={recentsQuery.isLoading}
+        error={recentsQuery.error}
+        onRetry={() => recentsQuery.refetch()}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
@@ -647,6 +700,219 @@ function QuickActionsGrid() {
         open={createOpen}
         onOpenChange={setCreateOpen}
       />
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Favourites (FIND-02) — deliberate per-user pins across canonical objects.
+// Persistent across sessions; ordering is created_at desc (most recently
+// favourited first) with a kind-then-id tiebreak, resolved to canonical
+// labels/destinations by the data layer. Favourites of archived, deleted or
+// retired objects never render here — they are hidden at read time, NOT
+// deleted; unfavouriting (star or the remove control here) is the only way a
+// favourite disappears.
+// ---------------------------------------------------------------------------
+
+export function FavouritesSection({
+  items,
+  isLoading,
+  error,
+  onRetry,
+  onRemove,
+}: {
+  items: FavouriteItem[]
+  isLoading: boolean
+  error: unknown
+  onRetry: () => void
+  onRemove: (item: FavouriteItem) => void
+}) {
+  return (
+    <section
+      aria-label="Favourites"
+      className="rounded-lg border border-border bg-card"
+    >
+      <SectionHeader
+        title="Favourites"
+        count={isLoading ? undefined : items.length}
+      />
+      {isLoading ? (
+        <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : error ? (
+        <ErrorState message="Could not load favourites." onRetry={onRetry} />
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={Star}
+          title="No favourites yet"
+          body="Use the star on any Notebook, Sheet, Dataset, project or template to pin the work you return to most."
+        />
+      ) : (
+        <ul className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => {
+            const Icon = RECENT_KIND_ICONS[item.kind]
+            return (
+              <li
+                key={`${item.kind}:${item.id}`}
+                className="flex items-center bg-card"
+              >
+                <Link
+                  to={item.destination}
+                  className="flex h-full min-w-0 flex-1 items-center gap-3 px-4 py-3 no-underline transition-colors hover:bg-muted/40"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {item.label}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {RECENT_KIND_LABELS[item.kind]}
+                      {item.identifier ? ` · ${item.identifier}` : ''} ·{' '}
+                      {formatRelativeTime(item.createdAt)}
+                    </span>
+                  </span>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="mr-2 shrink-0"
+                  aria-label={`Remove ${item.label} from favourites`}
+                  onClick={() => onRemove(item)}
+                >
+                  <Star
+                    className="size-3.5 fill-amber-400 text-amber-500"
+                    aria-hidden="true"
+                  />
+                </Button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Recent (FIND-01) — compact cross-object resumption surface. Notebooks,
+// Sheets, Datasets, Records and projects the user recently viewed, edited or
+// had reviewed, ordered by last activity. Items already resolve to canonical
+// labels and destinations in the data layer.
+// ---------------------------------------------------------------------------
+
+const RECENT_KIND_ICONS: Record<RecentItem['kind'], LucideIcon> = {
+  record: FlaskConical,
+  dataset: Database,
+  sheet: GanttChart,
+  project: Folder,
+  notebook_template: LayoutTemplate,
+}
+
+const RECENT_KIND_LABELS: Record<RecentItem['kind'], string> = {
+  record: 'Record',
+  dataset: 'Dataset',
+  sheet: 'Sheet',
+  project: 'Project',
+  notebook_template: 'Template',
+}
+
+const RECENT_SIGNAL_LABELS: Record<RecentItem['signal'], string> = {
+  edited: 'Edited',
+  reviewed: 'In review',
+  viewed: 'Viewed',
+}
+
+const RECENT_SIGNAL_CLASSES: Record<RecentItem['signal'], string> = {
+  edited:
+    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  reviewed:
+    'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+  viewed: 'bg-muted text-muted-foreground',
+}
+
+export function RecentSection({
+  items,
+  isLoading,
+  error,
+  onRetry,
+}: {
+  items: RecentItem[]
+  isLoading: boolean
+  error: unknown
+  onRetry: () => void
+}) {
+  return (
+    <section
+      aria-label="Recent"
+      className="rounded-lg border border-border bg-card"
+    >
+      <SectionHeader
+        title="Recent"
+        count={isLoading ? undefined : items.length}
+      />
+      {isLoading ? (
+        <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : error ? (
+        <ErrorState message="Could not load recent items." onRetry={onRetry} />
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={ActivityIcon}
+          title="Nothing recent yet"
+          body="Notebooks, Sheets, Datasets, Records and projects you open or edit will appear here so you can pick up where you left off."
+          action={
+            <Button asChild variant="outline" size="sm">
+              <Link to="/projects" className="no-underline">
+                Open projects
+              </Link>
+            </Button>
+          }
+        />
+      ) : (
+        <ul className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => {
+            const Icon = RECENT_KIND_ICONS[item.kind]
+            return (
+              <li key={`${item.kind}:${item.id}`} className="bg-card">
+                <Link
+                  to={item.destination}
+                  className="flex h-full items-center gap-3 px-4 py-3 no-underline transition-colors hover:bg-muted/40"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {item.label}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {RECENT_KIND_LABELS[item.kind]}
+                      {item.identifier ? ` · ${item.identifier}` : ''} ·{' '}
+                      {formatRelativeTime(item.lastActivityAt)}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
+                      RECENT_SIGNAL_CLASSES[item.signal],
+                    )}
+                  >
+                    {RECENT_SIGNAL_LABELS[item.signal]}
+                  </span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </section>
   )
 }

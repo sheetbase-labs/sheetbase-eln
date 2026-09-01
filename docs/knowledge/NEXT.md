@@ -58,38 +58,31 @@ numbered-task exit criterion. SDK-02 builds dataframe/analysis helpers, bulk
 transfer, version access and provenance ergonomics directly on SDK-01's
 support matrix and does not start SDK-03 implicitly.
 
-### Product Depth second pass
-
-```text
-✓ NAV-02  — Context-Preserving Object Navigation (#104, review-hardened)
-▶ GRID-02 — Clipboard, Fill & Range Operations   (#105, review-hardened)
-▶ NOTE-02 — Sections, Structure & Long-Document Navigation (#106)
-```
-
 ## Next tasks, in order
 
-1. **FIND-01 — Recents & Work Resumption** — becomes Ready when the Wave A
-   stack merges (NAV-01 is then merged reality); it builds on the
-   navigation-context model NAV-02 established.
-2. **GRID-03 — Typed Editing & Validation UX** — follows GRID-02's
-   clipboard/fill bulk-write path with typed editors and inline validation
-   recovery, without creating a second client-side rules engine.
-3. **NOTE-03 — Scientific Block Composition** — improves how Sheets,
-   figures, files and Records frame and expose provenance inside Notebooks,
-   on top of NOTE-02's structural navigation.
-4. **SDK-03 — Lifecycle, Compatibility & Release Quality** — after the SDK
-   stack (#101, #102) merges; release automation starts from the parity
-   baseline it establishes.
+The next work queue, in recommended start order. The first three are
+independent and may proceed in parallel once the stack above merges; each
+must reconcile the current implementation before editing.
+
+```text
+1. NAV-02  — Context-Preserving Object Navigation
+2. GRID-02 — Clipboard, Fill & Range Operations
+3. NOTE-02 — Sections, Structure & Long-Document Navigation
+4. FIND-01 — Recents & Work Resumption
+5. SDK-03  — Lifecycle, Compatibility & Release Quality
+```
 
 Ordering rationale:
 
-- **FIND-01** depends only on merged Wave A navigation foundations; it should
-  start once the stack above lands so its recents surfaces build on the
-  final navigation model.
-- **GRID-03** follows GRID-02's bulk-write and validation-gate semantics.
-- **NOTE-03** is the natural continuation now that long documents are
-  navigable; it must keep canonical object identity and evidence semantics.
-- **SDK-03** waits for the SDK stack to be merged reality.
+- **NAV-02** continues the completed NAV-01 foundation and is the depth task
+  navigation quality depends on.
+- **GRID-02** builds range operations on GRID-01's selection model.
+- **NOTE-02** adds structure/outline on NOTE-01's authoring baseline.
+- **FIND-01** becomes Ready after the stack merges (its NAV-01 prerequisite is
+  then merged reality); it should start once navigation context from NAV-02
+  is shaping the home/resume surfaces it feeds.
+- **SDK-03** follows SDK-02 and is release/lifecycle work; do not start it
+  implicitly while SDK-02 is in review.
 
 Beyond this queue, Wave B (KNOW, VIEW, MODEL, REUSE, EVENT, EXT, ADMIN)
 becomes Ready only through the gates in

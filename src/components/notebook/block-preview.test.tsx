@@ -261,3 +261,141 @@ describe('BlockPreview sheet (NOTE-03 read-preview open affordance)', () => {
     expect(open.getAttribute('href')).toBe(`/sheets/${instanceId}`)
   })
 })
+
+// ---------------------------------------------------------------------------
+// NOTE-03 chart block Dataset affordances. spec.datasets and
+// frozen.datasetProvenance are arrays — every source gets its own stable-ID
+// link, and frozen charts surface every pinned Dataset Version.
+// ---------------------------------------------------------------------------
+
+const CHART_DATASET_A = '00000000-0000-4000-8000-0000000000a1'
+const CHART_DATASET_B = '00000000-0000-4000-8000-0000000000b2'
+const CHART_VERSION_A = '11111111-0000-4000-8000-0000000000a1'
+const CHART_VERSION_B = '22222222-0000-4000-8000-0000000000b2'
+
+const chartSpec = (datasetIds: string[]) => ({
+  specVersion: 1,
+  type: 'scatter',
+  datasets: datasetIds.map((datasetId) => ({ datasetId })),
+  fields: {
+    x: null,
+    y: { fieldId: 'f1' },
+    series: null,
+    color: null,
+    size: null,
+    facet: null,
+  },
+  filters: [],
+  transformations: [],
+  typeParams: {},
+  display: {
+    axes: { x: { scale: 'linear' }, y: { scale: 'linear' } },
+    series: [],
+  },
+  overlays: { errorBars: null },
+})
+
+const frozenChart = (entries: Array<{ datasetId: string; datasetVersionId: string }>) => ({
+  revisionId: null,
+  frozenAt: '2026-01-01T00:00:00Z',
+  frozenByUserId: 'u1',
+  datasetProvenance: entries.map((entry, i) => ({
+    ...entry,
+    schemaVersionNumber: 1,
+    rowCount: i + 2,
+    checksum: `checksum-${i}`,
+  })),
+  data: { columns: [], rows: [], series: [] },
+})
+
+describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
+  it('live multi-Dataset chart renders one link per spec.datasets entry', async () => {
+    renderWithQuery(
+      <BlockPreview
+        block={block('chart', {
+          title: 'Multi-source chart',
+          spec: chartSpec([CHART_DATASET_A, CHART_DATASET_B]),
+        })}
+      />,
+    )
+    const first = await screen.findByRole('link', { name: 'Dataset 1' })
+    const second = screen.getByRole('link', { name: 'Dataset 2' })
+    expect(first.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_A)}`,
+    )
+    expect(second.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_B)}`,
+    )
+    // Multi-source labels are ordinal, never a display label.
+    expect(screen.queryByRole('link', { name: 'Open dataset' })).toBeNull()
+  })
+
+  it('frozen multi-Dataset chart renders every pinned Dataset Version', () => {
+    renderWithQuery(
+      <BlockPreview
+        block={block('chart', {
+          title: 'Frozen multi-source chart',
+          spec: chartSpec([CHART_DATASET_A, CHART_DATASET_B]),
+          frozen: frozenChart([
+            { datasetId: CHART_DATASET_A, datasetVersionId: CHART_VERSION_A },
+            { datasetId: CHART_DATASET_B, datasetVersionId: CHART_VERSION_B },
+          ]),
+        })}
+      />,
+    )
+    // Both sources are visible immediately (the frame renders its actions
+    // while reconstruction is pending).
+    const first = screen.getByRole('link', {
+      name: `Dataset 1 · version ${CHART_VERSION_A.slice(0, 8)}`,
+    })
+    const second = screen.getByRole('link', {
+      name: `Dataset 2 · version ${CHART_VERSION_B.slice(0, 8)}`,
+    })
+    // Each link targets the stable Dataset UUID, not the Version.
+    expect(first.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_A)}`,
+    )
+    expect(second.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_B)}`,
+    )
+    // No misleading single-version subtitle when two Versions are pinned.
+    expect(screen.queryByText(/^Dataset Version /)).toBeNull()
+  })
+
+  it('single-source live chart keeps the plain "Open dataset" affordance', () => {
+    renderWithQuery(
+      <BlockPreview
+        block={block('chart', {
+          title: 'Single-source chart',
+          spec: chartSpec([CHART_DATASET_A]),
+        })}
+      />,
+    )
+    const open = screen.getByRole('link', { name: 'Open dataset' })
+    expect(open.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_A)}`,
+    )
+    // No numbering for a single source.
+    expect(screen.queryByText('Dataset 1')).toBeNull()
+  })
+
+  it('single-source frozen chart keeps subtitle + single Open dataset link', () => {
+    renderWithQuery(
+      <BlockPreview
+        block={block('chart', {
+          title: 'Single frozen chart',
+          spec: chartSpec([CHART_DATASET_A]),
+          frozen: frozenChart([
+            { datasetId: CHART_DATASET_A, datasetVersionId: CHART_VERSION_A },
+          ]),
+        })}
+      />,
+    )
+    expect(screen.getByText('Dataset Version 11111111')).toBeTruthy()
+    const open = screen.getByRole('link', { name: 'Open dataset' })
+    expect(open.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_A)}`,
+    )
+    expect(screen.queryByText('Dataset 1')).toBeNull()
+  })
+})

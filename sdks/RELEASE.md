@@ -50,34 +50,56 @@ release_ → _Run workflow_.
    in step) and `sdks/python/pyproject.toml` (`version`, keep
    `src/sheetbase/_version.py` `__version__` in step). The support-matrix
    tests fail if the package source and manifest drift apart.
-3. **Validate locally** (all four gates must pass — these mirror the
-   workflow's jobs and are the authoritative gate while the workflow is
-   paused):
+3. **Run the local release gate.** Every step below is mandatory and
+   mirrors the workflow's jobs exactly (contract gate, version match,
+   per-SDK build/test/pack, standalone smoke imports). The release is not
+   valid until all of them pass:
    ```bash
-   # TypeScript: tests, typecheck and a clean standalone build
-   cd sdks/typescript && npm install && npm test && npm run build
-   # Python: tests and a clean wheel/sdist build
-   cd sdks/python && uv run --with pandas,httpx,pytest,respx,pytest-asyncio \
-     --python 3.12 --with-editable . python -m pytest -q && uv build
-   # Root contract gate
+   # Contract gate (workflow: contract job)
    npx vitest run src/lib/sdk-support-matrix.test.ts
+
+   # Version match (workflow: contract job). Both manifests and both source
+   # constants must declare the same version; substituting <VERSION> with
+   # the version being released must not change the outcome.
+   VERSION="$(node -p "require('./sdks/typescript/package.json').version")"
+   PY_VERSION="$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p' \
+     sdks/python/pyproject.toml)"
+   test "$VERSION" = "$PY_VERSION"
+   grep -q "export const VERSION = \"$VERSION\"" sdks/typescript/src/version.ts
+   grep -q "__version__ = \"$VERSION\"" sdks/python/src/sheetbase/_version.py
+
+   # TypeScript (workflow: typescript job): clean install from the lockfile,
+   # tests, typecheck, build, standalone dist import, pack.
+   cd sdks/typescript
+   npm ci
+   npm run typecheck && npm test && npm run build
+   node --input-type=module -e "
+     const m = await import('./dist/index.js');
+     if (!m.SheetbaseClient || !m.API_VERSION) {
+       throw new Error('built package does not export the public surface');
+     }"
+   npm pack --dry-run=false   # sheetbase-eln-sdk-<v>.tgz
+   cd ../..
+
+   # Python (workflow: python job): tests, wheel/sdist build, standalone
+   # wheel import.
+   cd sdks/python
+   uv run --with pandas,httpx,pytest,respx,pytest-asyncio \
+     --python 3.12 --with-editable . python -m pytest -q
+   uv build --python 3.12
+   uv run --python 3.12 --isolated --no-project \
+     --with dist/*.whl python -c "import sheetbase; print('wheel import OK')"
+   cd ../..
    ```
-4. **Build the release artifacts** from the same clean checkout (identical
-   to what the workflow does when it is re-enabled):
-   ```bash
-   cd sdks/typescript && npm pack --dry-run=false   # sheetbase-eln-sdk-<v>.tgz
-   cd sdks/python && uv build                       # wheel + sdist
-   ```
-   Optionally import each artifact standalone (the workflow's smoke step):
-   the built `dist/index.js` must export `SheetbaseClient`/`API_VERSION`;
-   the wheel must install and import in `uv run --isolated --no-project
-   --with dist/*.whl`.
-5. **Publish manually** (maintainer with registry credentials):
+   Run the gate from a clean checkout on the release commit — `npm ci`
+   fails on lockfile drift by design, and publishing from a dirty tree is
+   forbidden.
+4. **Publish manually** (maintainer with registry credentials):
    ```bash
    cd sdks/typescript && npm publish --access public   # @sheetbase/eln-sdk
    cd sdks/python && uvx twine upload dist/*           # sheetbase (PyPI)
    ```
-6. **Tag the release** (`sdk-v<version>`) and update
+5. **Tag the release** (`sdk-v<version>`) and update
    [`SUPPORT_MATRIX.md`](SUPPORT_MATRIX.md)'s compatibility table with the
    released package versions.
 

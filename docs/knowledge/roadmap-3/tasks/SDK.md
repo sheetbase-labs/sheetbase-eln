@@ -1,6 +1,6 @@
 # SDK — SDK Product Maturity
 
-**Status:** active; SDK-01 (contract coverage & parity) and SDK-02 (developer ergonomics) complete on #101/#102, in review; SDK-03 (lifecycle, compatibility & release quality) implemented on #110, in review.
+**Status:** active; SDK-01 (contract coverage & parity) and SDK-02 (developer ergonomics) implemented on #101/#102, in review; SDK-03 (lifecycle, compatibility & release quality) implemented on #110, in review.
 
 ## Programme goal
 

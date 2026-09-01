@@ -78,7 +78,11 @@ Opening a related scientific object and returning preserves understandable proje
   implementation of the Home → Projects → project → owning record → object
   contract; ancestor links carry stable IDs.
 - Sheet footer provenance is navigable: dataset provenance resolves to
-  `/datasets?dataset=…` and record provenance to `/records/:recordId`.
+  `/datasets?dataset=…` and record provenance to `/records/:recordId`. This
+  navigation contract is covered at route level in
+  `src/routes/records/$recordId.test.tsx` ("Sheet provenance — route-level
+  navigation") in addition to the component tests in
+  `src/components/sheet/sheet-provenance.test.tsx`.
 - Notebook ↔ Sheet is a two-way link: the embedded Sheet block offers
   "Open full sheet", carrying the canonical `?projectId` context so the
   full page opens with the same write affordances; the Sheet page links back

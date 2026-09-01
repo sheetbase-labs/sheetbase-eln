@@ -533,6 +533,99 @@ describe('insert_block', () => {
       ),
     ).rejects.toMatchObject({ code: DENIED })
   })
+
+  // NOTE-01: the before anchor makes undo a single atomic insert — a
+  // deleted first block is restored at the start without a second,
+  // non-atomic move_block call.
+  it('inserts before an anchor at the start of the record (atomic undo)', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { recordId } = await seedEmpty(owner)
+    const first = await rpcByName<{
+      block: { id: string; order: number }
+      structure_version: number
+    }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'checklist',
+        '{"items":[]}'::jsonb, 1, NULL, 1)`,
+    )
+    const second = await rpcByName<{
+      block: { id: string }
+      structure_version: number
+    }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'checklist',
+        '{"items":[]}'::jsonb, 1, '${first.block.id}'::uuid, ${first.structure_version})`,
+    )
+    // (null, before) resolves to the start of the record in one RPC.
+    const restored = await rpcByName<{
+      block: { id: string; order: number }
+      structure_version: number
+      rebalanced: boolean
+      order: Array<{ id: string; order: number }>
+    }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'rich_text',
+        '{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"undo"}]}]}}'::jsonb, 1, NULL, ${second.structure_version}, '${first.block.id}'::uuid)`,
+    )
+    expect(restored.block.order).toBeLessThan(first.block.order)
+    expect(restored.structure_version).toBe(4)
+    expect(restored.rebalanced).toBe(false)
+    expect(restored.order.map((b) => b.id)).toEqual([
+      restored.block.id,
+      first.block.id,
+      second.block.id,
+    ])
+
+    const { rows } = await owner.query(
+      `SELECT id, "order" FROM api.blocks WHERE record_id = '${recordId}' ORDER BY "order" ASC`,
+    )
+    expect(rows.map((r: { id: string }) => r.id)).toEqual([
+      restored.block.id,
+      first.block.id,
+      second.block.id,
+    ])
+  })
+
+  it('inserts strictly between both anchors and rejects inverted anchors', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { recordId } = await seedEmpty(owner)
+    const first = await rpcByName<{ block: { id: string }; structure_version: number }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'checklist',
+        '{"items":[]}'::jsonb, 1, NULL, 1)`,
+    )
+    const second = await rpcByName<{ block: { id: string }; structure_version: number }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'checklist',
+        '{"items":[]}'::jsonb, 1, '${first.block.id}'::uuid, ${first.structure_version})`,
+    )
+    const mid = await rpcByName<{
+      block: { id: string; order: number }
+      order: Array<{ id: string; order: number }>
+    }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'rich_text',
+        '{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"mid"}]}]}}'::jsonb, 1, '${first.block.id}'::uuid, ${second.structure_version}, '${second.block.id}'::uuid)`,
+    )
+    expect(
+      mid.order.map((b) => b.id),
+    ).toEqual([first.block.id, mid.block.id, second.block.id])
+
+    // Inverted anchors are rejected like move_block.
+    await expect(
+      owner.query(
+        `SELECT * FROM api.insert_block(
+          '${recordId}'::uuid, 'rich_text',
+          '{"doc":{"type":"doc","content":[]}}'::jsonb, 1, '${second.block.id}'::uuid, 4, '${first.block.id}'::uuid)`,
+      ),
+    ).rejects.toMatchObject({ code: '23514' })
+  })
 })
 
 describe('delete_block', () => {

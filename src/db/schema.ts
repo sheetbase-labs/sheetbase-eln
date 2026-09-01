@@ -3583,6 +3583,47 @@ export const changeEvents = api.table(
 )
 
 /**
+ * recently_viewed (FIND-01) — thin per-user view tracking for work
+ * resumption. One row per (user, object kind, object) recording when the
+ * user last opened the object. Written exclusively through the
+ * `record_recent_view` SECURITY DEFINER RPC (no direct INSERT/UPDATE grants
+ * to request roles); the browser reads rows back under RLS to render the
+ * home "Recent" surface. Edited/reviewed recency is never stored here — it
+ * derives from the canonical `change_events` audit trail.
+ */
+export const recentlyViewed = api.table(
+  'recently_viewed',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // record | dataset | sheet | project | notebook_template
+    objectKind: text('object_kind').notNull(),
+    objectId: uuid('object_id').notNull(),
+    viewedAt: timestamp('viewed_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_recently_viewed_user_object').on(
+      table.userId,
+      table.objectKind,
+      table.objectId,
+    ),
+    check(
+      'chk_recently_viewed_object_kind',
+      sql`${table.objectKind} IN ('record', 'dataset', 'sheet', 'project', 'notebook_template')`,
+    ),
+    // Read path: WHERE user_id = $1 ORDER BY viewed_at DESC LIMIT n.
+    index('idx_recently_viewed_user_viewed').on(table.userId, table.viewedAt),
+  ],
+)
+
+/**
  * reagent_movements (REG-003) — the auditable inventory ledger for reagents.
  * One row per receive/consume/quarantine/restore movement, written exclusively
  * by the `record_reagent_movement` SECURITY DEFINER RPC (no direct INSERT

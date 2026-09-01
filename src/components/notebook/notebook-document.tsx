@@ -26,6 +26,7 @@ import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
 import {
   collapsedSectionBlockIds,
+  collapsedSectionNodeIndexes,
   notebookOutline,
   notebookSectionSpans,
   sectionHiddenCounts,
@@ -112,7 +113,12 @@ export interface NotebookDocumentProps {
   onDuplicateBlock: (block: NotebookBlockData) => Promise<string | undefined>
   /** Delete a block. */
   onDeleteBlock: (block: NotebookBlockData) => Promise<void>
-  /** Re-insert a previously deleted block (undo). */
+  /**
+   * Re-insert a previously deleted block (undo) at its original position.
+   * The server resolves the insert atomically against both neighbours, so
+   * a resolved promise means the block is restored exactly where it was.
+   * Resolves with the restored block id.
+   */
   onUndoDelete?: (
     type: string,
     payload: Record<string, unknown>,
@@ -120,7 +126,7 @@ export interface NotebookDocumentProps {
       afterBlockId: string | null
       beforeBlockId: string | null
     },
-  ) => Promise<string | undefined>
+  ) => Promise<{ id: string } | undefined>
   /**
    * Move a block to a new position described by its future neighbours
    * (ELN-006). Either neighbour may be null: (null, B) → start, (A, null)
@@ -419,14 +425,18 @@ function NotebookDocumentContent({
   async function handleUndo() {
     if (!undo || !onUndoDelete) return
     try {
-      const restoredId = await onUndoDelete(undo.type, undo.payload, {
+      const result = await onUndoDelete(undo.type, undo.payload, {
         afterBlockId: undo.afterBlockId,
         beforeBlockId: undo.beforeBlockId,
       })
+      if (!result) {
+        setUndo(null)
+        return
+      }
       setUndo(null)
-      if (restoredId) selectAndFocus(restoredId)
+      selectAndFocus(result.id)
     } catch {
-      // If undo fails the user can still insert manually.
+      // The insert itself failed; nothing was restored.
       setUndo(null)
     }
   }
@@ -449,6 +459,15 @@ function NotebookDocumentContent({
   )
   const hiddenBlockIds = React.useMemo(
     () => collapsedSectionBlockIds(sectionSpans, sectionCollapsed),
+    [sectionSpans, sectionCollapsed],
+  )
+  // NOTE-02 same-block collapse: nodes inside a collapsed section's own
+  // rich_text block are hidden at the node level (read preview skips them
+  // with a print-restoring class; the active Tiptap editor hides the
+  // matching ProseMirror nodes via node decorations). Still presentation
+  // state — nothing here touches the persisted payload.
+  const hiddenNodeIndexesByBlockId = React.useMemo(
+    () => collapsedSectionNodeIndexes(sectionSpans, sectionCollapsed),
     [sectionSpans, sectionCollapsed],
   )
   const hiddenCounts = React.useMemo(
@@ -1016,6 +1035,10 @@ function NotebookDocumentContent({
                 ) : editable && (isSelected || hasUnsavedDraft) ? (
                   <BlockEditor
                     block={block}
+                    headingAnchorPrefix={`section-${block.id}`}
+                    hiddenRichTextNodeIndexes={hiddenNodeIndexesByBlockId.get(
+                      block.id,
+                    )}
                     save={(payload) => onSaveBlock(block, payload)}
                     pinProtocol={
                       onPinProtocol
@@ -1061,7 +1084,10 @@ function NotebookDocumentContent({
                     onArrowDownFromEnd={() => handleArrowDownFromEnd(block)}
                   />
                 ) : (
-                  <BlockPreview block={block} />
+                  <BlockPreview
+                    block={block}
+                    hiddenNodeIndexes={hiddenNodeIndexesByBlockId.get(block.id)}
+                  />
                 )}
               </NotebookBlock>
               {moveError && moveError.blockId === block.id ? (
@@ -1103,10 +1129,14 @@ function NotebookDocumentContent({
                 data-print-hide
               >
                 <span>
-                  Section collapsed — {hiddenCounts.get(collapsedHere) ?? 0}{' '}
-                  block
-                  {(hiddenCounts.get(collapsedHere) ?? 0) === 1 ? '' : 's'}{' '}
-                  hidden.
+                  Section collapsed —{' '}
+                  {(() => {
+                    const blocksHidden = hiddenCounts.get(collapsedHere) ?? 0
+                    if (blocksHidden > 0) {
+                      return `${blocksHidden} block${blocksHidden === 1 ? '' : 's'} hidden.`
+                    }
+                    return 'content in this block is hidden.'
+                  })()}
                 </span>
                 <button
                   type="button"
@@ -1150,7 +1180,9 @@ function NotebookDocumentContent({
           role="status"
           className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2 text-xs"
         >
-          <span>Block deleted.</span>
+          <span>
+            {'Block deleted.'}
+          </span>
           {onUndoDelete ? (
             <button
               type="button"

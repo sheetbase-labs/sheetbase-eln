@@ -48,6 +48,7 @@ import { DatasetProductActions } from '#/components/datasets/dataset-product-con
 import { ObjectHistoryTimeline } from '#/components/audit'
 import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
+import { useRecentViewTracking } from '#/lib/recents'
 import { RegistryComposition } from '#/components/registry'
 import type { DataGridField } from '#/components/data-grid'
 import {
@@ -103,11 +104,13 @@ import {
   DATASET_MAX_FILTERS,
   datasetExplorerDataClient,
   datasetExplorerQueryKeys,
+  fetchDatasetLifecycleById,
   fetchDatasetLineage,
   fetchDatasetRelationshipsFor,
   fetchDatasetRowPage,
   fetchDatasetSummaries,
   getNextDatasetPageParam,
+  resolveDatasetDeepLinkSelection,
   validateTransformations,
 } from '#/lib/dataset-explorer-data'
 import type {
@@ -143,7 +146,13 @@ export const Route = createFileRoute('/datasets')({
     search: Record<string, unknown>,
   ): {
     dataset: string
-    archived: boolean
+    /**
+     * Optional in the input so canonical deep links (Sheet provenance)
+     * carry only the stable Dataset ID; the explorer resolves the
+     * Dataset's lifecycle itself and flips this to `true` when the
+     * requested Dataset is archived or retired. Always boolean in output.
+     */
+    archived?: boolean
     tab?: 'pipelines' | 'versions'
   } => ({
     dataset: typeof search.dataset === 'string' ? search.dataset : '',
@@ -228,14 +237,21 @@ function toColumnDefs(
 function DatasetExplorerRoute() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
+  // validateSearch always materialises `archived`; typed optional so deep
+  // links may omit it and let the explorer's lifecycle resolution decide.
+  const archivedView = search.archived ?? false
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
+  // FIND-01: a selected dataset counts as a "view" for the Recent surface;
+  // browsing the explorer without a selection (empty search param) does not.
+  useRecentViewTracking('dataset', search.dataset || null)
+
   const summariesQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.summaries(search.archived),
+    queryKey: datasetExplorerQueryKeys.summaries(archivedView),
     queryFn: () =>
       fetchDatasetSummaries(datasetExplorerDataClient, {
-        includeArchived: search.archived,
+        includeArchived: archivedView,
       }),
     staleTime: 30_000,
   })
@@ -252,19 +268,41 @@ function DatasetExplorerRoute() {
   )
 
   const requestedTableId = search.dataset || null
-  const selectedTable = useMemo(
-    () =>
-      datasets.find((dataset) => dataset.id === requestedTableId) ||
-      datasets.at(0) ||
-      null,
+  // NAV-02 review fix: a deep link (e.g. Sheet provenance) carries only the
+  // stable Dataset ID. When it is absent from the current list — which is
+  // active-only unless `archived` is set — resolve the requested Dataset's
+  // lifecycle directly and flip the explorer to the archived view instead
+  // of falling back to a different active Dataset.
+  const requestedInList = useMemo(
+    () => datasets.some((dataset) => dataset.id === requestedTableId),
     [datasets, requestedTableId],
+  )
+  const resolveRequestedLifecycle = useQuery({
+    queryKey: datasetExplorerQueryKeys.lifecycle(requestedTableId ?? ''),
+    queryFn: () =>
+      fetchDatasetLifecycleById(
+        datasetExplorerDataClient,
+        requestedTableId as string,
+      ),
+    enabled:
+      Boolean(requestedTableId) && summariesQuery.isSuccess && !requestedInList,
+  })
+  const selection = resolveDatasetDeepLinkSelection({
+    datasets,
+    requestedDatasetId: requestedTableId,
+    requestedLifecycle: resolveRequestedLifecycle.data,
+    summariesLoaded: summariesQuery.isSuccess,
+  })
+  const selectedTable = useMemo(
+    () => datasets.find((dataset) => dataset.id === selection.selectedDatasetId) ?? null,
+    [datasets, selection.selectedDatasetId],
   )
   const selectedTableId = selectedTable?.id ?? null
 
   function selectDataset(dataset: string) {
     void navigate({
       to: '/datasets',
-      search: { dataset, archived: search.archived },
+      search: { dataset, archived: archivedView },
       replace: false,
     })
   }
@@ -273,10 +311,19 @@ function DatasetExplorerRoute() {
     if (!selectedTableId || selectedTableId === requestedTableId) return
     void navigate({
       to: '/datasets',
-      search: { dataset: selectedTableId, archived: search.archived },
+      search: { dataset: selectedTableId, archived: archivedView },
       replace: true,
     })
-  }, [navigate, requestedTableId, search.archived, selectedTableId])
+  }, [navigate, requestedTableId, archivedView, selectedTableId])
+
+  useEffect(() => {
+    if (!selection.flipToArchived || !requestedTableId) return
+    void navigate({
+      to: '/datasets',
+      search: { dataset: requestedTableId, archived: true },
+      replace: true,
+    })
+  }, [navigate, requestedTableId, selection.flipToArchived])
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -330,7 +377,7 @@ function DatasetExplorerRoute() {
           loading={summariesQuery.isLoading}
           error={summariesQuery.error}
           selectedTableId={selectedTableId}
-          includeArchived={search.archived}
+          includeArchived={archivedView}
           onToggleArchived={(archived) => {
             void navigate({
               to: '/datasets',

@@ -66,6 +66,15 @@ Common range operations work predictably over local, governed and read-only/deri
   `SheetBatchValidationError`, the commit never runs, and the workspace
   reports the canonical failure reason with the assurance that nothing was
   written.
+- **Mixed-authority range operations are rejected before any write.**
+  `writeSheetCells` dispatches its commit groups sequentially with no
+  cross-group atomicity, so a change set spanning more than one commit group
+  (multiple (dataset, expected revision) groups, multiple records, or a mix
+  of dataset, record and local targets) raises
+  `SheetMixedAuthorityWriteError` (`mixed_authority_write`) before any RPC
+  runs. The workspace reports that the operation was not attempted and keeps
+  the pending values so the edit can be split per authoritative surface;
+  single-group batches keep their existing validate-then-commit semantics.
 
 ## GRID-03 — Typed Editing & Validation UX
 

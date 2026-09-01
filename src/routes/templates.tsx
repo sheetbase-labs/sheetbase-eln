@@ -37,6 +37,7 @@ import {
   templateQueryKeys,
 } from '#/lib/templates'
 import type { TargetKind } from '#/lib/templates'
+import { useRecentViewTracking } from '#/lib/recents'
 
 /**
  * Template Library. Versioned notebook templates are the notebook catalogue.
@@ -73,6 +74,10 @@ function TemplateLibraryRoute() {
   const routeSearch = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // FIND-01: an opened template counts as a "view" for the Recent surface;
+  // browsing the library without a selection does not.
+  useRecentViewTracking('notebook_template', routeSearch.template ?? null)
 
   const currentUserId = context.user.id
   const role = context.workspace?.role ?? null

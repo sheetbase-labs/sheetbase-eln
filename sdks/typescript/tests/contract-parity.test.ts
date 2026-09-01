@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 
 import {
   API_VERSION,
@@ -12,6 +13,30 @@ import {
   createMockFetch,
   type MockRoute,
 } from "./helpers.js";
+
+// SDK-03 compatibility: this package pins one public API contract version.
+// The committed contract and support matrix are the authoritative sources;
+// if the contract advances without this SDK following, the suite fails.
+const sdksRoot = new URL("../../", import.meta.url);
+const openApiInfo = (
+  JSON.parse(
+    readFileSync(
+      new URL("../docs/openapi/external-api-v0.json", sdksRoot),
+      "utf8",
+    ),
+  ) as { info: { version: string } }
+).info;
+const matrixContract = (
+  JSON.parse(
+    readFileSync(new URL("support-matrix.json", sdksRoot), "utf8"),
+  ) as {
+    contract: {
+      apiVersion: string;
+      tokenErrorCodes: string[];
+      errorCategories: string[];
+    };
+  }
+).contract;
 
 function makeClient(paths: string[]) {
   const routes: MockRoute[] = paths.map((path) => ({
@@ -68,6 +93,13 @@ describe("public contract parity", () => {
       "service_unavailable",
       "server_error",
     ]);
+  });
+
+  it("targets the committed public contract version and matrix taxonomy", () => {
+    expect(API_VERSION).toBe(openApiInfo.version);
+    expect(API_VERSION).toBe(matrixContract.apiVersion);
+    expect([...TOKEN_ERROR_CODES]).toEqual(matrixContract.tokenErrorCodes);
+    expect([...ERROR_CATEGORIES]).toEqual(matrixContract.errorCategories);
   });
 
   it("parses table HEAD count and request metadata", async () => {

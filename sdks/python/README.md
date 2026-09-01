@@ -23,7 +23,7 @@ TypeScript operation inventory and shared wire-semantics decisions live in the
   release documents which contract version it supports in the
   [compatibility table](../SUPPORT_MATRIX.md#package-compatibility).
 - `API_VERSION` is machine-checked against the committed OpenAPI contract
-  (`docs/openapi/external-api-v0.json` `info.version`) and the support
+  (`docs/api/openapi/external-api-v0.json` `info.version`) and the support
   matrix by the test suite, so taxonomy or version drift fails CI.
 - The exception taxonomy (`TOKEN_ERROR_CODES`, `ERROR_CATEGORIES` and the
   typed exception classes) is stable public surface: additions go through the
@@ -124,7 +124,7 @@ client = SheetbaseClient(
 
 ## Error handling
 
-Errors map to stable categories from the [public API contract](https://github.com/phlohouse/sheetbase-eln/blob/main/docs/public-api-contract.md):
+Errors map to stable categories from the [public API contract](https://github.com/phlohouse/sheetbase-eln/blob/main/docs/api/public-api-contract.md):
 
 ```python
 from sheetbase.errors import StaleVersionError, PermissionDeniedError, NotFoundError

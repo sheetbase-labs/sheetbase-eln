@@ -2,7 +2,7 @@
  * PLAT-02 — Prometheus-compatible metrics endpoint. Never public: in
  * staging/production a bearer token (SHEETBASE_METRICS_TOKEN from the secret
  * manager) is required and the app container binds to loopback, so scraping
- * runs over the private network. See docs/observability.md.
+ * runs over the private network. See docs/operations/observability.md.
  */
 import { createFileRoute } from '@tanstack/react-router'
 

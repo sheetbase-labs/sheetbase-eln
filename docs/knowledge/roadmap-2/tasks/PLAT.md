@@ -16,7 +16,7 @@ Environment separation; immutable artifacts; migration strategy; deployment gate
 
 Structured logs; metrics; traces where useful; request correlation; DB/RPC latency; error rates; background/integration run visibility; health/readiness; alerts; SLOs after usage data exists.
 
-PC-00: `/api/health/live` and `/ready`, request ids, JSON logs with redaction already exist (`docs/observability.md`). Do not rebuild that. Add metrics when traffic justifies them. Rewrite `docs/external-api.md` in **API-01**, not here.
+PC-00: `/api/health/live` and `/ready`, request ids, JSON logs with redaction already exist (`docs/operations/observability.md`). Do not rebuild that. Add metrics when traffic justifies them. Rewrite `docs/api/external-api.md` in **API-01**, not here.
 
 **Exit:** failures can be detected and diagnosed without reproducing them interactively.
 

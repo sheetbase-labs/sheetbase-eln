@@ -5,14 +5,16 @@ last_reviewed: 2026-08-30
 related:
   - DESIGN.md
   - PRODUCT.md
-  - Concepts/sheetbase-ui-system-v2
+  - Git history for the retired sheetbase-ui-system-v2 prototype
 ---
 
 # UI System v2 — Historical Design Concept
 
-This document preserves the durable design intent from the standalone `Concepts/sheetbase-ui-system-v2` prototype.
+This document preserves the durable design intent from the retired standalone
+`sheetbase-ui-system-v2` prototype. Its implementation remains available in Git
+history, while this document owns the lasting guidance.
 
-The **current canonical visual implementation guidance remains root [`DESIGN.md`](../../../DESIGN.md)** and the accepted design ADRs. This historical concept is useful because it records the original component-system structure and product-design rules that informed the current application.
+The **current canonical visual implementation guidance remains [`DESIGN.md`](../DESIGN.md)** and the accepted design ADRs. This historical concept is useful because it records the original component-system structure and product-design rules that informed the current application.
 
 ## Prototype purpose
 
@@ -67,10 +69,8 @@ The concept strongly reinforced ideas now present in `PRODUCT.md` and `DESIGN.md
 - avoidance of large marketing-scale headings and sparse dashboard cards;
 - keyboard accessibility and information continuity.
 
-## Historical prototype location
+## Historical prototype
 
-The runnable prototype remains under:
-
-`Concepts/sheetbase-ui-system-v2/`
-
-It is a historical visual/code reference, not a second production design system. New product work should follow the current application components, `PRODUCT.md`, `DESIGN.md` and accepted design ADRs first.
+The retired prototype remains available in Git history. It is not a second
+production design system. New product work should follow the current application
+components, `PRODUCT.md`, `DESIGN.md`, and accepted design ADRs.

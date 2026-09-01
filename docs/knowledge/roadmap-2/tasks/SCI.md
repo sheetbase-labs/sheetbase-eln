@@ -62,7 +62,7 @@ Dataset Version freeze, SVG/PNG export, bounded large-data behaviour.
 export high-quality figures from canonical Sheetbase data without leaving
 the product.
 
-See [`docs/visualisations.md`](../../visualisations.md).
+See [`docs/subsystems/visualisations.md`](../../../subsystems/visualisations.md).
 
 ## Boundaries
 

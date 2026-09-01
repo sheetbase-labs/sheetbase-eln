@@ -10,8 +10,8 @@ The Sheetbase ELN mockups (Project Dashboard, Experiment Notebook, My Work)
 all share a stable three-region chrome: a left workspace/project
 navigation plane (~240px), a compact top bar (breadcrumbs · search · primary
 action · account), a centred work area, and an optional right contextual
-inspector (~320px). `Concepts/sheetbase-ui-system-v2` ships a
-`DesignSystemShell` that demonstrates the layout but is scoped to the
+inspector (~320px). The now-retired `sheetbase-ui-system-v2` prototype shipped
+a `DesignSystemShell` that demonstrated the layout but was scoped to the
 concept-system review site, not the product.
 
 Forces:

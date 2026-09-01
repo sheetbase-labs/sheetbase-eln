@@ -14,7 +14,7 @@ Versioned Pipeline Definitions and Runs; typed parameters; explicit Dataset/Data
 
 **Exit:** a versioned transformation has explicit inputs/outputs and a durable reproducibility/provenance contract.
 
-**Complete.** See `docs/pipelines.md` and ADR 0042. Versioned Definitions
+**Complete.** See `docs/subsystems/pipelines.md` and ADR 0042. Versioned Definitions
 mirror Sheet Definitions (draft → published → retired); runs pin the exact
 version, parameters and input Dataset Version ids; `pipeline_run_outputs`
 normalizes provenance. The canonical run identity (`input_digest`) is
@@ -100,7 +100,7 @@ Definition/version or `commit_dataset_row_batch` RPC, so validation,
 permissions, canonical audit events and immutable published/evidence
 boundaries remain unchanged. Publish, submit, sign, amend and lock operations
 are excluded. Multi-step goal orchestration remains AUTO-05. See
-[`docs/agent-operations.md`](../../../agent-operations.md) and ADR 0043.
+[`docs/subsystems/agent-operations.md`](../../../subsystems/agent-operations.md) and ADR 0043.
 
 ## AUTO-05 — Agentic Scientific Workflows
 
@@ -124,7 +124,7 @@ workflow plan, attempts, references, budgets, provenance, and proposal
 evidence in one product workflow. External agents can submit, inspect,
 advance, report usage for, and cancel workflows they created, but cannot
 resume or cross an approval boundary. See ADR 0043 and
-`docs/agent-workflows.md`.
+`docs/subsystems/agent-workflows.md`.
 
 ## Principle
 

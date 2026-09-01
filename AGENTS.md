@@ -94,8 +94,8 @@ See `.env.example` for all variables and documentation.
   build immutable Docker image → push to GHCR → SSH deploy via Tailscale.
 - **Deploy controller:** `scripts/deploy.ts` validates `@sha256` image
   references, runs migrations as a one-shot, starts the app, and polls the
-  readiness endpoint. See `docs/deployment.md` for the full contract.
-- **VPS runbook:** `docs/vps-deployment.md` covers VPS setup, secrets, and
+  readiness endpoint. See `docs/operations/deployment.md` for the full contract.
+- **VPS runbook:** `docs/operations/vps-deployment.md` covers VPS setup, secrets, and
   operations.
 
 ### Deploy workflow
@@ -146,7 +146,7 @@ The Hostinger VPS is the shared delivery target. It has two separate Docker surf
 
 ## Orb / local development
 
-For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/orb-setup.md` and `.agents/setup`. The orb uses the system PostgreSQL cluster, not Docker Compose. PostgREST runs as a downloaded binary.
+For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development/orb-setup.md` and `.agents/setup`. The orb uses the system PostgreSQL cluster, not Docker Compose. PostgREST runs as a downloaded binary.
 
 ## Project conventions
 

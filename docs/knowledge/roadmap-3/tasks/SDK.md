@@ -79,7 +79,7 @@ SDK releases are reproducible, documented, compatibility-tested and usable indep
 - **Machine-checked compatibility.** `sdks/SUPPORT_MATRIX.md` gains a
   package-compatibility table (package version → supported contract
   version). Each SDK's own suite now asserts its exported `API_VERSION` /
-  `apiVersion` equals the committed `docs/openapi/external-api-v0.json`
+  `apiVersion` equals the committed `docs/api/openapi/external-api-v0.json`
   `info.version` and that its error vocabularies equal
   `sdks/support-matrix.json`'s `contract` sets, so a contract bump without a
   matching SDK decision fails CI in both suites. The root

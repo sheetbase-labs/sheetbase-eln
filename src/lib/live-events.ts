@@ -4,7 +4,7 @@
  * events, and reconciles them into the TanStack Query cache so a second
  * tab's edits arrive without a full-page reload.
  *
- * Design (see docs/decisions/0017-live-event-reconciliation.md):
+ * Design (see docs/knowledge/decisions/0017-live-event-reconciliation.md):
  *
  * - **Stable client identity.** Each tab mints a UUID in sessionStorage
  *   (`src/lib/client-identity.ts`) and sends it as `x-sheetbase-client-id`

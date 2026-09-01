@@ -2,7 +2,7 @@
  * Mints the short-lived JWT PostgREST receives for an authenticated browser
  * request. Server-only: the signing secret never leaves the server.
  *
- * Claim set is deliberately minimal (see docs/database-access.md):
+ * Claim set is deliberately minimal (see docs/development/database-access.md):
  * - sub: Better Auth user id
  * - workspace_id: the caller's active workspace
  * - session_id: Better Auth session id (revocation handle)

@@ -55,7 +55,7 @@ const timestamps = {
 // internal — Better Auth core tables.
 //
 // Column names follow Better Auth's core schema (quoted camelCase). That is a
-// deliberate exception to the snake_case convention in docs/conventions.md:
+// deliberate exception to the snake_case convention in docs/development/conventions.md:
 // these tables belong to Better Auth, not to Sheetbase domain naming.
 // ---------------------------------------------------------------------------
 
@@ -6144,7 +6144,7 @@ export const projectAccessRelations = relations(projectAccess, ({ one }) => ({
 //
 // Connector identity, runs and execution logs on the api (PostgREST) surface;
 // third-party secrets sealed in the internal schema where PostgREST cannot
-// reach them. Writes land through RPCs only. See docs/integrations.md.
+// reach them. Writes land through RPCs only. See docs/subsystems/integrations.md.
 // ---------------------------------------------------------------------------
 
 export const connectors = api.table(
@@ -6605,7 +6605,7 @@ export const webhookDeliveriesRelations = relations(
 // run model (trigger/attempt/digest lineage, bounded error codes, append-only
 // stage logs). Every run pins the exact definition version, parameters and
 // input Dataset Version ids; outputs are canonical Dataset Versions recorded
-// in pipeline_run_outputs. See docs/pipelines.md and ADR 0042.
+// in pipeline_run_outputs. See docs/subsystems/pipelines.md and ADR 0042.
 // ---------------------------------------------------------------------------
 
 export const pipelineDefinitions = api.table(

@@ -420,9 +420,9 @@ function FoundationsPage() {
         </Section>
 
         <footer className="mt-12 border-t pt-6 text-xs text-muted-foreground">
-          Compare with <code>DESIGN.md</code>, the brand guide mockup and{' '}
-          <code>Concepts/sheetbase-ui-system-v2</code>. Toggle theme and density
-          in the header; preferences persist to localStorage.
+          Compare with <code>docs/knowledge/DESIGN.md</code>, the historical
+          mockups and <code>docs/knowledge/design/ui-system-v2.md</code>. Toggle
+          theme and density in the header; preferences persist to localStorage.
         </footer>
       </div>
     </div>
@@ -1413,9 +1413,8 @@ function ReviewGuide() {
         </li>
         <li>
           Compare each section against the matching mockups in{' '}
-          <code>Mockups/</code> and the concept components in{' '}
-          <code>Concepts/sheetbase-ui-system-v2/src/components/sheetbase/</code>
-          .
+          <code>docs/knowledge/mockups/</code> and the durable concept guidance
+          in <code>docs/knowledge/design/ui-system-v2.md</code>.
         </li>
         <li>
           Toggle <strong>Light/Dark</strong> and{' '}
@@ -1432,7 +1431,7 @@ function ReviewGuide() {
           optional Playwright script: <code>pnpm screenshot:gallery</code>{' '}
           (writes PNGs to <code>.amp/in/artifacts/gallery/</code>). See{' '}
           <code>
-            docs/decisions/0014-component-gallery-and-visual-review-gate.md
+            docs/knowledge/decisions/0014-component-gallery-and-visual-review-gate.md
           </code>{' '}
           for the full procedure.
         </li>

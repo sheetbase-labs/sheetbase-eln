@@ -30,7 +30,7 @@ import {
   tableSchemaName,
 } from '#/lib/public-api-table-schemas'
 
-export const OPENAPI_SPEC_PATH = 'docs/openapi/external-api-v0.json' as const
+export const OPENAPI_SPEC_PATH = 'docs/api/openapi/external-api-v0.json' as const
 
 export const HUMAN_SESSION_ONLY_RPCS = [
   'submit_record_revision',
@@ -480,7 +480,7 @@ function description(): string {
     '`folders` and `record_field_definitions` are GET-only for external credentials (`api_client` has SELECT only). Folder writes and model-field authoring stay on the session path.',
     'DELETE on `projects` is not granted to `api_client`.',
     '',
-    'Narrative contract: `docs/public-api-contract.md`. How to call this spec: `docs/openapi/README.md`. Credential mechanics: `docs/external-api.md`.',
+    'Narrative contract: `docs/api/public-api-contract.md`. How to call this spec: `docs/api/openapi/README.md`. Credential mechanics: `docs/api/external-api.md`.',
   ].join('\n')
 }
 

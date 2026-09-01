@@ -5,7 +5,7 @@
 #
 # PAUSED (PLAT-03): the GitHub account cannot run hosted-runner jobs, and the
 # canonical release path is now scripts/release.sh on the VPS (pnpm
-# release:local — see docs/deployment.md). The trigger block below is
+# release:local — see docs/operations/deployment.md). The trigger block below is
 # commented out so this workflow cannot fire under any circumstance. To
 # re-enable when hosted runners are available, uncomment the `on:` block.
 

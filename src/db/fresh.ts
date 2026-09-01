@@ -1,7 +1,7 @@
 /**
  * Fresh-environment flow: reset the local database, apply the full migration
  * history and seed. Proves a fresh database can be migrated and seeded in one
- * documented command. See docs/seeds.md and docs/migrations.md.
+ * documented command. See docs/development/seeds.md and docs/development/migrations.md.
  *
  * Usage: pnpm db:fresh [--demo]
  */

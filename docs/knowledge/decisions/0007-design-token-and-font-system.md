@@ -8,7 +8,7 @@
 
 Phase 1 shipped the API and identity layers with a placeholder Tailwind/shadcn
 token set. Phase 2 needs a production UI system that matches `DESIGN.md`, the
-brand guide mockup and the concept system in `Concepts/sheetbase-ui-system-v2`
+brand guide mockup and the now-retired `sheetbase-ui-system-v2` concept
 before any screen-level work begins. The token contract had to be settled
 before UI-002 onwards so components, screens and the visual review page all
 read from one source of truth.

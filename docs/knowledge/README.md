@@ -48,7 +48,6 @@ docs/knowledge/
 │   ├── PROGRAMME_MAP.md
 │   ├── tasks/               # 18 capability files / 60 numbered tasks
 │   └── prompts/             # one prompt per capability stream
-├── concepts/
 ├── mockups/
 ├── references/
 ├── history/
@@ -100,9 +99,8 @@ Programme-specific task definitions remain under `roadmap-2/tasks/`.
 
 Roadmap 3 now mirrors Roadmap 2's execution model: **18 capability streams containing 60 numbered tasks**, each independently assignable/reviewable with explicit goals, boundaries and exits. Each capability has a matching agent prompt. Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md), [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md).
 
-## Concepts, mockups, references and history
+## Mockups, references and history
 
-- [`concepts/`](concepts/) contains historical runnable concepts/prototypes. These are design/product archaeology, not production authority.
 - [`mockups/`](mockups/) contains historical visual product/design artefacts.
 - [`references/eln-competitors/`](references/eln-competitors/) contains dated competitor research; [`references/competitor-learnings.md`](references/competitor-learnings.md) records durable lessons.
 - [`history/`](history/) contains product evolution, conversation synthesis and superseded planning/evidence.
@@ -117,9 +115,12 @@ Search is discovery only. Agents must open `NEXT.md`, the relevant numbered task
 
 ## Implementation documentation
 
-Operational and subsystem-specific documentation remains directly under `docs/` when its primary purpose is to document the running implementation rather than durable product/roadmap knowledge. This includes deployment, authentication, testing, current API contracts, database access, pipelines, integrations, observability, performance, security, migration/seeding and current subsystem behaviour.
+Implementation documentation is grouped under `docs/api/`, `docs/development/`,
+`docs/operations/`, and `docs/subsystems/`. See [`../README.md`](../README.md)
+for the index.
 
-`docs/assets/` remains outside the knowledge base because it contains implementation/PR documentation assets. `docs/openapi/` remains outside because it is a generated/executable API contract.
+`docs/api/openapi/` remains outside the knowledge base because it is a
+generated/executable API contract.
 
 ## Authority
 

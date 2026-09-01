@@ -22,7 +22,7 @@ The roadmap (`ROADMAP.md` §3) already fixes two things:
   analyses, figures, reports, instruments and reagents can be linked into the
   notebook without turning the notebook into a database form."
 
-The mockups in `Mockups/` show three record kinds that are all block
+The mockups in `docs/knowledge/mockups/` show three record kinds that are all block
 documents: **Experiment Notebook (Virus Stability)**, **Protocol Template
 (Titration Assay)** and **Report Builder (Lentivector Stability Study
 Report)**. Each has a typed header (identifier, status, owner, project,
@@ -46,7 +46,7 @@ Existing decisions that constrain this one:
   notebook frames, audit/approval components and the visual review gate are
   already productionised around these concepts.
 
-`docs/conventions.md` fixes: plural snake_case tables, `id` uuid PKs,
+`docs/development/conventions.md` fixes: plural snake_case tables, `id` uuid PKs,
 `<singular_parent>_id` FKs, `created_at`/`updated_at`/`archived_at`
 timestamps, type-prefixed stable public identifiers separate from the PK,
 `api` schema for PostgREST surface, event names
@@ -113,7 +113,7 @@ A route like `/projects/<key>/experiments/<id>` is a friendly view over
 
 Every user-visible record type has a stable, immutable, type-prefixed
 identifier separate from its uuid primary key, matching the mockups and
-`docs/conventions.md`:
+`docs/development/conventions.md`:
 
 | Record kind       | Prefix                | Format          | Example                 | Scope            |
 | ----------------- | --------------------- | --------------- | ----------------------- | ---------------- |
@@ -286,7 +286,7 @@ revision is marked `superseded_by_revision_id` but kept.
 
 ### 9. Naming the first events
 
-Following `docs/conventions.md`, the durable change/audit event names for
+Following `docs/development/conventions.md`, the durable change/audit event names for
 this domain are:
 
 - `record.created`, `record.archived`, `record.restored`,

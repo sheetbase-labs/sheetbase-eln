@@ -3,8 +3,8 @@ title: Scientific Analysis and Visualisation
 status: canonical
 last_reviewed: 2026-08-30
 related:
-  - docs/visualisations.md
-  - docs/chart-api.md
+  - docs/subsystems/visualisations.md
+  - docs/api/chart-api.md
 ---
 
 # Scientific Analysis and Visualisation

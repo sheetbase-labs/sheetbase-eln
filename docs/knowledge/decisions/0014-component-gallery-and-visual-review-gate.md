@@ -11,7 +11,7 @@ only place to see them together was the `/foundations` token page, which was
 public, token-focused, and did not systematically cover the states a
 scientist meets (default, dense, dark, loading, empty, error, disabled,
 locked, permission-restricted). Reviewers had no canonical, repeatable way
-to compare production against `Mockups/` and the concept system, and there
+to compare production against the historical mockups and concept guidance, and there
 was no automated accessibility check or stable screenshot path.
 
 Forces:
@@ -60,8 +60,8 @@ Forces:
 
 6. **Review procedure.** The catalogue ends with a "How to review against
    mockups and concepts" section that documents the dev-only URL, the
-   comparison against `Mockups/` and
-   `Concepts/sheetbase-ui-system-v2/src/components/sheetbase/`, theme/density
+   comparison against `docs/knowledge/mockups/` and
+   `docs/knowledge/design/ui-system-v2.md`, theme/density
    toggles, `pnpm test` for a11y, and `pnpm screenshot:gallery` for stable
    screenshots.
 

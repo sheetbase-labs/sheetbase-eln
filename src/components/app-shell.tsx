@@ -82,7 +82,7 @@ import {
 
 /**
  * Application shell — the stable chrome that wraps every authenticated
- * product route. See `docs/decisions/0009-application-shell.md`.
+ * product route. See `docs/knowledge/decisions/0009-application-shell.md`.
  *
  * Layout (from the Sheetbase ELN mockups):
  *   ┌─────────┬───────────────────────────────┬──────────┐

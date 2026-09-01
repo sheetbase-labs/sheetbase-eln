@@ -1,7 +1,7 @@
 # PLAT-02 — initial alert rules (Prometheus-compatible).
 #
 # Sheetbase exposes Prometheus-format metrics at /api/metrics (bearer-token
-# gated; see docs/observability.md). There is no alert-delivery platform in
+# gated; see docs/operations/observability.md). There is no alert-delivery platform in
 # this deployment yet, so these rules are the machine-consumable contract:
 # point any Prometheus-compatible scraper (self-hosted, Grafana Cloud, or an
 # operator's local scrape over Tailscale) at the endpoint and load this file.

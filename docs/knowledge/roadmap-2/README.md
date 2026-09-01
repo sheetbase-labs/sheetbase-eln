@@ -15,7 +15,6 @@ Roadmap 1/Core is preserved under [`../roadmap-1/`](../roadmap-1/). Roadmap 3 di
 3. [`PROGRAMME_MAP.md`](./PROGRAMME_MAP.md) — programme sequencing and dependencies.
 4. [`tasks/README.md`](./tasks/README.md) — epic index/status.
 5. the relevant task file under [`tasks/`](./tasks/).
-6. [`prompts/README.md`](./prompts/README.md) — reusable agent starting prompts.
 
 ## Programmes
 

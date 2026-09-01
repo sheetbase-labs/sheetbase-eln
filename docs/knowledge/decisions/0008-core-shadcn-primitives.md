@@ -6,8 +6,8 @@
 
 ## Context
 
-`Concepts/sheetbase-ui-system-v2/src/components/ui` already defines the
-intended variants and styling for the shadcn primitive set. Phase 2 needs
+The now-retired `sheetbase-ui-system-v2` prototype defined the intended
+variants and styling for the shadcn primitive set. Phase 2 needs
 those primitives in production `src/components/ui` with consistent focus,
 disabled state, destructive confirmation, keyboard-operable overlays and
 programmatic label/description/error wiring — and tests — before UI-003

@@ -1,6 +1,6 @@
 """Stable exception hierarchy for the Sheetbase SDK.
 
-The public API contract (docs/public-api-contract.md §6) defines two error
+The public API contract (docs/api/public-api-contract.md §6) defines two error
 surfaces:
 
 - **Token path** (`POST /api/token`): ``{ "error": { "code", "message" } }``

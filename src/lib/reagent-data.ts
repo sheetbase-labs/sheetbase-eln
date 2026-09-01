@@ -27,7 +27,7 @@ import type { RegistryQuery } from '#/lib/registry'
 
 // ---------------------------------------------------------------------------
 // Property projection. Reagent properties are a flat JSONB object keyed by
-// field_name. The seeded field definitions (docs/scientific-records-api.md)
+// field_name. The seeded field definitions (docs/api/scientific-records-api.md)
 // define supplier/catalog_no/lot/expiry/quantity/unit/storage; thresholds are
 // optional configurable fields. Every accessor is total: a missing or
 // malformed value resolves to null so the UI can render an honest em dash.

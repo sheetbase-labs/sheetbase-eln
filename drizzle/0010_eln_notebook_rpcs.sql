@@ -5,7 +5,7 @@
 -- transactional boundary so the client cannot leave the notebook half-built
 -- or silently clobber a newer remote edit.
 --
--- Error categories (docs/notebook-api.md): the RPCs raise Sheetbase-specific
+-- Error categories (docs/api/notebook-api.md): the RPCs raise Sheetbase-specific
 -- SQLSTATE codes in class SB so clients branch on category without parsing
 -- messages:
 --   SB001 stale_version   — expected_version did not match the row

@@ -3,7 +3,7 @@
 [`support-matrix.json`](support-matrix.json) is the machine-readable coverage
 decision for the Python and TypeScript SDKs. Its operation set must exactly
 match the generated external OpenAPI contract at
-[`docs/openapi/external-api-v0.json`](../docs/openapi/external-api-v0.json).
+[`docs/api/openapi/external-api-v0.json`](../docs/api/openapi/external-api-v0.json).
 The root contract test rejects an added, removed, or changed public operation
 until this matrix and both SDKs make an explicit matching decision.
 

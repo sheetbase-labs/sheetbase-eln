@@ -4,7 +4,7 @@ These files are the detailed planning contracts for the post-Core programmes.
 
 ## Authority
 
-- [`../NEXT.md`](../NEXT.md) identifies **active work per stream**. Agents take one assigned stream/task, not every Ready row.
+- [`../../NEXT.md`](../../NEXT.md) identifies **active work per stream**. Agents take one assigned stream/task, not every Ready row.
 - This folder defines epic goals, scope and exit criteria.
 - [`../PRODUCT_DIRECTION.md`](../PRODUCT_DIRECTION.md) defines cross-programme product principles.
 - Accepted ADRs remain authoritative for durable architecture.

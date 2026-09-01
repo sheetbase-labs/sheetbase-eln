@@ -80,7 +80,7 @@ Three CORE-03 Sheet Definition DB failures were corrected before CORE-04.2
 - Schema / SQL: `src/db/schema.ts` (`records`, `record_links`,
   `record_field_definitions`); migrations `0009`/`0010`/`0012`/`0020`/`0030`/
   `0034`/`0045`/`0057`/`0060`/`0065`/`0069`/`0072`/`0075`/`0078`/`0081`/`0084`
-- ADR `docs/decisions/0024-transactional-csv-interchange.md`
+- ADR `docs/knowledge/decisions/0024-transactional-csv-interchange.md`
 - Tests listed in §9
 
 ---
@@ -168,7 +168,7 @@ not a Record-create RPC.
 
 | Layer     | Path                                                   | Symbols                                                                               |
 | --------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| ADR       | `docs/decisions/0024-transactional-csv-interchange.md` | ≤10 MB / 5,000 rows; UTF-8 / UTF-16LE / Windows-1252; `,` / `;` / tab; all-or-nothing |
+| ADR       | `docs/knowledge/decisions/0024-transactional-csv-interchange.md` | ≤10 MB / 5,000 rows; UTF-8 / UTF-16LE / Windows-1252; `,` / `;` / tab; all-or-nothing |
 | UI        | `src/components/sheet/scientific-transfer-panel.tsx`   | `ScientificTransferPanel`, `previewFile`, `runImport`                                 |
 | Parse/map | `src/lib/scientific-csv.ts`                            | `parseScientificCsv`, `prepareScientificImport`, `CSV_LIMITS`, `CsvMapping`           |
 | Coerce    | `src/lib/scientific-sheet-data.ts`                     | `decodeScientificValue` (throws before RPC)                                           |

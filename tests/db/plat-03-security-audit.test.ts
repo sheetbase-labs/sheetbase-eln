@@ -1,5 +1,5 @@
 /**
- * PLAT-03 — database security invariants. The PLAT-03 audit (docs/security.md)
+ * PLAT-03 — database security invariants. The PLAT-03 audit (docs/operations/security.md)
  * found the PostgreSQL posture strong; these tests keep it that way by
  * asserting the invariants continuously instead of only during review:
  *

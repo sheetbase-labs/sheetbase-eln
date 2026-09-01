@@ -10,7 +10,7 @@ export default defineConfig({
     exclude: [
       ...configDefaults.exclude,
       // Database, API and browser layers need the local service stack and
-      // their own configs; see docs/testing.md.
+      // their own configs; see docs/development/testing.md.
       'tests/db/**',
       'tests/api/**',
       'tests/browser/**',

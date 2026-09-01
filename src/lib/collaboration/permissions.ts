@@ -3,7 +3,7 @@
  * only inputs to a Liveblocks grant are the workspace membership row and the
  * object's existence inside that workspace. Nothing here is client-trusted.
  *
- * Matrix (docs/collaboration.md is normative):
+ * Matrix (docs/subsystems/collaboration.md is normative):
  *
  * | role                          | connect | read threads/presence | comment/reply/resolve |
  * |-------------------------------|---------|-----------------------|-----------------------|

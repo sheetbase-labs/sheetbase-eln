@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config'
 
 // Database integration layer: runs against a real local PostgreSQL with the
 // full migration history applied to a disposable database. Requires
-// `pnpm services:up`. See docs/testing.md.
+// `pnpm services:up`. See docs/development/testing.md.
 export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {

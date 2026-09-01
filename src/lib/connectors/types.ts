@@ -5,7 +5,7 @@
  * a connector is registered once, executions become `connector_runs` with
  * trigger/attempt/digest lineage and a bounded error code, and progress is
  * observable through `connector_run_logs`. Wire shapes are PostgREST
- * snake_case; see docs/integrations.md for the contract.
+ * snake_case; see docs/subsystems/integrations.md for the contract.
  */
 
 export type ConnectorType =

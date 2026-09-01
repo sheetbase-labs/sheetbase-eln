@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   API_VERSION,
@@ -17,18 +18,17 @@ import {
 // SDK-03 compatibility: this package pins one public API contract version.
 // The committed contract and support matrix are the authoritative sources;
 // if the contract advances without this SDK following, the suite fails.
-const sdksRoot = new URL("../../", import.meta.url);
 const openApiInfo = (
   JSON.parse(
     readFileSync(
-      new URL("../docs/openapi/external-api-v0.json", sdksRoot),
+      resolve(process.cwd(), "docs/api/openapi/external-api-v0.json"),
       "utf8",
     ),
   ) as { info: { version: string } }
 ).info;
 const matrixContract = (
   JSON.parse(
-    readFileSync(new URL("support-matrix.json", sdksRoot), "utf8"),
+    readFileSync(resolve(process.cwd(), "sdks/support-matrix.json"), "utf8"),
   ) as {
     contract: {
       apiVersion: string;

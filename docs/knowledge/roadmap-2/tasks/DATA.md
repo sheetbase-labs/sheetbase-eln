@@ -38,7 +38,7 @@ Users can extract both usable data and interpretable evidence without reverse-en
 
 **Priority:** medium. **Status:** Complete (#66).
 
-Delivered: consolidation of the SCI-003 platform as the one canonical file subsystem (`request-auth` session resolver, `docs/file-platform.md` contract), API-level cross-workspace upload/download denial without existence leak, unauthenticated denial, zero-byte boundary, checksum stability across renames, viewer writer gate on `create_file_upload`. Retention immutability (REV-002 pinning) already proven by the existing suites. PostgREST dev image fixed for libpq.
+Delivered: consolidation of the SCI-003 platform as the one canonical file subsystem (`request-auth` session resolver, `docs/subsystems/file-platform.md` contract), API-level cross-workspace upload/download denial without existence leak, unauthenticated denial, zero-byte boundary, checksum stability across renames, viewer writer gate on `create_file_upload`. Retention immutability (REV-002 pinning) already proven by the existing suites. PostgREST dev image fixed for libpq.
 
 ### Exit — met
 

@@ -1,5 +1,0 @@
-import { Check, Circle, Clock3 } from 'lucide-react'
-import { cn } from '#/lib/utils'
-
-const steps=[{title:'Draft',meta:'Completed by Gareth Price',state:'done'},{title:'Scientific review',meta:'With Emma Liu',state:'current'},{title:'QA review',meta:'Pending',state:'pending'},{title:'Approved & locked',meta:'Pending',state:'pending'}] as const
-export function ApprovalStepper() { return <ol className='space-y-0'>{steps.map((step,i)=>{const Icon=step.state==='done'?Check:step.state==='current'?Clock3:Circle;return <li key={step.title} className='relative flex gap-3 pb-5 last:pb-0'>{i<steps.length-1&&<span className='absolute left-[13px] top-7 h-[calc(100%-1.25rem)] w-px bg-border'/>}<span className={cn('relative z-10 flex size-7 items-center justify-center rounded-full border bg-background',step.state==='done'&&'border-emerald-500 bg-emerald-500 text-white',step.state==='current'&&'border-primary bg-primary text-primary-foreground')}><Icon className='size-3.5'/></span><div className='pt-1'><p className='text-sm font-medium'>{step.title}</p><p className='text-xs text-muted-foreground'>{step.meta}</p></div></li>})}</ol> }

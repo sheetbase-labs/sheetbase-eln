@@ -1,5 +1,5 @@
 /**
- * Seed runner. See docs/seeds.md.
+ * Seed runner. See docs/development/seeds.md.
  *
  * Usage:
  *   pnpm db:seed        minimal fixtures only (safe for tests to assume absent)

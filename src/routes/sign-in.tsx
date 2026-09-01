@@ -57,7 +57,7 @@ function SignIn() {
         ) : (
           <p className="text-sm leading-6 text-muted-foreground">
             GitHub sign-in is not configured for this environment yet. See
-            docs/authentication.md to create the OAuth application and set
+            docs/operations/authentication.md to create the OAuth application and set
             GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET.
           </p>
         )}

@@ -1,7 +1,7 @@
 -- AUTH-003: make api.claim_probe defensive. Missing, empty or malformed
 -- request.jwt.claims must yield NULL (no workspace context), never an error
 -- that leaks structure — the foundation AUTH-004 RLS policies rely on. See
--- docs/database-access.md.
+-- docs/development/database-access.md.
 CREATE OR REPLACE FUNCTION "api"."claim_probe"()
 RETURNS jsonb
 LANGUAGE plpgsql

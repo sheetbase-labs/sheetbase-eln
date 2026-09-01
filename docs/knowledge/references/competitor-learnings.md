@@ -18,7 +18,7 @@ Early Sheetbase planning deliberately compared the product direction with six es
 - Labguru
 - Sapio Sciences
 
-The detailed dated research already lives under [`docs/references/eln-competitors/`](../../references/eln-competitors/). In particular, [`competitor-patterns.md`](../../references/eln-competitors/competitor-patterns.md) is the best source for the cross-product analysis that informed the Core programme.
+The detailed dated research already lives under [`eln-competitors/`](eln-competitors/). In particular, [`competitor-patterns.md`](eln-competitors/competitor-patterns.md) is the best source for the cross-product analysis that informed the Core programme.
 
 This knowledge-base file records only the durable **Sheetbase lessons** drawn from that research. It is not a current feature-by-feature market comparison; vendor products change and should be re-researched before making contemporary competitive claims.
 

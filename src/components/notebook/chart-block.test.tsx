@@ -15,9 +15,25 @@ import type { Mock } from 'vitest'
 import { BlockPreview } from './block-preview'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import type * as chartData from '#/lib/chart-data'
-import { useLiveChartDataset } from '#/lib/chart-data'
+import { useFrozenPinnedRows, useLiveChartDataset } from '#/lib/chart-data'
 import { CHART_PALETTE } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    children,
+    ...rest
+  }: {
+    to: string
+    children?: ReactNode
+    [key: string]: unknown
+  }) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
+  ),
+}))
 
 vi.mock('#/lib/chart-data', async (importOriginal) => {
   const actual = await importOriginal<typeof chartData>()
@@ -25,10 +41,12 @@ vi.mock('#/lib/chart-data', async (importOriginal) => {
     ...actual,
     // Loosely typed: tests install narrow shapes per case.
     useLiveChartDataset: vi.fn(),
+    useFrozenPinnedRows: vi.fn(),
   }
 })
 
 const mockUseLive = useLiveChartDataset as unknown as Mock
+const mockUsePinned = useFrozenPinnedRows as unknown as Mock
 
 afterEach(() => {
   cleanup()
@@ -338,5 +356,74 @@ describe('ChartBlockPreview — frozen snapshot', () => {
     // Frozen path must not call the live dataset resolver.
     expect(mockUseLive).not.toHaveBeenCalled()
     expect(document.querySelector('[role="img"]')).toBeTruthy()
+  })
+})
+
+describe('ChartBlockPreview — NOTE-03 canonical dataset affordances', () => {
+  it('offers an Open dataset link built from the spec dataset UUID on a live chart', async () => {
+    mockOkDataset()
+    renderWithQuery(
+      <BlockPreview
+        block={makeBlock({
+          title: 'Live stability',
+          spec: lineSpec(),
+          frozen: null,
+        })}
+      />,
+    )
+    await waitFor(() => {
+      expect(screen.getByText('Live')).toBeTruthy()
+    })
+    const open = screen.getByRole('link', { name: 'Open dataset' })
+    expect(open.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent(TABLE_ID)}`,
+    )
+  })
+
+  it('surfaces the pinned Dataset Version and open affordance on a frozen chart', async () => {
+    const versionId = '22222222-2222-4222-8222-222222222222'
+    mockUsePinned.mockImplementation(() => ({
+      data: {
+        rows: [{ c1: 0, c2: 7.2 }],
+        totalCount: 1,
+        matchesProvenance: true,
+      },
+      isLoading: false,
+    }))
+    renderWithQuery(
+      <BlockPreview
+        block={makeBlock({
+          title: 'Frozen pinned',
+          spec: lineSpec(),
+          frozen: {
+            revisionId: null,
+            frozenAt: '2025-07-14T10:00:00Z',
+            frozenByUserId: 'u1',
+            datasetProvenance: [
+              {
+                datasetId: TABLE_ID,
+                datasetVersionId: versionId,
+                schemaVersionNumber: 1,
+                rowCount: 1,
+                checksum: 'abc12345',
+              },
+            ],
+            data: {
+              columns: [],
+              rows: [],
+              series: [],
+            },
+          },
+        })}
+      />,
+    )
+    // The pinned version is visible at a glance, not only in the sr-only
+    // description, and the open affordance targets the canonical Dataset.
+    expect(await screen.findByText(/Dataset Version 22222222/)).toBeTruthy()
+    const open = screen.getByRole('link', { name: 'Open dataset' })
+    expect(open.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent(TABLE_ID)}`,
+    )
+    expect(screen.getByText('Snapshot')).toBeTruthy()
   })
 })

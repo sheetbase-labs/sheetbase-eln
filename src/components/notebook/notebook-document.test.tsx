@@ -23,6 +23,24 @@ import { NotebookOutlinePanel } from './notebook-outline-panel'
 import { notebookOutline } from '#/lib/notebook-outline'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
+// NOTE-03: scientific block previews carry canonical Open affordances built
+// with TanStack Link; mock the router so these render as plain anchors.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    children,
+    ...rest
+  }: {
+    to: string
+    children?: React.ReactNode
+    [key: string]: unknown
+  }) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
+  ),
+}))
+
 beforeAll(() => {
   document.elementFromPoint = () => null
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList

@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import {
   Check,
   CheckCircle2,
@@ -39,6 +40,7 @@ import {
 } from '#/lib/format-numbers'
 import { Badge } from '#/components/ui'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
+import { datasetPath, recordDestination, sheetPath } from '#/lib/navigation'
 import { PipelineOutputBlockPreview } from './pipeline-output-block-preview'
 import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
 import {
@@ -116,6 +118,29 @@ function asObject(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null
+}
+
+/**
+ * NOTE-03 — compact "open the canonical object" affordance shared by the
+ * scientific block previews. `to` must come from a navigation helper
+ * (datasetPath, recordDestination, sheetPath, …) so the link always carries
+ * the object's stable UUID, never a label or display name.
+ */
+export function OpenLink({
+  to,
+  children,
+}: {
+  to: string
+  children: React.ReactNode
+}) {
+  return (
+    <Link
+      to={to}
+      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+    >
+      {children}
+    </Link>
+  )
 }
 
 export function BlockPreview({
@@ -287,13 +312,32 @@ const CALLOUT_STYLES: Record<string, CalloutStyle> = {
 }
 
 function renderLinkedRecord(payload: unknown): React.ReactNode {
+  return <LinkedRecordPreview payload={payload} />
+}
+
+/**
+ * NOTE-03 — linked_record preview. The payload optionally carries
+ * `targetId`, the stable UUID of the referenced canonical object (Dataset
+ * UUID for `targetKind: 'dataset'`, Record UUID otherwise), captured when
+ * the link was picked from search. When present the preview offers an
+ * "Open" affordance built from the navigation helpers; legacy payloads
+ * store only the human identifier, which is deliberately not enough to
+ * build a canonical link (identity is never carried by labels).
+ */
+function LinkedRecordPreview({ payload }: { payload: unknown }) {
   const obj = asObject(payload)
   if (!obj) return null
   const targetKind = asString(obj.targetKind) ?? 'Record'
   const targetIdentifier = asString(obj.targetIdentifier) ?? ''
   const label = asString(obj.label) ?? ''
   const linkType = asString(obj.linkType) ?? 'general'
+  const targetId = asString(obj.targetId) ?? ''
   const Icon = LINKED_RECORD_ICONS[targetKind] ?? Link2
+  const openTo = targetId
+    ? targetKind === 'dataset'
+      ? datasetPath(targetId)
+      : recordDestination(targetKind, targetId)
+    : null
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant="outline" className="gap-1.5 px-2.5 py-1 text-xs">
@@ -315,6 +359,7 @@ function renderLinkedRecord(payload: unknown): React.ReactNode {
           {linkType}
         </span>
       ) : null}
+      {openTo ? <OpenLink to={openTo}>Open</OpenLink> : null}
     </div>
   )
 }
@@ -423,6 +468,14 @@ function ProtocolReferencePreview({ payload }: { payload: unknown }) {
         ) : current.data === null ? (
           <Badge variant="danger">Protocol unavailable</Badge>
         ) : null}
+        {/* NOTE-03: open the canonical protocol Record via its stable UUID. */}
+        {protocolRecordId ? (
+          <OpenLink
+            to={recordDestination('protocol_template', protocolRecordId)}
+          >
+            Open protocol
+          </OpenLink>
+        ) : null}
       </div>
     </div>
   )
@@ -454,6 +507,7 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
         {items.map((item, index) => {
           const alerts =
             loading || error ? [] : materialAlerts(records[index]?.data ?? null)
+          const currentRecord = error ? null : (records[index]?.data ?? null)
           return (
             <div
               key={item.id}
@@ -486,6 +540,16 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
                     {alert.label}
                   </Badge>
                 ))}
+                {/* NOTE-03: open the material's canonical Record (Sample or
+                Reagent) by stable UUID. Suppressed while the record cannot
+                be resolved — an unresolvable link would be dishonest. */}
+                {currentRecord ? (
+                  <OpenLink
+                    to={recordDestination(item.kind, item.materialRecordId)}
+                  >
+                    Open
+                  </OpenLink>
+                ) : null}
               </div>
             </div>
           )
@@ -635,7 +699,12 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
   const instance = instanceQuery.data
   return (
     <div className="rounded-lg border p-3">
-      <p className="text-xs font-medium text-foreground">{instance.name}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium text-foreground">{instance.name}</p>
+        {/* NOTE-03: the read preview carries the same canonical Sheet link
+        as the live embed, built from the instance's stable UUID. */}
+        <OpenLink to={sheetPath(instanceId)}>Open full sheet</OpenLink>
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">
         {instance.sourceDefinitionVersionId
           ? 'Sheet from a Definition. Open the block to edit.'
@@ -863,6 +932,15 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
     )
   }
 
+  // NOTE-03: canonical Dataset affordances, shared by live and frozen charts.
+  // Both spec.datasets and frozen.datasetProvenance are ARRAYS — a chart can
+  // bind multiple sources, so every source gets its own stable-ID link.
+  // A frozen chart prefers the pinned provenance's identities; a live chart
+  // resolves the spec's sources. Both carry a stable UUID.
+  const frozenSources = frozen ? chartSourcesFromFrozen(frozen) : []
+  const sources =
+    frozenSources.length > 0 ? frozenSources : chartSourcesFromSpec(spec)
+
   // Frozen charts render the immutable snapshot directly — no live re-read,
   // no stale detection.
   if (frozen) {
@@ -872,12 +950,83 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
         provenance={provenance}
         spec={spec}
         frozen={frozen}
+        sources={sources}
       />
     )
   }
 
   // Live chart: resolve the dataset and calculation results.
-  return <LiveChartPreview title={title} provenance={provenance} spec={spec} />
+  return (
+    <LiveChartPreview
+      title={title}
+      provenance={provenance}
+      spec={spec}
+      sources={chartSourcesFromSpec(spec)}
+    />
+  )
+}
+
+/**
+ * NOTE-03 — one Dataset source a chart binds to. Live charts carry only the
+ * stable Dataset UUID; frozen charts additionally pin the immutable Dataset
+ * Version (SCI-04) the snapshot was reconstructed from.
+ */
+interface ChartDatasetSource {
+  datasetId: string
+  versionId?: string
+}
+
+function chartSourcesFromSpec(spec: ChartSpec | null): ChartDatasetSource[] {
+  return (spec?.datasets ?? [])
+    .filter((d) => typeof d.datasetId === 'string' && d.datasetId.length > 0)
+    .map((d) => ({ datasetId: d.datasetId }))
+}
+
+function chartSourcesFromFrozen(
+  frozen: NonNullable<ChartBlockPayload['frozen']>,
+): ChartDatasetSource[] {
+  return frozen.datasetProvenance
+    .filter((p) => typeof p.datasetId === 'string' && p.datasetId.length > 0)
+    .map((p) => ({
+      datasetId: p.datasetId,
+      versionId:
+        typeof p.datasetVersionId === 'string' && p.datasetVersionId.length > 0
+          ? p.datasetVersionId
+          : undefined,
+    }))
+}
+
+/**
+ * NOTE-03 — "Open dataset" affordances rendered inside the ChartFrame header
+ * so both live and frozen chart blocks expose every canonical source. One
+ * stable-ID link per source: single-source charts keep the plain "Open
+ * dataset" label; multi-source charts disambiguate ("Dataset 1", "Dataset 2")
+ * and frozen multi-source charts also surface each pinned Version short-id.
+ */
+function ChartOpenDatasetActions({ sources }: { sources: ChartDatasetSource[] }) {
+  if (sources.length === 0) return null
+  const multi = sources.length > 1
+  return (
+    <span className="mr-1 flex flex-wrap items-center gap-x-3">
+      {sources.map((source, index) => (
+        <Link
+          key={
+            source.versionId
+              ? `${source.datasetId}@${source.versionId}`
+              : source.datasetId
+          }
+          to={datasetPath(source.datasetId)}
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        >
+          {multi
+            ? source.versionId
+              ? `Dataset ${index + 1} · version ${source.versionId.slice(0, 8)}`
+              : `Dataset ${index + 1}`
+            : 'Open dataset'}
+        </Link>
+      ))}
+    </span>
+  )
 }
 
 function PinnedFrozenChartPreview({
@@ -885,14 +1034,24 @@ function PinnedFrozenChartPreview({
   provenance,
   spec,
   frozen,
+  sources,
 }: {
   title: string
   provenance?: string
   spec: ChartSpec | null
   frozen: NonNullable<ChartBlockPayload['frozen']>
+  sources: ChartDatasetSource[]
 }) {
   const versionId = frozenPinsDatasetVersion(frozen)
   const pinned = useFrozenPinnedRows(frozen)
+  const openDataset = <ChartOpenDatasetActions sources={sources} />
+  // NOTE-03: the version subtitle only works when the chart pins exactly one
+  // Dataset Version; with multiple sources every pinned Version short-id is
+  // surfaced on its own link instead.
+  const versionSubtitle =
+    versionId && sources.length === 1
+      ? `Dataset Version ${versionId.slice(0, 8)}`
+      : undefined
   if (versionId && spec) {
     if (pinned.isLoading) {
       return (
@@ -903,6 +1062,10 @@ function PinnedFrozenChartPreview({
           materialised={emptyMaterialised(spec)}
           frozen={frozen}
           loading
+          // NOTE-03: pin the Dataset Version at a glance, not only in the
+          // sr-only description.
+          subtitle={versionSubtitle}
+          actions={openDataset}
         />
       )
     }
@@ -915,6 +1078,8 @@ function PinnedFrozenChartPreview({
           materialised={emptyMaterialised(spec)}
           frozen={frozen}
           error="Frozen Dataset Version could not be reconstructed."
+          subtitle={versionSubtitle}
+          actions={openDataset}
         />
       )
     }
@@ -932,6 +1097,8 @@ function PinnedFrozenChartPreview({
         frozen={frozen}
         facets={reconstructed.facets?.panels}
         facetTotal={reconstructed.facets?.total}
+        subtitle={versionSubtitle}
+        actions={openDataset}
       />
     )
   }
@@ -946,6 +1113,7 @@ function PinnedFrozenChartPreview({
       frozen={frozen}
       facets={facets?.panels}
       facetTotal={facets?.total}
+      actions={openDataset}
     />
   )
 }
@@ -954,12 +1122,15 @@ function LiveChartPreview({
   title,
   provenance,
   spec,
+  sources,
 }: {
   title: string
   provenance?: string
   spec: ChartSpec | null
+  sources: ChartDatasetSource[]
 }) {
   const { datasetQuery } = useLiveChartDataset(spec)
+  const openDataset = <ChartOpenDatasetActions sources={sources} />
   const loading = datasetQuery.isLoading
   if (loading) {
     return (
@@ -970,6 +1141,7 @@ function LiveChartPreview({
         materialised={emptyMaterialised(spec)}
         frozen={null}
         loading
+        actions={openDataset}
       />
     )
   }
@@ -982,6 +1154,7 @@ function LiveChartPreview({
         materialised={emptyMaterialised(spec)}
         frozen={null}
         error="The dataset could not be loaded. You may not have access to it."
+        actions={openDataset}
       />
     )
   }
@@ -995,6 +1168,7 @@ function LiveChartPreview({
       spec={spec}
       materialised={materialised}
       frozen={null}
+      actions={openDataset}
     />
   )
 }
@@ -1107,6 +1281,17 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
     }),
   )
 
+  // NOTE-03: unique assigned samples as canonical open affordances. The
+  // link is built from the sample's stable UUID (SampleRef.recordId), so
+  // it survives relabelling and never carries identity by label.
+  const linkedSamples = Array.from(
+    new Map(
+      spec.wells
+        .filter((w) => w.sampleRef)
+        .map((w) => [w.sampleRef!.recordId, w.sampleRef!]),
+    ).values(),
+  )
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
@@ -1140,6 +1325,21 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
         readOnly
         compact
       />
+      {linkedSamples.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-xs text-muted-foreground">Samples:</span>
+          {linkedSamples.map((ref) => (
+            <OpenLink
+              key={ref.recordId}
+              to={recordDestination('sample', ref.recordId)}
+            >
+              {/* Identity is the recordId; an empty identifier label would
+                  render an invisible anchor, so fall back to the id. */}
+              {ref.identifier.trim() || ref.recordId}
+            </OpenLink>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -1311,6 +1511,10 @@ function LiveAnalysisExecution({
         <Badge variant="outline">
           {name} · v{version}
         </Badge>
+        {/* NOTE-03: open the canonical Dataset the analysis executes over. */}
+        {datasetId ? (
+          <OpenLink to={datasetPath(datasetId)}>Open dataset</OpenLink>
+        ) : null}
         {resolvedQuery.isFetching ? (
           <span className="text-xs text-muted-foreground">Loading rows…</span>
         ) : null}
@@ -1389,6 +1593,11 @@ function FrozenAnalysisPreview({
         <span className="text-xs text-muted-foreground">
           Provenance: {provenanceParts.join(', ')}
         </span>
+        {/* NOTE-03: the frozen evidence pins a Dataset Version; the open
+        affordance still targets the canonical Dataset by stable UUID. */}
+        {pin ? (
+          <OpenLink to={datasetPath(pin.datasetId)}>Open dataset</OpenLink>
+        ) : null}
       </div>
       {!pin ? (
         <EvidenceAlert>

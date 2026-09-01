@@ -31,6 +31,7 @@ import type {
   RecordWire,
 } from '#/lib/notebook-data'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
+import { datasetPath, recordDestination } from '#/lib/navigation'
 import {
   Alert,
   Badge,
@@ -67,6 +68,7 @@ import { useAutosave } from './use-autosave'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import { SaveStatus } from './save-status'
 import { ConflictBanner } from './conflict-banner'
+import { OpenLink } from './block-preview'
 import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
 import {
   AttachFileError,
@@ -603,6 +605,14 @@ const TARGET_KIND_LABELS: Record<(typeof TARGET_KINDS)[number], string> = {
 interface LinkedRecordDraft {
   targetKind: string
   targetIdentifier: string
+  /**
+   * NOTE-03: stable UUID of the linked canonical object (Dataset UUID for
+   * targetKind 'dataset', Record UUID otherwise), captured when the link
+   * is picked from search. Optional — legacy payloads predate it, and
+   * manually typed identifiers deliberately leave it empty because a
+   * label alone never carries canonical identity.
+   */
+  targetId?: string
   linkType: string
   label: string
 }
@@ -613,6 +623,8 @@ function LinkedRecordSearch({
 }: {
   kind: string
   onPick: (picked: {
+    /** Stable UUID of the canonical object (Dataset or Record). */
+    id: string
     identifier: string
     label: string
     linkType?: string
@@ -629,6 +641,7 @@ function LinkedRecordSearch({
           .filter((row) => !q || row.name.toLowerCase().includes(q))
           .slice(0, 8)
           .map((row) => ({
+            id: row.id,
             identifier: row.name,
             title: row.description || row.name,
             linkType: 'dataset',
@@ -649,6 +662,7 @@ function LinkedRecordSearch({
         `?${filters.join('&')}&order=identifier.asc&limit=8`,
       )
       return rows.map((row) => ({
+        id: row.id,
         identifier: row.identifier,
         title: row.title,
         linkType: undefined as string | undefined,
@@ -678,6 +692,7 @@ function LinkedRecordSearch({
               onMouseDown={(event) => {
                 event.preventDefault()
                 onPick({
+                  id: row.id,
                   identifier: row.identifier,
                   label: row.title,
                   linkType: row.linkType,
@@ -709,12 +724,14 @@ function LinkedRecordEditor({
     const initial = block.payload as {
       targetKind?: string
       targetIdentifier?: string
+      targetId?: string
       linkType?: string
       label?: string
     }
     return {
       targetKind: initial.targetKind ?? 'experiment',
       targetIdentifier: initial.targetIdentifier ?? '',
+      targetId: initial.targetId ?? undefined,
       linkType: initial.linkType ?? 'general',
       label: initial.label ?? '',
     }
@@ -722,6 +739,11 @@ function LinkedRecordEditor({
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {
+    const openTo = a.draft.targetId
+      ? a.draft.targetKind === 'dataset'
+        ? datasetPath(a.draft.targetId)
+        : recordDestination(a.draft.targetKind, a.draft.targetId)
+      : null
     return (
       <div
         className={cn('flex flex-wrap items-center gap-2 text-sm', className)}
@@ -737,6 +759,7 @@ function LinkedRecordEditor({
         {a.draft.label ? (
           <span className="text-muted-foreground">— {a.draft.label}</span>
         ) : null}
+        {openTo ? <OpenLink to={openTo}>Open</OpenLink> : null}
       </div>
     )
   }
@@ -750,7 +773,15 @@ function LinkedRecordEditor({
             value={a.draft.targetKind}
             onChange={(e) => {
               a.setTouched(true)
-              a.setDraft({ ...a.draft, targetKind: e.target.value })
+              // NOTE-03 review fix: identity is (kind, id) — changing the
+              // kind invalidates a previously captured targetId, so it must
+              // be dropped or the Open link would point at the wrong object
+              // type. The label is also re-typed by the user afterwards.
+              a.setDraft({
+                ...a.draft,
+                targetKind: e.target.value,
+                targetId: undefined,
+              })
             }}
           >
             {TARGET_KINDS.map((k) => (
@@ -768,7 +799,14 @@ function LinkedRecordEditor({
             autoFocus={autoFocus}
             onChange={(e) => {
               a.setTouched(true)
-              a.setDraft({ ...a.draft, targetIdentifier: e.target.value })
+              // NOTE-03: a manually typed identifier is a label, not
+              // identity — drop any previously captured stable UUID so a
+              // stale Open link can never point at the wrong object.
+              a.setDraft({
+                ...a.draft,
+                targetIdentifier: e.target.value,
+                targetId: undefined,
+              })
             }}
             onBlur={() => a.flush()}
             placeholder="EXP-2025-0001"
@@ -812,6 +850,7 @@ function LinkedRecordEditor({
           a.setDraft({
             ...a.draft,
             targetIdentifier: picked.identifier,
+            targetId: picked.id,
             label: picked.label || a.draft.label,
             linkType: picked.linkType ?? a.draft.linkType,
           })

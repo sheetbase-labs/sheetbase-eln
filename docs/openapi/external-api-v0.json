@@ -12545,8 +12545,25 @@
                     },
                     "order": {
                       "type": "array",
+                      "description": "Full (id, order) list for the record after the operation.",
                       "items": {
-                        "type": "number"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Block UUID."
+                          },
+                          "order": {
+                            "type": "number",
+                            "description": "Fractional position."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "order"
+                        ]
                       }
                     }
                   },
@@ -13134,8 +13151,25 @@
                     },
                     "order": {
                       "type": "array",
+                      "description": "Full (id, order) list for the record after the operation.",
                       "items": {
-                        "type": "number"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Block UUID."
+                          },
+                          "order": {
+                            "type": "number",
+                            "description": "Fractional position."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "order"
+                        ]
                       }
                     }
                   },
@@ -14035,8 +14069,25 @@
                     },
                     "order": {
                       "type": "array",
+                      "description": "Full (id, order) list for the record after the operation.",
                       "items": {
-                        "type": "number"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Block UUID."
+                          },
+                          "order": {
+                            "type": "number",
+                            "description": "Fractional position."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "order"
+                        ]
                       }
                     }
                   },

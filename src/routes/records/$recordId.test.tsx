@@ -1025,4 +1025,3 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
     expect(cachedIds()).toEqual(['b2'])
   })
 })
-

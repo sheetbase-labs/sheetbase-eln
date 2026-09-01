@@ -23,6 +23,20 @@ const BIGINT: JsonSchema = { type: 'integer', format: 'int64' }
 const TIMESTAMPTZ: JsonSchema = { type: 'string', format: 'date-time' }
 const TEXT_ARRAY: JsonSchema = { type: 'array', items: { type: 'string' } }
 
+/** One entry of the (id, order) block list the block RPCs return. */
+const BLOCK_ORDER_ENTRY: JsonSchema = obj(
+  {
+    id: { ...UUID, description: 'Block UUID.' },
+    order: { type: 'number', description: 'Fractional position.' },
+  },
+  ['id', 'order'],
+)
+const BLOCK_ORDER_LIST: JsonSchema = {
+  type: 'array',
+  items: BLOCK_ORDER_ENTRY,
+  description: 'Full (id, order) list for the record after the operation.',
+}
+
 function uuid(description: string): JsonSchema {
   return { ...UUID, description }
 }
@@ -430,7 +444,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         block: blockRow,
         structure_version: INT,
         rebalanced: BOOL,
-        order: { type: 'array', items: { type: 'number' } },
+        order: BLOCK_ORDER_LIST,
       },
       ['block', 'structure_version'],
     ),
@@ -530,7 +544,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         block: blockRow,
         structure_version: INT,
         rebalanced: BOOL,
-        order: { type: 'array', items: { type: 'number' } },
+        order: BLOCK_ORDER_LIST,
       },
       ['block', 'structure_version'],
     ),
@@ -551,7 +565,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     result: obj(
       {
         structure_version: INT,
-        order: { type: 'array', items: { type: 'number' } },
+        order: BLOCK_ORDER_LIST,
       },
       ['structure_version'],
     ),

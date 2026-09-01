@@ -177,37 +177,37 @@ export function SubmitNotebookDialog({
       ? reviewers
       : [{ userId: reviewerUserId, role: 'member', suspendedAt: null }]
 
-  // Latest observed canonical inputs, so verification freezes what the
-  // dialog actually sees at the moment the RPC lands.
+  // Latest observed canonical inputs and their signature, maintained
+  // synchronously during render — not in an effect. A verification response
+  // that settles after changed props have committed therefore always reads
+  // the committed inputs, closing the window where an effect hadn't run yet
+  // and a stale response was accepted against pre-change inputs.
   const inputsRef = useRef({ record, blocks })
-  useEffect(() => {
-    inputsRef.current = { record, blocks }
-  }, [record, blocks])
-  // Inputs as of the moment the verify request was issued. If the live
-  // inputs drift while the RPC is in flight, the response-time signature
-  // check in onSuccess discards the response, and any drift after a
-  // verified snapshot exists invalidates via the effect above.
-  const requestInputsRef = useRef(inputsRef.current)
+  inputsRef.current = { record, blocks }
+  const liveSignatureRef = useRef(liveSignature)
+  liveSignatureRef.current = liveSignature
+  // Signature of the inputs at the moment the verify request was issued. If
+  // the live inputs drift while the RPC is in flight, the render-maintained
+  // signature differs at response time and onSuccess discards the response.
+  const requestSignatureRef = useRef<string | null>(null)
 
   const preview = useMutation({
     mutationFn: () => {
-      requestInputsRef.current = inputsRef.current
+      requestSignatureRef.current = liveSignatureRef.current
       return previewSubmissionDigest(notebookDataClient, recordId)
     },
     onSuccess: (result) => {
       const { record: verifiedRecord, blocks: verifiedBlocks } =
-        requestInputsRef.current
-      // NOTE-04 in-flight race: capture the canonical signature AT RESPONSE
-      // time and compare it against the request-time signature. If the
-      // inputs changed while the RPC was pending, this response verifies
-      // stale content — discard it (do not set the snapshot) and leave the
-      // checklist pending until a fresh verification.
-      const requestSignature = submissionCanonicalSignature({
-        record: verifiedRecord,
-        blocks: verifiedBlocks,
-      })
-      const responseSignature = submissionCanonicalSignature(inputsRef.current)
-      if (responseSignature !== requestSignature) {
+        inputsRef.current
+      // NOTE-04 in-flight race: compare the request-time signature against
+      // the latest render-maintained signature. If the inputs changed while
+      // the RPC was pending, this response verifies stale content — discard
+      // it (do not set the snapshot) and leave the checklist pending until a
+      // fresh verification.
+      if (
+        requestSignatureRef.current === null ||
+        liveSignatureRef.current !== requestSignatureRef.current
+      ) {
         setInvalidated(true)
         return
       }
@@ -217,7 +217,7 @@ export function SubmitNotebookDialog({
         record: verifiedRecord ? frozenRecordMeta(verifiedRecord) : null,
         // Bind the frozen snapshot to the signature of the inputs the
         // server verified — any later drift invalidates the snapshot.
-        signature: requestSignature,
+        signature: requestSignatureRef.current,
       })
       setInvalidated(false)
     },

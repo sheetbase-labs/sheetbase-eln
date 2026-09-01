@@ -577,12 +577,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
         additions.length = 0
       }),
       addCondition: vi.fn(
-        (
-          column: number,
-          name: string,
-          args: unknown[],
-          operation?: string,
-        ) => {
+        (column: number, name: string, args: unknown[], operation?: string) => {
           additions.push({ column, name, args, operation })
         },
       ),
@@ -690,6 +685,209 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       ])
     })
     expect(vi.mocked(updateSheetInstance).mock.calls).toHaveLength(callsBefore)
+  })
+
+  it('runs the full saved-view lifecycle: save, reload, restore, unhide, filter re-applies', async () => {
+    const user = userEvent.setup()
+    // The view hides Observed and carries a filter on Count AND on the
+    // hidden Observed column itself — the case where a naive restore drops
+    // the hidden column's condition because it has no grid column.
+    const saved = presentationInstance()
+    saved.state = {
+      ...saved.state,
+      presentation: {
+        ...saved.state.presentation,
+        hiddenColumnIds: [observedId],
+        filters: [
+          { columnId: countId, operator: 'equals', value: 1_200 },
+          { columnId: observedId, operator: 'is-not-empty' },
+        ],
+      },
+    }
+    // Hot whose visual→physical mapping reflects the hidden Observed column.
+    const { hot, plugin, additions } = fakeHotWithFilters()
+    const hiddenProjectedHot = {
+      ...hot,
+      toPhysicalColumn: (visual: number) => (visual >= 1 ? visual + 1 : visual),
+    }
+
+    // Phase 1 — save: the toolbar captures the working view to localStorage.
+    renderWorkspace(<AdHocSheetWorkspace instance={saved} />)
+    await user.click(screen.getByRole('button', { name: 'Save view' }))
+    expect(
+      localStorage.getItem(`sheetbase-sheet-view-v1:${saved.id}`),
+    ).toBeTruthy()
+    cleanup()
+
+    // Phase 2 — reload: a fresh editor over a canonical presentation (no
+    // saved filters); the grid replays nothing worth applying.
+    const reloaded = presentationInstance()
+    reloaded.state = {
+      ...reloaded.state,
+      presentation: { ...reloaded.state.presentation, filters: [] },
+    }
+    const phase2 = renderWorkspace(<AdHocSheetWorkspace instance={reloaded} />)
+    act(() => {
+      gridReady?.(hiddenProjectedHot)
+    })
+    // A data reload (any matrix identity change) clears plugin state; the
+    // workspace must replay the persisted presentation onto the fresh grid.
+    phase2.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AdHocSheetWorkspace instance={{ ...reloaded }} />
+      </QueryClientProvider>,
+    )
+    expect(plugin.clearConditions).toHaveBeenCalled()
+    expect(additions).toEqual([])
+    cleanup()
+
+    // Phase 3 — restore: re-validated against the canonical column set, the
+    // saved view comes back whole — including the filter on the hidden
+    // column and the hidden-column list itself.
+    renderWorkspace(<AdHocSheetWorkspace instance={reloaded} />)
+    await user.click(screen.getByRole('button', { name: 'Restore view' }))
+    expect(updateSheetInstance).toHaveBeenCalledWith(
+      reloaded.id,
+      reloaded.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({
+          hiddenColumnIds: [observedId],
+          filters: [
+            { columnId: countId, operator: 'equals', value: 1_200 },
+            { columnId: observedId, operator: 'is-not-empty' },
+          ],
+        }),
+      }),
+      expect.anything(),
+    )
+    cleanup()
+
+    // Phase 4 — after the restored state lands (fresh mount, like a
+    // refetch), the replay applies the visible column's condition at its
+    // projected display index and withholds the hidden column's condition —
+    // an out-of-range plugin condition would trim every row.
+    additions.length = 0
+    plugin.clearConditions.mockClear()
+    const phase4 = renderWorkspace(
+      <AdHocSheetWorkspace
+        instance={{
+          ...saved,
+          state: {
+            ...saved.state,
+            presentation: {
+              ...saved.state.presentation,
+              hiddenColumnIds: [observedId],
+              filters: [
+                { columnId: countId, operator: 'equals', value: 1_200 },
+                { columnId: observedId, operator: 'is-not-empty' },
+              ],
+            },
+          },
+        }}
+      />,
+    )
+    act(() => {
+      gridReady?.(hiddenProjectedHot)
+    })
+    const remounted: SheetInstance = {
+      ...saved,
+      state: {
+        ...saved.state,
+        presentation: {
+          ...saved.state.presentation,
+          hiddenColumnIds: [observedId],
+          filters: [
+            { columnId: countId, operator: 'equals', value: 1_200 },
+            { columnId: observedId, operator: 'is-not-empty' },
+          ],
+        },
+      },
+    }
+    phase4.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AdHocSheetWorkspace instance={remounted} />
+      </QueryClientProvider>,
+    )
+    expect(plugin.clearConditions).toHaveBeenCalled()
+    expect(additions).toEqual([
+      { column: 0, name: 'eq', args: [1_200], operation: 'conjunction' },
+    ])
+
+    // Phase 5 — unhide: showing the hidden column keeps its preserved filter
+    // in the persisted presentation.
+    await user.click(
+      screen.getByRole('button', { name: 'Show 1 hidden column' }),
+    )
+    expect(updateSheetInstance).toHaveBeenCalledWith(
+      saved.id,
+      saved.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({
+          hiddenColumnIds: [],
+          filters: [
+            { columnId: countId, operator: 'equals', value: 1_200 },
+            { columnId: observedId, operator: 'is-not-empty' },
+          ],
+        }),
+      }),
+      expect.anything(),
+    )
+    cleanup()
+
+    // Phase 6 — with the column visible again, the replay applies BOTH
+    // conditions, the previously hidden one now at its display index.
+    additions.length = 0
+    const shownHot = {
+      ...hot,
+      toPhysicalColumn: (visual: number) => visual,
+    }
+    const phase6 = renderWorkspace(
+      <AdHocSheetWorkspace
+        instance={{
+          ...saved,
+          state: {
+            ...saved.state,
+            presentation: {
+              ...saved.state.presentation,
+              hiddenColumnIds: [],
+              filters: [
+                { columnId: countId, operator: 'equals', value: 1_200 },
+                { columnId: observedId, operator: 'is-not-empty' },
+              ],
+            },
+          },
+        }}
+      />,
+    )
+    act(() => {
+      gridReady?.(shownHot)
+    })
+    const unhidden: SheetInstance = {
+      ...saved,
+      state: {
+        ...saved.state,
+        presentation: {
+          ...saved.state.presentation,
+          hiddenColumnIds: [],
+          filters: [
+            { columnId: countId, operator: 'equals', value: 1_200 },
+            { columnId: observedId, operator: 'is-not-empty' },
+          ],
+        },
+      },
+    }
+    phase6.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AdHocSheetWorkspace instance={unhidden} />
+      </QueryClientProvider>,
+    )
+    expect(additions).toEqual([
+      { column: 0, name: 'eq', args: [1_200], operation: 'conjunction' },
+      { column: 1, name: 'not_empty', args: [], operation: 'conjunction' },
+    ])
+    expect(plugin.filter).toHaveBeenCalled()
+
+    localStorage.removeItem(`sheetbase-sheet-view-v1:${saved.id}`)
   })
 
   it('maps beforeChange columns through the visual→physical move map', async () => {

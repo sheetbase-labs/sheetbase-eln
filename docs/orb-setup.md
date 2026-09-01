@@ -8,7 +8,7 @@ Amp orb.
 - PostgreSQL 18, running as a system service. Docker is not available in
   orbs, so do not use the Compose-based development commands.
 - The PostgREST v14.5 Linux static binary on `PATH`.
-- Node.js 22.12 or newer (use the version in `.node-version`) and pnpm 11.
+- Node.js 22.13 or newer (use the exact version in `.node-version`) and pnpm 11.
 - `curl`, `tar`, and `cloudflared` for health checks and the public tunnel.
 
 The orb's PostgreSQL cluster is pre-provisioned with the `sheetbase` database,

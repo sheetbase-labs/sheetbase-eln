@@ -15,7 +15,7 @@ Do not infer current priority from historical roadmap task ordering, old hand-of
 ```text
 Roadmap 1    COMPLETE
 Roadmap 2    COMPLETE
-Roadmap 3    PLANNED / IMPLEMENTATION-READY — not active
+Roadmap 3    ACTIVE — Product Depth
 ```
 
 ## Roadmap 2 closure
@@ -33,20 +33,38 @@ Product contracts: [`docs/agent-operations.md`](../agent-operations.md) and
 canonical permissions, provenance, and evidence. This closes Roadmap 2 without
 adding the adaptive agent planning and autonomy assigned to Roadmap 3.
 
-### Deferred, not active
+### Roadmap 2 deferral carried forward
 
-**GOV-02 — Organisation Model** remains deliberately ADR-gated/deferred. It is not required to declare Roadmap 2 complete unless a concrete product need causes that decision to be revisited.
+**GOV-02 — Organisation Model** was not required to close Roadmap 2. Roadmap 3
+revisits the need through ENT-ORG-01's adoption-gated ADR before any ownership
+or RLS topology changes.
 
-## After Roadmap 2
+## Active Roadmap 3 work
 
-Roadmap 3 is now decomposed into named tasks with dependencies, non-goals, required evidence and exit criteria under [`roadmap-3/`](roadmap-3/).
+Roadmap 3 is active. The initial Product Depth wave contains three independent
+assigned tasks:
 
-It is deliberately **not active yet**. Before starting Roadmap 3 implementation:
+```text
+▶ NAV-01  — Canonical Navigation Model
+▶ GRID-01 — Keyboard & Selection Model
+▶ NOTE-01 — Authoring Interaction Baseline
+```
 
-1. reconcile the planned tasks against the final merged Roadmap 2 product;
-2. confirm task dependencies/non-goals still match real gaps;
-3. select and explicitly assign the first task(s), normally beginning with Product Depth;
-4. update this file so Roadmap 3 becomes the active programme.
+These tasks may proceed in parallel. Each owns its complete numbered-task exit
+criterion and must reconcile the current implementation before editing. FIND
+follows the NAV foundation; later streams become Ready only when their explicit
+dependencies and gates are satisfied.
+
+### Programme scope decisions
+
+- ENT-ORG and GXP remain in scope. Their first tasks must establish and accept
+  the required organisation-domain ADR and regulated intended-use/control model
+  before implementation proceeds.
+- OPS is deferred. Do not start OPS-01..03 without a later explicit programme
+  decision based on institutional scale/adoption evidence.
+- All other Roadmap 3 streams remain planned according to
+  [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md); roadmap ordering
+  alone does not make their numbered tasks current.
 
 Do not create a Roadmap-3-local `NEXT.md`.
 

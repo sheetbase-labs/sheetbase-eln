@@ -4,6 +4,7 @@ const UUID: JsonSchema = { type: 'string', format: 'uuid' }
 const TEXT: JsonSchema = { type: 'string' }
 const BOOL: JsonSchema = { type: 'boolean' }
 const INT: JsonSchema = { type: 'integer' }
+const BIGINT: JsonSchema = { type: 'integer', format: 'int64' }
 
 const jsonMap = (description: string): JsonSchema => ({
   type: 'object',
@@ -1600,6 +1601,416 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       block: { $ref: '#/components/schemas/BlocksRow' },
       instance: { $ref: '#/components/schemas/SheetInstancesRow' },
       structure_version: INT,
+    },
+  },
+  // -- AUTO-04/05: Agent operation and workflow contracts --------------------
+  AgentProvenance: {
+    type: 'object',
+    required: ['agentId', 'tool', 'model', 'invocationId'],
+    additionalProperties: false,
+    properties: {
+      agentId: { ...TEXT, minLength: 1, maxLength: 200 },
+      agentName: TEXT,
+      tool: {
+        type: 'object',
+        required: ['name'],
+        additionalProperties: false,
+        properties: {
+          name: { ...TEXT, minLength: 1, maxLength: 200 },
+          version: TEXT,
+        },
+      },
+      model: {
+        type: 'object',
+        required: ['provider', 'name'],
+        additionalProperties: false,
+        properties: {
+          provider: { ...TEXT, minLength: 1, maxLength: 100 },
+          name: { ...TEXT, minLength: 1, maxLength: 200 },
+          version: TEXT,
+        },
+      },
+      invocationId: { ...TEXT, minLength: 1, maxLength: 200 },
+    },
+  },
+  AgentDatasetSchemaField: {
+    type: 'object',
+    required: ['key', 'label', 'logicalType'],
+    additionalProperties: false,
+    properties: {
+      fieldId: UUID,
+      key: TEXT,
+      label: TEXT,
+      description: { ...TEXT, nullable: true },
+      logicalType: {
+        type: 'string',
+        enum: [
+          'text',
+          'integer',
+          'decimal',
+          'boolean',
+          'date',
+          'timestamp',
+          'category',
+          'reference',
+        ],
+      },
+      nullable: BOOL,
+      defaultValue: JSON_VALUE,
+      quantity: {
+        oneOf: [
+          { $ref: '#/components/schemas/FieldQuantity' },
+          { type: 'null' },
+        ],
+      },
+      validation: { $ref: '#/components/schemas/FieldValidation' },
+      category: {
+        oneOf: [
+          { $ref: '#/components/schemas/FieldCategory' },
+          { type: 'null' },
+        ],
+      },
+      relationship: {
+        oneOf: [
+          { $ref: '#/components/schemas/FieldRelationship' },
+          { type: 'null' },
+        ],
+      },
+      cardinality: { type: 'string', enum: ['one', 'many'] },
+      lifecycle: { type: 'string', enum: ['active', 'retired'] },
+      displayOrder: INT,
+    },
+  },
+  AgentPipelineConfiguration: {
+    type: 'object',
+    required: ['configVersion', 'parameters', 'inputs', 'transform', 'output'],
+    additionalProperties: false,
+    properties: {
+      configVersion: { type: 'integer', const: 1 },
+      description: { ...TEXT, nullable: true, maxLength: 2000 },
+      parameters: {
+        type: 'array',
+        maxItems: 50,
+        items: {
+          type: 'object',
+          required: ['name', 'type', 'required'],
+          additionalProperties: false,
+          properties: {
+            name: { ...TEXT, pattern: '^[a-z][a-z0-9_]{0,47}$' },
+            type: {
+              type: 'string',
+              enum: [
+                'text',
+                'integer',
+                'decimal',
+                'boolean',
+                'date',
+                'timestamp',
+              ],
+            },
+            required: BOOL,
+            default: JSON_VALUE,
+            description: TEXT,
+          },
+        },
+      },
+      inputs: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 10,
+        items: {
+          type: 'object',
+          required: ['name', 'required'],
+          additionalProperties: false,
+          properties: {
+            name: { ...TEXT, pattern: '^[a-z][a-z0-9_]{0,47}$' },
+            required: BOOL,
+            description: TEXT,
+          },
+        },
+      },
+      transform: {
+        type: 'object',
+        required: ['language', 'statement'],
+        additionalProperties: false,
+        properties: {
+          language: { type: 'string', const: 'sql' },
+          statement: { ...TEXT, minLength: 1, maxLength: 20_000 },
+        },
+      },
+      output: {
+        oneOf: [
+          {
+            type: 'object',
+            required: [
+              'mode',
+              'schemaVersionId',
+              'datasetName',
+              'datasetLabel',
+            ],
+            additionalProperties: false,
+            properties: {
+              mode: { type: 'string', const: 'create' },
+              schemaVersionId: UUID,
+              datasetId: UUID,
+              datasetName: { ...TEXT, minLength: 1, maxLength: 200 },
+              datasetLabel: { ...TEXT, minLength: 1, maxLength: 200 },
+              fieldMapping: {
+                type: 'object',
+                nullable: true,
+                additionalProperties: { type: 'string' },
+              },
+            },
+          },
+          {
+            type: 'object',
+            required: ['mode', 'datasetId', 'datasetLabel'],
+            additionalProperties: false,
+            properties: {
+              mode: { type: 'string', const: 'append' },
+              schemaVersionId: UUID,
+              datasetId: UUID,
+              datasetName: { ...TEXT, minLength: 1, maxLength: 200 },
+              datasetLabel: { ...TEXT, minLength: 1, maxLength: 200 },
+              fieldMapping: {
+                type: 'object',
+                nullable: true,
+                additionalProperties: { type: 'string' },
+              },
+            },
+          },
+        ],
+      },
+    },
+  },
+  AgentDatasetCommitRow: {
+    type: 'object',
+    required: ['operation', 'rowId', 'values'],
+    additionalProperties: false,
+    properties: {
+      operation: { type: 'string', enum: ['create', 'update'] },
+      rowId: UUID,
+      expectedRevision: BIGINT,
+      values: jsonMap('Dataset Schema field UUID to canonical value.'),
+    },
+  },
+  AgentOperation: {
+    description:
+      'One bounded canonical operation. The server validates the complete operation and target before creating a proposal.',
+    oneOf: [
+      {
+        type: 'object',
+        required: ['kind', 'workspaceId', 'key', 'name', 'fields'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'dataset_schema.create' },
+          workspaceId: UUID,
+          key: TEXT,
+          name: TEXT,
+          description: { ...TEXT, nullable: true },
+          fields: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/AgentDatasetSchemaField',
+            },
+          },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'workspaceId', 'key', 'name', 'configuration'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'sheet_definition.create' },
+          workspaceId: UUID,
+          key: TEXT,
+          name: TEXT,
+          description: { ...TEXT, nullable: true },
+          configuration: {
+            $ref: '#/components/schemas/SheetDefinitionConfiguration',
+          },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'versionId', 'expectedRevision', 'configuration'],
+        additionalProperties: false,
+        properties: {
+          kind: {
+            type: 'string',
+            const: 'sheet_definition.update_draft',
+          },
+          versionId: UUID,
+          expectedRevision: BIGINT,
+          configuration: {
+            $ref: '#/components/schemas/SheetDefinitionConfiguration',
+          },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'workspaceId', 'key', 'name'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'pipeline_definition.create' },
+          workspaceId: UUID,
+          key: TEXT,
+          name: TEXT,
+          description: { ...TEXT, nullable: true },
+        },
+      },
+      {
+        type: 'object',
+        required: [
+          'kind',
+          'workspaceId',
+          'definitionId',
+          'expectedDefinitionRevision',
+          'configuration',
+        ],
+        additionalProperties: false,
+        properties: {
+          kind: {
+            type: 'string',
+            const: 'pipeline_definition.create_version',
+          },
+          workspaceId: UUID,
+          definitionId: UUID,
+          expectedDefinitionRevision: BIGINT,
+          configuration: {
+            $ref: '#/components/schemas/AgentPipelineConfiguration',
+          },
+        },
+      },
+      {
+        type: 'object',
+        required: [
+          'kind',
+          'workspaceId',
+          'versionId',
+          'expectedRevision',
+          'configuration',
+        ],
+        additionalProperties: false,
+        properties: {
+          kind: {
+            type: 'string',
+            const: 'pipeline_definition.update_draft',
+          },
+          workspaceId: UUID,
+          versionId: UUID,
+          expectedRevision: BIGINT,
+          configuration: {
+            $ref: '#/components/schemas/AgentPipelineConfiguration',
+          },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'datasetId', 'expectedRevision', 'rows'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'dataset_rows.commit' },
+          datasetId: UUID,
+          expectedRevision: BIGINT,
+          rows: {
+            type: 'array',
+            minItems: 1,
+            items: { $ref: '#/components/schemas/AgentDatasetCommitRow' },
+          },
+        },
+      },
+    ],
+  },
+  AgentWorkflowInputReference: {
+    oneOf: [
+      {
+        type: 'object',
+        required: ['kind', 'id'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'dataset_version' },
+          id: UUID,
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'id'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'pipeline_definition_version' },
+          id: UUID,
+        },
+      },
+    ],
+  },
+  AgentWorkflowPlan: {
+    type: 'object',
+    required: ['formatVersion', 'steps'],
+    additionalProperties: false,
+    properties: {
+      formatVersion: { type: 'integer', const: 1 },
+      steps: {
+        type: 'array',
+        minItems: 2,
+        maxItems: 20,
+        items: {
+          type: 'object',
+          required: [
+            'key',
+            'title',
+            'summary',
+            'tool',
+            'operation',
+            'inputReferences',
+          ],
+          additionalProperties: false,
+          properties: {
+            key: { ...TEXT, pattern: '^[a-z][a-z0-9_-]{0,63}$' },
+            title: { ...TEXT, minLength: 1, maxLength: 200 },
+            summary: { ...TEXT, minLength: 1, maxLength: 2000 },
+            tool: {
+              type: 'string',
+              enum: [
+                'sheetbase.dataset_schema.draft',
+                'sheetbase.sheet_definition.draft',
+                'sheetbase.sheet_definition.update_draft',
+                'sheetbase.pipeline_definition.draft',
+                'sheetbase.pipeline_definition.version_draft',
+                'sheetbase.pipeline_definition.update_draft',
+                'sheetbase.dataset_rows.commit',
+              ],
+            },
+            operation: { $ref: '#/components/schemas/AgentOperation' },
+            inputReferences: {
+              type: 'array',
+              maxItems: 50,
+              items: {
+                $ref: '#/components/schemas/AgentWorkflowInputReference',
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  AgentWorkflowBudget: {
+    type: 'object',
+    required: ['maxOperations', 'maxTokens', 'maxCostMicrousd'],
+    additionalProperties: false,
+    properties: {
+      maxOperations: { ...INT, minimum: 2, maximum: 50 },
+      maxTokens: { ...BIGINT, minimum: 0 },
+      maxCostMicrousd: { ...BIGINT, minimum: 0 },
+    },
+  },
+  AgentWorkflowUsage: {
+    type: 'object',
+    required: ['tokens', 'costMicrousd'],
+    additionalProperties: false,
+    properties: {
+      tokens: { ...BIGINT, minimum: 0 },
+      costMicrousd: { ...BIGINT, minimum: 0 },
     },
   },
   // -- API-06: Webhook result schemas -----------------------------------------

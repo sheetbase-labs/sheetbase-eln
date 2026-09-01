@@ -12,7 +12,10 @@ const deployCompose = parse(readFileSync('compose.deploy.yaml', 'utf8')) as {
 }
 const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
   scripts: Record<string, string>
+  engines: { node: string }
 }
+const nodeVersion = readFileSync('.node-version', 'utf8').trim()
+const orbSetup = readFileSync('.agents/setup', 'utf8')
 
 describe('PLAT-01 deployment gates', () => {
   it('gates the artifact build on a verify job', () => {
@@ -40,6 +43,17 @@ describe('PLAT-01 deployment gates', () => {
       (s) => s.name ?? '',
     )
     expect(names).toContain('Bootstrap database roles')
+  })
+})
+
+describe('PLAT-01 orb runtime', () => {
+  it('installs the exact supported Node and pnpm toolchain', () => {
+    expect(nodeVersion).toMatch(/^22\.\d+\.\d+$/)
+    expect(Number(nodeVersion.split('.')[1])).toBeGreaterThanOrEqual(13)
+    expect(pkg.engines.node).toBe('>=22.13.0')
+    expect(orbSetup).toContain('sudo n "$NODE_VERSION"')
+    expect(orbSetup).toContain('corepack@0.36.0')
+    expect(orbSetup).toContain('corepack install --global pnpm@11.9.0')
   })
 })
 

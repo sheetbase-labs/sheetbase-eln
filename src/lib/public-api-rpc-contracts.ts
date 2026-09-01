@@ -1310,6 +1310,134 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_parameter_inputs: parameterInputs,
     },
     result: ref('NotebookUpgradeApplyResult'),
+  },
+  // -- AUTO-04/05: Agent operations and workflows ---------------------------
+  propose_agent_operation: {
+    summary: 'Propose one canonical agent-authored operation',
+    description:
+      'Creates a durable AUTO-04 proposal after server-side contract, target, permission, preview, impact, risk and policy evaluation. It does not bypass human approval or canonical execution rules.',
+    required: [
+      'p_workspace_id',
+      'p_title',
+      'p_summary',
+      'p_operation',
+      'p_provenance',
+      'p_idempotency_key',
+    ],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID; must match the bearer token.'),
+      p_title: text('Proposal title (1–200 characters).', {
+        minLength: 1,
+        maxLength: 200,
+      }),
+      p_summary: text('Proposal summary (1–2000 characters).', {
+        minLength: 1,
+        maxLength: 2000,
+      }),
+      p_operation: ref('AgentOperation'),
+      p_provenance: ref('AgentProvenance'),
+      p_idempotency_key: text(
+        'Actor-scoped idempotency key (1–128 characters).',
+        {
+          minLength: 1,
+          maxLength: 128,
+        },
+      ),
+    },
+    result: pgrstRow(
+      ref('AgentOperationProposalsRow'),
+      'Created or idempotently reused proposal.',
+    ),
+  },
+  create_agent_workflow: {
+    summary: 'Create a bounded sequential agent workflow',
+    description:
+      'Pins a two-to-twenty-step AUTO-05 plan and immediately proposes its first AUTO-04 operation. Tools are allowlisted, input versions are validated, and token/cost/operation budgets are durable. Reusing an idempotency key with different content fails.',
+    required: [
+      'p_workspace_id',
+      'p_goal',
+      'p_plan',
+      'p_budget',
+      'p_initial_usage',
+      'p_provenance',
+      'p_idempotency_key',
+    ],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID; must match the bearer token.'),
+      p_goal: text('Workflow goal (1–2000 characters).', {
+        minLength: 1,
+        maxLength: 2000,
+      }),
+      p_plan: ref('AgentWorkflowPlan'),
+      p_budget: ref('AgentWorkflowBudget'),
+      p_initial_usage: ref('AgentWorkflowUsage'),
+      p_provenance: ref('AgentProvenance'),
+      p_idempotency_key: text(
+        'Actor-scoped idempotency key (1–128 characters).',
+        {
+          minLength: 1,
+          maxLength: 128,
+        },
+      ),
+    },
+    result: pgrstRow(
+      ref('AgentWorkflowsRow'),
+      'Created or idempotently reused workflow.',
+    ),
+  },
+  advance_agent_workflow: {
+    summary: 'Advance a workflow after its current proposal settles',
+    description:
+      'Observes the current AUTO-04 proposal at the expected workflow revision. A succeeded proposal advances to the next pinned step; rejection, failure or cancellation pauses the workflow. It never approves or executes a proposal.',
+    required: ['p_workflow_id', 'p_expected_revision'],
+    properties: {
+      p_workflow_id: uuid('Workflow UUID.'),
+      p_expected_revision: bigint('Current workflow revision.'),
+    },
+    result: pgrstRow(ref('AgentWorkflowsRow'), 'Updated workflow.'),
+  },
+  report_agent_workflow_usage: {
+    summary: 'Report incremental workflow token and cost usage',
+    description:
+      'Adds usage at the expected revision. Both increments must be non-negative and at least one must be greater than zero. Exceeding a durable token or cost budget stops the workflow and cancels a still-pending current proposal.',
+    required: [
+      'p_workflow_id',
+      'p_expected_revision',
+      'p_tokens',
+      'p_cost_microusd',
+    ],
+    properties: {
+      p_workflow_id: uuid('Workflow UUID.'),
+      p_expected_revision: bigint('Current workflow revision.'),
+      p_tokens: {
+        ...bigint(
+          'Non-negative token increment; this or p_cost_microusd must be greater than zero.',
+        ),
+        minimum: 0,
+      },
+      p_cost_microusd: {
+        ...bigint(
+          'Non-negative cost increment in millionths of a US dollar; this or p_tokens must be greater than zero.',
+        ),
+        minimum: 0,
+      },
+    },
+    result: pgrstRow(ref('AgentWorkflowsRow'), 'Usage-updated workflow.'),
+  },
+  cancel_agent_workflow: {
+    summary: 'Cancel an active agent workflow',
+    description:
+      'Cancels remaining steps and a pending or approved current proposal at the expected revision. Completed and already-cancelled workflows fail closed.',
+    required: ['p_workflow_id', 'p_expected_revision', 'p_reason'],
+    properties: {
+      p_workflow_id: uuid('Workflow UUID.'),
+      p_expected_revision: bigint('Current workflow revision.'),
+      p_reason: text('Cancellation reason (1–1000 characters).', {
+        minLength: 1,
+        maxLength: 1000,
+      }),
+    },
+    result: pgrstRow(ref('AgentWorkflowsRow'), 'Cancelled workflow.'),
     },
     // -- API-06: Webhooks -------------------------------------------------------
     create_webhook_subscription: {

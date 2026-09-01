@@ -6,21 +6,25 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-echo "==> Installing Node.js 22 (project requires >=22.12)"
-# The orb ships Node 20; replace it with Node 22 via `n`.
-if ! node -v 2>/dev/null | grep -qE '^v(2[2-9]|[3-9])\.'; then
+NODE_VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/.node-version")"
+echo "==> Installing Node.js ${NODE_VERSION} from .node-version"
+# Use the exact project runtime. Accepting any newer major can select a Node
+# release that pnpm or the application toolchain does not support yet.
+if [ "$(node -v 2>/dev/null || true)" != "v${NODE_VERSION}" ]; then
   if ! command -v n >/dev/null 2>&1; then
     sudo npm install -g n
   fi
-  sudo n 22
+  sudo n "$NODE_VERSION"
+  hash -r
 fi
 echo "node: $(node -v)"
 
 echo "==> Activating pnpm@11.9.0 via corepack"
-# The orb ships a global pnpm that is incompatible with Node 22; let corepack
-# manage it based on the packageManager pin in package.json.
+# Refresh Corepack so its package-signing keys support the pinned pnpm release,
+# then install that exact package manager globally for unattended setup.
+sudo npm install -g corepack@0.36.0
 sudo corepack enable
-corepack prepare pnpm@11.9.0 --activate
+corepack install --global pnpm@11.9.0
 echo "pnpm: $(pnpm -v)"
 
 echo "==> Starting PostgreSQL 18 (preinstalled via PGDG)"

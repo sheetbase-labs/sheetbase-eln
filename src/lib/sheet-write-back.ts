@@ -29,6 +29,22 @@ export class SheetBatchValidationError extends Error {
   }
 }
 
+/**
+ * GRID-02 — a range operation spans more than one authoritative commit group
+ * (multiple datasets/record groups, or a mix of dataset, record and local
+ * targets). Cross-authority atomicity is not available in one RPC, so the
+ * operation is rejected before ANY write: dispatching the groups sequentially
+ * could commit one and strand the rest behind a dangling pending state.
+ */
+export class SheetMixedAuthorityWriteError extends Error {
+  constructor() {
+    super(
+      'mixed_authority_write: Range operation rejected: it spans more than one authoritative target; nothing was written. Split the edit so each range operation writes to one dataset/record/local surface.',
+    )
+    this.name = 'SheetMixedAuthorityWriteError'
+  }
+}
+
 export type SheetWriteTarget =
   | {
       kind: 'dataset'
@@ -55,6 +71,7 @@ export type SheetCellWriteError =
   | 'calculated_read_only'
   | 'permission_denied'
   | 'invalid_value'
+  | 'mixed_authority_write'
   | 'stale'
   | 'conflict'
 
@@ -130,6 +147,8 @@ export function sheetCellWriteError(error: unknown): SheetCellWriteError {
       : ''
   const message = error instanceof Error ? error.message : String(error)
   if (error instanceof SheetBatchValidationError) return 'invalid_value'
+  if (error instanceof SheetMixedAuthorityWriteError)
+    return 'mixed_authority_write'
   if (message.includes('ambiguous_target')) return 'ambiguous_target'
   if (message.includes('calculated_read_only')) return 'calculated_read_only'
   if (message.includes('unresolved_target')) return 'unresolved_target'
@@ -252,6 +271,9 @@ export interface SheetCellWrite {
  *   - Record-bound cells: one `update_record_custom_fields` per record;
  *   - Local cells: one `mutate_sheet_instance_local_state` for all of them.
  *
+ * GRID-02: the groups dispatch sequentially with no cross-group atomicity,
+ * so a change set spanning more than one commit group is rejected with
+ * `SheetMixedAuthorityWriteError` before any RPC runs.
  * This is the paste/multi-cell-edit path: a 100-cell paste over bound columns
  * previously issued 100 sequential HTTP RPCs.
  */
@@ -313,6 +335,16 @@ export async function writeSheetCells(
       })
     }
   }
+
+  // GRID-02: reject mixed-authority range operations before ANY write. The
+  // dispatch below commits per group sequentially with no cross-group
+  // atomicity, so a plan spanning more than one commit group (multiple
+  // (dataset, expected revision) groups, multiple records, or a mix of
+  // dataset/record/local targets) could commit one group and fail a later
+  // one while the UI reports nothing was written. Fail closed instead.
+  const commitGroupCount =
+    datasetGroups.size + recordGroups.size + (localCells.length > 0 ? 1 : 0)
+  if (commitGroupCount > 1) throw new SheetMixedAuthorityWriteError()
 
   const newUuid = () =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto

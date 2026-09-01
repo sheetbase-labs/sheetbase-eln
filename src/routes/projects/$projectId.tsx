@@ -67,6 +67,7 @@ import {
 } from '#/lib/notebook-data'
 import type { NotebookRecord, Project } from '#/lib/notebook-data'
 import { recordDestination } from '#/lib/navigation'
+import { useRecentViewTracking } from '#/lib/recents'
 import {
   activitySentence,
   computeProjectMetrics,
@@ -113,6 +114,8 @@ export const Route = createFileRoute('/projects/$projectId')({
 function ProjectRoute() {
   const { context } = Route.useRouteContext()
   const { projectId } = Route.useParams()
+  // FIND-01: this page counts as a "view" for the Recent surface.
+  useRecentViewTracking('project', projectId)
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })

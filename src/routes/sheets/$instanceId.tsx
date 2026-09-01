@@ -16,6 +16,7 @@ import {
   notebookQueryKeys,
 } from '#/lib/notebook-data'
 import { objectContextBreadcrumbs } from '#/lib/navigation'
+import { useRecentViewTracking } from '#/lib/recents'
 import {
   fetchSheetInstance,
   sheetInstanceDataClient,
@@ -38,6 +39,9 @@ function ComposedSheetRoute() {
   const { instanceId } = Route.useParams()
   const { projectId: projectIdParam } = Route.useSearch()
   const { context } = Route.useRouteContext()
+
+  // FIND-01: this page counts as a "view" for the Recent surface.
+  useRecentViewTracking('sheet', instanceId)
 
   // NAV-02: context-preserving navigation. The Sheet reconstructs its
   // project/owning-notebook context from stable IDs on the instance itself —

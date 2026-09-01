@@ -48,6 +48,7 @@ import { DatasetProductActions } from '#/components/datasets/dataset-product-con
 import { ObjectHistoryTimeline } from '#/components/audit'
 import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
+import { useRecentViewTracking } from '#/lib/recents'
 import { RegistryComposition } from '#/components/registry'
 import type { DataGridField } from '#/components/data-grid'
 import {
@@ -241,6 +242,10 @@ function DatasetExplorerRoute() {
   const archivedView = search.archived ?? false
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // FIND-01: a selected dataset counts as a "view" for the Recent surface;
+  // browsing the explorer without a selection (empty search param) does not.
+  useRecentViewTracking('dataset', search.dataset || null)
 
   const summariesQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.summaries(archivedView),

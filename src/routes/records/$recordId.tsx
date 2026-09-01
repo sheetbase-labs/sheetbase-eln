@@ -116,6 +116,7 @@ import {
   sheetEvidenceFromRevisionRows,
 } from '#/lib/sheet-evidence'
 import { toCanonicalEnvelope } from '#/lib/review-workspace'
+import { useRecentViewTracking } from '#/lib/recents'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
@@ -184,6 +185,8 @@ function historicalRevisionFromSearch(search: unknown): string | undefined {
 function ExperimentNotebookRoute() {
   const { context } = Route.useRouteContext()
   const { recordId } = Route.useParams()
+  // FIND-01: this page counts as a "view" for the Recent surface.
+  useRecentViewTracking('record', recordId)
   // COLLAB-02: one record room per experiment page; null when the
   // deployment has collaboration disabled or there is no workspace.
   const collaborationEnabled = useCollaborationEnabled()
@@ -1195,7 +1198,7 @@ function EditableNotebook({
       }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
-      return insertBlock(client, {
+      const inserted = await insertBlock(client, {
         recordId: record.id,
         type,
         payload,
@@ -1204,6 +1207,16 @@ function EditableNotebook({
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
+      if (destination.afterBlockId === null && destination.beforeBlockId) {
+        const moved = await moveBlock(client, {
+          blockId: inserted.block.id,
+          afterBlockId: null,
+          beforeBlockId: destination.beforeBlockId,
+          expectedStructureVersion: inserted.structureVersion,
+        })
+        return { ...inserted, ...moved, order: moved.order }
+      }
+      return { ...inserted, order: null }
     },
     onSuccess: (res) => {
       upsertBlock(res.block)

@@ -9,10 +9,12 @@ import {
   MyWorkDashboard,
   PinnedRecordsPanel,
   ProjectQuickAccess,
+  RecentSection,
   RecentWorkTable,
   UpcomingApprovalsPanel,
 } from './index'
 import type { NotebookRecord, Project } from '#/lib/notebook-data'
+import type { RecentItem } from '#/lib/recents'
 import type {
   DashboardActivityItem,
   DashboardMentionItem,
@@ -416,5 +418,88 @@ describe('MyWorkDashboard', () => {
 
     // Greeting varies by time of day; assert it addresses "Gareth".
     expect(screen.getByText(/Gareth$/)).toBeTruthy()
+  })
+})
+
+describe('RecentSection', () => {
+  const recentItem = (
+    overrides: Partial<RecentItem> & Pick<RecentItem, 'kind' | 'id'>,
+  ): RecentItem => ({
+    label: 'Lentivector stability run 1',
+    identifier: 'EXP-2025-0001',
+    destination: '/records/r1',
+    signal: 'edited',
+    lastActivityAt: new Date(Date.now() - 3_600_000).toISOString(),
+    viewedAt: null,
+    editedAt: null,
+    ...overrides,
+  })
+
+  it('renders recent items with canonical labels, kind and signal', () => {
+    render(
+      <RecentSection
+        items={[
+          recentItem({ kind: 'record', id: 'r1' }),
+          recentItem({
+            kind: 'sheet',
+            id: 's1',
+            label: 'Dose response',
+            identifier: null,
+            destination: '/sheets/s1',
+            signal: 'viewed',
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />,
+    )
+
+    const recordLink = screen.getByRole('link', {
+      name: /Lentivector stability run 1/,
+    })
+    expect(recordLink.getAttribute('href')).toBe('/records/r1')
+    expect(screen.getByText('Edited')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Dose response/ })).toBeTruthy()
+    expect(screen.getByText('Viewed')).toBeTruthy()
+  })
+
+  it('renders the reviewed signal for objects under review', () => {
+    render(
+      <RecentSection
+        items={[recentItem({ kind: 'record', id: 'r1', signal: 'reviewed' })]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />,
+    )
+    expect(screen.getByText('In review')).toBeTruthy()
+  })
+
+  it('shows an empty state when there is nothing to resume', () => {
+    render(
+      <RecentSection
+        items={[]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />,
+    )
+    expect(screen.getByText('Nothing recent yet')).toBeTruthy()
+  })
+
+  it('shows an error state with a retry control', () => {
+    render(
+      <RecentSection
+        items={[]}
+        isLoading={false}
+        error={new Error('boom')}
+        onRetry={() => {}}
+      />,
+    )
+    expect(screen.getByRole('alert').textContent).toBe(
+      'Could not load recent items.',
+    )
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
   })
 })

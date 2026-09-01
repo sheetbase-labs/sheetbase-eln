@@ -19,6 +19,8 @@ import * as React from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { NotebookDocument } from './notebook-document'
+import { NotebookOutlinePanel } from './notebook-outline-panel'
+import { notebookOutline } from '#/lib/notebook-outline'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
 // NOTE-03: scientific block previews carry canonical Open affordances built
@@ -1258,5 +1260,206 @@ describe('NOTE-02 sections and outline anchors', () => {
     expect(document.getElementById('block-body-1')!.className).not.toContain(
       'hidden',
     )
+  })
+
+  /** A rich_text block with a heading followed by prose nodes. */
+  function headingAndProseBlock(
+    id: string,
+    order: number,
+    headingText: string,
+    proseTexts: string[],
+  ): NotebookBlock {
+    return {
+      id,
+      recordId: 'r1',
+      type: 'rich_text',
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'heading',
+              attrs: { level: 2 },
+              content: [{ type: 'text', text: headingText }],
+            },
+            ...proseTexts.map((text) => ({
+              type: 'paragraph',
+              content: [{ type: 'text', text }],
+            })),
+          ],
+        },
+      },
+      payloadSchemaVersion: 1,
+      order,
+      version: 1,
+    }
+  }
+
+  function blockWithNodes(
+    id: string,
+    order: number,
+    nodes: Array<Record<string, unknown>>,
+  ): NotebookBlock {
+    return {
+      id,
+      recordId: 'r1',
+      type: 'rich_text',
+      payload: { doc: { type: 'doc', content: nodes } },
+      payloadSchemaVersion: 1,
+      order,
+      version: 1,
+    }
+  }
+
+  it('exposes stable heading anchors inside the active Tiptap editor so outline clicks navigate authoring content', async () => {
+    const block = richTextBlock('b1', 'Objective')
+    const { container } = render(
+      <>
+        <NotebookDocument
+          record={record}
+          blocks={[block]}
+          onSaveBlock={vi.fn()}
+          onInsertBlock={vi.fn()}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+        />
+        <NotebookOutlinePanel entries={notebookOutline([block])} />
+      </>,
+    )
+    // Select the block: the Tiptap editor becomes the active canvas.
+    fireEvent.click(container.querySelector('#block-b1')!)
+    const editor = await screen.findByRole('textbox', {
+      name: 'Text content',
+    })
+    // The read-view anchor id exists in the editable ProseMirror DOM —
+    // the same `#section-<blockId>-h<index>` target the outline links to.
+    const heading = await waitFor(() => {
+      const el = document.getElementById('section-b1-h0')
+      expect(el).toBeTruthy()
+      return el!
+    })
+    expect(editor.contains(heading)).toBe(true)
+    const link = screen.getByRole('link', { name: 'Objective' })
+    expect(link.getAttribute('href')).toBe('#section-b1-h0')
+  })
+
+  it('hides only the prose after the heading inside the same rich_text block, keeping print output complete', () => {
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[
+          headingAndProseBlock('b1', 1, 'Methods', ['step one', 'step two']),
+        ]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        collapsedSections={new Set(['section-b1-h0'])}
+        onToggleSection={vi.fn()}
+      />,
+    )
+    // Prose is hidden from view but stays in the DOM (print:contents), so
+    // printed output remains fully expanded.
+    const prose = document.getElementById('block-b1')!.querySelectorAll('p')
+    expect(prose).toHaveLength(2)
+    for (const p of prose) {
+      expect(p.className).toContain('hidden')
+      expect(p.className).toContain('print:contents')
+    }
+    const heading = document.getElementById('section-b1-h0')!
+    expect(heading.className).not.toContain('hidden')
+    // Placeholder explains same-block collapse honestly.
+    expect(
+      screen.getByTestId('section-collapsed-section-b1-h0').textContent,
+    ).toContain('content in this block is hidden')
+  })
+
+  it('hides corresponding nodes in the active Tiptap editor when a same-block section collapses', async () => {
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={[headingAndProseBlock('b1', 1, 'Methods', ['step one'])]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        collapsedSections={new Set(['section-b1-h0'])}
+        onToggleSection={vi.fn()}
+      />,
+    )
+    fireEvent.click(container.querySelector('#block-b1')!)
+    const editor = await screen.findByRole('textbox', {
+      name: 'Text content',
+    })
+    // The ProseMirror node for the hidden prose carries the collapse class;
+    // the payload still holds the text (print stays expanded).
+    await waitFor(() => {
+      const hidden = editor.querySelectorAll('p.hidden.print\\:contents')
+      expect(hidden).toHaveLength(1)
+    })
+    expect(editor.textContent).toContain('step one')
+  })
+
+  it('collapses multiple headings in one block independently', () => {
+    const block = blockWithNodes('b1', 1, [
+      {
+        type: 'heading',
+        attrs: { level: 2 },
+        content: [{ type: 'text', text: 'Intro' }],
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: 'intro prose' }] },
+      {
+        type: 'heading',
+        attrs: { level: 3 },
+        content: [{ type: 'text', text: 'Detail' }],
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: 'detail prose' }] },
+    ])
+    const { rerender } = render(
+      <NotebookDocument
+        record={record}
+        blocks={[block]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        collapsedSections={new Set(['section-b1-h0'])}
+        onToggleSection={vi.fn()}
+      />,
+    )
+    const paras = () =>
+      Array.from(document.getElementById('block-b1')!.querySelectorAll('p'))
+    const headings = () =>
+      Array.from(
+        document
+          .getElementById('block-b1')!
+          .querySelectorAll('[data-type="heading"], h2, h3'),
+      )
+    // Collapsing the H2 hides its prose AND the nested H3 content (heading
+    // + prose) until the next same-level heading.
+    expect(paras()[0].className).toContain('hidden')
+    expect(paras()[1].className).toContain('hidden')
+    expect(headings()).toHaveLength(2)
+    expect(
+      (headings()[1] as HTMLElement).className,
+    ).toContain('hidden')
+    // Collapsing only the H3 hides just its own prose — independent of H2.
+    rerender(
+      <NotebookDocument
+        record={record}
+        blocks={[block]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        collapsedSections={new Set(['section-b1-h2'])}
+        onToggleSection={vi.fn()}
+      />,
+    )
+    expect(paras()[0].className).not.toContain('hidden')
+    expect(paras()[1].className).toContain('hidden')
+    expect(
+      (headings()[1] as HTMLElement).className,
+    ).not.toContain('hidden')
   })
 })

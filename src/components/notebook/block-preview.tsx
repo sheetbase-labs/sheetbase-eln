@@ -95,6 +95,11 @@ import { sheetBlockInstanceId } from '#/lib/sheet-block'
 export interface BlockPreviewProps {
   block: NotebookBlock
   className?: string
+  /**
+   * NOTE-02 same-block collapse: rich_text node indexes hidden by a
+   * collapsed section (kept in the DOM for print). Absent elsewhere.
+   */
+  hiddenNodeIndexes?: ReadonlySet<number>
 }
 
 function asString(value: unknown): string | null {
@@ -138,11 +143,20 @@ export function OpenLink({
   )
 }
 
-export function BlockPreview({ block, className }: BlockPreviewProps) {
+export function BlockPreview({
+  block,
+  className,
+  hiddenNodeIndexes,
+}: BlockPreviewProps) {
   const { type, payload } = block
   // NOTE-02: read previews carry the same stable heading anchors as the
   // read-only editor view so outline links resolve in every mode.
-  const body = renderPayload(type, payload, `section-${block.id}`)
+  const body = renderPayload(
+    type,
+    payload,
+    `section-${block.id}`,
+    hiddenNodeIndexes,
+  )
   return <div className={cn('text-sm leading-6', className)}>{body}</div>
 }
 
@@ -150,10 +164,11 @@ function renderPayload(
   type: string,
   payload: unknown,
   anchorPrefix?: string,
+  hiddenNodeIndexes?: ReadonlySet<number>,
 ): React.ReactNode {
   switch (type) {
     case 'rich_text':
-      return renderRichText(payload, anchorPrefix)
+      return renderRichText(payload, anchorPrefix, hiddenNodeIndexes)
     case 'checklist':
       return renderChecklist(payload)
     case 'callout':
@@ -190,9 +205,14 @@ function renderPayload(
 function renderRichText(
   payload: unknown,
   anchorPrefix?: string,
+  hiddenNodeIndexes?: ReadonlySet<number>,
 ): React.ReactNode {
   return isRichTextPayload(payload) ? (
-    <RichTextContent payload={payload} anchorPrefix={anchorPrefix} />
+    <RichTextContent
+      payload={payload}
+      anchorPrefix={anchorPrefix}
+      hiddenNodeIndexes={hiddenNodeIndexes}
+    />
   ) : null
 }
 

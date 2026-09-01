@@ -53,7 +53,11 @@ Long Notebooks remain navigable and understandable during authoring, review and 
   `id="section-<blockId>-h<index>"` — block UUID plus the heading's ordinal
   within the payload — in previews, read-only editors and historical
   evidence alike. Outline links target those anchors; deep links to whole
-  blocks (`#block-<id>`) are unchanged.
+  blocks (`#block-<id>`) are unchanged. During authoring the same anchors
+  are projected into the active Tiptap DOM via ProseMirror node
+  decorations (a read-only view plugin in `rich-text-editor.tsx`): the ids
+  never enter the payload, so outline clicks navigate the block the user
+  is actually editing.
 - **Outline tab.** The notebook inspector gains an Outline tab (live and
   historical evidence views) listing sections in document order with
   level-based indent and jump links; empty state explains how to build one.
@@ -62,9 +66,19 @@ Long Notebooks remain navigable and understandable during authoring, review and 
   Collapse state lives in the route, resets on record/revision change, and
   is never persisted to block data. Read-only and historical canvases show
   the outline without collapse controls.
-- **Print preserves structure.** Collapsed blocks are hidden with
-  `hidden print:contents`, so printing always emits the complete document.
-  JSON record export already carries full payloads.
+- **Same-block collapse.** A section also owns the nodes inside its own
+  `rich_text` block after the heading: from the next node up to the next
+  heading in the same block (any level) or the end of the block
+  (`nodeRange` in `notebookSectionSpans`; later blocks stay block-granular
+  as before, and same-block ranges are disjoint by construction). Read
+  renderers hide those nodes with `hidden print:contents`; the active
+  Tiptap editor hides the corresponding ProseMirror nodes with the same
+  class via node decorations. The payload is never edited by collapse.
+  A heading with nothing after it in its own block and no following blocks
+  offers no collapse control.
+- **Print preserves structure.** Collapsed blocks and collapsed same-block
+  content are hidden with `hidden print:contents`, so printing always emits
+  the complete document. JSON record export already carries full payloads.
 
 ## NOTE-03 — Scientific Block Composition
 

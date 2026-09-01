@@ -386,7 +386,6 @@ class TestSchemaFields:
             "offset": 0,
             "limit": 200,
             "totalCount": 1,
-            "hasMore": False,
             "rows": [
                 {
                     "rowId": "aaa11111-2222-3333-4444-555555555501",
@@ -403,3 +402,95 @@ class TestSchemaFields:
         assert len(df) == 1
         assert df.iloc[0]["row_id"] == "aaa11111-2222-3333-4444-555555555501"
         assert df.iloc[0]["fff00000-0000-0000-0000-000000000001"] == 1.2e9
+
+    def test_iter_version_rows_paginates_by_total_count(self, mock_transport, dataset_version_row):
+        """Version RPC returns totalCount but no hasMore; pages must continue."""
+        def version_page(offset: int, limit: int) -> dict:
+            row_count = min(limit, 5 - offset)
+            return {
+                "datasetVersionId": dataset_version_row["id"],
+                "datasetId": dataset_version_row["dataset_id"],
+                "schemaVersionId": dataset_version_row["schema_version_id"],
+                "sourceDatasetRevision": dataset_version_row["source_dataset_revision"],
+                "offset": offset,
+                "limit": limit,
+                "totalCount": 5,
+                "rows": [
+                    {
+                        "rowId": f"aaa11111-2222-3333-4444-{offset + i + 1:012d}",
+                        "revision": 3,
+                        "values": {"fff00000-0000-0000-0000-000000000001": offset + i + 1},
+                    }
+                    for i in range(row_count)
+                ],
+            }
+
+        offsets: list[int] = []
+
+        def page_side_effect(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            offsets.append(body["p_offset"])
+            return httpx.Response(200, json=version_page(body["p_offset"], body["p_limit"]))
+
+        route = mock_transport.post("/api/db/rpc/query_dataset_version_rows")
+        route.mock(side_effect=page_side_effect)
+
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            rows = list(client.datasets.iter_version_rows(
+                dataset_version_row["id"], page_size=2
+            ))
+        assert len(rows) == 5
+        assert rows[4]["values"]["fff00000-0000-0000-0000-000000000001"] == 5
+        assert offsets == [0, 2, 4]
+
+        # max_items stops mid-stream without fetching past the cap.
+        offsets.clear()
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            capped = list(client.datasets.iter_version_rows(
+                dataset_version_row["id"], page_size=2, max_items=3
+            ))
+        assert len(capped) == 3
+        assert offsets == [0, 2]
+
+    def test_version_to_dataframe_paginates_multiple_pages(self, mock_transport, dataset_version_row):
+        def version_page(offset: int, limit: int) -> dict:
+            # Server caps each window at 2 rows even when more are requested;
+            # totalCount=4 keeps the iterator going across short pages.
+            row_count = min(2, 4 - offset)
+            return {
+                "datasetVersionId": dataset_version_row["id"],
+                "datasetId": dataset_version_row["dataset_id"],
+                "schemaVersionId": dataset_version_row["schema_version_id"],
+                "sourceDatasetRevision": dataset_version_row["source_dataset_revision"],
+                "offset": offset,
+                "limit": limit,
+                "totalCount": 4,
+                "rows": [
+                    {
+                        "rowId": f"aaa11111-2222-3333-4444-{offset + i + 1:012d}",
+                        "revision": 3,
+                        "values": {"fff00000-0000-0000-0000-000000000001": float(offset + i + 1)},
+                    }
+                    for i in range(row_count)
+                ],
+            }
+
+        offsets: list[int] = []
+
+        def page_side_effect(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            offsets.append(body["p_offset"])
+            return httpx.Response(200, json=version_page(body["p_offset"], body["p_limit"]))
+
+        route = mock_transport.post("/api/db/rpc/query_dataset_version_rows")
+        route.mock(side_effect=page_side_effect)
+
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            df = client.datasets.version_to_dataframe(
+                dataset_version_row["id"], max_items=4
+            )
+        assert len(df) == 4
+        assert sorted(df["row_id"]) == [
+            f"aaa11111-2222-3333-4444-{n:012d}" for n in range(1, 5)
+        ]
+        assert offsets == [0, 2]

@@ -301,7 +301,6 @@ export const datasetVersionRowsResponse = {
   offset: 0,
   limit: 200,
   totalCount: 1,
-  hasMore: false,
   rows: [
     {
       rowId: "aaa11111-2222-3333-4444-555555555501",

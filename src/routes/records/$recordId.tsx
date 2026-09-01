@@ -1115,9 +1115,12 @@ function EditableNotebook({
     },
   })
 
-  // Undo restores the deleted payload at its original neighbours. Insert can
-  // address an `after` neighbour directly; restoring the first block needs a
-  // second canonical move because insert_block's null anchor means append.
+  // Undo restores the deleted payload at its original neighbours in one
+  // server-authoritative operation: insert_block accepts both anchors, so
+  // even the first-block case (after=null, before=neighbour) resolves
+  // atomically on the server. There is no second corrective move to fail —
+  // either the block is restored at its original position (and the RPC's
+  // (id, order) list reconciles the cache) or nothing was written.
   const undoDeleteMutation = useMutation({
     mutationFn: async ({
       type,
@@ -1132,24 +1135,15 @@ function EditableNotebook({
       }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
-      const inserted = await insertBlock(client, {
+      return insertBlock(client, {
         recordId: record.id,
         type,
         payload,
         afterBlockId: destination.afterBlockId ?? undefined,
+        beforeBlockId: destination.beforeBlockId ?? undefined,
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
-      if (destination.afterBlockId === null && destination.beforeBlockId) {
-        const moved = await moveBlock(client, {
-          blockId: inserted.block.id,
-          afterBlockId: null,
-          beforeBlockId: destination.beforeBlockId,
-          expectedStructureVersion: inserted.structureVersion,
-        })
-        return { ...inserted, ...moved, order: moved.order }
-      }
-      return { ...inserted, order: null }
     },
     onSuccess: (res) => {
       upsertBlock(res.block)
@@ -1426,7 +1420,7 @@ function EditableNotebook({
       payload,
       destination,
     })
-    return restored.block.id
+    return { id: restored.block.id, moved: true }
   }
 
   async function handleMove(

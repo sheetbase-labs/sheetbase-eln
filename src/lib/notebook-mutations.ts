@@ -41,23 +41,39 @@ export interface InsertBlockArgs {
   recordId: string
   type: string
   payload: Record<string, unknown>
-  /** Insert after this block id. Omit to append at the end. */
+  /** Block that should precede the inserted block after the insert. */
   afterBlockId?: string
+  /** Block that should follow the inserted block after the insert. */
+  beforeBlockId?: string
   /** Expected record structure_version; a mismatch raises stale_version. */
   expectedStructureVersion?: number
   payloadSchemaVersion?: number
 }
 
+export interface BlockOrderEntry {
+  id: string
+  order: number
+}
+
 export interface InsertBlockResult {
   block: NotebookBlock
   structureVersion: number
+  /** True when the RPC re-keyed the record's orders (precision recovery). */
+  rebalanced?: boolean
+  /** Full (id, order) list after the insert, for one-round-trip reconcile. */
+  order?: BlockOrderEntry[]
 }
 
 export async function insertBlock(
   client: DataClient,
   args: InsertBlockArgs,
 ): Promise<InsertBlockResult> {
-  const res = await client.rpc<{ block: BlockWire; structure_version: number }>(
+  const res = await client.rpc<{
+    block: BlockWire
+    structure_version: number
+    rebalanced?: boolean
+    order?: BlockOrderEntry[]
+  }>(
     'insert_block',
     {
       p_record_id: args.recordId,
@@ -66,12 +82,15 @@ export async function insertBlock(
       p_payload_schema_version:
         args.payloadSchemaVersion ?? PAYLOAD_SCHEMA_VERSION,
       p_after_block_id: args.afterBlockId ?? null,
+      p_before_block_id: args.beforeBlockId ?? null,
       p_expected_structure_version: args.expectedStructureVersion ?? null,
     },
   )
   return {
     block: toBlock(res.block),
     structureVersion: res.structure_version,
+    rebalanced: res.rebalanced,
+    order: res.order,
   }
 }
 

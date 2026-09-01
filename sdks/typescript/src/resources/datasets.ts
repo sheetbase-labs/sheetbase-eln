@@ -6,7 +6,7 @@
  * concurrency, snapshotting, archiving and restoring datasets.
  */
 import type { HttpTransport } from "../http.js";
-import { iterRpc } from "../pagination.js";
+import { iterRpcByTotalCount, iterTable } from "../pagination.js";
 import {
   fromDataset,
   fromDatasetVersion,
@@ -14,12 +14,14 @@ import {
   fromDatasetVersionRowPage,
   fromCommitResult,
   fromValidationResult,
+  fromSchemaField,
   type Dataset,
   type DatasetVersion,
   type DatasetRowPage,
   type DatasetVersionRowPage,
   type CommitResult,
   type ValidationResult,
+  type SchemaField,
 } from "../types.js";
 import { NotFoundError, StaleVersionError } from "../errors.js";
 
@@ -80,6 +82,36 @@ function cryptoRandomUUID(): string {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
+  });
+}
+
+// ── Expanded records ───────────────────────────────────────────────────────
+
+/**
+ * A dataset row expanded for analysis: metadata keys `rowId` and `revision`
+ * plus one key per field ID. Field labels can optionally rename field keys;
+ * stable field IDs remain the canonical identifiers.
+ */
+export interface DatasetRecord {
+  rowId: string;
+  revision: number;
+  [fieldId: string]: unknown;
+}
+
+function expandRows(
+  rawRows: Record<string, any>[],
+  fieldLabels?: Record<string, string>,
+): DatasetRecord[] {
+  return rawRows.map((row) => {
+    const record: DatasetRecord = {
+      rowId: row.rowId,
+      revision: row.revision,
+    };
+    const values = row.values ?? {};
+    for (const [fieldId, value] of Object.entries(values)) {
+      record[fieldLabels?.[fieldId] ?? fieldId] = value;
+    }
+    return record;
   });
 }
 
@@ -204,7 +236,7 @@ export class DatasetsResource {
         jsonBody: body,
       });
     };
-    yield* iterRpc(fetchPage, {
+    yield* iterRpcByTotalCount(fetchPage, {
       pageSize: options?.pageSize ?? 1000,
       maxItems: options?.maxItems,
     });
@@ -222,10 +254,73 @@ export class DatasetsResource {
           p_offset: offset,
         },
       });
-    yield* iterRpc(fetchPage, {
+    yield* iterRpcByTotalCount(fetchPage, {
       pageSize: options?.pageSize ?? 1000,
       maxItems: options?.maxItems,
     });
+  }
+
+  // ── version access ──────────────────────────────────────────────────
+
+  async listVersions(
+    datasetId: string,
+    options?: { limit?: number; offset?: number },
+  ): Promise<DatasetVersion[]> {
+    const rows = await this.transport.get("/api/db/dataset_versions", {
+      params: {
+        dataset_id: `eq.${datasetId}`,
+        order: "created_at.desc",
+        limit: options?.limit ?? 100,
+        offset: options?.offset ?? 0,
+      },
+    });
+    return rows.map(fromDatasetVersion);
+  }
+
+  async *iterVersions(
+    datasetId: string,
+    options?: { pageSize?: number; maxItems?: number },
+  ): AsyncGenerator<DatasetVersion> {
+    const fetchPage = (limit: number, offset: number) =>
+      this.transport.get("/api/db/dataset_versions", {
+        params: {
+          dataset_id: `eq.${datasetId}`,
+          order: "created_at.desc",
+          limit,
+          offset,
+        },
+      });
+    for await (const row of iterTable(fetchPage, {
+      pageSize: options?.pageSize ?? 100,
+      maxItems: options?.maxItems,
+    })) {
+      yield fromDatasetVersion(row);
+    }
+  }
+
+  // ── schema fields (analysis ergonomics) ─────────────────────────────
+
+  async schemaFields(
+    schemaVersionId: string,
+    options?: { limit?: number; offset?: number },
+  ): Promise<SchemaField[]> {
+    const rows = await this.transport.get(
+      "/api/db/dataset_schema_version_fields",
+      {
+        params: {
+          schema_version_id: `eq.${schemaVersionId}`,
+          order: "display_order.asc",
+          limit: options?.limit ?? 1000,
+          offset: options?.offset ?? 0,
+        },
+      },
+    );
+    return rows.map(fromSchemaField);
+  }
+
+  async fieldLabelMap(schemaVersionId: string): Promise<Record<string, string>> {
+    const fields = await this.schemaFields(schemaVersionId);
+    return Object.fromEntries(fields.map((f) => [f.fieldId, f.label]));
   }
 
   // ── validation ──────────────────────────────────────────────────────
@@ -331,5 +426,90 @@ export class DatasetsResource {
         p_expected_revision: expectedRevision,
       },
     });
+  }
+
+  // ── bulk transfer ───────────────────────────────────────────────────
+
+  /**
+   * Download all matching live rows as expanded records, auto-paginating.
+   *
+   * `fieldLabels` optionally renames field-ID keys (see `fieldLabelMap`);
+   * field IDs remain the canonical identifiers.
+   */
+  async downloadRecords(
+    datasetId: string,
+    options?: {
+      filters?: Record<string, any>[];
+      sort?: Record<string, string>;
+      fieldLabels?: Record<string, string>;
+      maxItems?: number;
+    },
+  ): Promise<DatasetRecord[]> {
+    const rawRows: Record<string, any>[] = [];
+    for await (const row of this.iterRows(datasetId, {
+      filters: options?.filters,
+      sort: options?.sort,
+      maxItems: options?.maxItems,
+    })) {
+      rawRows.push(row);
+    }
+    return expandRows(rawRows, options?.fieldLabels);
+  }
+
+  /**
+   * Download all rows from an immutable Dataset Version as expanded records.
+   * Version rows reconstruct exactly the pinned revision — the
+   * analysis-safe view that never shifts with live data.
+   */
+  async downloadVersionRecords(
+    datasetVersionId: string,
+    options?: {
+      fieldLabels?: Record<string, string>;
+      maxItems?: number;
+    },
+  ): Promise<DatasetRecord[]> {
+    const rawRows: Record<string, any>[] = [];
+    for await (const row of this.iterVersionRows(datasetVersionId, {
+      maxItems: options?.maxItems,
+    })) {
+      rawRows.push(row);
+    }
+    return expandRows(rawRows, options?.fieldLabels);
+  }
+
+  /**
+   * Upload records as create operations in batched commits.
+   *
+   * Each batch commits with its own idempotency key and the revision
+   * returned by the previous batch, so large transfers stay safe under
+   * optimistic concurrency. Returns one `CommitResult` per batch.
+   */
+  async uploadRecords(
+    datasetId: string,
+    expectedRevision: number,
+    records: Array<Record<string, unknown>>,
+    options?: {
+      batchSize?: number;
+      idempotencyKey?: string;
+    },
+  ): Promise<CommitResult[]> {
+    const batchSize = options?.batchSize ?? 500;
+    const results: CommitResult[] = [];
+    let revision = expectedRevision;
+    for (let start = 0; start < records.length; start += batchSize) {
+      const batch = new DatasetRowBatch();
+      for (const record of records.slice(start, start + batchSize)) {
+        const { rowId, revision: _rev, ...values } = record;
+        batch.create(values, rowId as string | undefined);
+      }
+      const result = await this.commitRows(datasetId, revision, batch, {
+        idempotencyKey: options?.idempotencyKey
+          ? `${options.idempotencyKey}-${start / batchSize}`
+          : undefined,
+      });
+      results.push(result);
+      revision = result.datasetRevision;
+    }
+    return results;
   }
 }

@@ -228,3 +228,84 @@ export const commitResponse = {
   ],
   idempotent: false,
 };
+
+export const datasetVersionRow = {
+  id: "990e8400-e29b-41d4-a716-446655440040",
+  dataset_id: "770e8400-e29b-41d4-a716-446655440020",
+  workspace_id: "550e8400-e29b-41d4-a716-446655440001",
+  schema_version_id: "880e8400-e29b-41d4-a716-446655440030",
+  source_dataset_revision: 3,
+  label: "Day 14 freeze",
+  created_at: "2026-01-17T09:00:00Z",
+  created_by_user_id: "user-001",
+  created_by_credential_id: null,
+};
+
+export const schemaFieldRows = [
+  {
+    id: "cc000000-0000-0000-0000-000000000001",
+    schema_version_id: "880e8400-e29b-41d4-a716-446655440030",
+    field_id: "fff00000-0000-0000-0000-000000000001",
+    key: "titer",
+    label: "Titer (vp/mL)",
+    logical_type: "decimal",
+    nullable: false,
+    cardinality: "one",
+    lifecycle: "active",
+    display_order: 1,
+    description: null,
+    default_value: null,
+    validation: null,
+    category: null,
+    relationship: null,
+  },
+  {
+    id: "cc000000-0000-0000-0000-000000000002",
+    schema_version_id: "880e8400-e29b-41d4-a716-446655440030",
+    field_id: "fff00000-0000-0000-0000-000000000002",
+    key: "cell_line",
+    label: "Cell Line",
+    logical_type: "text",
+    nullable: false,
+    cardinality: "one",
+    lifecycle: "active",
+    display_order: 2,
+    description: null,
+    default_value: null,
+    validation: null,
+    category: null,
+    relationship: null,
+  },
+];
+
+export const revisionRow = {
+  id: "dd000000-0000-0000-0000-000000000001",
+  record_id: "660e8400-e29b-41d4-a716-446655440010",
+  workspace_id: "550e8400-e29b-41d4-a716-446655440001",
+  structure_version: 2,
+  metadata_version: 5,
+  reason: "update",
+  metadata_snapshot: { title: "Purification run 1" },
+  block_snapshot: null,
+  canonical_snapshot: { title: "Purification run 1" },
+  integrity_algorithm: "sha256",
+  integrity_digest: "abc123",
+  superseded_by_revision_id: null,
+  created_at: "2026-01-15T10:30:00Z",
+  updated_at: "2026-01-15T10:30:00Z",
+  created_by_user_id: "user-001",
+};
+
+export const datasetVersionRowsResponse = {
+  datasetVersionId: "990e8400-e29b-41d4-a716-446655440040",
+  offset: 0,
+  limit: 200,
+  totalCount: 1,
+  rows: [
+    {
+      rowId: "aaa11111-2222-3333-4444-555555555501",
+      revision: 3,
+      values: { "fff00000-0000-0000-0000-000000000001": 1.2e9 },
+    },
+  ],
+};

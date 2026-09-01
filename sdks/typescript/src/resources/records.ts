@@ -1,7 +1,12 @@
 /** Record resource — list, get, create, update, archive, restore, link, iterate. */
 import type { HttpTransport } from "../http.js";
 import { iterTable } from "../pagination.js";
-import { fromRecord, type SheetbaseRecord } from "../types.js";
+import {
+  fromRecord,
+  fromRecordRevision,
+  type SheetbaseRecord,
+  type RecordRevision,
+} from "../types.js";
 import { NotFoundError } from "../errors.js";
 
 export class RecordsResource {
@@ -287,6 +292,49 @@ export class RecordsResource {
       maxItems: options?.maxItems,
     })) {
       yield fromRecord(row);
+    }
+  }
+
+  /**
+   * List the immutable revisions of a record, newest first (table read).
+   *
+   * Revisions are the record's audit/provenance trail: each pins a frozen
+   * `canonicalSnapshot` and `integrityDigest`. Audit history is not the
+   * same as submitted evidence.
+   */
+  async history(
+    recordId: string,
+    options?: { limit?: number; offset?: number },
+  ): Promise<RecordRevision[]> {
+    const rows = await this.transport.get("/api/db/revisions", {
+      params: {
+        record_id: `eq.${recordId}`,
+        order: "created_at.desc",
+        limit: options?.limit ?? 100,
+        offset: options?.offset ?? 0,
+      },
+    });
+    return rows.map(fromRecordRevision);
+  }
+
+  async *iterHistory(
+    recordId: string,
+    options?: { pageSize?: number; maxItems?: number },
+  ): AsyncGenerator<RecordRevision> {
+    const fetchPage = (limit: number, offset: number) =>
+      this.transport.get("/api/db/revisions", {
+        params: {
+          record_id: `eq.${recordId}`,
+          order: "created_at.desc",
+          limit,
+          offset,
+        },
+      });
+    for await (const row of iterTable(fetchPage, {
+      pageSize: options?.pageSize ?? 100,
+      maxItems: options?.maxItems,
+    })) {
+      yield fromRecordRevision(row);
     }
   }
 }

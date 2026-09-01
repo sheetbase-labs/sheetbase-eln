@@ -864,7 +864,7 @@ function richDomainBlock(id: string, text: string, order: number) {
 }
 
 describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
-  it('moves the restored first block to its original position only when the retry move succeeds', async () => {
+  it('restores a deleted first block atomically via one insert_block with both anchors', async () => {
     const user = userEvent.setup()
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -880,29 +880,24 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
         (b) => b.id,
       )
 
-    // delete_block succeeds; insert_block re-creates the first block but can
-    // only append (order 3); the corrective move_block fails twice (transient)
-    // and succeeds on the third attempt with the restored (id, order) list.
-    let moveCalls = 0
+    // delete_block removes the first block; undo re-inserts it in a single
+    // server-authoritative RPC that resolves position against both anchors —
+    // there is no second move to fail. The RPC returns the restored
+    // (id, order) list, which the cache applies verbatim.
     const rpc = vi.fn(async (name: string) => {
       switch (name) {
         case 'delete_block':
           return { structure_version: 2, order: [{ id: 'b2', order: 2 }] }
         case 'insert_block':
-          return { block: blockWire('b1', 'A', 3), structure_version: 3 }
-        case 'move_block': {
-          moveCalls += 1
-          if (moveCalls <= 2) throw new Error('move failed')
           return {
-            block: blockWire('b1', 'A', 1),
-            structure_version: 4,
+            block: blockWire('b1-restored', 'A', 1),
+            structure_version: 3,
             rebalanced: false,
             order: [
-              { id: 'b1', order: 1 },
+              { id: 'b1-restored', order: 1 },
               { id: 'b2', order: 2 },
             ],
           }
-        }
         default:
           throw new Error(`unexpected rpc: ${name}`)
       }
@@ -929,58 +924,105 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
       </QueryClientProvider>,
     )
 
-    // Delete the first block and undo the deletion. The insert lands, but the
-    // corrective move fails, so the restored block must sit appended at the
-    // end — never presented as restored at its original position.
     await user.click(screen.getAllByRole('button', { name: /Block actions/ })[0])
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Undo' }))
 
+    // One RPC, positioned between both original neighbours (after=null,
+    // before='b2' — the first-block case the old non-atomic undo could not
+    // express and had to patch up with a second move).
+    expect(rpc).toHaveBeenCalledTimes(2)
+    expect(rpc).toHaveBeenNthCalledWith(
+      2,
+      'insert_block',
+      expect.objectContaining({
+        p_record_id: 'r1',
+        p_after_block_id: null,
+        p_before_block_id: 'b2',
+        p_expected_structure_version: 2,
+      }),
+    )
+    // The restored block sits at its original position from the RPC's order
+    // list; the undo status is dismissed as fully restored.
+    expect(cachedIds()).toEqual(['b1-restored', 'b2'])
+    expect(screen.queryByText('Block deleted.')).toBeNull()
+  })
+
+  it('writes nothing to the cache when the atomic insert fails', async () => {
+    const user = userEvent.setup()
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    queryClient.setQueryData(notebookQueryKeys.record('r1'), record)
+    queryClient.setQueryData(notebookQueryKeys.blocks('r1'), [
+      blockWire('b1', 'A', 1),
+      blockWire('b2', 'B', 2),
+    ])
+    const blocksKey = notebookQueryKeys.blocks('r1')
+    const cachedIds = () =>
+      (queryClient.getQueryData<{ id: string }[]>(blocksKey) ?? []).map(
+        (b) => b.id,
+      )
+
+    // delete_block succeeds; the undo insert is rejected server-side. There
+    // is no partial state to reconcile: the delete stands, nothing was
+    // re-inserted, and the record stays honest about what exists.
+    let deleted = false
+    const rpc = vi.fn(async (name: string) => {
+      switch (name) {
+        case 'delete_block':
+          deleted = true
+          return { structure_version: 2, order: [{ id: 'b2', order: 2 }] }
+        case 'insert_block':
+          if (!deleted) throw new Error('undo offered before delete')
+          throw new Error('restore rejected')
+        default:
+          throw new Error(`unexpected rpc: ${name}`)
+      }
+    })
+    const fakeClient = {
+      list: () => Promise.resolve([]),
+      rpc,
+    } as unknown as DataClient
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookCanvas
+          record={record}
+          blocks={[
+            richDomainBlock('b1', 'A', 1),
+            richDomainBlock('b2', 'B', 2),
+          ]}
+          isLoading={false}
+          error={null}
+          onRetry={() => {}}
+          client={fakeClient}
+          queryClient={queryClient}
+        />
+      </QueryClientProvider>,
+    )
+
+    await user.click(screen.getAllByRole('button', { name: /Block actions/ })[0])
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(cachedIds()).toEqual(['b2'])
+
+    // The undo insert fails: no block is added, no order list applied.
+    await expect(
+      (async () => {
+        await user.click(screen.getByRole('button', { name: 'Undo' }))
+      })(),
+    ).resolves.toBeUndefined()
     expect(rpc).toHaveBeenCalledWith(
       'insert_block',
       expect.objectContaining({
         p_record_id: 'r1',
         p_after_block_id: null,
-        p_expected_structure_version: 2,
-      }),
-    )
-    expect(rpc).toHaveBeenCalledWith(
-      'move_block',
-      expect.objectContaining({
-        p_block_id: 'b1',
-        p_after_block_id: null,
         p_before_block_id: 'b2',
-        p_expected_structure_version: 3,
       }),
     )
-    // Wrong position (appended), honestly reported: incomplete-undo status
-    // with a retry affordance, not a success message.
-    expect(cachedIds()).toEqual(['b2', 'b1'])
-    expect(
-      screen.getByText(
-        'Undo incomplete — the block was restored but its move failed.',
-      ),
-    ).toBeTruthy()
-
-    // A failed retry changes nothing on the server or in the cache: the
-    // block is never silently repositioned or declared restored.
-    await user.click(screen.getByRole('button', { name: 'Retry move' }))
-    expect(cachedIds()).toEqual(['b2', 'b1'])
-    expect(
-      screen.getByText(
-        'Undo incomplete — the block was restored but its move failed.',
-      ),
-    ).toBeTruthy()
-
-    // The successful retry move restores the original position and clears
-    // the incomplete-undo status.
-    await user.click(screen.getByRole('button', { name: 'Retry move' }))
-    expect(cachedIds()).toEqual(['b1', 'b2'])
-    expect(
-      screen.queryByText(
-        'Undo incomplete — the block was restored but its move failed.',
-      ),
-    ).toBeNull()
+    expect(cachedIds()).toEqual(['b2'])
   })
 })
+

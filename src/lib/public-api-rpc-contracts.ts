@@ -493,7 +493,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
   insert_block: {
     summary: 'Insert a notebook block',
     description:
-      'Inserts after `p_after_block_id` (null appends). Concurrency: `p_expected_structure_version`.',
+      'Inserts between the supplied anchors: `p_after_block_id` only inserts after it (null appends), `p_before_block_id` only inserts before it (start), both anchors insert strictly between them (23514 if inverted). Concurrency: `p_expected_structure_version`.',
     required: [
       'p_record_id',
       'p_type',
@@ -501,6 +501,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       'p_payload_schema_version',
       'p_after_block_id',
       'p_expected_structure_version',
+      'p_before_block_id',
     ],
     properties: {
       p_record_id: uuid('Notebook record.'),
@@ -510,7 +511,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_after_block_id: {
         ...UUID,
         nullable: true,
-        description: 'Insert after this block; null appends.',
+        description: 'Block that should precede this one, or null to append.',
       },
       p_expected_structure_version: int(
         'Current `records.structure_version`.',
@@ -518,11 +519,21 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
           minimum: 1,
         },
       ),
+      p_before_block_id: {
+        ...UUID,
+        nullable: true,
+        description: 'Block that should follow this one, or null.',
+      },
     },
-    result: obj({ block: blockRow, structure_version: INT }, [
-      'block',
-      'structure_version',
-    ]),
+    result: obj(
+      {
+        block: blockRow,
+        structure_version: INT,
+        rebalanced: BOOL,
+        order: { type: 'array', items: { type: 'number' } },
+      },
+      ['block', 'structure_version'],
+    ),
   },
   delete_block: {
     summary: 'Delete a notebook block',

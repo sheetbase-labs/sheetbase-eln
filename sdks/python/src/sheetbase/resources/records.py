@@ -230,6 +230,7 @@ class RecordsResource:
         payload_schema_version: int,
         expected_structure_version: int,
         after_block_id: Optional[str] = None,
+        before_block_id: Optional[str] = None,
     ) -> Any:
         return self._transport.post(
             "/api/db/rpc/insert_block",
@@ -240,6 +241,7 @@ class RecordsResource:
                 "p_payload_schema_version": payload_schema_version,
                 "p_after_block_id": after_block_id,
                 "p_expected_structure_version": expected_structure_version,
+                "p_before_block_id": before_block_id,
             },
         )
 

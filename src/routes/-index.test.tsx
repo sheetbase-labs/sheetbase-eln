@@ -1,18 +1,22 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   ActivityFeed,
+  FavouritesSection,
   MentionsPanel,
   MyPrioritiesPanel,
   MyWorkDashboard,
   PinnedRecordsPanel,
   ProjectQuickAccess,
+  RecentSection,
   RecentWorkTable,
   UpcomingApprovalsPanel,
 } from './index'
+import type { FavouriteItem } from '#/lib/favourites'
 import type { NotebookRecord, Project } from '#/lib/notebook-data'
+import type { RecentItem } from '#/lib/recents'
 import type {
   DashboardActivityItem,
   DashboardMentionItem,
@@ -416,5 +420,179 @@ describe('MyWorkDashboard', () => {
 
     // Greeting varies by time of day; assert it addresses "Gareth".
     expect(screen.getByText(/Gareth$/)).toBeTruthy()
+  })
+})
+
+describe('RecentSection', () => {
+  const recentItem = (
+    overrides: Partial<RecentItem> & Pick<RecentItem, 'kind' | 'id'>,
+  ): RecentItem => ({
+    label: 'Lentivector stability run 1',
+    identifier: 'EXP-2025-0001',
+    destination: '/records/r1',
+    signal: 'edited',
+    lastActivityAt: new Date(Date.now() - 3_600_000).toISOString(),
+    viewedAt: null,
+    editedAt: null,
+    ...overrides,
+  })
+
+  it('renders recent items with canonical labels, kind and signal', () => {
+    render(
+      <RecentSection
+        items={[
+          recentItem({ kind: 'record', id: 'r1' }),
+          recentItem({
+            kind: 'sheet',
+            id: 's1',
+            label: 'Dose response',
+            identifier: null,
+            destination: '/sheets/s1',
+            signal: 'viewed',
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />,
+    )
+
+    const recordLink = screen.getByRole('link', {
+      name: /Lentivector stability run 1/,
+    })
+    expect(recordLink.getAttribute('href')).toBe('/records/r1')
+    expect(screen.getByText('Edited')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Dose response/ })).toBeTruthy()
+    expect(screen.getByText('Viewed')).toBeTruthy()
+  })
+
+  it('renders the reviewed signal for objects under review', () => {
+    render(
+      <RecentSection
+        items={[recentItem({ kind: 'record', id: 'r1', signal: 'reviewed' })]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />,
+    )
+    expect(screen.getByText('In review')).toBeTruthy()
+  })
+
+  it('shows an empty state when there is nothing to resume', () => {
+    render(
+      <RecentSection
+        items={[]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />,
+    )
+    expect(screen.getByText('Nothing recent yet')).toBeTruthy()
+  })
+
+  it('shows an error state with a retry control', () => {
+    render(
+      <RecentSection
+        items={[]}
+        isLoading={false}
+        error={new Error('boom')}
+        onRetry={() => {}}
+      />,
+    )
+    expect(screen.getByRole('alert').textContent).toBe(
+      'Could not load recent items.',
+    )
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+  })
+})
+
+describe('FavouritesSection', () => {
+  const favouriteItem = (
+    overrides: Partial<FavouriteItem> & Pick<FavouriteItem, 'kind' | 'id'>,
+  ): FavouriteItem => ({
+    label: 'Lentivector stability run 1',
+    identifier: 'EXP-2025-0001',
+    destination: '/records/r1',
+    createdAt: new Date(Date.now() - 26 * 3_600_000).toISOString(),
+    ...overrides,
+  })
+
+  it('renders favourites with canonical labels, kind and destination', () => {
+    render(
+      <FavouritesSection
+        items={[
+          favouriteItem({ kind: 'record', id: 'r1' }),
+          favouriteItem({
+            kind: 'project',
+            id: 'p1',
+            label: 'Lentivector Stability Study',
+            identifier: 'LV-001',
+            destination: '/projects/p1',
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+        onRemove={() => {}}
+      />,
+    )
+
+    expect(
+      screen.getByRole('link', { name: /Lentivector stability run 1/ }),
+    ).toBeTruthy()
+    expect(
+      screen
+        .getByRole('link', { name: /Lentivector Stability Study/ })
+        .getAttribute('href'),
+    ).toBe('/projects/p1')
+    // The meta line carries the kind label and the secondary identifier.
+    expect(screen.getByText(/Record · EXP-2025-0001/)).toBeTruthy()
+    expect(screen.getByText(/Project · LV-001/)).toBeTruthy()
+  })
+
+  it('exposes an unfavourite control for each item', () => {
+    const onRemove = vi.fn()
+    render(
+      <FavouritesSection
+        items={[favouriteItem({ kind: 'sheet', id: 's1' })]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+        onRemove={onRemove}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Remove/ }))
+    expect(onRemove).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'sheet', id: 's1' }),
+    )
+  })
+
+  it('shows an honest empty state pointing at the star affordance', () => {
+    render(
+      <FavouritesSection
+        items={[]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+        onRemove={() => {}}
+      />,
+    )
+    expect(screen.getByText('No favourites yet')).toBeTruthy()
+  })
+
+  it('shows an error state with a retry control', () => {
+    render(
+      <FavouritesSection
+        items={[]}
+        isLoading={false}
+        error={new Error('boom')}
+        onRetry={() => {}}
+        onRemove={() => {}}
+      />,
+    )
+    expect(screen.getByRole('alert').textContent).toBe(
+      'Could not load favourites.',
+    )
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
   })
 })

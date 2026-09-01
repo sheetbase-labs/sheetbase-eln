@@ -1,5 +1,7 @@
 import * as React from 'react'
-import { EditorContent, useEditor } from '@tiptap/react'
+import { EditorContent, Extension, useEditor } from '@tiptap/react'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Subscript from '@tiptap/extension-subscript'
@@ -30,7 +32,7 @@ import {
   slashCommandFilteredOptions,
 } from './slash-command-menu'
 
-const extensions = [
+const baseExtensions = [
   StarterKit.configure({
     blockquote: false,
     codeBlock: false,
@@ -56,6 +58,19 @@ interface RichTextEditorProps {
   onBlur: () => void
   autoFocus?: boolean
   className?: string
+  /**
+   * NOTE-02: prefix for stable heading anchors (`<prefix>-h<index>`) added
+   * to the editable DOM via ProseMirror node decorations, so outline links
+   * resolve against active authoring content exactly as in read view. The
+   * anchors live in the view only — never in the payload.
+   */
+  anchorPrefix?: string
+  /**
+   * NOTE-02 same-block collapse: top-level node indexes hidden by a
+   * collapsed section. Applied as node decorations (`hidden print:contents`)
+   * so the payload is untouched and print output stays expanded.
+   */
+  hiddenNodeIndexes?: ReadonlySet<number>
   /** Called when the user picks a block type from the slash command menu. */
   onSlashCommand?: (type: string) => void
   /** Enter at end of the last paragraph → create a new text block below. */
@@ -84,12 +99,69 @@ const SLASH_MENU_CLOSED: SlashMenuState = {
   left: 0,
 }
 
+/**
+ * NOTE-02: ProseMirror decorations that mirror the read-view projection in
+ * the editable DOM. Both plugins read refs, so they never need the editor to
+ * be recreated; `viewRefreshEffect` below forces decoration recomputation
+ * when the inputs change without any transaction of their own.
+ */
+const HEADING_ANCHOR_PLUGIN_KEY = new PluginKey('notebookHeadingAnchors')
+const HIDDEN_NODES_PLUGIN_KEY = new PluginKey('notebookHiddenNodes')
+
+function createDecorationPlugins(
+  anchorPrefixRef: React.RefObject<string | undefined>,
+  hiddenIndexesRef: React.RefObject<ReadonlySet<number> | undefined>,
+) {
+  const headingAnchors = new Plugin({
+    key: HEADING_ANCHOR_PLUGIN_KEY,
+    props: {
+      decorations(state) {
+        const prefix = anchorPrefixRef.current
+        if (!prefix) return DecorationSet.empty
+        const decorations: Decoration[] = []
+        state.doc.forEach((node, offset, index) => {
+          if (node.type.name !== 'heading') return
+          decorations.push(
+            Decoration.node(offset, offset + node.nodeSize, {
+              id: `${prefix}-h${index}`,
+              class: 'scroll-mt-28',
+            }),
+          )
+        })
+        return DecorationSet.create(state.doc, decorations)
+      },
+    },
+  })
+  const hiddenNodes = new Plugin({
+    key: HIDDEN_NODES_PLUGIN_KEY,
+    props: {
+      decorations(state) {
+        const hidden = hiddenIndexesRef.current
+        if (!hidden || hidden.size === 0) return DecorationSet.empty
+        const decorations: Decoration[] = []
+        state.doc.forEach((node, offset, index) => {
+          if (!hidden.has(index)) return
+          decorations.push(
+            Decoration.node(offset, offset + node.nodeSize, {
+              class: 'hidden print:contents',
+            }),
+          )
+        })
+        return DecorationSet.create(state.doc, decorations)
+      },
+    },
+  })
+  return [headingAnchors, hiddenNodes]
+}
+
 export function RichTextEditor({
   payload,
   onChange,
   onBlur,
   autoFocus,
   className,
+  anchorPrefix,
+  hiddenNodeIndexes,
   onSlashCommand,
   onEnterAtEnd,
   onBackspaceAtStart,
@@ -107,6 +179,28 @@ export function RichTextEditor({
   // Refs so Tiptap's once-created callbacks always read the latest values.
   const slashMenuRef = React.useRef(slashMenu)
   slashMenuRef.current = slashMenu
+
+  // NOTE-02 decoration inputs, read through refs by the plugins above so a
+  // changed prefix or collapse state never recreates the editor.
+  const anchorPrefixRef = React.useRef(anchorPrefix)
+  anchorPrefixRef.current = anchorPrefix
+  const hiddenIndexesRef = React.useRef(hiddenNodeIndexes)
+  hiddenIndexesRef.current = hiddenNodeIndexes
+  // Created once — the plugin instances must stay stable for the editor's
+  // lifetime or ProseMirror would tear down state on every render.
+  const decorationPlugins = React.useRef(
+    createDecorationPlugins(anchorPrefixRef, hiddenIndexesRef),
+  ).current
+  const extensions = React.useMemo(
+    () => [
+      ...baseExtensions,
+      Extension.create({
+        name: 'notebookDecorations',
+        addProseMirrorPlugins: () => decorationPlugins,
+      }),
+    ],
+    [decorationPlugins],
+  )
 
   const cbRef = React.useRef({
     onChange,
@@ -276,6 +370,15 @@ export function RichTextEditor({
     if (editor && autoFocus) editor.commands.focus('end')
   }, [autoFocus, editor])
 
+  // NOTE-02: decoration inputs changed without a document transaction (e.g.
+  // a section was collapsed or the block was renamed). Dispatch an empty
+  // transaction so the plugins recompute their decorations. The no-op
+  // transaction never changes the doc, so onUpdate does not fire.
+  React.useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    editor.view.dispatch(editor.state.tr.setMeta('notebookDecorations', 1))
+  }, [editor, anchorPrefix, hiddenNodeIndexes])
+
   // Close the slash menu when clicking outside the editor.
   React.useEffect(() => {
     if (!slashMenu.open) return
@@ -291,7 +394,11 @@ export function RichTextEditor({
   if (!editor) {
     return (
       <div className={className}>
-        <RichTextContent payload={payload} />
+        <RichTextContent
+          payload={payload}
+          anchorPrefix={anchorPrefix}
+          hiddenNodeIndexes={hiddenNodeIndexes}
+        />
       </div>
     )
   }

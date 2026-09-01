@@ -200,6 +200,23 @@ describe('SDK-01 public-contract support matrix', () => {
     )
   })
 
+  it('keeps each published package version in step with its SDK source', () => {
+    const npmPackage = JSON.parse(
+      readFileSync('sdks/typescript/package.json', 'utf8'),
+    ) as { version: string }
+    const pyproject = readFileSync('sdks/python/pyproject.toml', 'utf8')
+    const pythonVersion = pyproject.match(/^version\s*=\s*"([^"]+)"$/m)?.[1]
+
+    expect(npmPackage.version).toBeTruthy()
+    expect(readFileSync('sdks/typescript/src/version.ts', 'utf8')).toContain(
+      `VERSION = "${npmPackage.version}"`,
+    )
+    expect(pythonVersion).toBeTruthy()
+    expect(
+      readFileSync('sdks/python/src/sheetbase/_version.py', 'utf8'),
+    ).toContain(`__version__ = "${pythonVersion}"`)
+  })
+
   it('makes deliberate and identical Python/TypeScript decisions', () => {
     const decisions = [...matrix.token, ...matrix.tables, ...matrix.rpcs]
     for (const decision of decisions) {

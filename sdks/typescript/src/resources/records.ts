@@ -221,6 +221,7 @@ export class RecordsResource {
     payloadSchemaVersion: number;
     expectedStructureVersion: number;
     afterBlockId?: string | null;
+    beforeBlockId?: string | null;
   }): Promise<unknown> {
     return this.transport.post("/api/db/rpc/insert_block", {
       jsonBody: {
@@ -230,6 +231,7 @@ export class RecordsResource {
         p_payload_schema_version: params.payloadSchemaVersion,
         p_after_block_id: params.afterBlockId ?? null,
         p_expected_structure_version: params.expectedStructureVersion,
+        p_before_block_id: params.beforeBlockId ?? null,
       },
     });
   }

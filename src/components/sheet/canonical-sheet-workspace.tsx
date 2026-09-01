@@ -48,6 +48,7 @@ import {
 } from '#/lib/sheet-presentation-view'
 import { ExportMenu } from '#/components/export/export-menu'
 import { ObjectHistoryDialog } from '#/components/audit'
+import type { BoundColumnProvenance } from '#/lib/sheet-bound-columns'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import {
   createAdHocTextField,
@@ -82,6 +83,7 @@ import { validateSheetRecordBatch } from '#/lib/sheet-record-mapping'
 import {
   resolveSheetWriteTarget,
   SheetBatchValidationError,
+  SheetMixedAuthorityWriteError,
   sheetCellWriteError,
   writeSheetCells,
 } from '#/lib/sheet-write-back'
@@ -679,6 +681,14 @@ export function CanonicalSheetEditor({
             error.errors[0]?.code ?? 'validation_failed'
           }. Nothing was written.`,
         )
+        return
+      }
+      if (error instanceof SheetMixedAuthorityWriteError) {
+        // GRID-02: the range operation spanned more than one authoritative
+        // target and was rejected before any write. Keep the pending values
+        // so the scientist can split the edit; do not claim all-or-nothing
+        // semantics that were never attempted.
+        setWriteStatus(error.message)
         return
       }
       setWriteStatus(`Write-back ${sheetCellWriteError(error)}.`)
@@ -1587,49 +1597,11 @@ export function CanonicalSheetEditor({
           </p>
         ) : null}
         {selectedColumn ? (
-          <p role="status">
-            {selectedColumn.label}
-            {selectedColumn.origin === 'bound'
-              ? ' · governed'
-              : ` · ${selectedColumn.origin}`}
-            {provenance && 'kind' in provenance
-              ? provenance.kind === 'present'
-                ? ` · ${provenance.provenance.sourceKind} provenance`
-                : ' · unmatched source'
-              : ''}
-            {provenance &&
-            provenance.kind === 'present' &&
-            provenance.provenance.sourceKind === 'dataset' ? (
-              <>
-                {' · dataset '}
-                {/* NAV-02: provenance resolves to the canonical object. */}
-                <Link
-                  className="underline underline-offset-2 hover:text-foreground"
-                  to="/datasets"
-                  search={{
-                    dataset: provenance.provenance.sourceDatasetId,
-                    archived: false,
-                  }}
-                >
-                  {provenance.provenance.sourceDatasetId}
-                </Link>
-              </>
-            ) : null}
-            {provenance &&
-            provenance.kind === 'present' &&
-            provenance.provenance.sourceKind === 'record' ? (
-              <>
-                {' · record '}
-                <Link
-                  className="underline underline-offset-2 hover:text-foreground"
-                  to="/records/$recordId"
-                  params={{ recordId: provenance.provenance.sourceRecordId }}
-                >
-                  {provenance.provenance.sourceRecordId}
-                </Link>
-              </>
-            ) : null}
-          </p>
+          <SheetProvenanceLine
+            columnLabel={selectedColumn.label}
+            columnOrigin={selectedColumn.origin}
+            provenance={provenance}
+          />
         ) : null}
       </div>
       {canWrite ? (
@@ -1711,6 +1683,69 @@ export function CanonicalSheetEditor({
         </form>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * NAV-02 — provenance line for the selected cell. Bound provenance resolves
+ * to the canonical related object: Dataset provenance links to the Dataset
+ * explorer, Record provenance to the owning Record — always via stable UUID
+ * destinations from the canonical routes, never label-derived paths.
+ */
+export function SheetProvenanceLine({
+  columnLabel,
+  columnOrigin,
+  provenance,
+}: {
+  columnLabel: string
+  columnOrigin: 'bound' | 'local' | 'calculation'
+  provenance:
+    | { kind: 'present'; provenance: BoundColumnProvenance }
+    | { kind: 'unmatched'; provenance: unknown }
+    | null
+}) {
+  return (
+    <p role="status">
+      {columnLabel}
+      {columnOrigin === 'bound' ? ' · governed' : ` · ${columnOrigin}`}
+      {provenance && 'kind' in provenance
+        ? provenance.kind === 'present'
+          ? ` · ${provenance.provenance.sourceKind} provenance`
+          : ' · unmatched source'
+        : ''}
+      {provenance &&
+      provenance.kind === 'present' &&
+      provenance.provenance.sourceKind === 'dataset' ? (
+        <>
+          {' · dataset '}
+          <Link
+            className="underline underline-offset-2 hover:text-foreground"
+            to="/datasets"
+            // NAV-02 review fix: the link carries only the stable Dataset
+            // ID. The explorer resolves the Dataset's lifecycle itself and
+            // flips to the archived view — the link must not claim the
+            // active-only filter for a Dataset it knows nothing about.
+            search={{ dataset: provenance.provenance.sourceDatasetId }}
+          >
+            {provenance.provenance.sourceDatasetId}
+          </Link>
+        </>
+      ) : null}
+      {provenance &&
+      provenance.kind === 'present' &&
+      provenance.provenance.sourceKind === 'record' ? (
+        <>
+          {' · record '}
+          <Link
+            className="underline underline-offset-2 hover:text-foreground"
+            to="/records/$recordId"
+            params={{ recordId: provenance.provenance.sourceRecordId }}
+          >
+            {provenance.provenance.sourceRecordId}
+          </Link>
+        </>
+      ) : null}
+    </p>
   )
 }
 

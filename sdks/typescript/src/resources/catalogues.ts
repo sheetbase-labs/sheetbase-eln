@@ -56,7 +56,7 @@ export class CataloguesResource {
       offset: options?.offset ?? 0,
     };
     if (options?.schemaVersionId) {
-      params.dataset_schema_version_id = `eq.${options.schemaVersionId}`;
+      params.schema_version_id = `eq.${options.schemaVersionId}`;
     }
     return this.transport.get("/api/db/dataset_schema_version_fields", {
       params,

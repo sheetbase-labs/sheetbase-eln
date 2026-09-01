@@ -16,6 +16,22 @@ import { fetchAnalysisDefinition } from '#/lib/analysis-definitions-data'
 import type * as chartData from '#/lib/chart-data'
 import { fetchFrozenAnalysisRows } from '#/lib/chart-data'
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    children,
+    ...rest
+  }: {
+    to: string
+    children?: ReactNode
+    [key: string]: unknown
+  }) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
+  ),
+}))
+
 vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
   const actual = await importOriginal<typeof definitionsData>()
   return {
@@ -171,5 +187,63 @@ describe('analysis block preview', () => {
   it('prompts configuration for an empty draft', () => {
     renderPreview({})
     expect(screen.getByText(/No analysis configured/i)).toBeTruthy()
+  })
+
+  it('exposes the pinned Dataset affordance on a frozen block (NOTE-03)', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows: [{ [FIELD_RECOVERY]: 10 }],
+      totalCount: 1,
+      matchesProvenance: true,
+    })
+    renderPreview({ title: 'Recovery', definitionId: 'def-1', frozen: FROZEN })
+    const open = await screen.findByRole('link', { name: 'Open dataset' })
+    expect(open.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent('11111111-1111-1111-8111-111111111111')}`,
+    )
+  })
+
+  it('exposes the canonical Dataset affordance on a live block (NOTE-03)', async () => {
+    mockFetchDefinition.mockResolvedValue({
+      id: 'def-1',
+      workspace_id: 'ws',
+      owner_user_id: 'user-1',
+      name: 'Recovery summary',
+      version: 5,
+      definition: FROZEN.definition,
+      source_revisions: [],
+      created_at: '',
+      updated_at: '',
+    })
+    const { fetchCanonicalDataset, fetchDatasetRows } =
+      await import('#/lib/chart-data')
+    vi.mocked(fetchCanonicalDataset).mockResolvedValue({
+      datasetId: '11111111-1111-1111-8111-111111111111',
+      name: 'Stability',
+      workspaceId: 'ws',
+      schemaVersionId: 'sv-1',
+      schemaVersionNumber: 3,
+      revision: 1,
+      columns: [
+        {
+          id: FIELD_RECOVERY,
+          label: 'Recovery (%)',
+          logicalType: 'decimal',
+        },
+      ],
+    })
+    vi.mocked(fetchDatasetRows).mockResolvedValue({
+      rows: [{ [FIELD_RECOVERY]: 100 }],
+      totalCount: 1,
+      truncated: false,
+    })
+
+    renderPreview({ title: 'Recovery', definitionId: 'def-1' })
+    await waitFor(() =>
+      expect(screen.getByText(/Recovery summary · v5/)).toBeTruthy(),
+    )
+    const open = screen.getByRole('link', { name: 'Open dataset' })
+    expect(open.getAttribute('href')).toBe(
+      `/datasets?dataset=${encodeURIComponent('11111111-1111-1111-8111-111111111111')}`,
+    )
   })
 })

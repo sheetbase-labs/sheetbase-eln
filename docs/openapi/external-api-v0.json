@@ -12545,8 +12545,25 @@
                     },
                     "order": {
                       "type": "array",
+                      "description": "Full (id, order) list for the record after the operation.",
                       "items": {
-                        "type": "number"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Block UUID."
+                          },
+                          "order": {
+                            "type": "number",
+                            "description": "Fractional position."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "order"
+                        ]
                       }
                     }
                   },
@@ -13053,7 +13070,7 @@
         "x-sheetbase-scopes": [
           "projects:write"
         ],
-        "description": "Inserts after `p_after_block_id` (null appends). Concurrency: `p_expected_structure_version`.",
+        "description": "Inserts between the supplied anchors: `p_after_block_id` only inserts after it (null appends), `p_before_block_id` only inserts before it (start), both anchors insert strictly between them (23514 if inverted). Concurrency: `p_expected_structure_version`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13067,7 +13084,8 @@
                   "p_payload",
                   "p_payload_schema_version",
                   "p_after_block_id",
-                  "p_expected_structure_version"
+                  "p_expected_structure_version",
+                  "p_before_block_id"
                 ],
                 "properties": {
                   "p_record_id": {
@@ -13095,12 +13113,18 @@
                     "type": "string",
                     "format": "uuid",
                     "nullable": true,
-                    "description": "Insert after this block; null appends."
+                    "description": "Block that should precede this one, or null to append."
                   },
                   "p_expected_structure_version": {
                     "type": "integer",
                     "description": "Current `records.structure_version`.",
                     "minimum": 1
+                  },
+                  "p_before_block_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true,
+                    "description": "Block that should follow this one, or null."
                   }
                 }
               }
@@ -13121,6 +13145,32 @@
                     },
                     "structure_version": {
                       "type": "integer"
+                    },
+                    "rebalanced": {
+                      "type": "boolean"
+                    },
+                    "order": {
+                      "type": "array",
+                      "description": "Full (id, order) list for the record after the operation.",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Block UUID."
+                          },
+                          "order": {
+                            "type": "number",
+                            "description": "Fractional position."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "order"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -14019,8 +14069,25 @@
                     },
                     "order": {
                       "type": "array",
+                      "description": "Full (id, order) list for the record after the operation.",
                       "items": {
-                        "type": "number"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Block UUID."
+                          },
+                          "order": {
+                            "type": "number",
+                            "description": "Fractional position."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "order"
+                        ]
                       }
                     }
                   },

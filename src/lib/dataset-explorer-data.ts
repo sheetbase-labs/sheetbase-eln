@@ -61,6 +61,9 @@ export const datasetExplorerDataClient = createDataClient()
 export const datasetExplorerQueryKeys = {
   summaries: (includeArchived = false) =>
     ['dataset-explorer-summaries', includeArchived] as const,
+  /** NAV-02: lifecycle of one Dataset by stable ID, regardless of archive state. */
+  lifecycle: (datasetId: string) =>
+    ['dataset-explorer-dataset-lifecycle', datasetId] as const,
   rows: (datasetId: string, queryId: string) =>
     ['dataset-explorer-rows', datasetId, queryId] as const,
   rowCount: (datasetId: string, queryId: string) =>
@@ -112,6 +115,85 @@ interface DatasetVersionFieldWire {
 }
 
 // --- Dataset listing ------------------------------------------------------
+
+/**
+ * NAV-02: read one Dataset's lifecycle by stable ID, regardless of archive
+ * state. Deep links (Sheet provenance) carry only the stable UUID — the
+ * explorer uses this to flip itself to the archived view instead of
+ * silently selecting a different active Dataset.
+ */
+export async function fetchDatasetLifecycleById(
+  client: DataClient = datasetExplorerDataClient,
+  datasetId: string,
+): Promise<'active' | 'archived' | 'retired' | null> {
+  const rows = await client.list<{
+    lifecycle: 'active' | 'archived' | 'retired'
+  }>(
+    'datasets',
+    `?id=eq.${encodeURIComponent(datasetId)}&select=lifecycle`,
+  )
+  return rows.at(0)?.lifecycle ?? null
+}
+
+export interface DatasetDeepLinkSelectionInput {
+  /** Dataset summaries currently listed (already lifecycle-filtered). */
+  datasets: ReadonlyArray<{ id: string }>
+  /** Stable Dataset ID requested by the deep link, if any. */
+  requestedDatasetId: string | null
+  /**
+   * Lifecycle of the requested Dataset as resolved by
+   * `fetchDatasetLifecycleById`. `undefined` while the lookup has not run
+   * or is still in flight; `null` when the Dataset does not exist.
+   */
+  requestedLifecycle: 'active' | 'archived' | 'retired' | null | undefined
+  /** Whether the summaries list has loaded for the current filter. */
+  summariesLoaded: boolean
+}
+
+export interface DatasetDeepLinkSelection {
+  /** Dataset to select; `null` when nothing can honestly be selected. */
+  selectedDatasetId: string | null
+  /** Switch the explorer URL to `archived: true` for the requested Dataset. */
+  flipToArchived: boolean
+}
+
+/**
+ * NAV-02: archive-aware deep-link selection. A deep link carries only the
+ * stable Dataset ID; the destination must select that exact Dataset —
+ * flipping to the archived view when it is archived/retired — and never
+ * fall back to a different active Dataset behind the caller's back.
+ */
+export function resolveDatasetDeepLinkSelection({
+  datasets,
+  requestedDatasetId,
+  requestedLifecycle,
+  summariesLoaded,
+}: DatasetDeepLinkSelectionInput): DatasetDeepLinkSelection {
+  if (!requestedDatasetId) {
+    return { selectedDatasetId: datasets.at(0)?.id ?? null, flipToArchived: false }
+  }
+  if (datasets.some((dataset) => dataset.id === requestedDatasetId)) {
+    return { selectedDatasetId: requestedDatasetId, flipToArchived: false }
+  }
+  if (!summariesLoaded) {
+    return { selectedDatasetId: null, flipToArchived: false }
+  }
+  if (requestedLifecycle === undefined) {
+    // Lifecycle lookup still in flight: hold the requested selection.
+    return { selectedDatasetId: null, flipToArchived: false }
+  }
+  if (requestedLifecycle === null) {
+    // The requested Dataset does not exist: fall back to the list default.
+    return { selectedDatasetId: datasets.at(0)?.id ?? null, flipToArchived: false }
+  }
+  if (requestedLifecycle !== 'active') {
+    // Archived/retired: keep selecting the requested Dataset, but in the
+    // archived view where the list actually contains it.
+    return { selectedDatasetId: null, flipToArchived: true }
+  }
+  // Active but absent from the list (e.g. raced creation): fall back.
+  return { selectedDatasetId: datasets.at(0)?.id ?? null, flipToArchived: false }
+}
 
 /** List canonical Datasets and the active fields pinned to each version. */
 export async function fetchDatasetSummaries(

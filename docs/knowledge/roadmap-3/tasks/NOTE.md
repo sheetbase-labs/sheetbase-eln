@@ -1,6 +1,6 @@
 # NOTE — Notebook Authoring & Composition Depth
 
-**Status:** active; NOTE-01 in review (#100), NOTE-02 and NOTE-03 implemented on the same stack, NOTE-04 planned.
+**Status:** active; NOTE-01 in review (#100), NOTE-02 implemented on the same stack, NOTE-03..04 planned.
 
 ## Programme goal
 
@@ -82,8 +82,6 @@ Long Notebooks remain navigable and understandable during authoring, review and 
 
 ## NOTE-03 — Scientific Block Composition
 
-**Status:** completed 2026-08-31.
-
 ### Goal
 
 Improve how Sheets, figures, analyses, files, Records, procedures and other scientific content compose inside a Notebook.
@@ -99,47 +97,6 @@ Improve how Sheets, figures, analyses, files, Records, procedures and other scie
 ### Exit
 
 Scientific blocks feel like coherent Notebook content while still exposing their canonical source/version/evidence semantics.
-
-### Implemented contract
-
-- **Canonical open affordances, UUID only.** Every scientific block preview
-  that references a canonical object offers a compact "Open" link built
-  exclusively from the navigation helpers in `src/lib/navigation.ts`
-  (`sheetPath`, `datasetPath`, `recordDestination`). Links are built from
-  stable UUIDs; a stored display label alone never produces a link.
-  Coverage: sheet read previews ("Open full sheet", parity with the NAV-02
-  live embed), chart blocks ("Open dataset" from `spec.datasets[0]`, or the
-  frozen provenance's `datasetId`), analysis blocks ("Open dataset" from the
-  live definition or the pinned provenance), protocol references ("Open
-  protocol" via `protocolRecordId`), materials items (per-material Record
-  open, suppressed while the record cannot be resolved), plate-map blocks
-  (linked Samples listed under the grid), pipeline outputs (unchanged —
-  already had Inspect run / Output Dataset), and file blocks (unchanged —
-  already had download affordances gated on live `file_objects` status).
-- **linked_record gains a stable identity field.** The payload now carries
-  optional `targetId` — the Dataset UUID for `targetKind: 'dataset'`, the
-  Record UUID otherwise — captured when a link is picked from search and
-  cleared whenever the identifier is retyped by hand (a manually typed
-  label is not identity). Legacy payloads that store only an identifier
-  render no link rather than an ambiguous one. `validateLinkedRecord`
-  accepts the optional field; no schema version bump, no migration.
-- **Pinned version visible at a glance.** A frozen chart that pins a
-  Dataset Version shows `Dataset Version <short-id>` as the ChartFrame
-  subtitle (previously only in the sr-only description) alongside the
-  existing Snapshot badge. Frozen analysis blocks keep their provenance
-  caption and add the Dataset open affordance.
-- **Live vs frozen stays the shared distinction.** No new evidence chrome:
-  chart blocks use the existing ChartFrame Live/Snapshot badges, frozen
-  analysis keeps the Snowflake badge and checksum provenance line, and
-  frozen sheet blocks keep the FrozenSheetEvidencePanel. The only change is
-  that frozen and live chart/analysis previews now share the same
-  canonical-object open affordance, so the distinction is about mutability,
-  not about navigability.
-- **No framing redesign.** Block chrome (label, title, states, drag, menu)
-  is untouched; NOTE-02's outline anchors, section collapse and
-  `print:contents` behaviour are unaffected, and `notebook-outline.ts` was
-  not modified. Resize/layout behaviour was audited and left as is (sheet
-  embeds keep their min-height embed; charts keep the ChartFrame height).
 
 ## NOTE-04 — Review, Submission & Evidence Authoring UX
 

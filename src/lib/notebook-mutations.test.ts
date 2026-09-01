@@ -93,6 +93,7 @@ describe('insertBlock', () => {
       p_payload: blockWire.payload,
       p_payload_schema_version: 1,
       p_after_block_id: null,
+      p_before_block_id: null,
       p_expected_structure_version: 4,
     })
     expect(res.structureVersion).toBe(5)
@@ -155,6 +156,7 @@ describe('duplicateBlock', () => {
       p_payload: { items: [{ text: 'a', checked: false }] },
       p_payload_schema_version: 1,
       p_after_block_id: 'b1',
+      p_before_block_id: null,
       p_expected_structure_version: 2,
     })
     expect(res.block.id).toBe('b2')

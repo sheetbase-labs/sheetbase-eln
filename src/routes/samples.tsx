@@ -78,7 +78,10 @@ const DEFAULT_SAMPLES_QUERY: RegistryQuery = {
   grouping: ['sampleType'],
 }
 
-function searchFromSamplesQuery(query: RegistryQuery) {
+export function searchFromSamplesQuery(
+  query: RegistryQuery,
+  selected?: string | null,
+) {
   return {
     page: query.pageIndex > 0 ? query.pageIndex : undefined,
     size:
@@ -93,6 +96,7 @@ function searchFromSamplesQuery(query: RegistryQuery) {
         : undefined,
     group: query.grouping.join(','),
     filters: encodeRegistryFilters(query.filters) || undefined,
+    selected: selected || undefined,
     rq: undefined,
   }
 }
@@ -110,6 +114,8 @@ export const Route = createFileRoute('/samples')({
       sort: typeof search.sort === 'string' ? search.sort : undefined,
       group: typeof search.group === 'string' ? search.group : 'sampleType',
       filters: typeof search.filters === 'string' ? search.filters : undefined,
+      selected:
+        typeof search.selected === 'string' ? search.selected : undefined,
       rq: typeof search.rq === 'string' ? search.rq : undefined,
     }
   },
@@ -155,7 +161,7 @@ function SamplesRegistryRoute() {
       search.sort,
     ],
   )
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selectedId = search.selected ?? null
   const [actionError, setActionError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -163,7 +169,15 @@ function SamplesRegistryRoute() {
   function setQuery(next: RegistryQuery) {
     void navigate({
       to: '/samples',
-      search: searchFromSamplesQuery(next),
+      search: searchFromSamplesQuery(next, selectedId),
+      replace: false,
+    })
+  }
+
+  function setSelectedId(id: string | null) {
+    void navigate({
+      to: '/samples',
+      search: searchFromSamplesQuery(query, id),
       replace: false,
     })
   }
@@ -172,10 +186,10 @@ function SamplesRegistryRoute() {
     if (!search.rq) return
     void navigate({
       to: '/samples',
-      search: searchFromSamplesQuery(query),
+      search: searchFromSamplesQuery(query, selectedId),
       replace: true,
     })
-  }, [navigate, query, search.rq])
+  }, [navigate, query, search.rq, selectedId])
 
   // ---- Registry page query ----
   const pageQuery = useQuery({

@@ -11,6 +11,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import * as schema from '#/db/schema'
 import { env } from '#/env.server'
 import { parseRoomId } from '#/lib/collaboration/room-ids'
+import { datasetPath, recordPath, sheetPath } from '#/lib/navigation'
 
 function db() {
   return drizzle(env.DATABASE_URL, { schema })
@@ -47,7 +48,10 @@ export async function resolveUsersForCaller(
       image: schema.user.image,
     })
     .from(schema.workspaceMemberships)
-    .innerJoin(schema.user, eq(schema.user.id, schema.workspaceMemberships.userId))
+    .innerJoin(
+      schema.user,
+      eq(schema.user.id, schema.workspaceMemberships.userId),
+    )
     .where(
       and(
         inArray(schema.workspaceMemberships.userId, unique),
@@ -87,12 +91,12 @@ async function roomObjectInfo(
           eq(schema.records.id, objectId),
           eq(schema.records.workspaceId, workspaceId),
         ),
-        columns: { projectId: true, identifier: true, title: true },
+        columns: { identifier: true, title: true },
       })
       if (!row) return null
       return {
         name: `${row.identifier} · ${row.title}`,
-        url: `/projects/${row.projectId}/experiments/${objectId}`,
+        url: recordPath(objectId),
       }
     }
     case 'sheet': {
@@ -103,7 +107,7 @@ async function roomObjectInfo(
         ),
         columns: { name: true },
       })
-      return row ? { name: row.name, url: `/sheets/${objectId}` } : null
+      return row ? { name: row.name, url: sheetPath(objectId) } : null
     }
     case 'dataset': {
       const row = await database.query.datasets.findFirst({
@@ -113,7 +117,7 @@ async function roomObjectInfo(
         ),
         columns: { name: true },
       })
-      return row ? { name: row.name, url: `/datasets?dataset=${objectId}` } : null
+      return row ? { name: row.name, url: datasetPath(objectId) } : null
     }
   }
 }
@@ -132,9 +136,7 @@ export async function isActiveMember(
     columns: { suspendedAt: true },
     with: { workspace: { columns: { status: true } } },
   })
-  return Boolean(
-    row && !row.suspendedAt && row.workspace.status === 'active',
-  )
+  return Boolean(row && !row.suspendedAt && row.workspace.status === 'active')
 }
 
 /**
@@ -152,7 +154,11 @@ export async function resolveRoomsForCaller(
     const parsed = parseRoomId(roomId)
     if (!parsed.ok) continue
     if (!(await isActiveMember(callerId, parsed.workspaceId))) continue
-    const info = await roomObjectInfo(parsed.kind, parsed.workspaceId, parsed.objectId)
+    const info = await roomObjectInfo(
+      parsed.kind,
+      parsed.workspaceId,
+      parsed.objectId,
+    )
     if (info) results.push({ id: roomId, ...info })
   }
   return results
@@ -188,9 +194,7 @@ export async function mentionSuggestionsForRoom(
   const query = text.trim().toLowerCase()
   return rows
     .filter((r) => !r.suspendedAt && r.id !== callerId)
-    .filter((r) =>
-      query ? r.name.toLowerCase().includes(query) : true,
-    )
+    .filter((r) => (query ? r.name.toLowerCase().includes(query) : true))
     .slice(0, 20)
     .map((r) => r.id)
 }

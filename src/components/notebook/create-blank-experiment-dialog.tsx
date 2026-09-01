@@ -57,10 +57,9 @@ export function CreateBlankExperimentDialog({
     onSuccess: (record) => {
       onOpenChange(false)
       setTitle('')
-      if (!record.projectId) return
       void navigate({
-        to: '/projects/$projectId/experiments/$recordId',
-        params: { projectId: record.projectId, recordId: record.id },
+        to: '/records/$recordId',
+        params: { recordId: record.id },
       })
     },
   })

@@ -21,6 +21,7 @@
 import type { DataClient } from './data-client'
 import type { TimelineEventWire } from './sign-002'
 import { notebookDataClient } from './notebook-data'
+import { datasetPath, recordPath, sheetPath } from './navigation'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case-free: the RPC returns jsonb keys we control).
@@ -93,7 +94,6 @@ export function fetchAuditEvents(
     p_limit: filter.limit ?? 50,
   })
 }
-
 
 // ---------------------------------------------------------------------------
 // Semantic rendering.
@@ -201,7 +201,9 @@ function formatChangeValue(value: unknown): string {
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
   if (typeof value === 'number') return String(value)
   const text = String(value)
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)) {
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)
+  ) {
     return text.slice(0, 8) + '…'
   }
   return text
@@ -213,10 +215,17 @@ function shortId(id: string | null | undefined): string {
 
 /** Subject noun with a stable identifier where the payload carries one. */
 function subjectFor(event: AuditEventWire): string {
-  const label = ENTITY_LABELS[event.entityType] ?? humanizeToken(event.entityType)
+  const label =
+    ENTITY_LABELS[event.entityType] ?? humanizeToken(event.entityType)
   const payload = event.payload
   const name =
-    firstString(payload, ['title', 'name', 'displayName', 'label', 'identifier']) ?? undefined
+    firstString(payload, [
+      'title',
+      'name',
+      'displayName',
+      'label',
+      'identifier',
+    ]) ?? undefined
   if (name) return `${label} ${name}`
   if (event.entityType === 'signature') {
     const meaning = payload['signatureMeaning']
@@ -233,7 +242,9 @@ function subjectFor(event: AuditEventWire): string {
 }
 
 function actionFor(event: AuditEventWire): string {
-  const base = ACTION_LABELS[event.operation] ?? humanizeToken(event.operation).toLowerCase()
+  const base =
+    ACTION_LABELS[event.operation] ??
+    humanizeToken(event.operation).toLowerCase()
   // Review decisions carry their own verb in the payload decision value.
   if (event.entityType === 'review_decision') {
     const decision = event.payload['decision']
@@ -323,9 +334,17 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
     if (!style || typeof value !== 'object' || value === null) continue
     const pair = value as { from?: unknown; to?: unknown }
     const from =
-      pair.from === null || pair.from === undefined ? null : style.render ? style.render(pair.from) : formatChangeValue(pair.from)
+      pair.from === null || pair.from === undefined
+        ? null
+        : style.render
+          ? style.render(pair.from)
+          : formatChangeValue(pair.from)
     const to =
-      pair.to === null || pair.to === undefined ? null : style.render ? style.render(pair.to) : formatChangeValue(pair.to)
+      pair.to === null || pair.to === undefined
+        ? null
+        : style.render
+          ? style.render(pair.to)
+          : formatChangeValue(pair.to)
     fields.push({
       label: style.label,
       kind: from === null ? 'added' : to === null ? 'removed' : 'changed',
@@ -422,18 +441,16 @@ export interface AuditLink {
 export function auditLinkFor(event: AuditEventWire): AuditLink | null {
   switch (event.entityType) {
     case 'record':
-      return event.projectId
-        ? {
-            href: `/projects/${event.projectId}/experiments/${event.entityUuid}`,
-            label: 'Open record',
-          }
-        : null
+      return {
+        href: recordPath(event.entityUuid),
+        label: 'Open record',
+      }
     case 'block':
     case 'file':
     case 'comment':
-      return event.recordId && event.projectId
+      return event.recordId
         ? {
-            href: `/projects/${event.projectId}/experiments/${event.recordId}`,
+            href: recordPath(event.recordId),
             label: 'Open record',
           }
         : null
@@ -455,11 +472,13 @@ export function auditLinkFor(event: AuditEventWire): AuditLink | null {
     case 'dataset':
     case 'dataset_version':
       return {
-        href: `/datasets?dataset=${event.payload['datasetId'] ?? event.entityUuid}`,
+        href: datasetPath(
+          String(event.payload['datasetId'] ?? event.entityUuid),
+        ),
         label: 'Open dataset',
       }
     case 'sheet_instance':
-      return { href: `/sheets/${event.entityUuid}`, label: 'Open sheet' }
+      return { href: sheetPath(event.entityUuid), label: 'Open sheet' }
     default:
       return null
   }
@@ -479,14 +498,7 @@ export function timelineToAuditEvents(
   events: TimelineEventWire[],
 ): AuditEventWire[] {
   return events.map((entry) => {
-    const {
-      type,
-      id,
-      seq,
-      ts,
-      actorUserId,
-      ...rest
-    } = entry
+    const { type, id, seq, ts, actorUserId, ...rest } = entry
     const derived: Record<string, unknown> = { ...rest }
     delete derived.title
 
@@ -494,8 +506,7 @@ export function timelineToAuditEvents(
     let operation = 'update'
     switch (type) {
       case 'change_event':
-        entityType =
-          typeof rest.eventType === 'string' ? rest.eventType : type
+        entityType = typeof rest.eventType === 'string' ? rest.eventType : type
         operation =
           typeof rest.operation === 'string' ? rest.operation : 'update'
         if (rest.payload && typeof rest.payload === 'object') {

@@ -25,8 +25,11 @@ const SECRET = process.env.PGRST_JWT_SECRET ?? ''
 let admin: Client
 
 async function clean(): Promise<void> {
-  await admin.query(`DELETE FROM api.record_links WHERE source_record_id IN (
-      SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`, [WS_A, WS_B])
+  await admin.query(
+    `DELETE FROM api.record_links WHERE source_record_id IN (
+      SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
+    [WS_A, WS_B],
+  )
   await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
     WS_A,
     WS_B,
@@ -143,7 +146,12 @@ afterAll(async () => {
 
 describe('SCI-008 search RPC contract', () => {
   it('returns results for an authenticated query', async () => {
-    await createRecord(OWNER_A, WS_A, 'experiment', 'API search contract experiment')
+    await createRecord(
+      OWNER_A,
+      WS_A,
+      'experiment',
+      'API search contract experiment',
+    )
     const { status, body } = await searchRpc(OWNER_A, WS_A, {
       p_query: 'contract experiment',
     })
@@ -167,7 +175,13 @@ describe('SCI-008 search RPC contract', () => {
   })
 
   it('filters by kind', async () => {
-    await createRecord(OWNER_A, WS_A, 'sample', 'API filter sample', 'available')
+    await createRecord(
+      OWNER_A,
+      WS_A,
+      'sample',
+      'API filter sample',
+      'available',
+    )
     const { body } = await searchRpc(OWNER_A, WS_A, {
       p_query: '',
       p_kind: 'sample',
@@ -240,7 +254,12 @@ describe('SCI-008 search RPC contract', () => {
   })
 
   it('does not return cross-workspace records', async () => {
-    await createRecord(OWNER_B, WS_B, 'experiment', 'Cross workspace unique term wxyz')
+    await createRecord(
+      OWNER_B,
+      WS_B,
+      'experiment',
+      'Cross workspace unique term wxyz',
+    )
     const { body } = await searchRpc(OWNER_A, WS_A, {
       p_query: 'wxyz',
     })
@@ -249,8 +268,17 @@ describe('SCI-008 search RPC contract', () => {
   })
 
   it('includes archived records with archived = true', async () => {
-    const record = await createRecord(OWNER_A, WS_A, 'sample', 'Archived API search sample', 'available')
-    await admin.query(`UPDATE api.records SET archived_at = now() WHERE id = $1`, [record.id])
+    const record = await createRecord(
+      OWNER_A,
+      WS_A,
+      'sample',
+      'Archived API search sample',
+      'available',
+    )
+    await admin.query(
+      `UPDATE api.records SET archived_at = now() WHERE id = $1`,
+      [record.id],
+    )
     const { body } = await searchRpc(OWNER_A, WS_A, {
       p_query: 'archived api search',
     })
@@ -262,7 +290,9 @@ describe('SCI-008 search RPC contract', () => {
 
   it('does not leak restricted fields (no storage_key, checksum, payload, properties values)', async () => {
     // Create a file record with file_objects metadata.
-    const { rows: [fileRec] } = await admin.query(
+    const {
+      rows: [fileRec],
+    } = await admin.query(
       `INSERT INTO api.records (workspace_id, project_id, kind, identifier, title, status, created_by_user_id)
        VALUES ($1, $2, 'file', 'FILE-API-0001', 'Restricted field test file', 'active', $3) RETURNING *`,
       [WS_A, PROJ_A, OWNER_A],
@@ -296,7 +326,7 @@ describe('SCI-008 search RPC contract', () => {
     const rows = Array.isArray(body) ? body : [body]
     const experiment = rows.find((r: any) => r.kind === 'experiment')
     expect(experiment).toBeDefined()
-    expect(experiment.deep_link).toMatch(/\/projects\/.*\/experiments\//)
+    expect(experiment.deep_link).toBe(`/records/${experiment.record_id}`)
     expect(experiment.result_type).toBe('record')
   })
 
@@ -312,7 +342,12 @@ describe('SCI-008 search RPC contract', () => {
       {
         getSession: async () => null,
         getWorkspaceForUser: async () => null,
-        mintToken: () => mintPostgrestToken(SECRET, { userId: '', workspaceId: '', sessionId: '' }),
+        mintToken: () =>
+          mintPostgrestToken(SECRET, {
+            userId: '',
+            workspaceId: '',
+            sessionId: '',
+          }),
         resolveExternalToken: () => Promise.resolve(null),
         upstreamBaseUrl: process.env.POSTGREST_URL ?? 'http://localhost:3001',
       },

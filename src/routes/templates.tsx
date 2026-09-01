@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
 import { LayoutTemplate } from 'lucide-react'
@@ -52,6 +52,10 @@ const getTemplateContext = createServerFn({ method: 'GET' }).handler(
 )
 
 export const Route = createFileRoute('/templates')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    template: typeof search.template === 'string' ? search.template : undefined,
+    protocol: typeof search.protocol === 'string' ? search.protocol : undefined,
+  }),
   beforeLoad: async () => {
     const context = await getTemplateContext()
     if (!context) {
@@ -66,6 +70,8 @@ const dataClient = createDataClient()
 
 function TemplateLibraryRoute() {
   const { context } = Route.useRouteContext()
+  const routeSearch = Route.useSearch()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const currentUserId = context.user.id
@@ -78,7 +84,7 @@ function TemplateLibraryRoute() {
   const [ownership, setOwnership] = useState<TemplateOwnershipFilter>('all')
   const [favouritesOnly, setFavouritesOnly] = useState(false)
   const [view, setView] = useState<TemplateView>('list')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selectedId = routeSearch.protocol ?? null
   const [instantiationError, setInstantiationError] = useState<string | null>(
     null,
   )
@@ -87,6 +93,22 @@ function TemplateLibraryRoute() {
     projectId: string
   } | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+
+  function setSelectedId(id: string | null) {
+    void navigate({
+      to: '/templates',
+      search: { template: undefined, protocol: id ?? undefined },
+      replace: false,
+    })
+  }
+
+  function setSelectedNotebookTemplateId(id: string | null) {
+    void navigate({
+      to: '/templates',
+      search: { template: id ?? undefined, protocol: undefined },
+      replace: false,
+    })
+  }
 
   // Favourites store (per-user, per-workspace localStorage).
   const favouritesStore = useMemo(
@@ -496,6 +518,8 @@ function TemplateLibraryRoute() {
           workspaceId={workspaceId}
           canEdit={role === 'owner' || role === 'admin' || role === 'steward'}
           projects={projects}
+          selectedTemplateId={routeSearch.template ?? null}
+          onSelectedTemplateIdChange={setSelectedNotebookTemplateId}
         />
 
         <section className="space-y-4">

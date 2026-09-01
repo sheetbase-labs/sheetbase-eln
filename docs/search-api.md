@@ -61,7 +61,7 @@ dimension".
     "matched_context": "Virus <b>Stability</b> at 4 °C ...",
     "matched_field": "title",
     "rank": 0.06079271,
-    "deep_link": "/projects/00000000-0000-4000-8000-000000000100/experiments/00000000-0000-4000-8000-000000000101",
+    "deep_link": "/records/00000000-0000-4000-8000-000000000101",
     "total_count": 42
   }
 ]
@@ -90,13 +90,19 @@ dimension".
 
 ## Deep link formats
 
-| Result class                                    | Deep link                                    |
-| ----------------------------------------------- | -------------------------------------------- |
-| `dataset`                                       | `/datasets?dataset=$recordId`                |
-| `sheet`                                         | `/sheets/$recordId`                          |
-| `template`                                      | `/templates`                                 |
-| `record` / `file` with kind `notebook_template` | `/templates`                                 |
-| All other records                               | `/projects/$projectId/experiments/$recordId` |
+Project and folder placement provide context; canonical links identify the
+workspace-owned object by its stable UUID.
+
+| Result class                                    | Deep link                       |
+| ----------------------------------------------- | ------------------------------- |
+| `dataset`                                       | `/datasets?dataset=$recordId`   |
+| `sheet`                                         | `/sheets/$recordId`             |
+| Versioned `template`                            | `/templates?template=$recordId` |
+| `record` with kind `sample`                     | `/samples?selected=$recordId`   |
+| `record` with kind `reagent`                    | `/reagents?selected=$recordId`  |
+| `record` with kind `protocol_template`          | `/templates?protocol=$recordId` |
+| Historical record with kind `notebook_template` | `/records/$recordId`            |
+| All other `record` and `file` results           | `/records/$recordId`            |
 
 ## Coverage
 

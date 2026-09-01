@@ -13,6 +13,7 @@ import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { CommentPanel } from '#/components/comments'
 import { OverviewTabs } from '#/components/overview'
+import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import {
   Inspector,
   InspectorSection,
@@ -29,9 +30,11 @@ import { DataClientError } from '#/lib/data-client'
 import {
   fetchBlocksForRecord,
   fetchFileObjectsByRecordIds,
+  fetchFoldersForProject,
   fetchLinksForRecord,
   fetchProject,
   fetchRecord,
+  fetchRecordsForProject,
   fetchRevision,
   notebookDataClient,
   notebookQueryKeys,
@@ -72,9 +75,7 @@ function RouteShell({
  * (revision) states render without any edit affordances.
  */
 
-export const Route = createFileRoute(
-  '/projects/$projectId/experiments/$recordId/overview',
-)({
+export const Route = createFileRoute('/records/$recordId/overview')({
   component: ExperimentOverviewRoute,
   validateSearch: (search: Record<string, unknown>) => ({
     revision: typeof search.revision === 'string' ? search.revision : undefined,
@@ -83,7 +84,7 @@ export const Route = createFileRoute(
 
 function ExperimentOverviewRoute() {
   const { context } = Route.useRouteContext()
-  const { projectId, recordId } = Route.useParams()
+  const { recordId } = Route.useParams()
   const { revision: revisionId } = useSearch({ from: Route.fullPath })
 
   // COLLAB-02: record-level discussion lives in the record room. The parent
@@ -93,13 +94,25 @@ function ExperimentOverviewRoute() {
 
   const queryClient = useQueryClient()
 
-  const projectQuery = useQuery({
-    queryKey: notebookQueryKeys.project(projectId),
-    queryFn: () => fetchProject(notebookDataClient, projectId),
-  })
   const recordQuery = useQuery({
     queryKey: notebookQueryKeys.record(recordId),
     queryFn: () => fetchRecord(notebookDataClient, recordId),
+  })
+  const projectId = recordQuery.data?.projectId ?? ''
+  const projectQuery = useQuery({
+    queryKey: notebookQueryKeys.project(projectId || 'none'),
+    queryFn: () => fetchProject(notebookDataClient, projectId),
+    enabled: Boolean(projectId),
+  })
+  const projectFoldersQuery = useQuery({
+    queryKey: notebookQueryKeys.folders(projectId || 'none'),
+    queryFn: () => fetchFoldersForProject(notebookDataClient, projectId),
+    enabled: Boolean(projectId),
+  })
+  const projectRecordsQuery = useQuery({
+    queryKey: notebookQueryKeys.records(projectId || 'none'),
+    queryFn: () => fetchRecordsForProject(notebookDataClient, projectId),
+    enabled: Boolean(projectId),
   })
   const blocksQuery = useQuery({
     queryKey: notebookQueryKeys.blocks(recordId),
@@ -174,7 +187,7 @@ function ExperimentOverviewRoute() {
     return (
       <RouteShell
         context={shellContext}
-        breadcrumbs={loadingBreadcrumbs(project, projectId)}
+        breadcrumbs={loadingBreadcrumbs(project)}
         inspector={
           <Inspector
             recordType="Experiment"
@@ -219,7 +232,7 @@ function ExperimentOverviewRoute() {
           { label: 'Notebook unavailable' },
         ]}
       >
-        <OverviewUnavailableState projectId={projectId} />
+        <OverviewUnavailableState />
       </RouteShell>
     )
   }
@@ -230,7 +243,7 @@ function ExperimentOverviewRoute() {
       return (
         <RouteShell
           context={shellContext}
-          breadcrumbs={overviewBreadcrumbs(project, projectId, record)}
+          breadcrumbs={overviewBreadcrumbs(project, record)}
           inspector={
             <OverviewInspector
               record={record}
@@ -254,7 +267,7 @@ function ExperimentOverviewRoute() {
       return (
         <RouteShell
           context={shellContext}
-          breadcrumbs={overviewBreadcrumbs(project, projectId, record)}
+          breadcrumbs={overviewBreadcrumbs(project, record)}
           inspector={
             <OverviewInspector
               record={record}
@@ -299,7 +312,17 @@ function ExperimentOverviewRoute() {
     <RouteShell
       fullBleed
       context={shellContext}
-      breadcrumbs={overviewBreadcrumbs(project, projectId, record)}
+      breadcrumbs={overviewBreadcrumbs(project, record)}
+      projectTree={
+        project ? (
+          <ProjectNavigationTree
+            project={project}
+            folders={projectFoldersQuery.data ?? []}
+            records={projectRecordsQuery.data ?? []}
+            activeRecordId={record.id}
+          />
+        ) : undefined
+      }
       inspector={
         <OverviewInspector
           record={record}
@@ -352,7 +375,6 @@ function ExperimentOverviewRoute() {
                       toggleMutation.mutate({ blockId, exclude })
                   : undefined
               }
-              projectId={projectId}
               recordId={recordId}
             />
           )}
@@ -613,28 +635,24 @@ function formatBytes(bytes: number): string {
 // ---------------------------------------------------------------------------
 
 function overviewBreadcrumbs(
-  project: { title: string } | null,
-  projectId: string,
+  project: { id: string; title: string } | null,
   record: NotebookRecord,
 ) {
   return [
     { label: 'Home', to: '/' },
     { label: 'Projects', to: '/projects' },
     ...(project
-      ? [{ label: project.title, to: `/projects/${projectId}` }]
+      ? [{ label: project.title, to: `/projects/${project.id}` }]
       : []),
     {
       label: record.title,
-      to: `/projects/${projectId}/experiments/${record.id}`,
+      to: `/records/${record.id}`,
     },
     { label: 'Overview' },
   ]
 }
 
-function loadingBreadcrumbs(
-  project: { title: string } | null,
-  projectId: string,
-) {
+function loadingBreadcrumbs(project: { id: string; title: string } | null) {
   return [
     { label: 'Home', to: '/' },
     { label: 'Projects', to: '/projects' },
@@ -642,7 +660,7 @@ function loadingBreadcrumbs(
       ? [
           {
             label: project.title,
-            to: `/projects/${projectId}`,
+            to: `/projects/${project.id}`,
           },
         ]
       : []),
@@ -688,7 +706,7 @@ function OverviewErrorState({
   )
 }
 
-function OverviewUnavailableState({ projectId }: { projectId: string }) {
+function OverviewUnavailableState() {
   return (
     <div className="max-w-md space-y-3 rounded-md border border-border bg-muted/30 p-6">
       <div className="flex items-center gap-2 text-muted-foreground">
@@ -703,13 +721,6 @@ function OverviewUnavailableState({ projectId }: { projectId: string }) {
         workspace membership.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Link
-          to="/projects/$projectId"
-          params={{ projectId }}
-          className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium no-underline"
-        >
-          Back to project
-        </Link>
         <Link
           to="/projects"
           className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium no-underline"

@@ -13,6 +13,7 @@
  * PostgreSQL and RLS remain authoritative; these helpers improve the UI and
  * drive validation.
  */
+import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
@@ -355,6 +356,9 @@ describe('toSearchResult', () => {
     expect(result.identifier).toBe('EXP-2025-0001')
     expect(result.archived).toBe(false)
     expect(result.rank).toBeCloseTo(0.06079271)
+    expect(result.deepLink).toBe(
+      '/records/00000000-0000-4000-8000-000000000101',
+    )
     expect(result.totalCount).toBe(42)
   })
 
@@ -382,31 +386,31 @@ describe('toSearchResult', () => {
 // ---------------------------------------------------------------------------
 
 describe('searchResultDeepLink', () => {
-  it('links notebook templates to /templates', () => {
-    expect(
-      searchResultDeepLink('record', 'notebook_template', 'proj-1', 'rec-1'),
-    ).toBe('/templates')
+  it('keeps historical notebook-template records readable by stable ID', () => {
+    expect(searchResultDeepLink('record', 'notebook_template', 'rec-1')).toBe(
+      '/records/rec-1',
+    )
   })
 
-  it('links records through the notebook route', () => {
-    expect(
-      searchResultDeepLink('record', 'experiment', 'proj-1', 'rec-1'),
-    ).toBe('/projects/proj-1/experiments/rec-1')
-    expect(searchResultDeepLink('record', 'sample', 'proj-1', 'rec-2')).toBe(
-      '/projects/proj-1/experiments/rec-2',
+  it('links records through canonical owning surfaces', () => {
+    expect(searchResultDeepLink('record', 'experiment', 'rec-1')).toBe(
+      '/records/rec-1',
+    )
+    expect(searchResultDeepLink('record', 'sample', 'rec-2')).toBe(
+      '/samples?selected=rec-2',
     )
   })
 
   it('links datasets, sheets and templates to their surfaces', () => {
-    expect(searchResultDeepLink('dataset', 'dataset', 'proj-1', 'ds-1')).toBe(
+    expect(searchResultDeepLink('dataset', 'dataset', 'ds-1')).toBe(
       '/datasets?dataset=ds-1',
     )
-    expect(
-      searchResultDeepLink('sheet', 'sheet_instance', 'proj-1', 'sh-1'),
-    ).toBe('/sheets/sh-1')
-    expect(
-      searchResultDeepLink('template', 'notebook_template', '', 't-1'),
-    ).toBe('/templates')
+    expect(searchResultDeepLink('sheet', 'sheet_instance', 'sh-1')).toBe(
+      '/sheets/sh-1',
+    )
+    expect(searchResultDeepLink('template', 'notebook_template', 't-1')).toBe(
+      '/templates?template=t-1',
+    )
   })
 })
 
@@ -475,6 +479,21 @@ describe('searchQueryKeys', () => {
     expect(key1).not.toEqual(key2)
     expect(key1[0]).toBe('search-001')
   })
+
+  it('produces distinct keys for distinct object-class filters', () => {
+    const base: SearchFilters = { query: 'virus' }
+    const recordsKey = searchQueryKeys.search({ ...base, resultType: 'record' })
+    const datasetsKey = searchQueryKeys.search({
+      ...base,
+      resultType: 'dataset',
+    })
+    const allKey = searchQueryKeys.search(base)
+    expect(recordsKey).not.toEqual(datasetsKey)
+    expect(recordsKey).not.toEqual(allKey)
+    expect(datasetsKey).not.toEqual(allKey)
+    expect(recordsKey).toContain('record')
+    expect(datasetsKey).toContain('dataset')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -504,6 +523,53 @@ describe('executeSearch', () => {
       query: 'virus',
     })
     expect(results).toHaveLength(1)
+  })
+})
+
+describe('search cache behaviour (resultType in query key)', () => {
+  function countingClient(): { client: DataClient; calls: string[] } {
+    const calls: string[] = []
+    return {
+      calls,
+      client: {
+        list: async () => [],
+        insert: async () => ({}),
+        patch: async () => [],
+        rpc: async (_name: string, args: Record<string, unknown>) => {
+          const resultType =
+            (args as { p_result_type?: string }).p_result_type ?? 'all'
+          calls.push(resultType)
+          return [
+            wireRow({
+              result_type: resultType === 'all' ? 'record' : resultType,
+            }),
+          ]
+        },
+      } as unknown as DataClient,
+    }
+  }
+
+  it('refetches instead of serving the previous cache when resultType changes', async () => {
+    const { client, calls } = countingClient()
+    const queryClient = new QueryClient()
+
+    // Mirror the search route: staleTime keeps entries cached between renders.
+    const fetch = async (filters: SearchFilters) =>
+      queryClient.fetchQuery({
+        queryKey: searchQueryKeys.search(filters),
+        queryFn: () => executeSearch(client, filters),
+        staleTime: 10_000,
+      })
+
+    const recordResults = await fetch({ query: 'virus', resultType: 'record' })
+    const datasetResults = await fetch({ query: 'virus', resultType: 'dataset' })
+
+    // Two distinct object-class filters must fire two distinct requests.
+    expect(calls).toEqual(['record', 'dataset'])
+    expect(recordResults[0].resultType).toBe('record')
+    expect(datasetResults[0].resultType).toBe('dataset')
+    // The pre-fix bug: the dataset fetch was served from the record cache.
+    expect(datasetResults).not.toEqual(recordResults)
   })
 })
 
@@ -589,7 +655,7 @@ function searchResult(overrides: Partial<SearchResult> = {}): SearchResult {
     matchedContext: 'Virus <b>Stability</b> at 4 °C',
     matchedField: 'title',
     rank: 0.06,
-    deepLink: '/projects/proj-1/experiments/rec-1',
+    deepLink: '/records/rec-1',
     totalCount: 1,
     ...overrides,
   }

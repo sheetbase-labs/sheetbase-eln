@@ -994,11 +994,8 @@ export function TemplateInspector({
             {linkedRecords.map((record) => (
               <li key={record.id}>
                 <Link
-                  to="/projects/$projectId/experiments/$recordId"
-                  params={{
-                    projectId: record.projectId ?? '',
-                    recordId: record.id,
-                  }}
+                  to="/records/$recordId"
+                  params={{ recordId: record.id }}
                   className="block truncate text-xs text-primary no-underline hover:underline"
                 >
                   <span className="font-mono text-muted-foreground">
@@ -1064,11 +1061,8 @@ export function TemplateInspector({
                 Record created successfully.
               </p>
               <Link
-                to="/projects/$projectId/experiments/$recordId"
-                params={{
-                  projectId: instantiationSuccess.projectId,
-                  recordId: instantiationSuccess.recordId,
-                }}
+                to="/records/$recordId"
+                params={{ recordId: instantiationSuccess.recordId }}
                 className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground no-underline"
               >
                 Open new record

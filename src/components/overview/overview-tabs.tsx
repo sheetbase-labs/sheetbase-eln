@@ -63,7 +63,6 @@ export interface OverviewTabsProps {
   revision?: OverviewRevision | null
   excludedBlockIds: readonly string[]
   onToggleBlock?: (blockId: string, exclude: boolean) => void
-  projectId: string
   recordId: string
   className?: string
 }
@@ -75,7 +74,6 @@ export function OverviewTabs({
   revision,
   excludedBlockIds,
   onToggleBlock,
-  projectId,
   recordId,
   className,
 }: OverviewTabsProps) {
@@ -103,7 +101,6 @@ export function OverviewTabs({
           revision={revision}
           excludedBlockIds={excludedBlockIds}
           onToggleBlock={onToggleBlock}
-          projectId={projectId}
           recordId={recordId}
         />
       </TabsContent>
@@ -112,7 +109,6 @@ export function OverviewTabs({
         <ResultsView
           blocks={blocks}
           excludedBlockIds={excludedBlockIds}
-          projectId={projectId}
           recordId={recordId}
         />
       </TabsContent>
@@ -122,7 +118,6 @@ export function OverviewTabs({
       <TabsContent value="files">
         <FilesView blocks={fileBlocks} />
       </TabsContent>
-
     </Tabs>
   )
 }
@@ -138,12 +133,10 @@ export function OverviewTabs({
 function ResultsView({
   blocks,
   excludedBlockIds,
-  projectId,
   recordId,
 }: {
   blocks: NotebookBlock[]
   excludedBlockIds: readonly string[]
-  projectId: string
   recordId: string
 }) {
   const excluded = new Set(excludedBlockIds)
@@ -169,7 +162,6 @@ function ResultsView({
           block={block}
           excluded={excluded.has(block.id)}
           showToggle={false}
-          projectId={projectId}
           recordId={recordId}
         />
       ))}
@@ -315,7 +307,7 @@ function RecordActivityView({ recordId }: { recordId: string }) {
             : 'History could not be loaded.'
           : null
       }
-      maxHeight='40rem'
+      maxHeight="40rem"
     />
   )
 }

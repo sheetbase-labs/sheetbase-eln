@@ -252,7 +252,7 @@ test('scientific-table REST is fail-closed for external credentials', async ({
       sameSite: 'Lax',
     },
   ])
-  await page.goto(`/projects/${PROJECT}/experiments/${RECORD}`)
+  await page.goto(`/records/${RECORD}`)
   await expect(
     page.getByText('Virus Stability at 4C', { exact: true }).first(),
   ).toBeVisible()

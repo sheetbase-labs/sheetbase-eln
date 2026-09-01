@@ -60,12 +60,7 @@ export interface OverviewViewProps {
   excludedBlockIds: readonly string[]
   /** Toggle a block's overview visibility. Omit for read-only modes. */
   onToggleBlock?: (blockId: string, exclude: boolean) => void
-  /**
-   * Project + record ids for the "Open in notebook" / "Open full table"
-   * navigation links on each block. Omitted in unit tests; when present the
-   * read-only hover controls get link affordances to the notebook editor.
-   */
-  projectId?: string
+  /** Stable record id for the notebook links on each block. */
   recordId?: string
   className?: string
 }
@@ -95,7 +90,6 @@ export function OverviewView({
   revision,
   excludedBlockIds,
   onToggleBlock,
-  projectId,
   recordId,
   className,
 }: OverviewViewProps) {
@@ -144,7 +138,6 @@ export function OverviewView({
                   excluded={excluded.has(block.id)}
                   showToggle={showToggles}
                   onToggle={onToggleBlock}
-                  projectId={projectId}
                   recordId={recordId}
                 />
               ))}
@@ -161,17 +154,15 @@ export function OverviewBlock({
   excluded,
   showToggle,
   onToggle,
-  projectId,
   recordId,
 }: {
   block: NotebookBlock
   excluded: boolean
   showToggle: boolean
   onToggle?: (blockId: string, exclude: boolean) => void
-  projectId?: string
   recordId?: string
 }) {
-  const canLinkToNotebook = Boolean(projectId && recordId)
+  const canLinkToNotebook = Boolean(recordId)
   const showOpenFullTable = TABLE_BLOCK_TYPES.has(block.type)
   return (
     <div
@@ -186,8 +177,8 @@ export function OverviewBlock({
         {canLinkToNotebook ? <BlockExpandControl block={block} /> : null}
         {canLinkToNotebook ? (
           <Link
-            to="/projects/$projectId/experiments/$recordId"
-            params={{ projectId: projectId!, recordId: recordId! }}
+            to="/records/$recordId"
+            params={{ recordId: recordId! }}
             className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100"
             aria-label="Open in notebook"
             title="Open in notebook"
@@ -216,8 +207,8 @@ export function OverviewBlock({
       {showOpenFullTable && canLinkToNotebook ? (
         <div className="mt-3 flex justify-end border-t border-border/60 pt-2">
           <Link
-            to="/projects/$projectId/experiments/$recordId"
-            params={{ projectId: projectId!, recordId: recordId! }}
+            to="/records/$recordId"
+            params={{ recordId: recordId! }}
             className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground no-underline underline-offset-2 hover:text-foreground hover:underline"
           >
             Open full table

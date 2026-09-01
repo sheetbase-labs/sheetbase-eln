@@ -498,7 +498,7 @@ async function injectAuth(page: import('playwright/test').Page) {
 test.describe('SCI-009 Virus Stability browser acceptance', () => {
   test('notebook renders every block type', async ({ page }) => {
     await injectAuth(page)
-    await page.goto(`/projects/${PROJECT}/experiments/${RECORD}`)
+    await page.goto(`/records/${RECORD}`)
     await expect(
       page.getByText('Virus Stability at 4°C', { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 })
@@ -565,7 +565,7 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
 
   test('overview composes from the notebook blocks', async ({ page }) => {
     await injectAuth(page)
-    await page.goto(`/projects/${PROJECT}/experiments/${RECORD}/overview`)
+    await page.goto(`/records/${RECORD}/overview`)
     await expect(
       page.getByText('Virus Stability at 4°C', { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 })

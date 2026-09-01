@@ -832,13 +832,12 @@ describe('NotebookCanvas — editable path', () => {
   })
 })
 
-// NOTE-01: the undo of a first-block deletion cannot be a single server
-// operation — insert_block only supports insert-after/append, so the route
-// restores via insert-then-move and keeps a retryable status when the move
-// fails. These tests prove the position contract end to end: while the
-// corrective move is failing, the restored block sits at its appended
-// (wrong) position and the status never claims restoration; only a
-// successful retry move puts it back at the head.
+// NOTE-01: undo restores a deleted first block with one server-
+// authoritative insert_block call that resolves position against both
+// original neighbours (after=null, before=the survivor), so there is no
+// second corrective move to fail. These tests prove the position contract
+// end to end: the restored block re-lands at the head of the record from
+// the RPC's (id, order) list, and a rejected insert writes nothing.
 function blockWire(id: string, text: string, order: number) {
   return {
     id,

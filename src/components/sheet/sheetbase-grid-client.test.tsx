@@ -319,3 +319,61 @@ describe('SheetbaseGrid spreadsheet keyboard and selection contract', () => {
     expect(hot.getData()).toEqual(rows)
   })
 })
+
+describe('SheetbaseGrid bulk-write guards (GRID-02)', () => {
+  it('blocks paste into read-only cells and announces why, failing closed', () => {
+    const beforeChange = vi.fn()
+    const { hot } = mountGrid(mixedSettings({ beforeChange }))
+
+    // A paste whose target range reaches the derived column is rejected.
+    const pasted: Array<[number, string | number, unknown, unknown]> = [
+      [0, 0, null, 'new-local'],
+      [0, 2, null, 'new-derived'],
+    ]
+    expect(
+      hot.runHooks('beforeChange', pasted, 'CopyPaste.paste'),
+    ).toBe(false)
+    expect(beforeChange).not.toHaveBeenCalled()
+    expect(document.getElementById('cut-status')?.textContent).toContain(
+      'Paste is unavailable',
+    )
+    expect(hot.getDataAtCell(0, 2)).toBe('derived-1')
+  })
+
+  it('blocks fill over read-only cells', () => {
+    const { hot } = mountGrid()
+    const changes: Array<[number, string | number, unknown, unknown]> = [
+      [1, 2, null, 'filled'],
+    ]
+    expect(hot.runHooks('beforeChange', changes, 'Autofill.fill')).toBe(false)
+    expect(document.getElementById('cut-status')?.textContent).toContain(
+      'Fill is unavailable',
+    )
+    expect(hot.getDataAtCell(1, 2)).toBe('derived-2')
+  })
+
+  it('allows paste and fill across fully editable ranges', () => {
+    const beforeChange = vi.fn().mockReturnValue(true)
+    const { hot } = mountGrid(mixedSettings({ beforeChange }))
+    const changes: Array<[number, string | number, unknown, unknown]> = [
+      [0, 0, null, 'pasted'],
+    ]
+    expect(hot.runHooks('beforeChange', changes, 'CopyPaste.paste')).toBe(true)
+    expect(beforeChange).toHaveBeenCalledOnce()
+    expect(document.getElementById('cut-status')?.textContent).not.toContain(
+      'unavailable',
+    )
+  })
+
+  it('passes non-bulk changes through to caller hooks untouched', () => {
+    const beforeChange = vi.fn().mockReturnValue(true)
+    const { hot } = mountGrid(mixedSettings({ beforeChange }))
+    const changes: Array<[number, string | number, unknown, unknown]> = [
+      [0, 2, null, 'typed-derived'],
+    ]
+    // Keyboard edits keep their existing semantics (editable check lives in
+    // the workspace layer); the wrapper only guards bulk-write sources.
+    expect(hot.runHooks('beforeChange', changes, 'edit')).toBe(true)
+    expect(beforeChange).toHaveBeenCalledOnce()
+  })
+})

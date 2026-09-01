@@ -1,7 +1,7 @@
 import { HotTable } from '@handsontable/react-wrapper'
 import type { HotTableRef } from '@handsontable/react-wrapper'
 import { memo, useEffect, useMemo, useRef } from 'react'
-import type { CellValue, RangeType } from 'handsontable'
+import type { CellChange, CellValue, RangeType } from 'handsontable'
 import type Handsontable from 'handsontable/base'
 import { registerAllModules } from 'handsontable/registry'
 
@@ -28,6 +28,17 @@ function includesReadOnlyCell(hot: Handsontable, ranges: RangeType[]) {
   })
 }
 
+function changesIncludeReadOnlyCell(
+  hot: Handsontable,
+  changes: CellChange[],
+) {
+  return changes.some((change) => {
+    const col = hot.propToCol(change[1] as string | number)
+    if (col < 0) return false
+    return hot.getCellMeta(change[0], col).readOnly
+  })
+}
+
 function announceCutStatus(statusId: string, message: string) {
   const status = document.getElementById(statusId)
   if (status) status.textContent = message
@@ -43,6 +54,11 @@ function SheetbaseGridClientBase({
 }: SheetbaseGridClientProps) {
   const spreadsheetSettings = useMemo<SheetbaseGridSettings>(() => {
     const callerBeforeCut = settings.beforeCut
+    const callerBeforeChange = settings.beforeChange
+    // GRID-02: paste and fill are bulk-write sources. They fail closed when
+    // any target cell is read-only or derived — partial writes that silently
+    // skip guarded cells would misrepresent what the scientist committed.
+    const bulkWriteSources = new Set(['CopyPaste.paste', 'Autofill.fill'])
     return {
       ...settings,
       // Keep the spreadsheet contract wrapper-owned and explicit rather than
@@ -70,6 +86,26 @@ function SheetbaseGridClientBase({
         }
         announceCutStatus(cutStatusId, '')
         return callerBeforeCut?.call(this, data, ranges)
+      },
+      beforeChange: function (
+        this: Handsontable,
+        changes: CellChange[] | null,
+        source: string,
+      ) {
+        if (
+          changes &&
+          bulkWriteSources.has(source) &&
+          changesIncludeReadOnlyCell(this, changes)
+        ) {
+          announceCutStatus(
+            cutStatusId,
+            source === 'CopyPaste.paste'
+              ? 'Paste is unavailable because the target range contains read-only or derived cells.'
+              : 'Fill is unavailable because the target range contains read-only or derived cells.',
+          )
+          return false
+        }
+        return callerBeforeChange?.call(this, changes, source)
       },
     }
   }, [cutStatusId, settings])

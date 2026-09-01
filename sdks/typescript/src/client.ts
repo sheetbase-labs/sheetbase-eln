@@ -22,15 +22,22 @@
  * client.close();
  * ```
  */
-import { HttpTransport, type FetchLike } from "./http.js";
-import { VERSION } from "./version.js";
 import {
+  HttpTransport,
+  type FetchLike,
+  type RequestOptions,
+  type TableHead,
+} from "./http.js";
+import { API_VERSION, VERSION } from "./version.js";
+import {
+  AgentOperationsResource,
   ProjectsResource,
   RecordsResource,
   DatasetsResource,
   SheetsResource,
   SearchResource,
   CataloguesResource,
+  WebhooksResource,
 } from "./resources/index.js";
 
 export interface SheetbaseClientOptions {
@@ -50,6 +57,8 @@ export class SheetbaseClient {
   readonly sheets: SheetsResource;
   readonly search: SearchResource;
   readonly catalogues: CataloguesResource;
+  readonly agentOperations: AgentOperationsResource;
+  readonly webhooks: WebhooksResource;
 
   constructor(options: SheetbaseClientOptions) {
     this.transport = new HttpTransport(
@@ -68,6 +77,8 @@ export class SheetbaseClient {
     this.sheets = new SheetsResource(this.transport);
     this.search = new SearchResource(this.transport);
     this.catalogues = new CataloguesResource(this.transport);
+    this.agentOperations = new AgentOperationsResource(this.transport);
+    this.webhooks = new WebhooksResource(this.transport);
   }
 
   // ── raw access ──────────────────────────────────────────────────────
@@ -87,27 +98,29 @@ export class SheetbaseClient {
     return this.transport.get(`/api/db/${resource}`, options);
   }
 
-  async tablePost(
-    resource: string,
-    options?: { jsonBody?: Record<string, unknown> },
-  ): Promise<any> {
+  async tablePost(resource: string, options?: RequestOptions): Promise<any> {
     return this.transport.post(`/api/db/${resource}`, options);
   }
 
-  async tablePatch(
-    resource: string,
-    options?: {
-      params?: Record<string, string | number | undefined>;
-      jsonBody?: Record<string, unknown>;
-    },
-  ): Promise<any> {
+  async tablePatch(resource: string, options?: RequestOptions): Promise<any> {
     return this.transport.patch(`/api/db/${resource}`, options);
+  }
+
+  async tableHead(
+    resource: string,
+    options?: RequestOptions,
+  ): Promise<TableHead> {
+    return this.transport.head(`/api/db/${resource}`, options);
   }
 
   // ── properties ──────────────────────────────────────────────────────
 
   get version(): string {
     return VERSION;
+  }
+
+  get apiVersion(): string {
+    return API_VERSION;
   }
 
   // ── lifecycle ───────────────────────────────────────────────────────

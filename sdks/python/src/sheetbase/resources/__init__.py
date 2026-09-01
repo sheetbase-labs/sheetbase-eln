@@ -5,6 +5,8 @@ from sheetbase.resources.datasets import DatasetsResource, DatasetRowBatch
 from sheetbase.resources.sheets import SheetsResource
 from sheetbase.resources.search import SearchResource
 from sheetbase.resources.catalogues import CataloguesResource
+from sheetbase.resources.agent_operations import AgentOperationsResource
+from sheetbase.resources.webhooks import WebhooksResource
 
 __all__ = [
     "ProjectsResource",
@@ -14,4 +16,6 @@ __all__ = [
     "SheetsResource",
     "SearchResource",
     "CataloguesResource",
+    "AgentOperationsResource",
+    "WebhooksResource",
 ]

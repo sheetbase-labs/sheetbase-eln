@@ -5,3 +5,12 @@ export type { DatasetRowOperation } from "./datasets.js";
 export { SheetsResource } from "./sheets.js";
 export { SearchResource } from "./search.js";
 export { CataloguesResource } from "./catalogues.js";
+export { AgentOperationsResource } from "./agent-operations.js";
+export type {
+  AgentOperation,
+  AgentProvenance,
+  AgentWorkflowBudget,
+  AgentWorkflowPlan,
+  AgentWorkflowUsage,
+} from "./agent-operations.js";
+export { WebhooksResource } from "./webhooks.js";

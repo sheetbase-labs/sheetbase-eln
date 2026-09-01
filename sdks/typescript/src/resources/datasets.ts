@@ -129,8 +129,12 @@ export class DatasetsResource {
       name: params.name,
     };
     if (params.description !== undefined) body.description = params.description;
-    if (params.primaryProjectId !== undefined) body.primary_project_id = params.primaryProjectId;
-    const rows = await this.transport.post("/api/db/datasets", { jsonBody: body });
+    if (params.primaryProjectId !== undefined)
+      body.primary_project_id = params.primaryProjectId;
+    const rows = await this.transport.post("/api/db/datasets", {
+      jsonBody: body,
+      headers: { Prefer: "return=representation" },
+    });
     if (Array.isArray(rows)) return fromDataset(rows[0]);
     return fromDataset(rows);
   }
@@ -300,29 +304,32 @@ export class DatasetsResource {
     expectedRevision: number,
     label: string,
   ): Promise<DatasetVersion> {
-    const result = await this.transport.post(
-      "/api/db/rpc/snapshot_dataset",
-      {
-        jsonBody: {
-          p_dataset_id: datasetId,
-          p_expected_dataset_revision: expectedRevision,
-          p_label: label,
-        },
+    const result = await this.transport.post("/api/db/rpc/snapshot_dataset", {
+      jsonBody: {
+        p_dataset_id: datasetId,
+        p_expected_dataset_revision: expectedRevision,
+        p_label: label,
       },
-    );
+    });
     if (Array.isArray(result)) return fromDatasetVersion(result[0]);
     return fromDatasetVersion(result);
   }
 
   async archive(datasetId: string, expectedRevision: number): Promise<any> {
     return this.transport.post("/api/db/rpc/archive_dataset", {
-      jsonBody: { p_dataset_id: datasetId, p_expected_revision: expectedRevision },
+      jsonBody: {
+        p_dataset_id: datasetId,
+        p_expected_revision: expectedRevision,
+      },
     });
   }
 
   async restore(datasetId: string, expectedRevision: number): Promise<any> {
     return this.transport.post("/api/db/rpc/restore_dataset", {
-      jsonBody: { p_dataset_id: datasetId, p_expected_revision: expectedRevision },
+      jsonBody: {
+        p_dataset_id: datasetId,
+        p_expected_revision: expectedRevision,
+      },
     });
   }
 }

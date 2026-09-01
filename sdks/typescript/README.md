@@ -12,6 +12,10 @@ npm install @sheetbase/eln-sdk
 
 No runtime dependencies. Requires `fetch` (Node 18+ or browser).
 
+This package targets public API contract `0.1.0`. The complete TypeScript /
+Python operation inventory and shared wire-semantics decisions live in the
+[SDK support matrix](../SUPPORT_MATRIX.md).
+
 ## Quick start
 
 ```ts
@@ -33,7 +37,13 @@ const page = await client.datasets.queryRows({ datasetId: "..." });
 const result = await client.datasets.commitRows(
   "dataset-uuid",
   3, // expected revision
-  [{ operation: "create", rowId: crypto.randomUUID(), values: { "field-uuid": 1.2e9 } }],
+  [
+    {
+      operation: "create",
+      rowId: crypto.randomUUID(),
+      values: { "field-uuid": 1.2e9 },
+    },
+  ],
 );
 
 // Iterate all rows
@@ -83,21 +93,21 @@ try {
 
 ### Stable error categories
 
-| Category | Exception | HTTP |
-|---|---|---|
-| `validation_error` | `ValidationError` | 400 |
-| `not_found` | `NotFoundError` | 404 |
-| `permission_denied` | `PermissionDeniedError` | 403 |
-| `unauthenticated` | `UnauthenticatedError` | 401 |
-| `stale_version` | `StaleVersionError` | 409 |
-| `conflict` | `ConflictError` | 409 |
-| `missing_link` | `MissingLinkError` | 422 |
-| `invalid_transition` | `InvalidTransitionError` | 422 |
-| `invalid_properties` | `InvalidPropertiesError` | 422 |
-| `template_not_instantiable` | `TemplateNotInstantiableError` | 422 |
-| `rate_limited` | `RateLimitedError` | 429 |
-| `service_unavailable` | `ServiceUnavailableError` | 502/503 |
-| `server_error` | `ServerError` | 500 |
+| Category                    | Exception                      | HTTP    |
+| --------------------------- | ------------------------------ | ------- |
+| `validation_error`          | `ValidationError`              | 400     |
+| `not_found`                 | `NotFoundError`                | 404     |
+| `permission_denied`         | `PermissionDeniedError`        | 403     |
+| `unauthenticated`           | `UnauthenticatedError`         | 401     |
+| `stale_version`             | `StaleVersionError`            | 409     |
+| `conflict`                  | `ConflictError`                | 409     |
+| `missing_link`              | `MissingLinkError`             | 422     |
+| `invalid_transition`        | `InvalidTransitionError`       | 422     |
+| `invalid_properties`        | `InvalidPropertiesError`       | 422     |
+| `template_not_instantiable` | `TemplateNotInstantiableError` | 422     |
+| `rate_limited`              | `RateLimitedError`             | 429     |
+| `service_unavailable`       | `ServiceUnavailableError`      | 502/503 |
+| `server_error`              | `ServerError`                  | 500     |
 
 ## Resources
 
@@ -186,14 +196,71 @@ await client.catalogues.listSchemaDefinitions();
 await client.catalogues.listSchemaVersionFields({ schemaVersionId: "uuid" });
 await client.catalogues.listSheetDefinitions();
 await client.catalogues.listTemplates();
-await client.catalogues.instantiateTemplate({ templateVersionId: "uuid", projectId: "uuid" });
+await client.catalogues.instantiateTemplate({
+  templateVersionId: "uuid",
+  projectId: "uuid",
+});
 ```
 
-### RPC escape hatch
+### Agent operations and workflows
+
+```ts
+await client.agentOperations.propose({
+  workspaceId: "uuid",
+  title: "Create assay dataset schema",
+  summary: "Prepare a bounded proposal for human approval",
+  operation,
+  provenance,
+  idempotencyKey: "agent-run-42",
+});
+
+await client.agentOperations.createWorkflow({
+  workspaceId: "uuid",
+  goal: "Prepare and populate the assay dataset",
+  plan,
+  budget,
+  initialUsage: { tokens: 0, costMicrousd: 0 },
+  provenance,
+  idempotencyKey: "workflow-run-42",
+});
+```
+
+Operation, plan, provenance and budget objects retain their canonical contract
+shape. The server remains authoritative for policy, validation, transitions,
+budgets and scientific rules.
+
+### Webhooks
+
+```ts
+await client.webhooks.createSubscription({
+  workspaceId: "uuid",
+  key: "analysis-complete",
+  url: "https://integration.example/hooks/sheetbase",
+  eventTypes: ["dataset.version.created"],
+});
+
+const deliveries = await client.webhooks.listDeliveries({
+  workspaceId: "uuid",
+  limit: 50,
+  offset: 0,
+});
+```
+
+### Public tables
+
+Every allowlisted table operation is available through `tableGet`,
+`tableHead`, `tablePost` and `tablePatch`. `tableHead` returns the
+`Content-Range`, its parsed total when present, and the request id. Pass
+`headers: { Prefer: "count=exact" }` when an exact total is required.
+
+### Raw public RPC access
 
 ```ts
 await client.rpc("query_dataset_rows", { dataset_id: "uuid", limit: 100 });
 ```
+
+Only RPC names in the support matrix are supported. The server's external
+allowlist remains authoritative and rejects private or unknown resources.
 
 ## Pagination
 

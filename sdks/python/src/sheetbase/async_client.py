@@ -28,8 +28,8 @@ from typing import Any, Optional, Sequence
 
 import httpx
 
-from sheetbase._http import AsyncHttpTransport
-from sheetbase._version import __version__
+from sheetbase._http import AsyncHttpTransport, TableHead
+from sheetbase._version import API_VERSION, __version__
 from sheetbase._query_result import DatasetRowPage, DatasetVersionRowPage, SearchPage
 from sheetbase.errors import NotFoundError, StaleVersionError
 from sheetbase.resources.datasets import DatasetRowBatch
@@ -71,10 +71,16 @@ class AsyncSheetbaseClient:
         self.sheets = AsyncSheets(self._transport)
         self.search = AsyncSearch(self._transport)
         self.catalogues = AsyncCatalogues(self._transport)
+        self.agent_operations = AsyncAgentOperations(self._transport)
+        self.webhooks = AsyncWebhooks(self._transport)
 
     @property
     def version(self) -> str:
         return __version__
+
+    @property
+    def api_version(self) -> str:
+        return API_VERSION
 
     async def rpc(self, name: str, **params: Any) -> Any:
         body = {f"p_{k}" if not k.startswith("p_") else k: v for k, v in params.items()}
@@ -83,13 +89,46 @@ class AsyncSheetbaseClient:
     async def table_get(self, resource: str, *, params: Optional[dict[str, Any]] = None) -> Any:
         return await self._transport.get(f"/api/db/{resource}", params=params)
 
-    async def table_post(self, resource: str, *, json_body: Optional[dict[str, Any]] = None) -> Any:
-        return await self._transport.post(f"/api/db/{resource}", json_body=json_body)
+    async def table_post(
+        self,
+        resource: str,
+        *,
+        params: Optional[dict[str, Any]] = None,
+        json_body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Any:
+        return await self._transport.post(
+            f"/api/db/{resource}",
+            params=params,
+            json_body=json_body,
+            headers=headers,
+        )
 
     async def table_patch(
-        self, resource: str, *, params: Optional[dict[str, Any]] = None, json_body: Optional[dict[str, Any]] = None
+        self,
+        resource: str,
+        *,
+        params: Optional[dict[str, Any]] = None,
+        json_body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> Any:
-        return await self._transport.patch(f"/api/db/{resource}", params=params, json_body=json_body)
+        return await self._transport.patch(
+            f"/api/db/{resource}",
+            params=params,
+            json_body=json_body,
+            headers=headers,
+        )
+
+    async def table_head(
+        self,
+        resource: str,
+        *,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> TableHead:
+        return await self._transport.head(
+            f"/api/db/{resource}", params=params, headers=headers
+        )
 
     async def close(self) -> None:
         await self._transport.close()
@@ -262,7 +301,11 @@ class AsyncDatasets:
             body["description"] = description
         if primary_project_id is not None:
             body["primary_project_id"] = primary_project_id
-        rows = await self._t.post("/api/db/datasets", json_body=body)
+        rows = await self._t.post(
+            "/api/db/datasets",
+            json_body=body,
+            headers={"Prefer": "return=representation"},
+        )
         if isinstance(rows, list):
             return Dataset.from_dict(rows[0])
         return Dataset.from_dict(rows)
@@ -532,7 +575,7 @@ class AsyncCatalogues:
     ) -> list[dict[str, Any]]:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if schema_version_id:
-            params["dataset_schema_version_id"] = f"eq.{schema_version_id}"
+            params["schema_version_id"] = f"eq.{schema_version_id}"
         return await self._t.get("/api/db/dataset_schema_version_fields", params=params)
 
     async def list_templates(
@@ -541,4 +584,255 @@ class AsyncCatalogues:
         return await self._t.get(
             "/api/db/notebook_templates",
             params={"limit": limit, "offset": offset},
+        )
+
+
+class AsyncAgentOperations:
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._t = transport
+
+    async def list_proposals(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return await self._t.get(
+            "/api/db/agent_operation_proposals", params=params
+        )
+
+    async def list_proposal_events(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return await self._t.get("/api/db/agent_operation_events", params=params)
+
+    async def list_workflows(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return await self._t.get("/api/db/agent_workflows", params=params)
+
+    async def list_workflow_steps(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return await self._t.get("/api/db/agent_workflow_steps", params=params)
+
+    async def list_workflow_events(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return await self._t.get("/api/db/agent_workflow_events", params=params)
+
+    async def propose(
+        self,
+        *,
+        workspace_id: str,
+        title: str,
+        summary: str,
+        operation: dict[str, Any],
+        provenance: dict[str, Any],
+        idempotency_key: str,
+    ) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/propose_agent_operation",
+            json_body={
+                "p_workspace_id": workspace_id,
+                "p_title": title,
+                "p_summary": summary,
+                "p_operation": operation,
+                "p_provenance": provenance,
+                "p_idempotency_key": idempotency_key,
+            },
+        )
+
+    async def create_workflow(
+        self,
+        *,
+        workspace_id: str,
+        goal: str,
+        plan: dict[str, Any],
+        budget: dict[str, Any],
+        initial_usage: dict[str, Any],
+        provenance: dict[str, Any],
+        idempotency_key: str,
+    ) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/create_agent_workflow",
+            json_body={
+                "p_workspace_id": workspace_id,
+                "p_goal": goal,
+                "p_plan": plan,
+                "p_budget": budget,
+                "p_initial_usage": initial_usage,
+                "p_provenance": provenance,
+                "p_idempotency_key": idempotency_key,
+            },
+        )
+
+    async def advance_workflow(
+        self, workflow_id: str, expected_revision: int
+    ) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/advance_agent_workflow",
+            json_body={
+                "p_workflow_id": workflow_id,
+                "p_expected_revision": expected_revision,
+            },
+        )
+
+    async def report_workflow_usage(
+        self,
+        workflow_id: str,
+        expected_revision: int,
+        *,
+        tokens: int,
+        cost_microusd: int,
+    ) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/report_agent_workflow_usage",
+            json_body={
+                "p_workflow_id": workflow_id,
+                "p_expected_revision": expected_revision,
+                "p_tokens": tokens,
+                "p_cost_microusd": cost_microusd,
+            },
+        )
+
+    async def cancel_workflow(
+        self, workflow_id: str, expected_revision: int, *, reason: str
+    ) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/cancel_agent_workflow",
+            json_body={
+                "p_workflow_id": workflow_id,
+                "p_expected_revision": expected_revision,
+                "p_reason": reason,
+            },
+        )
+
+
+class AsyncWebhooks:
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._t = transport
+
+    async def list_subscriptions(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return await self._t.get("/api/db/webhook_subscriptions", params=params)
+
+    async def list_delivery_rows(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return await self._t.get("/api/db/webhook_deliveries", params=params)
+
+    async def create_subscription(
+        self,
+        *,
+        workspace_id: str,
+        key: str,
+        url: str,
+        event_types: Optional[Sequence[str]] = None,
+        description: Optional[str] = None,
+        max_retries: Optional[int] = None,
+        failure_threshold: Optional[int] = None,
+        signing_secret: Optional[str] = None,
+    ) -> Any:
+        body: dict[str, Any] = {
+            "p_workspace_id": workspace_id,
+            "p_key": key,
+            "p_url": url,
+        }
+        optional = {
+            "p_event_types": list(event_types) if event_types is not None else None,
+            "p_description": description,
+            "p_max_retries": max_retries,
+            "p_failure_threshold": failure_threshold,
+            "p_signing_secret": signing_secret,
+        }
+        body.update({key: value for key, value in optional.items() if value is not None})
+        return await self._t.post(
+            "/api/db/rpc/create_webhook_subscription", json_body=body
+        )
+
+    async def update_subscription(
+        self,
+        *,
+        workspace_id: str,
+        subscription_id: str,
+        url: Optional[str] = None,
+        event_types: Optional[Sequence[str]] = None,
+        description: Optional[str] = None,
+        status: Optional[str] = None,
+        max_retries: Optional[int] = None,
+        failure_threshold: Optional[int] = None,
+    ) -> Any:
+        body: dict[str, Any] = {
+            "p_workspace_id": workspace_id,
+            "p_subscription_id": subscription_id,
+        }
+        optional = {
+            "p_url": url,
+            "p_event_types": list(event_types) if event_types is not None else None,
+            "p_description": description,
+            "p_status": status,
+            "p_max_retries": max_retries,
+            "p_failure_threshold": failure_threshold,
+        }
+        body.update({key: value for key, value in optional.items() if value is not None})
+        return await self._t.post(
+            "/api/db/rpc/update_webhook_subscription", json_body=body
+        )
+
+    async def delete_subscription(
+        self, *, workspace_id: str, subscription_id: str
+    ) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/delete_webhook_subscription",
+            json_body={
+                "p_workspace_id": workspace_id,
+                "p_subscription_id": subscription_id,
+            },
+        )
+
+    async def rotate_secret(
+        self,
+        *,
+        workspace_id: str,
+        subscription_id: str,
+        new_secret: Optional[str] = None,
+    ) -> Any:
+        body: dict[str, Any] = {
+            "p_workspace_id": workspace_id,
+            "p_subscription_id": subscription_id,
+        }
+        if new_secret is not None:
+            body["p_new_secret"] = new_secret
+        return await self._t.post(
+            "/api/db/rpc/rotate_webhook_secret", json_body=body
+        )
+
+    async def list_deliveries(
+        self,
+        *,
+        workspace_id: str,
+        subscription_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Any:
+        body: dict[str, Any] = {
+            "p_workspace_id": workspace_id,
+            "p_limit": limit,
+            "p_offset": offset,
+        }
+        if subscription_id is not None:
+            body["p_subscription_id"] = subscription_id
+        if status is not None:
+            body["p_status"] = status
+        return await self._t.post(
+            "/api/db/rpc/list_webhook_deliveries", json_body=body
+        )
+
+    async def replay_delivery(self, *, workspace_id: str, delivery_id: str) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/replay_webhook_delivery",
+            json_body={
+                "p_workspace_id": workspace_id,
+                "p_delivery_id": delivery_id,
+            },
         )

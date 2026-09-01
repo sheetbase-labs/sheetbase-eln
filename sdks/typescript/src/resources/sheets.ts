@@ -19,7 +19,9 @@ export class SheetsResource {
     };
     if (options?.select) params.select = options.select;
     if (options?.order) params.order = options.order;
-    const rows = await this.transport.get("/api/db/sheet_instances", { params });
+    const rows = await this.transport.get("/api/db/sheet_instances", {
+      params,
+    });
     return rows.map(fromSheetInstance);
   }
 
@@ -28,7 +30,10 @@ export class SheetsResource {
       params: { id: `eq.${instanceId}`, limit: 1 },
     });
     if (rows.length === 0) {
-      throw new NotFoundError("not_found", `Sheet instance ${instanceId} not found.`);
+      throw new NotFoundError(
+        "not_found",
+        `Sheet instance ${instanceId} not found.`,
+      );
     }
     return fromSheetInstance(rows[0]);
   }
@@ -47,7 +52,8 @@ export class SheetsResource {
         p_workspace_id: params.workspaceId,
         p_name: params.name,
         p_description: params.description ?? null,
-        p_source_definition_version_id: params.sourceDefinitionVersionId ?? null,
+        p_source_definition_version_id:
+          params.sourceDefinitionVersionId ?? null,
         p_project_id: params.projectId ?? null,
         p_notebook_record_id: params.notebookRecordId ?? null,
         p_state: params.state,
@@ -60,7 +66,7 @@ export class SheetsResource {
     name: string;
     sourceDefinitionVersionId: string;
     state: Record<string, unknown>;
-    parameterInputs: Record<string, unknown>;
+    parameterInputs: Record<string, unknown>[];
     description?: string | null;
     projectId?: string | null;
     notebookRecordId?: string | null;
@@ -110,6 +116,33 @@ export class SheetsResource {
     });
   }
 
+  async readCalculationResults(
+    instanceId: string,
+    rowKeys: string[],
+  ): Promise<unknown> {
+    return this.transport.post(
+      "/api/db/rpc/read_sheet_instance_calculation_results",
+      {
+        jsonBody: { p_instance_id: instanceId, p_row_keys: rowKeys },
+      },
+    );
+  }
+
+  async resolveRowIdentity(
+    instanceId: string,
+    expectedRevision: number,
+  ): Promise<unknown> {
+    return this.transport.post(
+      "/api/db/rpc/resolve_sheet_instance_row_identity",
+      {
+        jsonBody: {
+          p_instance_id: instanceId,
+          p_expected_revision: expectedRevision,
+        },
+      },
+    );
+  }
+
   async *iterRows(
     instanceId: string,
     options?: { pageSize?: number; maxItems?: number },
@@ -130,13 +163,19 @@ export class SheetsResource {
 
   async archive(instanceId: string, expectedRevision: number): Promise<any> {
     return this.transport.post("/api/db/rpc/archive_sheet_instance", {
-      jsonBody: { p_instance_id: instanceId, p_expected_revision: expectedRevision },
+      jsonBody: {
+        p_instance_id: instanceId,
+        p_expected_revision: expectedRevision,
+      },
     });
   }
 
   async restore(instanceId: string, expectedRevision: number): Promise<any> {
     return this.transport.post("/api/db/rpc/restore_sheet_instance", {
-      jsonBody: { p_instance_id: instanceId, p_expected_revision: expectedRevision },
+      jsonBody: {
+        p_instance_id: instanceId,
+        p_expected_revision: expectedRevision,
+      },
     });
   }
 
@@ -188,6 +227,84 @@ export class SheetsResource {
     });
   }
 
+  async previewCompositionAdoption(params: {
+    instanceId: string;
+    expectedInstanceRevision: number;
+    targetDefinitionVersionId: string;
+    parameterInputs: Record<string, unknown>[];
+  }): Promise<unknown> {
+    return this.transport.post(
+      "/api/db/rpc/preview_sheet_instance_composition_adoption",
+      {
+        jsonBody: {
+          p_instance_id: params.instanceId,
+          p_expected_instance_revision: params.expectedInstanceRevision,
+          p_target_definition_version_id: params.targetDefinitionVersionId,
+          p_parameter_inputs: params.parameterInputs,
+        },
+      },
+    );
+  }
+
+  async applyCompositionAdoption(params: {
+    instanceId: string;
+    expectedInstanceRevision: number;
+    targetDefinitionVersionId: string;
+    parameterInputs: Record<string, unknown>[];
+    retryToken: string;
+  }): Promise<unknown> {
+    return this.transport.post(
+      "/api/db/rpc/apply_sheet_instance_composition_adoption",
+      {
+        jsonBody: {
+          p_instance_id: params.instanceId,
+          p_expected_instance_revision: params.expectedInstanceRevision,
+          p_target_definition_version_id: params.targetDefinitionVersionId,
+          p_parameter_inputs: params.parameterInputs,
+          p_retry_token: params.retryToken,
+        },
+      },
+    );
+  }
+
+  async previewDefinitionUpgrade(params: {
+    instanceId: string;
+    expectedInstanceRevision: number;
+    targetDefinitionVersionId: string;
+  }): Promise<unknown> {
+    return this.transport.post(
+      "/api/db/rpc/preview_sheet_instance_definition_upgrade",
+      {
+        jsonBody: {
+          p_instance_id: params.instanceId,
+          p_expected_instance_revision: params.expectedInstanceRevision,
+          p_target_definition_version_id: params.targetDefinitionVersionId,
+        },
+      },
+    );
+  }
+
+  async applyDefinitionUpgrade(params: {
+    instanceId: string;
+    expectedInstanceRevision: number;
+    targetDefinitionVersionId: string;
+    decisions: Record<string, unknown>[];
+    parameterInputs: Record<string, unknown>[];
+  }): Promise<unknown> {
+    return this.transport.post(
+      "/api/db/rpc/apply_sheet_instance_definition_upgrade",
+      {
+        jsonBody: {
+          p_instance_id: params.instanceId,
+          p_expected_instance_revision: params.expectedInstanceRevision,
+          p_target_definition_version_id: params.targetDefinitionVersionId,
+          p_decisions: params.decisions,
+          p_parameter_inputs: params.parameterInputs,
+        },
+      },
+    );
+  }
+
   async mutateLocalState(params: {
     instanceId: string;
     expectedRevision: number;
@@ -228,5 +345,81 @@ export class SheetsResource {
         },
       },
     );
+  }
+
+  async insertNotebookBlock(params: {
+    recordId: string;
+    expectedStructureVersion: number;
+    instanceId: string;
+    afterBlockId?: string | null;
+  }): Promise<unknown> {
+    return this.transport.post("/api/db/rpc/insert_sheet_instance_block", {
+      jsonBody: {
+        p_record_id: params.recordId,
+        p_after_block_id: params.afterBlockId ?? null,
+        p_expected_structure_version: params.expectedStructureVersion,
+        p_instance_id: params.instanceId,
+      },
+    });
+  }
+
+  async duplicateNotebookBlock(
+    blockId: string,
+    expectedStructureVersion: number,
+  ): Promise<unknown> {
+    return this.transport.post("/api/db/rpc/duplicate_sheet_instance_block", {
+      jsonBody: {
+        p_block_id: blockId,
+        p_expected_structure_version: expectedStructureVersion,
+      },
+    });
+  }
+
+  async validateRecordBatch(params: {
+    projectId: string;
+    modelKey: string;
+    rows: Record<string, unknown>[];
+  }): Promise<unknown> {
+    return this.transport.post("/api/db/rpc/validate_sheet_record_batch", {
+      jsonBody: {
+        p_project_id: params.projectId,
+        p_model_key: params.modelKey,
+        p_rows: params.rows,
+      },
+    });
+  }
+
+  async createAndLinkRecord(params: {
+    projectId: string;
+    modelKey: string;
+    title: string;
+    customFields: Record<string, unknown>;
+    writeTarget: Record<string, unknown>;
+  }): Promise<unknown> {
+    return this.transport.post("/api/db/rpc/create_and_link_sheet_record", {
+      jsonBody: {
+        p_project_id: params.projectId,
+        p_model_key: params.modelKey,
+        p_title: params.title,
+        p_custom_fields: params.customFields,
+        p_write_target: params.writeTarget,
+      },
+    });
+  }
+
+  async commitRecordBatch(params: {
+    projectId: string;
+    modelKey: string;
+    rows: Record<string, unknown>[];
+    idempotencyKey: string;
+  }): Promise<unknown> {
+    return this.transport.post("/api/db/rpc/commit_sheet_record_batch", {
+      jsonBody: {
+        p_project_id: params.projectId,
+        p_model_key: params.modelKey,
+        p_rows: params.rows,
+        p_idempotency_key: params.idempotencyKey,
+      },
+    });
   }
 }

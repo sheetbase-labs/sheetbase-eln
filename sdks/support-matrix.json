@@ -1,0 +1,542 @@
+{
+  "contract": {
+    "apiVersion": "0.1.0",
+    "basePath": "/api/db",
+    "source": "docs/openapi/external-api-v0.json",
+    "tokenErrorCodes": [
+      "invalid_request",
+      "invalid_scope",
+      "invalid_credential",
+      "revoked",
+      "expired",
+      "insufficient_scope",
+      "rate_limited",
+      "server_error"
+    ],
+    "errorCategories": [
+      "validation_error",
+      "not_found",
+      "permission_denied",
+      "conflict",
+      "stale_version",
+      "missing_link",
+      "invalid_transition",
+      "invalid_properties",
+      "template_not_instantiable",
+      "unauthenticated",
+      "rate_limited",
+      "service_unavailable",
+      "server_error"
+    ]
+  },
+  "token": [
+    {
+      "method": "POST",
+      "path": "/api/token",
+      "python": "automatic",
+      "typescript": "automatic"
+    }
+  ],
+  "tables": [
+    {
+      "resource": "agent_operation_events",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "agent_operation_proposals",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "agent_workflow_events",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "agent_workflow_steps",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "agent_workflows",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "blocks",
+      "methods": ["GET", "HEAD", "POST", "PATCH"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "dataset_schema_definitions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "dataset_schema_version_fields",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "dataset_schema_versions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "dataset_versions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "datasets",
+      "methods": ["GET", "HEAD", "POST"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "folders",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "notebook_template_versions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "notebook_templates",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "projects",
+      "methods": ["GET", "HEAD", "POST", "PATCH"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "record_field_definitions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "record_links",
+      "methods": ["GET", "HEAD", "POST", "PATCH"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "records",
+      "methods": ["GET", "HEAD", "POST", "PATCH"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "revisions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "sheet_definition_versions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "sheet_definitions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "sheet_instances",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "webhook_deliveries",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "webhook_subscriptions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    }
+  ],
+  "rpcs": [
+    {
+      "name": "advance_agent_workflow",
+      "resource": "agentOperations",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "apply_notebook_template_upgrade",
+      "resource": "catalogues",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "apply_sheet_instance_composition_adoption",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "apply_sheet_instance_definition_upgrade",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "archive_dataset",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "archive_record",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "archive_sheet_instance",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "cancel_agent_workflow",
+      "resource": "agentOperations",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "commit_dataset_row_batch",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "commit_sheet_record_batch",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_agent_workflow",
+      "resource": "agentOperations",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_and_link_sheet_record",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_project",
+      "resource": "projects",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_record",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_record_link",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_record_with_blocks",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_sheet_instance",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_sheet_instance_from_definition",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_webhook_subscription",
+      "resource": "webhooks",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "delete_block",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "delete_webhook_subscription",
+      "resource": "webhooks",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "duplicate_sheet_instance",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "duplicate_sheet_instance_block",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "insert_block",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "insert_sheet_instance_block",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "instantiate_notebook_template_version",
+      "resource": "catalogues",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "instantiate_template",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "list_webhook_deliveries",
+      "resource": "webhooks",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "materialize_sheet_instance",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "move_block",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "mutate_sheet_instance_calculations",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "mutate_sheet_instance_local_state",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "preview_notebook_template_upgrade",
+      "resource": "catalogues",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "preview_sheet_instance_composition_adoption",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "preview_sheet_instance_definition_upgrade",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "preview_sheet_materialization",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "preview_submission_digest",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "propose_agent_operation",
+      "resource": "agentOperations",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "query_dataset_rows",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "query_dataset_version_rows",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "query_sheet_instance_rows",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "read_sheet_instance_calculation_results",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "replay_webhook_delivery",
+      "resource": "webhooks",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "report_agent_workflow_usage",
+      "resource": "agentOperations",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "resolve_sheet_instance_row_identity",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "restore_dataset",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "restore_record",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "restore_sheet_instance",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "rotate_webhook_secret",
+      "resource": "webhooks",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "search",
+      "resource": "search",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "search_sheet_records",
+      "resource": "search",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "snapshot_dataset",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "transition_record_status",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "update_block_payload",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "update_record_custom_fields",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "update_sheet_instance",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "update_webhook_subscription",
+      "resource": "webhooks",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "validate_dataset_row_batch",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "validate_sheet_record_batch",
+      "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    }
+  ]
+}

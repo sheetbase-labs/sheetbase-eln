@@ -71,6 +71,30 @@ class RecordsResource:
             return Record.from_dict(result[0])
         return Record.from_dict(result)
 
+    def create_with_blocks(
+        self,
+        *,
+        project_id: str,
+        kind: str,
+        title: str,
+        status: str,
+        tags: list[str],
+        blocks: list[dict[str, Any]],
+        properties: dict[str, Any],
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/create_record_with_blocks",
+            json_body={
+                "p_project_id": project_id,
+                "p_kind": kind,
+                "p_title": title,
+                "p_status": status,
+                "p_tags": tags,
+                "p_blocks": blocks,
+                "p_properties": properties,
+            },
+        )
+
     def update(
         self,
         record_id: str,
@@ -97,6 +121,7 @@ class RecordsResource:
             "/api/db/records",
             params={"id": f"eq.{record_id}"},
             json_body=body,
+            headers={"Prefer": "return=representation"},
         )
 
     def archive(self, record_id: str, expected_metadata_version: int) -> Any:
@@ -143,6 +168,112 @@ class RecordsResource:
                 "p_target_record_id": target_record_id,
                 "p_label": label,
             },
+        )
+
+    def update_custom_fields(
+        self,
+        record_id: str,
+        expected_metadata_version: int,
+        values: dict[str, Any],
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/update_record_custom_fields",
+            json_body={
+                "p_record_id": record_id,
+                "p_expected_metadata_version": expected_metadata_version,
+                "p_values": values,
+            },
+        )
+
+    def update_block_payload(
+        self,
+        block_id: str,
+        *,
+        payload: dict[str, Any],
+        expected_version: int,
+        payload_schema_version: int,
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/update_block_payload",
+            json_body={
+                "p_block_id": block_id,
+                "p_payload": payload,
+                "p_expected_version": expected_version,
+                "p_payload_schema_version": payload_schema_version,
+            },
+        )
+
+    def move_block(
+        self,
+        block_id: str,
+        expected_structure_version: int,
+        *,
+        after_block_id: Optional[str] = None,
+        before_block_id: Optional[str] = None,
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/move_block",
+            json_body={
+                "p_block_id": block_id,
+                "p_expected_structure_version": expected_structure_version,
+                "p_after_block_id": after_block_id,
+                "p_before_block_id": before_block_id,
+            },
+        )
+
+    def insert_block(
+        self,
+        *,
+        record_id: str,
+        block_type: str,
+        payload: dict[str, Any],
+        payload_schema_version: int,
+        expected_structure_version: int,
+        after_block_id: Optional[str] = None,
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/insert_block",
+            json_body={
+                "p_record_id": record_id,
+                "p_type": block_type,
+                "p_payload": payload,
+                "p_payload_schema_version": payload_schema_version,
+                "p_after_block_id": after_block_id,
+                "p_expected_structure_version": expected_structure_version,
+            },
+        )
+
+    def delete_block(self, block_id: str, expected_structure_version: int) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/delete_block",
+            json_body={
+                "p_block_id": block_id,
+                "p_expected_structure_version": expected_structure_version,
+            },
+        )
+
+    def instantiate_template(
+        self,
+        *,
+        template_record_id: str,
+        target_project_id: str,
+        target_kind: str,
+        title: str,
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/instantiate_template",
+            json_body={
+                "p_template_record_id": template_record_id,
+                "p_target_project_id": target_project_id,
+                "p_target_kind": target_kind,
+                "p_title": title,
+            },
+        )
+
+    def preview_submission_digest(self, record_id: str) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/preview_submission_digest",
+            json_body={"p_record_id": record_id},
         )
 
     def iter(

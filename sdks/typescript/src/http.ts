@@ -25,8 +25,16 @@ export interface FetchInit {
 export interface FetchResponse {
   ok: boolean;
   status: number;
+  headers?: { get(name: string): string | null };
   json(): Promise<unknown>;
   text(): Promise<string>;
+}
+
+export interface TableHead {
+  status: number;
+  contentRange: string | null;
+  totalCount: number | null;
+  requestId: string | null;
 }
 
 export interface RequestOptions {
@@ -161,34 +169,29 @@ export class HttpTransport {
       signal,
     });
 
+    if (method === "HEAD" && resp.status < 400) {
+      return tableHead(resp);
+    }
     return handleResponse(resp);
   }
 
-  async get(
-    path: string,
-    options?: RequestOptions,
-  ): Promise<any> {
+  async get(path: string, options?: RequestOptions): Promise<any> {
     return this.request("GET", path, options);
   }
 
-  async post(
-    path: string,
-    options?: RequestOptions,
-  ): Promise<any> {
+  async post(path: string, options?: RequestOptions): Promise<any> {
     return this.request("POST", path, options);
   }
 
-  async patch(
-    path: string,
-    options?: RequestOptions,
-  ): Promise<any> {
+  async head(path: string, options?: RequestOptions): Promise<TableHead> {
+    return this.request("HEAD", path, options);
+  }
+
+  async patch(path: string, options?: RequestOptions): Promise<any> {
     return this.request("PATCH", path, options);
   }
 
-  async delete(
-    path: string,
-    options?: RequestOptions,
-  ): Promise<any> {
+  async delete(path: string, options?: RequestOptions): Promise<any> {
     return this.request("DELETE", path, options);
   }
 }
@@ -203,7 +206,9 @@ function buildUrl(
   const entries = Object.entries(params).filter(([, v]) => v !== undefined);
   if (entries.length === 0) return base;
   const qs = entries
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .map(
+      ([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`,
+    )
     .join("&");
   return `${base}?${qs}`;
 }
@@ -232,8 +237,30 @@ async function handleResponse(resp: FetchResponse): Promise<any> {
     throw new TokenError(err.code, err.message ?? "Request failed.");
   }
   if (err.category) {
-    throw dataPathError(err.category, err.message ?? "Request failed.", err.request_id);
+    throw dataPathError(
+      err.category,
+      err.message ?? "Request failed.",
+      err.request_id,
+    );
   }
   // Unknown error shape — fall back to a generic data-path error.
   throw dataPathError("server_error", err.message ?? `HTTP ${resp.status}`);
+}
+
+function tableHead(resp: FetchResponse): TableHead {
+  const contentRange = resp.headers?.get("content-range") ?? null;
+  let totalCount: number | null = null;
+  if (contentRange?.includes("/")) {
+    const total = contentRange.slice(contentRange.lastIndexOf("/") + 1);
+    if (total !== "*") {
+      const parsed = Number(total);
+      if (Number.isInteger(parsed) && parsed >= 0) totalCount = parsed;
+    }
+  }
+  return {
+    status: resp.status,
+    contentRange,
+    totalCount,
+    requestId: resp.headers?.get("x-request-id") ?? null,
+  };
 }

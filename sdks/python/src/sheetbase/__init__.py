@@ -23,7 +23,8 @@ Usage::
         rows=[{"operation": "create", "rowId": str(uuid.uuid4()), "values": {...}}],
     )
 """
-from sheetbase._version import __version__
+from sheetbase._http import TableHead
+from sheetbase._version import API_VERSION, __version__
 from sheetbase.client import SheetbaseClient
 from sheetbase.async_client import AsyncSheetbaseClient
 from sheetbase.errors import (
@@ -43,10 +44,14 @@ from sheetbase.errors import (
     RateLimitedError,
     ServiceUnavailableError,
     ServerError,
+    ERROR_CATEGORIES,
+    TOKEN_ERROR_CODES,
 )
 
 __all__ = [
     "__version__",
+    "API_VERSION",
+    "TableHead",
     "SheetbaseClient",
     "AsyncSheetbaseClient",
     "SheetbaseError",
@@ -65,4 +70,6 @@ __all__ = [
     "RateLimitedError",
     "ServiceUnavailableError",
     "ServerError",
+    "ERROR_CATEGORIES",
+    "TOKEN_ERROR_CODES",
 ]

@@ -1,7 +1,7 @@
 /**
  * API-006: structured server logging. Emits one JSON object per line to
  * stdout so a log aggregator can parse them. Severity follows syslog
- * conventions (docs/observability.md):
+ * conventions (docs/operations/observability.md):
  *
  *   debug  — local dev only; never on in production.
  *   info   — request lifecycle, successful operations.

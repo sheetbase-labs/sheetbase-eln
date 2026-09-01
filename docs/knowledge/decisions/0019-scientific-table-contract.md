@@ -19,9 +19,9 @@ The contract is constrained by existing decisions:
   API clients use the same PostgREST resources and claims (0002, 0005, 0006).
 - Only the `api` schema is exposed to PostgREST. Privileged helpers live in
   `internal`, pin `search_path = ''`, and receive narrow grants
-  (`docs/database-access.md`).
+  (`docs/development/database-access.md`).
 - Stable identifiers are separate from mutable display names, and published
-  REST fields are not silently renamed (`docs/conventions.md`).
+  REST fields are not silently renamed (`docs/development/conventions.md`).
 - A notebook is a record's ordered blocks; the Phase 4 sheet is a `sheet` block
   whose payload points to table metadata rather than containing the dataset
   (0015).
@@ -46,7 +46,7 @@ existing Sheetbase database API: generated resources use the same exposed
 schema, same-origin proxy, external credentials, PostgREST query semantics,
 stable error envelope, RLS policy shape, direct-CRUD default and transactional
 RPC exception as projects and notebook records. DATA-003 documents the new
-resources in the same style as `docs/notebook-api.md`.
+resources in the same style as `docs/api/notebook-api.md`.
 
 ## Decision
 

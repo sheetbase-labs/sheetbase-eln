@@ -30,7 +30,7 @@ describe('PLAT-03 security pipeline', () => {
     expect(readFileSync('.github/workflows/security.yml', 'utf8')).toContain(
       'Deliberately not triggered on pull_request',
     )
-    expect(readFileSync('docs/security.md', 'utf8')).toContain('release gate')
+    expect(readFileSync('docs/operations/security.md', 'utf8')).toContain('release gate')
   })
 
   it('runs the dependency audit for visibility outside the gate', () => {
@@ -64,7 +64,7 @@ describe('PLAT-03 dependency policy', () => {
 
 describe('PLAT-03 security documentation', () => {
   it('documents the audited surfaces', () => {
-    const security = readFileSync('docs/security.md', 'utf8')
+    const security = readFileSync('docs/operations/security.md', 'utf8')
     for (const surface of [
       'Authentication',
       'Sessions',
@@ -81,7 +81,7 @@ describe('PLAT-03 security documentation', () => {
   })
 
   it('links the security doc from the observability and recovery docs', () => {
-    expect(readFileSync('docs/observability.md', 'utf8')).not.toBeNull()
+    expect(readFileSync('docs/operations/observability.md', 'utf8')).not.toBeNull()
   })
 })
 
@@ -111,10 +111,10 @@ describe('PLAT-03 local release path (no GitHub Actions)', () => {
   })
 
   it('documents the release-time-only gate contract honestly', () => {
-    expect(readFileSync('docs/security.md', 'utf8')).toContain(
+    expect(readFileSync('docs/operations/security.md', 'utf8')).toContain(
       'release-time enforcement on `main`',
     )
-    expect(readFileSync('docs/deployment.md', 'utf8')).toContain(
+    expect(readFileSync('docs/operations/deployment.md', 'utf8')).toContain(
       'Releasing without GitHub Actions',
     )
   })

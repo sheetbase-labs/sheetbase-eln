@@ -44,7 +44,7 @@ const PG_CODE_TO_CATEGORY: Record<string, ErrorCategory> = {
   '40P01': 'conflict', // deadlock_detected
   // Sheetbase-specific SQLSTATE codes (class SB) raised by notebook RPCs
   // (ELN-003) so clients can branch on the exact failure without parsing
-  // messages. See docs/notebook-api.md.
+  // messages. See docs/api/notebook-api.md.
   SB001: 'stale_version', // expected_version did not match
   SB002: 'missing_link', // record_link target unresolved in workspace
   SB003: 'validation_error', // invalid block payload shape

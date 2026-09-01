@@ -71,7 +71,6 @@ docs/knowledge/
 ├── product/
 ├── architecture/
 ├── design/
-├── concepts/         # historical runnable concepts/prototypes
 ├── mockups/          # historical visual product/design artefacts
 ├── references/
 ├── history/
@@ -81,7 +80,7 @@ docs/knowledge/
 ## Current roadmap state
 
 - **Roadmap 1 / Core Data Workspace:** complete; see [`docs/knowledge/roadmap-1/`](./docs/knowledge/roadmap-1/).
-- **Roadmap 2 / Product & Platform Consolidation:** nearly complete; see [`docs/knowledge/roadmap-2/NEXT.md`](./docs/knowledge/roadmap-2/NEXT.md).
+- **Roadmap 2 / Product & Platform Consolidation:** complete; see [`docs/knowledge/NEXT.md`](./docs/knowledge/NEXT.md).
 - **Roadmap 3:** strategic direction defined; see [`docs/knowledge/roadmap-3/README.md`](./docs/knowledge/roadmap-3/README.md).
 
 ## Core mental model

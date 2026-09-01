@@ -55,7 +55,7 @@ const securityHeadersMiddleware = createMiddleware().server(
     // app bootstrap and TanStack Start (history restore, stream barrier,
     // hydration completion) are allowlisted by nonce and `script-src`
     // drops 'unsafe-inline'. The body is buffered (pages are small; the
-    // streaming TTFB trade-off is documented in docs/security-headers.md).
+    // streaming TTFB trade-off is documented in docs/operations/security-headers.md).
     const nonce = randomBytes(16).toString('base64url')
     applySecurityHeaders(headers, undefined, nonce)
     const html = await result.response.text()

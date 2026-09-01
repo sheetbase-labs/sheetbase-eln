@@ -4,7 +4,7 @@
  * already has its own per-prefix limiter).
  *
  * Fixed-window in-memory counter keyed by `scope:principal`. The deployment
- * topology is a single app container (see docs/deployment.md), so in-memory
+ * topology is a single app container (see docs/operations/deployment.md), so in-memory
  * state is the correct scope; if the topology ever becomes multi-instance,
  * the counter moves behind the same interface.
  *

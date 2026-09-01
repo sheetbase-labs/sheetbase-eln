@@ -18,7 +18,7 @@ release_ → _Run workflow_.
 - **Package versions** follow [SemVer](https://semver.org/). Both packages
   version together: a breaking change to either ships a major bump of both.
 - **Package version ≠ contract version.** The supported public API contract
-  (`docs/openapi/external-api-v0.json` `info.version`, surfaced as
+  (`docs/api/openapi/external-api-v0.json` `info.version`, surfaced as
   `API_VERSION` / `apiVersion` in each SDK) is recorded per release in
   [`SUPPORT_MATRIX.md`](SUPPORT_MATRIX.md) and machine-checked by the
   contract-parity tests. Bump the package version whenever you change the
@@ -42,7 +42,7 @@ release_ → _Run workflow_.
 ## Release procedure
 
 1. **Update the compatibility record.** If the contract changed, regenerate
-   and commit `docs/openapi/external-api-v0.json` (`pnpm openapi:generate`),
+   and commit `docs/api/openapi/external-api-v0.json` (`pnpm openapi:generate`),
    update `sdks/support-matrix.json` and `SUPPORT_MATRIX.md`, and adjust both
    SDKs. The root matrix test fails until every decision is explicit.
 2. **Bump both package versions** in

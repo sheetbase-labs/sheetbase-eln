@@ -8,7 +8,7 @@
  * server value so the user can choose a resolution instead of having one
  * side silently overwritten.
  *
- * Design invariants (see docs/decisions/0018-notebook-autosave-and-conflict.md):
+ * Design invariants (see docs/knowledge/decisions/0018-notebook-autosave-and-conflict.md):
  *
  * - **Draft revision tracking.** Every edit bumps a monotonic revision.
  *   A save that resolves only marks the block clean when the saved

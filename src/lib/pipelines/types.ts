@@ -1,6 +1,6 @@
 /**
  * AUTO-01/02/03 — Pipeline wire types. PostgREST snake_case shapes; see
- * docs/pipelines.md for the contract.
+ * docs/subsystems/pipelines.md for the contract.
  */
 
 export type PipelineLifecycle = 'active' | 'retired'

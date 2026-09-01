@@ -15,7 +15,7 @@ deliberately.
 ## Decision
 
 Durable architectural decisions are recorded as numbered files in
-`docs/decisions/` using the format in that directory's README. A ticket that
+`docs/knowledge/decisions/` using the format in that directory's README. A ticket that
 settles a durable contract is not complete until its record exists.
 
 ## Consequences

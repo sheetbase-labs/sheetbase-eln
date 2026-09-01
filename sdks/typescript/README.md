@@ -23,7 +23,7 @@ Python operation inventory and shared wire-semantics decisions live in the
   release documents which contract version it supports in the
   [compatibility table](../SUPPORT_MATRIX.md#package-compatibility).
 - `API_VERSION` is machine-checked against the committed OpenAPI contract
-  (`docs/openapi/external-api-v0.json` `info.version`) and the support
+  (`docs/api/openapi/external-api-v0.json` `info.version`) and the support
   matrix by the test suite, so taxonomy or version drift fails CI.
 - The error taxonomy (`TOKEN_ERROR_CODES`, `ERROR_CATEGORIES` and the typed
   error classes) is stable public surface: additions go through the support
@@ -81,7 +81,7 @@ const client = new SheetbaseClient({
 });
 ```
 
-Scopes are canonical capability strings from the [public API contract](https://github.com/phlohouse/sheetbase-eln/blob/main/docs/public-api-contract.md#8-proposed-credential-scopes-core-domain).
+Scopes are canonical capability strings from the [public API contract](https://github.com/phlohouse/sheetbase-eln/blob/main/docs/api/public-api-contract.md#8-proposed-credential-scopes-core-domain).
 
 ## Error handling
 

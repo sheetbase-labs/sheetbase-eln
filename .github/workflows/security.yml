@@ -6,12 +6,12 @@
 #   1. CodeQL SAST for JavaScript/TypeScript on `main` pushes and a weekly
 #      schedule. Findings appear on the Security tab; new alerts are triaged
 #      like bugs but do not block a release by themselves until the alert set
-#      is baselined (documented in docs/security.md).
+#      is baselined (documented in docs/operations/security.md).
 #   2. The dependency audit runs here for visibility on `main`; the enforcing
 #      copy runs inside the deploy.yml verify job.
 #
 # Deliberately not triggered on pull_request: pre-merge PR auditing is
-# deferred until the account can run CI reliably (see docs/security.md §4).
+# deferred until the account can run CI reliably (see docs/operations/security.md §4).
 # GitHub marks a job that cannot start because of an account billing limit as
 # "failed", with no "skipped" outcome available from the workflow — so a PR
 # check would report red for environmental reasons while adding no signal the

@@ -1,7 +1,7 @@
 /**
  * Better Auth server instance. GitHub OAuth activates when both credentials
  * are configured; without them the handler still mounts and the sign-in
- * screen explains that sign-in is not configured (docs/authentication.md).
+ * screen explains that sign-in is not configured (docs/operations/authentication.md).
  */
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'

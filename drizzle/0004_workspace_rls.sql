@@ -6,7 +6,7 @@
 -- data. They reuse api.claim_probe (AUTH-003), which is defensive: missing,
 -- empty or malformed request.jwt.claims yield NULL, so every policy
 -- comparison fails closed — zero rows, never an error that leaks structure
--- (docs/database-access.md).
+-- (docs/development/database-access.md).
 --
 -- is_workspace_member is SECURITY DEFINER (owned by migrator) so it can read
 -- api.workspace_memberships without recursing through that table's RLS. It

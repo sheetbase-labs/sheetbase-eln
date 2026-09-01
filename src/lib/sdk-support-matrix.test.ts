@@ -174,7 +174,7 @@ describe('SDK-01 public-contract support matrix', () => {
     expect(new Set(operations).size).toBe(operations.length)
     expect(matrix.contract.apiVersion).toBe(spec.info.version)
     expect(matrix.contract.basePath).toBe('/api/db')
-    expect(matrix.contract.source).toBe('docs/openapi/external-api-v0.json')
+    expect(matrix.contract.source).toBe('docs/api/openapi/external-api-v0.json')
   })
 
   it('keeps version and error semantics aligned with the server contract', () => {

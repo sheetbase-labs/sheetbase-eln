@@ -1,6 +1,6 @@
 """Typed dataclass models for Sheetbase resources.
 
-These models mirror the row schemas in docs/openapi/external-api-v0.json.
+These models mirror the row schemas in docs/api/openapi/external-api-v0.json.
 They are plain dataclasses with ``from_dict`` class methods that handle
 snake_case JSON → Python field mapping. Optional/nullable fields default
 to ``None``.

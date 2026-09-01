@@ -1,7 +1,7 @@
 /**
  * Typed interfaces for Sheetbase resources.
  *
- * These mirror the row schemas in docs/openapi/external-api-v0.json.
+ * These mirror the row schemas in docs/api/openapi/external-api-v0.json.
  * Factory functions (`fromXxx`) handle snake_case JSON → TypeScript mapping.
  * Optional/nullable fields are marked with `?`.
  */

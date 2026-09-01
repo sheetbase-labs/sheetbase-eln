@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const contract = readFileSync('docs/public-api-contract.md', 'utf8')
+const contract = readFileSync('docs/api/public-api-contract.md', 'utf8')
 
 function grantsFor(scope: string): string {
   const row = contract

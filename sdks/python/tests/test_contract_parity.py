@@ -56,7 +56,7 @@ def test_package_targets_the_committed_contract_and_matrix_taxonomy():
     contract advances without this SDK following, the suite fails.
     """
     openapi = json.loads(
-        (REPO_ROOT / "docs/openapi/external-api-v0.json").read_text()
+        (REPO_ROOT / "docs/api/openapi/external-api-v0.json").read_text()
     )
     matrix = json.loads((REPO_ROOT / "sdks/support-matrix.json").read_text())
     pyproject = (REPO_ROOT / "sdks/python/pyproject.toml").read_text()

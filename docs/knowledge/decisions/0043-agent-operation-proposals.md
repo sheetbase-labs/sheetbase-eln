@@ -6,7 +6,7 @@
 
 ## Context
 
-The product contract is [`docs/agent-operations.md`](../../agent-operations.md).
+The product contract is [`docs/subsystems/agent-operations.md`](../../subsystems/agent-operations.md).
 This ADR records the architectural decision.
 
 AUTO-04 requires agents to suggest governed changes without creating a second

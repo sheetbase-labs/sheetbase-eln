@@ -29,16 +29,16 @@ Pre-release update: Sheetbase has no production users or credentials, so `scient
 
 ### Current state (verified API-01 @ `b306654` / `#40`)
 
-External credentials and `POST /api/token` exist. API-07 maps Core Dataset/Sheet/Notebook RPCs onto canonical scopes (`src/lib/external-token.ts`). Schema-authoring and files stay fail-closed. Canonical contract at `docs/public-api-contract.md`.
+External credentials and `POST /api/token` exist. API-07 maps Core Dataset/Sheet/Notebook RPCs onto canonical scopes (`src/lib/external-token.ts`). Schema-authoring and files stay fail-closed. Canonical contract at `docs/api/public-api-contract.md`.
 
 The browser session path has no allowlist; do not treat PostgREST exposure as the public contract.
 
 ### Deliverables
 
-- [x] public resource/operations contract → `docs/public-api-contract.md`
+- [x] public resource/operations contract → `docs/api/public-api-contract.md`
 - [x] Core-domain scope proposal (not `scientific:*`) → contract §8
 - [x] compatibility/deprecation plan → contract §9
-- [x] corrected external API documentation → `docs/external-api.md`
+- [x] corrected external API documentation → `docs/api/external-api.md`
 - [x] fail-closed tests aligned to contract → `src/lib/external-token.test.ts`
 
 Start from the RPCs the product should use, not by opening tables.
@@ -47,13 +47,13 @@ Start from the RPCs the product should use, not by opening tables.
 
 Versioning; stable identity; pagination; filtering/sorting; bulk operations; structured validation errors; stable error codes; optimistic concurrency; idempotency; retry semantics; lifecycle; version access; permission errors; rate limits; deprecation policy.
 
-Documented in `docs/public-api-contract.md` §§4–7 and §9. OpenAPI/SDK/webhook delivery is API-03–06.
+Documented in `docs/api/public-api-contract.md` §§4–7 and §9. OpenAPI/SDK/webhook delivery is API-03–06.
 
 ### Exit
 
 A developer can read the intended public contract without treating scientific-table REST as current. Implementation of the Core external allowlist cut-over is **API-07**.
 
-**Evidence:** `docs/public-api-contract.md`, updated `docs/external-api.md`, `src/lib/external-token.test.ts`, audit notes in contract §12.
+**Evidence:** `docs/api/public-api-contract.md`, updated `docs/api/external-api.md`, `src/lib/external-token.test.ts`, audit notes in contract §12.
 
 ## API-02 — API Credentials & Service Identity
 
@@ -124,7 +124,7 @@ Cut over `src/lib/external-token.ts` (and `api_client` RLS/grants plus write-act
 
 An external credential with the appropriate Core-domain scopes can pass the proxy allowlist **and complete** the same governed Dataset/Sheet data-plane operations the UI uses (query, validate/commit row batch, snapshot, sheet local mutate, at least one models write), with attribution on credential columns rather than a user id. Everything else remains denied. `api_client` holds EXECUTE on mapped RPCs. Schema-authoring RPCs stay revoked. Submit, sign, amend and revision checks are off the credential allowlist (human-session-only).
 
-**Evidence:** `src/lib/external-token.ts`, `src/lib/external-token.test.ts`, `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`, `drizzle/0116_api_07_revoke_human_attestation.sql`, `tests/db/external-api.test.ts`, `docs/public-api-contract.md` §2.1 and §8.2.
+**Evidence:** `src/lib/external-token.ts`, `src/lib/external-token.test.ts`, `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`, `drizzle/0116_api_07_revoke_human_attestation.sql`, `tests/db/external-api.test.ts`, `docs/api/public-api-contract.md` §2.1 and §8.2.
 
 ## API-03 — OpenAPI & Documentation
 
@@ -136,7 +136,7 @@ Publish OpenAPI 3.1 that a developer can use without reading application source,
 
 ### Delivered
 
-- `docs/openapi/external-api-v0.json` (renamed from `service-credentials-v0.json`; the spec covers the public external API, not one credential kind) generated from `EXTERNAL_TABLE_ACCESS` / `EXTERNAL_RPC_SCOPES`
+- `docs/api/openapi/external-api-v0.json` (renamed from `service-credentials-v0.json`; the spec covers the public external API, not one credential kind) generated from `EXTERNAL_TABLE_ACCESS` / `EXTERNAL_RPC_SCOPES`
 - Token exchange, pagination/query parameters, error envelopes, idempotency notes on Dataset commit
 - `/api/token` documents that it accepts both credential kinds: service credentials exchange into `role=api_client` JWTs (workspace identity, `*_credential_id` attribution); personal tokens exchange into `role=authenticated` JWTs carrying the creating member's real `sub`, constrained by member RLS under the same canonical scopes and fail-closed allowlist, unusable when that membership is removed or suspended, and never implying a browser session (no `session_id`)
 - Human-session attestation RPCs (`submit_record_revision`, `run_revision_checks`, `sign_revision`, `create_amendment`) are **absent** from paths
@@ -147,9 +147,9 @@ A `/api/v1` URL prefix is not introduced. Paths remain `/api/token` and `/api/db
 
 ### Exit
 
-A developer can integrate the current external credential surface from the OpenAPI file plus `docs/openapi/README.md` without reading `src/lib/external-token.ts`.
+A developer can integrate the current external credential surface from the OpenAPI file plus `docs/api/openapi/README.md` without reading `src/lib/external-token.ts`.
 
-**Evidence:** `docs/openapi/external-api-v0.json`, `src/lib/public-api-openapi.ts`, `src/lib/public-api-openapi.test.ts`.
+**Evidence:** `docs/api/openapi/external-api-v0.json`, `src/lib/public-api-openapi.ts`, `src/lib/public-api-openapi.test.ts`.
 
 ## API-04 — Python SDK
 
@@ -159,7 +159,7 @@ Typed resources, authentication, pagination iterators, pandas conversion, bulk u
 
 **Delivered:**
 
-- `sdks/python/` — standalone Python package (`sheetbase`, v0.1.0) targeting the external API contract (`docs/public-api-contract.md` v0.1.3, OpenAPI `docs/openapi/external-api-v0.json`)
+- `sdks/python/` — standalone Python package (`sheetbase`, v0.1.0) targeting the external API contract (`docs/api/public-api-contract.md` v0.1.3, OpenAPI `docs/api/openapi/external-api-v0.json`)
 - `HttpTransport` / `AsyncHttpTransport` — credential exchange via `POST /api/token`, automatic JWT refresh (300s TTL with 30s buffer), `Authorization: Bearer` header injection, error-envelope parsing (token path `{ error: { code } }` vs data path `{ error: { category, request_id } }`)
 - Typed frozen dataclasses with `from_dict()` for `Project`, `Record`, `Dataset`, `DatasetVersion`, `DatasetRow`, `SheetInstance`, `SearchResult`, `CommitResult`, `ValidationResult`, `ValidationFailure`
 - Resource classes: `ProjectsResource`, `RecordsResource`, `DatasetsResource`, `SheetsResource`, `SearchResource`, `CataloguesResource` — each wrapping the allowlisted RPCs and table reads from API-07
@@ -183,7 +183,7 @@ Typed domain resources, auth, pagination, errors, idempotency, concurrency and b
 
 **Delivered:**
 
-- `sdks/typescript/` — standalone TypeScript package (`@sheetbase/eln-sdk`, v0.1.0) targeting the external API contract (`docs/public-api-contract.md` v0.1.3, OpenAPI `docs/openapi/external-api-v0.json`)
+- `sdks/typescript/` — standalone TypeScript package (`@sheetbase/eln-sdk`, v0.1.0) targeting the external API contract (`docs/api/public-api-contract.md` v0.1.3, OpenAPI `docs/api/openapi/external-api-v0.json`)
 - `HttpTransport` — credential exchange via `POST /api/token`, automatic JWT refresh (300s TTL with 30s buffer), `Authorization: Bearer` header injection, error-envelope parsing (token path `{ error: { code } }` vs data path `{ error: { category, request_id } }`)
 - Isomorphic `fetch` — no runtime dependencies; works in Node 18+ and all modern browsers. Uses the global `fetch` API and Web Crypto `randomUUID()` with fallback
 - Typed interfaces with factory functions (`fromProject`, `fromRecord`, `fromDataset`, etc.) for `Project`, `SheetbaseRecord`, `Dataset`, `DatasetVersion`, `DatasetRow`, `SheetInstance`, `SearchResult`, `CommitResult`, `ValidationResult`, `ValidationFailure` — all with snake_case JSON → camelCase TypeScript field mapping

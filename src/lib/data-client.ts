@@ -4,7 +4,7 @@
  * the single client-side surface that builds requests against /api/db and
  * parses the consistent error envelope the proxy returns.
  *
- * PostgREST field names are snake_case (docs/conventions.md); callers work
+ * PostgREST field names are snake_case (docs/development/conventions.md); callers work
  * with the raw wire shape. Domain mappers belong at the call site, not here.
  */
 

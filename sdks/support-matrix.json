@@ -2,7 +2,7 @@
   "contract": {
     "apiVersion": "0.1.0",
     "basePath": "/api/db",
-    "source": "docs/openapi/external-api-v0.json",
+    "source": "docs/api/openapi/external-api-v0.json",
     "tokenErrorCodes": [
       "invalid_request",
       "invalid_scope",

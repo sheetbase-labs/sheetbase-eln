@@ -6,8 +6,8 @@ import type { VariantProps } from 'class-variance-authority'
 import { cn } from '#/lib/utils'
 
 /**
- * Button primitives. Variants are reconciled with the concept system
- * (Concepts/sheetbase-ui-system-v2) and the production token set:
+ * Button primitives. Variants are reconciled with the historical design intent
+ * in docs/knowledge/design/ui-system-v2.md and the production token set:
  * - destructive uses `text-destructive-foreground` rather than `text-white`
  *   so it tracks the token, not a literal colour;
  * - every variant has a visible focus ring (DESIGN.md requirement);

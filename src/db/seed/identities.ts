@@ -1,5 +1,5 @@
 /**
- * Stable seed identities. See docs/seeds.md.
+ * Stable seed identities. See docs/development/seeds.md.
  *
  * All seed UUIDs carry a zero prefix so seeded rows are recognisable anywhere,
  * including accidental screenshots and dumps. Range allocation:

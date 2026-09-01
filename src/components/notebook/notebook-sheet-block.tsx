@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { ZodError } from 'zod'
 
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
@@ -244,6 +245,17 @@ function NotebookInstanceSheetEmbed({
             Archived
           </Badge>
         ) : null}
+        {/* NAV-02: the Notebook → Sheet link. The full-page Sheet keeps the
+        canonical ?projectId context so it opens with the same write
+        affordances as the embed. */}
+        <Link
+          className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          to="/sheets/$instanceId"
+          params={{ instanceId }}
+          search={{ projectId: projectId ?? undefined }}
+        >
+          Open full sheet
+        </Link>
       </div>
       {!projectId ? (
         <p className="px-1 text-xs text-muted-foreground" role="status">

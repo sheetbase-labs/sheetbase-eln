@@ -285,9 +285,26 @@ function AnalysisStudioRoute() {
     },
   }
 
+  const selectedDatasetForCrumb = selectedDatasetId
+    ? datasets.find((dataset) => dataset.id === selectedDatasetId)
+    : null
+
   useShell({
     context: shellContext,
-    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Analysis' }],
+    breadcrumbs: [
+      { label: 'Home', to: '/' },
+      { label: 'Analysis', to: '/analysis' },
+      // NAV-02: the analysed dataset is context, resolved from the stable
+      // ?dataset= ID and linked back to its canonical explorer page.
+      ...(selectedDatasetForCrumb
+        ? [
+            {
+              label: selectedDatasetForCrumb.name,
+              to: `/datasets?dataset=${encodeURIComponent(selectedDatasetForCrumb.id)}`,
+            },
+          ]
+        : []),
+    ],
     fullBleed: true,
     inspectorCollapsible: true,
     inspectorLabel: 'Chart settings',

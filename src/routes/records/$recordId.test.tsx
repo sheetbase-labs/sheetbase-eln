@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
+import { SheetProvenanceLine } from '#/components/sheet/canonical-sheet-workspace'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import { notebookQueryKeys } from '#/lib/notebook-data'
@@ -21,6 +22,15 @@ import {
 } from './$recordId'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
+// Record router Link invocations so tests can assert canonical destinations.
+const linkCalls = vi.hoisted(() => ({
+  calls: [] as Array<{
+    to?: string
+    params?: Record<string, string>
+    search?: Record<string, unknown>
+  }>,
+}))
+
 // Stub the router Link as a plain anchor that interpolates $params so no
 // route tree is required. createFileRoute/redirect are stubbed so the route
 // module loads without a router context.
@@ -36,13 +46,16 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     params,
+    search,
     children,
     ...props
   }: {
     to?: string
     params?: Record<string, string>
+    search?: Record<string, unknown>
     children: React.ReactNode
   } & Record<string, unknown>) => {
+    linkCalls.calls.push({ to, params, search })
     let href = typeof to === 'string' ? to : '#'
     if (params) {
       for (const [k, v] of Object.entries(params)) {
@@ -59,6 +72,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 afterEach(() => {
   cleanup()
+  linkCalls.calls.length = 0
 })
 
 // jsdom lacks the Range geometry prosemirror reads when the editor scrolls
@@ -1023,5 +1037,68 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
       }),
     )
     expect(cachedIds()).toEqual(['b2'])
+  })
+})
+
+describe('Sheet provenance — route-level navigation (NAV-02)', () => {
+  it('resolves dataset provenance to the canonical /datasets?dataset=<uuid> route', () => {
+    const datasetId = '770e8400-e29b-41d4-a716-446655440020'
+    renderWithQuery(
+      <SheetProvenanceLine
+        columnLabel="Titer"
+        columnOrigin="bound"
+        provenance={{
+          kind: 'present',
+          provenance: {
+            sourceKind: 'dataset',
+            sourceDatasetId: datasetId,
+            sourceRowId: null,
+            sourceRevision: 3,
+            sourceDatasetRevision: 9,
+            bindingId: 'binding-1',
+            sourceFieldId: 'field-1',
+            definitionVersionId: 'def-1',
+            definitionColumnId: 'col-1',
+          } as never,
+        }}
+      />,
+    )
+    expect(screen.getByRole('link').textContent).toBe(datasetId)
+    const last = linkCalls.calls[linkCalls.calls.length - 1]
+    expect(last.to).toBe('/datasets')
+    // Stable ID only: the explorer resolves the Dataset's lifecycle itself
+    // and flips to the archived view when needed.
+    expect(last.search).toEqual({ dataset: datasetId })
+    expect(last.params).toBeUndefined()
+  })
+
+  it('resolves record provenance to the canonical /records/:recordId route', () => {
+    const recordId = '660e8400-e29b-41d4-a716-446655440010'
+    renderWithQuery(
+      <SheetProvenanceLine
+        columnLabel="Titer"
+        columnOrigin="bound"
+        provenance={{
+          kind: 'present',
+          provenance: {
+            sourceKind: 'record',
+            sourceRecordId: recordId,
+            sourceMetadataVersion: 5,
+            sourceFieldName: 'titer',
+            bindingId: 'binding-1',
+            sourceFieldId: 'field-1',
+            definitionVersionId: 'def-1',
+            definitionColumnId: 'col-1',
+          } as never,
+        }}
+      />,
+    )
+    expect(screen.getByRole('link').getAttribute('href')).toBe(
+      `/records/${recordId}`,
+    )
+    const last = linkCalls.calls[linkCalls.calls.length - 1]
+    expect(last.to).toBe('/records/$recordId')
+    expect(last.params).toEqual({ recordId })
+    expect(last.search).toBeUndefined()
   })
 })

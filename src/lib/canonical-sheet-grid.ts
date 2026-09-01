@@ -3,7 +3,7 @@ import type { ComposedSheetGridColumn } from './composed-sheet-grid'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
 import { fieldEditorPresentation } from './field-presentation'
 import type { FieldEditorPresentation } from './field-presentation'
-import type { FieldDefinition } from './field-definition'
+import type { FieldDefinition, FieldOption } from './field-definition'
 import { sheetLocalValueError } from './sheet-local-data'
 import type { SheetInstance } from './sheet-instance-data'
 
@@ -61,6 +61,43 @@ function boundColumn(
   }
 }
 
+/** GRID-03 — editor/paste input for a timestamp field. The grid has no
+ * timezone context and canonical storage is a UTC instant, so a bare
+ * calendar-plus-time input (with or without seconds, space separator) is
+ * interpreted as UTC. Values outside this shape pass through untouched and
+ * fail closed at validation. */
+const timestampInput =
+  /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::(\d{2})(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/
+
+function canonicalTimestampInput(raw: string): string | null {
+  const match = timestampInput.exec(raw)
+  if (!match) return null
+  const [, date, time, seconds = '00', fraction = ''] = match
+  const offset = match.at(5) ?? 'Z'
+  return `${date}T${time}:${seconds}${fraction}${offset}`
+}
+
+/** GRID-03 — resolve a typed/pasted category value to the canonical option id.
+ * An exact id is kept; an active option's stable key or display label maps to
+ * its id. Retired options and unknown text stay untouched and fail closed at
+ * validation — the server remains the vocabulary authority. */
+function canonicalCategoryOption(
+  field: FieldDefinition,
+  raw: string,
+): FieldOption | undefined {
+  if (field.category?.kind !== 'embedded') return undefined
+  const options = field.category.options
+  return (
+    options.find((option) => option.id === raw) ??
+    options.find(
+      (option) => option.key === raw && option.lifecycle === 'active',
+    ) ??
+    options.find(
+      (option) => option.label === raw && option.lifecycle === 'active',
+    )
+  )
+}
+
 export function parseSheetCellInput(
   field: FieldDefinition | null,
   raw: unknown,
@@ -77,18 +114,35 @@ export function parseSheetCellInput(
   }
   if (field.logicalType === 'integer') {
     if (typeof raw === 'number' && Number.isSafeInteger(raw)) return raw
-    if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim()))
-      return Number(raw.trim())
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim()
+      if (/^-?\d+$/.test(trimmed)) return Number(trimmed)
+      // GRID-03: thousands-separated clipboard values coerce when the
+      // grouping is unambiguous; anything else fails closed.
+      if (/^-?\d{1,3}(,\d{3})+$/.test(trimmed))
+        return Number(trimmed.replace(/,/g, ''))
+    }
     return raw
   }
   if (field.logicalType === 'decimal') {
     if (typeof raw === 'number' && Number.isFinite(raw)) return raw
-    if (
-      typeof raw === 'string' &&
-      raw.trim() !== '' &&
-      !Number.isNaN(Number(raw))
-    )
-      return Number(raw)
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim()
+      if (trimmed !== '' && !Number.isNaN(Number(trimmed)))
+        return Number(trimmed)
+      if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(trimmed))
+        return Number(trimmed.replace(/,/g, ''))
+    }
+    return raw
+  }
+  if (field.logicalType === 'timestamp' && typeof raw === 'string') {
+    const coerced = canonicalTimestampInput(raw)
+    if (coerced) return coerced
+    return raw
+  }
+  if (field.logicalType === 'category' && typeof raw === 'string') {
+    const option = canonicalCategoryOption(field, raw)
+    if (option) return option.id
     return raw
   }
   return raw
@@ -186,36 +240,67 @@ export function validateCanonicalCell(
 }
 
 /**
- * GRID-02 — validate a bulk change set (paste/fill) against the typed column
- * contract before Handsontable applies anything. A bulk write is accepted
- * only when every target cell is editable and every value parses and
- * validates; otherwise the whole operation fails closed, so the visible grid
- * can never diverge from the authoritative state over an invalid bulk write.
+ * GRID-02/GRID-03 — resolve a change set (paste, fill, clear, single edit)
+ * against the typed column contract before Handsontable applies anything.
+ * Every value is coerced through `parseSheetCellInput` (canonical category
+ * option, UTC instant, thousands-separated number) and validated. A bulk or
+ * single write is accepted only when every target cell is editable and every
+ * value parses and validates; otherwise the whole operation fails closed, so
+ * the visible grid can never diverge from the authoritative state. The
+ * returned change list carries the coerced canonical values for the caller to
+ * apply back onto Handsontable's change array.
  */
 export type BulkChangeRejection =
   | { kind: 'read_only_column'; label: string }
   | { kind: 'invalid_value'; label: string; detail: string }
 
-export function firstBulkChangeRejection(
+export interface CanonicalCellChangeResult {
+  changes: Array<[number, string | number, unknown, unknown]>
+  rejection: BulkChangeRejection | null
+}
+
+export function resolveCanonicalCellChanges(
   columns: CanonicalSheetGridColumn[],
   changes: Array<[number, string | number, unknown, unknown]>,
-): BulkChangeRejection | null {
+): CanonicalCellChangeResult {
+  const resolved: Array<[number, string | number, unknown, unknown]> = []
   for (const change of changes) {
     const columnIndex =
       typeof change[1] === 'number' ? change[1] : Number(change[1])
     const column = columns.at(columnIndex)
     // Columns outside the canonical matrix (row headers etc.) are not writes.
-    if (!column) continue
+    if (!column) {
+      resolved.push([change[0], change[1], change[2], change[3]])
+      continue
+    }
     if (!column.editable) {
-      return { kind: 'read_only_column', label: column.label }
+      return {
+        changes: resolved,
+        rejection: { kind: 'read_only_column', label: column.label },
+      }
     }
     const value = parseSheetCellInput(column.field, change[3])
     const invalid = validateCanonicalCell(column.field, value)
     if (invalid) {
-      return { kind: 'invalid_value', label: column.label, detail: invalid }
+      return {
+        changes: resolved,
+        rejection: {
+          kind: 'invalid_value',
+          label: column.label,
+          detail: invalid,
+        },
+      }
     }
+    resolved.push([change[0], change[1], change[2], value])
   }
-  return null
+  return { changes: resolved, rejection: null }
+}
+
+export function firstBulkChangeRejection(
+  columns: CanonicalSheetGridColumn[],
+  changes: Array<[number, string | number, unknown, unknown]>,
+): BulkChangeRejection | null {
+  return resolveCanonicalCellChanges(columns, changes).rejection
 }
 
 /**
@@ -257,4 +342,35 @@ export function clearContentsUpdates(
     }
   }
   return updates
+}
+
+/**
+ * GRID-03 — display-only column header for the grid. Quantity fields show
+ * their canonical storage unit next to the label so scientists can see which
+ * unit typed values are stored in; units are never converted client-side.
+ */
+export function canonicalSheetColumnHeader(
+  column: CanonicalSheetGridColumn,
+): string {
+  const unit = column.field?.quantity?.storageUnit
+  return unit ? `${column.label} (${unit})` : column.label
+}
+
+/**
+ * GRID-03 — display-only text for a category cell. The canonical stored value
+ * is the option id; known options render as their label, unknown or
+ * vocabulary-backed values render as-is. This never changes stored state.
+ */
+export function categoryCellDisplayText(
+  field: FieldDefinition | null,
+  value: unknown,
+): string {
+  if (value == null) return ''
+  if (field?.category?.kind === 'embedded') {
+    const option =
+      field.category.options.find((item) => item.id === value) ??
+      field.category.options.find((item) => item.key === value)
+    if (option) return option.label
+  }
+  return String(value)
 }

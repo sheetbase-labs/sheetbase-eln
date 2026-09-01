@@ -421,9 +421,104 @@ describe("DatasetsResource version access", () => {
       datasetVersionRow.id,
       { fieldLabels: labels },
     );
-    expect(records).toHaveLength(1);
     expect(records[0].revision).toBe(3);
     expect(records[0]["Titer (vp/mL)"]).toBe(1.2e9);
+    client.close();
+  });
+
+  it("downloadVersionRecords paginates by totalCount across pages (no hasMore)", async () => {
+    const versionId = datasetVersionRow.id;
+    const versionCalls: unknown[] = [];
+    const { client } = makeClient([
+      {
+        method: "POST",
+        path: "/api/db/rpc/query_dataset_version_rows",
+        handler: ({ body }) => {
+          const parsed = JSON.parse(body!);
+          const offset: number = parsed.p_offset;
+          versionCalls.push(parsed);
+          // Server hands out at most 2 rows per window; totalCount=5 says
+          // more remain even though every page is short.
+          const rowCount = Math.min(2, 5 - offset);
+          return {
+            status: 200,
+            json: {
+              datasetVersionId: versionId,
+              offset,
+              limit: parsed.p_limit,
+              totalCount: 5,
+              rows: Array.from({ length: rowCount }, (_, i) => ({
+                rowId: `aaa11111-2222-3333-4444-${String(offset + i + 1).padStart(12, "0")}`,
+                revision: 3,
+                values: { "fff00000-0000-0000-0000-000000000001": offset + i + 1 },
+              })),
+            },
+          };
+        },
+      },
+      {
+        method: "GET",
+        path: "/api/db/dataset_schema_version_fields",
+        handler: () => ({ status: 200, json: schemaFieldRows }),
+      },
+    ]);
+    const records = await client.datasets.downloadVersionRecords(versionId);
+    expect(records).toHaveLength(5);
+    expect(records[4]["fff00000-0000-0000-0000-000000000001"]).toBe(5);
+    expect(versionCalls).toHaveLength(3);
+    expect(versionCalls.map((c) => (c as any).p_offset)).toEqual([0, 2, 4]);
+    client.close();
+  });
+
+  it("iterVersionRows continues while offset + rows < totalCount and honors maxItems", async () => {
+    const versionId = datasetVersionRow.id;
+    const offsets: number[] = [];
+    const { client } = makeClient([
+      {
+        method: "POST",
+        path: "/api/db/rpc/query_dataset_version_rows",
+        handler: ({ body }) => {
+          const parsed = JSON.parse(body!);
+          const offset: number = parsed.p_offset;
+          offsets.push(offset);
+          const rowCount = Math.min(parsed.p_limit, 5 - offset);
+          return {
+            status: 200,
+            json: {
+              datasetVersionId: versionId,
+              offset,
+              limit: parsed.p_limit,
+              totalCount: 5,
+              rows: Array.from({ length: rowCount }, (_, i) => ({
+                rowId: `aaa11111-2222-3333-4444-${String(offset + i + 1).padStart(12, "0")}`,
+                revision: 3,
+                values: { "fff00000-0000-0000-0000-000000000001": offset + i + 1 },
+              })),
+            },
+          };
+        },
+      },
+    ]);
+    const all: Record<string, any>[] = [];
+    for await (const row of client.datasets.iterVersionRows(versionId, {
+      pageSize: 2,
+    })) {
+      all.push(row);
+    }
+    expect(all).toHaveLength(5);
+    expect(offsets).toEqual([0, 2, 4]);
+
+    // maxItems stops mid-stream without a final fetch past the cap.
+    offsets.length = 0;
+    const capped: Record<string, any>[] = [];
+    for await (const row of client.datasets.iterVersionRows(versionId, {
+      pageSize: 2,
+      maxItems: 3,
+    })) {
+      capped.push(row);
+    }
+    expect(capped).toHaveLength(3);
+    expect(offsets).toEqual([0, 2]);
     client.close();
   });
 

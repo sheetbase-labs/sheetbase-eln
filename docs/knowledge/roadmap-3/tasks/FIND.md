@@ -34,18 +34,26 @@ A user can leave Sheetbase and quickly resume the objects they were genuinely wo
   exclusively through the `record_recent_view` SECURITY DEFINER RPC, which
   resolves the object's workspace from its canonical table, verifies
   workspace membership, upserts the timestamp, and caps retention at 200
-  objects per user. Direct INSERT/UPDATE is revoked; SELECT is
-  RLS-locked to `user_id = api.current_user_id()`. Unknown or no-longer-visible
-  objects are ignored, never errors. Object pages record a view through the
-  `useRecentViewTracking` hook (`src/lib/recents.ts`); the write is
-  fire-and-forget and can never disturb the page.
+  objects per user. Direct INSERT/UPDATE is revoked; SELECT is RLS-locked to
+  `user_id = api.current_user_id() AND api.is_workspace_member(workspace_id)`,
+  so rows for a workspace whose membership was revoked or suspended vanish
+  from the Recent surface immediately (covered by
+  `tests/db/recents-rls.test.ts`, which needs a real database). Unknown or
+  no-longer-visible objects are ignored, never errors. Object pages record a
+  view through the `useRecentViewTracking` hook (`src/lib/recents.ts`); the
+  write is fire-and-forget and can never disturb the page.
 - **Ordering is deterministic:** per object, last activity =
   max(viewed_at, latest edit, latest review); the displayed signal is the
   newest of the three (ties resolve edited > reviewed > viewed); sort is
   lastActivity desc with a kind-then-id tiebreak, capped at 20
   (`RECENTS_LIMIT`). All of this lives in pure functions in
   `src/lib/recents.ts` (`buildRecentItems`, `signalEventsFromChangeEvents`,
-  `resolveRecentItems`).
+  `resolveRecentItems`). Two ordering guarantees guard the cap: the raw
+  candidate set is `RECENTS_CANDIDATE_MULTIPLIER`× the visible limit and the
+  20-cap is applied to *resolved* (still-visible) items only, so hidden
+  objects replenish from older candidates; and edit/review signals page
+  `change_events` until enough *distinct* objects are seen, so a burst of
+  edits to one object cannot evict others from the raw window.
 - **Labels and destinations are canonical.** `resolveRecentItems` batch-fetches
   the underlying `records`/`datasets`/`sheet_instances`/`projects`/
   `notebook_templates` rows for labels and routes exclusively through

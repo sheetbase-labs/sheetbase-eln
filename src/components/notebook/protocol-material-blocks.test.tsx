@@ -15,6 +15,22 @@ vi.mock('#/lib/scientific-records', async (importOriginal) => {
   return { ...actual, fetchRecordById: vi.fn() }
 })
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    children,
+    ...rest
+  }: {
+    to: string
+    children?: ReactNode
+    [key: string]: unknown
+  }) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
+  ),
+}))
+
 const fetchMaterialRecord = vi.mocked(fetchRecordById)
 
 afterEach(() => {
@@ -82,7 +98,12 @@ describe('SCI-002 protocol and procedure blocks', () => {
     expect(screen.getByText('Approved')).toBeTruthy()
     expect(await screen.findByText('Protocol archived')).toBeTruthy()
     expect(screen.queryByRole('button')).toBeNull()
-    expect(screen.queryByRole('link')).toBeNull()
+    // NOTE-03: the pinned protocol Record stays openable via its stable
+    // UUID even when the live record is archived.
+    const openProtocol = screen.getByRole('link', { name: 'Open protocol' })
+    expect(openProtocol.getAttribute('href')).toBe(
+      `/templates?protocol=${encodeURIComponent('protocol-1')}`,
+    )
 
     rerender(
       <QueryClientProvider
@@ -245,6 +266,15 @@ describe('SCI-002 materials preview', () => {
     expect(screen.getByText('Unavailable')).toBeTruthy()
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.queryByRole('checkbox')).toBeNull()
+    // NOTE-03: each material stays openable on its canonical surface by
+    // stable UUID — reagents via /reagents, samples via /samples. The
+    // unresolvable record ("Unavailable") deliberately offers no link.
+    const openLinks = screen.getAllByRole('link', { name: 'Open' })
+    expect(openLinks).toHaveLength(2)
+    expect(openLinks.map((link) => link.getAttribute('href'))).toEqual([
+      '/reagents?selected=record-1',
+      '/samples?selected=record-2',
+    ])
   })
 
   it('preserves stored observations while current availability is loading', () => {

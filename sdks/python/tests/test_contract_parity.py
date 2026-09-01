@@ -1,6 +1,8 @@
 """Shared public-contract semantics and agent workflow request coverage."""
 
 import json
+import re
+from pathlib import Path
 
 from sheetbase import (
     API_VERSION,
@@ -9,7 +11,10 @@ from sheetbase import (
     AsyncSheetbaseClient,
     SheetbaseClient,
 )
+from sheetbase._version import __version__
 from tests.conftest import BASE_URL, CREDENTIAL
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_exact_api_version_and_error_vocabularies():
@@ -42,6 +47,29 @@ def test_exact_api_version_and_error_vocabularies():
         "server_error",
     )
     client.close()
+
+
+def test_package_targets_the_committed_contract_and_matrix_taxonomy():
+    """SDK-03 compatibility: one package release pins one contract version.
+
+    The committed contract and support matrix are authoritative; if the
+    contract advances without this SDK following, the suite fails.
+    """
+    openapi = json.loads(
+        (REPO_ROOT / "docs/openapi/external-api-v0.json").read_text()
+    )
+    matrix = json.loads((REPO_ROOT / "sdks/support-matrix.json").read_text())
+    pyproject = (REPO_ROOT / "sdks/python/pyproject.toml").read_text()
+    package_version = re.search(
+        r'^version\s*=\s*"([^"]+)"', pyproject, re.MULTILINE
+    )
+    assert package_version is not None
+
+    assert API_VERSION == openapi["info"]["version"] == matrix["contract"]["apiVersion"]
+    assert list(TOKEN_ERROR_CODES) == matrix["contract"]["tokenErrorCodes"]
+    assert list(ERROR_CATEGORIES) == matrix["contract"]["errorCategories"]
+    # The published package version stays in step with the SDK source.
+    assert package_version.group(1) == __version__
 
 
 def test_table_head_parses_count_and_request_metadata(mock_transport):

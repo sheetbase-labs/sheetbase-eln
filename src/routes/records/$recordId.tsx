@@ -135,7 +135,11 @@ import type {
   NotebookReviewActivity,
   NotebookReviewContext,
 } from '#/lib/notebook-experience'
-import { notebookOutline, notebookSectionSpans } from '#/lib/notebook-outline'
+import {
+  notebookOutline,
+  notebookSectionSpans,
+  sectionSpanHidesContent,
+} from '#/lib/notebook-outline'
 import { NotebookOutlinePanel } from '#/components/notebook/notebook-outline-panel'
 import type { NotebookOutlineControls } from '#/components/notebook/notebook-outline-panel'
 
@@ -279,13 +283,18 @@ function ExperimentNotebookRoute() {
     onToggleSection: toggleSection,
     onExpandAllSections: () => setCollapsedSections(new Set()),
     onCollapseAllSections: () => {
-      // Only sections that actually own blocks can usefully collapse; an
-      // empty-span section would render a meaningless "0 blocks" placeholder.
+      // Only sections that actually own something collapsible can usefully
+      // collapse: later blocks (block-granular) or content inside their own
+      // rich_text block (same-block node range). An empty span would render
+      // a meaningless placeholder.
       const spans = notebookSectionSpans(blocks)
       setCollapsedSections(
         new Set(
           notebookOutline(blocks)
-            .filter((entry) => (spans.get(entry.anchorId)?.length ?? 0) > 0)
+            .filter((entry) => {
+              const span = spans.get(entry.anchorId)
+              return !!span && sectionSpanHidesContent(span)
+            })
             .map((entry) => entry.anchorId),
         ),
       )
@@ -1172,9 +1181,12 @@ function EditableNotebook({
     },
   })
 
-  // Undo restores the deleted payload at its original neighbours. Insert can
-  // address an `after` neighbour directly; restoring the first block needs a
-  // second canonical move because insert_block's null anchor means append.
+  // Undo restores the deleted payload at its original neighbours in one
+  // server-authoritative operation: insert_block accepts both anchors, so
+  // even the first-block case (after=null, before=neighbour) resolves
+  // atomically on the server. There is no second corrective move to fail —
+  // either the block is restored at its original position (and the RPC's
+  // (id, order) list reconciles the cache) or nothing was written.
   const undoDeleteMutation = useMutation({
     mutationFn: async ({
       type,
@@ -1194,6 +1206,7 @@ function EditableNotebook({
         type,
         payload,
         afterBlockId: destination.afterBlockId ?? undefined,
+        beforeBlockId: destination.beforeBlockId ?? undefined,
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
@@ -1483,7 +1496,7 @@ function EditableNotebook({
       payload,
       destination,
     })
-    return restored.block.id
+    return { id: restored.block.id, moved: true }
   }
 
   async function handleMove(

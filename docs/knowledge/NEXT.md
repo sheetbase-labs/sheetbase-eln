@@ -58,57 +58,31 @@ numbered-task exit criterion. SDK-02 builds dataframe/analysis helpers, bulk
 transfer, version access and provenance ergonomics directly on SDK-01's
 support matrix and does not start SDK-03 implicitly.
 
-### Product Depth second pass
-
-```text
-✓ NAV-02  — Context-Preserving Object Navigation (#104, review-hardened)
-▶ GRID-02 — Clipboard, Fill & Range Operations   (#105, review-hardened)
-▶ NOTE-02 — Sections, Structure & Long-Document Navigation (#106)
-```
-
-### Third pass — resumption, typed entry, composition, release quality
-
-Delivered in parallel on top of the second pass (independent file surfaces,
-reviewed and review-hardened):
-
-```text
-▶ FIND-01 — Recents & Work Resumption               (#107)
-▶ GRID-03 — Typed Editing & Validation UX           (#108)
-▶ NOTE-03 — Scientific Block Composition            (#109)
-▶ SDK-03  — Lifecycle, Compatibility & Release Quality (#110)
-```
-
 ## Next tasks, in order
 
-1. **FIND-02 — Favourites & Saved Context** — continues the FIND stream now
-   that recents exist; favourites add deliberate pinning with user-scoped
-   persistence and lifecycle-aware behaviour.
-2. **GRID-04 — Sort, Filter, Freeze & View Ergonomics** — presentation/view
-   state on the Sheet (multi-column sort/filter UX, frozen rows/columns,
-   saved views) without mutating Dataset or analysis semantics.
-3. **NOTE-04 — Review, Submission & Evidence Authoring UX** — pre-submission
-   checks and evidence preview, completing the NOTE stream's
-   working-Notebook → evidence transition.
-4. **KNOW-01 — Knowledge Relationships** — Wave B head once the stack above
-   merges: canonical relationships on the Roadmap 2 identity foundation
-   (NAV-02 context model useful). VIEW-01, MODEL-01, EVENT-01 and EXT-01
-   become eligible per the same gates in
-   [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md).
-5. **SDK-03 → SDK releases**: once the SDK stack merges, the release
-   workflow (#110) is the operational path; its first real run should
-   accompany the first contract-version bump.
+The next work queue, in recommended start order. The first three are
+independent and may proceed in parallel once the stack above merges; each
+must reconcile the current implementation before editing.
+
+```text
+1. NAV-02  — Context-Preserving Object Navigation
+2. GRID-02 — Clipboard, Fill & Range Operations
+3. NOTE-02 — Sections, Structure & Long-Document Navigation
+4. FIND-01 — Recents & Work Resumption
+5. SDK-03  — Lifecycle, Compatibility & Release Quality
+```
 
 Ordering rationale:
 
-- **FIND-02/GRID-04/NOTE-04** are the natural third-pass continuations of
-  three streams that now carry solid foundations; each keeps its stream's
-  invariants (FIND owns recents/favourites, GRID keeps one-write-target and
-  presentation-vs-analysis separation, NOTE keeps evidence semantics).
-- **KNOW-01** is the Wave B head: canonical relationships on the merged
-  Roadmap 1/2 identity model. Wave B promotion is now explicit via this
-  file per the Ready rule; ENT-ORG/GXP remain ADR-gated and OPS deferred.
-- **SDK-03** is operationally complete on the stack; its first _release_
-  waits for the SDK stack to be merged reality.
+- **NAV-02** continues the completed NAV-01 foundation and is the depth task
+  navigation quality depends on.
+- **GRID-02** builds range operations on GRID-01's selection model.
+- **NOTE-02** adds structure/outline on NOTE-01's authoring baseline.
+- **FIND-01** becomes Ready after the stack merges (its NAV-01 prerequisite is
+  then merged reality); it should start once navigation context from NAV-02
+  is shaping the home/resume surfaces it feeds.
+- **SDK-03** follows SDK-02 and is release/lifecycle work; do not start it
+  implicitly while SDK-02 is in review.
 
 Beyond this queue, Wave B (KNOW, VIEW, MODEL, REUSE, EVENT, EXT, ADMIN)
 becomes Ready only through the gates in

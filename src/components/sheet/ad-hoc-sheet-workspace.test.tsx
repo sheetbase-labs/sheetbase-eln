@@ -10,28 +10,43 @@ import type { SheetInstance } from '#/lib/sheet-instance-data'
 
 import { AdHocSheetWorkspace } from './ad-hoc-sheet-workspace'
 
+const gridRender = vi.hoisted(() => vi.fn())
+
 vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   ...(await importOriginal()),
   mutateSheetLocalState: vi.fn(),
 }))
 
 vi.mock('./sheetbase-grid', () => ({
-  SheetbaseGrid: ({ settings }: { settings: { colHeaders?: string[] } }) => (
-    <table>
-      <thead>
-        <tr>
-          {(settings.colHeaders ?? []).map((header) => (
-            <th key={header} scope="col">
-              {header}
-            </th>
-          ))}
-        </tr>
-      </thead>
-    </table>
-  ),
+  SheetbaseGrid: ({
+    settings,
+  }: {
+    settings: {
+      colHeaders?: string[]
+      columns?: Array<{ readOnly?: boolean }>
+    }
+  }) => {
+    gridRender(settings)
+    return (
+      <table>
+        <thead>
+          <tr>
+            {(settings.colHeaders ?? []).map((header) => (
+              <th key={header} scope="col">
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+      </table>
+    )
+  },
 }))
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  gridRender.mockClear()
+})
 
 function instance(): SheetInstance {
   return {
@@ -68,6 +83,9 @@ describe('AdHocSheetWorkspace', () => {
     expect(
       screen.getByRole('columnheader', { name: 'Observation' }),
     ).toBeTruthy()
+    expect(gridRender.mock.lastCall?.[0].columns).toEqual([
+      expect.objectContaining({ readOnly: false }),
+    ])
     await user.click(screen.getByRole('button', { name: 'Add row' }))
     expect(mutateSheetLocalState).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -78,5 +96,17 @@ describe('AdHocSheetWorkspace', () => {
       }),
       expect.anything(),
     )
+  })
+
+  it('keeps the same canonical grid keyboard surface in read-only mode', () => {
+    renderWorkspace(<AdHocSheetWorkspace instance={instance()} readOnly />)
+
+    expect(
+      screen.getByRole('columnheader', { name: 'Observation' }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Add row' })).toBeNull()
+    expect(gridRender.mock.lastCall?.[0].columns).toEqual([
+      expect.objectContaining({ readOnly: true }),
+    ])
   })
 })

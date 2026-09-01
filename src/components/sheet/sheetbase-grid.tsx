@@ -18,6 +18,9 @@ export interface SheetbaseGridProps {
 export interface SheetbaseGridClientProps {
   settings: SheetbaseGridSettings
   licenseKey: string
+  ariaLabel: string
+  descriptionId: string
+  cutStatusId: string
   onReady?: (instance: Handsontable | null) => void
 }
 
@@ -67,10 +70,11 @@ function GridFailure({ message }: { message: string }) {
 export function SheetbaseGrid({
   settings,
   ariaLabel = 'Scientific data sheet',
-  description = 'Spreadsheet editor. Use the arrow keys to move between cells and Enter to edit.',
+  description = 'Spreadsheet. Tab moves forward and Shift+Tab moves back; at a horizontal edge, Tab returns to the page. Arrow keys move, and Shift+Arrow extends the active range. Control or Command with an arrow moves to an edge. Home and End move within a row; Control or Command with Home or End moves to a grid corner. Page Up and Page Down move by a viewport. Enter or F2 starts editing, Enter commits, and Escape cancels. Control or Command+A selects all cells, Control+Space selects a column, and Shift+Space selects a row. Control or Command-click adds a range; keyboard commands affect the last active range. Copy and cut use only the active range. Cut is blocked when that range contains read-only or derived cells.',
   onReady,
 }: SheetbaseGridProps) {
   const descriptionId = useId()
+  const cutStatusId = useId()
   const [ClientGrid, setClientGrid] = useState<ClientGrid | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
   const licenseKey = import.meta.env.VITE_HANDSONTABLE_LICENSE_KEY?.trim()
@@ -99,13 +103,25 @@ export function SheetbaseGrid({
   }
 
   return (
-    <section aria-describedby={descriptionId} aria-label={ariaLabel}>
+    <section
+      className="relative h-full min-h-0 w-full overflow-hidden rounded-sm focus-within:ring-2 focus-within:ring-inset focus-within:ring-ring/50"
+      aria-describedby={descriptionId}
+      aria-label={ariaLabel}
+    >
       <p className="sr-only" id={descriptionId}>
         {description}
       </p>
+      <p
+        className="pointer-events-none absolute bottom-2 left-2 z-50 max-w-[calc(100%_-_1rem)] rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md empty:hidden"
+        id={cutStatusId}
+        aria-live="polite"
+      />
       {ClientGrid ? (
         <GridBoundary>
           <ClientGrid
+            ariaLabel={ariaLabel}
+            descriptionId={descriptionId}
+            cutStatusId={cutStatusId}
             licenseKey={licenseKey}
             settings={settings}
             onReady={onReady}

@@ -816,11 +816,7 @@ export function CanonicalSheetEditor({
         </p>
       ) : (
         <div className="min-h-0 flex-1">
-          <SheetbaseGrid
-            ariaLabel="Sheet"
-            description="Spreadsheet editor. Arrow keys move, Enter edits, Ctrl+C/V copy and paste, fill handle fills."
-            settings={settings}
-          />
+          <SheetbaseGrid ariaLabel="Sheet" settings={settings} />
         </div>
       )}
       <div className="space-y-1 border-t px-3 py-2 text-xs text-muted-foreground">

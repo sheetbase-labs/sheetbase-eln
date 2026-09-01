@@ -1,9 +1,9 @@
 """Pagination iterators for the Sheetbase SDK.
 
 PostgREST table reads use ``limit``/``offset`` query parameters and optionally
-``Prefer: count=exact`` for total counts. RPC data windows (``query_dataset_rows``,
-``query_sheet_instance_rows``, ``search``) embed ``hasMore`` / ``totalCount`` in
-the response body.
+``Prefer: count=exact`` for total counts. RPC data windows embed pagination
+markers in the response body: ``query_dataset_rows`` / ``search`` report
+``hasMore``, while ``query_dataset_version_rows`` reports ``totalCount`` only.
 
 This module provides generator-based iterators that abstract over both shapes
 so callers can simply ``for row in client.datasets.iter_rows(dataset_id):``.
@@ -96,5 +96,43 @@ def iter_rpc(
                 return
         has_more = result.get("hasMore", False)
         if not has_more:
+            break
+        offset += len(rows)
+
+
+def iter_rpc_by_total_count(
+    fetch_page: RpcPageFetcher,
+    *,
+    page_size: int = 200,
+    max_items: Optional[int] = None,
+) -> Iterator[dict[str, Any]]:
+    """Iterate RPC rows whose response reports ``totalCount`` but no ``hasMore``.
+
+    The version-rows RPC (``query_dataset_version_rows``) returns
+    ``totalCount`` without ``hasMore``; continue while rows remain, judged
+    against the total. Without a ``totalCount``, fall back to the short-page
+    heuristic so a missing count still terminates.
+    """
+    offset = 0
+    yielded = 0
+    while True:
+        remaining = None if max_items is None else max_items - yielded
+        limit = page_size if remaining is None else min(page_size, remaining)
+        if limit <= 0:
+            break
+        result = fetch_page(limit=limit, offset=offset)
+        rows = result.get("rows", [])
+        if not rows:
+            break
+        for row in rows:
+            yield row
+            yielded += 1
+            if max_items is not None and yielded >= max_items:
+                return
+        total_count = result.get("totalCount")
+        if total_count is None:
+            if len(rows) < limit:
+                break
+        elif offset + len(rows) >= total_count:
             break
         offset += len(rows)

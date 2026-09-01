@@ -6,7 +6,7 @@
  * concurrency, snapshotting, archiving and restoring datasets.
  */
 import type { HttpTransport } from "../http.js";
-import { iterRpc, iterTable } from "../pagination.js";
+import { iterRpcByTotalCount, iterTable } from "../pagination.js";
 import {
   fromDataset,
   fromDatasetVersion,
@@ -236,7 +236,7 @@ export class DatasetsResource {
         jsonBody: body,
       });
     };
-    yield* iterRpc(fetchPage, {
+    yield* iterRpcByTotalCount(fetchPage, {
       pageSize: options?.pageSize ?? 1000,
       maxItems: options?.maxItems,
     });
@@ -254,7 +254,7 @@ export class DatasetsResource {
           p_offset: offset,
         },
       });
-    yield* iterRpc(fetchPage, {
+    yield* iterRpcByTotalCount(fetchPage, {
       pageSize: options?.pageSize ?? 1000,
       maxItems: options?.maxItems,
     });

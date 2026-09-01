@@ -15,7 +15,7 @@ from collections.abc import Iterator
 from typing import Any, Optional, Sequence
 
 from sheetbase._http import HttpTransport
-from sheetbase._pagination import iter_rpc, iter_table
+from sheetbase._pagination import iter_rpc, iter_rpc_by_total_count, iter_table
 from sheetbase._query_result import DatasetRowPage, DatasetVersionRowPage
 from sheetbase.errors import StaleVersionError
 from sheetbase.types import (
@@ -260,7 +260,7 @@ class DatasetsResource:
                 },
             )
 
-        return iter_rpc(fetch, page_size=page_size, max_items=max_items)
+        return iter_rpc_by_total_count(fetch, page_size=page_size, max_items=max_items)
 
     def to_dataframe(
         self,

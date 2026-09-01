@@ -1,6 +1,6 @@
 # GRID — Spreadsheet Interaction Depth
 
-**Status:** active; GRID-01 in review (#99), GRID-02 and GRID-03 implemented on the same stack, GRID-04..05 planned.
+**Status:** active; GRID-01 in review (#99), GRID-02 implemented on the same stack, GRID-03..05 planned.
 
 ## Programme goal
 
@@ -66,10 +66,17 @@ Common range operations work predictably over local, governed and read-only/deri
   `SheetBatchValidationError`, the commit never runs, and the workspace
   reports the canonical failure reason with the assurance that nothing was
   written.
+- **Mixed-authority range operations are rejected before any write.**
+  `writeSheetCells` dispatches its commit groups sequentially with no
+  cross-group atomicity, so a change set spanning more than one commit group
+  (multiple (dataset, expected revision) groups, multiple records, or a mix
+  of dataset, record and local targets) raises
+  `SheetMixedAuthorityWriteError` (`mixed_authority_write`) before any RPC
+  runs. The workspace reports that the operation was not attempted and keeps
+  the pending values so the edit can be split per authoritative surface;
+  single-group batches keep their existing validate-then-commit semantics.
 
 ## GRID-03 — Typed Editing & Validation UX
-
-**Status:** completed 2026-08-31.
 
 ### Goal
 
@@ -86,70 +93,6 @@ Make typed scientific data entry fast without hiding data semantics.
 ### Exit
 
 Users can enter and correct typed data efficiently, with client feedback matching server/domain validation rather than creating a second rules engine.
-
-### Implemented contract
-
-- **Single typed edits fail closed like bulk writes.** The workspace
-  `beforeChange` guard now validates every write source — keyboard edits
-  included — against the typed column contract via
-  `resolveCanonicalCellChanges`. An invalid value cancels the change, so the
-  cell visibly keeps its previous value and the canonical reason
-  (`invalid_value`, `required_value`, …) is announced with the column label;
-  the visible grid never diverges from the authoritative state. The
-  GRID-02 bulk verbs (paste/fill/clear) keep their wholesale rejection.
-- **Editor output is coerced to canonical values before it is applied.** The
-  same resolution pass rewrites Handsontable's change values through
-  `parseSheetCellInput`, so the grid shows what will be written: category
-  labels/keys resolve to the canonical option id, bare date-time input
-  (with or without seconds, space or `T` separator) becomes a canonical UTC
-  instant, and unambiguous thousands-separated clipboard numbers
-  (`1,200.5` → `1200.5`) coerce. Ambiguous input is left untouched and
-  fails closed at validation; no coercion invents new rules beyond the
-  existing canonical parse contract.
-- **Category columns use the canonical vocabulary.** The dropdown editor is
-  seeded from the field's active embedded option labels; a display-only
-  renderer shows stored option ids as their labels. Vocabulary-backed
-  fields without a local option list keep a text editor. The server (and
-  the shared local validator) remains the vocabulary authority — retired
-  options and unknown text are still rejected, never remapped.
-- **Date/time columns edit safely.** `date` fields edit through the
-  Handsontable date editor (`YYYY-MM-DD`). Timestamp fields deliberately
-  keep the text editor: Handsontable 18's `date` cell type is a native
-  date-only input that cannot hold a time and rejects canonical `…Z`
-  instants, which would make timestamp columns uneditable. Bare timestamp
-  input is coerced to a canonical UTC instant on commit because the grid
-  carries no timezone context (deterministic and user-independent;
-  explicit offsets pass through). Numeric and boolean columns keep their
-  existing GRID-01/02 behaviour.
-- **Record/reference columns edit through the canonical Record picker.** A
-  `record-picker` cell (Model-scoped reference field) opens the shared
-  search-select `SheetRecordPicker` scoped to the column's own relationship
-  target Model — editing never shows a text input. Selection persists the
-  canonical Record UUID through the normal change pipeline
-  (`setDataAtCell` → beforeChange → parse → validate → authoritative
-  target); the human label (`RECORD_REFERENCE_CELL_FORMAT`
-  `identifier · title` form) is display only. Unknown or persisted-without-
-  session-label values render the UUID as-is — the display never invents
-  identity the server did not confirm. A typed non-UUID value still fails
-  closed through the existing validation, and inaccessible Records never
-  appear because the search RPC is Model-scoped and RLS-filtered; existence
-  and permission remain authoritative server checks at write time.
-- **Rejections do not pollute undo.** Every rejected change nullifies its
-  Handsontable change entries before cancelling, so the undo stack never
-  records a no-op step whose Ctrl+Z would re-persist unchanged values.
-- **Category editing opens on the label.** The dropdown editor seeds its
-  text input with the display label for the stored option id; picking a
-  label coerces back to the canonical id.
-- **Quantity columns surface their storage unit.** Column headers show the
-  field's canonical `storageUnit` (for example `Titer (IU/mL)`). This is
-  display only: no client-side unit conversion exists, so input units are
-  never silently translated.
-- **Server validation remains authoritative.** The client affordances only
-  pre-screen through the existing `sheetLocalValueError` /
-  `validateCanonicalCell` contract and the GRID-02 bulk
-  validate-before-commit path (`validate_dataset_row_batch`); no new
-  client-side validation rules were added, and GRID-04/GRID-05 behaviour is
-  untouched.
 
 ## GRID-04 — Sort, Filter, Freeze & View Ergonomics
 

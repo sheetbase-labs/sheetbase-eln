@@ -417,6 +417,7 @@ export const searchQueryKeys = {
       filters.query,
       filters.projectId ?? '',
       filters.kind ?? '',
+      filters.resultType ?? '',
       filters.status ?? '',
       filters.ownerId ?? '',
       filters.dateFrom ?? '',

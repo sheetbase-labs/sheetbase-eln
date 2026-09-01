@@ -1,6 +1,6 @@
 # NAV — Workspace Navigation & Information Architecture
 
-**Status:** active; NAV-01 and NAV-02 completed, NAV-03 planned.
+**Status:** active; NAV-01 completed, NAV-02 implemented on #104 (in review), NAV-03 planned.
 
 ## Programme goal
 
@@ -49,7 +49,7 @@ A user can predict where canonical object types live and move among workspace, p
 
 ## NAV-02 — Context-Preserving Object Navigation
 
-**Status:** completed 2026-08-31.
+**Status:** implemented on #104, in review (merge-gated on the Wave A stack).
 
 ### Goal
 

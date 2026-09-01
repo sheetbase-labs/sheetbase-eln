@@ -1049,10 +1049,11 @@ export function SheetProvenanceLine({
           <Link
             className="underline underline-offset-2 hover:text-foreground"
             to="/datasets"
-            search={{
-              dataset: provenance.provenance.sourceDatasetId,
-              archived: false,
-            }}
+            // NAV-02 review fix: the link carries only the stable Dataset
+            // ID. The explorer resolves the Dataset's lifecycle itself and
+            // flips to the archived view — the link must not claim the
+            // active-only filter for a Dataset it knows nothing about.
+            search={{ dataset: provenance.provenance.sourceDatasetId }}
           >
             {provenance.provenance.sourceDatasetId}
           </Link>

@@ -848,7 +848,9 @@ describe('Sheet provenance — route-level navigation (NAV-02)', () => {
     expect(screen.getByRole('link').textContent).toBe(datasetId)
     const last = linkCalls[linkCalls.length - 1]
     expect(last.to).toBe('/datasets')
-    expect(last.search).toEqual({ dataset: datasetId, archived: false })
+    // Stable ID only: the explorer resolves the Dataset's lifecycle itself
+    // and flips to the archived view when needed.
+    expect(last.search).toEqual({ dataset: datasetId })
     expect(last.params).toBeUndefined()
   })
 

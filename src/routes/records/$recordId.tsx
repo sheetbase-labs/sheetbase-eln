@@ -117,6 +117,7 @@ import {
 } from '#/lib/sheet-evidence'
 import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { useRecentViewTracking } from '#/lib/recents'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
@@ -664,6 +665,8 @@ export function StickyRecordHeader({
           {/* COLLAB-01: who else is in this record's room. Self-gates on
               room readiness, so SSR and pre-hydration output are stable. */}
           <PresenceStack />
+          {/* FIND-02: deliberate pin for fast return; optimistic, never blocking. */}
+          <FavouriteToggle kind="record" objectId={record.id} />
           <PrintNotebookButton className="h-8" />
           <ExportEvidenceButton revisionId={evidenceRevisionId} />
           {projectId && !historicalRevisionId ? (

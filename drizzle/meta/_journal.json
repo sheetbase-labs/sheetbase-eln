@@ -1077,6 +1077,13 @@
       "when": 1788176187635,
       "tag": "0155_find_01_recently_viewed",
       "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1788200000000,
+      "tag": "0156_find_02_user_favourites",
+      "breakpoints": true
     }
   ]
 }

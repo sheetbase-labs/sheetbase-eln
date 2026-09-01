@@ -68,6 +68,7 @@ import {
 import type { NotebookRecord, Project } from '#/lib/notebook-data'
 import { recordDestination } from '#/lib/navigation'
 import { useRecentViewTracking } from '#/lib/recents'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import {
   activitySentence,
   computeProjectMetrics,
@@ -356,12 +357,15 @@ function ProjectHeader({
             <span>Created {formatDate(project.createdAt)}</span>
           </p>
         </div>
-        {!isArchived ? (
-          <Button size="sm" onClick={onCreateExperiment}>
-            <FlaskConical className="size-3.5" aria-hidden="true" />
-            New experiment
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          <FavouriteToggle kind="project" objectId={project.id} />
+          {!isArchived ? (
+            <Button size="sm" onClick={onCreateExperiment}>
+              <FlaskConical className="size-3.5" aria-hidden="true" />
+              New experiment
+            </Button>
+          ) : null}
+        </div>
       </div>
     </header>
   )

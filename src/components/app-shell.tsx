@@ -2,6 +2,7 @@
 'use client'
 
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Link,
   useNavigate,
@@ -33,6 +34,7 @@ import {
   PlugZap,
   Search,
   Settings,
+  Star,
   Sun,
   Snowflake,
   Workflow,
@@ -40,6 +42,13 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { authClient } from '#/lib/auth-client'
+import {
+  fetchFavouriteItems,
+  favouritesQueryKeys,
+  FAVOURITES_LIMIT,
+} from '#/lib/favourites'
+import type { FavouriteItem } from '#/lib/favourites'
+import { notebookDataClient } from '#/lib/notebook-data'
 import { cn } from '#/lib/utils'
 import { useTheme } from '#/components/theme-provider'
 import { ConnectionStatus, useLiveStatus } from '#/components/live'
@@ -1117,6 +1126,7 @@ function CommandPalette({
                 </CommandGroup>
               )
             })}
+            <FavouritesCommandGroup onSelect={go} />
             <CommandGroup heading="Actions">
               <CommandItem
                 onSelect={() => {
@@ -1154,5 +1164,68 @@ function CommandPalette({
         </Command>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Favourites (FIND-02) in the command palette.
+//
+// Minimal additive integration with the canonical navigation model: the
+// ⌘K palette lists the user's resolved favourites (canonical labels and
+// destinations from `src/lib/navigation.ts`, capped at FAVOURITES_LIMIT)
+// as an extra group above Actions. No parallel search model and no nav
+// restructuring — the palette is the existing keyboard navigation surface.
+// Mounted inside the palette Dialog, so the query only runs while the
+// palette is open; failures degrade to "group absent", never an error UI.
+// ---------------------------------------------------------------------------
+
+const FAVOURITE_KIND_LABELS: Record<FavouriteItem['kind'], string> = {
+  record: 'Record',
+  dataset: 'Dataset',
+  sheet: 'Sheet',
+  project: 'Project',
+  notebook_template: 'Template',
+}
+
+const FAVOURITE_KIND_ICONS: Record<FavouriteItem['kind'], LucideIcon> = {
+  record: FlaskConical,
+  dataset: Database,
+  sheet: GanttChart,
+  project: FolderOpen,
+  notebook_template: LayoutTemplate,
+}
+
+function FavouritesCommandGroup({ onSelect }: { onSelect: (to: string) => void }) {
+  const itemsQuery = useQuery({
+    queryKey: favouritesQueryKeys.items(),
+    queryFn: () => fetchFavouriteItems(notebookDataClient, FAVOURITES_LIMIT),
+    staleTime: 30_000,
+    retry: false,
+  })
+  const items = itemsQuery.data ?? []
+  if (items.length === 0) return null
+  return (
+    <CommandGroup heading="Favourites">
+      {items.map((item) => {
+        const Icon = FAVOURITE_KIND_ICONS[item.kind]
+        return (
+          <CommandItem
+            key={`${item.kind}:${item.id}`}
+            value={`${item.label} ${item.identifier ?? ''} ${FAVOURITE_KIND_LABELS[item.kind]} favourite`}
+            onSelect={() => onSelect(item.destination)}
+          >
+            <Icon className="size-4" />
+            <span className="flex-1 truncate">{item.label}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {FAVOURITE_KIND_LABELS[item.kind]}
+            </span>
+            <Star
+              className="size-3.5 shrink-0 fill-amber-400 text-amber-500"
+              aria-hidden="true"
+            />
+          </CommandItem>
+        )
+      })}
+    </CommandGroup>
   )
 }

@@ -23,6 +23,7 @@ import {
 } from '#/lib/sheet-instance-data'
 import { ExportMenu } from '#/components/export/export-menu'
 import { ObjectHistoryDialog } from '#/components/audit'
+import type { BoundColumnProvenance } from '#/lib/sheet-bound-columns'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import {
   createAdHocTextField,
@@ -659,10 +660,7 @@ export function CanonicalSheetEditor({
       <div className="flex shrink-0 items-center justify-end gap-2 border-b px-2 py-1">
         {visualiseDatasetId ? (
           <Button asChild size="sm" variant="outline">
-            <Link
-              to="/analysis"
-              search={{ dataset: visualiseDatasetId }}
-            >
+            <Link to="/analysis" search={{ dataset: visualiseDatasetId }}>
               Visualise
             </Link>
           </Button>
@@ -837,22 +835,11 @@ export function CanonicalSheetEditor({
           </p>
         ) : null}
         {selectedColumn ? (
-          <p role="status">
-            {selectedColumn.label}
-            {selectedColumn.origin === 'bound'
-              ? ' · governed'
-              : ` · ${selectedColumn.origin}`}
-            {provenance && 'kind' in provenance
-              ? provenance.kind === 'present'
-                ? ` · ${provenance.provenance.sourceKind} provenance`
-                : ' · unmatched source'
-              : ''}
-            {provenance &&
-            provenance.kind === 'present' &&
-            provenance.provenance.sourceKind === 'dataset'
-              ? ` · dataset ${provenance.provenance.sourceDatasetId}`
-              : ''}
-          </p>
+          <SheetProvenanceLine
+            columnLabel={selectedColumn.label}
+            columnOrigin={selectedColumn.origin}
+            provenance={provenance}
+          />
         ) : null}
       </div>
       {canWrite ? (
@@ -915,6 +902,69 @@ export function CanonicalSheetEditor({
         </form>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * NAV-02 — provenance line for the selected cell. Bound provenance resolves
+ * to the canonical related object: Dataset provenance links to the Dataset
+ * explorer, Record provenance to the owning Record — always via stable UUID
+ * destinations from the canonical routes, never label-derived paths.
+ */
+export function SheetProvenanceLine({
+  columnLabel,
+  columnOrigin,
+  provenance,
+}: {
+  columnLabel: string
+  columnOrigin: 'bound' | 'local' | 'calculation'
+  provenance:
+    | { kind: 'present'; provenance: BoundColumnProvenance }
+    | { kind: 'unmatched'; provenance: unknown }
+    | null
+}) {
+  return (
+    <p role="status">
+      {columnLabel}
+      {columnOrigin === 'bound' ? ' · governed' : ` · ${columnOrigin}`}
+      {provenance && 'kind' in provenance
+        ? provenance.kind === 'present'
+          ? ` · ${provenance.provenance.sourceKind} provenance`
+          : ' · unmatched source'
+        : ''}
+      {provenance &&
+      provenance.kind === 'present' &&
+      provenance.provenance.sourceKind === 'dataset' ? (
+        <>
+          {' · dataset '}
+          <Link
+            className="underline underline-offset-2 hover:text-foreground"
+            to="/datasets"
+            // NAV-02 review fix: the link carries only the stable Dataset
+            // ID. The explorer resolves the Dataset's lifecycle itself and
+            // flips to the archived view — the link must not claim the
+            // active-only filter for a Dataset it knows nothing about.
+            search={{ dataset: provenance.provenance.sourceDatasetId }}
+          >
+            {provenance.provenance.sourceDatasetId}
+          </Link>
+        </>
+      ) : null}
+      {provenance &&
+      provenance.kind === 'present' &&
+      provenance.provenance.sourceKind === 'record' ? (
+        <>
+          {' · record '}
+          <Link
+            className="underline underline-offset-2 hover:text-foreground"
+            to="/records/$recordId"
+            params={{ recordId: provenance.provenance.sourceRecordId }}
+          >
+            {provenance.provenance.sourceRecordId}
+          </Link>
+        </>
+      ) : null}
+    </p>
   )
 }
 

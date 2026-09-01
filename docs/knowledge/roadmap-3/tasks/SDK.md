@@ -1,6 +1,6 @@
 # SDK — SDK Product Maturity
 
-**Status:** active; SDK-01 (contract coverage & parity) and SDK-02 (developer ergonomics) complete, SDK-03 (lifecycle, compatibility & release quality) implemented.
+**Status:** active; SDK-01 (contract coverage & parity) and SDK-02 (developer ergonomics) complete on #101/#102, in review; SDK-03 (lifecycle, compatibility & release quality) implemented on #110, in review.
 
 ## Programme goal
 
@@ -58,15 +58,21 @@ Operate SDKs as maintained products.
 
 SDK releases are reproducible, documented, compatibility-tested and usable independently of the Sheetbase application source tree.
 
-### Implemented contract
+### Implemented contract (on #110, pending review/merge)
 
-- **Release automation.** `.github/workflows/sdk-release.yml` (manual dispatch)
-  runs the root support-matrix contract gate, verifies the dispatched version
-  matches both package manifests, then builds and tests each SDK on its own
-  toolchain and uploads `npm-pack` / `python-dist` artifacts. It never
-  publishes and reads no secrets beyond `GITHUB_TOKEN`; publishing is a
-  manual maintainer step. The procedure — versioning rules, local validation
-  commands, tagging — is documented in `sdks/RELEASE.md`, including the
+- **Release automation — encoded but currently paused.**
+  `.github/workflows/sdk-release.yml` encodes the release gate: the root
+  support-matrix contract test, a version match between the dispatched
+  version and both package manifests, then per-SDK build/test/pack with
+  artifact upload (`npm-pack` / `python-dist`). It never publishes and reads
+  no secrets beyond `GITHUB_TOKEN`; publishing is a manual maintainer step.
+  **Its `workflow_dispatch` trigger is deliberately commented out** (PLAT-03:
+  this GitHub account cannot currently run hosted-runner jobs — dispatching
+  would only produce a failed run). Until runners are restored, the documented
+  local procedure in `sdks/RELEASE.md` is the operative release process; the
+  trigger is uncommented as part of re-enabling hosted automation. The
+  procedure — versioning rules, local validation commands, tagging — is
+  documented in `sdks/RELEASE.md`, including the
   change/deprecation policy (taxonomy additions go through the support
   matrix in both SDKs; removals are breaking; no compatibility shims, per the
   pre-release rule).
@@ -94,7 +100,7 @@ SDK releases are reproducible, documented, compatibility-tested and usable indep
   as well as the package's 5.9 toolchain (TS5011 fixed); the workflow imports
   the built `dist/` as a standalone consumer. The Python wheel installs and
   imports in an isolated environment (`uv run --isolated --no-project --with
-dist/*.whl`), verified locally and in the workflow.
+dist/*.whl`), verified locally today and by the workflow once hosted runners are restored.
 
 ## Boundaries
 

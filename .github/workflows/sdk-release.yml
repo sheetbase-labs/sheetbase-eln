@@ -4,11 +4,12 @@
 # reads VPS/Tailscale/Cloudflare secrets, and touches nothing beyond the
 # sdks/ tree plus the root contract gate. Publishing is a manual maintainer
 # step afterwards (see sdks/RELEASE.md) so registry credentials never live in
-# GitHub. Trigger is manual dispatch only — releases are deliberate acts.
+# GitHub.
 #
 # Note (PLAT-03): the GitHub account currently cannot run hosted-runner jobs
 # (see deploy.yml). The trigger is commented out accordingly — see the `on:`
-# block below and sdks/RELEASE.md for the local-commands fallback.
+# block below and sdks/RELEASE.md for the local-commands fallback, which is
+# the operative release process until hosted runners are restored.
 
 name: SDK release
 

@@ -1,9 +1,17 @@
 # SDK release process
 
 Both SDK packages (`@sheetbase/eln-sdk`, `sheetbase`) are versioned and
-released as independent products. This document is the release procedure;
+released as independent products. This document is the release procedure.
+
 [`.github/workflows/sdk-release.yml`](../.github/workflows/sdk-release.yml)
-is the automated build-and-verify gate.
+encodes the same build-and-verify gate for hosted automation. **It is
+currently paused (PLAT-03): this GitHub account cannot run hosted-runner
+jobs, so the workflow's `workflow_dispatch` trigger is commented out and the
+workflow cannot run.** Until hosted runners are restored, the local commands
+below — which mirror the workflow's steps exactly — are the operative
+release process. Re-enabling the workflow is part of restoring hosted
+automation: uncomment its `on:` block, then run it via Actions → _SDK
+release_ → _Run workflow_.
 
 ## Versioning
 
@@ -42,8 +50,9 @@ is the automated build-and-verify gate.
    in step) and `sdks/python/pyproject.toml` (`version`, keep
    `src/sheetbase/_version.py` `__version__` in step). The support-matrix
    tests fail if the package source and manifest drift apart.
-3. **Validate locally** (all four must pass — see workflow for the same steps
-   in CI):
+3. **Validate locally** (all four gates must pass — these mirror the
+   workflow's jobs and are the authoritative gate while the workflow is
+   paused):
    ```bash
    # TypeScript: tests, typecheck and a clean standalone build
    cd sdks/typescript && npm install && npm test && npm run build
@@ -53,11 +62,16 @@ is the automated build-and-verify gate.
    # Root contract gate
    npx vitest run src/lib/sdk-support-matrix.test.ts
    ```
-4. **Run the release workflow.** Actions → _SDK release_ → _Run workflow_
-   with the package version as input. It builds and tests both packages,
-   builds the artifacts, verifies the smoke paths, and uploads the
-   `npm-pack` and `python-dist` artifacts for the run. Nothing is published
-   automatically.
+4. **Build the release artifacts** from the same clean checkout (identical
+   to what the workflow does when it is re-enabled):
+   ```bash
+   cd sdks/typescript && npm pack --dry-run=false   # sheetbase-eln-sdk-<v>.tgz
+   cd sdks/python && uv build                       # wheel + sdist
+   ```
+   Optionally import each artifact standalone (the workflow's smoke step):
+   the built `dist/index.js` must export `SheetbaseClient`/`API_VERSION`;
+   the wheel must install and import in `uv run --isolated --no-project
+   --with dist/*.whl`.
 5. **Publish manually** (maintainer with registry credentials):
    ```bash
    cd sdks/typescript && npm publish --access public   # @sheetbase/eln-sdk
@@ -69,10 +83,16 @@ is the automated build-and-verify gate.
 
 ## Reproducibility
 
-Artifacts are built from a clean checkout by the workflow with pinned tool
-versions (Node 22 + repo `package-lock.json`; Python 3.12 via `uv build`).
-Re-running the workflow on the same commit reproduces the same artifacts
-byte-for-byte for the Python wheel/sdist; npm pack output is likewise
-reproducible for Python via hatchling (normalised timestamps). npm pack
-determinism requires an unchanged working tree — npm does not normalise tarball
-mtimes across fresh checkouts. Never publish from a dirty tree.
+Artifacts are built from a clean checkout with pinned tool versions
+(Node 22 + repo `package-lock.json`; Python 3.12 via `uv build`). Rebuilding
+on the same commit runs the same tests over the same inputs, but the two
+ecosystems differ in byte-level determinism:
+
+- **Python (wheel/sdist):** reproducible. Hatchling normalises archive
+  member metadata (timestamps, ordering), so `uv build` on the same commit
+  produces byte-identical distributions.
+- **TypeScript (`npm pack`):** *not* byte-reproducible across checkouts.
+  npm does not normalise tarball mtimes/uids, so a fresh clone can produce a
+  differently-encoded tarball for identical content. Treat npm artifacts as
+  content-verified (clean build + standalone import smoke test), never
+  claim byte-identity, and never publish from a dirty tree.

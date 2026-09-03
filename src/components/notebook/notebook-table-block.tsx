@@ -40,6 +40,21 @@ function toEngineDataType(
   return 'text'
 }
 
+/** The column's unit jsonb carries the display symbol when a unit is set. */
+function unitSymbol(unit: unknown): string | undefined {
+  if (unit && typeof unit === 'object' && 'symbol' in unit) {
+    const symbol = (unit as { symbol?: unknown }).symbol
+    if (typeof symbol === 'string' && symbol.trim() !== '') return symbol
+  }
+  return undefined
+}
+
+/** Handsontable-style `0.00` formats map onto engine display precision. */
+function precisionFromFormat(format: string | null | undefined): number | undefined {
+  const match = /^0\.(0+)/.exec(format ?? '')
+  return match ? match[1].length : undefined
+}
+
 export function NotebookTableBlock({
   block,
   readOnly = false,
@@ -84,6 +99,12 @@ export function NotebookTableBlock({
               required: !column.nullable,
               options: column.options.map((option) => option.label),
               multiple: false,
+              unit: unitSymbol(column.unit),
+              precision: precisionFromFormat(column.format),
+              numberFormat:
+                column.logical_type === 'integer' || column.logical_type === 'decimal'
+                  ? ('number' as const)
+                  : undefined,
             })),
           }
         : undefined,

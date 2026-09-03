@@ -30,6 +30,8 @@ vi.mock('#/lib/scientific-sheet-data', async () => ({
         logical_type: 'decimal',
         nullable: true,
         options: [],
+        unit: { symbol: 'IU/mL' },
+        format: '0.0',
       },
     ],
   }),
@@ -130,7 +132,16 @@ describe('NotebookTableBlock', () => {
     const props = gridProps.current as {
       datasetId: string
       calculationAuthority: string
-      datasetHeader?: { fields: Array<{ id: string; label: string; writable?: boolean }> }
+      datasetHeader?: {
+        fields: Array<{
+          id: string
+          label: string
+          writable?: boolean
+          unit?: string
+          precision?: number
+          numberFormat?: 'general' | 'number' | 'currency' | 'percent' | 'date'
+        }>
+      }
       query?: unknown
       onQueryChange?: unknown
     }
@@ -140,10 +151,13 @@ describe('NotebookTableBlock', () => {
       props.datasetHeader?.fields.map((field) => ({
         id: field.id,
         label: field.label,
+        unit: field.unit,
+        precision: field.precision,
+        numberFormat: field.numberFormat,
       })),
     ).toEqual([
-      { id: 'col_a', label: 'Sample' },
-      { id: 'col_b', label: 'Recovery (%)' },
+      { id: 'col_a', label: 'Sample', unit: undefined, precision: undefined, numberFormat: undefined },
+      { id: 'col_b', label: 'Recovery (%)', unit: 'IU/mL', precision: 1, numberFormat: 'number' },
     ])
     // The typed filter controls ride the bottom inspector surface object.
     expect(screen.getByTestId('table-controls')).toBeTruthy()

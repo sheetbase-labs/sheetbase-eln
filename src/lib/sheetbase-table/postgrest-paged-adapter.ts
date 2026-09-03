@@ -138,7 +138,9 @@ export class PostgrestPagedDataAdapter implements PagedDataAdapter {
 
   async fetchPage(request: PageRequest, signal?: AbortSignal): Promise<DatasetPage> {
     const filterQuery = postgrestFilterQuery(request.filters, request.filterLogic)
-    const totalRows = await this.#client.count(this.#resource, filterQuery)
+    // The DataClient contract concatenates `/${resource}${query}` verbatim,
+    // so every query must carry its own leading `?`.
+    const totalRows = await this.#client.count(this.#resource, filterQuery ? `?${filterQuery}` : '')
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     const order = [
       ...(request.sort ?? []).map((clause) => `${clause.fieldId}.${clause.direction}`),
@@ -146,7 +148,7 @@ export class PostgrestPagedDataAdapter implements PagedDataAdapter {
     ].join(',')
     const rows = await this.#client.list<ScientificRowWire>(
       this.#resource,
-      `${filterQuery ? `${filterQuery}&` : ''}select=${encodeURIComponent(
+      `?${filterQuery ? `${filterQuery}&` : ''}select=${encodeURIComponent(
         ['id', 'version', ...request.fieldIds].join(','),
       )}&order=${order}&limit=${request.rowCount}&offset=${request.rowStart}`,
     )

@@ -71,7 +71,10 @@ function fakeClient(rows: ScientificRowWire[], total = rows.length): DataClient 
       const limit = Number(/limit=(\d+)/.exec(query ?? '')?.[1] ?? 200)
       return rows.slice(offset, offset + limit) as never
     },
-    count: async () => total,
+    count: async (_resource: string, query?: string) => {
+      calls.push({ resource: '__count__', query })
+      return total
+    },
     rpc: async <T>(_name: string, _args: Record<string, unknown>) => ({}) as T,
     insert: async <T>(_resource: string, _row: Record<string, unknown>) => ({}) as T,
     patch: async <T>(_resource: string, _query: string, _row: Record<string, unknown>) =>
@@ -135,13 +138,42 @@ describe('PostgrestPagedDataAdapter', () => {
       { recordId: 'row-1', values: { title: 'Sample A', result: 1.5, status: 'Complete' } },
       { recordId: 'row-2', values: { title: 'Sample B', result: null, status: 'Review' } },
     ])
-    const query = (client as DataClient & { calls: Array<{ query?: string }> }).calls[0]?.query ?? ''
+    const query =
+      (client as DataClient & { calls: Array<{ resource: string; query?: string }> }).calls.find(
+        (call) => call.resource === 'sheet_aaaa',
+      )?.query ?? ''
     expect(query).toContain('order=result.desc,id.asc')
     expect(query).toContain('limit=50')
     expect(query).toContain('offset=0')
     expect(
       adapter.resolve({ kind: 'record-field', datasetId: 'ds-1', recordId: 'row-1', fieldId: 'title' } as never),
     ).toBe('Sample A')
+  })
+
+  it('builds count and rows queries with a leading question mark', async () => {
+    // DataClient concatenates `/${resource}${query}` verbatim; a query without
+    // its own `?` produces `resource?...`-less URLs the proxy rejects as
+    // invalid_path (rows never hydrate while count succeeds).
+    const client = fakeClient([row('row-1', 1, { title: 'A' })])
+    const adapter = new PostgrestPagedDataAdapter({ client, table })
+    await adapter.fetchPage({
+      datasetId: 'ds-1',
+      rowStart: 0,
+      rowCount: 10,
+      fieldIds: ['title'],
+      queryKey: 'q',
+      filters: [{ fieldId: 'title', operator: 'eq', value: 'A' }],
+    })
+    const calls = (client as DataClient & {
+      calls: Array<{ resource: string; query?: string }>
+    }).calls
+    expect(calls.find((call) => call.resource === '__count__')?.query).toBe(
+      '?title=eq.A',
+    )
+    const listQuery = calls.find((call) => call.resource === 'sheet_aaaa')?.query ?? ''
+    expect(listQuery.startsWith('?')).toBe(true)
+    expect(listQuery).toContain('title=eq.A&')
+    expect(listQuery).toContain('select=')
   })
 
   it('commits edits through apply_scientific_row_changes with row versions', async () => {

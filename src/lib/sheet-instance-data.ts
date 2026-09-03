@@ -39,6 +39,10 @@ export const sheetInstanceWireSchema = z
     updated_at: timestamp,
     created_by_user_id: z.string().nullable(),
     updated_by_user_id: z.string().nullable(),
+    // Attribution columns the table carries but the app does not consume;
+    // declared so the strict wire schema accepts the PostgREST payload.
+    created_by_credential_id: nullableUuid,
+    updated_by_credential_id: nullableUuid,
   })
   .strict()
 

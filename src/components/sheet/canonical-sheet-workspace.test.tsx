@@ -116,6 +116,7 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
+  useNavigate: () => vi.fn(),
 }))
 
 afterEach(() => {

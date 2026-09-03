@@ -272,6 +272,8 @@ importers:
         specifier: ^2.9.0
         version: 2.9.0
 
+  packages/table-eln: {}
+
 packages:
 
   '@adobe/css-tools@4.5.0':

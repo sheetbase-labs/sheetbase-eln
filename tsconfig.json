@@ -3,6 +3,8 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "scripts/**/*.ts",
+    "packages/table-eln/src/**/*.ts",
+    "packages/table-eln/src/**/*.tsx",
     "perf/**/*.ts",
     "tests/unit/**/*.ts",
     "eslint.config.js",
@@ -20,6 +22,7 @@
       "#/*": ["./src/*"],
       "@/*": ["./src/*"],
       "sheetbase-table/dev": ["../sheetbase-table/src/index.ts"],
+      "@sheetbase/table-eln": ["./packages/table-eln/src/index.ts"],
       "sheetbase-table/dev/styles.css": ["../sheetbase-table/src/ui/styles.css"]
     },
     "lib": ["ES2022", "DOM", "DOM.Iterable"],

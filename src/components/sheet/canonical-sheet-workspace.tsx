@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
   PagedSpreadsheet,
   parseAddress,
@@ -8,6 +8,11 @@ import {
   type SpreadsheetCustomEditor,
   type DatasetQuery,
 } from 'sheetbase-table/dev'
+import {
+  createElnCellRenderer,
+  createRecordMenuActions,
+  type ElnColumnConfig,
+} from '@sheetbase/table-eln'
 
 import type { FieldDefinition } from '#/lib/field-definition'
 import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
@@ -20,7 +25,6 @@ import {
   applySheetPresentation,
   canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
-  categoryCellDisplayText,
 } from '#/lib/canonical-sheet-grid'
 import {
   presentationFiltersToQueryFilters,
@@ -871,27 +875,60 @@ export function CanonicalSheetEditor({
     [],
   )
 
-  // GRID-03 display seams: category cells show the human option label and
-  // Record-reference cells show the picked label — the canonical stored value
-  // (option id / Record UUID) never changes in display.
-  const renderCell = useCallback(
-    (context: SpreadsheetCellRenderContext) => {
-      const column = matrixRef.current.columns[context.point.column]
-      if (!column) return undefined
-      if (column.presentation.kind === 'category-select' && column.field) {
-        const label = categoryCellDisplayText(column.field, context.display)
-        return label === '' ? undefined : label
+  // GRID-03 display seams through the Phase 1 extension layer: category cells
+  // show the human option label and Record-reference cells show the picked
+  // label — the canonical stored value (option id / Record UUID) never changes
+  // in display.
+  const elnRenderer = useMemo(() => {
+    const columns: Record<string, ElnColumnConfig> = {}
+    for (const column of matrix.columns) {
+      if (
+        column.presentation.kind === 'category-select' &&
+        column.field?.category?.kind === 'embedded'
+      ) {
+        columns[column.id] = {
+          kind: 'category',
+          labels: Object.fromEntries(
+            column.field.category.options
+              .filter((option) => option.lifecycle === 'active')
+              .map((option) => [option.id, option.label]),
+          ),
+        }
+      } else if (column.presentation.kind === 'record-picker') {
+        columns[column.id] = { kind: 'record-reference' }
       }
-      if (column.presentation.kind === 'record-picker') {
-        const label = recordCellDisplayText(
+    }
+    return createElnCellRenderer({
+      columns,
+      recordLabels: () => {
+        const mapped: Record<string, string> = {}
+        for (const [recordId, snapshot] of Object.entries(
           recordLabelsRef.current,
-          context.display,
-        )
-        return label === '' ? undefined : label
-      }
-      return undefined
-    },
-    [],
+        )) {
+          if (snapshot) mapped[recordId] = formatRecordReferenceLabel(snapshot)
+        }
+        return mapped
+      },
+    })
+  }, [matrix.columns])
+  const renderCell = useCallback(
+    (context: SpreadsheetCellRenderContext) =>
+      elnRenderer({
+        ...context,
+        // The package renderer is field-driven; project the display column's
+        // canonical identity so callers need not carry datasetHeader fields.
+        field: (() => {
+          const column = matrixRef.current.columns[context.point.column]
+          return column
+            ? {
+                id: column.id,
+                label: canonicalSheetColumnHeader(column),
+                column: context.point.column,
+              }
+            : context.field
+        })(),
+      }),
+    [elnRenderer],
   )
 
   // GRID-03: Record-reference cells edit through the shared Record picker.
@@ -926,6 +963,24 @@ export function CanonicalSheetEditor({
         },
       ] as SpreadsheetCustomEditor[],
     [openPickerForCell],
+  )
+
+  const navigate = useNavigate()
+  const elnMenuActions = useMemo(
+    () =>
+      createRecordMenuActions({
+        // The column menu operates on the focused cell: resolve its stored
+        // Record UUID from the display matrix.
+        recordIdAt: () => {
+          const column = matrixRef.current.columns.at(selected.col)
+          if (!column || column.presentation.kind !== 'record-picker') return null
+          const value = matrixRef.current.data[selected.row]?.[selected.col]
+          return typeof value === 'string' && value !== '' ? value : null
+        },
+        openRecord: (recordId) =>
+          void navigate({ to: '/records/$recordId', params: { recordId } }),
+      }),
+    [navigate, selected.row, selected.col],
   )
 
   const contextMenuActions = useMemo(
@@ -971,6 +1026,11 @@ export function CanonicalSheetEditor({
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
+  )
+
+  const allContextMenuActions = useMemo(
+    () => [...contextMenuActions, ...elnMenuActions],
+    [contextMenuActions, elnMenuActions],
   )
 
   useEffect(() => {
@@ -1250,7 +1310,7 @@ export function CanonicalSheetEditor({
             onColumnVisibilityChange={handleColumnVisibilityChange}
             renderCell={renderCell}
             customEditors={recordPickerEditors}
-            contextMenuActions={contextMenuActions}
+            contextMenuActions={allContextMenuActions}
           />
         </div>
       )}

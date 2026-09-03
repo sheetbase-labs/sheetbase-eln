@@ -4,10 +4,9 @@ import { z } from 'zod'
 
 import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
-import { createSheetbaseHyperFormula } from './hyperformula-profile'
+import { compileFormula } from 'sheetbase-table/dev'
 import {
   buildPersistedFormulaArtifact,
-  calculationSheetName,
   FormulaSyntaxError,
   parseFormula,
 } from './formula-ir'
@@ -158,28 +157,19 @@ export async function executeFormulaWrite(
       tables: maps,
     })
     if (parsed.status === 'supported') {
-      const engine = createSheetbaseHyperFormula()
+      // The calculation engine is the validation oracle: the normalized
+      // expression must compile against the same grammar that evaluates it.
       try {
-        for (const candidate of maps)
-          engine.addSheet(calculationSheetName(candidate.tableId))
-        const sheet = engine.getSheetId(calculationSheetName(table.id))
-        const row = targetMaps.rowIds.indexOf(input.target.rowId)
-        const column = targetMaps.columnIds.indexOf(input.target.columnId)
-        if (sheet === undefined || row < 0 || column < 0)
-          throw Object.assign(new Error('Formula target is unavailable.'), {
-            status: 422,
-            code: 'invalid_formula',
-          })
-        engine.setCellContents({ sheet, row, col: column }, [
-          [parsed.artifact.engineExpression],
-        ])
-        if (!engine.getCellFormula({ sheet, row, col: column }))
-          throw Object.assign(
-            new Error('HyperFormula rejected the normalized formula.'),
-            { status: 422, code: 'invalid_formula' },
-          )
-      } finally {
-        engine.destroy()
+        compileFormula(parsed.artifact.engineExpression)
+      } catch (error) {
+        throw Object.assign(
+          new Error(
+            `The calculation engine rejected the normalized formula: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          ),
+          { status: 422, code: 'invalid_formula' },
+        )
       }
     }
     write.artifact = buildPersistedFormulaArtifact(parsed, table.id)

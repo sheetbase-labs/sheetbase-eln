@@ -1,4 +1,3 @@
-import type { CellValue } from 'hyperformula'
 import type { ScientificLogicalType } from './scientific-sheet-data'
 
 export const SHEETBASE_LITERAL_PROFILE = 'sheetbase-literal-v1' as const
@@ -128,7 +127,7 @@ const isoTimestamp = (serial: number) =>
 /** Validates a derived scalar against its logical SQL target; never implicitly casts. */
 export function decodeScientificResult(
   type: ScientificLogicalType,
-  value: CellValue | null,
+  value: string | number | boolean | null,
   categoryOptionIds?: readonly string[],
 ): LiteralCodecResult {
   if (value === null) return { ok: true, value: null }

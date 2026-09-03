@@ -27,9 +27,6 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
-      '@handsontable/react-wrapper':
-        specifier: 18.0.0
-        version: 18.0.0(handsontable@18.0.0)
       '@liveblocks/client':
         specifier: ^3.24.1
         version: 3.24.1(@types/json-schema@7.0.15)
@@ -132,12 +129,6 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@types/pg@8.20.0)(kysely@0.29.4)(pg@8.22.0)
-      handsontable:
-        specifier: 18.0.0
-        version: 18.0.0
-      hyperformula:
-        specifier: 3.3.0
-        version: 3.3.0
       jose:
         specifier: ^6.2.3
         version: 6.2.3
@@ -1122,11 +1113,6 @@ packages:
 
   '@fontsource-variable/inter@5.2.8':
     resolution: {integrity: sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ==}
-
-  '@handsontable/react-wrapper@18.0.0':
-    resolution: {integrity: sha512-Cy+uFLFB04WJ3YtifqAm0+4Ya65hjNS4as15bT/YDnhqxIV/LW/73zDLJ2YBC2sJ4X0sx2FL/UbTWHJA+Co/eg==}
-    peerDependencies:
-      handsontable: ^18.0.0
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -3812,9 +3798,6 @@ packages:
     resolution: {integrity: sha512-PAJdDJusoxnwm1VwW07VWwUN1sl7smmC3OKggvndJFadxxDRyFJBX/ggnu/KE4kQAB7a3Dp8f/YXC1FlUprWmA==}
     engines: {node: '>= 16'}
 
-  chevrotain@6.5.0:
-    resolution: {integrity: sha512-BwqQ/AgmKJ8jcMEjaSnfMybnKMgGTrtDKowfTP3pX4jwVy0kNjRsT/AP6h+wC3+3NC+X8X15VWBnTCQlX+wQFg==}
-
   chokidar@5.0.0:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
     engines: {node: '>= 20.19.0'}
@@ -4409,9 +4392,6 @@ packages:
       crossws:
         optional: true
 
-  handsontable@18.0.0:
-    resolution: {integrity: sha512-U4H6gDrwGTfjahSyoGHhFHZvOZWB7ReQ3iBvJUIcZPdqdppdZ+FSYNovw+3MH1guJfGgRIhoLYnbSm8Gd6Ft8w==}
-
   hash.js@1.1.7:
     resolution: {integrity: sha512-taOaskGt4z4SOANNseOviYDvjEJinIkRgmp7LbKP2YTTmVxWBl87s/uzK9r+44BclBSp2X7K1hqeNfz9JbBeXA==}
 
@@ -4422,9 +4402,6 @@ packages:
   html-encoding-sniffer@6.0.0:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
-
-  hyperformula@3.3.0:
-    resolution: {integrity: sha512-Mkc7AxP9WQDM4xHo1/XpAwzcpMLkwMand4HO9rfRzP502TBzoR1Z96zoCzRrwXodLSVyh+MD7FvzRVALDxmRFQ==}
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
@@ -5065,9 +5042,6 @@ packages:
   redux@5.0.1:
     resolution: {integrity: sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w==}
 
-  regexp-to-ast@0.4.0:
-    resolution: {integrity: sha512-4qf/7IsIKfSNHQXSwial1IFmfM1Cc/whNBQqRwe0V2stPe7KmN1U0tWQiIx6JiirgSrisjE0eECdNf7Tav1Ntw==}
-
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
     engines: {node: '>=0.10.0'}
@@ -5287,9 +5261,6 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
-
-  tiny-emitter@2.1.0:
-    resolution: {integrity: sha512-NB6Dk1A9xgQPMoGqC5CVXn123gWyte215ONT5Pp5a0yt4nlEoO1ZWeCwpncaekPHXO60i47ihFnZPiRPjRMq4Q==}
 
   tiny-invariant@1.3.1:
     resolution: {integrity: sha512-AD5ih2NlSssTCwsMznbvwMZpJ1cbhkGd2uueNxzv2jDlEeZdU04JQfRnggJQ8DrcVBGjAsCKwFBbDlVNtEMlzw==}
@@ -6439,10 +6410,6 @@ snapshots:
   '@fontsource-variable/instrument-sans@5.2.8': {}
 
   '@fontsource-variable/inter@5.2.8': {}
-
-  '@handsontable/react-wrapper@18.0.0(handsontable@18.0.0)':
-    dependencies:
-      handsontable: 18.0.0
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -9049,10 +9016,6 @@ snapshots:
 
   check-error@2.1.3: {}
 
-  chevrotain@6.5.0:
-    dependencies:
-      regexp-to-ast: 0.4.0
-
   chokidar@5.0.0:
     dependencies:
       readdirp: 5.0.0
@@ -9586,8 +9549,6 @@ snapshots:
       rou3: 0.8.1
       srvx: 0.11.22
 
-  handsontable@18.0.0: {}
-
   hash.js@1.1.7:
     dependencies:
       inherits: 2.0.4
@@ -9602,11 +9563,6 @@ snapshots:
       '@exodus/bytes': 1.15.1(@noble/hashes@2.2.0)
     transitivePeerDependencies:
       - '@noble/hashes'
-
-  hyperformula@3.3.0:
-    dependencies:
-      chevrotain: 6.5.0
-      tiny-emitter: 2.1.0
 
   ignore@5.3.2: {}
 
@@ -10321,8 +10277,6 @@ snapshots:
 
   redux@5.0.1: {}
 
-  regexp-to-ast@0.4.0: {}
-
   require-directory@2.1.1: {}
 
   require-from-string@2.0.2: {}
@@ -10548,8 +10502,6 @@ snapshots:
   tailwindcss@4.3.3: {}
 
   tapable@2.3.3: {}
-
-  tiny-emitter@2.1.0: {}
 
   tiny-invariant@1.3.1: {}
 

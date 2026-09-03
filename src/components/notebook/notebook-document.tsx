@@ -35,7 +35,6 @@ import { BlockPicker } from './block-picker'
 import { NotebookSheetBlock } from './notebook-sheet-block'
 import { NotebookTableBlock } from './notebook-table-block'
 import 'sheetbase-table/dev/styles.css'
-import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 import {
   useCollaborationEnabled,
   useThreads,
@@ -185,11 +184,7 @@ const EDITABLE_TYPES = new Set([
 ])
 
 export function NotebookDocument(props: NotebookDocumentProps) {
-  return (
-    <ScientificWorkbookProvider>
-      <NotebookDocumentContent {...props} />
-    </ScientificWorkbookProvider>
-  )
+  return <NotebookDocumentContent {...props} />
 }
 
 const NOTE02_EMPTY_COLLAPSED_SECTIONS: ReadonlySet<string> = new Set<string>()

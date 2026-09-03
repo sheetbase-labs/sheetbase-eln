@@ -1,7 +1,5 @@
 @import '@fontsource-variable/instrument-sans';
 @import '@fontsource-variable/inter';
-@import 'handsontable/styles/handsontable.css';
-@import 'handsontable/styles/ht-theme-main.css';
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';

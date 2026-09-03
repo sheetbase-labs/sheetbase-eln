@@ -4,7 +4,7 @@ import {
   getFunctionSuggestions,
   extractFunctionPrefix,
 } from '#/lib/function-descriptions'
-import { SCIENTIFIC_CORE_FUNCTIONS } from '#/lib/hyperformula-profile'
+import { SCIENTIFIC_CORE_FUNCTIONS } from '#/lib/formula-profile'
 
 describe('FUNCTION_DESCRIPTIONS', () => {
   it('has a description for every allowed function', () => {

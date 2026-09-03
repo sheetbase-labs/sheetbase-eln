@@ -7,7 +7,7 @@ import { getAppSession } from '#/lib/auth'
 import {
   SHEETBASE_PROFILE_FINGERPRINT,
   sheetbaseRuntimeFingerprint,
-} from './hyperformula-profile'
+} from './formula-profile'
 import { buildScientificWorkbook } from './scientific-workbook'
 import type { WorkbookCellAddress, WorkbookTable } from './scientific-workbook'
 import type { ScientificLogicalType } from './scientific-sheet-data'

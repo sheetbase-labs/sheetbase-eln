@@ -297,6 +297,7 @@ export function evaluateSheetCalculation(input: {
         'Output quantity metadata does not exactly match the expression.',
       )
   } catch (error) {
+    console.error('[dbg] parse/eval error:', error instanceof Error ? error.message : error)
     return {
       status: 'error',
       errorCode:
@@ -337,6 +338,7 @@ export function evaluateSheetCalculation(input: {
       input.expression,
     )
     const result = workbook.get({ tableId, rowId, columnId: outputColumnId })
+    console.error('[dbg] get result:', JSON.stringify(result))
     if (result.status === 'error')
       return {
         status: 'error',

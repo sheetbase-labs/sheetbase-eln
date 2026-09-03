@@ -3,7 +3,7 @@ import {
   SHEETBASE_FUNCTION_PROFILE,
   SHEETBASE_HF_PROFILE,
   SHEETBASE_HF_VERSION,
-} from './hyperformula-profile'
+} from './formula-profile'
 import { SHEETBASE_LITERAL_PROFILE } from './hyperformula-literals'
 
 export const FORMULA_LIMITS = Object.freeze({

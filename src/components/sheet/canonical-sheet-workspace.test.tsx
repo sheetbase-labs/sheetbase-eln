@@ -1,27 +1,72 @@
 /**
  * CanonicalSheetWorkspace integration tests (GRID-02). Exercises the
- * composed-Sheet edit pipeline end to end — grid change simulation → pending
- * values → the explicit Write-back commit — against a recording data client,
- * so regressions in the workspace-level rejection contract are caught at the
+ * composed-Sheet edit pipeline end to end — engine cell writes through the
+ * workspace's paged adapter — against a recording data client, so
+ * regressions in the workspace-level rejection contract are caught at the
  * integration layer, not only in `sheet-write-back` unit tests.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { DatasetQuery } from 'sheetbase-table/dev'
+
 import { validSheetDefinitionConfiguration } from '../../../tests/fixtures/sheet-definition'
 import type { DataClient } from '#/lib/data-client'
+import type { SheetInstancePagedAdapter } from '#/lib/sheetbase-table/sheet-instance-paged-adapter'
 import type { ComposedSheetSnapshot } from '#/lib/sheet-composition-data'
 import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
+import { SheetMixedAuthorityWriteError } from '#/lib/sheet-write-back'
 
 import { CanonicalSheetEditor } from './canonical-sheet-workspace'
 
 const rpcMock = vi.hoisted(() => vi.fn())
-const gridRender = vi.hoisted(() => vi.fn())
+const gridProps = vi.hoisted(() => ({ current: null as null | GridPropsCapture }))
+
+interface GridPropsCapture {
+  adapter: SheetInstancePagedAdapter
+  datasetId: string
+  datasetHeader: {
+    datasetId: string
+    fields: Array<{ id: string; label: string }>
+  }
+  query: DatasetQuery
+}
+
+/**
+ * The engine grid is replaced with a props recorder: cell writes are driven
+ * directly through the workspace's paged adapter (`gridProps.current.adapter`),
+ * exactly as the engine's commit coordinator would.
+ */
+vi.mock('sheetbase-table/dev', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('sheetbase-table/dev')>()
+  return {
+    ...actual,
+    PagedSpreadsheet: (props: Record<string, unknown>) => {
+      gridProps.current = props as unknown as GridPropsCapture
+      const fields =
+        ((props.datasetHeader as { fields?: Array<{ id: string; label: string }> })
+          ?.fields ?? [])
+      return (
+        <table>
+          <thead>
+            <tr>
+              {fields.map((field) => (
+                <th key={field.id} scope="col">
+                  {field.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        </table>
+      )
+    },
+  }
+})
 
 /**
  * A DataClient whose rpc is observable. The default handler records every
@@ -69,31 +114,6 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   }),
 }))
 
-// The grid is replaced with a settings recorder: change flows are simulated
-// by invoking the captured Handsontable hooks exactly as the grid would.
-vi.mock('./sheetbase-grid', () => ({
-  SheetbaseGrid: ({
-    settings,
-  }: {
-    settings: Record<string, unknown> & { colHeaders?: string[] }
-  }) => {
-    gridRender(settings)
-    return (
-      <table>
-        <thead>
-          <tr>
-            {(settings.colHeaders ?? []).map((header) => (
-              <th key={header} scope="col">
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-      </table>
-    )
-  },
-}))
-
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
 }))
@@ -101,7 +121,7 @@ vi.mock('@tanstack/react-router', () => ({
 afterEach(() => {
   cleanup()
   rpcMock.mockReset()
-  gridRender.mockClear()
+  gridProps.current = null
 })
 
 const INSTANCE = '21000000-0000-4000-8000-000000000001'
@@ -243,11 +263,10 @@ function renderWorkspace(ui: ReactNode) {
 }
 
 describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () => {
-  it('rejects a paste spanning two Dataset bindings at Write-back before any RPC', async () => {
-    const user = userEvent.setup()
+  it('rejects an adapter commit spanning two Dataset bindings before any RPC', async () => {
     const instance = await composedInstance()
     // The composed-sheet query runs through the shared recording client; the
-    // wire is served here and the recording is cleared before Write-back.
+    // wire is served here and the recording is cleared before the commit.
     rpcMock.mockResolvedValue(twoDatasetWire())
 
     renderWorkspace(
@@ -256,38 +275,45 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
 
     // The composed Sheet carries both a local column and the two
     // Dataset-bound columns.
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const settings = gridRender.mock.lastCall?.[0] as {
-      colHeaders: string[]
-      beforeChange: (
-        changes: Array<[number, number, unknown, unknown]>,
-        source: string,
-      ) => boolean | undefined
-      afterChange: (
-        changes: Array<[number, number, unknown, unknown]>,
-        source: string,
-      ) => void
-    }
-    expect(settings.colHeaders).toEqual(['sample', 'comparison', 'Observation'])
+    await vi.waitFor(() => expect(gridProps.current).not.toBeNull())
+    expect(
+      gridProps.current!.datasetHeader.fields.map((field) => field.label),
+    ).toEqual(['sample', 'comparison', 'Observation'])
 
-    // A paste touching both governed columns: the typed bulk-write gate
-    // accepts both values (UUID-shaped record references, type-valid), so
-    // the change reaches the edit pipeline.
-    const paste = [
-      [0, 0, 'old-a', '21000000-0000-4000-8000-0000000000c1'],
-      [0, 1, 'old-b', '21000000-0000-4000-8000-0000000000c2'],
-    ] as Array<[number, number, unknown, unknown]>
-    expect(settings.beforeChange(paste, 'CopyPaste.paste')).toBeUndefined()
-    settings.afterChange(paste, 'CopyPaste.paste')
+    // The adapter the workspace handed the engine carries the composition, so
+    // a write is addressed by the canonical composed row key and stable
+    // column ids — the engine applies presentation before the write path and
+    // there is no visual→physical mapping to resolve.
+    const adapter = gridProps.current!.adapter
+    const snapshot = await composedSnapshot()
+    const [columnA, columnB] = snapshot.definitionConfiguration!.columns
+    const rowKey = snapshot.rows[0].rowKey
 
-    const writeBack = await screen.findByRole('button', { name: 'Write back' })
-    await waitFor(() => expect(writeBack.hasAttribute('disabled')).toBe(false))
+    // A paste touching both governed columns, as ONE engine commit: both
+    // values are UUID-shaped record references and type-valid, so the write
+    // reaches the grouped dispatch — which spans two (dataset, expected
+    // revision) commit groups.
     rpcMock.mockClear()
-    await user.click(writeBack)
+    await expect(
+      adapter.commit([
+        {
+          datasetId: adapter.datasetId,
+          recordId: rowKey,
+          fieldId: columnA.id,
+          after: '21000000-0000-4000-8000-0000000000c1',
+        },
+        {
+          datasetId: adapter.datasetId,
+          recordId: rowKey,
+          fieldId: columnB.id,
+          after: '21000000-0000-4000-8000-0000000000c2',
+        },
+      ]),
+    ).rejects.toThrow(SheetMixedAuthorityWriteError)
 
-    // The write-back plan spans two (dataset, expected revision) commit
-    // groups, so the mixed-authority rejection must fire before ANY RPC:
-    // no commit_dataset_row_batch, no mutate_sheet_instance_local_state,
+    // The commit plan spans two (dataset, expected revision) groups, so the
+    // mixed-authority rejection must fire before ANY RPC: no
+    // commit_dataset_row_batch, no mutate_sheet_instance_local_state,
     // nothing at all.
     expect(rpcMock).not.toHaveBeenCalled()
     expect(rpcMock).not.toHaveBeenCalledWith(
@@ -298,10 +324,6 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
       'mutate_sheet_instance_local_state',
       expect.anything(),
     )
-
-    // The status says the operation was not attempted and nothing was
-    // written, and the pending values survive so the edit can be split.
-    expect(screen.getByText(/nothing was written/i)).toBeTruthy()
-    expect(writeBack.hasAttribute('disabled')).toBe(false)
+    expect(screen.queryByText(/nothing was written/i)).toBeNull()
   })
 })

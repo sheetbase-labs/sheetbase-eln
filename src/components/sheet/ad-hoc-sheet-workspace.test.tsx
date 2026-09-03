@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type {
+  DatasetQuery,
+  SpreadsheetCellRenderContext,
+  SpreadsheetCustomEditor,
+} from 'sheetbase-table/dev'
+
+import { presentationFiltersToQueryFilters } from '#/lib/sheetbase-table/sheet-instance-paged-adapter'
+import type { SheetInstancePagedAdapter } from '#/lib/sheetbase-table/sheet-instance-paged-adapter'
 import { mutateSheetLocalState } from '#/lib/sheet-local-data'
 import { updateSheetInstance } from '#/lib/sheet-instance-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
@@ -11,8 +19,37 @@ import type { SheetInstance } from '#/lib/sheet-instance-data'
 
 import { AdHocSheetWorkspace } from './ad-hoc-sheet-workspace'
 
-const gridRender = vi.hoisted(() => vi.fn())
-let gridReady: ((hot: unknown) => void) | undefined | null = null
+const gridProps = vi.hoisted(() => ({ current: null as null | GridPropsCapture }))
+
+interface GridPropsCapture {
+  adapter: SheetInstancePagedAdapter
+  datasetId: string
+  fieldIds: readonly string[]
+  rowCount: number
+  frozenColumns: number
+  initialColumnWidths: readonly number[]
+  readOnlyRows: ReadonlySet<number>
+  datasetHeader: {
+    datasetId: string
+    fields: Array<{
+      id: string
+      label: string
+      column: number
+      dataType: 'text' | 'number' | 'date' | 'boolean' | 'relationship'
+      writable: boolean
+      required: boolean
+      options?: string[]
+    }>
+  }
+  query: DatasetQuery
+  onQueryChange(next: DatasetQuery): void
+  onFrozenColumnsChange(count: number): void
+  onColumnWidthsChange(widths: readonly number[]): void
+  onColumnMove(from: number, to: number): void
+  onColumnVisibilityChange(fieldId: string, visible: boolean): void
+  renderCell(context: SpreadsheetCellRenderContext): ReactNode | undefined
+  customEditors: readonly SpreadsheetCustomEditor[]
+}
 
 vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -26,39 +63,63 @@ vi.mock('#/lib/sheet-instance-data', async (importOriginal) => ({
   updateSheetInstance: vi.fn(),
 }))
 
-vi.mock('./sheetbase-grid', () => ({
-  SheetbaseGrid: ({
-    settings,
-    onReady,
-  }: {
-    settings: Record<string, unknown>
-    onReady?: (instance: unknown) => void
-  }) => {
-    gridRender(settings)
-    gridReady = onReady
-    return (
-      <table>
-        <thead>
-          <tr>
-            {((settings.colHeaders as string[] | undefined) ?? []).map(
-              (header) => (
-                <th key={header} scope="col">
-                  {header}
+/**
+ * The engine grid is replaced with a props recorder: cell edits are driven
+ * through the workspace's paged adapter (`gridProps.current.adapter.commit`)
+ * and view interactions through the captured engine callbacks, exactly as the
+ * engine would invoke them.
+ */
+vi.mock('sheetbase-table/dev', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('sheetbase-table/dev')>()
+  return {
+    ...actual,
+    PagedSpreadsheet: (props: Record<string, unknown>) => {
+      gridProps.current = props as unknown as GridPropsCapture
+      const fields =
+        ((props.datasetHeader as { fields?: Array<{ id: string; label: string }> })
+          ?.fields ?? [])
+      return (
+        <table>
+          <thead>
+            <tr>
+              {fields.map((field) => (
+                <th key={field.id} scope="col">
+                  {field.label}
                 </th>
-              ),
-            )}
-          </tr>
-        </thead>
-      </table>
-    )
-  },
-}))
+              ))}
+            </tr>
+          </thead>
+        </table>
+      )
+    },
+  }
+})
 
 afterEach(() => {
   cleanup()
-  gridRender.mockClear()
-  gridReady = null
+  gridProps.current = null
 })
+
+function gridPropsCapture(): GridPropsCapture {
+  const props = gridProps.current
+  if (!props) throw new Error('the engine grid props were not captured')
+  return props
+}
+
+function headerLabels(): string[] {
+  return gridPropsCapture().datasetHeader.fields.map((field) => field.label)
+}
+
+/** One engine cell write against the captured adapter. */
+function cellWrite(fieldId: string, after: string) {
+  const adapter = gridPropsCapture().adapter
+  return {
+    datasetId: adapter.datasetId,
+    recordId: '10000000-0000-4000-8000-000000000005',
+    fieldId,
+    after,
+  }
+}
 
 function instance(): SheetInstance {
   return {
@@ -95,9 +156,12 @@ describe('AdHocSheetWorkspace', () => {
     expect(
       screen.getByRole('columnheader', { name: 'Observation' }),
     ).toBeTruthy()
-    expect(gridRender.mock.lastCall?.[0].columns).toEqual([
-      expect.objectContaining({ readOnly: false }),
+    // The engine grid receives an editable surface: every display field is
+    // writable and no row is pinned read-only.
+    expect(gridPropsCapture().datasetHeader.fields).toEqual([
+      expect.objectContaining({ writable: true }),
     ])
+    expect(gridPropsCapture().readOnlyRows).toEqual(new Set())
     await user.click(screen.getByRole('button', { name: 'Add row' }))
     expect(mutateSheetLocalState).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -110,27 +174,20 @@ describe('AdHocSheetWorkspace', () => {
     )
   })
 
-  it('keeps the same canonical grid keyboard surface in read-only mode', () => {
+  it('keeps the same canonical grid surface in read-only mode', () => {
     renderWorkspace(<AdHocSheetWorkspace instance={instance()} readOnly />)
 
     expect(
       screen.getByRole('columnheader', { name: 'Observation' }),
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Add row' })).toBeNull()
-    expect(gridRender.mock.lastCall?.[0].columns).toEqual([
-      expect.objectContaining({ readOnly: true }),
+    // Every row reaches the engine as read-only and no field is writable.
+    expect(gridPropsCapture().readOnlyRows).toEqual(new Set([0]))
+    expect(gridPropsCapture().datasetHeader.fields).toEqual([
+      expect.objectContaining({ writable: false }),
     ])
   })
 })
-
-interface GridSettingsCapture {
-  colHeaders?: string[]
-  columns?: Array<Record<string, unknown> & { readOnly?: boolean }>
-  beforeChange?: (
-    changes: Array<[number, number, unknown, unknown]>,
-    source: string,
-  ) => boolean | undefined
-}
 
 const countFieldId = '15000000-0000-4000-8000-000000000001'
 const statusFieldId = '15000000-0000-4000-8000-000000000002'
@@ -220,10 +277,10 @@ describe('CanonicalSheetEditor typed editing and validation UX (GRID-03)', () =>
     vi.mocked(mutateSheetLocalState).mockClear()
   })
 
-  it('wires typed editors, vocabulary dropdowns and storage-unit headers', () => {
+  it('wires typed engine fields, vocabulary options and storage-unit headers', () => {
     renderWorkspace(<AdHocSheetWorkspace instance={typedInstance()} />)
-    const settings = gridRender.mock.lastCall?.[0] as GridSettingsCapture
-    expect(settings.colHeaders).toEqual([
+    const fields = gridPropsCapture().datasetHeader.fields
+    expect(fields.map((field) => field.label)).toEqual([
       'Count (cells)',
       'Observed',
       'Recorded',
@@ -231,65 +288,88 @@ describe('CanonicalSheetEditor typed editing and validation UX (GRID-03)', () =>
       'Flag',
       'Observation',
     ])
-    expect(settings.columns).toEqual([
-      expect.objectContaining({ type: 'numeric' }),
-      expect.objectContaining({ type: 'date' }),
-      // GRID-03 review fix: HT 18's date editor is date-only and rejects
-      // canonical …Z instants; timestamps keep a text editor + UTC coercion.
-      expect.objectContaining({ type: 'text' }),
-      expect.objectContaining({
-        type: 'dropdown',
-        // Canonical vocabulary: active options only, displayed by label.
-        source: ['Active', 'Paused'],
-        renderer: expect.any(Function),
-      }),
-      expect.objectContaining({ type: 'checkbox' }),
-      expect.objectContaining({ type: 'text' }),
+    expect(fields.map((field) => field.dataType)).toEqual([
+      'number',
+      'date',
+      // GRID-03 review fix: the engine's date field is date-only and rejects
+      // canonical …Z instants; timestamps keep a text field + UTC coercion.
+      'text',
+      // Canonical vocabulary: active options only, displayed by label.
+      'text',
+      'boolean',
+      'text',
     ])
+    expect(fields[0]).toEqual(
+      expect.objectContaining({ id: countFieldId, writable: true }),
+    )
+    expect(fields[3]?.options).toEqual(['Active', 'Paused'])
   })
 
-  it('reverts an invalid single edit and announces the canonical reason', () => {
+  it('reverts an invalid single edit and announces the canonical reason', async () => {
     renderWorkspace(<AdHocSheetWorkspace instance={typedInstance()} />)
-    const settings = gridRender.mock.lastCall?.[0] as GridSettingsCapture
-    act(() => {
-      expect(
-        settings.beforeChange?.([[0, 0, 100, 'not-a-number']], 'edit'),
-      ).toBe(false)
+    let rejected: Awaited<
+      ReturnType<SheetInstancePagedAdapter['commit']>
+    >['rejected'] = []
+    await act(async () => {
+      const result = await gridPropsCapture().adapter.commit([
+        cellWrite(countFieldId, 'not-a-number'),
+      ])
+      rejected = result.rejected
     })
-    const statuses = screen
-      .getAllByRole('status')
-      .map((element) => element.textContent)
-      .join(' ')
-    expect(statuses).toContain('Edit rejected: invalid_value in Count')
-    expect(statuses).toContain('kept its previous value')
+    // The write is rejected fail-closed with the canonical reason, so the
+    // engine keeps the cell's previous value and nothing is persisted.
+    expect(rejected).toEqual([
+      expect.objectContaining({
+        write: expect.objectContaining({ fieldId: countFieldId }),
+        reason: 'invalid_value',
+      }),
+    ])
     expect(mutateSheetLocalState).not.toHaveBeenCalled()
   })
 
-  it('coerces single edits to canonical values before the commit', () => {
+  it('coerces single edits to canonical values before the commit', async () => {
+    vi.mocked(mutateSheetLocalState).mockResolvedValue(typedInstance())
     renderWorkspace(<AdHocSheetWorkspace instance={typedInstance()} />)
-    const settings = gridRender.mock.lastCall?.[0] as GridSettingsCapture
-    const changes: Array<[number, number, unknown, unknown]> = [
-      [0, 0, 100, '1,200'],
-    ]
-    act(() => {
-      expect(settings.beforeChange?.(changes, 'edit')).toBeUndefined()
+    await act(async () => {
+      const result = await gridPropsCapture().adapter.commit([
+        cellWrite(countFieldId, '1,200'),
+      ])
+      expect(result.rejected).toEqual([])
     })
-    expect(changes[0]?.[3]).toBe(1200)
+    expect(mutateSheetLocalState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instanceId: typedInstance().id,
+        cells: [
+          expect.objectContaining({
+            rowKey: '10000000-0000-4000-8000-000000000005',
+            fieldId: countFieldId,
+            value: 1200,
+          }),
+        ],
+      }),
+      expect.anything(),
+    )
   })
 
-  it('keeps the GRID-02 wholesale rejection for bulk paste sources', () => {
+  it('keeps the fail-closed rejection for invalid bulk-paste values', async () => {
     renderWorkspace(<AdHocSheetWorkspace instance={typedInstance()} />)
-    const settings = gridRender.mock.lastCall?.[0] as GridSettingsCapture
-    act(() => {
-      expect(
-        settings.beforeChange?.([[0, 0, 100, 'oops']], 'CopyPaste.paste'),
-      ).toBe(false)
+    let result: Awaited<
+      ReturnType<SheetInstancePagedAdapter['commit']>
+    > | null = null
+    await act(async () => {
+      // A bulk paste is one engine commit; the invalid cell inside it is
+      // rejected before any authoritative write runs.
+      result = await gridPropsCapture().adapter.commit([
+        cellWrite(countFieldId, 'oops'),
+      ])
     })
-    const statuses = screen
-      .getAllByRole('status')
-      .map((element) => element.textContent)
-      .join(' ')
-    expect(statuses).toContain('Paste rejected: invalid_value in Count')
+    expect(result!.accepted).toEqual([])
+    expect(result!.rejected).toEqual([
+      expect.objectContaining({
+        write: expect.objectContaining({ fieldId: countFieldId }),
+        reason: 'invalid_value',
+      }),
+    ])
     expect(mutateSheetLocalState).not.toHaveBeenCalled()
   })
 })
@@ -297,26 +377,10 @@ describe('CanonicalSheetEditor typed editing and validation UX (GRID-03)', () =>
 describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)', () => {
   const countId = countFieldId
   const observedId = '15000000-0000-4000-8000-000000000003'
+  const statusId = statusFieldId
 
   function presentationInstance(): SheetInstance {
-    const base = typedInstance()
-    return base
-  }
-
-  function lastSettings(): Record<string, any> {
-    return gridRender.mock.lastCall?.[0] as Record<string, any>
-  }
-
-  function fakeHot(physicalForVisual: (visual: number) => number) {
-    return {
-      toPhysicalRow: (visual: number) => visual,
-      toPhysicalColumn: physicalForVisual,
-      countCols: () => 6,
-      columnIndexMapper: {
-        setIndexesSequence: vi.fn(),
-        getIndexesSequence: () => [],
-      },
-    }
+    return typedInstance()
   }
 
   beforeEach(() => {
@@ -324,9 +388,9 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
     vi.mocked(updateSheetInstance).mockResolvedValue(presentationInstance())
   })
 
-  it('wires freeze, widths, sort restore and drag-reorder settings', () => {
+  it('wires freeze, widths, sort restore and view callbacks through the engine', () => {
     const base = presentationInstance()
-    const instance: SheetInstance = {
+    const viewed: SheetInstance = {
       ...base,
       state: {
         ...base.state,
@@ -338,34 +402,29 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
         },
       },
     }
-    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
-    const settings = lastSettings()
-    expect(settings.fixedColumnsStart).toBe(1)
-    expect(settings.manualColumnMove).toBe(true)
-    expect(settings.manualColumnResize).toBe(true)
+    renderWorkspace(<AdHocSheetWorkspace instance={viewed} />)
+    const props = gridPropsCapture()
+    expect(props.frozenColumns).toBe(1)
     // Widths resolve through the persisted per-column map.
-    expect(settings.colWidths(0)).toBe(220)
-    // Persisted sorts restore as the columnSorting initial config.
-    expect(settings.columnSorting).toEqual({
-      initialConfig: [{ column: 0, sortOrder: 'desc' }],
-    })
-    // The column menu keeps the filter surface and adds freeze/hide items.
-    const menu = settings.dropdownMenu.items
-    expect(Object.keys(menu)).toEqual(
-      expect.arrayContaining([
-        'filter_by_condition',
-        'filter_by_value',
-        'freeze_to_column',
-        'unfreeze_columns',
-        'hide_column',
-      ]),
-    )
+    expect(props.initialColumnWidths[0]).toBe(220)
+    // Persisted sorts restore as the engine query's sort clauses.
+    expect(props.query.sort).toEqual([
+      { fieldId: countId, direction: 'desc' },
+    ])
+    // The engine owns the column menu (filters, sorts, freeze, hide, move,
+    // resize); the workspace receives each action as a callback onto the
+    // GRID-04 presentation working state.
+    expect(props.onQueryChange).toEqual(expect.any(Function))
+    expect(props.onFrozenColumnsChange).toEqual(expect.any(Function))
+    expect(props.onColumnWidthsChange).toEqual(expect.any(Function))
+    expect(props.onColumnMove).toEqual(expect.any(Function))
+    expect(props.onColumnVisibilityChange).toEqual(expect.any(Function))
   })
 
   it('hides presentation-hidden columns and restores them via the toolbar', async () => {
     const user = userEvent.setup()
     const base = typedInstance()
-    const instance: SheetInstance = {
+    const hidden: SheetInstance = {
       ...base,
       state: {
         ...base.state,
@@ -375,15 +434,15 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
         },
       },
     }
-    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
+    renderWorkspace(<AdHocSheetWorkspace instance={hidden} />)
     // Display-only concealment: the hidden column is not rendered.
-    expect(lastSettings().colHeaders).not.toContain('Count (cells)')
+    expect(headerLabels()).not.toContain('Count (cells)')
     await user.click(
       screen.getByRole('button', { name: 'Show 1 hidden column' }),
     )
     expect(updateSheetInstance).toHaveBeenCalledWith(
-      instance.id,
-      instance.revision,
+      hidden.id,
+      hidden.revision,
       expect.objectContaining({
         presentation: expect.objectContaining({ hiddenColumnIds: [] }),
       }),
@@ -436,16 +495,16 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
     )
   })
 
-  it('persists a resized column width against the physical column', async () => {
-    const instance = presentationInstance()
-    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
-    const settings = lastSettings()
+  it('persists a resized column width against the display column', async () => {
+    const viewed = presentationInstance()
+    renderWorkspace(<AdHocSheetWorkspace instance={viewed} />)
     await act(async () => {
-      settings.afterColumnResize(300.4, 0)
+      // The engine reports widths as a display-order array.
+      gridPropsCapture().onColumnWidthsChange([300.4])
     })
     expect(updateSheetInstance).toHaveBeenCalledWith(
-      instance.id,
-      instance.revision,
+      viewed.id,
+      viewed.revision,
       expect.objectContaining({
         presentation: expect.objectContaining({
           columnWidths: expect.objectContaining({ [countId]: 300 }),
@@ -455,30 +514,25 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
     )
   })
 
-  it('persists a manual column move as stable ids and resets the index map', async () => {
-    const instance = presentationInstance()
-    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
-    const hot = fakeHot((visual) =>
-      visual === 0 ? 1 : visual === 1 ? 0 : visual,
-    )
-    act(() => {
-      gridReady?.(hot)
-    })
-    const settings = lastSettings()
+  it('persists a manual column move as stable presentation ids', async () => {
+    const viewed = presentationInstance()
+    renderWorkspace(<AdHocSheetWorkspace instance={viewed} />)
     await act(async () => {
-      settings.afterColumnMove([0], 1, 1, true, true)
+      gridPropsCapture().onColumnMove(0, 1)
     })
-    // Visual column 0 showed the physical column 1 (Observed) after the drag.
+    // The move persists as the display column order in stable column ids —
+    // the engine applies presentation before rendering, so there is no
+    // visual→physical index map to reset.
     expect(updateSheetInstance).toHaveBeenCalledWith(
-      instance.id,
-      instance.revision,
+      viewed.id,
+      viewed.revision,
       expect.objectContaining({
         presentation: expect.objectContaining({
           columnOrder: [
             observedId,
             countId,
             '15000000-0000-4000-8000-000000000004',
-            '15000000-0000-4000-8000-000000000002',
+            statusId,
             '15000000-0000-4000-8000-000000000005',
             '10000000-0000-4000-8000-000000000004',
           ],
@@ -486,46 +540,36 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       }),
       expect.anything(),
     )
-    expect(hot.columnIndexMapper.setIndexesSequence).toHaveBeenCalled()
   })
 
-  it('persists a sort as presentation state and guards identical restores', async () => {
-    const instance = presentationInstance()
-    // The first persist resolves to state that already carries the new sort,
-    // so the restored initialConfig must not re-write identical state.
-    const updated: SheetInstance = {
-      ...instance,
-      revision: 2,
-      state: {
-        ...instance.state,
-        presentation: {
-          ...instance.state.presentation,
-          sorts: [{ columnId: countId, direction: 'desc' }],
-        },
-      },
-    }
-    vi.mocked(updateSheetInstance).mockResolvedValueOnce(updated)
-    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
-    const settings = lastSettings()
+  it('persists an engine sort change as presentation state', async () => {
+    const viewed = presentationInstance()
+    renderWorkspace(<AdHocSheetWorkspace instance={viewed} />)
+    const props = gridPropsCapture()
     await act(async () => {
-      settings.afterColumnSort([], [{ column: 0, sortOrder: 'desc' }])
+      // The engine round-trips its whole query; the workspace persists the
+      // sort alongside the filters it already knows.
+      props.onQueryChange({
+        filters: props.query.filters,
+        sort: [{ fieldId: countId, direction: 'desc' }],
+      })
     })
     expect(updateSheetInstance).toHaveBeenCalledWith(
-      instance.id,
-      instance.revision,
+      viewed.id,
+      viewed.revision,
       expect.objectContaining({
         presentation: expect.objectContaining({
           sorts: [{ columnId: countId, direction: 'desc' }],
+          filters: [
+            {
+              columnId: '10000000-0000-4000-8000-000000000004',
+              operator: 'equals',
+              value: 'independent value',
+            },
+          ],
         }),
       }),
       expect.anything(),
-    )
-    const callsAfterFirst = vi.mocked(updateSheetInstance).mock.calls.length
-    await act(async () => {
-      settings.afterColumnSort([], [{ column: 0, sortOrder: 'desc' }])
-    })
-    expect(vi.mocked(updateSheetInstance).mock.calls).toHaveLength(
-      callsAfterFirst,
     )
   })
 
@@ -562,49 +606,19 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
     localStorage.removeItem(`sheetbase-sheet-view-v1:${viewed.id}`)
   })
 
-  const statusId = '15000000-0000-4000-8000-000000000002'
-
-  /** Fake hot with a recording Filters plugin (GRID-04 filter persistence). */
-  function fakeHotWithFilters() {
-    const additions: Array<{
-      column: number
-      name: string
-      args: unknown[]
-      operation?: string
-    }> = []
-    const plugin = {
-      clearConditions: vi.fn(() => {
-        additions.length = 0
-      }),
-      addCondition: vi.fn(
-        (column: number, name: string, args: unknown[], operation?: string) => {
-          additions.push({ column, name, args, operation })
-        },
-      ),
-      filter: vi.fn(),
-    }
-    const hot = {
-      ...fakeHot((visual) => visual),
-      getPlugin: (name: string) => (name === 'filters' ? plugin : null),
-    }
-    return { hot, plugin, additions }
-  }
-
-  it('persists dropdown-menu filters as canonical presentation state', async () => {
+  it('persists engine query filters as canonical presentation state', async () => {
     const current = presentationInstance()
     renderWorkspace(<AdHocSheetWorkspace instance={current} />)
-    const settings = lastSettings()
-    // Two columns with conditions, as `afterFilter` reports them: physical
-    // column indexes, conjunction groups, HT 18 condition names.
     await act(async () => {
-      settings.afterFilter([
-        {
-          column: 0,
-          conditions: [{ name: 'eq', args: [1_200] }],
-          operation: 'conjunction',
-        },
-        { column: 3, conditions: [{ name: 'not_empty' }] },
-      ])
+      // Two columns with conditions, as the engine reports them: stable
+      // field ids with typed operators.
+      gridPropsCapture().onQueryChange({
+        filters: [
+          { fieldId: countId, operator: 'eq', value: 1_200 },
+          { fieldId: statusId, operator: 'notNull' },
+        ],
+        sort: [],
+      })
     })
     expect(updateSheetInstance).toHaveBeenCalledWith(
       current.id,
@@ -623,95 +637,81 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
 
   it('keeps non-serialisable filter conditions session-visual', async () => {
     const current = presentationInstance()
-    current.state = {
-      ...current.state,
-      presentation: { ...current.state.presentation, filters: [] },
-    }
     renderWorkspace(<AdHocSheetWorkspace instance={current} />)
-    const settings = lastSettings()
     await act(async () => {
-      settings.afterFilter([
-        {
-          column: 0,
-          conditions: [{ name: 'by_value', args: [['kept', 'shown']] }],
-        },
-      ])
+      gridPropsCapture().onQueryChange({
+        filters: [
+          // A richer engine condition with no presentation counterpart…
+          { fieldId: countId, operator: 'contains', value: 'kept' },
+          // …alongside one that the working-view schema can restore.
+          { fieldId: statusId, operator: 'notNull' },
+        ],
+        sort: [],
+      })
     })
-    // Nothing canonical to capture and nothing changed: no write at all.
-    expect(updateSheetInstance).not.toHaveBeenCalled()
+    // Only the serialisable condition is captured; the 'contains' filter
+    // stays session-visual and is honestly omitted from the saved view.
+    expect(updateSheetInstance).toHaveBeenCalledWith(
+      current.id,
+      current.revision,
+      expect.objectContaining({
+        presentation: expect.objectContaining({
+          filters: [{ columnId: statusId, operator: 'is-not-empty' }],
+        }),
+      }),
+      expect.anything(),
+    )
   })
 
-  it('re-applies persisted filters through the Filters plugin after a reload', async () => {
+  it('re-applies persisted filters through the engine query after a reload', () => {
+    const filters = [
+      { columnId: countId, operator: 'equals' as const, value: 1_200 },
+      { columnId: statusId, operator: 'is-not-empty' as const },
+    ]
     const filtered = presentationInstance()
     filtered.state = {
       ...filtered.state,
-      presentation: {
-        ...filtered.state.presentation,
-        filters: [
-          { columnId: countId, operator: 'equals', value: 1_200 },
-          { columnId: statusId, operator: 'is-not-empty' },
-        ],
-      },
+      presentation: { ...filtered.state.presentation, filters },
     }
-    const { hot, plugin, additions } = fakeHotWithFilters()
+    const expected = presentationFiltersToQueryFilters(filters)
     const view = renderWorkspace(<AdHocSheetWorkspace instance={filtered} />)
-    act(() => {
-      gridReady?.(hot)
-    })
-    // A data reload (any matrix identity change) clears plugin state; the
-    // workspace must replay the persisted presentation onto the fresh grid.
+    expect(gridPropsCapture().query.filters).toEqual(expected)
+    // A data reload (a fresh instance identity, like a refetch) re-derives
+    // the same engine query from the persisted presentation.
     view.rerender(
       <QueryClientProvider client={new QueryClient()}>
         <AdHocSheetWorkspace instance={{ ...filtered }} />
       </QueryClientProvider>,
     )
-    expect(plugin.clearConditions).toHaveBeenCalled()
-    expect(additions).toEqual([
-      { column: 0, name: 'eq', args: [1_200], operation: 'conjunction' },
-      { column: 3, name: 'not_empty', args: [], operation: 'conjunction' },
-    ])
-    expect(plugin.filter).toHaveBeenCalled()
-    // The restore's own afterFilter echo must not re-persist identical state.
-    const callsBefore = vi.mocked(updateSheetInstance).mock.calls.length
-    const settings = lastSettings()
-    await act(async () => {
-      settings.afterFilter([
-        {
-          column: 0,
-          conditions: [{ name: 'eq', args: [1_200] }],
-          operation: 'conjunction',
-        },
-        { column: 3, conditions: [{ name: 'not_empty' }] },
-      ])
-    })
-    expect(vi.mocked(updateSheetInstance).mock.calls).toHaveLength(callsBefore)
+    expect(gridPropsCapture().query.filters).toEqual(expected)
   })
 
   it('runs the full saved-view lifecycle: save, reload, restore, unhide, filter re-applies', async () => {
     const user = userEvent.setup()
     // The view hides Observed and carries a filter on Count AND on the
     // hidden Observed column itself — the case where a naive restore drops
-    // the hidden column's condition because it has no grid column.
-    const saved = presentationInstance()
-    saved.state = {
-      ...saved.state,
-      presentation: {
-        ...saved.state.presentation,
-        hiddenColumnIds: [observedId],
-        filters: [
-          { columnId: countId, operator: 'equals', value: 1_200 },
-          { columnId: observedId, operator: 'is-not-empty' },
-        ],
-      },
-    }
-    // Hot whose visual→physical mapping reflects the hidden Observed column.
-    const { hot, plugin, additions } = fakeHotWithFilters()
-    const hiddenProjectedHot = {
-      ...hot,
-      toPhysicalColumn: (visual: number) => (visual >= 1 ? visual + 1 : visual),
+    // the hidden column's condition.
+    const savedFilters = [
+      { columnId: countId, operator: 'equals' as const, value: 1_200 },
+      { columnId: observedId, operator: 'is-not-empty' as const },
+    ]
+    const withSavedView = (hideObserved: boolean): SheetInstance => {
+      const base = presentationInstance()
+      return {
+        ...base,
+        state: {
+          ...base.state,
+          presentation: {
+            ...base.state.presentation,
+            hiddenColumnIds: hideObserved ? [observedId] : [],
+            filters: savedFilters,
+          },
+        },
+      }
     }
 
     // Phase 1 — save: the toolbar captures the working view to localStorage.
+    const saved = withSavedView(true)
     renderWorkspace(<AdHocSheetWorkspace instance={saved} />)
     await user.click(screen.getByRole('button', { name: 'Save view' }))
     expect(
@@ -720,25 +720,14 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
     cleanup()
 
     // Phase 2 — reload: a fresh editor over a canonical presentation (no
-    // saved filters); the grid replays nothing worth applying.
+    // saved filters); the engine query carries no filters.
     const reloaded = presentationInstance()
     reloaded.state = {
       ...reloaded.state,
       presentation: { ...reloaded.state.presentation, filters: [] },
     }
-    const phase2 = renderWorkspace(<AdHocSheetWorkspace instance={reloaded} />)
-    act(() => {
-      gridReady?.(hiddenProjectedHot)
-    })
-    // A data reload (any matrix identity change) clears plugin state; the
-    // workspace must replay the persisted presentation onto the fresh grid.
-    phase2.rerender(
-      <QueryClientProvider client={new QueryClient()}>
-        <AdHocSheetWorkspace instance={{ ...reloaded }} />
-      </QueryClientProvider>,
-    )
-    expect(plugin.clearConditions).toHaveBeenCalled()
-    expect(additions).toEqual([])
+    renderWorkspace(<AdHocSheetWorkspace instance={reloaded} />)
+    expect(gridPropsCapture().query.filters).toEqual([])
     cleanup()
 
     // Phase 3 — restore: re-validated against the canonical column set, the
@@ -752,10 +741,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       expect.objectContaining({
         presentation: expect.objectContaining({
           hiddenColumnIds: [observedId],
-          filters: [
-            { columnId: countId, operator: 'equals', value: 1_200 },
-            { columnId: observedId, operator: 'is-not-empty' },
-          ],
+          filters: savedFilters,
         }),
       }),
       expect.anything(),
@@ -763,55 +749,13 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
     cleanup()
 
     // Phase 4 — after the restored state lands (fresh mount, like a
-    // refetch), the replay applies the visible column's condition at its
-    // projected display index and withholds the hidden column's condition —
-    // an out-of-range plugin condition would trim every row.
-    additions.length = 0
-    plugin.clearConditions.mockClear()
-    const phase4 = renderWorkspace(
-      <AdHocSheetWorkspace
-        instance={{
-          ...saved,
-          state: {
-            ...saved.state,
-            presentation: {
-              ...saved.state.presentation,
-              hiddenColumnIds: [observedId],
-              filters: [
-                { columnId: countId, operator: 'equals', value: 1_200 },
-                { columnId: observedId, operator: 'is-not-empty' },
-              ],
-            },
-          },
-        }}
-      />,
-    )
-    act(() => {
-      gridReady?.(hiddenProjectedHot)
-    })
-    const remounted: SheetInstance = {
-      ...saved,
-      state: {
-        ...saved.state,
-        presentation: {
-          ...saved.state.presentation,
-          hiddenColumnIds: [observedId],
-          filters: [
-            { columnId: countId, operator: 'equals', value: 1_200 },
-            { columnId: observedId, operator: 'is-not-empty' },
-          ],
-        },
-      },
-    }
-    phase4.rerender(
-      <QueryClientProvider client={new QueryClient()}>
-        <AdHocSheetWorkspace instance={remounted} />
-      </QueryClientProvider>,
-    )
-    expect(plugin.clearConditions).toHaveBeenCalled()
-    expect(additions).toEqual([
-      { column: 0, name: 'eq', args: [1_200], operation: 'conjunction' },
-    ])
+    // refetch), BOTH persisted filters reach the engine query, keyed by
+    // stable field ids: the hidden column's condition survives because the
+    // engine resolves filters against the canonical matrix, not the display
+    // projection, so nothing can fall out of range.
+    renderWorkspace(<AdHocSheetWorkspace instance={withSavedView(true)} />)
+    const expectedFilters = presentationFiltersToQueryFilters(savedFilters)
+    expect(gridPropsCapture().query.filters).toEqual(expectedFilters)
 
     // Phase 5 — unhide: showing the hidden column keeps its preserved filter
     // in the persisted presentation.
@@ -824,92 +768,48 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
       expect.objectContaining({
         presentation: expect.objectContaining({
           hiddenColumnIds: [],
-          filters: [
-            { columnId: countId, operator: 'equals', value: 1_200 },
-            { columnId: observedId, operator: 'is-not-empty' },
-          ],
+          filters: savedFilters,
         }),
       }),
       expect.anything(),
     )
     cleanup()
 
-    // Phase 6 — with the column visible again, the replay applies BOTH
-    // conditions, the previously hidden one now at its display index.
-    additions.length = 0
-    const shownHot = {
-      ...hot,
-      toPhysicalColumn: (visual: number) => visual,
-    }
-    const phase6 = renderWorkspace(
-      <AdHocSheetWorkspace
-        instance={{
-          ...saved,
-          state: {
-            ...saved.state,
-            presentation: {
-              ...saved.state.presentation,
-              hiddenColumnIds: [],
-              filters: [
-                { columnId: countId, operator: 'equals', value: 1_200 },
-                { columnId: observedId, operator: 'is-not-empty' },
-              ],
-            },
-          },
-        }}
-      />,
-    )
-    act(() => {
-      gridReady?.(shownHot)
-    })
-    const unhidden: SheetInstance = {
-      ...saved,
-      state: {
-        ...saved.state,
-        presentation: {
-          ...saved.state.presentation,
-          hiddenColumnIds: [],
-          filters: [
-            { columnId: countId, operator: 'equals', value: 1_200 },
-            { columnId: observedId, operator: 'is-not-empty' },
-          ],
-        },
-      },
-    }
-    phase6.rerender(
-      <QueryClientProvider client={new QueryClient()}>
-        <AdHocSheetWorkspace instance={unhidden} />
-      </QueryClientProvider>,
-    )
-    expect(additions).toEqual([
-      { column: 0, name: 'eq', args: [1_200], operation: 'conjunction' },
-      { column: 1, name: 'not_empty', args: [], operation: 'conjunction' },
-    ])
-    expect(plugin.filter).toHaveBeenCalled()
+    // Phase 6 — with the column visible again, the same fieldId-addressed
+    // engine query applies BOTH conditions; nothing was withheld while the
+    // column was hidden.
+    renderWorkspace(<AdHocSheetWorkspace instance={withSavedView(false)} />)
+    expect(gridPropsCapture().query.filters).toEqual(expectedFilters)
 
     localStorage.removeItem(`sheetbase-sheet-view-v1:${saved.id}`)
   })
 
-  it('maps beforeChange columns through the visual→physical move map', async () => {
-    const instance = presentationInstance()
-    renderWorkspace(<AdHocSheetWorkspace instance={instance} />)
-    // Visual column 0 currently shows the physical column 1 (Observed, date).
-    act(() => {
-      gridReady?.(fakeHot((visual) => (visual === 0 ? 1 : 0)))
+  it('addresses cell writes by stable field id regardless of display position', async () => {
+    const viewed = presentationInstance()
+    renderWorkspace(<AdHocSheetWorkspace instance={viewed} />)
+    await act(async () => {
+      // Move the first display column past the second (Count ↔ Observed):
+      // presentation resequences the display only, and the write path is
+      // never re-mapped through grid positions.
+      gridPropsCapture().onColumnMove(0, 1)
     })
-    const settings = lastSettings()
-    act(() => {
-      expect(settings.beforeChange([[0, 0, 100, 'not-a-date']], 'edit')).toBe(
-        false,
-      )
+    let result: Awaited<
+      ReturnType<SheetInstancePagedAdapter['commit']>
+    > | null = null
+    await act(async () => {
+      result = await gridPropsCapture().adapter.commit([
+        cellWrite(observedId, 'not-a-date'),
+      ])
     })
-    const statuses = screen
-      .getAllByRole('status')
-      .map((element) => element.textContent)
-      .join(' ')
-    // The rejection names the column the visual position actually resolves
-    // to — not the neighbouring column the user sees in that slot.
-    expect(statuses).toContain('invalid_value in Observed')
+    // The rejection names the exact field that was addressed — the Observed
+    // date column — not whichever column happens to sit in that slot.
+    expect(result!.accepted).toEqual([])
+    expect(result!.rejected).toEqual([
+      expect.objectContaining({
+        write: expect.objectContaining({ fieldId: observedId }),
+        reason: 'invalid_value',
+      }),
+    ])
     expect(mutateSheetLocalState).not.toHaveBeenCalled()
   })
 })

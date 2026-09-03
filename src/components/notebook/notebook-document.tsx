@@ -33,6 +33,8 @@ import {
 } from '#/lib/notebook-outline'
 import { BlockPicker } from './block-picker'
 import { NotebookSheetBlock } from './notebook-sheet-block'
+import { NotebookTableBlock } from './notebook-table-block'
+import 'sheetbase-table/dev/styles.css'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 import {
   useCollaborationEnabled,
@@ -1025,7 +1027,15 @@ function NotebookDocumentContent({
                       ]
                 }
               >
-                {block.type === 'sheet' ? (
+                {block.type === 'table' ? (
+                  <NotebookTableBlock
+                    block={block}
+                    readOnly={isReadOnly}
+                    onSavePayload={async (payload) => {
+                      await onSaveBlock(block, payload)
+                    }}
+                  />
+                ) : block.type === 'sheet' ? (
                   <NotebookSheetBlock
                     block={block}
                     record={record}

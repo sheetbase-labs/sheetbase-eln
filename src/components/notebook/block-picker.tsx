@@ -12,6 +12,7 @@ import {
   Grid3x3,
   Sigma,
   Workflow,
+  Table2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -94,6 +95,15 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     icon: Link2,
     group: 'structure',
     aliases: ['embed', 'reuse'],
+  },
+  {
+    type: 'table',
+    label: 'Table',
+    description:
+      'Embed a Scientific Table rendered by the table engine — paged, filterable, host-calculated.',
+    icon: Table2,
+    group: 'structure',
+    aliases: ['scientific table', 'dataset', 'engine'],
   },
   {
     type: 'protocol_reference',

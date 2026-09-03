@@ -313,3 +313,59 @@
   /* Text-selection highlight inside comments follows the primary hue. */
   --lb-selection: color-mix(in oklab, var(--primary) 25%, transparent);
 }
+
+/* @sheetbase/table-eln — status chips, locked badge and notebook table embed. */
+.eln-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 20px;
+  border: 1px solid rgb(92 76 154 / 25%);
+  background: rgb(118 82 239 / 8%);
+}
+.eln-chip.chip-ok {
+  border-color: rgb(22 163 74 / 35%);
+  background: rgb(22 163 74 / 12%);
+  color: rgb(21 128 61);
+}
+.eln-chip.chip-bad {
+  border-color: rgb(220 38 38 / 35%);
+  background: rgb(220 38 38 / 12%);
+  color: rgb(185 28 28);
+}
+.eln-locked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  border: 1px dashed rgb(92 76 154 / 40%);
+  color: rgb(102 95 117);
+  background: rgb(240 237 247 / 60%);
+}
+.eln-record-picker {
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+}
+.eln-record-picker ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 160px;
+  overflow: auto;
+}
+.eln-record-picker button {
+  text-align: left;
+}
+.notebook-table-surface {
+  position: relative;
+  height: 100%;
+  border: 1px solid rgb(92 76 154 / 15%);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}

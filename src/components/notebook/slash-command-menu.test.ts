@@ -14,7 +14,7 @@ describe('slashCommandFilteredOptions', () => {
       slashCommandFilteredOptions('dataset').map((opt) => opt.type),
     ).toContain('linked_record')
     expect(slashCommandFilteredOptions('table').map((opt) => opt.type)).toEqual(
-      ['sheet'],
+      ['sheet', 'table'],
     )
   })
 

@@ -32,6 +32,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StorageRouteImport } from './routes/storage'
+import { Route as TableSpikeRouteImport } from './routes/table-spike'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as AdminSectionRouteImport } from './routes/admin/$section'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
@@ -181,6 +182,11 @@ const SignInRoute = SignInRouteImport.update({
 const StorageRoute = StorageRouteImport.update({
   id: '/storage',
   path: '/storage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TableSpikeRoute = TableSpikeRouteImport.update({
+  id: '/table-spike',
+  path: '/table-spike',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TemplatesRoute = TemplatesRouteImport.update({
@@ -389,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
+  '/table-spike': typeof TableSpikeRoute
   '/templates': typeof TemplatesRoute
   '/admin/$section': typeof AdminSectionRoute
   '/api/calculations': typeof ApiCalculationsRoute
@@ -449,6 +456,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
+  '/table-spike': typeof TableSpikeRoute
   '/templates': typeof TemplatesRoute
   '/admin/$section': typeof AdminSectionRoute
   '/api/calculations': typeof ApiCalculationsRoute
@@ -510,6 +518,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
+  '/table-spike': typeof TableSpikeRoute
   '/templates': typeof TemplatesRoute
   '/admin/$section': typeof AdminSectionRoute
   '/api/calculations': typeof ApiCalculationsRoute
@@ -572,6 +581,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sign-in'
     | '/storage'
+    | '/table-spike'
     | '/templates'
     | '/admin/$section'
     | '/api/calculations'
@@ -632,6 +642,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sign-in'
     | '/storage'
+    | '/table-spike'
     | '/templates'
     | '/admin/$section'
     | '/api/calculations'
@@ -692,6 +703,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sign-in'
     | '/storage'
+    | '/table-spike'
     | '/templates'
     | '/admin/$section'
     | '/api/calculations'
@@ -753,6 +765,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SignInRoute: typeof SignInRoute
   StorageRoute: typeof StorageRoute
+  TableSpikeRoute: typeof TableSpikeRoute
   TemplatesRoute: typeof TemplatesRoute
   ApiCalculationsRoute: typeof ApiCalculationsRoute
   ApiEventsRoute: typeof ApiEventsRoute
@@ -944,6 +957,13 @@ declare module '@tanstack/react-router' {
       path: '/storage'
       fullPath: '/storage'
       preLoaderRoute: typeof StorageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/table-spike': {
+      id: '/table-spike'
+      path: '/table-spike'
+      fullPath: '/table-spike'
+      preLoaderRoute: typeof TableSpikeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/templates': {
@@ -1289,6 +1309,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SignInRoute: SignInRoute,
   StorageRoute: StorageRoute,
+  TableSpikeRoute: TableSpikeRoute,
   TemplatesRoute: TemplatesRoute,
   ApiCalculationsRoute: ApiCalculationsRoute,
   ApiEventsRoute: ApiEventsRoute,

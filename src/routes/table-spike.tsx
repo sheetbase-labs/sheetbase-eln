@@ -133,6 +133,7 @@ function TableSpikeRoute() {
               datasetHeader={datasetHeader}
               query={query}
               onQueryChange={setQuery}
+              calculationAuthority="host"
               showLoadTimings
             />
           </div>

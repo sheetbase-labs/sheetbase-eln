@@ -1084,6 +1084,13 @@
       "when": 1788200000000,
       "tag": "0156_find_02_user_favourites",
       "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1789100000000,
+      "tag": "0157_retire_hyperformula_profile",
+      "breakpoints": true
     }
   ]
 }

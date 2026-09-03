@@ -122,7 +122,7 @@ function TableSpikeRoute() {
         theme="light"
         className="table-spike-surface"
         table={
-          <div className="formatted-table">
+          <div className="formatted-table" style={{ gridTemplateRows: 'minmax(0, 1fr)' }}>
             <PagedSpreadsheet
               adapter={adapter}
               datasetId={table.id}

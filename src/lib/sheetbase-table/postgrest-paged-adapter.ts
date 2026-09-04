@@ -129,6 +129,21 @@ export class PostgrestPagedDataAdapter implements PagedDataAdapter {
     return this.#table
   }
 
+  /** The cached row version guarding optimistic writes for `recordId`. */
+  rowVersion(recordId: string): number | undefined {
+    return this.#rowVersions.get(recordId)
+  }
+
+  /** The physical column id behind a grid field id (field_name). */
+  columnIdForField(fieldId: string): string | undefined {
+    return this.#columnIdByField.get(fieldId)
+  }
+
+  /** Drop the cached row version after an optimistic-guard failure. */
+  invalidateRow(recordId: string): void {
+    this.#rowVersions.delete(recordId)
+  }
+
   resolve(binding: CellBinding): Scalar {
     if (binding.kind !== 'record-field') return null
     return (

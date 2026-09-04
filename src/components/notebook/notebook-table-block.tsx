@@ -3,10 +3,11 @@
  * Scientific Table rendered by the sheetbase-table engine. The block mounts
  * `TableSurface` with the typed filter controls as its bottom inspector
  * surface object, and runs under host calculation authority: `=...` inputs
- * stay inert and computed values arrive through hydration.
+ * are routed to the formula API and computed values arrive through the
+ * trusted calculation run (`formula_results` overlay).
  */
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   PagedSpreadsheet,
   TableControls,
@@ -17,11 +18,22 @@ import { LockedSheetBadge } from '@sheetbase/table-eln'
 
 import { Button, Input } from '#/components/ui'
 import {
+  fetchScientificCalculationResults,
+  fetchScientificFormulas,
   fetchScientificTable,
+  requestScientificCalculation,
   scientificDataClient,
 } from '#/lib/scientific-sheet-data'
-import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
+import type {
+  FormulaDefinitionWire,
+  FormulaResultWire,
+  ScientificTableWire,
+} from '#/lib/scientific-sheet-data'
 import { PostgrestPagedDataAdapter } from '#/lib/sheetbase-table/postgrest-paged-adapter'
+import {
+  ScientificFormulaAdapter,
+  formulaKey,
+} from '#/lib/sheetbase-table/scientific-formula-adapter'
 import type { NotebookBlock } from '#/lib/notebook-data'
 
 export function tableIdFromPayload(block: NotebookBlock): string {
@@ -67,6 +79,10 @@ export function NotebookTableBlock({
   const tableId = tableIdFromPayload(block)
   const [draftId, setDraftId] = useState(tableId)
   const [query, setQuery] = useState<DatasetQuery>({})
+  // Bumped after a formula change so the adapter (and its page cache) is
+  // rebuilt and the recalculated overlay is refetched from scratch.
+  const [calculationEpoch, setCalculationEpoch] = useState(0)
+  const queryClient = useQueryClient()
 
   const tableQuery = useQuery({
     queryKey: ['notebook-table-block', tableId],
@@ -75,12 +91,69 @@ export function NotebookTableBlock({
   })
   const table = tableQuery.data ?? null
 
-  const adapter = useMemo(
+  const formulasQuery = useQuery({
+    queryKey: ['notebook-table-block-formulas', tableId],
+    queryFn: () => fetchScientificFormulas(scientificDataClient, tableId),
+    enabled: tableId !== '',
+  })
+  const resultsQuery = useQuery({
+    queryKey: ['notebook-table-block-formula-results', tableId],
+    queryFn: () => fetchScientificCalculationResults(scientificDataClient, tableId),
+    enabled: tableId !== '',
+  })
+
+  const formulasByKey = useMemo(() => {
+    const map = new Map<string, FormulaDefinitionWire>()
+    for (const formula of formulasQuery.data ?? []) {
+      map.set(formulaKey(formula.target_row_id, formula.target_column_id), formula)
+    }
+    return map
+  }, [formulasQuery.data])
+  const resultsByKey = useMemo(() => {
+    const map = new Map<string, FormulaResultWire>()
+    for (const result of resultsQuery.data ?? []) {
+      map.set(formulaKey(result.target_row_id, result.target_column_id), result)
+    }
+    return map
+  }, [resultsQuery.data])
+  const formulasRef = useRef(formulasByKey)
+  formulasRef.current = formulasByKey
+  const resultsRef = useRef(resultsByKey)
+  resultsRef.current = resultsByKey
+
+  const afterFormulaChange = useCallback(() => {
+    void requestScientificCalculation(block.recordId)
+      .catch((error: unknown) => console.error('Trusted calculation run failed', error))
+      .finally(() => {
+        void queryClient.invalidateQueries({
+          queryKey: ['notebook-table-block-formula-results', tableId],
+        })
+        void queryClient.invalidateQueries({
+          queryKey: ['notebook-table-block-formulas', tableId],
+        })
+        setCalculationEpoch((epoch) => epoch + 1)
+      })
+  }, [block.recordId, queryClient, tableId])
+
+  const innerAdapter = useMemo(
     () =>
       table
         ? new PostgrestPagedDataAdapter({ client: scientificDataClient, table })
         : null,
-    [table],
+    [table, calculationEpoch],
+  )
+  const adapter = useMemo(
+    () =>
+      table && innerAdapter
+        ? new ScientificFormulaAdapter({
+            inner: innerAdapter,
+            table,
+            formulas: () => formulasRef.current,
+            results: () => resultsRef.current,
+            afterFormulaChange,
+          })
+        : null,
+    [afterFormulaChange, calculationEpoch, innerAdapter, table],
   )
   const fieldIds = useMemo(
     () => (table ? table.columns.map((column) => column.field_name) : []),

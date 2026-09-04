@@ -25,6 +25,7 @@ import {
   applySheetPresentation,
   canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
+  parseSheetCellInput,
 } from '#/lib/canonical-sheet-grid'
 import {
   presentationFiltersToQueryFilters,
@@ -688,6 +689,38 @@ export function CanonicalSheetEditor({
   addRowRef.current = addRow
   addColumnRef.current = addColumn
 
+  // Option B — governed (bound) columns stage instead of committing: the
+  // field-write policy holds engine writes to bound columns and surfaces them
+  // as pending values (Write back persists them through the grouped
+  // GRID-02/PLAT-05 path); local columns keep the immediate commit.
+  const fieldWritePolicy = useMemo(
+    () => (write: { fieldId: string }) => {
+      const column = matrixRef.current.columns.find((item) => item.id === write.fieldId)
+      return column?.origin === 'bound' && canWrite ? ('hold' as const) : ('commit' as const)
+    },
+    [canWrite],
+  )
+  const handleHeldFieldWrites = useCallback(
+    (writes: readonly { address: string; fieldId: string; value: string }[]) => {
+      if (writes.length === 0) {
+        setPendingValues({})
+        return
+      }
+      setPendingValues((current) => {
+        const next = { ...current }
+        for (const write of writes) {
+          const column = matrixRef.current.columns.find((item) => item.id === write.fieldId)
+          if (!column) continue
+          const value = parseSheetCellInput(column.field, write.value)
+          next[write.address] = { ...next[write.address], [column.id]: value }
+        }
+        return next
+      })
+      setWriteStatus('Governed edits staged. Use Write back to persist them.')
+    },
+    [],
+  )
+
   // GRID-03: editing a record-picker cell opens the shared Record picker
   // scoped to the column's own relationship target. The opener only reads
   // refs, so it stays identity-stable across renders.
@@ -1296,6 +1329,8 @@ export function CanonicalSheetEditor({
             }}
             query={engineQuery}
             onQueryChange={persistQuery}
+            fieldWritePolicy={fieldWritePolicy}
+            onHeldFieldWritesChange={handleHeldFieldWrites}
             frozenColumns={Math.min(
               presentation.frozenColumnCount,
               matrix.columns.length,

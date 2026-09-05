@@ -382,9 +382,7 @@ export async function fetchLineageLinks(
   recordIds: string[] | null = null,
 ): Promise<RecordLinkWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds
-      .map((id) => `eq.${encodeURIComponent(id)}`)
-      .join(',')
+    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
     return client.list<RecordLinkWire>(
       'record_links',
       `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id`,
@@ -404,9 +402,7 @@ export async function fetchLineageReviews(
   recordIds: string[] | null = null,
 ): Promise<ReviewSubmissionWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds
-      .map((id) => `eq.${encodeURIComponent(id)}`)
-      .join(',')
+    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
     return client.list<ReviewSubmissionWire>(
       'review_submissions',
       `?record_id=in.(${filter})&order=submitted_at.desc&select=id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at`,
@@ -426,9 +422,7 @@ export async function fetchLineageDecisions(
   recordIds: string[] | null = null,
 ): Promise<ReviewDecisionWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds
-      .map((id) => `eq.${encodeURIComponent(id)}`)
-      .join(',')
+    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
     return client.list<ReviewDecisionWire>(
       'review_decisions',
       `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at`,
@@ -448,9 +442,7 @@ export async function fetchLineageSignatures(
   recordIds: string[] | null = null,
 ): Promise<SignatureWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds
-      .map((id) => `eq.${encodeURIComponent(id)}`)
-      .join(',')
+    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
     return client.list<SignatureWire>(
       'signatures',
       `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,record_id,revision_id,signer_user_id,signature_meaning,assurance_level,created_at`,
@@ -471,9 +463,7 @@ export async function fetchLineageEvents(
   recordIds: string[] | null = null,
 ): Promise<ChangeEventWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds
-      .map((id) => `eq.${encodeURIComponent(id)}`)
-      .join(',')
+    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
     return client.list<ChangeEventWire>(
       'change_events',
       `?record_id=in.(${filter})&order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}&select=id,workspace_id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,client_id,payload,created_at`,
@@ -1331,7 +1321,7 @@ export async function fetchLineageGraph(
     if (newIds.length > 0 && newIds.length <= maxNodes) {
       const newRecords = await client.list<RecordWire>(
         'records',
-        `?id=in.(${newIds.map((id) => `eq.${encodeURIComponent(id)}`).join(',')})`,
+        `?id=in.(${newIds.map((id) => encodeURIComponent(id)).join(',')})`,
       )
       records = [...records, ...newRecords]
       // Re-fetch links including the expanded record set.

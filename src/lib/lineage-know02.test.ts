@@ -3,16 +3,25 @@
  *
  * Covers the seeded BFS scope/depth bound, the revisionId plumbing for
  * submitted/frozen evidence nodes, the evidence-vs-live destination mapping,
- * and the `?seed=` param parser. Pure functions only — no network.
+ * the `?seed=` param parser, and the PostgREST `in.()` filter syntax used by
+ * the seeded fetch path. Pure functions plus a capturing fake client — no
+ * network.
  */
 import { describe, expect, it } from 'vitest'
 
 import {
   buildLineageGraph,
+  fetchLineageDecisions,
+  fetchLineageEvents,
+  fetchLineageGraph,
+  fetchLineageLinks,
+  fetchLineageReviews,
+  fetchLineageSignatures,
   LINEAGE_MINI_DEPTH,
   lineageNodeDestination,
   parseLineageSeedParam,
 } from './lineage-data'
+import type { DataClient } from './data-client'
 import type {
   ChangeEventWire,
   LineageNode,
@@ -302,5 +311,71 @@ describe('parseLineageSeedParam', () => {
     expect(parseLineageSeedParam({ seed: 'a b' })).toBeNull()
     expect(parseLineageSeedParam({ seed: 'x?y=1' })).toBeNull()
     expect(parseLineageSeedParam({ seed: 'x#frag' })).toBeNull()
+  })
+})
+
+function capturingClient(queries: string[]): DataClient {
+  const list = async <T,>(resource: string, query = ''): Promise<T[]> => {
+    queries.push(`${resource}${query ?? ''}`)
+    return [] as T[]
+  }
+  return {
+    list,
+    count: async () => 0,
+    rpc: async <T,>(): Promise<T> => {
+      throw new Error('no rpc in filter-syntax tests')
+    },
+    insert: async <T,>(): Promise<T> => {
+      throw new Error('no insert in filter-syntax tests')
+    },
+    patch: async () => [],
+    remove: async () => [],
+  }
+}
+
+describe('seeded fetch filter syntax', () => {
+  const SEED = '00000000-0000-4000-8000-000000000121'
+
+  it('issues bare-UUID `in.()` lists in every seeded fetcher', async () => {
+    const queries: string[] = []
+    const client = capturingClient(queries)
+    await fetchLineageLinks(client, [SEED])
+    await fetchLineageReviews(client, [SEED])
+    await fetchLineageDecisions(client, [SEED])
+    await fetchLineageSignatures(client, [SEED])
+    await fetchLineageEvents(client, [SEED])
+    expect(queries).toHaveLength(5)
+    for (const q of queries) {
+      expect(q).toContain(`in.(${SEED})`)
+      expect(q).not.toContain('eq.')
+    }
+  })
+
+  it('expands the seeded record set with a bare-UUID `in.()` list', async () => {
+    const queries: string[] = []
+    const client = capturingClient(queries)
+    const seed = makeRecord(SEED, 'experiment', 'EXP-2025-0001')
+    const other = '00000000-0000-4000-8000-000000000122'
+    const link = makeLink('link-1', SEED, other, 'SMP-2025-0002')
+    const routes: Array<{ prefix: string; rows: unknown[] }> = [
+      { prefix: 'records?id=eq.', rows: [seed] },
+      { prefix: 'record_links', rows: [link] },
+      {
+        prefix: 'records?id=in.',
+        rows: [makeRecord(other, 'sample', 'SMP-2025-0002')],
+      },
+    ]
+    const routed: DataClient = {
+      ...client,
+      list: (<T,>(resource: string, query = ''): Promise<T[]> => {
+        queries.push(`${resource}${query ?? ''}`)
+        const route = routes.find((r) => `${resource}${query}`.startsWith(r.prefix))
+        return Promise.resolve((route ? route.rows : []) as T[])
+      }) as DataClient['list'],
+    }
+    const graph = await fetchLineageGraph(routed, SEED, 2)
+    const expansion = queries.find((q) => q.startsWith('records?id=in.'))
+    expect(expansion).toBe(`records?id=in.(${other})`)
+    expect(graph.nodes.some((n) => n.recordId === other)).toBe(true)
   })
 })

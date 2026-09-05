@@ -768,13 +768,16 @@ describe('NotebookInspector', () => {
   })
 
   it('shows a loading hint for links while they load', () => {
+    const queryClient = new QueryClient()
     render(
-      <NotebookInspector
-        record={record}
-        links={[]}
-        linksLoading={true}
-        defaultTab="properties"
-      />,
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={record}
+          links={[]}
+          linksLoading={true}
+          defaultTab="properties"
+        />
+      </QueryClientProvider>,
     )
     expect(screen.getByText('Loading links…')).toBeTruthy()
   })

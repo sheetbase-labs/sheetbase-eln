@@ -15,6 +15,7 @@
  */
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
+import { recordDestination } from './navigation'
 
 // ---------------------------------------------------------------------------
 // Safe limits
@@ -23,6 +24,13 @@ import type { DataClient } from './data-client'
 export const LINEAGE_MAX_DEPTH = 4
 export const LINEAGE_MAX_NODES = 300
 export const LINEAGE_MAX_EVENTS = 200
+
+/**
+ * KNOW-02 — depth bound for the per-object miniature. The full explorer
+ * traverses to LINEAGE_MAX_DEPTH; embedded sections stay at 2 hops so they
+ * remain a scoped preview with a deep-link to the full graph.
+ */
+export const LINEAGE_MINI_DEPTH = 2
 
 // ---------------------------------------------------------------------------
 // Wire types (PostgREST snake_case)
@@ -141,6 +149,13 @@ export type LineageViewMode = 'upstream' | 'downstream' | 'both'
 export interface LineageNode {
   id: string
   recordId: string | null
+  /**
+   * KNOW-02 — pinned revision for submitted/frozen evidence nodes
+   * (review, approval/rejection, signature). Null for live record nodes.
+   * Carries the `revision_id` from the review/decision/signature wire so
+   * lineage nodes can deep-link to the frozen evidence workspace.
+   */
+  revisionId?: string | null
   kind: string
   entityType: LineageEntityType
   identifier: string
@@ -324,6 +339,8 @@ export const lineageDataClient = createDataClient()
 
 export const lineageQueryKeys = {
   graph: ['lineage-graph'] as const,
+  graphFor: (seedRecordId: string | null, maxDepth: number) =>
+    ['lineage-graph', seedRecordId ?? 'all', maxDepth] as const,
   records: ['lineage-records'] as const,
   events: (recordId: string | null) =>
     ['lineage-events', recordId ?? 'all'] as const,
@@ -736,6 +753,7 @@ export function buildLineageGraph(
     nodes.push({
       id: reviewNodeId,
       recordId: review.record_id,
+      revisionId: review.revision_id,
       kind: 'review',
       entityType: 'review',
       identifier: `REV-${review.id.slice(0, 8)}`,
@@ -774,6 +792,7 @@ export function buildLineageGraph(
     nodes.push({
       id: decisionNodeId,
       recordId: decision.record_id,
+      revisionId: decision.revision_id,
       kind: 'decision',
       entityType,
       identifier: `${isApproval ? 'APP' : 'REJ'}-${decision.id.slice(0, 8)}`,
@@ -811,6 +830,7 @@ export function buildLineageGraph(
       id: sigNodeId,
       recordId: sig.record_id,
       kind: 'signature',
+      revisionId: sig.revision_id,
       entityType: 'signature',
       identifier: `SIG-${sig.id.slice(0, 8)}`,
       title: `Signature — ${sig.signature_meaning}`,
@@ -1341,4 +1361,60 @@ export async function fetchLineageGraph(
     maxDepth,
     maxNodes,
   )
+}
+
+// ---------------------------------------------------------------------------
+// KNOW-02 — per-object lineage destinations + explorer seed param
+// ---------------------------------------------------------------------------
+
+/** Entity types that render frozen evidence instead of a live record page. */
+const EVIDENCE_ENTITY_TYPES: Partial<Record<LineageEntityType, true>> = {
+  review: true,
+  approval: true,
+  rejection: true,
+  signature: true,
+}
+
+/**
+ * Resolve a lineage node to its canonical destination.
+ *
+ * - Submitted/frozen evidence nodes (review, approval/rejection, signature
+ *   carrying a `revisionId`) link to the frozen evidence workspace
+ *   (`/reviews/<revisionId>`) — the existing evidence route, never a live
+ *   page.
+ * - Live record nodes link to their canonical surface via
+ *   `recordDestination` (stable UUID, kind-aware).
+ * - Restricted/missing nodes (inaccessible or no record id) return null:
+ *   callers render the honest restricted/missing state instead of a link.
+ */
+export function lineageNodeDestination(node: LineageNode): string | null {
+  if (!node.accessible || !node.recordId) return null
+  if (node.revisionId && EVIDENCE_ENTITY_TYPES[node.entityType]) {
+    return `/reviews/${encodeURIComponent(node.revisionId)}`
+  }
+  return recordDestination(node.kind, node.recordId)
+}
+
+/**
+ * Parse the `/lineage?seed=<recordId>` search param. Accepts the TanStack
+ * object form (`{ seed }`) or a raw query string. Returns the stable id or
+ * null when absent/invalid — only plain ids are accepted, never paths or
+ * URLs, so a crafted seed cannot escape the lineage route.
+ */
+export function parseLineageSeedParam(search: unknown): string | null {
+  let raw: unknown
+  if (typeof search === 'string') {
+    const params = new URLSearchParams(
+      search.startsWith('?') ? search.slice(1) : search,
+    )
+    raw = params.get('seed')
+  } else if (search && typeof search === 'object' && 'seed' in search) {
+    const seedValue: unknown = search.seed
+    raw = seedValue
+  }
+  if (typeof raw !== 'string') return null
+  const seed = raw.trim()
+  if (seed.length === 0) return null
+  if (/[\s/?#]/.test(seed)) return null
+  return seed
 }

@@ -146,3 +146,38 @@ export async function fetchComposedSheetRows(
       : {}),
   }
 }
+/** GRID-05 — one server composition window. The server clamps a single
+ * `query_sheet_instance_rows` window to this many rows; larger Sheets page
+ * with offset/limit and merge windows (see `mergeComposedSheetSnapshots`). */
+export const COMPOSED_SHEET_PAGE_SIZE = 200
+
+/**
+ * GRID-05 — merge paged composition windows into one snapshot for the grid.
+ * Pages must arrive in offset order; row identity stays stable because every
+ * rowKey is identity-derived (never a position), so pending edits and
+ * write-back attribution survive paging. `boundProjection.columns` are
+ * window-invariant; only rows concatenate. `hasMore` is the last page's —
+ * the grid keeps paging until it is false.
+ */
+export function mergeComposedSheetSnapshots(
+  pages: ComposedSheetSnapshot[],
+): ComposedSheetSnapshot | null {
+  const first = pages.at(0)
+  if (!first) return null
+  const last = pages.at(-1)
+  return {
+    ...first,
+    offset: first.offset,
+    hasMore: last?.hasMore ?? false,
+    rows: pages.flatMap((page) => page.rows),
+    ...(first.boundProjection
+      ? {
+          boundProjection: {
+            columns: first.boundProjection.columns,
+            rows: pages.flatMap((page) => page.boundProjection?.rows ?? []),
+          },
+        }
+      : {}),
+  }
+}
+

@@ -47,16 +47,13 @@ function localColumn(field: FieldDefinition): CanonicalSheetGridColumn {
 
 function boundColumn(
   column: ComposedSheetGridColumn,
-  snapshot: ComposedSheetSnapshot,
+  field: FieldDefinition | null,
 ): CanonicalSheetGridColumn {
-  const definitionColumn = snapshot.definitionConfiguration?.columns.find(
-    (item) => item.id === column.id,
-  )
   return {
     id: column.id,
     label: column.label,
     origin: 'bound',
-    field: definitionColumn?.field ?? null,
+    field,
     presentation: column.presentation,
     editable: column.editable,
   }
@@ -162,8 +159,16 @@ export function canonicalSheetGridMatrix(input: {
 
   if (input.composition) {
     const composed = composedSheetGridMatrix(input.composition)
+    // GRID-05: the definition-column lookup is hoisted out of the per-column
+    // loop (was an O(C^2) `find` per wide sheet) and the per-column bound
+    // source index is precomputed once (was a Map.get per cell).
+    const definitionFields = new Map(
+      (input.composition.definitionConfiguration?.columns ?? []).map(
+        (item) => [item.id, item.field] as const,
+      ),
+    )
     const bound = composed.columns.map((column) =>
-      boundColumn(column, input.composition!),
+      boundColumn(column, definitionFields.get(column.id) ?? null),
     )
     const boundIds = new Set(bound.map((column) => column.id))
     const extraLocal = localFields
@@ -181,24 +186,29 @@ export function canonicalSheetGridMatrix(input: {
     const boundIndex = new Map(
       composed.columns.map((column, index) => [column.id, index]),
     )
+    const boundSourceIndex = columns.map((column) =>
+      column.origin === 'bound' ? (boundIndex.get(column.id) ?? -1) : -1,
+    )
     const data = rowKeys.map((rowKey, index) => {
       const composedRow =
         index < composed.rowKeys.length ? composed.data[index] : null
-      return columns.map((column) => {
+      // GRID-05: a composed row without a local entry has no local values —
+      // read them safely instead of throwing (mirrors frozen-sheet-grid).
+      const localRow = input.instance.state.localValues[rowKey]
+      const calculatedRow = input.calculationResults?.[rowKey]
+      return columns.map((column, columnIndex) => {
         if (column.origin === 'bound' && composedRow) {
-          const sourceIndex = boundIndex.get(column.id)
-          return sourceIndex === undefined
+          const sourceIndex = boundSourceIndex[columnIndex]
+          return sourceIndex === undefined || sourceIndex < 0
             ? null
             : (composedRow[sourceIndex] ?? null)
         }
         if (column.origin === 'calculation') {
           return (
-            input.calculationResults?.[rowKey]?.[column.id] ??
-            input.instance.state.localValues[rowKey][column.id] ??
-            null
+            calculatedRow?.[column.id] ?? localRow?.[column.id] ?? null
           )
         }
-        return input.instance.state.localValues[rowKey][column.id] ?? null
+        return localRow?.[column.id] ?? null
       })
     })
     return {
@@ -216,19 +226,18 @@ export function canonicalSheetGridMatrix(input: {
   return {
     columns,
     rowKeys,
-    rowKinds: rowKeys.map(() => 'local'),
-    data: rowKeys.map((rowKey) =>
-      columns.map((column) => {
+    data: rowKeys.map((rowKey) => {
+      // GRID-05: same safe local-row read as the composed branch above.
+      const localRow = input.instance.state.localValues[rowKey]
+      const calculatedRow = input.calculationResults?.[rowKey]
+      return columns.map((column) => {
         if (column.origin === 'calculation') {
-          return (
-            input.calculationResults?.[rowKey]?.[column.id] ??
-            input.instance.state.localValues[rowKey][column.id] ??
-            null
-          )
+          return calculatedRow?.[column.id] ?? localRow?.[column.id] ?? null
         }
-        return input.instance.state.localValues[rowKey][column.id] ?? null
-      }),
-    ),
+        return localRow?.[column.id] ?? null
+      })
+    }),
+    rowKinds: rowKeys.map(() => 'local'),
   }
 }
 
@@ -272,11 +281,16 @@ export function applySheetPresentation(
     seen.add(column.id)
     ordered.push(column)
   }
-  const sourceIndex = new Map(
+  // GRID-05: resolve the display order to source indexes once (was a Map.get
+  // per cell over R x C).
+  const sourceIndexById = new Map(
     matrix.columns.map((column, index) => [column.id, index]),
   )
+  const orderIndex = ordered.map(
+    (column) => sourceIndexById.get(column.id) as number,
+  )
   const data = matrix.data.map((row) =>
-    ordered.map((column) => row[sourceIndex.get(column.id) as number]),
+    orderIndex.map((index) => row[index]),
   )
   return {
     columns: ordered,
@@ -612,11 +626,13 @@ export function preserveHiddenColumnFilters(
 ): SheetPresentation['filters'] {
   const displayIds = new Set(displayColumns.map((column) => column.id))
   const capturedIds = new Set(captured.map((filter) => filter.columnId))
+  // GRID-05: set membership (was `some` per previous filter, O(F x C)).
+  const canonicalIds = new Set(canonicalColumns.map((column) => column.id))
   const preserved = previous.filter(
     (filter) =>
       !displayIds.has(filter.columnId) &&
       !capturedIds.has(filter.columnId) &&
-      canonicalColumns.some((column) => column.id === filter.columnId),
+      canonicalIds.has(filter.columnId),
   )
   return [...preserved, ...captured].slice(0, CAPTURED_FILTER_CAP)
 }

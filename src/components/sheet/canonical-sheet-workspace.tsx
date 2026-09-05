@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type Handsontable from 'handsontable/base'
 import type { BaseEditor } from 'handsontable/editors/baseEditor'
@@ -32,7 +32,12 @@ import type {
   CanonicalSheetGridColumn,
   HotFilterConditionStack,
 } from '#/lib/canonical-sheet-grid'
-import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
+import {
+  COMPOSED_SHEET_PAGE_SIZE,
+  fetchComposedSheetRows,
+  mergeComposedSheetSnapshots,
+} from '#/lib/sheet-composition-data'
+import type { ComposedSheetSnapshot } from '#/lib/sheet-composition-data'
 import { selectableFieldOptions } from '#/lib/field-presentation'
 import {
   fetchSheetInstance,
@@ -302,10 +307,41 @@ export function CanonicalSheetEditor({
     (typeof errors)[number] | null
   >(null)
 
+  // GRID-05: explicit row windowing — the server caps one composition window
+  // at COMPOSED_SHEET_PAGE_SIZE rows and reports overflow via `hasMore`.
+  // Page count grows only through the visible "Load more" action; rows are
+  // appended by stable rowKey (never positions), so pending edits and
+  // write-back attribution survive paging.
+  const [pageCount, setPageCount] = useState(1)
+  useEffect(() => {
+    setPageCount(1)
+  }, [instance.id])
   const composition = useQuery({
-    queryKey: ['composed-sheet', instance.id],
-    queryFn: () => fetchComposedSheetRows(instance.id, { limit: 200 }, client),
+    queryKey: ['composed-sheet', instance.id, pageCount],
+    queryFn: async () => {
+      const pages: ComposedSheetSnapshot[] = []
+      for (let page = 0; page < pageCount; page += 1) {
+        const snapshot = await fetchComposedSheetRows(
+          instance.id,
+          {
+            limit: COMPOSED_SHEET_PAGE_SIZE,
+            offset: page * COMPOSED_SHEET_PAGE_SIZE,
+          },
+          client,
+        )
+        pages.push(snapshot)
+        if (!snapshot.hasMore) break
+      }
+      const merged = mergeComposedSheetSnapshots(pages)
+      if (!merged) {
+        throw new Error(
+          'This Sheet could not be composed from its Dataset or Record bindings.',
+        )
+      }
+      return merged
+    },
     enabled: composed,
+    placeholderData: keepPreviousData,
   })
 
   const rowKeysForCalc = useMemo(() => {
@@ -1555,6 +1591,34 @@ export function CanonicalSheetEditor({
             setErrorCursor(nextSheetRecordGridError(errors, errorCursor))
           }
         />
+      ) : null}
+      {composed ? (
+        <div
+          className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
+          {composition.isLoading ? (
+            <span>Loading composed rows…</span>
+          ) : (
+            <span>
+              {composition.data?.hasMore
+                ? `Showing ${matrix.rowKeys.length} rows — more rows available. Filters and sorts apply to the loaded rows only.`
+                : `Showing all ${matrix.rowKeys.length} rows.`}
+            </span>
+          )}
+          {composition.data?.hasMore ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={composition.isFetching}
+              onClick={() => setPageCount((count) => count + 1)}
+            >
+              {composition.isFetching ? 'Loading more…' : 'Load more'}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
       {matrix.columns.length === 0 ? (
         <p className="p-3 text-sm text-muted-foreground" role="status">

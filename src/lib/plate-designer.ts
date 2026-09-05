@@ -19,6 +19,7 @@ import {
 import type {
   AssignmentRole,
   PlateFormat,
+  PlateMapSpec,
   PlateValidationConfig,
   SampleRef,
   Volume,
@@ -739,4 +740,86 @@ export function defaultPlateDesignDoc(workspaceId: string): PlateDesignDoc {
     createdAt: now,
     updatedAt: now,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Canonical PlateMapSpec bridge (VIEW-02)
+// ---------------------------------------------------------------------------
+
+/**
+ * Presentation-only well annotation: a visual flag on the designer surface
+ * that is never written back as scientific state. Annotations live on the
+ * view state below, never on `PlateDesignDoc` or `PlateMapSpec`.
+ */
+export interface PlateWellAnnotation {
+  wellCode: string
+  kind: 'flag' | 'note' | 'highlight'
+  text?: string
+}
+
+/**
+ * Designer view state: the canonical draft plus presentation-only surface
+ * state (annotations, selection). Only `doc` serialises — `annotations` and
+ * `selectedWellCode` never reach the spec, the database, or evidence.
+ */
+export interface PlateDesignerViewState {
+  doc: PlateDesignDoc
+  annotations: PlateWellAnnotation[]
+  selectedWellCode: string | null
+}
+
+export function emptyDesignerViewState(doc: PlateDesignDoc): PlateDesignerViewState {
+  return { doc, annotations: [], selectedWellCode: null }
+}
+
+/**
+ * Strip designer-local well fields to the canonical `WellAssignment`. The
+ * designer tracks `concentrationValue`/`concentrationUnit` (planning aid with
+ * no canonical home on the spec) and a redundant `sampleRecordId` mirror of
+ * `sampleRef.recordId`; neither is scientific state on the plate map and both
+ * are excluded so the result validates via the canonical validators.
+ */
+export function designerWellToWellAssignment(
+  well: PlateWellAssignment,
+): WellAssignment {
+  const assignment: WellAssignment = {
+    wellCode: well.wellCode,
+    row: well.row,
+    col: well.col,
+    role: well.role,
+  }
+  if (well.sampleRef) assignment.sampleRef = { ...well.sampleRef }
+  if (well.replicate !== undefined) assignment.replicate = well.replicate
+  if (well.volume) assignment.volume = { ...well.volume }
+  if (well.notes !== undefined) assignment.notes = well.notes
+  return assignment
+}
+
+/**
+ * Serialise a designer draft to the canonical `PlateMapSpec`. The designer
+ * operates on this spec shape: round-tripping through
+ * `validatePlateMapSpec` must yield no errors for a valid draft.
+ * Presentation-only view state (annotations, selection) never serialises —
+ * use this function, not a manual pick, so exclusions stay in one place.
+ */
+export function plateDesignDocToSpec(doc: PlateDesignDoc): PlateMapSpec {
+  return {
+    specVersion: PLATE_MAP_SPEC_VERSION,
+    format: doc.format,
+    rows: doc.rows,
+    cols: doc.cols,
+    wells: doc.wells.map(designerWellToWellAssignment),
+    validation: { ...doc.validation },
+  }
+}
+
+/**
+ * Serialise designer view state to the canonical spec. Identical to
+ * `plateDesignDocToSpec(state.doc)` — annotations and selection are
+ * presentation-only and never written back as scientific state.
+ */
+export function designerViewStateToSpec(
+  state: PlateDesignerViewState,
+): PlateMapSpec {
+  return plateDesignDocToSpec(state.doc)
 }

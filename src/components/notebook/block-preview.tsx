@@ -68,14 +68,28 @@ import {
 import { AnalysisResultTable } from '#/components/viz/analysis-panel'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { RepresentationFrame } from '#/components/viz/representation-frame'
-import { chartToRepresentationHandle } from '#/lib/representations'
+import {
+  chartToRepresentationHandle,
+  plateMapToRepresentationHandle,
+} from '#/lib/representations'
 import { PlateMap } from '#/components/viz/plate-map'
 import type {
   PlateWell,
   PlateMapRoleLegendEntry,
 } from '#/components/viz/plate-map'
 import { PLATE_MAP_SPEC_VERSION, ROLE_STYLES } from '#/lib/plate-map'
-import type { PlateMapSpec, WellAssignment } from '#/lib/plate-map'
+import type {
+  LiveSampleObservation,
+  PlateMapSpec,
+  WellAssignment,
+  WellSampleResolution,
+  WellSelectionContext,
+} from '#/lib/plate-map'
+import {
+  liveSampleObservationFromQuery,
+  resolveWellSample,
+  wellSelectionContext,
+} from '#/lib/plate-map'
 import {
   fetchSheetInstance,
   sheetInstanceDataClient,
@@ -102,6 +116,14 @@ export interface BlockPreviewProps {
    * collapsed section (kept in the DOM for print). Absent elsewhere.
    */
   hiddenNodeIndexes?: ReadonlySet<number>
+  /**
+   * VIEW-02 frozen mode: the block renders from a pinned revision snapshot
+   * (`block_snapshot`). Reconstructions must not run live reads — the plate
+   * preview resolves sample links from the stored `SampleRef` snapshots only
+   * and renders inside a frozen representation frame. Charts carry their own
+   * frozen payload and ignore this flag.
+   */
+  frozen?: boolean
 }
 
 function asString(value: unknown): string | null {
@@ -149,6 +171,7 @@ export function BlockPreview({
   block,
   className,
   hiddenNodeIndexes,
+  frozen = false,
 }: BlockPreviewProps) {
   const { type, payload } = block
   // NOTE-02: read previews carry the same stable heading anchors as the
@@ -158,6 +181,7 @@ export function BlockPreview({
     payload,
     `section-${block.id}`,
     hiddenNodeIndexes,
+    frozen,
   )
   return <div className={cn('text-sm leading-6', className)}>{body}</div>
 }
@@ -167,6 +191,7 @@ function renderPayload(
   payload: unknown,
   anchorPrefix?: string,
   hiddenNodeIndexes?: ReadonlySet<number>,
+  frozen?: boolean,
 ): React.ReactNode {
   switch (type) {
     case 'rich_text':
@@ -196,7 +221,7 @@ function renderPayload(
     case 'pipeline_output':
       return <PipelineOutputBlockPreview payload={payload} />
     case 'plate_map':
-      return <PlateMapBlockPreview payload={payload} />
+      return <PlateMapBlockPreview payload={payload} frozen={frozen} />
     case 'file':
       return <FileBlockPreview payload={payload} />
     default:
@@ -1244,24 +1269,37 @@ function parseFrozenChart(v: unknown): ChartBlockPayload['frozen'] {
 // draft `{}` prompts the user to configure the plate in the editor.
 // ---------------------------------------------------------------------------
 
-function PlateMapBlockPreview({ payload }: { payload: unknown }) {
+function PlateMapBlockPreview({
+  payload,
+  frozen = false,
+}: {
+  payload: unknown
+  frozen?: boolean
+}) {
   const obj = asObject(payload)
   const isEmpty = !obj || Object.keys(obj).length === 0
   const titleStr = obj ? asString(obj.title) : null
   const title = titleStr ?? 'Plate map'
   const spec = obj && !isEmpty ? parsePlateMapSpec(obj.spec) : null
+  const [selectedWellCode, setSelectedWellCode] = React.useState<string | null>(
+    null,
+  )
 
-  // Resolve sample references for honest display (active vs archived).
-  // Hooks must be unconditional, so always call useQueries (empty array when
-  // there is nothing to resolve).
+  // Resolve sample references for honest display (active vs archived vs
+  // missing vs restricted). Hooks must be unconditional, so always call
+  // useQueries — with an empty list when frozen. A frozen (historical)
+  // render reconstructs the pinned spec with no live reads: the stored
+  // SampleRef snapshots are the evidence.
   const sampleRefs =
     spec?.wells.filter((w) => w.sampleRef).map((w) => w.sampleRef!) ?? []
   const sampleQueries = useQueries({
-    queries: sampleRefs.map((ref) => ({
-      queryKey: notebookQueryKeys.record(ref.recordId),
-      queryFn: () => fetchRecordById(notebookDataClient, ref.recordId),
-      staleTime: 30_000,
-    })),
+    queries: frozen
+      ? []
+      : sampleRefs.map((ref) => ({
+          queryKey: notebookQueryKeys.record(ref.recordId),
+          queryFn: () => fetchRecordById(notebookDataClient, ref.recordId),
+          staleTime: 30_000,
+        })),
   })
 
   if (isEmpty) {
@@ -1281,22 +1319,43 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
     )
   }
 
-  const loading = sampleQueries.some((q) => q.isLoading)
-  const sampleError = sampleQueries.some((q) => q.error)
+  // VIEW-01: the shared representation frame owns the outer chrome (title,
+  // frozen-vs-live badge) for spec-backed plates, mirroring the chart
+  // preview. The plate grid stays plugged in as children.
+  const handle = plateMapToRepresentationHandle({ spec, title, frozen })
 
-  // Build a lookup of recordId → live record state
-  const liveRecords = new Map<string, { archivedAt: string | null } | null>()
-  sampleRefs.forEach((ref, i) => {
-    liveRecords.set(ref.recordId, sampleQueries[i]?.data ?? null)
-  })
+  const observations = new Map<string, LiveSampleObservation>()
+  if (!frozen) {
+    sampleRefs.forEach((ref, i) => {
+      const q = sampleQueries[i]
+      observations.set(
+        ref.recordId,
+        liveSampleObservationFromQuery({
+          data: q?.data ?? null,
+          error: q?.error ?? null,
+          isLoading: q?.isLoading ?? false,
+        }),
+      )
+    })
+  }
+
+  const resolutionByWell = new Map<string, WellSampleResolution>()
+  for (const w of spec.wells) {
+    if (!w.sampleRef) continue
+    const resolution = resolveWellSample(w, observations.get(w.sampleRef.recordId))
+    if (resolution) resolutionByWell.set(w.wellCode, resolution)
+  }
+
+  const loading = [...observations.values()].some(
+    (o) => o.status === 'loading',
+  )
+  const referenceFailure = [...observations.values()].some(
+    (o) => o.status === 'error' || o.status === 'restricted',
+  )
 
   // Convert WellAssignments to PlateWells with role-based coloring
   const plateWells: PlateWell[] = spec.wells.map((w) => {
     const roleStyle = ROLE_STYLES[w.role]
-    const liveRecord = w.sampleRef
-      ? liveRecords.get(w.sampleRef.recordId)
-      : null
-    const isArchived = Boolean(w.sampleRef?.archived || liveRecord?.archivedAt)
     // In compact/read-only mode, show only the well code (A1, B2) inside
     // the circle — full sample identifiers overflow the tiny wells. The
     // complete info (sample ID, role, replicate) is in the tooltip/title.
@@ -1307,7 +1366,7 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
       wellCode: w.wellCode,
       roleClass: roleStyle.cellClass,
       displayLabel,
-      label: buildWellLabel(w, isArchived),
+      label: buildWellLabel(w, resolutionByWell.get(w.wellCode) ?? null),
     }
   })
 
@@ -1331,10 +1390,16 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
     ).values(),
   )
 
-  return (
+  // VIEW-02 selection model: clicking a well surfaces its linked-record
+  // context (assignment summary plus an open action by stable record ID).
+  // Selection never edits — the grid stays read-only.
+  const selection = selectedWellCode
+    ? wellSelectionContext(spec, selectedWellCode, observations)
+    : null
+
+  const body = (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-medium text-foreground">{title}</p>
         {spec.wells.length === 0 ? (
           <span className="text-xs text-muted-foreground">
             No wells assigned
@@ -1346,7 +1411,7 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
           </span>
         )}
       </div>
-      {sampleError ? (
+      {referenceFailure ? (
         <p role="alert" className="text-xs text-destructive">
           Some sample references could not be loaded. Stored observations remain
           visible.
@@ -1362,8 +1427,16 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
         ariaLabel={`${title} — ${spec.rows}×${spec.cols} plate`}
         roleLegend={roleLegend}
         readOnly
+        selectable
+        selectedWellCode={selectedWellCode}
+        onSelectWellCode={(code) =>
+          setSelectedWellCode((prev) => (prev === code ? null : code))
+        }
         compact
       />
+      {selection ? (
+        <PlateWellSelectionSummary selection={selection} />
+      ) : null}
       {linkedSamples.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-xs text-muted-foreground">Samples:</span>
@@ -1381,14 +1454,83 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
       ) : null}
     </div>
   )
+  if (!handle) return body
+  return (
+    <RepresentationFrame title={title} handle={handle}>
+      {body}
+    </RepresentationFrame>
+  )
 }
 
-function buildWellLabel(w: WellAssignment, isArchived: boolean): string {
+function PlateWellSelectionSummary({
+  selection,
+}: {
+  selection: WellSelectionContext
+}) {
+  const { well, sampleRef, resolution } = selection
+  return (
+    <div
+      className="rounded-md border bg-muted/20 px-2 py-1.5"
+      aria-live="polite"
+    >
+      <p className="text-xs font-medium">
+        Well {selection.wellCode}
+        {well ? ` · ${ROLE_STYLES[well.role].label}` : ' · unassigned'}
+      </p>
+      {well?.replicate ? (
+        <p className="text-xs text-muted-foreground">
+          Replicate {well.replicate}
+          {well.volume ? ` · ${well.volume.value} ${well.volume.unit}` : ''}
+        </p>
+      ) : well?.volume ? (
+        <p className="text-xs text-muted-foreground">
+          {well.volume.value} {well.volume.unit}
+        </p>
+      ) : null}
+      {sampleRef ? (
+        <p className="truncate text-xs text-muted-foreground">
+          {sampleRef.identifier.trim() || sampleRef.recordId}
+          {sampleRef.title ? ` · ${sampleRef.title}` : ''}
+          {resolution ? ` · ${describeWellSampleState(resolution)}` : ''}
+        </p>
+      ) : null}
+      {sampleRef && resolution?.state !== 'loading' ? (
+        <OpenLink to={recordDestination('sample', sampleRef.recordId)}>
+          Open sample record
+        </OpenLink>
+      ) : null}
+    </div>
+  )
+}
+
+function describeWellSampleState(resolution: WellSampleResolution): string {
+  switch (resolution.state) {
+    case 'active':
+      return resolution.snapshotOnly ? 'active (snapshot)' : 'active'
+    case 'archived':
+      return resolution.snapshotOnly ? 'archived (snapshot)' : 'archived'
+    case 'loading':
+      return 'loading…'
+    case 'missing':
+      return 'missing — deleted or inaccessible'
+    case 'restricted':
+      return 'restricted — no access'
+    case 'error':
+      return 'reference could not be loaded'
+    case 'unassigned':
+      return 'unassigned'
+  }
+}
+
+function buildWellLabel(
+  w: WellAssignment,
+  resolution: WellSampleResolution | null,
+): string {
   const parts = [w.wellCode, ROLE_STYLES[w.role].label]
   if (w.sampleRef) {
     parts.push(w.sampleRef.identifier)
     if (w.sampleRef.title) parts.push(w.sampleRef.title)
-    if (isArchived) parts.push('archived')
+    if (resolution) parts.push(describeWellSampleState(resolution))
   }
   if (w.replicate) parts.push(`replicate ${w.replicate}`)
   if (w.volume) parts.push(`${w.volume.value} ${w.volume.unit}`)

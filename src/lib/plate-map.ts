@@ -206,9 +206,28 @@ export type PlateMapSpecError = {
 
 /**
  * Convert a 0-based row index to a row label (A, B, C, …).
+ * Uses bijective base-26 labels past Z (26 → "AA", 27 → "AB", …) so large
+ * plate formats (e.g. 32-row 1536-well) keep canonical, parseable codes.
  */
 export function rowLabel(row: number): string {
-  return String.fromCharCode(65 + row)
+  let label = ''
+  let n = row
+  do {
+    label = String.fromCharCode(65 + (n % 26)) + label
+    n = Math.floor(n / 26) - 1
+  } while (n >= 0)
+  return label
+}
+
+/**
+ * Convert a row label back to a 0-based row index. Returns null when the
+ * label is not a non-empty run of A–Z.
+ */
+export function rowIndex(label: string): number | null {
+  if (!/^[A-Z]+$/.test(label)) return null
+  let row = 0
+  for (const ch of label) row = row * 26 + (ch.charCodeAt(0) - 64)
+  return row - 1
 }
 
 /**
@@ -226,17 +245,11 @@ export function wellCode(row: number, col: number): string {
 export function parseWellCode(
   code: string,
 ): { row: number; col: number } | null {
-  const match = /^([A-Z]+)(\d+)$/.exec(code)
+  const match = /^([A-Z]+)([1-9][0-9]*)$/.exec(code)
   if (!match) return null
-  const rowStr = match[1]
-  const colStr = match[2]
-  // For 96-well plates, rows are single letters A–H.
-  // For future formats with >26 rows, this would need multi-letter support.
-  if (rowStr.length !== 1) return null
-  const row = rowStr.charCodeAt(0) - 65
-  const col = parseInt(colStr, 10) - 1
-  if (row < 0 || col < 0) return null
-  return { row, col }
+  const row = rowIndex(match[1])
+  if (row === null) return null
+  return { row, col: parseInt(match[2], 10) - 1 }
 }
 
 /**
@@ -773,5 +786,162 @@ export function defaultPlateMapSpec(): PlateMapSpec {
     cols: FORMAT_DIMENSIONS['96_well'].cols,
     wells: [],
     validation: {},
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Well → record binding resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * A caller's live observation of one linked sample record, or undefined when
+ * the caller renders without live reads (frozen/historical mode — the stored
+ * `SampleRef` snapshot is the only evidence).
+ */
+export type LiveSampleObservation =
+  | { status: 'loading' }
+  | { status: 'found'; archivedAt: string | null }
+  | { status: 'not_found' }
+  | { status: 'restricted' }
+  | { status: 'error' }
+
+/**
+ * Honest display state of a well's sample link. `missing` covers records that
+ * are deleted or otherwise unresolvable; `restricted` covers reads the caller
+ * is not permitted to see. Both stay distinct from `error` (the read itself
+ * failed) and from `archived` (resolved, but the sample is archived).
+ */
+export type WellSampleState =
+  | 'unassigned'
+  | 'loading'
+  | 'active'
+  | 'archived'
+  | 'missing'
+  | 'restricted'
+  | 'error'
+
+export interface WellSampleResolution {
+  state: WellSampleState
+  recordId: string
+  /** True when resolved from the stored snapshot only (no live read). */
+  snapshotOnly: boolean
+}
+
+/**
+ * Resolve a well's sample link to an honest display state. The well binds by
+ * stable record ID (`sampleRef.recordId`); identifier/title are observed
+ * display values and never identity. Returns null for unassigned wells.
+ */
+export function resolveWellSample(
+  well: WellAssignment,
+  live?: LiveSampleObservation,
+): WellSampleResolution | null {
+  const ref = well.sampleRef
+  if (!ref) return null
+  if (!live) {
+    return {
+      state: ref.archived ? 'archived' : 'active',
+      recordId: ref.recordId,
+      snapshotOnly: true,
+    }
+  }
+  switch (live.status) {
+    case 'loading':
+      return { state: 'loading', recordId: ref.recordId, snapshotOnly: false }
+    case 'found':
+      return {
+        state: live.archivedAt || ref.archived ? 'archived' : 'active',
+        recordId: ref.recordId,
+        snapshotOnly: false,
+      }
+    case 'not_found':
+      return { state: 'missing', recordId: ref.recordId, snapshotOnly: false }
+    case 'restricted':
+      return {
+        state: 'restricted',
+        recordId: ref.recordId,
+        snapshotOnly: false,
+      }
+    case 'error':
+      return { state: 'error', recordId: ref.recordId, snapshotOnly: false }
+  }
+}
+
+/**
+ * Map a record query result to a live observation. A settled query with
+ * `data: null` means the record did not resolve (deleted or filtered);
+ * transport/permission failures surface as `error`. Callers that know a
+ * failure is a 403/permission denial pass `restricted: true` explicitly.
+ */
+export function liveSampleObservationFromQuery(query: {
+  data: { archivedAt: string | null } | null | undefined
+  error: unknown
+  isLoading: boolean
+}): LiveSampleObservation {
+  if (query.isLoading) return { status: 'loading' }
+  if (query.error) {
+    return isForbiddenError(query.error)
+      ? { status: 'restricted' }
+      : { status: 'error' }
+  }
+  if (!query.data) return { status: 'not_found' }
+  return { status: 'found', archivedAt: query.data.archivedAt }
+}
+
+function isForbiddenError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const record = error as Record<string, unknown>
+  if (record.status === 403 || record.statusCode === 403) return true
+  const message =
+    typeof record.message === 'string' ? record.message : String(error)
+  return /403|forbidden|permission denied|not permitted|unauthorised|unauthorized/i.test(
+    message,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Selection model
+// ---------------------------------------------------------------------------
+
+/**
+ * Linked-record context for a selected well: the well's canonical code and
+ * assignment plus the stable record identity when the well links a sample.
+ * Clicking a well yields this context; renderers turn it into a record
+ * summary with an open action built from the record ID (never the label).
+ */
+export interface WellSelectionContext {
+  wellCode: string
+  row: number
+  col: number
+  assigned: boolean
+  well: WellAssignment | null
+  sampleRef: SampleRef | null
+  resolution: WellSampleResolution | null
+}
+
+/**
+ * Build the selection context for a well code on a spec. Returns null when
+ * the code is malformed or outside the spec dimensions.
+ */
+export function wellSelectionContext(
+  spec: PlateMapSpec,
+  code: string,
+  live?: Map<string, LiveSampleObservation>,
+): WellSelectionContext | null {
+  if (!isValidWellCode(code, spec.rows, spec.cols)) return null
+  const parsed = parseWellCode(code)
+  if (!parsed) return null
+  const well = spec.wells.find((w) => w.wellCode === code) ?? null
+  const observation = well?.sampleRef
+    ? live?.get(well.sampleRef.recordId)
+    : undefined
+  return {
+    wellCode: code,
+    row: parsed.row,
+    col: parsed.col,
+    assigned: well !== null,
+    well,
+    sampleRef: well?.sampleRef ?? null,
+    resolution: well ? resolveWellSample(well, observation) : null,
   }
 }

@@ -15,11 +15,15 @@ import {
   ROLE_STYLES,
   defaultPlateMapSpec,
   isValidWellCode,
+  liveSampleObservationFromQuery,
   parseWellCode,
+  resolveWellSample,
+  rowIndex,
   rowLabel,
   validatePlateMapPayload,
   validatePlateMapSpec,
   wellCode,
+  wellSelectionContext,
   wellsToPlateWells,
 } from './plate-map'
 import type {
@@ -60,8 +64,30 @@ describe('parseWellCode', () => {
     expect(parseWellCode('')).toBeNull()
     expect(parseWellCode('1A')).toBeNull()
     expect(parseWellCode('A')).toBeNull()
-    expect(parseWellCode('A0')).toBeNull() // col 0 → -1 after parse
-    expect(parseWellCode('AA1')).toBeNull() // multi-letter rows not supported yet
+    expect(parseWellCode('A0')).toBeNull() // col 0 → rejected by the pattern
+    expect(parseWellCode('a1')).toBeNull() // lowercase rows rejected
+  })
+
+  it('parses multi-letter rows for large formats', () => {
+    expect(parseWellCode('AA1')).toEqual({ row: 26, col: 0 })
+    expect(parseWellCode('AF48')).toEqual({ row: 31, col: 47 })
+    expect(rowLabel(26)).toBe('AA')
+    expect(rowLabel(31)).toBe('AF')
+    expect(rowIndex('AA')).toBe(26)
+    expect(rowIndex('AF')).toBe(31)
+    expect(rowIndex('A')).toBe(0)
+    expect(rowIndex('')).toBeNull()
+    expect(rowIndex('a')).toBeNull()
+  })
+
+  it('round-trips well codes past row Z', () => {
+    for (const row of [0, 7, 25, 26, 27, 31]) {
+      const code = wellCode(row, 47)
+      expect(parseWellCode(code)).toEqual({ row, col: 47 })
+      expect(isValidWellCode(code, 32, 48)).toBe(true)
+    }
+    expect(parseWellCode(wellCode(51, 47))).toEqual({ row: 51, col: 47 })
+    expect(isValidWellCode('AG1', 32, 48)).toBe(false)
   })
 })
 
@@ -617,5 +643,180 @@ describe('wellsToPlateWells', () => {
     expect(result[0].label).toContain('rep 1')
     expect(result[0].volume).toEqual({ value: 20, unit: 'µL' })
     expect(result[0].role).toBe('sample')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// VIEW-02 well → record binding resolution
+// ---------------------------------------------------------------------------
+
+describe('resolveWellSample', () => {
+  const assigned = () => well()
+
+  it('returns null for unassigned wells', () => {
+    expect(
+      resolveWellSample(well({ role: 'empty', sampleRef: undefined })),
+    ).toBeNull()
+  })
+
+  it('resolves from the stored snapshot when no live read runs (frozen)', () => {
+    expect(resolveWellSample(assigned())).toEqual({
+      state: 'active',
+      recordId: assigned().sampleRef!.recordId,
+      snapshotOnly: true,
+    })
+    const archived = well({
+      sampleRef: { ...assigned().sampleRef!, archived: true },
+    })
+    expect(resolveWellSample(archived)?.state).toBe('archived')
+    expect(resolveWellSample(archived)?.snapshotOnly).toBe(true)
+  })
+
+  it('maps live observations to honest states', () => {
+    const id = assigned().sampleRef!.recordId
+    expect(
+      resolveWellSample(assigned(), { status: 'loading' })?.state,
+    ).toBe('loading')
+    expect(
+      resolveWellSample(assigned(), { status: 'found', archivedAt: null })
+        ?.state,
+    ).toBe('active')
+    expect(
+      resolveWellSample(assigned(), {
+        status: 'found',
+        archivedAt: '2026-01-01T00:00:00Z',
+      })?.state,
+    ).toBe('archived')
+    expect(resolveWellSample(assigned(), { status: 'not_found' })).toEqual({
+      state: 'missing',
+      recordId: id,
+      snapshotOnly: false,
+    })
+    expect(resolveWellSample(assigned(), { status: 'restricted' })?.state).toBe(
+      'restricted',
+    )
+    expect(resolveWellSample(assigned(), { status: 'error' })?.state).toBe(
+      'error',
+    )
+  })
+
+  it('binds by stable record ID, never the display label', () => {
+    const renamed = well({
+      sampleRef: {
+        recordId: 'stable-id',
+        identifier: 'RENAMED-9',
+        title: 'New title',
+      },
+    })
+    const resolution = resolveWellSample(renamed, {
+      status: 'found',
+      archivedAt: null,
+    })!
+    expect(resolution.recordId).toBe('stable-id')
+    expect(resolution.state).toBe('active')
+  })
+})
+
+describe('liveSampleObservationFromQuery', () => {
+  it('maps loading, found, missing and error queries', () => {
+    expect(
+      liveSampleObservationFromQuery({
+        data: undefined,
+        error: null,
+        isLoading: true,
+      }),
+    ).toEqual({ status: 'loading' })
+    expect(
+      liveSampleObservationFromQuery({
+        data: { archivedAt: null },
+        error: null,
+        isLoading: false,
+      }),
+    ).toEqual({ status: 'found', archivedAt: null })
+    expect(
+      liveSampleObservationFromQuery({
+        data: null,
+        error: null,
+        isLoading: false,
+      }),
+    ).toEqual({ status: 'not_found' })
+    expect(
+      liveSampleObservationFromQuery({
+        data: undefined,
+        error: new Error('network down'),
+        isLoading: false,
+      }),
+    ).toEqual({ status: 'error' })
+  })
+
+  it('classifies permission failures as restricted', () => {
+    for (const error of [
+      { status: 403, message: 'Forbidden' },
+      new Error('permission denied for table records'),
+    ]) {
+      expect(
+        liveSampleObservationFromQuery({
+          data: undefined,
+          error,
+          isLoading: false,
+        }),
+      ).toEqual({ status: 'restricted' })
+    }
+  })
+})
+
+describe('wellSelectionContext', () => {
+  function specWithWells(): PlateMapSpec {
+    return validSpec({
+      wells: [
+        well(),
+        well({
+          wellCode: 'B2',
+          row: 1,
+          col: 1,
+          role: 'blank',
+          sampleRef: undefined,
+        }),
+      ],
+    })
+  }
+
+  it('returns linked-record context for an assigned well', () => {
+    const ctx = wellSelectionContext(specWithWells(), 'A1', new Map())!
+    expect(ctx.assigned).toBe(true)
+    expect(ctx.well?.role).toBe('sample')
+    expect(ctx.sampleRef?.recordId).toBe(
+      '00000000-0000-4000-8000-000000000999',
+    )
+    expect(ctx.resolution?.snapshotOnly).toBe(true)
+  })
+
+  it('resolves live observations through the context', () => {
+    const live = new Map([
+      [
+        '00000000-0000-4000-8000-000000000999',
+        { status: 'not_found' } as const,
+      ],
+    ])
+    const ctx = wellSelectionContext(specWithWells(), 'A1', live)!
+    expect(ctx.resolution?.state).toBe('missing')
+    expect(ctx.resolution?.snapshotOnly).toBe(false)
+  })
+
+  it('marks empty cells unassigned with grid position', () => {
+    const ctx = wellSelectionContext(specWithWells(), 'A2')!
+    expect(ctx.assigned).toBe(false)
+    expect(ctx.well).toBeNull()
+    expect(ctx.sampleRef).toBeNull()
+    expect(ctx.resolution).toBeNull()
+    expect(ctx.row).toBe(0)
+    expect(ctx.col).toBe(1)
+  })
+
+  it('returns null for malformed or out-of-bounds codes', () => {
+    const spec = specWithWells()
+    expect(wellSelectionContext(spec, 'nope')).toBeNull()
+    expect(wellSelectionContext(spec, 'I1')).toBeNull()
+    expect(wellSelectionContext(spec, 'A13')).toBeNull()
   })
 })

@@ -471,3 +471,34 @@ export function chartToRepresentationHandle(input: {
     frozen: input.frozen != null,
   })
 }
+
+// ---------------------------------------------------------------------------
+// Embed-site adapter: plate_map block payload → handle
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a plate_map handle from a notebook block payload's parsed `spec`.
+ * Plates bind no Dataset: the source carries null dataset/version identity
+ * and well→record links resolve separately by stable record ID (see
+ * `resolveWellSample` in `plate-map.ts`) — rows are never part of the
+ * handle. `frozen` marks renders of a pinned revision snapshot: the spec is
+ * reconstructed verbatim from `block_snapshot` and no live record reads may
+ * run in historical mode.
+ */
+export function plateMapToRepresentationHandle(input: {
+  spec: PlateMapSpec | null
+  title?: string
+  frozen?: boolean
+}): RepresentationHandle | null {
+  if (!input.spec) return null
+  return createRepresentationHandle({
+    source: { datasetId: null, versionId: null },
+    config: {
+      kind: 'plate_map',
+      configVersion: PLATE_MAP_SPEC_VERSION,
+      config: input.spec,
+    },
+    title: input.title,
+    frozen: input.frozen ?? false,
+  })
+}

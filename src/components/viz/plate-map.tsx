@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { cn } from '#/lib/utils'
+import { parseWellCode, rowLabel } from '#/lib/plate-map'
 
 /**
  * PlateMap — a semantic grid for microplate layouts (e.g. 96-well). Rows are
@@ -67,7 +68,29 @@ export interface PlateMapProps {
   roleLegend?: PlateMapRoleLegendEntry[]
   /** Disable well interaction (read-only mode, SCI-005). */
   readOnly?: boolean
+  /**
+   * Allow well selection while `readOnly` (VIEW-02). Selection never edits:
+   * the grid reports the well code so the host can show linked-record
+   * context. Without this, `readOnly` disables every well button.
+   */
+  selectable?: boolean
+  /**
+   * Row-windowed rendering for large formats (VIEW-02). `true` forces
+   * windowing, `false` renders the full grid; the default (`'auto'`) windows
+   * only when the cell count exceeds `LARGE_PLATE_CELL_THRESHOLD`. Only the
+   * visible row band mounts wells, so 1536-well plates stay interactive.
+   */
+  windowed?: boolean | 'auto'
+  /** Rows per window when windowing (default 8, one 96-well band). */
+  rowsPerWindow?: number
 }
+
+/**
+ * Cell count above which `PlateMap` windows by row band. A 384-well plate
+ * (384 cells) still renders whole; 1536-well and larger render one band at
+ * a time. Callers can override per instance with `windowed`.
+ */
+export const LARGE_PLATE_CELL_THRESHOLD = 384
 
 const DEFAULT_BANDS: PlateMapBand[] = [
   { from: 0, to: 0, label: 'Empty', className: 'bg-muted' },
@@ -106,10 +129,6 @@ function bandFor(
   return band ? band.className : 'bg-muted-foreground/10'
 }
 
-function rowLabel(i: number): string {
-  return String.fromCharCode(65 + i)
-}
-
 function wellCodeForRowCol(r: number, c: number): string {
   return `${rowLabel(r)}${c + 1}`
 }
@@ -128,8 +147,12 @@ export function PlateMap({
   className,
   roleLegend,
   readOnly = false,
+  selectable = false,
+  windowed = 'auto',
+  rowsPerWindow = 8,
 }: PlateMapProps) {
   const gridRef = React.useRef<HTMLDivElement>(null)
+  const interactive = !readOnly || selectable
 
   const wellByCell = React.useMemo(() => {
     const map = new Map<string, { well: PlateWell; index: number }>()
@@ -139,9 +162,28 @@ export function PlateMap({
     return map
   }, [wells])
 
-  // Keyboard navigation: arrow keys move focus between cells
+  // Row-band windowing for large formats. The selected well keeps its
+  // selection across windows; the window jumps to it when it changes to a
+  // code outside the visible band.
+  const windowing =
+    windowed === true || (windowed === 'auto' && rows * cols > LARGE_PLATE_CELL_THRESHOLD)
+  const windowCount = Math.max(1, Math.ceil(rows / Math.max(1, rowsPerWindow)))
+  const [windowIndex, setWindowIndex] = React.useState(0)
+  const safeWindowIndex = Math.min(windowIndex, windowCount - 1)
+  const windowStartRow = windowing ? safeWindowIndex * rowsPerWindow : 0
+  const windowEndRow = windowing
+    ? Math.min(rows, windowStartRow + rowsPerWindow)
+    : rows
+  React.useEffect(() => {
+    if (!windowing || !selectedWellCode) return
+    const parsed = parseWellCode(selectedWellCode)
+    if (!parsed || parsed.row < 0 || parsed.row >= rows) return
+    const target = Math.floor(parsed.row / rowsPerWindow)
+    if (target !== safeWindowIndex) setWindowIndex(target)
+  }, [windowing, selectedWellCode, rows, rowsPerWindow, safeWindowIndex])
+  // Selection reports the well code; editing never happens here.
   function handleSelect(r: number, c: number) {
-    if (readOnly) return
+    if (!interactive) return
     const cell = wellByCell.get(`${r}:${c}`)
     const code = wellCodeForRowCol(r, c)
     // For well-code-based selection, always report (even for empty cells)
@@ -156,7 +198,7 @@ export function PlateMap({
 
   // Keyboard navigation: arrow keys move focus between cells
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (readOnly) return
+    if (!interactive) return
     const focused = document.activeElement as HTMLButtonElement | null
     if (!focused || !focused.dataset.cell) return
 
@@ -218,6 +260,32 @@ export function PlateMap({
 
   return (
     <div className={cn('space-y-2', className)}>
+      {windowing ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <button
+            type="button"
+            aria-label="Previous row band"
+            disabled={safeWindowIndex === 0}
+            onClick={() => setWindowIndex(safeWindowIndex - 1)}
+            className="inline-flex h-6 items-center rounded-md border border-input bg-background px-2 font-medium disabled:opacity-40"
+          >
+            ←
+          </button>
+          <span aria-live="polite" className="tabular-nums">
+            Rows {rowLabel(windowStartRow)}–{rowLabel(windowEndRow - 1)} of{' '}
+            {rowLabel(rows - 1)} ({windowEndRow - windowStartRow}×{cols})
+          </span>
+          <button
+            type="button"
+            aria-label="Next row band"
+            disabled={safeWindowIndex >= windowCount - 1}
+            onClick={() => setWindowIndex(safeWindowIndex + 1)}
+            className="inline-flex h-6 items-center rounded-md border border-input bg-background px-2 font-medium disabled:opacity-40"
+          >
+            →
+          </button>
+        </div>
+      ) : null}
       <div
         ref={gridRef}
         role="grid"
@@ -243,7 +311,10 @@ export function PlateMap({
           ))}
         </div>
 
-        {Array.from({ length: rows }, (_, r) => (
+        {Array.from(
+          { length: windowEndRow - windowStartRow },
+          (_, i) => windowStartRow + i,
+        ).map((r) => (
           <div role="row" key={r} className={cn('mt-0.5 flex', gap)}>
             <span
               role="rowheader"
@@ -283,14 +354,14 @@ export function PlateMap({
                     type="button"
                     aria-label={title}
                     data-cell={`${r}:${c}`}
-                    disabled={readOnly}
+                    disabled={!interactive}
                     onClick={() => handleSelect(r, c)}
                     className={cn(
                       'flex aspect-square w-full items-center justify-center overflow-hidden rounded-full border border-white/60 text-[8px] font-medium leading-none text-white/90 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:border-black/20',
                       wellSize,
                       cellColour,
                       selected && 'ring-2 ring-primary ring-offset-1',
-                      readOnly && 'cursor-default hover:scale-100',
+                      !interactive && 'cursor-default hover:scale-100',
                     )}
                   >
                     {well?.displayLabel ?? ''}

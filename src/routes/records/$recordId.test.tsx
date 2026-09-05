@@ -596,6 +596,8 @@ describe('NotebookInspector', () => {
               targetKind: 'protocol_template',
               targetIdentifier: 'PRT-2025-0001',
               linkType: 'protocol',
+              createdAt: '2026-08-03T00:00:00Z',
+              createdByUserId: null,
             },
           ]}
           linksLoading={false}
@@ -692,6 +694,8 @@ describe('NotebookInspector', () => {
               targetKind: 'dataset',
               targetIdentifier: 'LIVE-2026-9999',
               linkType: 'derived_from',
+              createdAt: '2026-08-03T00:00:00Z',
+              createdByUserId: null,
             },
           ]}
           linksLoading={false}
@@ -749,6 +753,8 @@ describe('NotebookInspector', () => {
                 targetKind: 'protocol_template',
                 targetIdentifier: 'PRT-FROZEN',
                 linkType: 'protocol',
+                createdAt: '2026-08-03T00:00:00Z',
+                createdByUserId: null,
               },
             ],
           }}

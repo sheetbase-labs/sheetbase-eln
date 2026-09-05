@@ -83,6 +83,17 @@ export interface RelationshipRow {
   identifier: string | null
   /** Canonical stable-ID destination; present only when `available`. */
   destination: string | null
+  /** Link creation time, carried from the already-fetched link row. */
+  createdAt: string
+  /** Link creator; null when the reader used a narrow projection. */
+  createdByUserId: string | null
+  /**
+   * Collapsed identical edges (same counterparty + link type). 1 is a
+   * unique edge; >1 means the server returned duplicate rows that were
+   * folded into this one (the unique constraint prevents new dupes, but
+   * older rows can predate it).
+   */
+  duplicateCount: number
 }
 
 async function quiet<T>(promise: Promise<T>, fallback: T): Promise<T> {
@@ -241,7 +252,6 @@ export function lifecycleToRowState(
   if (endpoint.archivedAt !== null) return 'archived'
   return 'available'
 }
-
 function toRelationshipRow(
   link: NotebookLink,
   direction: RelationshipDirection,
@@ -273,6 +283,9 @@ function toRelationshipRow(
     destination: available
       ? recordDestination(endpoint.kind, endpoint.id)
       : null,
+    createdAt: link.createdAt,
+    createdByUserId: link.createdByUserId,
+    duplicateCount: 1,
   }
 }
 
@@ -286,25 +299,66 @@ export interface AggregatedRelationships {
  * states and gated destinations. Self-loops are dropped (traversal to self
  * is noise). Only `available` rows carry a destination — every other state
  * renders as an honest non-interactive row.
+ *
+ * Exact duplicates (same counterparty + link type, distinct link ids) are
+ * collapsed defensively with a count: the fetch layer dedupes by link id,
+ * but the server can still return semantic dupes, so the panel never shows
+ * the same edge twice.
  */
 export function buildRelationshipRows(
   recordId: string,
   links: RelationshipLinks,
   endpoints: Map<string, RelationshipEndpoint>,
 ): AggregatedRelationships {
-  const outgoing: RelationshipRow[] = []
-  for (const link of links.outgoing) {
-    const row = toRelationshipRow(link, 'outgoing', recordId, endpoints)
-    if (row) outgoing.push(row)
+  return {
+    outgoing: collectRows('outgoing', recordId, links.outgoing, endpoints),
+    incoming: collectRows('incoming', recordId, links.incoming, endpoints),
   }
-  const incoming: RelationshipRow[] = []
-  for (const link of links.incoming) {
-    const row = toRelationshipRow(link, 'incoming', recordId, endpoints)
-    if (row) incoming.push(row)
-  }
-  return { outgoing, incoming }
 }
 
+/**
+ * Collapse key for one link: link type plus the counterparty address.
+ * Outgoing edges without a target id still collapse on the preserved
+ * stable identifier; incoming edges address their source by id.
+ */
+function collapseKey(
+  direction: RelationshipDirection,
+  link: NotebookLink,
+): string {
+  const counterparty =
+    direction === 'outgoing'
+      ? (link.targetRecordId ?? `identifier:${link.targetIdentifier}`)
+      : link.sourceRecordId
+  return `${link.linkType}|${counterparty}`
+}
+
+/**
+ * Map links to rows, folding exact duplicates into the first row. Link
+ * order is oldest-first from the readers, so the surviving row is the
+ * earliest edge and `duplicateCount` counts the folded dupes.
+ */
+function collectRows(
+  direction: RelationshipDirection,
+  recordId: string,
+  links: NotebookLink[],
+  endpoints: Map<string, RelationshipEndpoint>,
+): RelationshipRow[] {
+  const rows: RelationshipRow[] = []
+  const seen = new Map<string, RelationshipRow>()
+  for (const link of links) {
+    const row = toRelationshipRow(link, direction, recordId, endpoints)
+    if (!row) continue
+    const key = collapseKey(direction, link)
+    const existing = seen.get(key)
+    if (existing) {
+      existing.duplicateCount += 1
+    } else {
+      seen.set(key, row)
+      rows.push(row)
+    }
+  }
+  return rows
+}
 /** Counterparty ids needing endpoint resolution for a link set. */
 export function relationshipCounterpartyIds(
   recordId: string,

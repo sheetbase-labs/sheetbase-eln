@@ -6,13 +6,16 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { DataClientError } from './data-client'
 import {
+  DUPLICATE_SCIENTIFIC_LINK_MESSAGE,
   KIND_PREFIX,
   KIND_STATUS_VOCABULARY,
   allowedTargets,
   formatPropertyValue,
   identifierPattern,
   isAllowedTransition,
+  isDuplicateLinkError,
   isPropertyLogicalType,
   isScientificRecordKind,
   linkTypeForKind,
@@ -26,7 +29,6 @@ import type {
   RecordFieldDefinition,
   ScientificRecordKind,
 } from './scientific-records'
-
 function def(
   overrides: Partial<RecordFieldDefinition> & {
     fieldName: string
@@ -482,5 +484,31 @@ describe('scientificRecordQueryKeys', () => {
       'record',
       'id-1',
     ])
+  })
+})
+
+describe('duplicate scientific link errors', () => {
+  it('recognises PostgREST unique violations and conflict envelopes', () => {
+    expect(DUPLICATE_SCIENTIFIC_LINK_MESSAGE).toBe(
+      'This record is already linked.',
+    )
+    expect(
+      isDuplicateLinkError(new DataClientError('23505', 'duplicate key', 409)),
+    ).toBe(true)
+    expect(
+      isDuplicateLinkError(new DataClientError('conflict', 'dup', 409)),
+    ).toBe(true)
+    expect(
+      isDuplicateLinkError(
+        new DataClientError('P0001', 'record link already exists', 400),
+      ),
+    ).toBe(true)
+    expect(
+      isDuplicateLinkError(
+        new DataClientError('SB002', 'record link crosses workspaces', 422),
+      ),
+    ).toBe(false)
+    expect(isDuplicateLinkError(new Error('boom'))).toBe(false)
+    expect(isDuplicateLinkError(null)).toBe(false)
   })
 })

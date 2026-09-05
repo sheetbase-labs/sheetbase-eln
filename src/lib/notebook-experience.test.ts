@@ -287,6 +287,8 @@ describe('linksFromRevisionSnapshot', () => {
         targetKind: 'protocol_template',
         targetIdentifier: 'PRT-2025-0001',
         linkType: 'protocol',
+        createdAt: '2026-08-17T00:00:00.000Z',
+        createdByUserId: null,
       },
     ])
   })

@@ -327,6 +327,38 @@ export function linkTypeForKind(kind: ScientificRecordKind): string {
   return kind === 'protocol_template' ? 'protocol' : kind
 }
 
+/** Friendly message for a link that already exists (server dedupe). */
+export const DUPLICATE_SCIENTIFIC_LINK_MESSAGE =
+  'This record is already linked.'
+
+/**
+ * Recognise the server's duplicate-link rejection so the linker can say
+ * `already linked` instead of surfacing a raw failure. `record_links`
+ * carries a unique `(source, target_identifier, link_type)` constraint, so
+ * a re-link surfaces as a PostgREST 409/23505 unique violation (directly
+ * or through the `create_record_link` RPC, which may re-raise it as a
+ * `conflict` envelope or a plain duplicate message) — match all shapes.
+ */
+export function isDuplicateLinkError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code =
+    'code' in error && typeof error.code === 'string'
+      ? error.code
+      : null
+  const message =
+    'message' in error && typeof error.message === 'string'
+      ? error.message
+      : ''
+  const status =
+    'status' in error && typeof error.status === 'number'
+      ? error.status
+      : null
+  if (code === '23505' || code === 'conflict') return true
+  if (status === 409 && /duplicate|already exists|already linked/i.test(message))
+    return true
+  return /duplicate key|already linked|already exists/i.test(message)
+}
+
 /**
  * Create a durable link from a notebook record to a scientific record through
  * the existing `create_record_link` RPC. The RPC validates same-workspace

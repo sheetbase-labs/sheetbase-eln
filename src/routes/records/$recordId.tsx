@@ -119,6 +119,10 @@ import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { RelatedWorkPanel } from '#/components/related-work/related-work-panel'
+import {
+  PinnedRelationshipPanel,
+  RelationshipPanel,
+} from '#/components/knowledge/relationship-panel'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
@@ -2243,6 +2247,15 @@ export function NotebookInspector({
               project membership. Silent when empty. */}
           {isHistorical ? null : (
             <RelatedWorkPanel kind="record" id={record.id} />
+          )}
+          {/* KNOW-01: complete bidirectional typed traversal. Related work
+              above is ranked discovery with reasons; this panel is the full
+              incoming/outgoing edge list with lifecycle states. Historical
+              revisions show the pinned outgoing snapshot without actions. */}
+          {isHistorical ? (
+            <PinnedRelationshipPanel links={evidenceLinks} />
+          ) : (
+            <RelationshipPanel recordId={record.id} />
           )}
 
           <InspectorSection title="Files">

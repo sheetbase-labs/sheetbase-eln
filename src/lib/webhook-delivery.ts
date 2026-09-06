@@ -157,8 +157,9 @@ export interface WebhookSubscriptionRow {
   max_retries: number
   failure_threshold: number
   status: string
+  /** EVENT-02: max attempts per rolling minute (null = unlimited). */
+  rate_limit_per_minute: number | null
 }
-
 export interface WebhookDeliveryRow {
   id: string
   workspace_id: string
@@ -219,6 +220,11 @@ export interface DeliveryResult {
  * Uses redirect: 'manual' and validates each redirect target against the
  * SSRF policy to prevent redirect-based SSRF attacks.
  * Returns the result including HTTP status and any error info.
+ *
+ * EVENT-02: pass the change_event id as `idempotencyKey`. It is sent as
+ * `X-Sheetbase-Event-Id` (mirroring the payload event id) so receivers can
+ * deduplicate across retries and replays. Retries and replays reuse the
+ * same key; no downstream duplication for receivers that honor it.
  */
 export async function attemptDelivery(
   url: string,
@@ -226,6 +232,7 @@ export async function attemptDelivery(
   signature: string,
   timeoutMs: number = DELIVERY_TIMEOUT_MS,
   maxRedirects: number = 3,
+  idempotencyKey?: string,
 ): Promise<DeliveryResult> {
   // Validate the initial URL against the SSRF policy.
   const urlCheck = validateWebhookUrl(url)
@@ -248,6 +255,7 @@ export async function attemptDelivery(
           'content-type': 'application/json',
           'x-sheetbase-signature': signature,
           'x-sheetbase-event': 'change',
+          ...(idempotencyKey ? { 'x-sheetbase-event-id': idempotencyKey } : {}),
           'user-agent': 'Sheetbase-Webhook/1.0',
         },
         body,
@@ -348,7 +356,7 @@ export async function findMatchingSubscriptions(
   try {
     const { rows } = await client.query<WebhookSubscriptionRow>(
       `SELECT id, workspace_id, key, url, event_types, max_retries,
-              failure_threshold, status
+              failure_threshold, status, rate_limit_per_minute
          FROM api.webhook_subscriptions
         WHERE workspace_id = $1 AND status = 'active'`,
       [workspaceId],
@@ -482,9 +490,12 @@ export async function recordDeliveryResult(
         ],
       )
     } else {
-      // Determine if we should retry or fail permanently.
+      // Determine if we should retry or dead-letter. EVENT-02: exhausted
+      // backoff lands in the explicit dead_letter state (visible DLQ
+      // surface with reason + payload reference); the retry sweep never
+      // picks it up again — recovery is an explicit operator replay.
       const shouldRetry = attempt < maxRetries
-      const status = shouldRetry ? 'retrying' : 'failed'
+      const status = shouldRetry ? 'retrying' : 'dead_letter'
       const nextAttemptAt = shouldRetry
         ? new Date(Date.now() + computeBackoff(attempt))
         : null
@@ -503,6 +514,64 @@ export async function recordDeliveryResult(
         ],
       )
     }
+  } finally {
+    await client.end()
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rate limiting — per-endpoint rolling-minute attempt budget.
+// ---------------------------------------------------------------------------
+
+/**
+ * Count delivery attempts for a subscription in the trailing minute.
+ * Every attempt touches `updated_at` (via record_webhook_delivery_result),
+ * so the window approximates attempts, not rows. When `includeSelf` is
+ * false the given delivery is excluded — fresh rows must not count
+ * themselves, or a quiet endpoint's first delivery would always defer.
+ */
+export async function countRecentAttempts(
+  subscriptionId: string,
+  excludeDeliveryId: string | null,
+  includeSelf: boolean,
+  connectionString: string = env.DATABASE_URL,
+): Promise<number> {
+  const client = new Client({ connectionString })
+  await client.connect()
+  try {
+    const { rows } = await client.query<{ n: number }>(
+      `SELECT count(*)::int AS n
+         FROM api.webhook_deliveries
+        WHERE subscription_id = $1
+          AND updated_at > now() - interval '1 minute'
+          AND ($2 OR id <> $3)`,
+      [subscriptionId, includeSelf, excludeDeliveryId],
+    )
+    return rows[0].n
+  } finally {
+    await client.end()
+  }
+}
+
+/**
+ * Defer a delivery by pushing its next attempt forward. The row stays
+ * pending/retrying — deferred work is never dropped, only delayed.
+ */
+export async function deferDelivery(
+  workspaceId: string,
+  deliveryId: string,
+  delayMs: number,
+  connectionString: string = env.DATABASE_URL,
+): Promise<void> {
+  const client = new Client({ connectionString })
+  await client.connect()
+  try {
+    await client.query(
+      `UPDATE api.webhook_deliveries
+          SET next_attempt_at = $3, updated_at = now()
+        WHERE id = $1 AND workspace_id = $2`,
+      [deliveryId, workspaceId, new Date(Date.now() + delayMs)],
+    )
   } finally {
     await client.end()
   }
@@ -598,9 +667,40 @@ export async function processChangeEvent(
       // Delivery already exists (catch-up race or duplicate notification).
       if (!delivery) continue
 
-      // Attempt immediate delivery.
-      const result = await attemptDelivery(sub.url, body, signature)
+      // EVENT-02: per-endpoint rate budget. Over-budget attempts defer
+      // (retry sweep picks them up) instead of hitting the endpoint.
+      if (sub.rate_limit_per_minute) {
+        const recent = await countRecentAttempts(
+          sub.id,
+          delivery.id,
+          false,
+          connectionString,
+        )
+        if (recent >= sub.rate_limit_per_minute) {
+          await deferDelivery(
+            sub.workspace_id,
+            delivery.id,
+            60_000,
+            connectionString,
+          )
+          logger.info('webhook delivery deferred by rate limit', {
+            subscriptionId: sub.id,
+            deliveryId: delivery.id,
+            eventType,
+          })
+          continue
+        }
+      }
 
+      // Attempt immediate delivery (idempotency key = change_event id).
+      const result = await attemptDelivery(
+        sub.url,
+        body,
+        signature,
+        DELIVERY_TIMEOUT_MS,
+        3,
+        eventRow.id,
+      )
       // Record the result.
       await recordDeliveryResult(
         sub.workspace_id,
@@ -652,7 +752,8 @@ export async function processRetries(
       `SELECT d.id, d.workspace_id, d.subscription_id, d.change_event_id,
               d.event_type, d.payload, d.body, d.signature, d.attempt,
               d.status, d.next_attempt_at,
-              s.url, s.max_retries, s.failure_threshold, s.status AS sub_status
+              s.url, s.max_retries, s.failure_threshold, s.status AS sub_status,
+              s.rate_limit_per_minute
          FROM api.webhook_deliveries d
          JOIN api.webhook_subscriptions s ON s.id = d.subscription_id
         WHERE d.status IN ('pending', 'retrying')
@@ -664,11 +765,38 @@ export async function processRetries(
         FOR UPDATE OF d SKIP LOCKED`,
       [batchSize],
     )
-
     for (const row of rows) {
+      // EVENT-02: per-endpoint rate budget — defer over-budget retries
+      // without attempting (the row's own last attempt counts, so a
+      // just-failed delivery is not immediately re-attempted).
+      if (row.rate_limit_per_minute) {
+        const recent = await countRecentAttempts(
+          row.subscription_id,
+          row.id,
+          true,
+          connectionString,
+        )
+        if (recent >= row.rate_limit_per_minute) {
+          await deferDelivery(
+            row.workspace_id,
+            row.id,
+            60_000,
+            connectionString,
+          )
+          continue
+        }
+      }
       const attempt = row.attempt + 1
       // Use the stored body text (byte-accurate with the original signature).
-      const result = await attemptDelivery(row.url, row.body, row.signature)
+      // The idempotency key is the original change_event id.
+      const result = await attemptDelivery(
+        row.url,
+        row.body,
+        row.signature,
+        DELIVERY_TIMEOUT_MS,
+        3,
+        row.change_event_id,
+      )
 
       await recordDeliveryResult(
         row.workspace_id,

@@ -12345,7 +12345,7 @@
         "x-sheetbase-scopes": [
           "webhooks:write"
         ],
-        "description": "Creates a subscription in the JWT workspace. Returns the subscription row and a generated signing secret (returned exactly once).",
+        "description": "Creates a subscription in the JWT workspace. Returns the subscription row and a generated signing secret (returned exactly once). rate_limit_per_minute caps delivery attempts per rolling minute (deferred, never dropped); null = unlimited.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12398,6 +12398,12 @@
                   "p_signing_secret": {
                     "type": "string",
                     "description": "Optional signing secret (auto-generated if omitted)."
+                  },
+                  "p_rate_limit_per_minute": {
+                    "type": "integer",
+                    "description": "Max delivery attempts per rolling minute (1–60000, null = unlimited).",
+                    "minimum": 1,
+                    "maximum": 60000
                   }
                 }
               }
@@ -12978,6 +12984,132 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/InsertSheetInstanceBlockResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/get_webhook_endpoint_health": {
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Get webhook endpoint health",
+        "operationId": "rpc_get_webhook_endpoint_health",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": [
+          "webhooks:read"
+        ],
+        "description": "Per-endpoint delivery health: 24h success-rate window, last error, consecutive failures, auto-disable state, retry debt, and rate limit. Re-enable a disabled endpoint via update_webhook_subscription (status active resets consecutive_failures).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "p_workspace_id"
+                ],
+                "properties": {
+                  "p_workspace_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Workspace UUID."
+                  },
+                  "p_subscription_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Optional subscription UUID (null = all subscriptions)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of get_webhook_endpoint_health",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointHealthResult"
                 }
               }
             }
@@ -13715,7 +13847,7 @@
         "x-sheetbase-scopes": [
           "webhooks:read"
         ],
-        "description": "Returns paginated delivery history for the workspace, optionally filtered by subscription or status.",
+        "description": "Returns paginated delivery history for the workspace, optionally filtered by subscription, status (including dead_letter), event type, or time window.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13750,7 +13882,21 @@
                   },
                   "p_status": {
                     "type": "string",
-                    "description": "Optional status filter (pending, delivered, failed, retrying)."
+                    "description": "Optional status filter (pending, delivered, failed, retrying, dead_letter)."
+                  },
+                  "p_event_type": {
+                    "type": "string",
+                    "description": "Optional stable event type filter (e.g. record.created)."
+                  },
+                  "p_since": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Optional lower bound on delivery creation time."
+                  },
+                  "p_until": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Optional upper bound on delivery creation time."
                   }
                 }
               }
@@ -16199,7 +16345,7 @@
         "x-sheetbase-scopes": [
           "webhooks:write"
         ],
-        "description": "Creates a new pending delivery from an existing one, preserving the original payload and signature.",
+        "description": "Creates a new pending delivery from an existing terminal one (delivered, failed, dead_letter), reusing the original payload, body, and signature — the same idempotency key, so receivers that deduplicate never see a duplicate effect. Audited via replay lineage plus a change event.",
         "requestBody": {
           "required": true,
           "content": {
@@ -16220,7 +16366,7 @@
                   "p_delivery_id": {
                     "type": "string",
                     "format": "uuid",
-                    "description": "Delivery UUID to replay."
+                    "description": "Terminal delivery UUID to replay."
                   }
                 }
               }
@@ -16245,6 +16391,152 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/replay_webhook_deliveries": {
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Replay webhook deliveries by subscription and/or time window",
+        "operationId": "rpc_replay_webhook_deliveries",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": [
+          "webhooks:write"
+        ],
+        "description": "Operator-invoked bulk replay of terminal deliveries (default dead_letter) for a subscription and/or creation window. Each replay reuses the original idempotency key. Originals with a pending/retrying replay already queued are skipped, so re-running a window is safe. One summary change event audits the action; never automatic.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "p_workspace_id"
+                ],
+                "properties": {
+                  "p_workspace_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Workspace UUID."
+                  },
+                  "p_subscription_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Optional subscription UUID filter (null = all subscriptions)."
+                  },
+                  "p_since": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Optional lower bound on original delivery creation time."
+                  },
+                  "p_until": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Optional upper bound on original delivery creation time."
+                  },
+                  "p_status": {
+                    "type": "string",
+                    "description": "Which terminal status to replay (dead_letter, failed, delivered; default dead_letter)."
+                  },
+                  "p_limit": {
+                    "type": "integer",
+                    "description": "Max deliveries to replay (1–500, default 50).",
+                    "minimum": 1,
+                    "maximum": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of replay_webhook_deliveries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookBulkReplayResult"
                 }
               }
             }
@@ -18296,7 +18588,7 @@
         "x-sheetbase-scopes": [
           "webhooks:write"
         ],
-        "description": "Updates URL, event types, description, status, or retry config. Re-enabling resets consecutive_failures.",
+        "description": "Updates URL, event types, description, status, retry config, or rate limit (null leaves the rate limit unchanged). Re-enabling a disabled/paused subscription resets consecutive_failures.",
         "requestBody": {
           "required": true,
           "content": {
@@ -18349,6 +18641,12 @@
                     "description": "Auto-disable after this many consecutive failures.",
                     "minimum": 0,
                     "maximum": 100
+                  },
+                  "p_rate_limit_per_minute": {
+                    "type": "integer",
+                    "description": "Max delivery attempts per rolling minute (1–60000). Null leaves unchanged.",
+                    "minimum": 1,
+                    "maximum": 60000
                   }
                 }
               }
@@ -23062,6 +23360,160 @@
           }
         }
       },
+      "WebhookBulkReplayResult": {
+        "type": "object",
+        "required": [
+          "replayed_count",
+          "delivery_ids"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "replayed_count": {
+            "type": "integer"
+          },
+          "delivery_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Original delivery ids that were replayed (each gained a new pending row reusing its idempotency key)."
+          }
+        }
+      },
+      "WebhookEndpointHealthResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "generated_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "subscription_id",
+                "key",
+                "url",
+                "status",
+                "consecutive_failures",
+                "total_24h",
+                "success_rate_24h"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "subscription_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "paused",
+                    "disabled",
+                    "archived"
+                  ]
+                },
+                "consecutive_failures": {
+                  "type": "integer"
+                },
+                "failure_threshold": {
+                  "type": "integer"
+                },
+                "max_retries": {
+                  "type": "integer"
+                },
+                "rate_limit_per_minute": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "total_24h": {
+                  "type": "integer"
+                },
+                "delivered_24h": {
+                  "type": "integer"
+                },
+                "failed_24h": {
+                  "type": "integer"
+                },
+                "dead_letter_24h": {
+                  "type": "integer"
+                },
+                "retrying_24h": {
+                  "type": "integer"
+                },
+                "pending_24h": {
+                  "type": "integer"
+                },
+                "success_rate_24h": {
+                  "type": "number",
+                  "nullable": true
+                },
+                "last_delivered_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "oldest_pending_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "last_error": {
+                  "type": "object",
+                  "nullable": true,
+                  "required": [
+                    "code",
+                    "message",
+                    "at",
+                    "delivery_id"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "delivery_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "BlocksRow": {
         "type": "object",
         "additionalProperties": false,
@@ -24977,6 +25429,10 @@
           "failure_threshold": {
             "type": "integer"
           },
+          "rate_limit_per_minute": {
+            "type": "integer",
+            "nullable": true
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -25074,7 +25530,8 @@
               "pending",
               "delivered",
               "failed",
-              "retrying"
+              "retrying",
+              "dead_letter"
             ]
           },
           "response_status": {

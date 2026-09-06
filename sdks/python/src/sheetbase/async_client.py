@@ -819,6 +819,7 @@ class AsyncWebhooks:
         max_retries: Optional[int] = None,
         failure_threshold: Optional[int] = None,
         signing_secret: Optional[str] = None,
+        rate_limit_per_minute: Optional[int] = None,
     ) -> Any:
         body: dict[str, Any] = {
             "p_workspace_id": workspace_id,
@@ -831,6 +832,7 @@ class AsyncWebhooks:
             "p_max_retries": max_retries,
             "p_failure_threshold": failure_threshold,
             "p_signing_secret": signing_secret,
+            "p_rate_limit_per_minute": rate_limit_per_minute,
         }
         body.update({key: value for key, value in optional.items() if value is not None})
         return await self._t.post(
@@ -848,6 +850,7 @@ class AsyncWebhooks:
         status: Optional[str] = None,
         max_retries: Optional[int] = None,
         failure_threshold: Optional[int] = None,
+        rate_limit_per_minute: Optional[int] = None,
     ) -> Any:
         body: dict[str, Any] = {
             "p_workspace_id": workspace_id,
@@ -860,6 +863,7 @@ class AsyncWebhooks:
             "p_status": status,
             "p_max_retries": max_retries,
             "p_failure_threshold": failure_threshold,
+            "p_rate_limit_per_minute": rate_limit_per_minute,
         }
         body.update({key: value for key, value in optional.items() if value is not None})
         return await self._t.post(
@@ -900,6 +904,9 @@ class AsyncWebhooks:
         workspace_id: str,
         subscription_id: Optional[str] = None,
         status: Optional[str] = None,
+        event_type: Optional[str] = None,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> Any:
@@ -912,6 +919,12 @@ class AsyncWebhooks:
             body["p_subscription_id"] = subscription_id
         if status is not None:
             body["p_status"] = status
+        if event_type is not None:
+            body["p_event_type"] = event_type
+        if since is not None:
+            body["p_since"] = since
+        if until is not None:
+            body["p_until"] = until
         return await self._t.post(
             "/api/db/rpc/list_webhook_deliveries", json_body=body
         )
@@ -923,4 +936,42 @@ class AsyncWebhooks:
                 "p_workspace_id": workspace_id,
                 "p_delivery_id": delivery_id,
             },
+        )
+
+    async def replay_deliveries(
+        self,
+        *,
+        workspace_id: str,
+        subscription_id: Optional[str] = None,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> Any:
+        body: dict[str, Any] = {"p_workspace_id": workspace_id}
+        if subscription_id is not None:
+            body["p_subscription_id"] = subscription_id
+        if since is not None:
+            body["p_since"] = since
+        if until is not None:
+            body["p_until"] = until
+        if status is not None:
+            body["p_status"] = status
+        if limit is not None:
+            body["p_limit"] = limit
+        return await self._t.post(
+            "/api/db/rpc/replay_webhook_deliveries", json_body=body
+        )
+
+    async def endpoint_health(
+        self,
+        *,
+        workspace_id: str,
+        subscription_id: Optional[str] = None,
+    ) -> Any:
+        body: dict[str, Any] = {"p_workspace_id": workspace_id}
+        if subscription_id is not None:
+            body["p_subscription_id"] = subscription_id
+        return await self._t.post(
+            "/api/db/rpc/get_webhook_endpoint_health", json_body=body
         )

@@ -6461,6 +6461,12 @@ export const webhookSubscriptions = api.table(
     /** Auto-disable after this many consecutive failures (0 = never). */
     failureThreshold: integer('failure_threshold').notNull().default(10),
     status: text('status').notNull().default('active'),
+    /**
+     * EVENT-02: max delivery attempts per rolling minute for this endpoint
+     * (NULL = unlimited). The engine defers (never drops) over-budget
+     * attempts by pushing next_attempt_at forward.
+     */
+    rateLimitPerMinute: integer('rate_limit_per_minute'),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -6505,6 +6511,10 @@ export const webhookSubscriptions = api.table(
     check(
       'chk_webhook_subscriptions_failure_threshold',
       sql`${table.failureThreshold} BETWEEN 0 AND 100`,
+    ),
+    check(
+      'chk_webhook_subscriptions_rate_limit',
+      sql`${table.rateLimitPerMinute} IS NULL OR (${table.rateLimitPerMinute} BETWEEN 1 AND 60000)`,
     ),
     check(
       'chk_webhook_subscriptions_status',
@@ -6584,9 +6594,12 @@ export const webhookDeliveries = api.table(
     uniqueIndex('uq_webhook_deliveries_subscription_event')
       .on(table.subscriptionId, table.changeEventId)
       .where(sql`${table.replayOfDeliveryId} IS NULL`),
+    // EVENT-02: 'dead_letter' is the explicit poison state — retries
+    // exhausted. 'failed' is retained for pre-existing rows and manual
+    // operator marking; the engine no longer writes it on exhaustion.
     check(
       'chk_webhook_deliveries_status',
-      sql`${table.status} IN ('pending', 'delivered', 'failed', 'retrying')`,
+      sql`${table.status} IN ('pending', 'delivered', 'failed', 'retrying', 'dead_letter')`,
     ),
     check('chk_webhook_deliveries_attempt', sql`${table.attempt} >= 0`),
     check(

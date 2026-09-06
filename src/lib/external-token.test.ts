@@ -272,6 +272,18 @@ describe('requiredScopes', () => {
         resource: 'replay_webhook_delivery',
       }),
     ).toEqual(['webhooks:write'])
+    expect(
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'replay_webhook_deliveries',
+      }),
+    ).toEqual(['webhooks:write'])
+    expect(
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'get_webhook_endpoint_health',
+      }),
+    ).toEqual(['webhooks:read'])
   })
 
   it('lets agents submit and inspect proposals without exposing decisions', () => {

@@ -2071,4 +2071,76 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       offset: INT,
     },
   },
+  WebhookBulkReplayResult: {
+    type: 'object',
+    required: ['replayed_count', 'delivery_ids'],
+    additionalProperties: false,
+    properties: {
+      replayed_count: INT,
+      delivery_ids: {
+        type: 'array',
+        items: UUID,
+        description:
+          'Original delivery ids that were replayed (each gained a new pending row reusing its idempotency key).',
+      },
+    },
+  },
+  WebhookEndpointHealthResult: {
+    type: 'object',
+    required: ['data', 'generated_at'],
+    additionalProperties: false,
+    properties: {
+      generated_at: { type: 'string', format: 'date-time' },
+      data: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: [
+            'subscription_id',
+            'key',
+            'url',
+            'status',
+            'consecutive_failures',
+            'total_24h',
+            'success_rate_24h',
+          ],
+          additionalProperties: false,
+          properties: {
+            subscription_id: UUID,
+            key: TEXT,
+            url: TEXT,
+            status: {
+              type: 'string',
+              enum: ['active', 'paused', 'disabled', 'archived'],
+            },
+            consecutive_failures: INT,
+            failure_threshold: INT,
+            max_retries: INT,
+            rate_limit_per_minute: { ...INT, nullable: true },
+            total_24h: INT,
+            delivered_24h: INT,
+            failed_24h: INT,
+            dead_letter_24h: INT,
+            retrying_24h: INT,
+            pending_24h: INT,
+            success_rate_24h: { type: 'number', nullable: true },
+            last_delivered_at: { type: ['string', 'null'], format: 'date-time' },
+            oldest_pending_at: { type: ['string', 'null'], format: 'date-time' },
+            last_error: {
+              type: 'object',
+              nullable: true,
+              required: ['code', 'message', 'at', 'delivery_id'],
+              additionalProperties: false,
+              properties: {
+                code: { ...TEXT, nullable: true },
+                message: { ...TEXT, nullable: true },
+                at: { type: ['string', 'null'], format: 'date-time' },
+                delivery_id: { ...UUID, nullable: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 } as const satisfies Record<string, JsonSchema>

@@ -33,6 +33,7 @@
 import {
   ANALYSIS_DEFINITION_VERSION,
   runAnalysis,
+  validateAnalysisDefinition,
 } from './analysis-definition'
 import type {
   AnalysisDefinition,
@@ -51,7 +52,11 @@ import type {
   FacetedChart,
   FrozenChart,
 } from './chart-spec'
-import { CHART_SPEC_VERSION, materialiseChart } from './chart-spec'
+import {
+  CHART_SPEC_VERSION,
+  materialiseChart,
+  validateChartSpec,
+} from './chart-spec'
 import type { MaterialisedChart } from './chart-spec'
 import { PLATE_MAP_SPEC_VERSION, validatePlateMapSpec } from './plate-map'
 import type { PlateMapSpec, PlateMapSpecError } from './plate-map'
@@ -500,5 +505,229 @@ export function plateMapToRepresentationHandle(input: {
     },
     title: input.title,
     frozen: input.frozen ?? false,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// VIEW-04 — stable embed config, metadata, compare hand-off, export stamps
+// ---------------------------------------------------------------------------
+
+import type { FigureProvenanceStamp } from './visualisation-export'
+import {
+  promoteToChartSpec,
+  validateComparativeViewConfig,
+} from './comparative-view'
+import type { ComparativeViewConfig } from './comparative-view'
+
+function isUuidLike(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  )
+}
+
+/**
+ * Validate a representation embed request fail-closed. The payload carries a
+ * versioned config only — never rows. Unknown kinds, unknown config versions
+ * and configs rejected by their canonical validator all fail; callers must
+ * not fall back to a live re-read when this fails.
+ */
+export function validateRepresentationEmbed(input: unknown): {
+  ok: boolean
+  handle?: RepresentationHandle
+  errors: string[]
+} {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return { ok: false, errors: ['embed must be an object'] }
+  }
+  const candidate = input as Record<string, unknown>
+  const kind = candidate.kind
+  if (kind !== 'chart' && kind !== 'plate_map' && kind !== 'analysis' && kind !== 'sheet') {
+    return { ok: false, errors: [`unknown representation kind: ${String(kind)}`] }
+  }
+  if (candidate.configVersion !== representationConfigVersion(kind)) {
+    return {
+      ok: false,
+      errors: [
+        `${kind} configVersion must be ${representationConfigVersion(kind)} (got ${String(candidate.configVersion)})`,
+      ],
+    }
+  }
+  const source = candidate.source as Record<string, unknown> | undefined
+  const sourceErrors: string[] = []
+  if (!source || typeof source !== 'object') {
+    sourceErrors.push('source must be an object')
+  } else {
+    if (source.datasetId !== null && !isUuidLike(source.datasetId)) {
+      sourceErrors.push('source.datasetId must be a UUID or null')
+    }
+    if (source.versionId !== null && !isUuidLike(source.versionId)) {
+      sourceErrors.push('source.versionId must be a UUID or null')
+    }
+    if (source.recordId !== undefined && !isUuidLike(source.recordId)) {
+      sourceErrors.push('source.recordId must be a UUID when present')
+    }
+  }
+  if (sourceErrors.length > 0) return { ok: false, errors: sourceErrors }
+  const config = candidate.config
+  const configErrors: string[] = []
+  if (kind === 'chart' && validateChartSpec(config).length > 0) {
+    configErrors.push('chart config failed the ChartSpec validator')
+  }
+  if (kind === 'plate_map' && validatePlateMapSpec(config).length > 0) {
+    configErrors.push('plate_map config failed the PlateMapSpec validator')
+  }
+  if (kind === 'analysis' && validateAnalysisDefinition(config).length > 0) {
+    configErrors.push('analysis config failed the analysis definition validator')
+  }
+  if (kind === 'sheet') {
+    const instanceId = (config as Record<string, unknown> | null)?.instanceId
+    if (!isUuidLike(instanceId)) {
+      configErrors.push('sheet config.instanceId must be a UUID')
+    }
+  }
+  if (configErrors.length > 0) return { ok: false, errors: configErrors }
+  const typedSource: RepresentationSource = {
+    datasetId: (source as Record<string, unknown>).datasetId as string | null,
+    versionId: (source as Record<string, unknown>).versionId as string | null,
+    ...((source as Record<string, unknown>).recordId !== undefined
+      ? { recordId: (source as Record<string, unknown>).recordId as string }
+      : {}),
+  }
+  const handle = createRepresentationHandle({
+    source: typedSource,
+    config: { kind, configVersion: representationConfigVersion(kind), config } as RepresentationConfig,
+    title: typeof candidate.title === 'string' ? candidate.title : undefined,
+    frozen:
+      typeof candidate.frozen === 'boolean' ? candidate.frozen : undefined,
+  })
+  return { ok: true, handle, errors: [] }
+}
+
+/**
+ * API/SDK-readable representation metadata. Stable IDs and versions only —
+ * never row data. Block payloads carrying these handles are already readable
+ * through the existing `blocks` resource (`projects:read`); no new tables.
+ */
+export interface RepresentationMetadata {
+  kind: RepresentationKind
+  title: string | null
+  datasetId: string | null
+  versionId: string | null
+  recordId: string | null
+  configVersion: number
+  frozen: boolean
+  readOnly: boolean
+  provenanceSummary: string
+}
+
+export function serializeRepresentationMetadata(
+  handle: RepresentationHandle,
+): RepresentationMetadata {
+  return {
+    kind: handle.config.kind,
+    title: handle.title ?? null,
+    datasetId: handle.source.datasetId,
+    versionId: handle.source.versionId,
+    recordId: handle.source.recordId ?? null,
+    configVersion: handle.config.configVersion,
+    frozen: handle.provenance.frozen,
+    readOnly: handle.readOnly,
+    provenanceSummary: handle.provenance.summary,
+  }
+}
+
+/** Provenance stamp for a handle's exports at a caller-supplied timestamp. */
+export function representationExportStamp(
+  handle: RepresentationHandle,
+  exportedAt: string,
+): FigureProvenanceStamp {
+  return {
+    kind: handle.config.kind,
+    datasetId: handle.source.datasetId,
+    versionId: handle.source.versionId,
+    configVersion: handle.config.configVersion,
+    exportedAt,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Embed-site adapters: analysis + sheet block payloads → handle
+// ---------------------------------------------------------------------------
+
+/**
+ * Build an analysis handle from a notebook block payload's definition. The
+ * frozen path re-executes the verbatim `frozen.definition` snapshot, so the
+ * embed carries the live definition only for live rendering.
+ */
+export function analysisToRepresentationHandle(input: {
+  definition: AnalysisDefinition | null
+  datasetId: string | null
+  versionId?: string | null
+  title?: string
+  frozen?: boolean
+}): RepresentationHandle | null {
+  if (!input.definition) return null
+  return createRepresentationHandle({
+    source: {
+      datasetId: input.datasetId,
+      versionId: input.versionId ?? null,
+    },
+    config: {
+      kind: 'analysis',
+      configVersion: ANALYSIS_DEFINITION_VERSION,
+      config: input.definition,
+    },
+    title: input.title,
+    frozen: input.frozen ?? input.versionId != null,
+  })
+}
+
+/**
+ * Build a sheet handle from a sheet-instance block's stable instance ID.
+ * Sheets stay editable surfaces; the grid owns its state.
+ */
+export function sheetToRepresentationHandle(input: {
+  instanceId: string | null
+  title?: string
+}): RepresentationHandle | null {
+  if (!input.instanceId) return null
+  return createRepresentationHandle({
+    source: { datasetId: null, versionId: null },
+    config: {
+      kind: 'sheet',
+      configVersion: SHEET_REPRESENTATION_CONFIG_VERSION,
+      config: { instanceId: input.instanceId },
+    },
+    title: input.title,
+    frozen: false,
+  })
+}
+
+/**
+ * Compare embed story: a comparative view has no block type of its own — it
+ * promotes to a canonical ChartSpec (VIEW-03 hand-off) and embeds as a chart
+ * representation through the existing chart path. Throws on an invalid
+ * config; the promoted spec passes the canonical ChartSpec validator.
+ */
+export function comparativeViewToRepresentationHandle(
+  config: ComparativeViewConfig,
+  columns?: ChartColumn[],
+  title?: string,
+): RepresentationHandle {
+  const errors = validateComparativeViewConfig(config)
+  if (errors.length > 0) {
+    throw new Error(`Invalid comparative view config: ${errors.join('; ')}`)
+  }
+  const spec = promoteToChartSpec(config, columns)
+  return createRepresentationHandle({
+    source: { datasetId: config.datasetId, versionId: config.versionId ?? null },
+    config: {
+      kind: 'chart',
+      configVersion: CHART_SPEC_VERSION,
+      config: spec,
+    },
+    title: title ?? `${config.viewType} compare`,
+    frozen: config.versionId != null,
   })
 }

@@ -20,6 +20,9 @@ export async function installSampleExtension(
     name: SAMPLE_EXTENSION_MANIFEST.name,
     version: SAMPLE_EXTENSION_MANIFEST.version,
     source: SAMPLE_EXTENSION_MANIFEST.source,
+    // The sample ships from a `dev:` source, untrusted under the EXT-03
+    // policy: the acknowledgement is explicit here, never silent.
+    acknowledgeUntrusted: true,
     manifest: {
       id: SAMPLE_EXTENSION_MANIFEST.id,
       name: SAMPLE_EXTENSION_MANIFEST.name,

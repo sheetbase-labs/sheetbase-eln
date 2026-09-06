@@ -14,6 +14,7 @@ import {
   HardDrive,
   KeyRound,
   Lock,
+  Puzzle,
   Settings,
   Shield,
   Terminal,
@@ -30,6 +31,7 @@ import {
   AdminDashboard,
   AdminDeployment,
   AdminDiagnostics,
+  AdminExtensions,
   AdminInspector,
   AdminMembers,
   AdminPipelines,
@@ -165,6 +167,15 @@ const ADMIN_SECTIONS: AdminSectionDef[] = [
     group: 'Integrations',
     icon: Workflow,
     capability: 'pipelines.manage',
+  },
+  {
+    key: 'extensions',
+    label: 'Extensions',
+    description:
+      'Install, update, disable and remove workspace extensions; review authority, compatibility and history.',
+    group: 'Integrations',
+    icon: Puzzle,
+    capability: 'extensions.manage',
   },
   {
     key: 'storage',
@@ -606,6 +617,9 @@ function AdminRoute() {
             ) : null}
             {activeSection === 'pipelines' ? (
               <AdminPipelines workspaceId={workspaceId} role={role ?? ''} />
+            ) : null}
+            {activeSection === 'extensions' ? (
+              <AdminExtensions workspaceId={workspaceId} role={role ?? ''} />
             ) : null}
             {activeSection === 'storage' ? (
               <AdminStorage workspaceId={workspaceId} />

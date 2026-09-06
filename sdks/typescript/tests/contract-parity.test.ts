@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   API_VERSION,
@@ -18,17 +19,20 @@ import {
 // SDK-03 compatibility: this package pins one public API contract version.
 // The committed contract and support matrix are the authoritative sources;
 // if the contract advances without this SDK following, the suite fails.
+// Resolved from this file's location so the suite runs from any cwd
+// (repo root, sdks/typescript, or CI job directory).
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const openApiInfo = (
   JSON.parse(
     readFileSync(
-      resolve(process.cwd(), "docs/api/openapi/external-api-v0.json"),
+      resolve(REPO_ROOT, "docs/api/openapi/external-api-v0.json"),
       "utf8",
     ),
   ) as { info: { version: string } }
 ).info;
 const matrixContract = (
   JSON.parse(
-    readFileSync(resolve(process.cwd(), "sdks/support-matrix.json"), "utf8"),
+    readFileSync(resolve(REPO_ROOT, "sdks/support-matrix.json"), "utf8"),
   ) as {
     contract: {
       apiVersion: string;

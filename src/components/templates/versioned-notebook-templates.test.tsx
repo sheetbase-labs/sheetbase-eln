@@ -518,3 +518,68 @@ describe('VersionedNotebookTemplatePanel', () => {
     })
   })
 })
+
+describe('REUSE-01 VersionedNotebookTemplatePanel — facets and requirement previews', () => {
+  it('previews instantiation needs for every catalogue entry', async () => {
+    mount()
+    await screen.findByText('Alpha template')
+    expect(
+      await screen.findByText('3 required · 2 optional · 1 placement'),
+    ).toBeTruthy()
+    expect(screen.getByText('1 required · 0 placements')).toBeTruthy()
+  })
+
+  it('breaks down required parameters for the selected version', async () => {
+    mount()
+    expect(await screen.findByText('Alpha required')).toBeTruthy()
+    expect(screen.getByText(/scalar · integer/)).toBeTruthy()
+  })
+
+  it('filters the catalogue by latest lifecycle', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.selectOptions(
+      screen.getByLabelText(/filter by lifecycle/i),
+      'draft',
+    )
+    expect(screen.queryByText('Alpha template')).toBeNull()
+    expect(
+      screen.getByText(/no notebook templates match the current filters/i),
+    ).toBeTruthy()
+    await user.selectOptions(
+      screen.getByLabelText(/filter by lifecycle/i),
+      'published',
+    )
+    expect(await screen.findByText('Alpha template')).toBeTruthy()
+  })
+
+  it('filters the catalogue by instantiation needs', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.selectOptions(
+      screen.getByLabelText(/filter by instantiation needs/i),
+      'none',
+    )
+    expect(screen.queryByText('Alpha template')).toBeNull()
+    await user.selectOptions(
+      screen.getByLabelText(/filter by instantiation needs/i),
+      'has-required',
+    )
+    expect(await screen.findByText('Alpha template')).toBeTruthy()
+    expect(await screen.findByText('Beta template')).toBeTruthy()
+  })
+
+  it('previews needs in the create-notebook dialog', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(
+      screen.getAllByRole('button', { name: 'Create notebook' })[0],
+    )
+    expect(
+      await screen.findByText(/this version needs:/i),
+    ).toBeTruthy()
+  })
+})

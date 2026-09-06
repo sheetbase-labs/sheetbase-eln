@@ -1004,3 +1004,44 @@ describe('ConfigurationWorkspace', () => {
     expect(screen.getByLabelText('Local calculation')).toBeTruthy()
   })
 })
+
+describe('REUSE-01 ConfigurationWorkspace — catalogue facets and definition previews', () => {
+  it('previews definition reuse requirements and usage for the latest version', async () => {
+    mount('steward', 'definition')
+    expect(await screen.findByText(/reuse requirements/i)).toBeTruthy()
+    expect(
+      screen.getByText(/no parameters · 0 bindings · identity: local/i),
+    ).toBeTruthy()
+    expect(
+      await screen.findByText(/no dependants discovered for this version/i),
+    ).toBeTruthy()
+  })
+  it('filters the reusable catalogue by text', async () => {
+    const user = userEvent.setup()
+    mount('steward', 'definition')
+    await screen.findByText('Sheet def')
+    await user.type(
+      screen.getByLabelText(
+        /filter sheet definitions and notebook templates/i,
+      ),
+      'zzz-no-match',
+    )
+    expect(screen.queryByText('Sheet def')).toBeNull()
+  })
+
+  it('filters the reusable catalogue by lifecycle', async () => {
+    const user = userEvent.setup()
+    mount('steward', 'definition')
+    await screen.findByText('Sheet def')
+    await user.selectOptions(
+      screen.getByLabelText(/filter by lifecycle/i),
+      'retired',
+    )
+    expect(screen.queryByText('Sheet def')).toBeNull()
+    await user.selectOptions(
+      screen.getByLabelText(/filter by lifecycle/i),
+      'active',
+    )
+    expect(await screen.findByText('Sheet def')).toBeTruthy()
+  })
+})

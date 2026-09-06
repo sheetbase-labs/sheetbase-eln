@@ -86,6 +86,12 @@ import {
 import type { SheetDefinitionUpgradePreview } from '#/lib/sheet-definition-upgrade'
 import type { SheetDefinitionUpgradeDecisionDraft } from '#/lib/notebook-template-upgrade'
 import type { WorkspaceRole } from '#/lib/workspace-admin'
+import {
+  parentLifecycleBadgeVariant,
+  sheetDefinitionNeedsLine,
+  summarizeSheetDefinitionRequirements,
+  versionLifecycleBadgeVariant,
+} from '#/lib/reuse-discovery'
 import { cn } from '#/lib/utils'
 
 export type ConfigurationKind =
@@ -151,6 +157,13 @@ export function ConfigurationWorkspace({
   const canEdit = hasCapability(role, 'schema.edit')
   const canPublish = hasCapability(role, 'schema.publish')
   const canRetire = hasCapability(role, 'schema.retire')
+  // REUSE-01: purpose/context facets for the versioned definition/template
+  // lists, from stable metadata already on the rows (name/key text search +
+  // parent lifecycle). No free-text purpose inference.
+  const [catalogueSearch, setCatalogueSearch] = useState('')
+  const [catalogueLifecycle, setCatalogueLifecycle] = useState<
+    'all' | 'active' | 'retired'
+  >('all')
   const schemasQuery = useQuery({
     queryKey: ['configure', workspaceId, 'schemas'],
     queryFn: () => listCanonicalDatasetSchemaDefinitions(client),
@@ -160,12 +173,32 @@ export function ConfigurationWorkspace({
     queryKey: ['configure', workspaceId, 'definitions'],
     queryFn: () => fetchSheetDefinitions(client),
   })
-  const definitions = definitionsQuery.data ?? []
+  const definitions = useMemo(() => {
+    const needle = catalogueSearch.trim().toLowerCase()
+    return (definitionsQuery.data ?? []).filter(
+      (definition) =>
+        (catalogueLifecycle === 'all' ||
+          definition.lifecycle === catalogueLifecycle) &&
+        (!needle ||
+          definition.name.toLowerCase().includes(needle) ||
+          definition.key.toLowerCase().includes(needle)),
+    )
+  }, [definitionsQuery.data, catalogueSearch, catalogueLifecycle])
   const notebookTemplatesQuery = useQuery({
     queryKey: ['configure', workspaceId, 'notebook-templates'],
     queryFn: () => fetchNotebookTemplates(client, { limit: 200 }),
   })
-  const notebookTemplates = notebookTemplatesQuery.data ?? []
+  const notebookTemplates = useMemo(() => {
+    const needle = catalogueSearch.trim().toLowerCase()
+    return (notebookTemplatesQuery.data ?? []).filter(
+      (template) =>
+        (catalogueLifecycle === 'all' ||
+          template.lifecycle === catalogueLifecycle) &&
+        (!needle ||
+          template.name.toLowerCase().includes(needle) ||
+          template.key.toLowerCase().includes(needle)),
+    )
+  }, [notebookTemplatesQuery.data, catalogueSearch, catalogueLifecycle])
   const vocabulariesQuery = useInfiniteQuery({
     queryKey: ['configure', workspaceId, 'vocabularies'],
     queryFn: ({ pageParam }) =>
@@ -251,6 +284,38 @@ export function ConfigurationWorkspace({
             No canonical Dataset Schema Definitions yet.
           </p>
         ) : null}
+        <div className="mt-4 space-y-2 px-2">
+          <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Reusable catalogue
+          </p>
+          <label htmlFor="configure-catalogue-search" className="sr-only">
+            Filter Sheet Definitions and Notebook Templates
+          </label>
+          <Input
+            id="configure-catalogue-search"
+            value={catalogueSearch}
+            onChange={(event) => setCatalogueSearch(event.target.value)}
+            placeholder="Filter definitions and templates"
+            className="h-8 text-xs"
+          />
+          <label htmlFor="configure-catalogue-lifecycle" className="sr-only">
+            Filter by lifecycle
+          </label>
+          <Select
+            id="configure-catalogue-lifecycle"
+            value={catalogueLifecycle}
+            onChange={(event) =>
+              setCatalogueLifecycle(
+                event.target.value as typeof catalogueLifecycle,
+              )
+            }
+            className="h-8 text-xs"
+          >
+            <option value="all">All lifecycles</option>
+            <option value="active">Active</option>
+            <option value="retired">Retired</option>
+          </Select>
+        </div>
         <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           Sheet Definitions
         </p>
@@ -270,7 +335,10 @@ export function ConfigurationWorkspace({
             }
           >
             <span className="truncate">{definition.name}</span>
-            <Badge variant="outline" className="ml-auto capitalize">
+            <Badge
+              variant={parentLifecycleBadgeVariant(definition.lifecycle)}
+              className="ml-auto capitalize"
+            >
               {definition.lifecycle}
             </Badge>
           </CatalogueButton>
@@ -298,7 +366,10 @@ export function ConfigurationWorkspace({
             }
           >
             <span className="truncate">{template.name}</span>
-            <Badge variant="outline" className="ml-auto capitalize">
+            <Badge
+              variant={parentLifecycleBadgeVariant(template.lifecycle)}
+              className="ml-auto capitalize"
+            >
               {template.lifecycle}
             </Badge>
           </CatalogueButton>
@@ -1223,6 +1294,19 @@ function SheetDefinitionPlane({
     },
     enabled: Boolean(definitionId),
   })
+  // REUSE-01: usage/dependency visibility at catalogue level for the latest
+  // version — the same discover_object_dependencies surface templates use.
+  const usageQuery = useQuery({
+    queryKey: ['configure', 'definition-usage', latestVersion?.id],
+    queryFn: () =>
+      discoverObjectDependencies(
+        client,
+        'sheet_definition_version',
+        latestVersion!.id,
+      ),
+    enabled: Boolean(latestVersion),
+  })
+  const usageDependencies = usageQuery.data?.dependencies ?? []
   useEffect(() => {
     setConfigurationText(
       latestVersion ? JSON.stringify(latestVersion.configuration, null, 2) : '',
@@ -1508,14 +1592,74 @@ function SheetDefinitionPlane({
         </Button>
       </div>
       {latestVersion ? (
-        <p className="text-xs text-muted-foreground">
-          Latest version v{latestVersion.version} · {latestVersion.lifecycle}
-        </p>
+        <div className="space-y-2 rounded-md border p-3">
+          <p className="text-xs font-medium">
+            Reuse requirements · v{latestVersion.version}{' '}
+            <Badge
+              variant={versionLifecycleBadgeVariant(latestVersion.lifecycle)}
+              className="ml-1 capitalize"
+            >
+              {latestVersion.lifecycle}
+            </Badge>
+          </p>
+          {(() => {
+            const summary = summarizeSheetDefinitionRequirements(
+              latestVersion.configuration,
+            )
+            return (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  {sheetDefinitionNeedsLine(summary)} ·{' '}
+                  {summary.columnCount}{' '}
+                  {summary.columnCount === 1 ? 'column' : 'columns'}
+                  {summary.joinCount > 0
+                    ? ` · ${summary.joinCount} ${summary.joinCount === 1 ? 'join' : 'joins'}`
+                    : ''}
+                  {summary.writeBackRuleCount > 0
+                    ? ` · ${summary.writeBackRuleCount} write-back ${summary.writeBackRuleCount === 1 ? 'rule' : 'rules'}`
+                    : ''}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Reusing this version pins its configuration: consuming Sheet
+                  Instances resolve the listed parameters and supply a dataset
+                  for each of the {summary.bindingCount}{' '}
+                  {summary.bindingCount === 1 ? 'binding' : 'bindings'}.
+                  Preview consumer upgrades before applying them below.
+                </p>
+              </>
+            )
+          })()}
+        </div>
       ) : (
         <p className="text-xs text-muted-foreground">
           No versions available for this Definition yet.
         </p>
       )}
+      {latestVersion ? (
+        <div className="space-y-2 rounded-md border p-3">
+          <p className="text-xs font-medium">
+            Usage & dependencies · v{latestVersion.version}
+          </p>
+          {usageQuery.isLoading ? (
+            <p className="text-xs text-muted-foreground">
+              Loading usage…
+            </p>
+          ) : usageDependencies.length > 0 ? (
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {usageDependencies.map((dependency) => (
+                <li key={`${dependency.kind}:${dependency.id}`}>
+                  {dependency.label} · {dependency.liveness} ·{' '}
+                  {dependency.effect}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No dependants discovered for this version.
+            </p>
+          )}
+        </div>
+      ) : null}
       {versions.length ? (
         <Table>
           <TableHeader>
@@ -1529,7 +1673,14 @@ function SheetDefinitionPlane({
             {[...versions].reverse().map((version) => (
               <TableRow key={version.id}>
                 <TableCell>v{version.version}</TableCell>
-                <TableCell>{version.lifecycle}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant={versionLifecycleBadgeVariant(version.lifecycle)}
+                    className="capitalize"
+                  >
+                    {version.lifecycle}
+                  </Badge>
+                </TableCell>
                 <TableCell>
                   {version.publishedAt ? formatDate(version.publishedAt) : '—'}
                 </TableCell>

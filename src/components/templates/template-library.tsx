@@ -53,6 +53,8 @@ import {
   isTemplateKind,
   TEMPLATE_KIND_LABEL,
 } from '#/lib/templates'
+import { protocolTemplateNeedsLine } from '#/lib/reuse-discovery'
+import type { PurposeFacetOption } from '#/lib/reuse-discovery'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
 export interface TemplateProject {
@@ -142,6 +144,9 @@ export function TemplateFilters({
   onOwnershipChange,
   view = 'list',
   onViewChange,
+  purposeFilter = 'all',
+  onPurposeChange,
+  purposeOptions = [],
 }: {
   statusFilter: string
   onStatusChange: (value: string) => void
@@ -158,6 +163,11 @@ export function TemplateFilters({
   /** TPL-001: grid/list view. */
   view?: TemplateView
   onViewChange?: (value: TemplateView) => void
+  /** REUSE-01: purpose facet (all / tag). Options are the tag vocabulary
+   * already in use on the listed templates — never free-text inference. */
+  purposeFilter?: string
+  onPurposeChange?: (value: string) => void
+  purposeOptions?: PurposeFacetOption[]
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -192,7 +202,29 @@ export function TemplateFilters({
         <option value="draft">Draft</option>
         <option value="active">Active</option>
         <option value="under_review">Under review</option>
+        <option value="archived">Archived</option>
       </select>
+
+      {onPurposeChange ? (
+        <>
+          <label htmlFor="template-purpose" className="sr-only">
+            Filter by purpose
+          </label>
+          <select
+            id="template-purpose"
+            value={purposeFilter}
+            onChange={(e) => onPurposeChange(e.target.value)}
+            className="h-9 max-w-48 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="all">All purposes</option>
+            {purposeOptions.map((option) => (
+              <option key={option.tag} value={option.tag}>
+                {option.tag} ({option.count})
+              </option>
+            ))}
+          </select>
+        </>
+      ) : null}
 
       {onOwnershipChange ? (
         <label htmlFor="template-ownership" className="sr-only">
@@ -603,6 +635,9 @@ export function TemplateList({
                     {usageCount > 0
                       ? ` · ${usageCount} ${usageCount === 1 ? 'use' : 'uses'}`
                       : ''}
+                    {template.tags.length > 0
+                      ? ` · ${template.tags.slice(0, 3).join(', ')}${template.tags.length > 3 ? ` +${template.tags.length - 3}` : ''}`
+                      : ''}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
@@ -708,6 +743,14 @@ function TemplateGridCard({
             <span className="block truncate font-mono text-xs text-muted-foreground">
               {template.identifier}
             </span>
+            {template.tags.length > 0 ? (
+              <span className="block truncate text-xs text-muted-foreground">
+                {template.tags.slice(0, 3).join(' · ')}
+                {template.tags.length > 3
+                  ? ` +${template.tags.length - 3}`
+                  : ''}
+              </span>
+            ) : null}
           </span>
           {onToggleFavourite ? (
             <FavouriteToggle
@@ -853,6 +896,7 @@ export function TemplateInspector({
   isInstantiating,
   instantiationError,
   instantiationSuccess,
+  blockCount,
   usageCount = 0,
   linkedRecords = [],
   currentUserId = null,
@@ -874,6 +918,8 @@ export function TemplateInspector({
   instantiationSuccess: { recordId: string; projectId: string } | null
   /** TPL-001: number of records instantiated from this template. */
   usageCount?: number
+  /** REUSE-01: block count for the requirements preview. */
+  blockCount?: number
   /** TPL-001: records instantiated from this template. */
   linkedRecords?: TemplateLinkedRecord[]
   /** TPL-001: current user id + workspace role for ownership/permissions. */
@@ -949,6 +995,14 @@ export function TemplateInspector({
           </dd>
         </div>
         <div className="flex gap-2">
+          <dt className="w-20 shrink-0 text-muted-foreground">Purpose</dt>
+          <dd className="text-xs text-muted-foreground">
+            {template.tags.length > 0
+              ? template.tags.join(' · ')
+              : 'No purposes assigned'}
+          </dd>
+        </div>
+        <div className="flex gap-2">
           <dt className="w-20 shrink-0 text-muted-foreground">Usage</dt>
           <dd className="text-xs tabular-nums text-muted-foreground">
             {usageCount} {usageCount === 1 ? 'record' : 'records'}
@@ -1007,6 +1061,17 @@ export function TemplateInspector({
             ))}
           </ul>
         )}
+      </InspectorSection>
+
+      <InspectorSection title="Requirements">
+        <p className="text-xs text-muted-foreground">
+          {protocolTemplateNeedsLine({
+            blockCount,
+            usageCount,
+            instantiable: canInstantiate,
+            archived: Boolean(template.archivedAt),
+          })}
+        </p>
       </InspectorSection>
 
       <InspectorSection title="Approvals">

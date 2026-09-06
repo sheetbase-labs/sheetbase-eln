@@ -44,6 +44,17 @@ import {
 } from '#/lib/notebook-template-data'
 import { parseNotebookTemplateConfiguration } from '#/lib/notebook-template'
 import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
+import {
+  matchesNotebookTemplateNeeds,
+  notebookTemplateNeedsLine,
+  parentLifecycleBadgeVariant,
+  summarizeNotebookTemplateRequirements,
+  versionLifecycleBadgeVariant,
+} from '#/lib/reuse-discovery'
+import type {
+  NotebookTemplateNeedsFilter,
+  NotebookTemplateRequirementSummary,
+} from '#/lib/reuse-discovery'
 import { buildParameterInputs } from '#/lib/parameter-input'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type {
@@ -59,7 +70,6 @@ import {
   fetchSheetDefinitionVersions,
   sheetDefinitionDataClient,
 } from '#/lib/sheet-definition-data'
-
 function emptyNotebookTemplateConfiguration(): NotebookTemplateConfiguration {
   return {
     formatVersion: 1,
@@ -107,6 +117,11 @@ export function VersionedNotebookTemplatePanel({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [lifecycleFilter, setLifecycleFilter] = useState<
+    'all' | 'published' | 'draft' | 'retired'
+  >('all')
+  const [needsFilter, setNeedsFilter] =
+    useState<NotebookTemplateNeedsFilter>('all')
   const [draftOpen, setDraftOpen] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
@@ -179,6 +194,37 @@ export function VersionedNotebookTemplatePanel({
       selectedTemplateId ? versionsByTemplate.get(selectedTemplateId) : [],
     [selectedTemplateId, versionsByTemplate],
   )
+  // REUSE-01: per-template latest-version requirement summaries back the
+  // lifecycle + needs facets and the catalogue "Needs" column, so every
+  // entry previews what instantiation needs before the user opens it.
+  const summariesByTemplate = useMemo(() => {
+    const map = new Map<string, NotebookTemplateRequirementSummary | null>()
+    for (const template of templates.data ?? []) {
+      const latest = versionsByTemplate.get(template.id)?.[0] ?? null
+      map.set(
+        template.id,
+        latest
+          ? summarizeNotebookTemplateRequirements(latest.configuration)
+          : null,
+      )
+    }
+    return map
+  }, [templates.data, versionsByTemplate])
+  const visibleTemplates = useMemo(
+    () =>
+      (templates.data ?? []).filter((template) => {
+        const latest = versionsByTemplate.get(template.id)?.[0] ?? null
+        if (lifecycleFilter !== 'all' && latest?.lifecycle !== lifecycleFilter)
+          return false
+        if (needsFilter !== 'all') {
+          const summary = summariesByTemplate.get(template.id)
+          if (!summary || !matchesNotebookTemplateNeeds(summary, needsFilter))
+            return false
+        }
+        return true
+      }),
+    [templates.data, versionsByTemplate, summariesByTemplate, lifecycleFilter, needsFilter],
+  )
   const selectedVersion =
     selectedTemplateVersions?.find(
       (version) => version.id === selectedVersionId,
@@ -188,7 +234,7 @@ export function VersionedNotebookTemplatePanel({
     null
 
   useEffect(() => {
-    const firstTemplateId = templates.data?.[0]?.id ?? null
+    const firstTemplateId = visibleTemplates[0]?.id ?? null
     if (
       !isTemplateSelectionControlled &&
       !selectedTemplateId &&
@@ -196,7 +242,7 @@ export function VersionedNotebookTemplatePanel({
     ) {
       setInternalSelectedTemplateId(firstTemplateId)
     }
-  }, [isTemplateSelectionControlled, selectedTemplateId, templates.data])
+  }, [isTemplateSelectionControlled, selectedTemplateId, visibleTemplates])
 
   useEffect(() => {
     if (!selectedTemplateId) return
@@ -426,33 +472,72 @@ export function VersionedNotebookTemplatePanel({
           ) : null}
         </div>
       </div>
-      <label htmlFor="notebook-template-search" className="sr-only">
-        Search notebook templates
-      </label>
-      <Input
-        id="notebook-template-search"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search by name or key"
-        className="max-w-md"
-      />
+      <div className="flex max-w-2xl flex-wrap items-center gap-2">
+        <label htmlFor="notebook-template-search" className="sr-only">
+          Search notebook templates
+        </label>
+        <Input
+          id="notebook-template-search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by name or key"
+          className="min-w-48 flex-1"
+        />
+        <label htmlFor="notebook-template-lifecycle" className="sr-only">
+          Filter by lifecycle
+        </label>
+        <Select
+          id="notebook-template-lifecycle"
+          value={lifecycleFilter}
+          onChange={(event) =>
+            setLifecycleFilter(
+              event.target.value as typeof lifecycleFilter,
+            )
+          }
+          className="w-auto"
+        >
+          <option value="all">All lifecycles</option>
+          <option value="published">Published</option>
+          <option value="draft">Draft</option>
+          <option value="retired">Retired</option>
+        </Select>
+        <label htmlFor="notebook-template-needs" className="sr-only">
+          Filter by instantiation needs
+        </label>
+        <Select
+          id="notebook-template-needs"
+          value={needsFilter}
+          onChange={(event) =>
+            setNeedsFilter(event.target.value as NotebookTemplateNeedsFilter)
+          }
+          className="w-auto"
+        >
+          <option value="all">All needs</option>
+          <option value="none">No parameters</option>
+          <option value="optional-only">Optional only</option>
+          <option value="has-required">Has required</option>
+        </Select>
+      </div>
       {templates.isLoading || versions.isLoading ? (
         <p className="text-sm text-muted-foreground" role="status">
           Loading notebook templates…
         </p>
-      ) : templates.data?.length ? (
+      ) : visibleTemplates.length ? (
         <Table containerClassName="rounded-md border">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Latest</TableHead>
+              <TableHead>Needs</TableHead>
               <TableHead>Updated</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {templates.data.map((template) => {
+            {visibleTemplates.map((template) => {
               const templateVersions = versionsByTemplate.get(template.id) ?? []
+              const latest = templateVersions[0] ?? null
+              const summary = summariesByTemplate.get(template.id) ?? null
               const published = templateVersions.find(
                 (version) => version.lifecycle === 'published',
               )
@@ -466,25 +551,32 @@ export function VersionedNotebookTemplatePanel({
                     <p className="font-mono text-xs text-muted-foreground">
                       {template.key}
                     </p>
+                    <Badge
+                      variant={parentLifecycleBadgeVariant(template.lifecycle)}
+                      className="mt-1 text-xs"
+                    >
+                      {template.lifecycle}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    {templateVersions.length === 0 ? (
-                      '—'
-                    ) : (
+                    {latest ? (
                       <span className="inline-flex items-center gap-2">
-                        <span>v{templateVersions[0].version}</span>
+                        <span>v{latest.version}</span>
                         <Badge
-                          variant={
-                            templateVersions[0].lifecycle === 'published'
-                              ? 'success'
-                              : 'outline'
-                          }
+                          variant={versionLifecycleBadgeVariant(
+                            latest.lifecycle,
+                          )}
                           className="text-xs"
                         >
-                          {templateVersions[0].lifecycle}
+                          {latest.lifecycle}
                         </Badge>
                       </span>
+                    ) : (
+                      '—'
                     )}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {summary ? notebookTemplateNeedsLine(summary) : '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatDate(template.updatedAt)}
@@ -538,7 +630,7 @@ export function VersionedNotebookTemplatePanel({
         </Table>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No notebook templates match that search.
+          No notebook templates match the current filters.
         </p>
       )}
       {templates.data && templates.data.length === 100 ? (
@@ -580,11 +672,7 @@ export function VersionedNotebookTemplatePanel({
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={
-                        version.lifecycle === 'published'
-                          ? 'success'
-                          : 'outline'
-                      }
+                      variant={versionLifecycleBadgeVariant(version.lifecycle)}
                       className="text-xs"
                     >
                       {version.lifecycle}
@@ -640,10 +728,46 @@ export function VersionedNotebookTemplatePanel({
                 <h4 className="text-sm font-semibold">
                   Selected version details (v{selectedVersion.version})
                 </h4>
-                <p className="text-xs text-muted-foreground">
-                  {selectedVersion.configuration.placements.length} placements ·{' '}
-                  {selectedVersion.configuration.parameters.length} parameters
-                </p>
+                {(() => {
+                  const summary = summarizeNotebookTemplateRequirements(
+                    selectedVersion.configuration,
+                  )
+                  return (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        {notebookTemplateNeedsLine(summary)}
+                        {summary.placements.sheet > 0
+                          ? ` (${summary.placements.sheet} sheet, ${summary.placements.narrative} narrative, ${summary.placements.placeholder} placeholder)`
+                          : summary.placements.total > 0
+                            ? ` (${summary.placements.narrative} narrative, ${summary.placements.placeholder} placeholder)`
+                            : ''}
+                        {summary.mappedTemplateParameterIds.length > 0
+                          ? ` · ${summary.mappedTemplateParameterIds.length} of ${summary.parameterCount} wired into sheets`
+                          : ''}
+                      </p>
+                      {summary.requiredParameters.length > 0 ? (
+                        <ul className="space-y-1 text-xs">
+                          {summary.requiredParameters.map((parameter) => (
+                            <li key={parameter.id}>
+                              <span className="font-medium">
+                                {parameter.label}
+                              </span>{' '}
+                              <span className="text-muted-foreground">
+                                ({parameter.key} · {parameter.detail}
+                                {parameter.hasDefault ? ' · has default' : ''})
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          No required parameters — instantiation needs only a
+                          title and target project.
+                        </p>
+                      )}
+                    </>
+                  )
+                })()}
                 <Textarea
                   value={JSON.stringify(selectedVersion.configuration, null, 2)}
                   readOnly
@@ -1013,6 +1137,17 @@ export function VersionedNotebookTemplatePanel({
               emptyLabel="No projects match that search."
             />
           </Field>
+          {instantiateVersion ? (
+            <p className="text-xs text-muted-foreground">
+              This version needs:{' '}
+              {notebookTemplateNeedsLine(
+                summarizeNotebookTemplateRequirements(
+                  instantiateVersion.configuration,
+                ),
+              )}
+              . Resolve each input before creating the Notebook.
+            </p>
+          ) : null}
           {instantiateVersion?.configuration.parameters.length ? (
             <TemplateParameterInputs
               client={notebookTemplateDataClient}

@@ -146,3 +146,241 @@ export async function fetchComposedSheetRows(
       : {}),
   }
 }
+/** GRID-05 — one server composition window. The server clamps a single
+ * `query_sheet_instance_rows` window to this many rows; larger Sheets page
+ * with offset/limit and merge windows (see `mergeComposedSheetSnapshots`). */
+export const COMPOSED_SHEET_PAGE_SIZE = 200
+
+/**
+ * GRID-05 — merged pages must share one authoritative revision. Offset
+ * paging is only stable within a single revision: a concurrent Dataset or
+ * Record change that moves the Instance revision between page fetches would
+ * silently duplicate or skip rows if windows from both revisions were
+ * concatenated. `fetchComposedSheetPaged` pins the revision instead, so a
+ * mixed-revision merge can never reach the grid.
+ */
+export interface ComposedSheetPagedSnapshot {
+  /** Coherent single-revision merge of the loaded pages. */
+  snapshot: ComposedSheetSnapshot
+  /** Revision pinned by the first page every merged window agrees on. */
+  pinnedRevision: number
+  /** True when a mid-paging revision move forced a restart from offset 0. */
+  restarted: boolean
+  /** Visible status-bar notice for a restart; null when paging was coherent. */
+  notice: string | null
+  /** Page fetches performed by this call (linear in newly requested pages). */
+  fetchedPages: number
+}
+
+/**
+ * GRID-05 review fix — genuinely incremental paging with a revision/snapshot
+ * boundary.
+ *
+ * `previous` is the already-merged snapshot covering `previousPageCount`
+ * pages; only the missing windows are fetched (offset = pages already
+ * loaded × page size), never pages 1..N again. The first page pins the
+ * dataset revision; a later window that disagrees restarts paging from
+ * offset 0 against the new revision with a visible notice, so the grid
+ * either shows one coherent revision or says so. Restart is the correct
+ * boundary (rather than freezing stale rows) because write-back commits
+ * against `composition.revision` — a frozen snapshot would only produce
+ * stale-revision rejections — and it reuses the established stale-revision
+ * re-read pattern (re-read authoritative state, retry once). A second move
+ * mid-restart returns the fresh first window coherently with the same
+ * notice instead of looping.
+ */
+export async function fetchComposedSheetPaged(
+  instanceId: string,
+  options: {
+    pageCount?: number
+    pageSize?: number
+    previous?: ComposedSheetSnapshot | null
+    previousPageCount?: number
+    fetchPage?: (
+      offset: number,
+      limit: number,
+    ) => Promise<ComposedSheetSnapshot>
+    client?: DataClient
+    maxRestarts?: number
+  } = {},
+): Promise<ComposedSheetPagedSnapshot> {
+  const pageCount = Math.max(1, Math.floor(options.pageCount ?? 1))
+  const pageSize = options.pageSize ?? COMPOSED_SHEET_PAGE_SIZE
+  const maxRestarts = options.maxRestarts ?? 1
+  const client = options.client ?? createDataClient()
+  const fetchPage =
+    options.fetchPage ??
+    ((offset: number, limit: number) =>
+      fetchComposedSheetRows(instanceId, { offset, limit }, client))
+  let fetchedPages = 0
+  const pull = async (page: number): Promise<ComposedSheetSnapshot> => {
+    fetchedPages += 1
+    return fetchPage(page * pageSize, pageSize)
+  }
+
+  // A previous merge that already ran dry needs no fetch at all.
+  if (options.previous && (options.previousPageCount ?? 0) >= pageCount) {
+    return {
+      snapshot: options.previous,
+      pinnedRevision: options.previous.revision,
+      restarted: false,
+      notice: null,
+      fetchedPages,
+    }
+  }
+  if (
+    options.previous &&
+    (options.previousPageCount ?? 0) > 0 &&
+    !options.previous.hasMore
+  ) {
+    return {
+      snapshot: options.previous,
+      pinnedRevision: options.previous.revision,
+      restarted: false,
+      notice: null,
+      fetchedPages,
+    }
+  }
+
+  const collect = async (
+    wanted: number,
+  ): Promise<{ pages: ComposedSheetSnapshot[]; pin: number }> => {
+    const pages: ComposedSheetSnapshot[] = []
+    for (let page = 0; page < wanted; page += 1) {
+      const next = await pull(page)
+      const pin = pages[0]?.revision
+      if (pin !== undefined && next.revision !== pin) {
+        throw { moved: true }
+      }
+      pages.push(next)
+      if (!next.hasMore) break
+    }
+    const first = pages.at(0)
+    if (!first) throw new Error('no pages')
+    return { pages, pin: first.revision }
+  }
+
+  // Incremental path: the cached merge already covers previousPageCount
+  // windows at its own revision — fetch only the missing window(s). A drift
+  // here consumes the restart below, so the notice survives the handoff.
+  let restarts = 0
+  const cachedCount = Math.max(0, Math.floor(options.previousPageCount ?? 0))
+  if (options.previous && cachedCount > 0) {
+    const pin = options.previous.revision
+    const pages: ComposedSheetSnapshot[] = []
+    try {
+      for (let page = cachedCount; page < pageCount; page += 1) {
+        const next = await pull(page)
+        if (next.revision !== pin) throw { moved: true }
+        pages.push(next)
+        if (!next.hasMore) break
+      }
+      const merged = mergeComposedSheetSnapshots([options.previous, ...pages])
+      if (!merged) {
+        throw new Error(
+          'This Sheet could not be composed from its Dataset or Record bindings.',
+        )
+      }
+      return {
+        snapshot: merged,
+        pinnedRevision: pin,
+        restarted: false,
+        notice: null,
+        fetchedPages,
+      }
+    } catch (error) {
+      if (
+        !error ||
+        typeof error !== 'object' ||
+        !('moved' in error) ||
+        maxRestarts < 1
+      ) {
+        throw error
+      }
+      // Fall through to a full restart from offset 0 below.
+      restarts += 1
+    }
+  }
+
+  // Full load (first page, post-invalidation refetch, or a restart after a
+  // mid-paging revision move): pin on page 0 and restart once on drift.
+  for (;;) {
+    try {
+      const { pages: done, pin } = await collect(pageCount)
+      const merged = mergeComposedSheetSnapshots(done)
+      if (!merged) {
+        throw new Error(
+          'This Sheet could not be composed from its Dataset or Record bindings.',
+        )
+      }
+      return {
+        snapshot: merged,
+        pinnedRevision: pin,
+        restarted: restarts > 0,
+        notice:
+          restarts > 0
+            ? 'The Sheet changed while loading more rows — restarted from the first rows against the latest revision.'
+            : null,
+        fetchedPages,
+      }
+    } catch (error) {
+      const moved =
+        !!error && typeof error === 'object' && 'moved' in error
+      if (!moved) throw error
+      if (restarts < maxRestarts) {
+        restarts += 1
+        continue
+      }
+      // The revision kept moving under paging. Fall back to the fresh first
+      // window alone: always coherent at the latest revision with `hasMore`
+      // intact, so the grid shows current rows and Load more stays
+      // available instead of looping or mixing revisions.
+      const fresh = await pull(0)
+      const merged = mergeComposedSheetSnapshots([fresh])
+      if (!merged) {
+        throw new Error(
+          'This Sheet could not be composed from its Dataset or Record bindings.',
+        )
+      }
+      return {
+        snapshot: merged,
+        pinnedRevision: fresh.revision,
+        restarted: true,
+        notice:
+          'The Sheet changed while loading more rows — restarted from the first rows against the latest revision.',
+        fetchedPages,
+      }
+      }
+}
+}
+
+/**
+ * GRID-05 — merge paged composition windows into one snapshot for the grid.
+ * Pages must arrive in offset order and share one authoritative revision
+ * (see `fetchComposedSheetPaged`, which pins the revision before merging);
+ * row identity stays stable because every rowKey is identity-derived (never
+ * a position), so pending edits and write-back attribution survive paging.
+ * `boundProjection.columns` are window-invariant; only rows concatenate.
+ * `hasMore` is the last page's — the grid keeps paging until it is false.
+ */
+export function mergeComposedSheetSnapshots(
+  pages: ComposedSheetSnapshot[],
+): ComposedSheetSnapshot | null {
+  const first = pages.at(0)
+  if (!first) return null
+  const last = pages.at(-1)
+  return {
+    ...first,
+    offset: first.offset,
+    hasMore: last?.hasMore ?? false,
+    rows: pages.flatMap((page) => page.rows),
+    ...(first.boundProjection
+      ? {
+          boundProjection: {
+            columns: first.boundProjection.columns,
+            rows: pages.flatMap((page) => page.boundProjection?.rows ?? []),
+          },
+        }
+      : {}),
+  }
+}

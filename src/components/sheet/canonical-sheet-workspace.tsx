@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type Handsontable from 'handsontable/base'
 import type { BaseEditor } from 'handsontable/editors/baseEditor'
@@ -32,7 +32,13 @@ import type {
   CanonicalSheetGridColumn,
   HotFilterConditionStack,
 } from '#/lib/canonical-sheet-grid'
-import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
+import {
+  fetchComposedSheetPaged,
+} from '#/lib/sheet-composition-data'
+import type {
+  ComposedSheetPagedSnapshot,
+  ComposedSheetSnapshot,
+} from '#/lib/sheet-composition-data'
 import { selectableFieldOptions } from '#/lib/field-presentation'
 import {
   fetchSheetInstance,
@@ -302,16 +308,61 @@ export function CanonicalSheetEditor({
     (typeof errors)[number] | null
   >(null)
 
+  // GRID-05: explicit row windowing — the server caps one composition window
+  // at COMPOSED_SHEET_PAGE_SIZE rows and reports overflow via `hasMore`.
+  // Page count grows only through the visible "Load more" action. Each step
+  // fetches ONLY the newly requested window (offset = rows already loaded)
+  // by reusing the previous merged snapshot from the query cache — never
+  // pages 1..N again. Rows merge by stable rowKey (never positions), so
+  // pending edits and write-back attribution survive paging. The first
+  // window pins the authoritative revision; a concurrent change that moves
+  // the revision mid-paging restarts from offset 0 with a visible notice
+  // instead of silently duplicating or skipping rows.
+  const [pageCount, setPageCount] = useState(1)
+  useEffect(() => {
+    setPageCount(1)
+  }, [instance.id])
   const composition = useQuery({
-    queryKey: ['composed-sheet', instance.id],
-    queryFn: () => fetchComposedSheetRows(instance.id, { limit: 200 }, client),
+    queryKey: ['composed-sheet', instance.id, pageCount],
+    queryFn: async () => {
+      const previous =
+        pageCount > 1
+          ? queryClient.getQueryData<ComposedSheetPagedSnapshot>([
+              'composed-sheet',
+              instance.id,
+              pageCount - 1,
+            ])
+          : undefined
+      const previousState =
+        pageCount > 1
+          ? queryClient.getQueryState([
+              'composed-sheet',
+              instance.id,
+              pageCount - 1,
+            ])
+          : undefined
+      // A write-back/link/create invalidation marks every composed-sheet key
+      // stale: the cached merge is no longer authoritative, so refetch from
+      // offset 0 instead of appending a fresh window onto stale rows.
+      const reusable =
+        previous && !previousState?.isInvalidated ? previous : undefined
+      return fetchComposedSheetPaged(instance.id, {
+        pageCount,
+        previous: reusable?.snapshot ?? null,
+        previousPageCount: reusable ? pageCount - 1 : 0,
+        client,
+      })
+    },
     enabled: composed,
+    placeholderData: keepPreviousData,
   })
+  const composedSnapshot = composition.data?.snapshot ?? null
 
   const rowKeysForCalc = useMemo(() => {
-    if (composition.data) return composition.data.rows.map((row) => row.rowKey)
+    if (composedSnapshot)
+      return composedSnapshot.rows.map((row) => row.rowKey)
     return Object.keys(instance.state.localValues)
-  }, [composition.data, instance.state.localValues])
+  }, [composedSnapshot, instance.state.localValues])
 
   const calculations = useQuery({
     queryKey: [
@@ -351,10 +402,10 @@ export function CanonicalSheetEditor({
     () =>
       canonicalSheetGridMatrix({
         instance,
-        composition: composition.data ?? null,
+        composition: composedSnapshot,
         calculationResults: calculations.data?.mapped,
       }),
-    [instance, composition.data, calculations.data],
+    [instance, composedSnapshot, calculations.data],
   )
   // GRID-04: presentation (sort/filter/freeze/hide/widths/order) is local
   // working state. It resequences the *display* columns only — the canonical
@@ -372,11 +423,13 @@ export function CanonicalSheetEditor({
   // hidden column survives.
   const canonicalMatrixRef = useRef(canonicalMatrix)
   canonicalMatrixRef.current = canonicalMatrix
-  const compositionRef = useRef(composition.data ?? null)
-  compositionRef.current = composition.data ?? null
+  const compositionRef = useRef<ComposedSheetSnapshot | null>(
+    composedSnapshot,
+  )
+  compositionRef.current = composedSnapshot
 
   const modelKey = sheetRecordTargetModelKey(
-    composition.data?.definitionConfiguration,
+    composedSnapshot?.definitionConfiguration,
   )
   const fields = useQuery({
     queryKey: ['model-fields', modelKey],
@@ -390,12 +443,12 @@ export function CanonicalSheetEditor({
     enabled: picker !== null && Boolean(picker.modelKey),
   })
   const actions = resolveSheetRecordActions(
-    composition.data?.definitionConfiguration ?? null,
+    composedSnapshot?.definitionConfiguration ?? null,
   )
   const selectedColumn = matrix.columns.at(selected.col)
   const selectedRowKey = matrix.rowKeys.at(selected.row)
   const provenance =
-    composition.data?.boundProjection?.rows.find(
+    composedSnapshot?.boundProjection?.rows.find(
       (row) => row.rowKey === selectedRowKey,
     )?.values[selectedColumn?.id ?? ''] ?? null
 
@@ -697,7 +750,7 @@ export function CanonicalSheetEditor({
 
   const link = useMutation({
     mutationFn: async (recordId: string) => {
-      const snapshot = composition.data
+      const snapshot = composedSnapshot
       const column = matrix.columns.find(
         (item) => item.presentation.kind === 'record-picker' && item.editable,
       )
@@ -739,7 +792,7 @@ export function CanonicalSheetEditor({
 
   const create = useMutation({
     mutationFn: async () => {
-      const snapshot = composition.data
+      const snapshot = composedSnapshot
       const column = matrix.columns.find(
         (item) => item.presentation.kind === 'record-picker' && item.editable,
       )
@@ -1327,7 +1380,7 @@ export function CanonicalSheetEditor({
   const staleCalc = calculations.data?.rows.some(
     (row) => row.calculationStatus === 'stale',
   )
-  const visualiseDatasetId = composition.data?.rows
+  const visualiseDatasetId = composedSnapshot?.rows
     .flatMap((row) => row.sources)
     .find((source) => source.sourceKind === 'dataset')?.datasetId
 
@@ -1502,9 +1555,9 @@ export function CanonicalSheetEditor({
           onLink={() => setPicker({ modelKey: modelKey ?? '', cell: null })}
           onCreate={() => setCreateOpen(true)}
           onValidate={async () => {
-            if (!projectId || !composition.data || !modelKey) return
+            if (!projectId || !composedSnapshot || !modelKey) return
             const rows = composedSheetRecordLinkBatchRows(
-              composition.data,
+              composedSnapshot,
               pendingValues,
             )
             if (rows.length === 0) {
@@ -1532,9 +1585,9 @@ export function CanonicalSheetEditor({
             setErrorCursor(next[0] ?? null)
           }}
           onCommit={async () => {
-            if (!projectId || !composition.data || !modelKey) return
+            if (!projectId || !composedSnapshot || !modelKey) return
             const rows = composedSheetRecordLinkBatchRows(
-              composition.data,
+              composedSnapshot,
               pendingValues,
             )
             if (rows.length === 0) return
@@ -1555,6 +1608,39 @@ export function CanonicalSheetEditor({
             setErrorCursor(nextSheetRecordGridError(errors, errorCursor))
           }
         />
+      ) : null}
+      {composed ? (
+        <div
+          className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
+          {composition.isLoading ? (
+            <span>Loading composed rows…</span>
+          ) : (
+            <>
+            <span>
+              {composedSnapshot?.hasMore
+                ? `Showing ${matrix.rowKeys.length} rows — more rows available. Filters and sorts apply to the loaded rows only.`
+                : `Showing all ${matrix.rowKeys.length} rows.`}
+            </span>
+            {composition.data?.notice ? (
+              <span>{composition.data.notice}</span>
+            ) : null}
+            </>
+          )}
+          {composedSnapshot?.hasMore ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={composition.isFetching}
+              onClick={() => setPageCount((count) => count + 1)}
+            >
+              {composition.isFetching ? 'Loading more…' : 'Load more'}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
       {matrix.columns.length === 0 ? (
         <p className="p-3 text-sm text-muted-foreground" role="status">

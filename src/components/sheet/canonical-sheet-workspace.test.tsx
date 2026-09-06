@@ -305,3 +305,88 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
     expect(writeBack.hasAttribute('disabled')).toBe(false)
   })
 })
+
+describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
+  const RECORD_B = '21000000-0000-4000-8000-00000000000c'
+
+  function pageWire(offset: number, options: { revision: number; hasMore: boolean }) {
+    const wire = twoDatasetWire()
+    return {
+      ...wire,
+      offset,
+      limit: 200,
+      hasMore: options.hasMore,
+      revision: options.revision,
+      rows:
+        offset === 0
+          ? wire.rows
+          : wire.rows.map((row) => ({ ...row, identityValues: [RECORD_B] })),
+    }
+  }
+
+  it('loads the next window with a single fetch — never pages 1..N again', async () => {
+    const user = userEvent.setup()
+    const instance = await composedInstance()
+    rpcMock.mockImplementation(async (_name: string, args: Record<string, unknown>) =>
+      pageWire(Number(args.p_offset ?? 0), {
+        revision: 6,
+        hasMore: Number(args.p_offset ?? 0) === 0,
+      }),
+    )
+
+    renderWorkspace(
+      <CanonicalSheetEditor instance={instance} projectId={instance.projectId} />,
+    )
+
+    const loadMore = await screen.findByRole('button', { name: 'Load more' })
+    expect(rpcMock.mock.calls.map((call) => call[1])).toEqual([
+      { p_instance_id: INSTANCE, p_limit: 200, p_offset: 0 },
+    ])
+
+    await user.click(loadMore)
+    await waitFor(() =>
+      expect(screen.getByText('Showing all 2 rows.')).toBeTruthy(),
+    )
+
+    // Two pages cost exactly two window fetches: the second page fetched
+    // ONLY offset 200 instead of refetching pages 1..2.
+    expect(rpcMock.mock.calls.map((call) => call[1])).toEqual([
+      { p_instance_id: INSTANCE, p_limit: 200, p_offset: 0 },
+      { p_instance_id: INSTANCE, p_limit: 200, p_offset: 200 },
+    ])
+  })
+
+  it('restarts from the first rows with a notice when the revision moves mid-paging', async () => {
+    const user = userEvent.setup()
+    const instance = await composedInstance()
+    let zeroCalls = 0
+    rpcMock.mockImplementation(async (_name: string, args: Record<string, unknown>) => {
+      const offset = Number(args.p_offset ?? 0)
+      if (offset === 0 && zeroCalls++ === 0) {
+        return pageWire(0, { revision: 6, hasMore: true })
+      }
+      return pageWire(offset, {
+        revision: 7,
+        hasMore: offset === 0,
+      })
+    })
+
+    renderWorkspace(
+      <CanonicalSheetEditor instance={instance} projectId={instance.projectId} />,
+    )
+
+    await user.click(await screen.findByRole('button', { name: 'Load more' }))
+    await waitFor(() =>
+      expect(screen.getByText(/changed while loading/i)).toBeTruthy(),
+    )
+
+    // Coherent new-revision rows only — the stale first window is discarded,
+    // never merged across revisions.
+    await waitFor(() =>
+      expect(screen.getByText('Showing all 2 rows.')).toBeTruthy(),
+    )
+    expect(
+      rpcMock.mock.calls.map((call) => (call[1] as Record<string, unknown>).p_offset),
+    ).toEqual([0, 200, 0, 200])
+  })
+})

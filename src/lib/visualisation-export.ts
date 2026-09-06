@@ -96,3 +96,121 @@ export async function copySvgToClipboard(svg: string): Promise<boolean> {
     return false
   }
 }
+
+// ---------------------------------------------------------------------------
+// VIEW-04 — provenance-stamped representation export. String-based (no DOM)
+// so frozen evidence bytes are deterministic and testable in Node. Reuses
+// EXPORT_PRESETS / FigureExportSettings above — no new export engine.
+// ---------------------------------------------------------------------------
+
+/** Source identity stamped into every representation export. */
+export interface FigureProvenanceStamp {
+  kind: string
+  datasetId: string | null
+  versionId: string | null
+  /** Pinned-config version (ChartSpec / PlateMapSpec / analysis definition). */
+  configVersion: number
+  /** Export wall-clock time, ISO-8601. Callers pin this for byte-identical rebuilds. */
+  exportedAt: string
+}
+
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function escapeXmlComment(text: string): string {
+  return text.replace(/--/g, '—')
+}
+
+/**
+ * Human-readable provenance line for figure footers and CSV headers.
+ * Live exports (no version pin) say `live` explicitly so a reader never
+ * mistakes them for frozen evidence.
+ */
+export function buildFigureProvenanceLine(stamp: FigureProvenanceStamp): string {
+  const parts: string[] = ['Sheetbase']
+  if (stamp.datasetId) parts.push(`Dataset ${stamp.datasetId.slice(0, 8)}`)
+  if (stamp.versionId) parts.push(`Version ${stamp.versionId.slice(0, 8)}`)
+  else if (stamp.datasetId) parts.push('live')
+  if (!stamp.datasetId && !stamp.versionId) parts.push(stamp.kind)
+  parts.push(`config v${stamp.configVersion}`)
+  parts.push(`Exported ${stamp.exportedAt}`)
+  return parts.join(' · ')
+}
+
+/** Resolve an export preset into figure settings (dimensions + scale). */
+export function presetFigureExport(
+  preset: ExportPresetId,
+  overrides?: Partial<FigureExportSettings>,
+): FigureExportSettings {
+  const dims = EXPORT_PRESETS[preset]
+  return {
+    ...DEFAULT_FIGURE_EXPORT,
+    width: dims.width,
+    height: dims.height,
+    scale: dims.scale,
+    ...overrides,
+  }
+}
+
+/**
+ * Stamp a serialised SVG figure with provenance: an XML comment carrying the
+ * full identity plus a visible `<text>` footer line. Pure string surgery —
+ * deterministic for a fixed stamp. When `includeProvenance` is false the SVG
+ * passes through untouched.
+ */
+export function stampFigureSvg(
+  svg: string,
+  stamp: FigureProvenanceStamp,
+  opts?: { includeProvenance?: boolean },
+): string {
+  if (opts?.includeProvenance === false) return svg
+  const line = buildFigureProvenanceLine(stamp)
+  const comment = `<!-- ${escapeXmlComment(line)} -->`
+  const footer =
+    `<text x="12" y="20" font-size="11" fill="#5D646F" ` +
+    `font-family="Inter, sans-serif" data-sheetbase-provenance="true">${escapeXml(line)}</text>`
+  const withComment = `${comment}\n${svg}`
+  const closeAt = withComment.lastIndexOf('</svg>')
+  if (closeAt < 0) return withComment
+  return `${withComment.slice(0, closeAt)}${footer}${withComment.slice(closeAt)}`
+}
+
+/** `#`-prefixed header block for data (CSV) exports. */
+export function buildDataExportHeaderLines(stamp: FigureProvenanceStamp): string[] {
+  return [
+    `# ${buildFigureProvenanceLine(stamp)}`,
+    `# kind: ${stamp.kind}`,
+    `# dataset_id: ${stamp.datasetId ?? 'none'}`,
+    `# dataset_version_id: ${stamp.versionId ?? 'live'}`,
+    `# config_version: ${stamp.configVersion}`,
+    `# exported_at: ${stamp.exportedAt}`,
+  ]
+}
+
+function csvEscapeCell(value: string | number | null): string {
+  if (value === null) return ''
+  const text = String(value)
+  return /[",\n#]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+/**
+ * Serialise materialised rows to CSV under a provenance header block.
+ * Deterministic for fixed inputs: same stamp + columns + rows → same bytes.
+ */
+export function serialiseRepresentationCsv(input: {
+  columns: string[]
+  rows: Array<Array<string | number | null>>
+  stamp: FigureProvenanceStamp
+}): string {
+  const header = buildDataExportHeaderLines(input.stamp).join('\n')
+  const body = [
+    input.columns.map(csvEscapeCell).join(','),
+    ...input.rows.map((row) => row.map(csvEscapeCell).join(',')),
+  ].join('\n')
+  return `${header}\n${body}\n`
+}

@@ -217,6 +217,16 @@ export function AdminDiagnostics({
         />
       </section>
 
+      {!canManageConnectors ? (
+        <section className="space-y-2">
+          <h2 className="font-semibold">Connector diagnostics</h2>
+          <p className="text-sm text-muted-foreground">
+            Connector diagnostics require the integrations management
+            capability. Members with the Data Steward role can review connector
+            run health on the Connectors administration section.
+          </p>
+        </section>
+      ) : null}
       {canManageConnectors ? (
         <section className="space-y-3">
           <h2 className="font-semibold">Connector diagnostics</h2>

@@ -102,7 +102,7 @@ interface AdminSectionDef {
   capability: Capability | null
 }
 
-const ADMIN_SECTIONS: AdminSectionDef[] = [
+export const ADMIN_SECTIONS: AdminSectionDef[] = [
   {
     key: 'dashboard',
     label: 'Dashboard',
@@ -129,8 +129,9 @@ const ADMIN_SECTIONS: AdminSectionDef[] = [
   },
   {
     key: 'settings',
-    label: 'Settings',
-    description: 'Set registration, review, signature and retention policies.',
+    label: 'Workspace',
+    description:
+      'Workspace registration, review, signature and retention policies.',
     group: 'Workspace',
     icon: Settings,
     capability: 'workspace.admin',
@@ -472,7 +473,7 @@ function AdminRoute() {
     fullBleed: true,
     context: shellContext,
     breadcrumbs: [
-      { label: 'Settings' },
+      { label: 'Administration' },
       { label: 'Platform Administration' },
     ],
     inspectorLabel: 'Member details',
@@ -510,7 +511,20 @@ function AdminRoute() {
             <h1 className="text-2xl font-semibold">Platform Administration</h1>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Administer workspace access, integrations, diagnostics and audit.
+            Security and platform operations for this workspace. Steward
+            data-language configuration lives in{' '}
+            <Link
+              to="/configure"
+              search={{ kind: 'model', id: undefined, model: undefined }}
+              className="font-medium text-primary hover:underline"
+            >
+              Configuration
+            </Link>{' '}
+            and personal API tokens live in{' '}
+            <Link to="/settings" className="font-medium text-primary hover:underline">
+              Settings
+            </Link>
+            .
           </p>
         </header>
       </div>
@@ -540,8 +554,25 @@ function AdminRoute() {
 
       <div className="mx-auto w-full max-w-[1600px] px-4 py-5 md:px-8">
         {sectionDenied ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            You do not have permission to access this administration section.
+          <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p>
+              You do not have permission to access this administration section.
+            </p>
+            <p>
+              Steward data-language configuration lives in{' '}
+              <Link
+                to="/configure"
+                search={{ kind: 'model', id: undefined, model: undefined }}
+                className="font-medium underline"
+              >
+                Configuration
+              </Link>
+              , and personal API tokens live in{' '}
+              <Link to="/settings" className="font-medium underline">
+                Settings
+              </Link>
+              .
+            </p>
           </div>
         ) : (
           <section className="min-w-0 space-y-5">

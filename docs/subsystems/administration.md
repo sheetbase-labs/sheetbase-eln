@@ -9,10 +9,26 @@ or internal implementation knowledge. All admin operations use supported
 server-side domain APIs with PostgreSQL RLS and capability checks as the
 authoritative permission boundary.
 
-## Admin information architecture
+## Administration planes
 
-All administration lives under `/admin`. The surface is a single-page tabbed
-interface with the following sections:
+Administration spans three planes with one authority each. No configuration
+is writable in two places:
+
+| Plane | Surface | Authority |
+| ----- | ------- | --------- |
+| Steward data-language | `/configure` (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, vocabularies, promotions) | Stewards publish without `workspace.admin`; owners keep security administration |
+| Security and platform operations | `/admin` (this document) | Capability-gated per section; server enforcement is authoritative |
+| Personal tokens | `/settings` | Each member manages only their own tokens |
+
+Cross-links point users at the right plane: the `/admin` header and the
+permission-denied notice link to Configuration and Settings; the
+API-credentials section links personal-token holders to `/settings`; and
+`/settings` links service-credential work to `/admin/api-credentials`.
+The legacy `/admin/model-fields` destination redirects to
+`/configure?kind=model` (preserving `?model=`); it is the only redirect that
+stays, and stored links should point at `/configure` directly.
+
+## Admin information architecture
 
 | Section              | Route                  | Capability required          | Purpose                                                    |
 | -------------------- | ---------------------- | ---------------------------- | ---------------------------------------------------------- |
@@ -21,9 +37,10 @@ interface with the following sections:
 | Project access       | `/admin/project-access`| `workspace.admin`            | Explicit per-project access grants                         |
 | Workspace settings   | `/admin/settings`      | `workspace.admin`            | Registration, review, signature, retention policies       |
 | Sessions             | `/admin/sessions`      | `workspace.admin`            | Authenticated session review and revocation                |
-| API credentials      | `/admin/api-credentials`| `workspace.admin`           | Service credential and personal token lifecycle            |
+| API credentials      | `/admin/api-credentials`| `workspace.admin`           | Workspace service credentials only (personal tokens live in `/settings`) |
 | Connectors           | `/admin/connectors`    | `integrations.manage`        | Connector status, secrets, run health                      |
 | Pipelines            | `/admin/pipelines`     | `pipelines.manage`           | Pipeline definitions, schedules, run health                |
+| Extensions           | `/admin/extensions`    | `extensions.manage`          | Extension install, update, disable, remove and history     |
 | Storage              | `/admin/storage`       | (any member)                 | File storage overview and largest files                    |
 | Usage                | `/admin/usage`         | (any member)                 | Workspace counts and capacity indicators                   |
 | Audit                | `/admin/activity`      | (any member)                 | Audit trail browser with filters and export                |
@@ -32,7 +49,8 @@ interface with the following sections:
 
 The navigation bar only shows sections the current user can access. Direct
 URL access to a restricted section shows a permission-denied notice rather
-than redirecting silently.
+than redirecting silently; the notice links to Configuration and Settings
+so a steward who lands in the wrong plane is never at a dead end.
 
 ## Capability model
 
@@ -43,9 +61,10 @@ with RLS). The UI mirrors the same capability mapping from
 
 | Capability              | Roles                              | Admin sections gated           |
 | ----------------------- | ---------------------------------- | ------------------------------ |
-| `workspace.admin`       | owner                              | Members, Project access, Settings, Sessions, API credentials |
+| `workspace.admin`       | owner                              | Members, Project access, Workspace settings, Sessions, API credentials |
 | `integrations.manage`   | owner, admin, steward              | Connectors                     |
 | `pipelines.manage`      | owner, admin, steward              | Pipelines                      |
+| `extensions.manage`     | owner, admin, steward              | Extensions                     |
 | (none — member access)  | all workspace members              | Dashboard, Storage, Usage, Audit, Diagnostics, Deployment |
 
 Key invariants:
@@ -96,11 +115,12 @@ If workspace invitations exist, they are shown alongside the member list:
 
 ## Credential administration
 
-The API credentials section (`/admin/api-credentials`, owner-only) manages:
-
-- **Service credentials** — scoped credentials for external automation.
-- **Personal access tokens** — user-scoped credentials (also manageable from
-  `/settings`).
+The API credentials section (`/admin/api-credentials`, owner-only) manages
+workspace service credentials — scoped credentials for external automation.
+It does not manage personal access tokens: each member manages their own
+tokens from `/settings`, and the section links there. The server list
+endpoint filters to `kind = 'service'`, so the two surfaces cannot drift
+into duplicate authority.
 
 Each credential shows: name, type, scopes, created date, last used, expiry,
 and status.
@@ -263,7 +283,8 @@ The Diagnostics section (`/admin/diagnostics`, any member) surfaces:
   execution timeout, row/input caps.
 - **Connector diagnostics** — active/paused counts, recent failures, missing
   secrets, repeated failures, per-connector status. Requires
-  `integrations.manage`; non-managers do not see this section.
+  `integrations.manage`; non-managers see an explicit notice naming the
+  required capability instead of a silently missing section.
 - **Configuration state** — file backend, auth mode, external API enabled,
   connector secret encryption, metrics enabled, collaboration enabled.
 - **Migration state** — current vs expected migration, up to date/behind/unknown.
@@ -305,7 +326,7 @@ exposed.
 The Dashboard includes a deterministic "needs attention" model:
 
 - Failed pipeline/connector runs (last 24 hours).
-- Stale running runs (>15 minutes).
+- Stale running runs (>15 minutes, linked to `/admin/pipelines`).
 - Active connectors missing required secrets.
 - Overdue schedules.
 - Disabled connectors.

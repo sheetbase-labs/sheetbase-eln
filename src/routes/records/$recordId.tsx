@@ -306,17 +306,6 @@ function ExperimentNotebookRoute() {
   useEffect(() => {
     setHasUnsavedWork(false)
   }, [recordId, historicalRevisionId])
-
-  // Child routes (e.g. /overview) render through the Outlet; the notebook
-  // queries only run for the exact record path.
-  if (!isNotebookIndex) return <Outlet />
-
-  const project = projectQuery.data ?? null
-  const record = recordQuery.data ?? null
-  const blocks = blocksQuery.data ?? []
-  const links = linksQuery.data ?? []
-  const activity = activityQuery.data ?? []
-
   // NOTE-02: section collapse is presentation state owned by the route so
   // the inspector's Outline tab and the canvas stay in sync. It resets when
   // the record or the viewed revision changes — never persisted.
@@ -334,6 +323,56 @@ function ExperimentNotebookRoute() {
       return next
     })
   }
+  // EXT-02 sample panel content, bound to the ordinary public contract
+  // reads this route already performs (record/activity/links queries).
+  // The panel receives only this loader — no data import of its own.
+  // Hooks discipline: this callback is registered before every early return
+  // below and reads query data with null-safety, so loading → loaded
+  // transitions never change the hook count.
+  const loadSampleSummary = useCallback(async () => {
+    const base = recordQuery.data ?? null
+    const summaryRecord =
+      base && historicalRevisionId && historicalRevisionQuery.data
+        ? recordFromRevisionSnapshot(
+            base,
+            historicalRevisionQuery.data.metadata_snapshot,
+          )
+        : base
+    const summaryActivity = activityQuery.data ?? []
+    const summaryLinks = linksQuery.data ?? []
+    return {
+      heading: summaryRecord?.title ?? '',
+      subheading: summaryRecord
+        ? `${recordKindLabel(summaryRecord.kind)} · ${summaryRecord.identifier}`
+        : '',
+      rows: [
+        { label: 'Status', value: summaryRecord?.status ?? '' },
+        {
+          label: 'Updated',
+          value: summaryRecord ? formatDate(summaryRecord.updatedAt) : '',
+        },
+        { label: 'Activity', value: `${summaryActivity.length} events` },
+        { label: 'Links', value: `${summaryLinks.length} links` },
+      ],
+    }
+  }, [
+    recordQuery.data,
+    historicalRevisionQuery.data,
+    historicalRevisionId,
+    activityQuery.data,
+    linksQuery.data,
+  ])
+
+  // Child routes (e.g. /overview) render through the Outlet; the notebook
+  // queries only run for the exact record path.
+  if (!isNotebookIndex) return <Outlet />
+
+  const project = projectQuery.data ?? null
+  const record = recordQuery.data ?? null
+  const blocks = blocksQuery.data ?? []
+  const links = linksQuery.data ?? []
+  const activity = activityQuery.data ?? []
+
   const outlineControls = {
     collapsedSections,
     onToggleSection: toggleSection,
@@ -479,19 +518,8 @@ function ExperimentNotebookRoute() {
     ? inspectorEvidenceFromRevision(historicalRevisionQuery.data)
     : undefined
 
-  // EXT-02 sample panel content, bound to the ordinary public contract
-  // reads this route already performs (record/activity/links queries).
-  // The panel receives only this loader — no data import of its own.
-  const loadSampleSummary = useCallback(async () => ({
-    heading: displayRecord.title,
-    subheading: `${recordKindLabel(displayRecord.kind)} · ${displayRecord.identifier}`,
-    rows: [
-      { label: 'Status', value: displayRecord.status },
-      { label: 'Updated', value: formatDate(displayRecord.updatedAt) },
-      { label: 'Activity', value: `${activity.length} events` },
-      { label: 'Links', value: `${links.length} links` },
-    ],
-  }), [displayRecord, activity.length, links.length])
+  // EXT-02 sample panel loader is registered above the early returns;
+  // extensionPanelTabs only references it here.
   // Historical revisions show pinned evidence only: live extension panels
   // stay hidden there so frozen state is never mixed with live reads.
   const extensionPanelTabs: InspectorTab[] = historicalRevisionId
@@ -1364,6 +1392,11 @@ function EditableNotebook({
       }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+      // NOTE-01 atomic undo: insert_block positions against both anchors and
+      // returns the full (id, order) list (migration 0154), so the cache
+      // reconciles from the insert alone — no second move. The historical
+      // move-after-insert is deleted, not kept as a fallback: a missing
+      // order list already degrades to upsert-only like every other insert.
       const inserted = await insertBlock(client, {
         recordId: record.id,
         type,
@@ -1373,16 +1406,7 @@ function EditableNotebook({
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
-      if (destination.afterBlockId === null && destination.beforeBlockId) {
-        const moved = await moveBlock(client, {
-          blockId: inserted.block.id,
-          afterBlockId: null,
-          beforeBlockId: destination.beforeBlockId,
-          expectedStructureVersion: inserted.structureVersion,
-        })
-        return { ...inserted, ...moved, order: moved.order }
-      }
-      return { ...inserted, order: null }
+      return { ...inserted, order: inserted.order ?? null }
     },
     onSuccess: (res) => {
       upsertBlock(res.block)

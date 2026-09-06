@@ -1,6 +1,12 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
+// This suite exercises pure delivery helpers, but the module imports the
+// server env for its live engine defaults. Mock the boundary so the file
+// collects without process env (CI unit jobs carry no DATABASE_URL).
+vi.mock('#/env.server', () => ({
+  env: { DATABASE_URL: 'postgresql://localhost:5432/test' },
+}))
 import { computeBackoff, attemptDelivery } from './webhook-delivery'
 
 describe('computeBackoff', () => {
@@ -31,51 +37,75 @@ describe('computeBackoff', () => {
 })
 
 describe('attemptDelivery', () => {
+  // Hermetic: global fetch is stubbed per test (the SSRF URL validator
+  // still runs against the real URL string). example.com passes the
+  // syntactic checks without any network or DNS.
+  const HOOK = 'https://example.com/hook'
+
   it('succeeds on a 2xx response', async () => {
-    // Use a data URL that will fail with a fetch error (not 2xx).
-    // We can't easily mock fetch in this environment, so test the error path.
-    const result = await attemptDelivery(
-      'https://httpstat.us/200',
-      '{"test":true}',
-      'sha256=abc',
-      5000,
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('ok', { status: 200 })),
     )
-    // This should succeed since httpstat.us/200 returns 200
-    expect(result.success).toBe(true)
-    expect(result.responseStatus).toBe(200)
+    try {
+      const result = await attemptDelivery(HOOK, '{"test":true}', 'sha256=abc', 5000)
+      expect(result.success).toBe(true)
+      expect(result.responseStatus).toBe(200)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('fails on a non-2xx response', async () => {
-    const result = await attemptDelivery(
-      'https://httpstat.us/500',
-      '{"test":true}',
-      'sha256=abc',
-      5000,
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('err', { status: 500 })),
     )
-    expect(result.success).toBe(false)
-    expect(result.responseStatus).toBe(500)
-    expect(result.errorCode).toBe('http_error')
+    try {
+      const result = await attemptDelivery(HOOK, '{"test":true}', 'sha256=abc', 5000)
+      expect(result.success).toBe(false)
+      expect(result.responseStatus).toBe(500)
+      expect(result.errorCode).toBe('http_error')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('fails on an unreachable URL', async () => {
-    const result = await attemptDelivery(
-      'https://nonexistent.invalid.example.test',
-      '{"test":true}',
-      'sha256=abc',
-      5000,
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('fetch failed')
+      }),
     )
-    expect(result.success).toBe(false)
-    expect(result.errorCode).toBeTruthy()
+    try {
+      const result = await attemptDelivery(HOOK, '{"test":true}', 'sha256=abc', 5000)
+      expect(result.success).toBe(false)
+      expect(result.errorCode).toBe('delivery_error')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('times out on a slow endpoint', async () => {
-    const result = await attemptDelivery(
-      'https://httpstat.us/200?sleep=6000',
-      '{"test":true}',
-      'sha256=abc',
-      1000,
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: unknown, init?: { signal?: AbortSignal }) => {
+        // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
+        const hanging = new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted.', 'AbortError')),
+          )
+        })
+        return hanging
+      }),
     )
-    expect(result.success).toBe(false)
-    expect(result.errorCode).toBe('timeout')
-  }, 10000)
+    try {
+      const result = await attemptDelivery(HOOK, '{"test":true}', 'sha256=abc', 1000)
+      expect(result.success).toBe(false)
+      expect(result.errorCode).toBe('timeout')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })

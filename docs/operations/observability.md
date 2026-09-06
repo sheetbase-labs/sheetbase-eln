@@ -106,6 +106,10 @@ development it is open on localhost for convenience.
 | `sheetbase_scheduler_recovered_occurrences_total` | counter   | —                                                                                                                                |
 | `sheetbase_scheduler_events_processed_total`      | counter   | —                                                                                                                                |
 | `sheetbase_search_duration_seconds`               | histogram | —                                                                                                                                |
+| `sheetbase_model_calls_total`                     | counter   | `model` (gateway allowlist, else `other`), `outcome` (ok, rejected, error)                                                       |
+| `sheetbase_model_cost_microusd_total`             | counter   | `model`                                                                                                                          |
+| `sheetbase_model_errors_total`                    | counter   | `model`, `code` (model_not_allowed, tool_not_allowed, actor_mismatch, budget_exhausted, provider_error)                          |
+| `sheetbase_model_duration_seconds`                | histogram | `model`                                                                                                                          |
 
 ### Cardinality policy
 

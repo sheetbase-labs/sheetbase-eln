@@ -99,6 +99,24 @@ export const PIPELINE_OUTCOMES = ['succeeded', 'failed', 'cancelled'] as const
 
 export const PIPELINE_TRIGGER_KINDS = ['manual', 'scheduled', 'event'] as const
 
+/** Bounded gateway model vocabulary. The AI-03 model allowlist is this list. */
+export const MODEL_NAMES = ['sheetbase-assist-1', 'sheetbase-summarise-1'] as const
+export type ModelName = (typeof MODEL_NAMES)[number]
+
+/** Bounded gateway call outcomes: ok, policy rejection, or provider error. */
+export const MODEL_OUTCOMES = ['ok', 'rejected', 'error'] as const
+export type ModelOutcome = (typeof MODEL_OUTCOMES)[number]
+
+/** Bounded gateway error codes for the error series. */
+export const MODEL_ERROR_CODES = [
+  'model_not_allowed',
+  'tool_not_allowed',
+  'actor_mismatch',
+  'budget_exhausted',
+  'provider_error',
+] as const
+export type ModelErrorCode = (typeof MODEL_ERROR_CODES)[number]
+
 /** Bounded row-count buckets for Dataset write/snapshot durations. */
 export const SIZE_BUCKETS = ['small', 'medium', 'large', 'xlarge'] as const
 export type SizeBucket = (typeof SIZE_BUCKETS)[number]
@@ -480,6 +498,33 @@ export function createMetricsRegistry() {
     {},
     [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
   )
+  // AI-03 — Governed model-call boundary telemetry. `model` folds unknown
+  // values to `other`, so fail-closed rejections never widen cardinality.
+  const modelCalls = new Counter(
+    'sheetbase_model_calls_total',
+    'Governed model calls by model and outcome.',
+    ['model', 'outcome'],
+    { model: MODEL_NAMES, outcome: MODEL_OUTCOMES },
+  )
+  const modelCost = new Counter(
+    'sheetbase_model_cost_microusd_total',
+    'Estimated model cost in micro-USD by model.',
+    ['model'],
+    { model: MODEL_NAMES },
+  )
+  const modelErrors = new Counter(
+    'sheetbase_model_errors_total',
+    'Governed model-call failures by model and bounded error code.',
+    ['model', 'code'],
+    { model: MODEL_NAMES, code: MODEL_ERROR_CODES },
+  )
+  const modelDuration = new Histogram(
+    'sheetbase_model_duration_seconds',
+    'Governed model-call provider latency by model.',
+    ['model'],
+    { model: MODEL_NAMES },
+    [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  )
 
   const metrics = [
     httpRequests,
@@ -492,6 +537,9 @@ export function createMetricsRegistry() {
     schedulerDueOccurrences,
     schedulerRecoveredOccurrences,
     schedulerEventsProcessed,
+    modelCalls,
+    modelCost,
+    modelErrors,
   ]
   const histograms = [
     httpDuration,
@@ -504,6 +552,7 @@ export function createMetricsRegistry() {
     pipelineStageDuration,
     schedulerSweepDuration,
     searchDuration,
+    modelDuration,
   ]
   const gauges = [pipelineActiveRuns]
 
@@ -529,6 +578,10 @@ export function createMetricsRegistry() {
     schedulerRecoveredOccurrences,
     schedulerEventsProcessed,
     searchDuration,
+    modelCalls,
+    modelCost,
+    modelErrors,
+    modelDuration,
     /** Renders the Prometheus text exposition format. */
     render(): string {
       const all = [...metrics, ...histograms, ...gauges]

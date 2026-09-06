@@ -13,6 +13,8 @@
  * and never as links. Historical revisions render the pinned outgoing
  * snapshot without actions.
  */
+import { useState } from 'react'
+
 import { InspectorSection } from '#/components/record'
 import { RecordLink } from '#/components/scientific/record-link'
 import { relationshipLabel } from '#/lib/lineage-data'
@@ -20,6 +22,23 @@ import { recordKindLabel } from '#/lib/notebook-data'
 import type { NotebookLink } from '#/lib/notebook-data'
 import { useRelationships } from '#/lib/relationships'
 import type { RelationshipRow } from '#/lib/relationships'
+
+/**
+ * Presentation window per direction. The hook always loads the full edge
+ * set and headers always show exact counts — only the rendered rows are
+ * windowed so relationship-heavy records stay responsive.
+ */
+export const RELATIONSHIP_RENDER_LIMIT = 25
+
+/** Hover detail for one edge: link creation time and folded-dupe count. */
+function rowDetail(row: RelationshipRow): string {
+  const createdBy = row.createdByUserId ? ` by ${row.createdByUserId}` : ''
+  const dupes =
+    row.duplicateCount > 1
+      ? ` · ${row.duplicateCount} identical links`
+      : ''
+  return `Linked ${row.createdAt}${createdBy}${dupes}`
+}
 
 function RelationshipRowView({ row }: { row: RelationshipRow }) {
   return (
@@ -29,6 +48,17 @@ function RelationshipRowView({ row }: { row: RelationshipRow }) {
       title={row.title}
       meta={row.identifier ?? undefined}
       state={row.state}
+      actions={
+        row.duplicateCount > 1 ? (
+          <span
+            title={`${row.duplicateCount} identical links collapsed into one row`}
+            aria-label={`${row.duplicateCount} identical links`}
+            className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+          >
+            ×{row.duplicateCount}
+          </span>
+        ) : undefined
+      }
     />
   )
 }
@@ -40,17 +70,31 @@ function DirectionSection({
   heading: string
   rows: RelationshipRow[]
 }) {
+  const [expanded, setExpanded] = useState(false)
   if (rows.length === 0) return null
+  const visible =
+    expanded || rows.length <= RELATIONSHIP_RENDER_LIMIT
+      ? rows
+      : rows.slice(0, RELATIONSHIP_RENDER_LIMIT)
   return (
     <div className="space-y-1">
       <h4 className="text-xs font-semibold text-foreground">{heading}</h4>
       <ul className="space-y-1">
-        {rows.map((row) => (
-          <li key={row.linkId}>
+        {visible.map((row) => (
+          <li key={row.linkId} title={rowDetail(row)}>
             <RelationshipRowView row={row} />
           </li>
         ))}
       </ul>
+      {!expanded && rows.length > RELATIONSHIP_RENDER_LIMIT ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="px-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          Show all {rows.length}
+        </button>
+      ) : null}
     </div>
   )
 }

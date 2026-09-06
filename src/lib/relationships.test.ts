@@ -145,9 +145,11 @@ describe('fetchIncomingLinksForRecord', () => {
         targetKind: 'sample',
         targetIdentifier: 'SMP-2',
         linkType: 'general',
+        createdAt: '2026-08-03T00:00:00Z',
+        createdByUserId: null,
       },
     ])
-  })
+})
 })
 
 describe('fetchIncomingLinksByIdentifier', () => {
@@ -349,6 +351,8 @@ describe('buildRelationshipRows', () => {
         outgoing: [
           {
             id: 'out-t',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-1',
             targetRecordId: 'rec-t',
             targetKind: 'protocol_template',
@@ -376,6 +380,8 @@ describe('buildRelationshipRows', () => {
         outgoing: [
           {
             id: 'out-1',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-1',
             targetRecordId: 'rec-2',
             targetKind: 'sample',
@@ -384,6 +390,8 @@ describe('buildRelationshipRows', () => {
           },
           {
             id: 'out-arch',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-1',
             targetRecordId: 'rec-3',
             targetKind: 'experiment',
@@ -392,6 +400,8 @@ describe('buildRelationshipRows', () => {
           },
           {
             id: 'out-del',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-1',
             targetRecordId: 'rec-4',
             targetKind: 'experiment',
@@ -400,6 +410,8 @@ describe('buildRelationshipRows', () => {
           },
           {
             id: 'out-name',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-1',
             targetRecordId: null,
             targetKind: 'dataset',
@@ -410,6 +422,8 @@ describe('buildRelationshipRows', () => {
         incoming: [
           {
             id: 'in-restricted',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-hidden',
             targetRecordId: 'rec-1',
             targetKind: 'experiment',
@@ -458,6 +472,8 @@ describe('buildRelationshipRows', () => {
   it('drops self-loops from both directions', () => {
     const loop = {
       id: 'self',
+      createdAt: '2026-08-03T00:00:00Z',
+      createdByUserId: null,
       sourceRecordId: 'rec-1',
       targetRecordId: 'rec-1',
       targetKind: 'experiment',
@@ -481,6 +497,8 @@ describe('relationshipCounterpartyIds', () => {
         outgoing: [
           {
             id: 'o1',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-1',
             targetRecordId: 'rec-2',
             targetKind: 'sample',
@@ -489,6 +507,8 @@ describe('relationshipCounterpartyIds', () => {
           },
           {
             id: 'o2',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-1',
             targetRecordId: null,
             targetKind: 'dataset',
@@ -499,6 +519,8 @@ describe('relationshipCounterpartyIds', () => {
         incoming: [
           {
             id: 'i1',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-2',
             targetRecordId: 'rec-1',
             targetKind: 'experiment',
@@ -507,6 +529,8 @@ describe('relationshipCounterpartyIds', () => {
           },
           {
             id: 'i2',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
             sourceRecordId: 'rec-9',
             targetRecordId: 'rec-1',
             targetKind: 'experiment',
@@ -516,5 +540,112 @@ describe('relationshipCounterpartyIds', () => {
         ],
       }),
     ).toEqual(['rec-2', 'rec-9'])
+  })
+})
+
+describe('buildRelationshipRows duplicates and metadata', () => {
+  const endpoints = new Map<string, RelationshipEndpoint>([
+    ['rec-2', endpoint('rec-2', { identifier: 'SMP-2', title: 'Cell line' })],
+  ])
+
+  function dupeLinks() {
+    return {
+      outgoing: [
+        {
+          id: 'dup-1',
+          sourceRecordId: 'rec-1',
+          targetRecordId: 'rec-2',
+          targetKind: 'sample',
+          targetIdentifier: 'SMP-2',
+          linkType: 'sample',
+          createdAt: '2026-08-03T00:00:00Z',
+          createdByUserId: 'user-1',
+        },
+        {
+          id: 'dup-2',
+          sourceRecordId: 'rec-1',
+          targetRecordId: 'rec-2',
+          targetKind: 'sample',
+          targetIdentifier: 'SMP-2',
+          linkType: 'sample',
+          createdAt: '2026-08-04T00:00:00Z',
+          createdByUserId: 'user-1',
+        },
+        // Same counterparty, different link type: a distinct edge.
+        {
+          id: 'other-type',
+          sourceRecordId: 'rec-1',
+          targetRecordId: 'rec-2',
+          targetKind: 'sample',
+          targetIdentifier: 'SMP-2',
+          linkType: 'general',
+          createdAt: '2026-08-05T00:00:00Z',
+          createdByUserId: null,
+        },
+      ],
+      incoming: [],
+    }
+  }
+
+  it('collapses exact-duplicate edges into one row with a count', () => {
+    const { outgoing } = buildRelationshipRows('rec-1', dupeLinks(), endpoints)
+    expect(outgoing).toHaveLength(2)
+    // Oldest-first: the surviving row is the earliest edge.
+    expect(outgoing[0]).toMatchObject({
+      linkId: 'dup-1',
+      duplicateCount: 2,
+      createdAt: '2026-08-03T00:00:00Z',
+      createdByUserId: 'user-1',
+    })
+    expect(outgoing[1]).toMatchObject({
+      linkId: 'other-type',
+      duplicateCount: 1,
+    })
+  })
+
+  it('collapses identifier-only outgoing dupes on the stable identifier', () => {
+    const links = {
+      outgoing: [1, 2].map((n) => ({
+        id: `ident-${n}`,
+        sourceRecordId: 'rec-1',
+        targetRecordId: null,
+        targetKind: 'dataset',
+        targetIdentifier: 'Assay data',
+        linkType: 'dataset',
+        createdAt: '2026-08-03T00:00:00Z',
+        createdByUserId: null,
+      })),
+      incoming: [],
+    }
+    const { outgoing } = buildRelationshipRows('rec-1', links, endpoints)
+    expect(outgoing).toHaveLength(1)
+    expect(outgoing[0]).toMatchObject({
+      linkId: 'ident-1',
+      duplicateCount: 2,
+      state: 'missing',
+    })
+  })
+
+  it('collapses incoming dupes per source and link type', () => {
+    const links = {
+      outgoing: [],
+      incoming: [1, 2].map((n) => ({
+        id: `in-${n}`,
+        sourceRecordId: 'rec-9',
+        targetRecordId: 'rec-1',
+        targetKind: 'experiment',
+        targetIdentifier: 'EXP-1',
+        linkType: 'general',
+        createdAt: '2026-08-03T00:00:00Z',
+        createdByUserId: null,
+      })),
+    }
+    const { incoming } = buildRelationshipRows('rec-1', links, endpoints)
+    expect(incoming).toHaveLength(1)
+    expect(incoming[0]).toMatchObject({
+      linkId: 'in-1',
+      direction: 'incoming',
+      duplicateCount: 2,
+    })
   })
 })

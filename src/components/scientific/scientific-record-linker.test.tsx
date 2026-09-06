@@ -68,6 +68,8 @@ function link(overrides: Partial<NotebookLink> = {}): NotebookLink {
     targetKind: 'sample',
     targetIdentifier: 'SMP-2026-0001',
     linkType: 'sample',
+    createdAt: '2026-01-01T00:00:00Z',
+    createdByUserId: null,
     ...overrides,
   }
 }
@@ -169,6 +171,26 @@ describe('ScientificRecordLinker', () => {
     await user.click(screen.getByText('Virus stock A'))
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.getByText(/record link crosses workspaces/i)).toBeTruthy()
+  })
+
+  it('says already linked when the server rejects a duplicate link', async () => {
+    const user = userEvent.setup()
+    const list = vi.fn().mockResolvedValue([sampleWire()])
+    const rpc = vi
+      .fn()
+      .mockRejectedValue(
+        new DataClientError(
+          '23505',
+          'duplicate key value violates unique constraint "uq_record_links_source_target_type"',
+          409,
+        ),
+      )
+    mount({ client: mockClient({ list, rpc }) })
+    await user.click(screen.getByRole('button', { name: /link record/i }))
+    await screen.findByText('Virus stock A')
+    await user.click(screen.getByText('Virus stock A'))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByText('This record is already linked.')).toBeTruthy()
   })
 
   it('renders an existing linked scientific record as a summary', async () => {

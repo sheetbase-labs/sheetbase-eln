@@ -277,4 +277,23 @@ describe('SDK-01 public-contract support matrix', () => {
       )
     }
   })
+
+  it('keeps record_links reads in the frozen public contract', () => {
+    // KNOW-03: relationship reads need no new endpoint — GET/HEAD
+    // /api/db/record_links is the existing public domain contract and both
+    // SDKs reach it through their generic table readers. Pin the frozen
+    // surface so silently dropping link reads fails here.
+    const pathItem = spec.paths['/api/db/record_links'] as {
+      get?: { operationId?: string }
+      head?: { operationId?: string }
+    }
+    expect(pathItem.get?.operationId).toBe('get_record_links')
+    expect(pathItem.head?.operationId).toBe('head_record_links')
+    const entry = matrix.tables.find(
+      ({ resource }) => resource === 'record_links',
+    )
+    expect(entry?.methods).toContain('GET')
+    expect(entry?.methods).toContain('HEAD')
+  })
 })
+

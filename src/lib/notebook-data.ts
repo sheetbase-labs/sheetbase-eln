@@ -86,6 +86,9 @@ export interface RecordLinkWire {
   target_identifier: string
   link_type: string
   created_at: string
+  // Returned by PostgREST (default select-*) but not selected by every
+  // reader: present on full link reads, absent on narrow projections.
+  created_by_user_id?: string | null
 }
 
 // SCI-003: file storage metadata as returned by PostgREST. The file record
@@ -181,6 +184,10 @@ export interface NotebookLink {
   targetKind: string
   targetIdentifier: string
   linkType: string
+  /** Link creation time (record_links.created_at) — drives row metadata. */
+  createdAt: string
+  /** Link creator; null when the reader used a narrow projection. */
+  createdByUserId: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +263,8 @@ export function toLink(row: RecordLinkWire): NotebookLink {
     targetKind: row.target_kind,
     targetIdentifier: row.target_identifier,
     linkType: row.link_type,
+    createdAt: row.created_at,
+    createdByUserId: row.created_by_user_id ?? null,
   }
 }
 

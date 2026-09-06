@@ -258,6 +258,11 @@ export function linksFromRevisionSnapshot(
       return []
     }
     const targetRecordId = link.targetRecordId
+    // Pinned links predate the createdAt pin: prefer the snapshot's own
+    // timestamp when present, else the revision pin time (the link provably
+    // existed then). The pinned panel does not render this metadata.
+    const createdAt = snapshotString(link.createdAt) ?? revision.created_at
+    const createdByUserId = snapshotString(link.createdByUserId)
     return [
       {
         id,
@@ -269,6 +274,8 @@ export function linksFromRevisionSnapshot(
         targetKind,
         targetIdentifier,
         linkType,
+        createdAt,
+        createdByUserId,
       },
     ]
   })

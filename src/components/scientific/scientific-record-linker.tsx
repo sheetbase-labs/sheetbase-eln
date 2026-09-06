@@ -27,9 +27,11 @@ import { ScientificRecordSummary } from './scientific-record-summary'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import {
+  DUPLICATE_SCIENTIFIC_LINK_MESSAGE,
   createScientificLink,
   fetchFieldDefinitions,
   fetchRecordById,
+  isDuplicateLinkError,
   isScientificRecordKind,
   scientificRecordQueryKeys,
   searchRecords,
@@ -185,9 +187,11 @@ export function ScientificRecordLinker({
 
           {linkMutation.isError ? (
             <p role="alert" className="px-2 py-1 text-xs text-danger">
-              {linkMutation.error instanceof DataClientError
-                ? linkMutation.error.message
-                : 'Could not create link.'}
+              {isDuplicateLinkError(linkMutation.error)
+                ? DUPLICATE_SCIENTIFIC_LINK_MESSAGE
+                : linkMutation.error instanceof DataClientError
+                  ? linkMutation.error.message
+                  : 'Could not create link.'}
             </p>
           ) : null}
         </div>

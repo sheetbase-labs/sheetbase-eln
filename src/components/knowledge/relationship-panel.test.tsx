@@ -4,7 +4,7 @@
  * Section rendering, honest row states and stable-ID destinations, with the
  * live query hook mocked at the module boundary.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type * as Relationships from '#/lib/relationships'
@@ -52,6 +52,9 @@ const outgoing: RelationshipRow[] = [
     title: 'Cell line',
     identifier: 'SMP-2',
     destination: '/samples?selected=rec-2',
+    createdAt: '2026-08-03T00:00:00Z',
+    createdByUserId: 'user-1',
+    duplicateCount: 1,
   },
   {
     linkId: 'out-arch',
@@ -63,6 +66,9 @@ const outgoing: RelationshipRow[] = [
     title: 'Old run',
     identifier: 'EXP-3',
     destination: null,
+    createdAt: '2026-08-03T00:00:00Z',
+    createdByUserId: null,
+    duplicateCount: 1,
   },
 ]
 
@@ -77,6 +83,9 @@ const incoming: RelationshipRow[] = [
     title: 'Restricted record',
     identifier: null,
     destination: null,
+    createdAt: '2026-08-03T00:00:00Z',
+    createdByUserId: null,
+    duplicateCount: 1,
   },
 ]
 
@@ -150,6 +159,8 @@ describe('PinnedRelationshipPanel', () => {
             targetKind: 'sample',
             targetIdentifier: 'SMP-2',
             linkType: 'sample',
+            createdAt: '2026-08-03T00:00:00Z',
+            createdByUserId: null,
           },
         ]}
       />,
@@ -163,5 +174,62 @@ describe('PinnedRelationshipPanel', () => {
   it('renders nothing when the snapshot has no links', () => {
     const { container } = render(<PinnedRelationshipPanel links={[]} />)
     expect(container.textContent).toBe('')
+  })
+})
+
+describe('RelationshipList windowing and metadata', () => {
+  function manyRows(n: number): RelationshipRow[] {
+    return Array.from({ length: n }, (_, i) => ({
+      linkId: `row-${i}`,
+      direction: 'outgoing' as const,
+      linkType: 'general',
+      label: 'related to',
+      otherRecordId: `rec-${i}`,
+      state: 'available' as const,
+      title: `Record ${i}`,
+      identifier: `EXP-${i}`,
+      destination: `/records/rec-${i}`,
+      createdAt: '2026-08-03T00:00:00Z',
+      createdByUserId: null,
+      duplicateCount: 1,
+    }))
+  }
+
+  it('windows heavy directions but keeps exact counts', () => {
+    render(<RelationshipList outgoing={manyRows(30)} incoming={[]} />)
+    expect(screen.getByText('Outgoing (30)')).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Show all 30' }),
+    ).toBeTruthy()
+    expect(screen.getByText('Record 0')).toBeTruthy()
+    expect(screen.getByText('Record 24')).toBeTruthy()
+    expect(screen.queryByText('Record 25')).toBeNull()
+  })
+
+  it('expands to the full list on Show all', () => {
+    render(<RelationshipList outgoing={manyRows(30)} incoming={[]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 30' }))
+    expect(screen.getByText('Record 29')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Show all/ })).toBeNull()
+  })
+
+  it('shows a count badge for collapsed duplicate edges', () => {
+    render(
+      <RelationshipList
+        outgoing={[{ ...outgoing[0], linkId: 'dup', duplicateCount: 3 }]}
+        incoming={[]}
+      />,
+    )
+    const badge = screen.getByText('×3')
+    expect(badge.getAttribute('aria-label')).toBe('3 identical links')
+  })
+
+  it('exposes link creation metadata as hover detail', () => {
+    const { container } = render(
+      <RelationshipList outgoing={[outgoing[0]]} incoming={[]} />,
+    )
+    const item = container.querySelector('li[title]')
+    expect(item?.getAttribute('title')).toContain('2026-08-03T00:00:00Z')
+    expect(item?.getAttribute('title')).toContain('user-1')
   })
 })

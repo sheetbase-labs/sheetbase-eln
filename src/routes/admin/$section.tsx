@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const adminSectionKeys: Record<string, true> = {
   dashboard: true,
+  'external-access': true,
   users: true,
   'project-access': true,
   settings: true,
@@ -10,6 +11,7 @@ export const adminSectionKeys: Record<string, true> = {
   connectors: true,
   pipelines: true,
   extensions: true,
+  webhooks: true,
   storage: true,
   usage: true,
   activity: true,

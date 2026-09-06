@@ -33,6 +33,7 @@ stays, and stored links should point at `/configure` directly.
 | Section              | Route                  | Capability required          | Purpose                                                    |
 | -------------------- | ---------------------- | ---------------------------- | ---------------------------------------------------------- |
 | Dashboard            | `/admin/dashboard`     | (any member)                 | Health, activity, usage, and attention indicators         |
+| External access      | `/admin/external-access`| (any member)                | Unified lifecycle view over members, credentials, connectors, webhooks, extensions |
 | Members              | `/admin/users`         | `workspace.admin`            | Membership, roles, invitations, suspension                 |
 | Project access       | `/admin/project-access`| `workspace.admin`            | Explicit per-project access grants                         |
 | Workspace settings   | `/admin/settings`      | `workspace.admin`            | Registration, review, signature, retention policies       |
@@ -41,6 +42,7 @@ stays, and stored links should point at `/configure` directly.
 | Connectors           | `/admin/connectors`    | `integrations.manage`        | Connector status, secrets, run health                      |
 | Pipelines            | `/admin/pipelines`     | `pipelines.manage`           | Pipeline definitions, schedules, run health                |
 | Extensions           | `/admin/extensions`    | `extensions.manage`          | Extension install, update, disable, remove and history     |
+| Webhooks             | `/admin/webhooks`      | `integrations.manage`        | Subscriptions, endpoint health, delivery history, replay   |
 | Storage              | `/admin/storage`       | (any member)                 | File storage overview and largest files                    |
 | Usage                | `/admin/usage`         | (any member)                 | Workspace counts and capacity indicators                   |
 | Audit                | `/admin/activity`      | (any member)                 | Audit trail browser with filters and export                |
@@ -61,11 +63,10 @@ with RLS). The UI mirrors the same capability mapping from
 
 | Capability              | Roles                              | Admin sections gated           |
 | ----------------------- | ---------------------------------- | ------------------------------ |
-| `workspace.admin`       | owner                              | Members, Project access, Workspace settings, Sessions, API credentials |
-| `integrations.manage`   | owner, admin, steward              | Connectors                     |
+| `integrations.manage`   | owner, admin, steward              | Connectors, Webhooks           |
 | `pipelines.manage`      | owner, admin, steward              | Pipelines                      |
 | `extensions.manage`     | owner, admin, steward              | Extensions                     |
-| (none — member access)  | all workspace members              | Dashboard, Storage, Usage, Audit, Diagnostics, Deployment |
+| (none — member access)  | all workspace members              | Dashboard, External access, Storage, Usage, Audit, Diagnostics, Deployment |
 
 Key invariants:
 
@@ -143,6 +144,35 @@ are not used unless that is literally the canonical scope.
 See `docs/api/public-api-contract.md` and `docs/api/external-api.md` for the
 canonical scope vocabulary.
 
+## External access overview
+
+The External access section (`/admin/external-access`, any member) is the
+single operational view over externally-acting identities and integrations.
+It joins members/roles, service credentials, connectors, webhooks and
+extensions with lifecycle/status metadata and routes every action through
+the existing canonical operations — it rebuilds no table.
+
+### Directly available in `/admin/external-access`
+
+- **Members and roles** — role and suspended state per member (owner-only
+  panel); membership changes live in `/admin/users`.
+- **Service credentials** — Active/Expired/Revoked lifecycle with last use
+  (`last_used_at`) and expiry (owner-only panel); rotate/revoke run through
+  the canonical credential operations and reveal replacement secrets once.
+- **Connectors** — status with last run, last result and secret state
+  (`integrations.manage` panel); enable/disable via the canonical connector
+  update.
+- **Webhooks** — status with 24h endpoint health (`integrations.manage`
+  panel); enable/disable via the canonical subscription update. Full
+  operations live in `/admin/webhooks`.
+- **Extensions** — install status and version (`extensions.manage` panel);
+  enable/disable via the canonical extension operations.
+
+Each panel links to its canonical section and to the audit trail
+(`/admin/activity`). Panels outside the viewer's capabilities stay hidden,
+and every row action remains server-enforced by its home operation — the
+overview never substitutes enforcement.
+
 ## Connector administration
 
 The Connectors section (`/admin/connectors`, `integrations.manage`) provides
@@ -191,6 +221,7 @@ operational administration, not authoring duplication.
 - **Pipeline definitions** — name, status, current published version.
 - **Schedules** — kind, enabled, next run, last run, timezone, event selector.
 - **Schedule enable/disable** — toggle pipeline schedules via the canonical
+
   `api.update_pipeline_schedule` RPC. Requires `pipelines.manage`. Produces
   audit/change evidence.
 - **Run health** — recent failed/running/stale counts.
@@ -218,6 +249,39 @@ and repeated failures are highlighted. Schedule state is not silently
 A general operational view shows recent pipeline and connector runs grouped
 by: Running, Failed, Recently succeeded, Stale/reconciled. Links go to the
 canonical detailed run views.
+
+## Webhook administration
+
+The Webhooks section (`/admin/webhooks`, `integrations.manage`) is the
+operations surface over the webhook RPC+lib layer: subscriptions previously
+had no management UI. It surfaces EVENT-02 delivery operations and never
+reimplements them.
+
+### Directly available in `/admin/webhooks`
+
+- **Subscriptions** — key, endpoint URL, event-type filters, status.
+- **Endpoint health** — per-subscription 24h success window
+  (delivered/total), last error (code, message, time), consecutive failures
+  against the auto-disable threshold with an explicit Auto-disabled state,
+  and retry debt — all from `api.get_webhook_endpoint_health`.
+- **Enable/disable** — status toggle through the canonical
+  `api.update_webhook_subscription` RPC; re-enabling resets
+  `consecutive_failures`. Archive runs through
+  `api.delete_webhook_subscription`.
+- **Rotate secret** — new signing secret through
+  `api.rotate_webhook_secret`, revealed exactly once.
+- **Delivery history** — paginated `api.list_webhook_deliveries` with
+  subscription, status (including `dead_letter`), event-type and
+  time-window filters; the dead-letter view carries the failure reason
+  (`error_code` / `error_message`).
+- **Replay** — single terminal-delivery replay via
+  `api.replay_webhook_delivery`, plus windowed bulk replay via
+  `api.replay_webhook_deliveries` (safe re-runs, one audit event).
+  Pending/retrying rows are never replayable — they belong to the retry
+  sweep.
+
+Subscription creation stays on the webhooks API; the admin surface operates
+existing subscriptions. Signing secrets are never listed.
 
 ## Storage overview
 

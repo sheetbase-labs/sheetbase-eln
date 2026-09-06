@@ -1,18 +1,39 @@
 /**
- * AUTO-02 — Pipeline schedule math (pure, deterministic).
+ * AUTO-02 / EVENT-03 — Pipeline schedule math (pure, deterministic).
  *
  * v1 supports three trigger kinds:
  *   - interval: every N minutes
  *   - daily: at a fixed HH:MM wall-clock time (server local time zone)
- *   - event: dataset_version_created events, evaluated by the server sweep
- *     against the durable change_events stream since last_evaluated_at
+ *   - event: catalogue domain events, evaluated by the server sweep
+ *     against the durable change_events stream since last_evaluated_sequence
+ *
+ * Event triggers reference the canonical catalogue names from
+ * `./event-catalogue` (e.g. `dataset.versioned`, `record.created`). Wire
+ * aliases and the pre-catalogue `dataset_version_created` name are accepted
+ * at the intake boundary and normalize to the canonical name, which is what
+ * is stored. The triggerable set is every stable catalogue entry with a
+ * producer in the record/dataset/sheet/notebook families — the data-change
+ * signals that merit automation.
  *
  * The database mirrors this logic in api.pipeline_schedule_next_run so the
  * RPCs can stamp next_run_at at create/update time; this module is used by
  * the scheduler sweep and its unit tests.
  */
 
+import { EVENT_CATALOGUE, eventByName, resolveEventAlias } from './event-catalogue'
+
 export type PipelineScheduleKind = 'interval' | 'daily' | 'event'
+
+/** Pre-catalogue name for `dataset.versioned`, accepted at the intake boundary. */
+export const LEGACY_DATASET_VERSION_EVENT = 'dataset_version_created' as const
+
+/** Catalogue families whose stable events can trigger pipelines. */
+const TRIGGERABLE_FAMILY: Record<string, true> = {
+  record: true,
+  dataset: true,
+  notebook: true,
+  sheet: true,
+}
 
 export interface IntervalSpec {
   intervalMinutes: number
@@ -29,14 +50,59 @@ export interface DailySpec {
 }
 
 export interface EventSpec {
-  eventType: 'dataset_version_created'
-  /** Optional filter: only events for this Dataset trigger the pipeline. */
+  /** Canonical catalogue event name (e.g. `dataset.versioned`). */
+  eventType: string
+  /**
+   * Optional filter, meaningful only for `dataset.versioned`: only versions
+   * of this Dataset trigger the pipeline. Ignored for other events.
+   */
   datasetId?: string | null
-  /** Which pipeline input receives the created Dataset Version id. */
+  /** Which pipeline input receives the triggering event's entity uuid. */
   inputName?: string
   /** Fixed inputs for the pipeline's other inputs. */
   inputVersions?: Record<string, string>
   parameters?: Record<string, unknown>
+}
+
+/**
+ * Normalize a trigger event name to its canonical catalogue name, or null
+ * when it is not a triggerable event. Accepts canonical names, wire aliases
+ * and the legacy `dataset_version_created` name.
+ */
+export function normalizeTriggerEventName(name: unknown): string | null {
+  if (typeof name !== 'string' || name.length === 0) return null
+  const canonical =
+    name === LEGACY_DATASET_VERSION_EVENT ? 'dataset.versioned' : resolveEventAlias(name)
+  const entry = eventByName(canonical)
+  if (!entry || entry.name !== canonical) return null
+  if (entry.status !== 'stable' || entry.producer === null) return null
+  if (TRIGGERABLE_FAMILY[entry.family] !== true) return null
+  return entry.name
+}
+
+/** Every canonical event name a pipeline event trigger can subscribe to. */
+export const PIPELINE_TRIGGER_EVENTS: readonly string[] = Object.freeze(
+  EVENT_CATALOGUE.filter(
+    (entry) =>
+      entry.status === 'stable' &&
+      entry.producer !== null &&
+      TRIGGERABLE_FAMILY[entry.family] === true,
+  ).map((entry) => entry.name),
+)
+
+/**
+ * Producer pair behind a trigger event name, or null when the name is not a
+ * triggerable catalogue event. The sweep derives its change_events filter
+ * from this — never from a hardcoded entity_type/operation pair.
+ */
+export function producerForTriggerEvent(
+  name: unknown,
+): { entityType: string; operation: string } | null {
+  const canonical = normalizeTriggerEventName(name)
+  if (canonical === null) return null
+  const producer = eventByName(canonical)?.producer
+  if (!producer) return null
+  return { entityType: producer.entityType, operation: producer.operation }
 }
 
 export const DAILY_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/
@@ -77,9 +143,11 @@ export function validateScheduleSpec(
     }
     return null
   }
-  // kind === 'event' (the only remaining kind)
-  if (record.eventType !== 'dataset_version_created') {
-    return { message: 'eventType must be dataset_version_created' }
+  // kind === 'event' (the only remaining kind). Canonical catalogue names
+  // are stored; wire aliases and the legacy dataset_version_created name are
+  // accepted here and normalized by the writer (the RPC rewrites the spec).
+  if (normalizeTriggerEventName(record.eventType) === null) {
+    return { message: 'eventType must be a triggerable catalogue event name' }
   }
   if (
     record.datasetId !== undefined &&

@@ -59,7 +59,7 @@ claimed so it cannot be reused.
 | Event | Produced by |
 | ----- | ----------- |
 | `dataset.created` / `dataset.updated` / `dataset.archived` / `dataset.restored` | `dataset` + `create` / `update` / `archive` / `restore` |
-| `dataset.versioned` | `dataset_version` + `create`. Carries the parent `datasetId`. Also the only event pipeline schedules consume today. |
+| `dataset.versioned` | `dataset_version` + `create`. Carries the parent `datasetId`. Consumed by pipeline event schedules (with `datasetId` filtering). |
 
 ### Sheet (`stable`, canonical names with wire aliases)
 
@@ -97,6 +97,11 @@ template, report) — not a separate table.
 (from `pipeline_run`; fine-grained outcomes live in the run rows),
 `pipeline.schedule.created` / `pipeline.schedule.updated`
 (from `pipeline_schedule`).
+
+Pipeline lifecycle events are intentionally not pipeline triggers (triggers
+must not fan out to themselves). The triggerable set is the stable
+record/dataset/sheet/review events above — pinned in code by
+`PIPELINE_TRIGGER_EVENTS` (`src/lib/pipeline-schedule.ts`).
 
 See [`pipelines.md`](../subsystems/pipelines.md) for the trigger model
 (manual / schedule / event) and at-least-once cursor semantics.

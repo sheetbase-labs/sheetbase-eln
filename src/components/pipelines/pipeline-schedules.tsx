@@ -207,7 +207,7 @@ function AddScheduleDialog({
           ? { intervalMinutes: Number(intervalMinutes) }
           : kind === 'daily'
             ? { dailyAt, timeZone }
-            : { eventType: 'dataset_version_created', inputName: eventInput }
+            : { eventType: 'dataset.versioned', inputName: eventInput }
       return createPipelineSchedule(dataClient, {
         workspaceId,
         definitionId,

@@ -269,8 +269,11 @@ await client.webhooks.createSubscription({
   workspaceId: "uuid",
   key: "analysis-complete",
   url: "https://integration.example/hooks/sheetbase",
-  eventTypes: ["dataset.version.created"],
+  eventTypes: ["dataset.versioned"],
 });
+
+// Verify deliveries with the subscription's signing secret:
+// `verifyWebhookSignature(rawBody, secret, signatureHeader)`.
 
 const deliveries = await client.webhooks.listDeliveries({
   workspaceId: "uuid",

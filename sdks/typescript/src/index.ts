@@ -66,6 +66,14 @@ export {
   AgentOperationsResource,
   WebhooksResource,
 } from "./resources/index.js";
+export {
+  EVENT_ALIASES,
+  EVENT_NAMES,
+  isEventName,
+  resolveEventAlias,
+  verifyWebhookSignature,
+} from "./resources/index.js";
+export type { EventName, WebhookEventPayload } from "./resources/index.js";
 export type {
   AgentOperation,
   AgentProvenance,

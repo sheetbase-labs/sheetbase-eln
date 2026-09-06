@@ -14,3 +14,11 @@ export type {
   AgentWorkflowUsage,
 } from "./agent-operations.js";
 export { WebhooksResource } from "./webhooks.js";
+export {
+  EVENT_ALIASES,
+  EVENT_NAMES,
+  isEventName,
+  resolveEventAlias,
+  verifyWebhookSignature,
+} from "./events.js";
+export type { EventName, WebhookEventPayload } from "./events.js";

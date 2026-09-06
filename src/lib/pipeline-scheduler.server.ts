@@ -35,7 +35,11 @@ import { env } from '#/env.server'
 import { metrics } from '#/lib/metrics'
 import { runPipelineExecution } from './pipeline-execute.server'
 import type { PipelineExecuteDeps } from './pipeline-execute.server'
-import { nextRunAt } from './pipeline-schedule'
+import {
+  nextRunAt,
+  normalizeTriggerEventName,
+  producerForTriggerEvent,
+} from './pipeline-schedule'
 
 const SWEEP_INTERVAL_MS = 60_000
 const MAX_EVENTS_PER_SWEEP = 20
@@ -389,27 +393,50 @@ async function sweepEventSchedule(
     }
 
     const spec = locked.spec as {
+      eventType?: string | null
       datasetId?: string | null
       inputName?: string
       inputVersions?: Record<string, string>
       parameters?: Record<string, unknown>
     }
+    // Trigger configuration references catalogue event names. The stored
+    // value is canonical, but pre-catalogue rows may still carry the legacy
+    // `dataset_version_created` name — normalize at read time so they keep
+    // firing. Unknown (non-triggerable) names consume nothing: the cursor
+    // stays in place rather than skipping events silently.
+    const triggerEvent = normalizeTriggerEventName(spec.eventType)
+    const producer = producerForTriggerEvent(spec.eventType)
+    if (!triggerEvent || !producer) {
+      await conn.rollback()
+      return { fired, recovered }
+    }
     const cursor = Number(locked.last_evaluated_sequence ?? 0)
+    // The dataset filter is meaningful only for `dataset.versioned` (whose
+    // payload carries the parent datasetId); other events ignore it.
+    const datasetFilter =
+      triggerEvent === 'dataset.versioned' ? (spec.datasetId ?? null) : null
     const events = await conn.query<ChangeEventRow>(
       `SELECT id, entity_uuid, sequence
          FROM api.change_events
         WHERE workspace_id = $1
-          AND entity_type = 'dataset_version'
-          AND operation = 'create'
-          AND sequence > $2::bigint
-          AND ($3::uuid IS NULL OR payload->>'datasetId' IS NULL
-               OR (payload->>'datasetId')::uuid = $3::uuid)
+          AND entity_type = $2
+          AND operation = $3
+          AND sequence > $4::bigint
+          AND ($5::uuid IS NULL OR payload->>'datasetId' IS NULL
+               OR (payload->>'datasetId')::uuid = $5::uuid)
         ORDER BY sequence
         LIMIT ${MAX_EVENTS_PER_SWEEP}`,
-      [locked.workspace_id, cursor, spec.datasetId ?? null],
+      [locked.workspace_id, producer.entityType, producer.operation, cursor, datasetFilter],
     )
+    // Only `dataset.versioned` supplies an input version (the created
+    // Dataset Version id). Other events fire with the schedule's configured
+    // inputs; an explicitly configured inputName still binds the triggering
+    // entity (a misconfigured binding fails the start visibly via the
+    // durable failure path rather than silently).
     const inputName =
-      spec.inputName ?? (await firstInputName(locked.definition_id, conn))
+      triggerEvent === 'dataset.versioned'
+        ? (spec.inputName ?? (await firstInputName(locked.definition_id, conn)))
+        : spec.inputName
     await conn.commit()
 
     for (const runId of startedRunIds) {

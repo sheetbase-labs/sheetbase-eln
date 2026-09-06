@@ -108,6 +108,11 @@ const webhookSse: EventConsumerMap = Object.freeze({
   sse: true,
   pipeline: false,
 })
+const webhookSsePipeline: EventConsumerMap = Object.freeze({
+  webhook: true,
+  sse: true,
+  pipeline: true,
+})
 
 /**
  * The canonical event catalogue. One entry per stable event name; producers
@@ -177,7 +182,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'record.created',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'record.updated',
@@ -187,7 +192,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'record.updated',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'record.moved',
@@ -197,7 +202,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'record.moved',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'record.deleted',
@@ -207,7 +212,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'record.deleted',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'record.archived',
@@ -217,7 +222,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'record.archived',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'record.restored',
@@ -227,7 +232,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'record.restored',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'record.amended',
@@ -251,7 +256,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'dataset.created',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'dataset.updated',
@@ -261,7 +266,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'dataset.updated',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'dataset.archived',
@@ -271,7 +276,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'dataset.archived',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'dataset.restored',
@@ -281,7 +286,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'dataset.restored',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'dataset.versioned',
@@ -305,7 +310,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'sheet_instance.created',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias sheet_instance.created kept for compatibility; subscribe with sheet.created.',
   },
@@ -317,7 +322,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'sheet_instance.updated',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias sheet_instance.updated kept for compatibility; subscribe with sheet.updated.',
   },
@@ -329,7 +334,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'sheet_instance.archived',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias sheet_instance.archived kept for compatibility; subscribe with sheet.archived.',
   },
@@ -341,7 +346,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'sheet_instance.restored',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias sheet_instance.restored kept for compatibility; subscribe with sheet.restored.',
   },
@@ -353,7 +358,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'sheet_definition.created',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias sheet_definition.created kept for compatibility; subscribe with sheet.definition.created.',
   },
@@ -365,7 +370,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'sheet_definition.updated',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias sheet_definition.updated kept for compatibility; subscribe with sheet.definition.updated.',
   },
@@ -377,7 +382,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'sheet_definition.versioned',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias sheet_definition.versioned kept for compatibility; subscribe with sheet.definition.versioned.',
   },
@@ -390,7 +395,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'notebook.submitted',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'notebook.amended',
@@ -413,7 +418,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'review.decided',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'notebook.signed',
@@ -423,7 +428,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'notebook.signed',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'notebook.template.created',
@@ -433,7 +438,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'notebook_template.created',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias notebook_template.created kept for compatibility; subscribe with notebook.template.created.',
   },
@@ -445,7 +450,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'notebook_template.updated',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias notebook_template.updated kept for compatibility; subscribe with notebook.template.updated.',
   },
@@ -457,7 +462,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'notebook_template.versioned',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Wire alias notebook_template.versioned kept for compatibility; subscribe with notebook.template.versioned.',
   },

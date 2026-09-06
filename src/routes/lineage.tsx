@@ -12,7 +12,7 @@
  * to inaccessible targets are rendered as honest "restricted" nodes.
  */
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useCallback, useMemo, useState } from 'react'
 import {
   Background,
@@ -76,7 +76,10 @@ import {
   getLinkedRecordsByType,
   getTransformationHistory,
   lineageDataClient,
+  LINEAGE_MAX_DEPTH,
+  lineageNodeDestination,
   lineageQueryKeys,
+  parseLineageSeedParam,
 } from '#/lib/lineage-data'
 import type {
   LineageEdge,
@@ -89,6 +92,9 @@ import type {
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/lineage')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    seed: parseLineageSeedParam(search) ?? undefined,
+  }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -122,19 +128,22 @@ function entityIcon(entityType: LineageEntityType): LucideIcon {
 
 // ---------------------------------------------------------------------------
 // Route component
-// ---------------------------------------------------------------------------
-
 function LineageExplorerRoute() {
   const { context } = Route.useRouteContext()
+  const { seed } = Route.useSearch()
   const [viewMode, setViewMode] = useState<'graph' | 'timeline' | 'table'>(
     'graph',
   )
   const [filters, setFilters] = useState<LineageFilters>(DEFAULT_FILTERS)
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const seedRecordId = null as string | null
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
+    seed ?? null,
+  )
+  // KNOW-02 — per-object deep-link: `?seed=<recordId>` reconstructs the same
+  // traversal the inspector miniature shows, at full explorer depth.
+  const seedRecordId = seed ?? null
 
   const graphQuery = useQuery({
-    queryKey: lineageQueryKeys.graph,
+    queryKey: lineageQueryKeys.graphFor(seedRecordId, LINEAGE_MAX_DEPTH),
     queryFn: () => fetchLineageGraph(lineageDataClient, seedRecordId),
     staleTime: 15_000,
   })
@@ -220,6 +229,27 @@ function LineageExplorerRoute() {
           onReset={handleResetFilters}
           cycle={cycle}
         />
+
+        {/* KNOW-02 — seeded per-object view: same traversal as the inspector
+            miniature, reconstructed at full depth. */}
+        {seedRecordId ? (
+          <div className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground">
+            <Network className="size-3.5" aria-hidden="true" />
+            <span>
+              Seeded lineage for{' '}
+              <span className="font-mono font-medium text-foreground">
+                {seedRecordId}
+              </span>
+            </span>
+            <Link
+              to="/lineage"
+              search={{ seed: undefined }}
+              className="ml-auto font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              Clear seed — view full graph
+            </Link>
+          </div>
+        ) : null}
 
         {/* Content */}
         <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -954,6 +984,7 @@ function LineageInspector({
     () => getTransformationHistory(graph, node.id),
     [graph, node.id],
   )
+  const destination = useMemo(() => lineageNodeDestination(node), [node])
 
   const Icon = entityIcon(node.entityType)
   const color = ENTITY_TYPE_COLORS[node.entityType]
@@ -1115,21 +1146,27 @@ function LineageInspector({
         </div>
       )}
 
-      {/* Actions */}
+      {/* Actions — KNOW-02: submitted/frozen evidence nodes link to the
+          frozen evidence workspace; live nodes link to their canonical
+          surface. Inaccessible nodes expose no action (honest state above). */}
       {node.accessible && (
         <div className="shrink-0 space-y-1.5 p-4">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Actions
           </h3>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-start text-xs"
-            onClick={() => onSelectNode(node.id)}
-          >
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-            Open record
-          </Button>
+          {destination ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start text-xs"
+              asChild
+            >
+              <a href={destination}>
+                <ExternalLink className="size-3.5" aria-hidden="true" />
+                {node.revisionId ? 'Open evidence' : 'Open record'}
+              </a>
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             size="sm"

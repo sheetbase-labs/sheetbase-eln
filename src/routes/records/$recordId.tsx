@@ -123,6 +123,7 @@ import {
   PinnedRelationshipPanel,
   RelationshipPanel,
 } from '#/components/knowledge/relationship-panel'
+import { RecordLineageSection } from '#/components/knowledge/record-lineage-section'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
@@ -2256,6 +2257,13 @@ export function NotebookInspector({
             <PinnedRelationshipPanel links={evidenceLinks} />
           ) : (
             <RelationshipPanel recordId={record.id} />
+          )}
+          {/* KNOW-02: per-object lineage — the existing traversal BFS seeded
+              from this record at a bounded depth, with an `Open full lineage`
+              deep-link to the explorer. Historical revisions show pinned
+              evidence only, so the live traversal stays hidden there. */}
+          {isHistorical ? null : (
+            <RecordLineageSection recordId={record.id} />
           )}
 
           <InspectorSection title="Files">

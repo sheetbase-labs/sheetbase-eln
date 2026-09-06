@@ -46,7 +46,7 @@ import { createHash } from 'node:crypto'
 
 import type { AiContextActor, AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
-import { AGENT_WORKFLOW_TOOLS } from './agent-workflows'
+import { AGENT_OPERATION_TOOL_NAMES } from './agent-tool-catalogue'
 import { logger, redact } from './logger'
 import {
   MODEL_ERROR_CODES,
@@ -62,10 +62,11 @@ export const GATEWAY_MODELS = MODEL_NAMES
 export type GatewayModel = ModelName
 
 /**
- * Allowlisted tools: the canonical agent-workflow tool vocabulary. A model
- * call may only request tools the workflow layer can actually execute.
+ * Allowlisted tools: the AUTO-PLUS-01 tool catalogue's operation vocabulary.
+ * Single authority is `AGENT_OPERATION_TOOL_NAMES` — a model call may only
+ * request tools the workflow layer can actually execute.
  */
-export const GATEWAY_TOOLS = AGENT_WORKFLOW_TOOLS
+export const GATEWAY_TOOLS = AGENT_OPERATION_TOOL_NAMES
 export type GatewayTool = (typeof GATEWAY_TOOLS)[number]
 
 /** Rejection codes. Each is also a bounded `sheetbase_model_errors_total` label. */

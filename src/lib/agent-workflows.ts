@@ -1,15 +1,14 @@
+import { AGENT_OPERATION_TOOL_NAMES } from './agent-tool-catalogue'
 import type { DataClient } from './data-client'
 import type { AgentOperation, AgentProvenance } from './agent-operations'
 
-export const AGENT_WORKFLOW_TOOLS = [
-  'sheetbase.dataset_schema.draft',
-  'sheetbase.sheet_definition.draft',
-  'sheetbase.sheet_definition.update_draft',
-  'sheetbase.pipeline_definition.draft',
-  'sheetbase.pipeline_definition.version_draft',
-  'sheetbase.pipeline_definition.update_draft',
-  'sheetbase.dataset_rows.commit',
-] as const
+/**
+ * Allowlisted workflow tools. Single authority: the AUTO-PLUS-01 tool
+ * catalogue (`AGENT_OPERATION_TOOL_NAMES`); re-exported here so existing
+ * imports keep working. The drift test in `agent-tool-catalogue.test.ts`
+ * pins the agreement with the AI gateway allowlist.
+ */
+export const AGENT_WORKFLOW_TOOLS = AGENT_OPERATION_TOOL_NAMES
 
 export type AgentWorkflowTool = (typeof AGENT_WORKFLOW_TOOLS)[number]
 

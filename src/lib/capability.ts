@@ -15,6 +15,7 @@ export const CAPABILITIES = [
   'instance.upgrade',
   'integrations.manage',
   'pipelines.manage',
+  'extensions.manage',
 ] as const
 
 export type Capability = (typeof CAPABILITIES)[number]
@@ -65,6 +66,7 @@ export function hasCapability(
       return MEMBER_CLASS_ROLES.has(role)
     case 'integrations.manage':
     case 'pipelines.manage':
+    case 'extensions.manage':
       return GOVERNED_SCHEMA_ROLES.has(role)
     default:
       return false

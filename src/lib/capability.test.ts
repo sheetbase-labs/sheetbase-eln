@@ -54,6 +54,7 @@ describe('CORE-05 capability mapping', () => {
       'instance.upgrade',
       'integrations.manage',
       'pipelines.manage',
+      'extensions.manage',
     ])
   })
 
@@ -64,6 +65,15 @@ describe('CORE-05 capability mapping', () => {
     expect(hasCapability('member', 'integrations.manage')).toBe(false)
     expect(hasCapability('scientist', 'integrations.manage')).toBe(false)
     expect(hasCapability('viewer', 'integrations.manage')).toBe(false)
+  })
+
+  it('grants extensions.manage to governed roles only', () => {
+    expect(hasCapability('owner', 'extensions.manage')).toBe(true)
+    expect(hasCapability('admin', 'extensions.manage')).toBe(true)
+    expect(hasCapability('steward', 'extensions.manage')).toBe(true)
+    expect(hasCapability('member', 'extensions.manage')).toBe(false)
+    expect(hasCapability('scientist', 'extensions.manage')).toBe(false)
+    expect(hasCapability('viewer', 'extensions.manage')).toBe(false)
   })
 
   it('grants pipelines.manage to governed roles only', () => {

@@ -10,7 +10,18 @@ import { CanonicalSheetLifecyclePanel } from './canonical-sheet-lifecycle-panel'
 
 const previewExtraction = vi.fn()
 const extractDraft = vi.fn()
-
+const fetchPinnedVersion = vi.fn(
+  async (..._args: unknown[]): Promise<{
+    id: string
+    definitionId: string
+    version: number
+  } | null> => null,
+)
+const fetchDefinitionVersions = vi.fn(
+  async (..._args: unknown[]): Promise<
+    Array<{ id: string; version: number; lifecycle: string }>
+  > => [],
+)
 vi.mock('#/lib/dataset-explorer-data', () => ({
   fetchDatasetSummaries: vi.fn(async () => []),
 }))
@@ -18,7 +29,10 @@ vi.mock('#/lib/dataset-explorer-data', () => ({
 vi.mock('#/lib/sheet-definition-data', () => ({
   extractSheetDefinitionDraft: (...args: unknown[]) => extractDraft(...args),
   fetchSheetDefinitions: vi.fn(async () => []),
-  fetchSheetDefinitionVersions: vi.fn(async () => []),
+  fetchSheetDefinitionVersion: (...args: unknown[]) =>
+    fetchPinnedVersion(...args),
+  fetchSheetDefinitionVersions: (...args: unknown[]) =>
+    fetchDefinitionVersions(...args),
   previewSheetDefinitionExtraction: (...args: unknown[]) =>
     previewExtraction(...args),
   publishSheetDefinitionVersion: vi.fn(),
@@ -74,6 +88,20 @@ function renderPanel() {
   )
 }
 
+function renderPanelWithInstance(overrides: Partial<SheetInstance>) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      <CanonicalSheetLifecyclePanel
+        instance={{ ...instance(), ...overrides }}
+        onInstance={vi.fn()}
+      />
+    </QueryClientProvider>,
+  )
+}
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -102,5 +130,32 @@ describe('CanonicalSheetLifecyclePanel', () => {
       '/configure?kind=definition&id=definition-1',
     )
     await waitFor(() => expect(extractDraft).toHaveBeenCalledTimes(1))
+  })
+  it('surfaces an upgrade badge when a newer published Definition version exists', async () => {
+    fetchPinnedVersion.mockResolvedValue({
+      id: 'pinned-version-1',
+      definitionId: 'definition-1',
+      version: 1,
+    })
+    fetchDefinitionVersions.mockResolvedValue([
+      { id: 'pinned-version-1', version: 1, lifecycle: 'published' },
+      { id: 'pinned-version-2', version: 2, lifecycle: 'published' },
+    ])
+    renderPanelWithInstance({ sourceDefinitionVersionId: 'pinned-version-1' })
+    expect(await screen.findByText('Upgrade available · v2')).toBeTruthy()
+  })
+  it('stays silent when the pinned Definition version is current', async () => {
+    fetchPinnedVersion.mockResolvedValue({
+      id: 'pinned-version-2',
+      definitionId: 'definition-1',
+      version: 2,
+    })
+    fetchDefinitionVersions.mockResolvedValue([
+      { id: 'pinned-version-1', version: 1, lifecycle: 'published' },
+      { id: 'pinned-version-2', version: 2, lifecycle: 'published' },
+    ])
+    renderPanelWithInstance({ sourceDefinitionVersionId: 'pinned-version-2' })
+    await waitFor(() => expect(fetchDefinitionVersions).toHaveBeenCalled())
+    expect(screen.queryByText(/Upgrade available/)).toBeNull()
   })
 })

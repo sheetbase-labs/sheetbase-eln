@@ -59,6 +59,10 @@ function fakeClient(): DataClient {
     }) as DataClient['list'],
     rpc: vi.fn(async (name: string) => {
       if (name === 'model_field_usage') return 3
+      if (name === 'create_model_field') return { id: 'field-new' }
+      if (name === 'configure_model_field_semantics') return { id: 'field-new' }
+      if (name === 'create_model_field_option') return { id: 'option-new' }
+      if (name === 'activate_model_field') return { id: 'field-new' }
       if (name === 'preview_model_field_evolution')
         return {
           classification: 'migration-requiring',
@@ -255,7 +259,7 @@ describe('AdminModelFields', () => {
     )
   })
 
-  it('creates a described numeric field with a unit', async () => {
+  it('creates a governed numeric field through the draft-configure-activate flow', async () => {
     const user = userEvent.setup()
     const { client } = mount(true)
     await screen.findByText('Purity')
@@ -268,18 +272,81 @@ describe('AdminModelFields', () => {
       'Measured concentration',
     )
     await user.selectOptions(screen.getByLabelText('Type'), 'decimal')
-    await user.type(screen.getByLabelText('Unit symbol'), 'mg/mL')
+    await user.type(screen.getByLabelText('Quantity kind'), 'concentration')
+    await user.type(screen.getByLabelText('Dimension'), 'mass/volume')
+    await user.type(screen.getByLabelText('Storage unit'), 'mg/mL')
+    await user.type(screen.getByLabelText('Minimum value'), '0')
+    await user.type(screen.getByLabelText('Maximum value'), '100')
     await user.click(screen.getByRole('button', { name: 'Add and activate' }))
 
     await waitFor(() =>
       expect(client.rpc).toHaveBeenCalledWith(
-        'create_and_activate_model_field',
+        'create_model_field',
         expect.objectContaining({
           p_field_name: 'concentration',
           p_description: 'Measured concentration',
+          p_validation: { min: 0, max: 100 },
           p_unit: { symbol: 'mg/mL' },
         }),
       ),
+    )
+    await waitFor(() =>
+      expect(client.rpc).toHaveBeenCalledWith(
+        'configure_model_field_semantics',
+        {
+          p_definition_id: 'field-new',
+          p_quantity: {
+            kind: 'concentration',
+            dimension: 'mass/volume',
+            storageUnit: 'mg/mL',
+            allowedInputUnits: [],
+            preferredDisplayUnit: undefined,
+          },
+          p_cardinality: 'one',
+          p_category_source: null,
+          p_relationship: null,
+        },
+      ),
+    )
+    await waitFor(() =>
+      expect(client.rpc).toHaveBeenCalledWith('activate_model_field', {
+        p_definition_id: 'field-new',
+      }),
+    )
+    expect(client.rpc).not.toHaveBeenCalledWith(
+      'create_and_activate_model_field',
+      expect.anything(),
+    )
+  })
+
+  it('creates a vocabulary-backed category without embedded options', async () => {
+    const user = userEvent.setup()
+    const { client } = mount(true)
+    await screen.findByText('Purity')
+    await user.click(screen.getByRole('button', { name: 'Add field' }))
+
+    await user.type(screen.getByLabelText('Label'), 'Therapeutic area')
+    await user.type(screen.getByLabelText('Stable key'), 'therapeutic_area')
+    await user.selectOptions(screen.getByLabelText('Type'), 'category')
+    await user.selectOptions(screen.getByLabelText('Category source'), 'vocabulary')
+    await user.type(screen.getByLabelText('Vocabulary ID'), 'therapeutic-area-v1')
+    await user.click(screen.getByRole('button', { name: 'Add and activate' }))
+
+    await waitFor(() =>
+      expect(client.rpc).toHaveBeenCalledWith(
+        'configure_model_field_semantics',
+        expect.objectContaining({
+          p_definition_id: 'field-new',
+          p_category_source: {
+            kind: 'vocabulary',
+            vocabularyId: 'therapeutic-area-v1',
+          },
+        }),
+      ),
+    )
+    expect(client.rpc).not.toHaveBeenCalledWith(
+      'create_model_field_option',
+      expect.anything(),
     )
   })
   it('surfaces kernel validation inline before adding a category field', async () => {

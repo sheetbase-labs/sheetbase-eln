@@ -27,7 +27,11 @@ import {
   fieldDefinitionFromModelField,
   validateFieldDefinition,
 } from '#/lib/field-definition'
-import { fetchModelFieldsWithUsage, fetchModelKinds } from '#/lib/model-fields'
+import {
+  createModelFieldWithSemantics,
+  fetchModelFieldsWithUsage,
+  fetchModelKinds,
+} from '#/lib/model-fields'
 import type {
   ModelFieldDefinition,
   ModelFieldLogicalType,
@@ -54,7 +58,18 @@ interface AddFieldForm {
   description: string
   required: boolean
   defaultValue: string
-  unitSymbol: string
+  quantityKind: string
+  quantityDimension: string
+  quantityStorageUnit: string
+  quantityAllowedUnits: string
+  quantityDisplayUnit: string
+  minValue: string
+  maxValue: string
+  minLength: string
+  maxLength: string
+  pattern: string
+  categorySource: 'embedded' | 'vocabulary'
+  vocabularyId: string
   options: string
   targetModelKey: string
 }
@@ -64,6 +79,27 @@ function parseCategoryOptionKeys(input: string): string[] {
     .split(',')
     .map((option) => option.trim())
     .filter(Boolean)
+}
+
+function parseCsvSymbols(input: string): string[] {
+  return input
+    .split(',')
+    .map((symbol) => symbol.trim())
+    .filter(Boolean)
+}
+
+function parseOptionalNumber(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function parseOptionalInt(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  if (!/^-?\d+$/.test(trimmed)) return null
+  return Number(trimmed)
 }
 
 function parseDefaultValue(
@@ -83,6 +119,16 @@ function parseDefaultValue(
  */
 function draftDefinitionFromForm(form: AddFieldForm) {
   const targetModelKey = form.targetModelKey.trim()
+  const isNumeric = form.type === 'integer' || form.type === 'decimal'
+  const quantityKind = form.quantityKind.trim()
+  const quantityDimension = form.quantityDimension.trim()
+  const quantityStorageUnit = form.quantityStorageUnit.trim()
+  const min = parseOptionalNumber(form.minValue)
+  const max = parseOptionalNumber(form.maxValue)
+  const minLength = parseOptionalInt(form.minLength)
+  const maxLength = parseOptionalInt(form.maxLength)
+  const pattern = form.pattern.trim()
+  const vocabularyId = form.vocabularyId.trim()
   return fieldDefinitionFromModelField({
     id: 'draft',
     fieldName: form.key.trim(),
@@ -91,12 +137,30 @@ function draftDefinitionFromForm(form: AddFieldForm) {
     logicalType: form.type,
     nullable: !form.required,
     defaultValue: parseDefaultValue(form.type, form.defaultValue),
-    unit:
-      (form.type === 'integer' || form.type === 'decimal') &&
-      form.unitSymbol.trim()
-        ? { symbol: form.unitSymbol.trim() }
+    unit: isNumeric && quantityStorageUnit ? { symbol: quantityStorageUnit } : null,
+    quantity:
+      isNumeric && (quantityKind || quantityDimension || quantityStorageUnit)
+        ? {
+            kind: quantityKind,
+            dimension: quantityDimension,
+            storageUnit: quantityStorageUnit,
+            allowedInputUnits: parseCsvSymbols(form.quantityAllowedUnits),
+            preferredDisplayUnit: form.quantityDisplayUnit.trim() || undefined,
+          }
         : null,
-    validation: form.type === 'reference' ? { targetModelKey } : {},
+    validation: {
+      ...(form.type === 'reference' ? { targetModelKey } : {}),
+      ...(isNumeric && min !== null ? { min } : {}),
+      ...(isNumeric && max !== null ? { max } : {}),
+      ...(form.type === 'text' && minLength !== null ? { minLength } : {}),
+      ...(form.type === 'text' && maxLength !== null ? { maxLength } : {}),
+      ...(form.type === 'text' && pattern ? { pattern } : {}),
+    },
+    cardinality: 'one',
+    categorySource:
+      form.type === 'category' && form.categorySource === 'vocabulary'
+        ? { kind: 'vocabulary', vocabularyId }
+        : null,
     relationship:
       form.type === 'reference' && targetModelKey
         ? {
@@ -105,14 +169,95 @@ function draftDefinitionFromForm(form: AddFieldForm) {
           }
         : null,
     lifecycle: 'active',
-    options: parseCategoryOptionKeys(form.options).map((key, index) => ({
-      id: `draft-${index}`,
-      key,
-      label: key,
-      displayOrder: index,
-      lifecycle: 'active' as const,
-    })),
+    options:
+      form.type === 'category' && form.categorySource === 'embedded'
+        ? parseCategoryOptionKeys(form.options).map((key, index) => ({
+            id: `draft-${index}`,
+            key,
+            label: key,
+            displayOrder: index,
+            lifecycle: 'active' as const,
+          }))
+        : [],
   })
+}
+/**
+ * Read-path summary of the governed 0060 semantics so Stewards can see
+ * quantity, vocabulary, relationship and constraint metadata without
+ * opening the raw definition.
+ */
+function FieldSemanticsSummary({ field }: { field: ModelFieldDefinition }) {
+  const segments: string[] = []
+  const quantity = field.quantity
+  if (quantity) {
+    const display =
+      quantity.preferredDisplayUnit &&
+      quantity.preferredDisplayUnit !== quantity.storageUnit
+        ? ` → ${quantity.preferredDisplayUnit}`
+        : ''
+    segments.push(`${quantity.kind} · ${quantity.storageUnit}${display}`)
+  } else if (
+    typeof field.unit?.symbol === 'string' &&
+    field.unit.symbol.trim()
+  ) {
+    segments.push(`unit ${field.unit.symbol.trim()} (legacy)`)
+  }
+  const validation = field.validation as Record<string, unknown>
+  if (typeof validation.min === 'number' || typeof validation.max === 'number') {
+    segments.push(
+      `range ${typeof validation.min === 'number' ? validation.min : '−∞'}…${typeof validation.max === 'number' ? validation.max : '+∞'}`,
+    )
+  }
+  if (
+    typeof validation.minLength === 'number' ||
+    typeof validation.maxLength === 'number'
+  ) {
+    segments.push(
+      `length ${typeof validation.minLength === 'number' ? validation.minLength : '0'}…${typeof validation.maxLength === 'number' ? validation.maxLength : '∞'}`,
+    )
+  }
+  const pattern =
+    typeof validation.pattern === 'string'
+      ? validation.pattern
+      : typeof validation.regex === 'string'
+        ? validation.regex
+        : null
+  if (pattern) {
+    segments.push(
+      `pattern ${pattern.length > 28 ? `${pattern.slice(0, 27)}…` : pattern}`,
+    )
+  }
+  if (field.logicalType === 'category') {
+    segments.push(
+      field.categorySource?.kind === 'vocabulary' &&
+      field.categorySource.vocabularyId.trim()
+        ? `vocabulary ${field.categorySource.vocabularyId.trim()}`
+        : `${field.options.length} embedded options`,
+    )
+  }
+  const relationshipTarget = field.relationship?.target
+  const legacyTarget =
+    typeof validation.targetModelKey === 'string' &&
+    validation.targetModelKey.trim()
+      ? validation.targetModelKey.trim()
+      : null
+  if (
+    field.logicalType === 'reference' &&
+    (relationshipTarget?.kind === 'model' || legacyTarget)
+  ) {
+    segments.push(
+      `→ ${relationshipTarget?.kind === 'model' ? relationshipTarget.modelKey : legacyTarget}`,
+    )
+  }
+  if (field.cardinality && field.cardinality !== 'one') {
+    segments.push(`cardinality ${field.cardinality}`)
+  }
+  if (segments.length === 0) return null
+  return (
+    <p className="mt-0.5 max-w-56 text-[0.65rem] leading-snug text-muted-foreground">
+      {segments.join(' · ')}
+    </p>
+  )
 }
 
 
@@ -352,7 +497,18 @@ export function AdminModelFields({
     description: '',
     required: false,
     defaultValue: '',
-    unitSymbol: '',
+    quantityKind: '',
+    quantityDimension: '',
+    quantityStorageUnit: '',
+    quantityAllowedUnits: '',
+    quantityDisplayUnit: '',
+    minValue: '',
+    maxValue: '',
+    minLength: '',
+    maxLength: '',
+    pattern: '',
+    categorySource: 'embedded',
+    vocabularyId: '',
     options: '',
     targetModelKey: 'sample',
   })
@@ -419,6 +575,7 @@ export function AdminModelFields({
     }
     if (
       form.type === 'category' &&
+      form.categorySource === 'embedded' &&
       parseCategoryOptionKeys(form.options).length === 0
     ) {
       issues.push({
@@ -427,38 +584,146 @@ export function AdminModelFields({
           'Category needs an active option — the server rejects activation without one.',
       })
     }
+    if (
+      form.type === 'category' &&
+      form.categorySource === 'vocabulary' &&
+      !form.vocabularyId.trim()
+    ) {
+      issues.push({
+        path: 'category',
+        message:
+          'Vocabulary-backed categories need a vocabulary ID — the server rejects an empty one.',
+      })
+    }
+    if (form.type === 'integer' || form.type === 'decimal') {
+      const min = parseOptionalNumber(form.minValue)
+      const max = parseOptionalNumber(form.maxValue)
+      if (form.minValue.trim() && min === null) {
+        issues.push({
+          path: 'validation',
+          message: 'Minimum must be a finite number.',
+        })
+      }
+      if (form.maxValue.trim() && max === null) {
+        issues.push({
+          path: 'validation',
+          message: 'Maximum must be a finite number.',
+        })
+      }
+      if (min !== null && max !== null && min > max) {
+        issues.push({
+          path: 'validation',
+          message: 'Validation min must not exceed max.',
+        })
+      }
+    }
+    if (form.type === 'text') {
+      const minLength = parseOptionalInt(form.minLength)
+      const maxLength = parseOptionalInt(form.maxLength)
+      if (form.minLength.trim() && (minLength === null || minLength < 0)) {
+        issues.push({
+          path: 'validation',
+          message: 'Minimum length must be a non-negative integer.',
+        })
+      }
+      if (form.maxLength.trim() && (maxLength === null || maxLength < 0)) {
+        issues.push({
+          path: 'validation',
+          message: 'Maximum length must be a non-negative integer.',
+        })
+      }
+      if (
+        minLength !== null &&
+        maxLength !== null &&
+        minLength > maxLength
+      ) {
+        issues.push({
+          path: 'validation',
+          message: 'Validation minLength must not exceed maxLength.',
+        })
+      }
+      if (form.pattern.trim()) {
+        try {
+          new RegExp(form.pattern.trim())
+        } catch {
+          issues.push({
+            path: 'validation',
+            message: 'Identifier pattern must be a valid regular expression.',
+          })
+        }
+      }
+    }
     return issues
   }, [form, baseFields, fields])
 
   const create = useMutation({
     mutationFn: async () => {
-      const validation =
-        form.type === 'reference'
-          ? { targetModelKey: form.targetModelKey.trim() }
-          : {}
-      const options =
-        form.type === 'category'
-          ? parseCategoryOptionKeys(form.options).map((option) => ({
-              key: option,
-              label: option,
-            }))
-          : []
-      await client.rpc('create_and_activate_model_field', {
-        p_workspace_id: workspaceId,
-        p_model_key: modelKey,
-        p_field_name: form.key.trim(),
-        p_label: form.label.trim(),
-        p_logical_type: form.type,
-        p_nullable: !form.required,
-        p_default_value: parseDefaultValue(form.type, form.defaultValue),
-        p_validation: validation,
-        p_options: options,
-        p_unit:
-          (form.type === 'integer' || form.type === 'decimal') &&
-          form.unitSymbol.trim()
-            ? { symbol: form.unitSymbol.trim() }
-            : null,
-        p_description: form.description.trim() || null,
+      const isNumeric = form.type === 'integer' || form.type === 'decimal'
+      const quantityKind = form.quantityKind.trim()
+      const quantityDimension = form.quantityDimension.trim()
+      const quantityStorageUnit = form.quantityStorageUnit.trim()
+      const quantityDisplayUnit = form.quantityDisplayUnit.trim()
+      const storageUnit = isNumeric ? quantityStorageUnit : ''
+      const min = parseOptionalNumber(form.minValue)
+      const max = parseOptionalNumber(form.maxValue)
+      const minLength = parseOptionalInt(form.minLength)
+      const maxLength = parseOptionalInt(form.maxLength)
+      const pattern = form.pattern.trim()
+      const targetModelKey = form.targetModelKey.trim()
+      const vocabularyId = form.vocabularyId.trim()
+      await createModelFieldWithSemantics(client, {
+        workspaceId,
+        modelKey,
+        fieldName: form.key.trim(),
+        label: form.label.trim(),
+        logicalType: form.type,
+        nullable: !form.required,
+        defaultValue: parseDefaultValue(form.type, form.defaultValue),
+        validation: {
+          ...(form.type === 'reference' ? { targetModelKey } : {}),
+          ...(isNumeric && min !== null ? { min } : {}),
+          ...(isNumeric && max !== null ? { max } : {}),
+          ...(form.type === 'text' && minLength !== null ? { minLength } : {}),
+          ...(form.type === 'text' && maxLength !== null ? { maxLength } : {}),
+          ...(form.type === 'text' && pattern ? { pattern } : {}),
+        },
+        unit: storageUnit ? { symbol: storageUnit } : null,
+        description: form.description.trim() || null,
+        options:
+          form.type === 'category' && form.categorySource === 'embedded'
+            ? parseCategoryOptionKeys(form.options).map((option) => ({
+                key: option,
+                label: option,
+              }))
+            : [],
+        semantics: {
+          quantity:
+            isNumeric && (quantityKind || quantityDimension || storageUnit)
+              ? {
+                  kind: quantityKind,
+                  dimension: quantityDimension,
+                  storageUnit,
+                  allowedInputUnits: parseCsvSymbols(
+                    form.quantityAllowedUnits,
+                  ),
+                  preferredDisplayUnit: quantityDisplayUnit || undefined,
+                }
+              : null,
+          cardinality: 'one',
+          categorySource:
+            form.type === 'category'
+              ? form.categorySource === 'vocabulary'
+                ? { kind: 'vocabulary', vocabularyId }
+                : { kind: 'embedded' }
+              : null,
+          relationship:
+            form.type === 'reference' && targetModelKey
+              ? {
+                  target: { kind: 'model', modelKey: targetModelKey },
+                  cardinality: 'one',
+                }
+              : null,
+        },
       })
     },
     onSuccess: () => {
@@ -471,7 +736,18 @@ export function AdminModelFields({
         description: '',
         required: false,
         defaultValue: '',
-        unitSymbol: '',
+        quantityKind: '',
+        quantityDimension: '',
+        quantityStorageUnit: '',
+        quantityAllowedUnits: '',
+        quantityDisplayUnit: '',
+        minValue: '',
+        maxValue: '',
+        minLength: '',
+        maxLength: '',
+        pattern: '',
+        categorySource: 'embedded',
+        vocabularyId: '',
         options: '',
         targetModelKey: 'sample',
       })
@@ -704,6 +980,7 @@ export function AdminModelFields({
                     TYPES.find((type) => type.value === field.logicalType)
                       ?.label
                   }
+                  <FieldSemanticsSummary field={field} />
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
                   {field.nullable ? 'No' : 'Yes'}
@@ -844,29 +1121,186 @@ export function AdminModelFields({
               />
             </Label>
             {form.type === 'integer' || form.type === 'decimal' ? (
-              <Label className="text-xs text-muted-foreground">
-                Unit symbol
-                <Input
-                  className="mt-1"
-                  value={form.unitSymbol}
-                  onChange={(event) =>
-                    setForm({ ...form, unitSymbol: event.target.value })
-                  }
-                  placeholder="mg/mL"
-                />
-              </Label>
+              <>
+                <Label className="text-xs text-muted-foreground">
+                  Minimum value
+                  <Input
+                    className="mt-1"
+                    value={form.minValue}
+                    onChange={(event) =>
+                      setForm({ ...form, minValue: event.target.value })
+                    }
+                    placeholder="0"
+                  />
+                </Label>
+                <Label className="text-xs text-muted-foreground">
+                  Maximum value
+                  <Input
+                    className="mt-1"
+                    value={form.maxValue}
+                    onChange={(event) =>
+                      setForm({ ...form, maxValue: event.target.value })
+                    }
+                    placeholder="100"
+                  />
+                </Label>
+                <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
+                  <Label className="text-xs text-muted-foreground">
+                    Quantity kind
+                    <Input
+                      className="mt-1"
+                      value={form.quantityKind}
+                      onChange={(event) =>
+                        setForm({ ...form, quantityKind: event.target.value })
+                      }
+                      placeholder="concentration"
+                    />
+                  </Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Dimension
+                    <Input
+                      className="mt-1"
+                      value={form.quantityDimension}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          quantityDimension: event.target.value,
+                        })
+                      }
+                      placeholder="mass/volume"
+                    />
+                  </Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Storage unit
+                    <Input
+                      className="mt-1"
+                      value={form.quantityStorageUnit}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          quantityStorageUnit: event.target.value,
+                        })
+                      }
+                      placeholder="mg/mL"
+                    />
+                  </Label>
+                </div>
+                <Label className="text-xs text-muted-foreground">
+                  Allowed input units, separated by commas
+                  <Input
+                    className="mt-1"
+                    value={form.quantityAllowedUnits}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        quantityAllowedUnits: event.target.value,
+                      })
+                    }
+                    placeholder="mg/mL, µg/mL"
+                  />
+                </Label>
+                <Label className="text-xs text-muted-foreground">
+                  Display unit
+                  <Input
+                    className="mt-1"
+                    value={form.quantityDisplayUnit}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        quantityDisplayUnit: event.target.value,
+                      })
+                    }
+                    placeholder="mg/mL"
+                  />
+                </Label>
+              </>
+            ) : null}
+            {form.type === 'text' ? (
+              <>
+                <Label className="text-xs text-muted-foreground">
+                  Minimum length
+                  <Input
+                    className="mt-1"
+                    value={form.minLength}
+                    onChange={(event) =>
+                      setForm({ ...form, minLength: event.target.value })
+                    }
+                    placeholder="0"
+                  />
+                </Label>
+                <Label className="text-xs text-muted-foreground">
+                  Maximum length
+                  <Input
+                    className="mt-1"
+                    value={form.maxLength}
+                    onChange={(event) =>
+                      setForm({ ...form, maxLength: event.target.value })
+                    }
+                    placeholder="200"
+                  />
+                </Label>
+                <Label className="text-xs text-muted-foreground sm:col-span-2">
+                  Identifier pattern (regular expression)
+                  <Input
+                    className="mt-1 font-mono"
+                    value={form.pattern}
+                    onChange={(event) =>
+                      setForm({ ...form, pattern: event.target.value })
+                    }
+                    placeholder="^SMP-[0-9]{4}-[0-9]{4}$"
+                  />
+                </Label>
+              </>
             ) : null}
             {form.type === 'category' ? (
-              <Label className="text-xs text-muted-foreground sm:col-span-2">
-                Options, separated by commas
-                <Input
-                  className="mt-1"
-                  value={form.options}
-                  onChange={(event) =>
-                    setForm({ ...form, options: event.target.value })
-                  }
-                />
-              </Label>
+              <>
+                <Label className="text-xs text-muted-foreground sm:col-span-2">
+                  Category source
+                  <Select
+                    className="mt-1"
+                    value={form.categorySource}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        categorySource: event.target.value as
+                          | 'embedded'
+                          | 'vocabulary',
+                      })
+                    }
+                  >
+                    <option value="embedded">
+                      Embedded options (this field)
+                    </option>
+                    <option value="vocabulary">
+                      Controlled vocabulary
+                    </option>
+                  </Select>
+                </Label>
+                {form.categorySource === 'embedded' ? (
+                  <Label className="text-xs text-muted-foreground sm:col-span-2">
+                    Options, separated by commas
+                    <Input
+                      className="mt-1"
+                      value={form.options}
+                      onChange={(event) =>
+                        setForm({ ...form, options: event.target.value })
+                      }
+                    />
+                  </Label>
+                ) : (
+                  <Label className="text-xs text-muted-foreground sm:col-span-2">
+                    Vocabulary ID
+                    <Input
+                      className="mt-1 font-mono"
+                      value={form.vocabularyId}
+                      onChange={(event) =>
+                        setForm({ ...form, vocabularyId: event.target.value })
+                      }
+                      placeholder="therapeutic-area-v1"
+                    />
+                  </Label>
+                )}
+              </>
             ) : null}
             {form.type === 'reference' ? (
               <Label className="text-xs text-muted-foreground sm:col-span-2">
@@ -888,6 +1322,15 @@ export function AdminModelFields({
                 </Select>
               </Label>
             ) : null}
+            <Label className="text-xs text-muted-foreground sm:col-span-2">
+              Cardinality
+              <Select className="mt-1" value="one" disabled aria-label="Cardinality">
+                <option value="one">
+                  One value per record (many-valued fields are reserved by
+                  the server)
+                </option>
+              </Select>
+            </Label>
             <Label className="flex items-center gap-2 text-sm sm:col-span-2">
               <Checkbox
                 checked={form.required}
@@ -926,7 +1369,12 @@ export function AdminModelFields({
                 create.isPending ||
                 !form.label.trim() ||
                 !form.key.trim() ||
-                (form.type === 'category' && !form.options.trim()) ||
+                (form.type === 'category' &&
+                  form.categorySource === 'embedded' &&
+                  !form.options.trim()) ||
+                (form.type === 'category' &&
+                  form.categorySource === 'vocabulary' &&
+                  !form.vocabularyId.trim()) ||
                 draftIssues.length > 0
               }
               onClick={() => create.mutate()}

@@ -1,30 +1,49 @@
 import { useEffect, useState } from 'react'
 
 import type { ModelFieldDefinition } from '#/lib/model-fields'
-import { Checkbox, Input, Label, Select } from '#/components/ui'
-import { fieldDefinitionFromModelField } from '#/lib/field-definition'
+import { definitionOfModelField } from '#/lib/model-fields'
+import { Button, Checkbox, Input, Label, Select } from '#/components/ui'
 import {
   fieldEditorPresentation,
   selectableFieldOptions,
 } from '#/lib/field-presentation'
+import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 import {
   RecordReferenceCellError,
+  formatRecordReferenceLabel,
   parsePersistedRecordReference,
+  resolveRecordReferenceState,
+  selectRecordReference,
 } from '#/lib/record-reference-cell'
-
+import type { RecordReferenceSnapshot } from '#/lib/record-reference-cell'
+import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
+import type { RecordPickerResult } from '#/components/scientific/record-picker'
+import {
+  searchSheetRecords,
+  sheetRecordSearchHitsAsNotebookRecords,
+} from '#/lib/sheet-record-search'
+import type { SheetRecordSearchHit } from '#/lib/sheet-record-search'
 export function ModelFieldInput({
   definition,
   value,
   onChange,
   showLabel = true,
+  searchReferenceRecords,
+  resolveReferenceSnapshot,
 }: {
   definition: ModelFieldDefinition
   value: string | boolean
   onChange: (value: string | boolean) => void
   showLabel?: boolean
+  /** Test seam: drive the reference search without a live client. */
+  searchReferenceRecords?: (query: string) => Promise<SheetRecordSearchHit[]>
+  /** Test seam: resolve the current reference without a live client. */
+  resolveReferenceSnapshot?: (
+    recordId: string,
+  ) => Promise<RecordReferenceSnapshot | null>
 }) {
-  const field =
-    definition.definition ?? fieldDefinitionFromModelField(definition)
+  const field = definitionOfModelField(definition)
   const presentation = fieldEditorPresentation(field.logicalType, {
     relationshipTarget: field.relationship?.target.kind,
   })
@@ -67,14 +86,24 @@ export function ModelFieldInput({
   }
 
   if (presentation.kind === 'record-picker') {
+    const targetModelKey =
+      field.relationship?.target.kind === 'model'
+        ? field.relationship.target.modelKey
+        : typeof definition.validation.targetModelKey === 'string' &&
+            definition.validation.targetModelKey.trim()
+          ? definition.validation.targetModelKey.trim()
+          : ''
     return (
-      <RecordReferenceUuidInput
+      <ModelReferencePicker
         label={definition.label}
         description={definition.description}
         nullable={definition.nullable}
         value={String(value)}
         onChange={onChange}
         showLabel={showLabel}
+        targetModelKey={targetModelKey}
+        searchReferenceRecords={searchReferenceRecords}
+        resolveReferenceSnapshot={resolveReferenceSnapshot}
       />
     )
   }
@@ -101,13 +130,62 @@ export function ModelFieldInput({
   )
 }
 
-function RecordReferenceUuidInput({
+async function defaultResolveSnapshot(
+  client: DataClient,
+  recordId: string,
+): Promise<RecordReferenceSnapshot | null> {
+  const rows = await client.list<{
+    id: string
+    kind: string
+    identifier: string
+    title: string
+    archived_at: string | null
+    deleted_at: string | null
+  }>(
+    'records',
+    `?id=eq.${encodeURIComponent(recordId)}&select=id,kind,identifier,title,archived_at,deleted_at`,
+  )
+  const row = rows.at(0)
+  if (!row || row.id !== recordId) return null
+  // Model key is authoritative metadata, not the storage kind: resolve it
+  // through the registry, falling back to the kind when it is not visible.
+  let modelKey = row.kind
+  try {
+    const kinds = await client.list<{ key: string }>(
+      'model_kinds',
+      `?record_kind=eq.${encodeURIComponent(row.kind)}&select=key`,
+    )
+    if (kinds.at(0)?.key) modelKey = kinds.at(0)?.key as string
+  } catch {
+    // RLS or an unmapped kind: keep the honest fallback below.
+  }
+  return {
+    recordId: row.id,
+    modelKey,
+    kind: row.kind,
+    identifier: row.identifier,
+    title: row.title,
+    archived: row.archived_at !== null,
+    deleted: row.deleted_at !== null,
+  }
+}
+
+/**
+ * MODEL-02 Record/reference editor. Reuses the Sheet `SheetRecordPicker`
+ * (Record search scoped to the relationship target) and persists the
+ * stable Record UUID. Resolution states stay honest: present, archived,
+ * wrong-model and missing/restricted (RLS-filtered rows read as missing).
+ */
+function ModelReferencePicker({
   label,
   description,
   nullable,
   value,
   onChange,
   showLabel,
+  targetModelKey,
+  searchReferenceRecords,
+  resolveReferenceSnapshot,
 }: {
   label: string
   description: string | null
@@ -115,60 +193,227 @@ function RecordReferenceUuidInput({
   value: string
   onChange: (value: string | boolean) => void
   showLabel: boolean
+  targetModelKey: string
+  searchReferenceRecords?: (query: string) => Promise<SheetRecordSearchHit[]>
+  resolveReferenceSnapshot?: (
+    recordId: string,
+  ) => Promise<RecordReferenceSnapshot | null>
 }) {
-  const [draft, setDraft] = useState(value)
-  const [error, setError] = useState<string | null>(null)
+  const [client] = useState(() => createDataClient())
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<SheetRecordSearchHit[]>([])
+  const [loading, setLoading] = useState(false)
+  const [searchError, setSearchError] = useState<Error | null>(null)
+  const [snapshot, setSnapshot] = useState<RecordReferenceSnapshot | null | undefined>(
+    undefined,
+  )
+  const [identityError, setIdentityError] = useState<string | null>(null)
 
   useEffect(() => {
-    setDraft(value)
-    setError(null)
-  }, [value])
+    let cancelled = false
+    setSnapshot(undefined)
+    let persisted: string | null = null
+    try {
+      persisted = parsePersistedRecordReference(value, { nullable })
+      setIdentityError(null)
+    } catch (caught) {
+      setIdentityError(
+        caught instanceof RecordReferenceCellError
+          ? caught.message
+          : 'Record reference must be a UUID string.',
+      )
+      return
+    }
+    if (persisted === null) return
+    const resolve = resolveReferenceSnapshot ?? ((id: string) => defaultResolveSnapshot(client, id))
+    resolve(persisted)
+      .then((resolved) => {
+        if (!cancelled) setSnapshot(resolved)
+      })
+      .catch(() => {
+        // Restricted rows fail closed as missing, never as present.
+        if (!cancelled) setSnapshot(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [value, nullable, client, resolveReferenceSnapshot])
+
+  useEffect(() => {
+    if (!pickerOpen) return
+    setLoading(true)
+    const search =
+      searchReferenceRecords ??
+      ((next: string) =>
+        searchSheetRecords(
+          { modelKey: targetModelKey, query: next },
+          client,
+        ))
+    const handle = setTimeout(() => {
+      search(query)
+        .then((hits) => {
+          setResults(hits)
+          setSearchError(null)
+        })
+        .catch((caught) => {
+          setSearchError(
+            caught instanceof Error ? caught : new Error('Search failed.'),
+          )
+        })
+        .finally(() => setLoading(false))
+    }, 200)
+    return () => clearTimeout(handle)
+  }, [pickerOpen, query, targetModelKey, client, searchReferenceRecords])
+
+  if (!targetModelKey) {
+    return (
+      <Label className="text-xs text-muted-foreground">
+        {showLabel ? label : null}
+        <span className="mt-1 block text-[0.65rem] text-destructive">
+          Reference target is not configured — ask a Steward to set the
+          relationship target before linking Records.
+        </span>
+      </Label>
+    )
+  }
+
+  const state =
+    identityError !== null
+      ? { kind: 'invalid' as const, message: identityError }
+      : value === ''
+        ? { kind: 'empty' as const }
+        : snapshot === undefined
+          ? { kind: 'resolving' as const }
+          : resolveRecordReferenceState({
+              persistedId: value,
+              snapshot,
+              targetModelKey,
+            })
+
+  function handleSelect(result: RecordPickerResult) {
+    try {
+      const persisted = selectRecordReference({
+        contract: {
+          format: 'sb-record-ref-v1',
+          targetModelKey,
+          nullable,
+          cardinality: 'one',
+          readOnly: false,
+          writeTarget: { kind: 'model' },
+        },
+        // Search is scoped to the target Model server-side, so hits carry
+        // the target membership by construction.
+        record: {
+          recordId: result.id,
+          modelKey: targetModelKey,
+          archived: result.archived,
+          deleted: false,
+        },
+      })
+      onChange(persisted)
+      setPickerOpen(false)
+    } catch (caught) {
+      setIdentityError(
+        caught instanceof RecordReferenceCellError
+          ? caught.message
+          : 'Record cannot be selected.',
+      )
+    }
+  }
 
   return (
-    <Label className="text-xs text-muted-foreground">
-      {showLabel ? label : null}
-      {showLabel && !nullable ? ' *' : ''}
-      <Input
-        className={`${showLabel ? 'mt-1' : ''} h-8 text-xs`}
-        type="text"
-        value={draft}
-        onChange={(event) => {
-          const next = event.target.value
-          setDraft(next)
-          if (next === '') {
-            setError(nullable ? null : 'Record reference is required.')
-            onChange('')
-            return
-          }
-          try {
-            const parsed = parsePersistedRecordReference(next, {
-              nullable,
-            })
-            setError(null)
-            onChange(parsed ?? '')
-          } catch (caught) {
-            const message =
-              caught instanceof RecordReferenceCellError
-                ? caught.message
-                : 'Record reference must be a UUID string.'
-            setError(message)
-          }
-        }}
-        aria-invalid={error ? true : undefined}
-        aria-label={label}
-        required={!nullable}
-      />
-      <span className="mt-1 block text-[0.65rem]">
-        Persists the Record UUID. Record ID and Name are display only.
-      </span>
-      {error ? (
-        <span className="mt-1 block text-[0.65rem] text-destructive">
-          {error}
+    <div className="text-xs text-muted-foreground">
+      {showLabel ? (
+        <span className="font-medium">
+          {label}
+          {!nullable ? ' *' : ''}
         </span>
       ) : null}
-      {showLabel && description ? (
-        <span className="mt-1 block text-[0.65rem]">{description}</span>
-      ) : null}
-    </Label>
+      <div className={`${showLabel ? 'mt-1' : ''} space-y-1`}>
+        {state.kind === 'empty' ? (
+          <span className="block text-[0.65rem]">
+            {nullable
+              ? 'No Record linked.'
+              : 'Record reference is required.'}
+          </span>
+        ) : null}
+        {state.kind === 'invalid' ? (
+          <span role="alert" className="block text-[0.65rem] text-destructive">
+            {state.message}
+          </span>
+        ) : null}
+        {state.kind === 'resolving' ? (
+          <span className="block text-[0.65rem]">Resolving Record…</span>
+        ) : null}
+        {state.kind === 'present' && state.snapshot ? (
+          <span className="block truncate text-[0.65rem] font-medium text-foreground">
+            {formatRecordReferenceLabel(state.snapshot)}
+          </span>
+        ) : null}
+        {state.kind === 'archived' ? (
+          <span className="block text-[0.65rem]">
+            {formatRecordReferenceLabel(state.snapshot)} · archived — the
+            link persists, archived Records stay read-only history.
+          </span>
+        ) : null}
+        {state.kind === 'invalid-model' ? (
+          <span role="alert" className="block text-[0.65rem] text-destructive">
+            Belongs to model {state.snapshot.modelKey}, expected{' '}
+            {targetModelKey} — pick a {targetModelKey} Record.
+          </span>
+        ) : null}
+        {state.kind === 'missing' ? (
+          <span role="alert" className="block text-[0.65rem] text-destructive">
+            Record {state.recordId} is not found or not visible in this
+            workspace — the stored UUID is kept, pick a replacement or
+            clear it.
+          </span>
+        ) : null}
+        <div className="flex flex-wrap gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPickerOpen((open) => !open)}
+          >
+            {value === '' ? 'Select record' : 'Change record'}
+          </Button>
+          {value !== '' && nullable ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                onChange('')
+                setPickerOpen(false)
+              }}
+            >
+              Clear
+            </Button>
+          ) : null}
+        </div>
+        {pickerOpen ? (
+          <div className="overflow-hidden rounded-md border">
+            <SheetRecordPicker
+              modelKey={targetModelKey}
+              // Display-only projection: the picker never changes stored
+              // state, selection persists the Record UUID.
+              results={sheetRecordSearchHitsAsNotebookRecords(results, '')}
+              loading={loading}
+              error={searchError}
+              onSearch={setQuery}
+              onSelect={handleSelect}
+              selectedId={value === '' ? null : value}
+            />
+          </div>
+        ) : null}
+        <span className="block text-[0.65rem]">
+          Selection persists the Record UUID. Record ID and Name are display
+          only.
+        </span>
+        {showLabel && description ? (
+          <span className="block text-[0.65rem]">{description}</span>
+        ) : null}
+      </div>
+    </div>
   )
 }

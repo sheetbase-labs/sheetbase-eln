@@ -9,6 +9,11 @@ import type {
   FieldQuantityDefinition,
   FieldRelationship,
 } from '#/lib/field-definition'
+import {
+  fieldDisplayUnit,
+  parseQuantityNumericValue,
+  validateFieldValue,
+} from '#/lib/field-value-validation'
 
 export type ModelFieldLogicalType = FieldLogicalType
 
@@ -201,15 +206,44 @@ export function modelFieldColumnId(fieldName: string): string {
   return `custom:${fieldName}`
 }
 
+export function definitionOfModelField(
+  definition: ModelFieldDefinition,
+): FieldDefinition {
+  return definition.definition ?? fieldDefinitionFromModelField(definition)
+}
+
 export function parseModelFieldInput(
   definition: ModelFieldDefinition,
   value: string | boolean,
 ): unknown {
   if (typeof value === 'boolean') return value
   if (value === '') return definition.nullable ? null : value
-  if (definition.logicalType === 'integer') return Number.parseInt(value, 10)
-  if (definition.logicalType === 'decimal') return Number(value)
+  if (
+    definition.logicalType === 'integer' ||
+    definition.logicalType === 'decimal'
+  ) {
+    // MODEL-02: same quantity-aware numeric coercion (`12.5 mg/mL` → 12.5)
+    // the Sheet cell parser uses; unparseable input fails closed downstream.
+    const parsed = parseQuantityNumericValue(
+      definitionOfModelField(definition),
+      value,
+    )
+    if (typeof parsed === 'number') return parsed
+    return value
+  }
   return value
+}
+
+/**
+ * Client-side value contract for Record input. Same kernel
+ * (`validateFieldValue`) the Sheet cell validator uses; the server remains
+ * authoritative for reference existence and retired-option grandfathering.
+ */
+export function validateModelFieldValue(
+  definition: ModelFieldDefinition,
+  value: unknown,
+): string | null {
+  return validateFieldValue(definitionOfModelField(definition), value)
 }
 
 export function modelFieldValuesFromInput(
@@ -247,11 +281,114 @@ export function displayModelFieldValue(
   if (definition.logicalType === 'boolean') return value === true ? 'Yes' : 'No'
   if (definition.logicalType === 'category') {
     return (
-      definition.options.find((option) => option.key === value)?.label ??
-      String(value)
+      definition.options.find(
+        (option) => option.key === value || option.id === value,
+      )?.label ?? String(value)
     )
   }
-  const unit =
-    typeof definition.unit?.symbol === 'string' ? definition.unit.symbol : null
+  // MODEL-02: governed quantity display unit wins; legacy opaque unit
+  // symbols remain the fallback until semantics are configured.
+  const legacySymbol =
+    typeof definition.unit?.symbol === 'string'
+      ? definition.unit.symbol
+      : null
+  const unit = fieldDisplayUnit(
+    definitionOfModelField(definition),
+    legacySymbol,
+  )
   return unit ? `${String(value)} ${unit}` : String(value)
 }
+
+export interface ModelFieldSemanticsInput {
+  quantity: FieldQuantityDefinition | null
+  cardinality: FieldCardinality
+  categorySource: PersistedModelFieldCategorySource | null
+  relationship: FieldRelationship | null
+}
+
+/**
+ * MODEL-02: wire the 0060 semantic-configuration RPC. Draft-only on the
+ * server (active contracts are immutable), so authoring runs it between
+ * `create_model_field` and `activate_model_field`.
+ */
+export function configureModelFieldSemantics(
+  client: DataClient,
+  definitionId: string,
+  semantics: ModelFieldSemanticsInput,
+): Promise<unknown> {
+  return client.rpc('configure_model_field_semantics', {
+    p_definition_id: definitionId,
+    p_quantity: semantics.quantity,
+    p_cardinality: semantics.cardinality,
+    p_category_source: semantics.categorySource,
+    p_relationship: semantics.relationship,
+  })
+}
+
+/**
+ * The server stores text patterns under the `regex` validation key while
+ * the kernel exposes them as `pattern` — map once at the write boundary.
+ */
+export function modelFieldValidationForServer(
+  validation: Record<string, unknown>,
+): Record<string, unknown> {
+  const { pattern, ...rest } = validation
+  if (typeof pattern === 'string' && pattern) {
+    return { ...rest, regex: pattern }
+  }
+  return validation
+}
+
+export interface CreateModelFieldWithSemanticsInput {
+  workspaceId: string
+  modelKey: string
+  fieldName: string
+  label: string
+  logicalType: ModelFieldLogicalType
+  nullable: boolean
+  defaultValue: unknown
+  validation: Record<string, unknown>
+  unit: Record<string, unknown> | null
+  description: string | null
+  options: Array<{ key: string; label: string }>
+  semantics: ModelFieldSemanticsInput
+}
+
+/**
+ * MODEL-02 authoring flow using only existing RPCs: draft the field,
+ * configure governed semantics (quantity/category source/relationship),
+ * create embedded options, then activate. Mirrors what
+ * `create_and_activate_model_field` does for the simple case.
+ */
+export async function createModelFieldWithSemantics(
+  client: DataClient,
+  input: CreateModelFieldWithSemanticsInput,
+): Promise<unknown> {
+  const created = (await client.rpc('create_model_field', {
+    p_workspace_id: input.workspaceId,
+    p_model_key: input.modelKey,
+    p_field_name: input.fieldName,
+    p_label: input.label,
+    p_logical_type: input.logicalType,
+    p_nullable: input.nullable,
+    p_default_value: input.defaultValue,
+    p_validation: modelFieldValidationForServer(input.validation),
+    p_unit: input.unit,
+    p_description: input.description,
+  })) as { id: string }
+  await configureModelFieldSemantics(client, created.id, input.semantics)
+  let position = 0
+  for (const option of input.options) {
+    position += 1
+    await client.rpc('create_model_field_option', {
+      p_definition_id: created.id,
+      p_key: option.key,
+      p_label: option.label,
+      p_display_order: position,
+    })
+  }
+  return client.rpc('activate_model_field', {
+    p_definition_id: created.id,
+  })
+}
+

@@ -1473,6 +1473,69 @@ export const modelFieldOptions = api.table(
     ),
   ],
 )
+/**
+ * MODEL-03: per-workspace, per-model typed-relationship rules. A rule
+ * declares that records of `sourceModelKey` accept `link_type` edges to
+ * records of `targetModelKey`, with count bounds (`maxLinks` NULL means
+ * unbounded) and an optional display `label` for the typed relationship.
+ *
+ * Storage decision: the 0060 semantic-config shape cannot honestly hold
+ * this. `model_kinds` is a global registry with no workspace scope, and
+ * `record_field_definitions.relationship` is per reference-field grain
+ * (one target model, one/many cardinality) — not per-model link
+ * acceptance with count bounds. This table extends the canonical Models
+ * without a parallel ontology: both keys reference `model_kinds`, and the
+ * links themselves stay authoritative in `record_links`.
+ *
+ * Enforcement grain: the world closes per source Model. A source model
+ * with no declared rules keeps current behaviour untouched; a model with
+ * any rule allows only its declared (link type, target model) pairs, and
+ * over-maximum edges fail closed in `assert_model_relationship_rule`.
+ */
+export const modelRelationshipRules = api.table(
+  'model_relationship_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    sourceModelKey: text('source_model_key')
+      .notNull()
+      .references(() => modelKinds.key, { onDelete: 'restrict' }),
+    linkType: text('link_type').notNull(),
+    targetModelKey: text('target_model_key')
+      .notNull()
+      .references(() => modelKinds.key, { onDelete: 'restrict' }),
+    minLinks: integer('min_links').notNull().default(0),
+    maxLinks: integer('max_links'),
+    label: text('label'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    unique('uq_model_relationship_rules_scope').on(
+      table.workspaceId,
+      table.sourceModelKey,
+      table.linkType,
+      table.targetModelKey,
+    ),
+    check(
+      'chk_model_relationship_rules_min',
+      sql`${table.minLinks} >= 0`,
+    ),
+    check(
+      'chk_model_relationship_rules_max',
+      sql`${table.maxLinks} IS NULL OR ${table.maxLinks} >= ${table.minLinks}`,
+    ),
+    index('idx_model_relationship_rules_scope').on(
+      table.workspaceId,
+      table.sourceModelKey,
+      table.linkType,
+    ),
+  ],
+)
 
 /**
  * sample_events (REG-002) is the append-only chain-of-custody and quantity

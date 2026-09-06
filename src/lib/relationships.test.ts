@@ -373,6 +373,30 @@ describe('buildRelationshipRows', () => {
     })
   })
 
+  it('prefers model-declared type names over the canonical vocabulary', () => {
+    const links = {
+      outgoing: [
+        {
+          id: 'out-t',
+          createdAt: '2026-08-03T00:00:00Z',
+          createdByUserId: null,
+          sourceRecordId: 'rec-1',
+          targetRecordId: 'rec-t',
+          targetKind: 'protocol_template',
+          targetIdentifier: 'PRT-1',
+          linkType: 'template',
+        },
+      ],
+      incoming: [],
+    }
+    const declared = buildRelationshipRows('rec-1', links, endpoints, {
+      template: 'instantiated from',
+    })
+    expect(declared.outgoing[0]).toMatchObject({ label: 'instantiated from' })
+    const canonical = buildRelationshipRows('rec-1', links, endpoints)
+    expect(canonical.outgoing[0]).toMatchObject({ label: 'created from' })
+  })
+
   it('gates destinations to available rows via stable-ID paths', () => {
     const { outgoing, incoming } = buildRelationshipRows(
       'rec-1',

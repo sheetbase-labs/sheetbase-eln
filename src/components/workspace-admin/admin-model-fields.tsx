@@ -32,6 +32,12 @@ import {
   fetchModelFieldsWithUsage,
   fetchModelKinds,
 } from '#/lib/model-fields'
+import {
+  MODEL_LINK_TYPES,
+  configureModelRelationshipRule,
+  fetchModelRelationshipRules,
+  removeModelRelationshipRule,
+} from '#/lib/model-relationships'
 import type {
   ModelFieldDefinition,
   ModelFieldLogicalType,
@@ -257,6 +263,228 @@ function FieldSemanticsSummary({ field }: { field: ModelFieldDefinition }) {
     <p className="mt-0.5 max-w-56 text-[0.65rem] leading-snug text-muted-foreground">
       {segments.join(' · ')}
     </p>
+  )
+}
+/**
+ * MODEL-03: per-Model typed-relationship declarations. Rules close the
+ * world for the Model — once any rule exists, only declared (link type,
+ * target model) pairs are accepted at link creation (SB080/SB081).
+ */
+function ModelRelationshipRulesSection({
+  client,
+  workspaceId,
+  modelKey,
+  models,
+  canManage,
+}: {
+  client: DataClient
+  workspaceId: string
+  modelKey: string
+  models: { key: string; label: string; identityTable: string }[]
+  canManage: boolean
+}) {
+  const queryClient = useQueryClient()
+  const [linkType, setLinkType] = useState<string>('sample')
+  const [targetModelKey, setTargetModelKey] = useState('')
+  const [minLinks, setMinLinks] = useState('0')
+  const [maxLinks, setMaxLinks] = useState('')
+  const [ruleLabel, setRuleLabel] = useState('')
+  const [rulesError, setRulesError] = useState<string | null>(null)
+  const recordModels = models.filter(
+    (model) => model.identityTable === 'api.records',
+  )
+  const isRecordModel = recordModels.some((model) => model.key === modelKey)
+  const rulesQuery = useQuery({
+    queryKey: ['model-fields-admin', 'relationship-rules', modelKey],
+    queryFn: () => fetchModelRelationshipRules(client, modelKey),
+  })
+  const rules = rulesQuery.data ?? []
+
+  function invalidateRules() {
+    void queryClient.invalidateQueries({
+      queryKey: ['model-fields-admin', 'relationship-rules', modelKey],
+    })
+  }
+
+  const save = useMutation({
+    mutationFn: () => {
+      const min = minLinks.trim() === '' ? 0 : Number(minLinks)
+      const max = maxLinks.trim() === '' ? null : Number(maxLinks)
+      if (!Number.isInteger(min) || min < 0)
+        throw new Error('Minimum must be a whole number of 0 or more.')
+      if (max !== null && (!Number.isInteger(max) || max < min))
+        throw new Error('Maximum must be empty (unlimited) or a whole number at or above the minimum.')
+      return configureModelRelationshipRule(client, {
+        workspaceId,
+        sourceModelKey: modelKey,
+        linkType,
+        targetModelKey,
+        minLinks: min,
+        maxLinks: max,
+        label: ruleLabel.trim() === '' ? null : ruleLabel.trim(),
+      })
+    },
+    onSuccess: () => {
+      setRulesError(null)
+      setTargetModelKey('')
+      setMinLinks('0')
+      setMaxLinks('')
+      setRuleLabel('')
+      invalidateRules()
+    },
+    onError: (cause) =>
+      setRulesError(
+        cause instanceof Error ? cause.message : 'Could not save the relationship.',
+      ),
+  })
+
+  const remove = useMutation({
+    mutationFn: (ruleId: string) => removeModelRelationshipRule(client, ruleId),
+    onSuccess: () => {
+      setRulesError(null)
+      invalidateRules()
+    },
+    onError: (cause) =>
+      setRulesError(
+        cause instanceof Error ? cause.message : 'Could not remove the relationship.',
+      ),
+  })
+
+  return (
+    <section aria-label="Model relationships" className="space-y-3 rounded-md border p-4">
+      <div>
+        <h3 className="text-sm font-semibold">Relationships</h3>
+        <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground">
+          Declare which typed links this Model&apos;s records accept. A Model
+          with no declarations stays unrestricted; once any relationship is
+          declared, only declared link types are accepted and over-maximum
+          links are rejected when created.
+        </p>
+      </div>
+      {!isRecordModel ? (
+        <p className="text-xs text-muted-foreground">
+          Relationships can only be declared for record-backed Models.
+        </p>
+      ) : rulesQuery.isLoading ? (
+        <p className="text-xs text-muted-foreground">Loading relationships…</p>
+      ) : rules.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No relationships declared — records of this Model accept every link type.
+        </p>
+      ) : (
+        <ul className="divide-y rounded-md border">
+          {rules.map((rule) => (
+            <li
+              key={rule.id}
+              className="flex items-center justify-between gap-3 px-3 py-2"
+            >
+              <p className="text-xs">
+                <span className="font-mono font-medium">{rule.linkType}</span>
+                <span className="text-muted-foreground"> → </span>
+                <span className="font-medium">
+                  {recordModels.find((model) => model.key === rule.targetModelKey)?.label ?? rule.targetModelKey}
+                </span>
+                <span className="text-muted-foreground">
+                  {' '}· {rule.minLinks}–{rule.maxLinks ?? '∞'}
+                  {rule.label ? ` · “${rule.label}”` : null}
+                </span>
+              </p>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={`Remove ${rule.linkType} to ${rule.targetModelKey}`}
+                disabled={!canManage || remove.isPending}
+                onClick={() => remove.mutate(rule.id)}
+              >
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {isRecordModel && canManage ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Label className="text-xs text-muted-foreground">
+            Link type
+            <Select
+              className="mt-1"
+              aria-label="Link type"
+              value={linkType}
+              onChange={(event) => setLinkType(event.target.value)}
+            >
+              {MODEL_LINK_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </Select>
+          </Label>
+          <Label className="text-xs text-muted-foreground">
+            Target model
+            <Select
+              className="mt-1"
+              aria-label="Target model"
+              value={targetModelKey}
+              onChange={(event) => setTargetModelKey(event.target.value)}
+            >
+              <option value="">Select target…</option>
+              {recordModels.map((model) => (
+                <option key={model.key} value={model.key}>
+                  {model.label}
+                </option>
+              ))}
+            </Select>
+          </Label>
+          <Label className="text-xs text-muted-foreground">
+            Minimum
+            <Input
+              className="mt-1"
+              aria-label="Minimum links"
+              value={minLinks}
+              onChange={(event) => setMinLinks(event.target.value)}
+              inputMode="numeric"
+            />
+          </Label>
+          <Label className="text-xs text-muted-foreground">
+            Maximum
+            <Input
+              className="mt-1"
+              aria-label="Maximum links"
+              value={maxLinks}
+              onChange={(event) => setMaxLinks(event.target.value)}
+              placeholder="Unlimited"
+              inputMode="numeric"
+            />
+          </Label>
+          <Label className="text-xs text-muted-foreground">
+            Display name
+            <Input
+              className="mt-1"
+              aria-label="Display name"
+              value={ruleLabel}
+              onChange={(event) => setRuleLabel(event.target.value)}
+              placeholder="Optional — e.g. consumes"
+            />
+          </Label>
+        </div>
+      ) : null}
+      {isRecordModel && canManage ? (
+        <div>
+          <Button
+            size="sm"
+            disabled={!targetModelKey || save.isPending}
+            onClick={() => save.mutate()}
+          >
+            Save relationship
+          </Button>
+        </div>
+      ) : null}
+      {rulesError ? (
+        <p role="alert" className="text-xs text-destructive">
+          {rulesError}
+        </p>
+      ) : null}
+    </section>
   )
 }
 
@@ -1038,6 +1266,13 @@ export function AdminModelFields({
           </TableBody>
         </Table>
       </div>
+      <ModelRelationshipRulesSection
+        client={client}
+        workspaceId={workspaceId}
+        modelKey={modelKey}
+        models={models}
+        canManage={canManage}
+      />
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           {error}

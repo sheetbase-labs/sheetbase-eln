@@ -1042,7 +1042,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       p_definition_id: pipelineDefinitionId,
       p_kind: 'event',
       p_spec: {
-        eventType: 'dataset_version_created',
+        eventType: 'dataset.versioned',
         inputName: 'measurements',
         parameters: { factor: 5 },
       },
@@ -1252,7 +1252,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
         p_definition_id: pipelineDefinitionId,
         p_kind: 'event',
         p_spec: {
-          eventType: 'dataset_version_created',
+          eventType: 'dataset.versioned',
           inputName: 'measurements',
           parameters: { factor: 7 },
         },
@@ -1281,7 +1281,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       p_schedule_id: schedule.id,
       p_kind: 'event',
       p_spec: {
-        eventType: 'dataset_version_created',
+        eventType: 'dataset.versioned',
         datasetId,
         inputName: 'measurements',
         parameters: { factor: 7 },
@@ -1355,7 +1355,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
         p_definition_id: pipelineDefinitionId,
         p_kind: 'event',
         p_spec: {
-          eventType: 'dataset_version_created',
+          eventType: 'dataset.versioned',
           inputName: 'measurements',
           // Deliberately invalid: the run request will be rejected by the
           // domain validation, so the start fails.
@@ -1384,7 +1384,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       p_schedule_id: failingSchedule.id,
       p_kind: 'event',
       p_spec: {
-        eventType: 'dataset_version_created',
+        eventType: 'dataset.versioned',
         datasetId,
         inputName: 'measurements',
         inputVersions: { bogus: '00000000-0000-4000-8000-000000000000' },

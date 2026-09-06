@@ -157,15 +157,20 @@ those tables. Outputs are written with the run actor's JWT claims through the
   parameters. Evaluated by the server sweep (`pipeline-scheduler.server.ts`)
   every 60s; schedule rows are locked only for the start decision so a long
   run never blocks the next tick.
-- **Event** — `dataset_version_created` schedules fire when the platform
-  sweep observes matching `change_events` (optionally filtered to one
-  Dataset). Delivery is a polling approximation, but **at-least-once**: the
-  cursor advances only with a durable disposition, failures are recorded in
+- **Event** — catalogue event schedules fire when the platform sweep
+  observes a matching `change_events` row (optionally filtered to one
+  Dataset for `dataset.versioned`). Any stable record/dataset/sheet/review
+  event can trigger (`dataset.versioned`, `record.created`, `review.decided`,
+  … — see `PIPELINE_TRIGGER_EVENTS` in `src/lib/pipeline-schedule.ts`).
+  Delivery is a polling approximation, but **at-least-once**: the cursor
+  advances only with a durable disposition, failures are recorded in
   `api.pipeline_trigger_failures` and retried, and abandonment after the
-  budget is explicit and visible. The canonical name for the consumed change
-  is `dataset.versioned`; see the [event catalogue](../api/event-catalogue.md)
-  for the full vocabulary (pipeline/administration names are provisional there
-  until EVENT-03 surfaces them).
+  budget is explicit and visible. Trigger configuration stores the canonical
+  catalogue name (wire aliases and the legacy `dataset_version_created`
+  spelling are accepted at intake and normalized). Only `dataset.versioned`
+  supplies an input version; other events fire with the schedule's
+  configured inputs. See the [event catalogue](../api/event-catalogue.md)
+  for the full vocabulary.
 
 ## Product integration
 

@@ -164,7 +164,10 @@ describe('ChartBlockPreview — live resolution', () => {
       />,
     )
     await waitFor(() => {
-      expect(screen.getByText('Stability curve')).toBeTruthy()
+      // VIEW-01: the RepresentationFrame owns the visible chrome; the inner
+      // ChartFrame hides its figcaption (badges included) and keeps only an
+      // sr-only title, so the title renders twice but each badge once.
+      expect(screen.getAllByText('Stability curve')).toHaveLength(2)
       expect(screen.getByText('Live')).toBeTruthy()
     })
     await waitFor(() => {
@@ -351,6 +354,8 @@ describe('ChartBlockPreview — frozen snapshot', () => {
         })}
       />,
     )
+    // VIEW-01: the frame owns the visible Snapshot badge; the inner
+    // figcaption is hidden when framed, so exactly one badge renders.
     expect(screen.getByText('Snapshot')).toBeTruthy()
     expect(screen.queryByText('Live')).toBeNull()
     // Frozen path must not call the live dataset resolver.
@@ -424,6 +429,8 @@ describe('ChartBlockPreview — NOTE-03 canonical dataset affordances', () => {
     expect(open.getAttribute('href')).toBe(
       `/datasets?dataset=${encodeURIComponent(TABLE_ID)}`,
     )
+    // VIEW-01: the frame owns the visible Snapshot badge; the inner
+    // figcaption is hidden when framed, so exactly one badge renders.
     expect(screen.getByText('Snapshot')).toBeTruthy()
   })
 })

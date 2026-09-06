@@ -67,6 +67,8 @@ import {
 } from '#/lib/analysis-definitions-data'
 import { AnalysisResultTable } from '#/components/viz/analysis-panel'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { RepresentationFrame } from '#/components/viz/representation-frame'
+import { chartToRepresentationHandle } from '#/lib/representations'
 import { PlateMap } from '#/components/viz/plate-map'
 import type {
   PlateWell,
@@ -941,28 +943,50 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
   const sources =
     frozenSources.length > 0 ? frozenSources : chartSourcesFromSpec(spec)
 
+  // VIEW-01: the shared representation frame owns the outer chrome (title,
+  // source/version badge, frozen-vs-live badge) for spec-backed charts. The
+  // kind renderer stays plugged in as children with its own title hidden so
+  // the visible title renders once; materialisation and plot behaviour are
+  // unchanged. Legacy frozen snapshots without a spec keep the legacy path.
+  const handle = chartToRepresentationHandle({ spec, frozen, title })
+  const frameActions = <ChartOpenDatasetActions sources={sources} />
+
   // Frozen charts render the immutable snapshot directly — no live re-read,
   // no stale detection.
   if (frozen) {
-    return (
+    const body = (
       <PinnedFrozenChartPreview
         title={title}
         provenance={provenance}
         spec={spec}
         frozen={frozen}
         sources={sources}
+        hideTitle={handle !== null}
       />
+    )
+    if (!handle) return body
+    return (
+      <RepresentationFrame title={title} handle={handle} actions={frameActions}>
+        {body}
+      </RepresentationFrame>
     )
   }
 
   // Live chart: resolve the dataset and calculation results.
-  return (
+  const liveBody = (
     <LiveChartPreview
       title={title}
       provenance={provenance}
       spec={spec}
       sources={chartSourcesFromSpec(spec)}
+      hideTitle={handle !== null}
     />
+  )
+  if (!handle) return liveBody
+  return (
+    <RepresentationFrame title={title} handle={handle} actions={frameActions}>
+      {liveBody}
+    </RepresentationFrame>
   )
 }
 
@@ -1035,12 +1059,16 @@ function PinnedFrozenChartPreview({
   spec,
   frozen,
   sources,
+  hideTitle = false,
 }: {
   title: string
   provenance?: string
   spec: ChartSpec | null
   frozen: NonNullable<ChartBlockPayload['frozen']>
   sources: ChartDatasetSource[]
+  // VIEW-01: when plugged into RepresentationFrame the frame owns the
+  // visible title; the inner ChartFrame keeps an sr-only title.
+  hideTitle?: boolean
 }) {
   const versionId = frozenPinsDatasetVersion(frozen)
   const pinned = useFrozenPinnedRows(frozen)
@@ -1057,6 +1085,7 @@ function PinnedFrozenChartPreview({
       return (
         <ChartRenderer
           title={title}
+          hideTitle={hideTitle}
           provenance={provenance}
           spec={spec}
           materialised={emptyMaterialised(spec)}
@@ -1073,6 +1102,7 @@ function PinnedFrozenChartPreview({
       return (
         <ChartRenderer
           title={title}
+          hideTitle={hideTitle}
           provenance={provenance}
           spec={spec}
           materialised={emptyMaterialised(spec)}
@@ -1091,6 +1121,7 @@ function PinnedFrozenChartPreview({
     return (
       <ChartRenderer
         title={title}
+          hideTitle={hideTitle}
         provenance={provenance}
         spec={spec}
         materialised={reconstructed.chart}
@@ -1107,6 +1138,7 @@ function PinnedFrozenChartPreview({
   return (
     <ChartRenderer
       title={title}
+          hideTitle={hideTitle}
       provenance={provenance}
       spec={spec}
       materialised={materialised}
@@ -1123,11 +1155,15 @@ function LiveChartPreview({
   provenance,
   spec,
   sources,
+  hideTitle = false,
 }: {
   title: string
   provenance?: string
   spec: ChartSpec | null
   sources: ChartDatasetSource[]
+  // VIEW-01: when plugged into RepresentationFrame the frame owns the
+  // visible title; the inner ChartFrame keeps an sr-only title.
+  hideTitle?: boolean
 }) {
   const { datasetQuery } = useLiveChartDataset(spec)
   const openDataset = <ChartOpenDatasetActions sources={sources} />
@@ -1136,6 +1172,7 @@ function LiveChartPreview({
     return (
       <ChartRenderer
         title={title}
+        hideTitle={hideTitle}
         provenance={provenance}
         spec={spec}
         materialised={emptyMaterialised(spec)}
@@ -1149,6 +1186,7 @@ function LiveChartPreview({
     return (
       <ChartRenderer
         title={title}
+        hideTitle={hideTitle}
         provenance={provenance}
         spec={spec}
         materialised={emptyMaterialised(spec)}
@@ -1164,6 +1202,7 @@ function LiveChartPreview({
   return (
     <ChartRenderer
       title={title}
+        hideTitle={hideTitle}
       provenance={provenance}
       spec={spec}
       materialised={materialised}

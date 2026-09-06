@@ -2,6 +2,7 @@
  * SCI-005 component tests for the extended PlateMap: arrow navigation,
  * well-code selection, role legend, and missing/empty distinction.
  */
+import type { ComponentProps } from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -247,5 +248,104 @@ describe('PlateMap SCI-005 extensions', () => {
     expect(screen.getByRole('rowheader', { name: 'D' })).toBeTruthy()
     // 6 columns: 1–6
     expect(screen.getByRole('columnheader', { name: '6' })).toBeTruthy()
+  })
+})
+
+describe('PlateMap VIEW-02 selectable read-only', () => {
+  it('reports selection while read-only when selectable', async () => {
+    const onSelectWellCode = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <PlateMap
+        wells={roleWells}
+        readOnly
+        selectable
+        onSelectWellCode={onSelectWellCode}
+        ariaLabel="Selectable plate"
+      />,
+    )
+    // Selection is enabled: buttons stay interactive but nothing edits.
+    for (const btn of screen.getAllByRole('button')) {
+      expect(btn.hasAttribute('disabled')).toBe(false)
+    }
+    await user.click(screen.getByRole('button', { name: 'A1 Sample' }))
+    expect(onSelectWellCode).toHaveBeenCalledWith('A1')
+    // Empty cells report their code too, so hosts can show context.
+    await user.click(screen.getByRole('button', { name: 'C1 (empty)' }))
+    expect(onSelectWellCode).toHaveBeenCalledWith('C1')
+  })
+})
+
+describe('PlateMap VIEW-02 row-band windowing', () => {
+  function renderLargePlate(
+    props: Partial<ComponentProps<typeof PlateMap>> = {},
+  ) {
+    return render(
+      <PlateMap
+        wells={[]}
+        rows={32}
+        cols={48}
+        ariaLabel="1536-well plate"
+        {...props}
+      />,
+    )
+  }
+
+  it('windows 1536-cell grids by 8-row bands', () => {
+    const { container } = renderLargePlate()
+    // First band only: rows A–H mount, later rows do not.
+    expect(screen.getByText(/Rows A–H of AF/)).toBeTruthy()
+    expect(screen.getByRole('rowheader', { name: 'A' })).toBeTruthy()
+    expect(screen.getByRole('rowheader', { name: 'H' })).toBeTruthy()
+    expect(screen.queryByRole('rowheader', { name: 'I' })).toBeNull()
+    // One band mounts: 8 × 48 wells instead of 1536.
+    expect(container.querySelectorAll('button[data-cell]')).toHaveLength(
+      8 * 48,
+    )
+  })
+
+  it('pages between row bands', async () => {
+    const user = userEvent.setup()
+    renderLargePlate()
+    await user.click(screen.getByRole('button', { name: 'Next row band' }))
+    expect(screen.getByText(/Rows I–P of AF/)).toBeTruthy()
+    expect(screen.getByRole('rowheader', { name: 'I' })).toBeTruthy()
+    expect(screen.queryByRole('rowheader', { name: 'A' })).toBeNull()
+    await user.click(
+      screen.getByRole('button', { name: 'Previous row band' }),
+    )
+    expect(screen.getByText(/Rows A–H of AF/)).toBeTruthy()
+  })
+
+  it('does not window small plates or when disabled', () => {
+    render(
+      <PlateMap wells={roleWells} rows={8} cols={12} ariaLabel="96-well" />,
+    )
+    expect(screen.queryByRole('button', { name: 'Next row band' })).toBeNull()
+    cleanup()
+    const { container } = renderLargePlate({ windowed: false })
+    expect(screen.queryByRole('button', { name: 'Next row band' })).toBeNull()
+    expect(container.querySelectorAll('button[data-cell]')).toHaveLength(
+      32 * 48,
+    )
+  })
+
+  it('jumps to the selected well band', () => {
+    renderLargePlate({ selectedWellCode: 'AF48' })
+    expect(screen.getByText(/Rows Y–AF of AF/)).toBeTruthy()
+    expect(screen.getByRole('rowheader', { name: 'AF' })).toBeTruthy()
+  })
+
+  it('selects wells inside a window by code', async () => {
+    const onSelectWellCode = vi.fn()
+    const user = userEvent.setup()
+    renderLargePlate({
+      selectedWellCode: 'B2',
+      onSelectWellCode,
+      selectable: true,
+      readOnly: true,
+    })
+    await user.click(screen.getByRole('button', { name: 'B2 (empty)' }))
+    expect(onSelectWellCode).toHaveBeenCalledWith('B2')
   })
 })

@@ -139,6 +139,7 @@ export function OverviewView({
                   showToggle={showToggles}
                   onToggle={onToggleBlock}
                   recordId={recordId}
+                  frozen={mode === 'historical'}
                 />
               ))}
             </div>
@@ -148,19 +149,24 @@ export function OverviewView({
     </div>
   )
 }
-
 export function OverviewBlock({
   block,
   excluded,
   showToggle,
   onToggle,
   recordId,
+  frozen = false,
 }: {
   block: NotebookBlock
   excluded: boolean
   showToggle: boolean
   onToggle?: (blockId: string, exclude: boolean) => void
   recordId?: string
+  /**
+   * VIEW-02: true when rendering a pinned revision snapshot. Reconstructions
+   * must not run live reads.
+   */
+  frozen?: boolean
 }) {
   const canLinkToNotebook = Boolean(recordId)
   const showOpenFullTable = TABLE_BLOCK_TYPES.has(block.type)
@@ -174,7 +180,7 @@ export function OverviewBlock({
       {/* Read-only hover controls (top-right). The overview is never an
           editor; these only open a larger view or jump to the notebook. */}
       <div className="absolute right-3 top-3 flex items-center gap-1">
-        {canLinkToNotebook ? <BlockExpandControl block={block} /> : null}
+        {canLinkToNotebook ? <BlockExpandControl block={block} frozen={frozen} /> : null}
         {canLinkToNotebook ? (
           <Link
             to="/records/$recordId"
@@ -203,7 +209,7 @@ export function OverviewBlock({
           </button>
         ) : null}
       </div>
-      <BlockPreview block={block} />
+      <BlockPreview block={block} frozen={frozen} />
       {showOpenFullTable && canLinkToNotebook ? (
         <div className="mt-3 flex justify-end border-t border-border/60 pt-2">
           <Link
@@ -224,7 +230,7 @@ export function OverviewBlock({
  * Expand control: opens a dialog rendering the block content at full size.
  * Read-only — the dialog never mounts editors or block pickers.
  */
-function BlockExpandControl({ block }: { block: NotebookBlock }) {
+function BlockExpandControl({ block, frozen = false }: { block: NotebookBlock; frozen?: boolean }) {
   const [open, setOpen] = React.useState(false)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -243,7 +249,7 @@ function BlockExpandControl({ block }: { block: NotebookBlock }) {
           {block.type} block preview
         </DialogTitle>
         <div className="max-h-[80vh] overflow-auto">
-          <BlockPreview block={block} />
+          <BlockPreview block={block} frozen={frozen} />
         </div>
       </DialogContent>
     </Dialog>

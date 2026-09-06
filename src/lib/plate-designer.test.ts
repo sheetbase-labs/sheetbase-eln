@@ -5,9 +5,13 @@ import {
   UndoStack,
   autoFillPlate,
   defaultPlateDesignDoc,
+  designerViewStateToSpec,
+  designerWellToWellAssignment,
+  emptyDesignerViewState,
   generateWellOrder,
   mulberry32,
   parseCsv,
+  plateDesignDocToSpec,
   previewCsvImport,
   shuffleWithSeed,
   validatePlateDesign,
@@ -18,7 +22,7 @@ import type {
   PlateWellAssignment,
 } from './plate-designer'
 import type { SampleRef } from './plate-map'
-
+import { validatePlateMapSpec } from './plate-map'
 const samples: SampleRef[] = Array.from({ length: 6 }, (_, index) => ({
   recordId: `sample-${index + 1}`,
   identifier: `S${index + 1}`,
@@ -436,5 +440,93 @@ describe('defaultPlateDesignDoc', () => {
       updatedAt: '2026-01-02T03:04:05.000Z',
     })
     vi.useRealTimers()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// VIEW-02 canonical PlateMapSpec bridge
+// ---------------------------------------------------------------------------
+
+describe('designerWellToWellAssignment', () => {
+  it('strips designer-local fields to the canonical assignment', () => {
+    const assignment = designerWellToWellAssignment({
+      ...sampleWell('A1', 0, 0),
+      concentrationValue: 10,
+      concentrationUnit: 'µM',
+      sampleRecordId: 'sample-1',
+      volume: { value: 20, unit: 'µL' },
+      notes: 'edge well',
+    })
+    expect(assignment).toEqual({
+      wellCode: 'A1',
+      row: 0,
+      col: 0,
+      role: 'sample',
+      sampleRef: samples[0],
+      replicate: 1,
+      volume: { value: 20, unit: 'µL' },
+      notes: 'edge well',
+    })
+    expect(assignment).not.toHaveProperty('concentrationValue')
+    expect(assignment).not.toHaveProperty('sampleRecordId')
+  })
+})
+
+describe('plateDesignDocToSpec', () => {
+  it('serialises a valid draft to a spec the canonical validators accept', () => {
+    const doc = design([
+      sampleWell('A1', 0, 0),
+      {
+        wellCode: 'A2',
+        row: 0,
+        col: 1,
+        role: 'positive_control',
+        volume: { value: 20, unit: 'µL' },
+      },
+    ])
+    expect(validatePlateDesign(doc)).toEqual([])
+    const spec = plateDesignDocToSpec(doc)
+    // The designer operates on the canonical spec: envelope fields come from
+    // the draft, wells carry scientific state only.
+    expect(spec.specVersion).toBe(1)
+    expect(spec.format).toBe('96_well')
+    expect(spec.rows).toBe(8)
+    expect(spec.cols).toBe(12)
+    expect(spec.wells).toHaveLength(2)
+    expect(validatePlateMapSpec(spec)).toEqual([])
+  })
+
+  it('round-trips auto-filled plates including designer planning fields', () => {
+    const filled = autoFillPlate(8, 12, {
+      ...fillOptions(),
+      volume: { value: 20, unit: 'µL' },
+      concentration: { value: 10, unit: 'µM' },
+    })
+    const spec = plateDesignDocToSpec(design(filled))
+    expect(validatePlateMapSpec(spec)).toEqual([])
+    expect(spec.wells.length).toBeGreaterThan(0)
+    // Designer planning fields never leak into the canonical spec.
+    expect(JSON.stringify(spec)).not.toContain('concentrationValue')
+    expect(JSON.stringify(spec)).not.toContain('sampleRecordId')
+  })
+})
+
+describe('designer view-state annotations', () => {
+  it('keeps annotations presentation-only: they never reach the spec', () => {
+    const state = {
+      ...emptyDesignerViewState(design([sampleWell('A1', 0, 0)])),
+      annotations: [
+        { wellCode: 'A1', kind: 'flag' as const, text: 're-check pipetting' },
+        { wellCode: 'H12', kind: 'note' as const, text: 'evaporation risk' },
+      ],
+      selectedWellCode: 'A1',
+    }
+    const spec = designerViewStateToSpec(state)
+    expect(validatePlateMapSpec(spec)).toEqual([])
+    expect(spec.wells).toHaveLength(1)
+    const serialised = JSON.stringify(spec)
+    expect(serialised).not.toContain('re-check pipetting')
+    expect(serialised).not.toContain('evaporation risk')
+    expect(serialised).not.toContain('selectedWellCode')
   })
 })

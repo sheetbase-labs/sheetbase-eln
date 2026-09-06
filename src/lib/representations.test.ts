@@ -27,6 +27,7 @@ import {
   isFrozenRepresentation,
   materialiseRepresentation,
   pinnedVersionId,
+  plateMapToRepresentationHandle,
   reconstructFrozenRepresentation,
   representationReadOnly,
 } from './representations'
@@ -436,6 +437,51 @@ describe('plate_map representation', () => {
         rows: ROWS,
       }),
     ).toThrow(/no frozen payload/)
+  })
+})
+
+describe('plateMapToRepresentationHandle', () => {
+  it('builds a live plate handle with no dataset binding', () => {
+    const handle = plateMapToRepresentationHandle({
+      spec: plateSpec(),
+      title: 'qPCR plate',
+    })!
+    expect(handle.config.kind).toBe('plate_map')
+    expect(handle.source).toEqual({
+      datasetId: null,
+      versionId: null,
+    })
+    expect(handle.readOnly).toBe(true)
+    expect(handle.provenance.frozen).toBe(false)
+    expect(handle.title).toBe('qPCR plate')
+    // Rows are never part of the handle: materialisation re-validates the
+    // spec and ignores caller-supplied rows.
+    const out = materialiseRepresentation(handle, { columns: [], rows: ROWS })
+    expect(out).toEqual({
+      kind: 'plate_map',
+      errors: [],
+      wellCount: 1,
+    })
+  })
+
+  it('builds a frozen handle for revision-snapshot reconstruction', () => {
+    const handle = plateMapToRepresentationHandle({
+      spec: plateSpec(),
+      title: 'qPCR plate',
+      frozen: true,
+    })!
+    expect(isFrozenRepresentation(handle)).toBe(true)
+    expect(pinnedVersionId(handle)).toBeNull()
+    // The pinned spec reconstructs through the frozen path with no payload.
+    expect(reconstructFrozenRepresentation(handle, null)).toEqual({
+      kind: 'plate_map',
+      errors: [],
+      wellCount: 1,
+    })
+  })
+
+  it('returns null without a spec', () => {
+    expect(plateMapToRepresentationHandle({ spec: null })).toBeNull()
   })
 })
 

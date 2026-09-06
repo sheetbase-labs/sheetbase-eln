@@ -5,7 +5,7 @@ import {
   RotateCcw,
   StepForward,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
   Badge,
@@ -23,14 +23,23 @@ import type {
   AgentWorkflow,
   AgentWorkflowEvent,
   AgentWorkflowStep,
+  AgentWorkflowStepGate,
 } from '#/lib/agent-workflows'
-import { workflowCostUsd } from '#/lib/agent-workflows'
+import {
+  dryRunAgentWorkflow,
+  summarizeWorkflowApprovals,
+  summarizeWorkflowRecovery,
+  workflowCostUsd,
+} from '#/lib/agent-workflows'
+import type { AgentOperationProposal } from '#/lib/agent-operations'
 import { cn } from '#/lib/utils'
 
 interface WorkflowWorkbenchProps {
   workflows: AgentWorkflow[]
   steps: AgentWorkflowStep[]
   events: AgentWorkflowEvent[]
+  /** Loaded operation proposals for joining per-step preview, impact, and gates. */
+  proposals?: AgentOperationProposal[]
   selectedId: string | null
   onSelect: (workflowId: string) => void
   onAdvance: (workflow: AgentWorkflow) => void
@@ -44,6 +53,7 @@ export function WorkflowWorkbench({
   workflows,
   steps,
   events,
+  proposals = [],
   selectedId,
   onSelect,
   onAdvance,
@@ -59,7 +69,26 @@ export function WorkflowWorkbench({
   const [cancellationReason, setCancellationReason] = useState('')
 
   useEffect(() => setCancellationReason(''), [selected?.id])
+  const proposalsById = useMemo<Record<string, AgentOperationProposal>>(() => {
+    const byId: Record<string, AgentOperationProposal> = {}
+    for (const proposal of proposals) byId[proposal.id] = proposal
+    return byId
+  }, [proposals])
+  const dryRun = useMemo(
+    () => dryRunAgentWorkflow(steps, proposalsById),
+    [steps, proposalsById],
+  )
+  const approvals = useMemo(() => summarizeWorkflowApprovals(dryRun), [dryRun])
+  const recovery = useMemo(
+    () => (selected ? summarizeWorkflowRecovery(selected, steps) : null),
+    [selected, steps],
+  )
 
+  const gateByStepKey = useMemo<Record<string, (typeof dryRun)[number]['gate']>>(() => {
+    const byKey: Record<string, (typeof dryRun)[number]['gate']> = {}
+    for (const preview of dryRun) byKey[preview.stepKey] = preview.gate
+    return byKey
+  }, [dryRun])
   if (!selected) {
     return (
       <Empty className="border-border m-4 border">
@@ -145,6 +174,21 @@ export function WorkflowWorkbench({
                 <Badge variant="secondary">
                   {selected.plan.steps.length} pinned steps
                 </Badge>
+                {approvals.pendingApproval.length > 0 && (
+                  <Badge variant="danger">
+                    {approvals.pendingApproval.length} pending approval
+                  </Badge>
+                )}
+                {approvals.approved.length > 0 && (
+                  <Badge variant="default">
+                    {approvals.approved.length} approved
+                  </Badge>
+                )}
+                {approvals.rejected.length > 0 && (
+                  <Badge variant="outline">
+                    {approvals.rejected.length} rejected
+                  </Badge>
+                )}
               </div>
               <h2 className="text-lg font-semibold">{selected.goal}</h2>
               <p className="text-muted-foreground mt-1 font-mono text-xs">
@@ -201,15 +245,121 @@ export function WorkflowWorkbench({
               className="border-warning/30 bg-warning/5 mt-4 flex gap-2 rounded-md border p-3 text-sm"
             >
               <CirclePause className="mt-0.5 size-4 shrink-0" />
-              The current proposal failed or was rejected. Resume creates a new
-              proposal for the same pinned operation. Change the plan by
-              cancelling and submitting a new workflow.
+              <span>
+                The current proposal failed or was rejected. Resume creates a
+                new proposal for the same pinned operation under a fresh
+                idempotency key — completed steps keep their results and are
+                never re-executed.
+                {recovery && (
+                  <>
+                    {' '}Next resume is attempt{' '}
+                    {(steps.find((step) => step.position === selected.current_step)?.attempt ?? 0) + 1}
+                    {' '}with {recovery.retriesRemaining} operation
+                    {recovery.retriesRemaining === 1 ? '' : 's'} of retry budget left.
+                  </>
+                )}{' '}
+                Change the plan by cancelling and submitting a new workflow.
+              </span>
+            </div>
+          )}
+          {selected.status === 'cancelled' && (
+            <div
+              role="status"
+              className="border-border bg-muted/40 mt-4 flex gap-2 rounded-md border p-3 text-sm"
+            >
+              <CircleStop className="mt-0.5 size-4 shrink-0" />
+              <span>
+                Cancelled{selected.cancellation_reason ? `: ${selected.cancellation_reason}` : ''}.
+                Partial state is preserved: {recovery?.completed.length ?? 0}{' '}
+                completed step{(recovery?.completed.length ?? 0) === 1 ? '' : 's'} keep
+                {(recovery?.completed.length ?? 0) === 1 ? 's' : ''} {(recovery?.completed.length ?? 0) === 1 ? 'its' : 'their'}{' '}
+                results below; unfinished steps are terminal. Continue with a
+                new workflow.
+              </span>
             </div>
           )}
 
           <Separator className="my-5" />
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
             <div className="space-y-5">
+              <section aria-labelledby="workflow-dry-run">
+                <h3 id="workflow-dry-run" className="text-sm font-semibold">
+                  Dry-run preview
+                </h3>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Read-only preview of every step — no state advances. Proposed
+                  steps show the stored PostgreSQL preview, impact, and risk;
+                  planned steps show the catalogue prediction. Consequential
+                  (mutate) steps need explicit human approval through the
+                  decide path.
+                </p>
+                <ol className="border-border mt-2 overflow-hidden rounded-md border">
+                  {dryRun.map((preview) => (
+                    <li
+                      key={preview.stepKey}
+                      className="border-border border-b p-3 last:border-b-0"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium">
+                            {preview.position + 1}. {preview.title}
+                          </p>
+                          <p className="text-muted-foreground mt-0.5 font-mono text-[11px]">
+                            {preview.tool} · {preview.mode} ·{' '}
+                            {preview.operationKind} · {preview.riskClass}
+                          </p>
+                        </div>
+                        <StepGateBadge gate={preview.gate} />
+                      </div>
+                      <p className="text-muted-foreground mt-1.5 text-xs">
+                        {preview.gate === 'planned' && (
+                          <>
+                            Not yet proposed.
+                            {preview.requiresExplicitApproval
+                              ? ' Will wait for human approval once proposed.'
+                              : ' Eligible to flow automatically once proposed.'}
+                          </>
+                        )}
+                        {preview.gate === 'pending-approval' && (
+                          <>Awaiting explicit human approval — approve the proposal, then execute.</>
+                        )}
+                        {preview.gate === 'approved' && (
+                          <>Approved by a human — awaiting execution.</>
+                        )}
+                        {preview.gate === 'rejected' && (
+                          <>Rejected by a human — resume retries the same pinned operation; it never revives this decision.</>
+                        )}
+                        {preview.gate === 'flowing' && (
+                          <>Moving under automatic or delegated policy — no human click needed.</>
+                        )}
+                        {preview.gate === 'succeeded' && (
+                          <>Completed — the canonical result is kept and never re-executed.</>
+                        )}
+                        {preview.gate === 'failed' && (
+                          <>Failed validation or execution — retryable by human resume within budget.</>
+                        )}
+                        {preview.gate === 'cancelled' && (
+                          <>Cancelled — terminal and inspectable; continue with a new workflow.</>
+                        )}
+                      </p>
+                      {preview.preview && (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          Preview: {preview.preview.changes.length} change
+                          {preview.preview.changes.length === 1 ? '' : 's'}
+                          {preview.impact && (
+                            <>
+                              {' '}· impact {preview.impact.mutationClass}
+                              {preview.impact.affectedRows > 0 && (
+                                <> · {preview.impact.affectedRows} rows</>
+                              )}
+                            </>
+                          )}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </section>
               <section aria-labelledby="workflow-plan">
                 <h3 id="workflow-plan" className="text-sm font-semibold">
                   Pinned plan
@@ -229,7 +379,10 @@ export function WorkflowWorkbench({
                             {step.summary}
                           </p>
                         </div>
-                        <Badge variant="outline">{step.status}</Badge>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StepGateBadge gate={gateByStepKey[step.step_key] ?? 'planned'} />
+                          <Badge variant="outline">{step.status}</Badge>
+                          </div>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <code>{step.tool_name}</code>
@@ -346,6 +499,17 @@ function WorkflowStatus({ status }: { status: AgentWorkflow['status'] }) {
         ? 'default'
         : 'secondary'
   return <Badge variant={variant}>{status.replaceAll('_', ' ')}</Badge>
+}
+function StepGateBadge({ gate }: { gate: AgentWorkflowStepGate }) {
+  const variant =
+    gate === 'pending-approval'
+      ? 'danger'
+      : gate === 'approved'
+        ? 'default'
+        : gate === 'rejected' || gate === 'failed' || gate === 'cancelled'
+          ? 'outline'
+          : 'secondary'
+  return <Badge variant={variant}>{gate.replaceAll('-', ' ')}</Badge>
 }
 
 function UsageBar({

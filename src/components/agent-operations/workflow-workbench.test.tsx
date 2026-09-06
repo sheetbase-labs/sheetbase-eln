@@ -7,6 +7,7 @@ import type {
   AgentWorkflowEvent,
   AgentWorkflowStep,
 } from '#/lib/agent-workflows'
+import type { AgentOperationProposal } from '#/lib/agent-operations'
 import { WorkflowWorkbench } from './workflow-workbench'
 
 const workflow: AgentWorkflow = {
@@ -213,5 +214,47 @@ describe('WorkflowWorkbench', () => {
     expect(screen.getByText(/same pinned operation/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Resume exact step' }))
     expect(onResume).toHaveBeenCalledWith(paused)
+  })
+
+  it('previews every step with gates and stored proposal detail', () => {
+    const pending = {
+      id: 'proposal-1',
+      status: 'pending',
+      approval_policy: 'human_required',
+      preview: {
+        formatVersion: 1,
+        kind: 'dataset_rows.commit',
+        target: { type: 'dataset', id: 'dataset-1' },
+        changes: [{ path: 'rows.r1', before: null, after: {} }],
+      },
+      impact: {
+        formatVersion: 1,
+        mutationClass: 'data',
+        target: { type: 'dataset', id: 'dataset-1' },
+        createsDraft: false,
+        affectedRows: 1,
+        destructive: false,
+      },
+    }
+    render(
+      <WorkflowWorkbench
+        workflows={[workflow]}
+        steps={steps}
+        events={events}
+        proposals={[pending] as unknown as AgentOperationProposal[]}
+        selectedId={workflow.id}
+        onSelect={vi.fn()}
+        onAdvance={vi.fn()}
+        onResume={vi.fn()}
+        onCancel={vi.fn()}
+        onInspectProposal={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Dry-run preview')).toBeTruthy()
+    expect(screen.getByText('1 pending approval')).toBeTruthy()
+    expect(screen.getAllByText('pending approval').length).toBeGreaterThan(1)
+    expect(screen.getByText(/Not yet proposed/)).toBeTruthy()
+    expect(screen.getByText(/1 change/)).toBeTruthy()
   })
 })

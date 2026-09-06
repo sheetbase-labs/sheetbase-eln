@@ -343,6 +343,7 @@ function AgentOperationsRoute() {
               workflows={workflows}
               steps={workflowStepsQuery.data ?? []}
               events={workflowEventsQuery.data ?? []}
+              proposals={proposals}
               selectedId={effectiveWorkflowId}
               onSelect={setSelectedWorkflowId}
               onAdvance={(workflow) => advanceWorkflowMutation.mutate(workflow)}

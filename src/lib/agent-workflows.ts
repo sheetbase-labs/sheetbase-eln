@@ -1,6 +1,18 @@
-import { AGENT_OPERATION_TOOL_NAMES } from './agent-tool-catalogue'
+import {
+  AGENT_OPERATION_TOOL_NAMES,
+  describeAgentTool,
+} from './agent-tool-catalogue'
+import type { AgentToolMode } from './agent-tool-catalogue'
 import type { DataClient } from './data-client'
-import type { AgentOperation, AgentProvenance } from './agent-operations'
+import type {
+  AgentOperation,
+  AgentOperationImpact,
+  AgentOperationKind,
+  AgentOperationPreview,
+  AgentOperationProposal,
+  AgentOperationRiskClass,
+  AgentProvenance,
+} from './agent-operations'
 
 /**
  * Allowlisted workflow tools. Single authority: the AUTO-PLUS-01 tool
@@ -226,6 +238,297 @@ export function workflowRevision(workflow: AgentWorkflow): number {
 export function workflowCostUsd(workflow: AgentWorkflow): string {
   return (Number(workflow.used_cost_microusd) / 1_000_000).toFixed(4)
 }
+
+/**
+ * AUTO-PLUS-02 — Plans, approval & safe execution.
+ *
+ * Everything below is a read-only derived view over the AUTO-04/05
+ * canonical state. There is no second engine and no new RPC: dry-run
+ * previews join stored proposal preview/impact rows, approval gates
+ * observe the AUTO-04 decide/policy decision on each step's proposal, and
+ * resume/retry/cancellation reuse the existing workflow RPCs. Approval
+ * itself stays human-only (`decide_agent_operation`); agents cannot
+ * sign or attest.
+ */
+
+/**
+ * Approval-gate state of one workflow step. `pending-approval`,
+ * `approved`, and `rejected` mirror the human decide path; `flowing`
+ * covers safe drafts and delegated writes moving without a human click.
+ */
+export type AgentWorkflowStepGate =
+  | 'planned'
+  | 'flowing'
+  | 'pending-approval'
+  | 'approved'
+  | 'rejected'
+  | 'failed'
+  | 'cancelled'
+  | 'succeeded'
+
+/**
+ * Risk class of a workflow step's pinned operation. Mirrors the server
+ * mapping in `internal.agent_operation_policy_evaluate`: only
+ * `dataset_rows.commit` is a consequential write; every other
+ * allowlisted operation drafts reversible configuration.
+ */
+export function workflowStepRiskClass(step: {
+  operation: AgentOperation
+}): AgentOperationRiskClass {
+  return step.operation.kind === 'dataset_rows.commit'
+    ? 'consequential_write'
+    : 'safe_draft'
+}
+
+/** Catalogue mode of a workflow tool (`read` never mutates, `draft` proposes, `mutate` writes). */
+export function workflowStepMode(tool: AgentWorkflowTool): AgentToolMode {
+  return describeAgentTool(tool)?.mode ?? 'mutate'
+}
+
+/**
+ * Whether a step needs explicit human approval through the decide path.
+ * With a live proposal this observes the stored AUTO-04 policy decision;
+ * without one it predicts from the risk class (consequential writes stay
+ * human-required unless a delegation policy matches at propose time).
+ */
+export function requiresExplicitApproval(
+  step: { operation: AgentOperation },
+  proposal?: Pick<AgentOperationProposal, 'approval_policy'> | null,
+): boolean {
+  if (proposal) return proposal.approval_policy === 'human_required'
+  return workflowStepRiskClass(step) === 'consequential_write'
+}
+
+/**
+ * Derive a step's approval gate from its stored proposal. The proposal is
+ * the gate: `pending` + `human_required` waits for a human click,
+ * `approved`/`executing` has passed the gate and awaits execution,
+ * `rejected` is terminal for that attempt (resume retries, never revives).
+ * Without proposal data the gate fails closed from the step status: a
+ * proposed-but-unloaded step reads as `pending-approval` until its
+ * proposal proves otherwise.
+ */
+export function workflowStepGate(
+  step: Pick<AgentWorkflowStep, 'status'>,
+  proposal?: Pick<
+    AgentOperationProposal,
+    'status' | 'approval_policy'
+  > | null,
+): AgentWorkflowStepGate {
+  if (!proposal) {
+    if (step.status === 'failed') return 'failed'
+    if (step.status === 'cancelled') return 'cancelled'
+    if (step.status === 'succeeded') return 'succeeded'
+    if (step.status === 'rejected') return 'rejected'
+    if (step.status === 'waiting_approval') return 'pending-approval'
+    return 'planned'
+  }
+  switch (proposal.status) {
+    case 'pending':
+      return proposal.approval_policy === 'human_required'
+        ? 'pending-approval'
+        : 'flowing'
+    case 'approved':
+    case 'executing':
+      return 'approved'
+    case 'rejected':
+      return 'rejected'
+    case 'failed':
+      return 'failed'
+    case 'cancelled':
+      return 'cancelled'
+    case 'succeeded':
+      return 'succeeded'
+  }
+}
+
+/** One step of a plan dry-run: static prediction joined with live proposal state. */
+export interface AgentWorkflowStepDryRun {
+  position: number
+  stepKey: string
+  title: string
+  tool: AgentWorkflowTool
+  mode: AgentToolMode
+  operationKind: AgentOperationKind
+  riskClass: AgentOperationRiskClass
+  requiresExplicitApproval: boolean
+  gate: AgentWorkflowStepGate
+  proposalId: string | null
+  attempt: number
+  /** Stored PostgreSQL preview where the step has been proposed; null for planned steps. */
+  preview: AgentOperationPreview | null
+  /** Stored PostgreSQL impact where the step has been proposed; null for planned steps. */
+  impact: AgentOperationImpact | null
+}
+
+/**
+ * Preview every step of a plan WITHOUT advancing state. Pure join over
+ * already-loaded workflow steps and proposals — it issues no RPC and
+ * touches no revision, budget, or proposal. Steps already proposed carry
+ * their stored PostgreSQL preview/impact/risk; planned steps carry the
+ * catalogue prediction (mode, risk, predicted gate).
+ */
+export function dryRunAgentWorkflow(
+  steps: AgentWorkflowStep[],
+  proposalsById: Map<string, AgentOperationProposal> | Record<string, AgentOperationProposal>,
+): AgentWorkflowStepDryRun[] {
+  const lookup = (id: string): AgentOperationProposal | undefined =>
+    proposalsById instanceof Map
+      ? proposalsById.get(id)
+      : proposalsById[id]
+  return [...steps]
+    .sort((a, b) => a.position - b.position)
+    .map((step) => {
+      const proposal = step.proposal_id ? lookup(step.proposal_id) : undefined
+      return {
+        position: step.position,
+        stepKey: step.step_key,
+        title: step.title,
+        tool: step.tool_name,
+        mode: workflowStepMode(step.tool_name),
+        operationKind: step.operation.kind,
+        riskClass: workflowStepRiskClass(step),
+        requiresExplicitApproval: requiresExplicitApproval(step, proposal ?? null),
+        gate: workflowStepGate(step, proposal ?? null),
+        proposalId: step.proposal_id,
+        attempt: step.attempt,
+        preview: proposal?.preview ?? null,
+        impact: proposal?.impact ?? null,
+      }
+    })
+}
+
+/** Plan-level approval rollup: per-step gates plus the consequential set. */
+export interface AgentWorkflowApprovalSummary {
+  total: number
+  /** Step keys awaiting an explicit human decide (per-step gate). */
+  pendingApproval: string[]
+  /** Step keys the human has approved and not yet executed. */
+  approved: string[]
+  /** Step keys the human rejected (resume retries; the rejection stands). */
+  rejected: string[]
+  /** Step keys flowing via automatic/delegated policy or already terminal. */
+  flowing: string[]
+  /** Step keys not yet proposed. */
+  planned: string[]
+  /** Every step requiring explicit approval, decided or not (per-plan gate). */
+  consequential: string[]
+}
+
+/** Roll up a dry-run into per-step and per-plan approval gates. */
+export function summarizeWorkflowApprovals(
+  dryRun: AgentWorkflowStepDryRun[],
+): AgentWorkflowApprovalSummary {
+  const summary: AgentWorkflowApprovalSummary = {
+    total: dryRun.length,
+    pendingApproval: [],
+    approved: [],
+    rejected: [],
+    flowing: [],
+    planned: [],
+    consequential: [],
+  }
+  for (const step of dryRun) {
+    if (step.requiresExplicitApproval) summary.consequential.push(step.stepKey)
+    switch (step.gate) {
+      case 'pending-approval':
+        summary.pendingApproval.push(step.stepKey)
+        break
+      case 'approved':
+        summary.approved.push(step.stepKey)
+        break
+      case 'rejected':
+        summary.rejected.push(step.stepKey)
+        break
+      case 'planned':
+        summary.planned.push(step.stepKey)
+        break
+      default:
+        summary.flowing.push(step.stepKey)
+        break
+    }
+  }
+  return summary
+}
+
+/**
+ * Step-execution idempotency key. Parity with
+ * `internal.agent_workflow_propose_step`: each attempt proposes under
+ * `workflow:{workflowId}:{stepKey}:{attempt}` with a 1-based attempt, so
+ * resume (attempt + 1) never reuses — and never double-executes — a prior
+ * attempt's key. Reusing a key with different content fails 23505.
+ */
+export function workflowStepIdempotencyKey(
+  workflowId: string,
+  stepKey: string,
+  attempt: number,
+): string {
+  return `workflow:${workflowId}:${stepKey}:${attempt}`
+}
+
+/**
+ * Bounded retry budget: every proposal attempt consumes one operation, so
+ * retries are bounded by the remaining operation budget. No separate
+ * retry counter — the durable budget is the bound. Resume proposes the
+ * next attempt as `step.attempt + 1` under a fresh idempotency key.
+ */
+export function workflowRetriesRemaining(workflow: AgentWorkflow): number {
+  return Math.max(0, workflow.max_operations - workflow.used_operations)
+}
+
+/**
+ * Whether a human resume may retry this step: the workflow is paused on a
+ * failed or rejected step and the operation budget still has room for a
+ * new attempt. Completed steps are never retried; cancelled workflows are
+ * terminal.
+ */
+export function canRetryWorkflowStep(
+  workflow: AgentWorkflow,
+  step: Pick<AgentWorkflowStep, 'status'>,
+): boolean {
+  return (
+    workflow.status === 'paused' &&
+    (step.status === 'failed' || step.status === 'rejected') &&
+    workflowRetriesRemaining(workflow) > 0
+  )
+}
+
+/** Resume-after-partial-failure snapshot: what survives, what is retryable. */
+export interface AgentWorkflowRecoverySummary {
+  /** Steps already succeeded — results kept, never re-executed. */
+  completed: { stepKey: string; proposalId: string | null }[]
+  /** Step keys marked failed/rejected and retryable by human resume. */
+  retryable: string[]
+  /** Cancellation or budget exhaustion is terminal: resume is refused. */
+  terminal: boolean
+  retriesRemaining: number
+}
+
+/**
+ * Summarize recovery state. Completed steps keep their canonical results;
+ * the failed step is retryable as a new attempt of the same pinned
+ * operation; cancelled/budget-exhausted workflows stay inspectable but
+ * terminal — continue with a new plan.
+ */
+export function summarizeWorkflowRecovery(
+  workflow: AgentWorkflow,
+  steps: AgentWorkflowStep[],
+): AgentWorkflowRecoverySummary {
+  return {
+    completed: steps
+      .filter((step) => step.status === 'succeeded')
+      .map((step) => ({ stepKey: step.step_key, proposalId: step.proposal_id })),
+    retryable: steps
+      .filter((step) => canRetryWorkflowStep(workflow, step))
+      .map((step) => step.step_key),
+    terminal:
+      workflow.status === 'cancelled' ||
+      workflow.status === 'budget_exhausted' ||
+      workflow.status === 'succeeded',
+    retriesRemaining: workflowRetriesRemaining(workflow),
+  }
+}
+
 
 export const agentWorkflowQueryKeys = {
   workflows: ['agent-operations', 'workflows'] as const,

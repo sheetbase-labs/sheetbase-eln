@@ -583,20 +583,24 @@ describe('REUSE-01 VersionedNotebookTemplatePanel — facets and requirement pre
 })
 
 describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => {
-  it('pre-fills declared defaults visibly on open', { timeout: 30000 }, async () => {
-    const user = userEvent.setup()
-    mount()
-    await screen.findByText('Alpha template')
-    await user.click(
-      screen.getAllByRole('button', { name: 'Create notebook' })[0],
-    )
-    // Generous timeout: under parallel CI workers the dialog's async version
-    // load can exceed the default 1s findBy budget (flake, see #165).
-    expect(
-      await screen.findByDisplayValue('5', undefined, { timeout: 5000 }),
-    ).toBeTruthy()
-    expect(screen.getByPlaceholderText('Default: 5')).toBeTruthy()
-  })
+  it(
+    'pre-fills declared defaults visibly on open',
+    { timeout: 30000 },
+    async () => {
+      const user = userEvent.setup()
+      mount()
+      await screen.findByText('Alpha template')
+      await user.click(
+        screen.getAllByRole('button', { name: 'Create notebook' })[0],
+      )
+      // Generous timeout: under parallel CI workers the dialog's async version
+      // load can exceed the default 1s findBy budget (flake, see #165).
+      expect(
+        await screen.findByDisplayValue('5', undefined, { timeout: 5000 }),
+      ).toBeTruthy()
+      expect(screen.getByPlaceholderText('Default: 5')).toBeTruthy()
+    },
+  )
 
   it('names missing required parameters and blocks creation fail-closed', async () => {
     const user = userEvent.setup()

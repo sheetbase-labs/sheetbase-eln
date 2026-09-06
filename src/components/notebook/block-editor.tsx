@@ -17,13 +17,15 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { cn } from '#/lib/utils'
+import { explainBlockValidation } from '#/lib/assist-explain'
+import { ExplainPanel } from '#/components/assist/explain-panel'
 import {
   RichTextContent,
   isRichTextPayload,
   richTextToPlainText,
   validateBlock,
 } from '#/lib/blocks'
-import type { RichTextPayload } from '#/lib/blocks'
+import type { BlockValidationError, RichTextPayload } from '#/lib/blocks'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type {
   NotebookBlock,
@@ -251,7 +253,17 @@ function useBlockAutosave<T>(
     offline: offline ?? false,
     touched,
   })
-
+  // Structured errors for the Explain affordance: re-runs the same kernel
+  // over the same draft the string errors came from, so the explanation can
+  // cite rule codes and fields instead of raw strings.
+  const structuredErrors = React.useMemo(() => {
+    const result = validateBlock({
+      type: block.type,
+      payload: autosave.draft,
+      payloadSchemaVersion: block.payloadSchemaVersion,
+    })
+    return result.ok ? [] : result.errors
+  }, [autosave.draft, block.type, block.payloadSchemaVersion])
   // Report before the browser can move focus into another block. The
   // document keeps non-clean editors mounted until autosave settles, which
   // preserves drafts and conflict controls across block navigation.
@@ -259,7 +271,7 @@ function useBlockAutosave<T>(
     onStatusChange?.(autosave.status)
   }, [autosave.status, onStatusChange])
 
-  return { ...autosave, setTouched }
+  return { ...autosave, setTouched, structuredErrors }
 }
 
 /**
@@ -310,8 +322,26 @@ function summarizePayload(
   }
 }
 
-function ValidationErrors({ errors }: { errors: string[] }) {
+export interface BlockExplainInput {
+  blockType: string
+  errors: Array<{ code: BlockValidationError; field?: string; message: string }>
+}
+
+function ValidationErrors({
+  errors,
+  explain,
+}: {
+  errors: string[]
+  explain?: BlockExplainInput | null
+}) {
+  const [showExplain, setShowExplain] = React.useState(false)
   if (errors.length === 0) return null
+  // Grounded locally: the same kernel over the same draft, so every claim
+  // cites the rule code and field that rejected the save.
+  const explanation =
+    explain && explain.errors.length > 0
+      ? explainBlockValidation(explain)
+      : null
   return (
     <Alert variant="destructive" className="mt-2 space-y-1 p-2">
       <ul className="space-y-1">
@@ -319,6 +349,24 @@ function ValidationErrors({ errors }: { errors: string[] }) {
           <li key={i}>{e}</li>
         ))}
       </ul>
+      {explanation ? (
+        <div className="pt-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-expanded={showExplain}
+            onClick={() => setShowExplain((value) => !value)}
+          >
+            {showExplain ? 'Hide explanation' : 'Explain'}
+          </Button>
+          {showExplain ? (
+            <div className="pt-1 text-foreground">
+              <ExplainPanel explanation={explanation} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </Alert>
   )
 }
@@ -332,6 +380,7 @@ function AutosaveFooter({
   status,
   error,
   validationErrors,
+  explainBlock,
   serverPreview,
   onUseServer,
   onKeepLocal,
@@ -340,6 +389,7 @@ function AutosaveFooter({
   status: AutosaveStatus
   error: string | null
   validationErrors: string[]
+  explainBlock?: BlockExplainInput | null
   serverPreview: string
   onUseServer: () => void
   onKeepLocal: () => void
@@ -359,7 +409,7 @@ function AutosaveFooter({
         />
       ) : null}
       {status === 'failed' && validationErrors.length > 0 ? (
-        <ValidationErrors errors={validationErrors} />
+        <ValidationErrors errors={validationErrors} explain={explainBlock} />
       ) : null}
     </div>
   )
@@ -421,6 +471,7 @@ function RichTextEditor({
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
         serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
@@ -558,6 +609,7 @@ function ChecklistEditor({
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
         serverPreview={summarizePayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
@@ -861,6 +913,7 @@ function LinkedRecordEditor({
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
         serverPreview={summarizePayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
@@ -1034,6 +1087,7 @@ function ProcedureStepEditor(props: BlockEditorProps) {
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
         serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
@@ -1257,6 +1311,7 @@ function MaterialsEditor(props: BlockEditorProps) {
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
         serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
@@ -1891,6 +1946,7 @@ function ChartBlockEditor({
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
         serverPreview={summarizePayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
@@ -2209,6 +2265,7 @@ function PlateMapBlockEditor({
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
         serverPreview={summarizePayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
@@ -2644,6 +2701,7 @@ function AnalysisBlockEditor({
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
         serverPreview={summarizePayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,

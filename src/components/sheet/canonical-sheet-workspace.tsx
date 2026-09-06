@@ -13,6 +13,8 @@ import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-re
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { Button, Input, Label } from '#/components/ui'
+import { explainSheetWriteBack } from '#/lib/assist-explain'
+import { ExplainPanel } from '#/components/assist/explain-panel'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import {
   applySheetPresentation,
@@ -253,6 +255,38 @@ export function CanonicalSheetWorkspace({
   )
 }
 
+/**
+ * ASSIST-01 entry point: explains a write-back rejection in plain language,
+ * grounded in the sheet pre-commit validation with a citation per rule hit.
+ * Read-only — no mutation path.
+ */
+function WriteBackExplain({
+  failure,
+}: {
+  failure: {
+    errors: Array<{ code: string; rowId?: string; fieldId?: string }>
+    mixedAuthority: boolean
+  }
+}) {
+  const [showExplain, setShowExplain] = useState(false)
+  const explanation = explainSheetWriteBack(failure)
+  if (!explanation) return null
+  return (
+    <span className="inline-flex flex-col gap-1">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        aria-expanded={showExplain}
+        onClick={() => setShowExplain((value) => !value)}
+      >
+        {showExplain ? 'Hide explanation' : 'Explain'}
+      </Button>
+      {showExplain ? <ExplainPanel explanation={explanation} /> : null}
+    </span>
+  )
+}
+
 export function CanonicalSheetEditor({
   instance,
   projectId,
@@ -276,6 +310,12 @@ export function CanonicalSheetEditor({
     col: 0,
   })
   const [writeStatus, setWriteStatus] = useState<string | null>(null)
+  // ASSIST-01: structured write-back rejection kept beside the status line
+  // so the Explain affordance can cite rule codes, rows and fields.
+  const [writeBackFailure, setWriteBackFailure] = useState<{
+    errors: Array<{ code: string; rowId?: string; fieldId?: string }>
+    mixedAuthority: boolean
+  } | null>(null)
   // GRID-04: saved working view lives in localStorage per Sheet Instance and
   // is re-validated against the active columns before restore (untrusted
   // persisted state, Dataset Explorer saved-view pattern).
@@ -718,6 +758,7 @@ export function CanonicalSheetEditor({
     onSuccess: async () => {
       setPendingValues({})
       setWriteStatus('Write-back saved.')
+      setWriteBackFailure(null)
       await queryClient.invalidateQueries({
         queryKey: ['composed-sheet', instance.id],
       })
@@ -734,6 +775,7 @@ export function CanonicalSheetEditor({
             error.errors[0]?.code ?? 'validation_failed'
           }. Nothing was written.`,
         )
+        setWriteBackFailure({ errors: error.errors, mixedAuthority: false })
         return
       }
       if (error instanceof SheetMixedAuthorityWriteError) {
@@ -742,9 +784,11 @@ export function CanonicalSheetEditor({
         // so the scientist can split the edit; do not claim all-or-nothing
         // semantics that were never attempted.
         setWriteStatus(error.message)
+        setWriteBackFailure({ errors: [], mixedAuthority: true })
         return
       }
       setWriteStatus(`Write-back ${sheetCellWriteError(error)}.`)
+      setWriteBackFailure(null)
     },
   })
 
@@ -1672,6 +1716,9 @@ export function CanonicalSheetEditor({
           </p>
         ) : null}
         {writeStatus ? <p role="status">{writeStatus}</p> : null}
+        {writeBackFailure ? (
+          <WriteBackExplain failure={writeBackFailure} />
+        ) : null}
         {errorText(localMutate.error) || errorText(addCalculation.error) ? (
           <p className="text-destructive" role="alert">
             {errorText(localMutate.error) ?? errorText(addCalculation.error)}

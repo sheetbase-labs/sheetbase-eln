@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { X } from 'lucide-react'
 
 import {
@@ -14,6 +15,8 @@ import type {
 } from '#/lib/plate-designer'
 import { ASSIGNMENT_ROLES, ROLE_STYLES, rowLabel } from '#/lib/plate-map'
 import type { AssignmentRole } from '#/lib/plate-map'
+import { explainPlateValidation } from '#/lib/assist-explain'
+import { ExplainPanel } from '#/components/assist/explain-panel'
 
 export interface PlateInspectorProps {
   well: PlateWellAssignment | null
@@ -23,6 +26,38 @@ export interface PlateInspectorProps {
   saveHistory: Array<{ action: string; timestamp: string; wellCount: number }>
   onClose?: () => void
   onEditWell: (patch: Partial<PlateWellAssignment>) => void
+}
+/**
+ * ASSIST-01 entry point: explains the well's validation errors in plain
+ * language, grounded in the plate-designer kernel with a citation per rule.
+ * Read-only — no mutation path.
+ */
+function PlateValidationExplain({
+  errors,
+}: {
+  errors: PlateDesignValidationError[]
+}) {
+  const [showExplain, setShowExplain] = React.useState(false)
+  const explanation = explainPlateValidation({ errors })
+  if (!explanation) return null
+  return (
+    <div className="pt-1">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        aria-expanded={showExplain}
+        onClick={() => setShowExplain((value) => !value)}
+      >
+        {showExplain ? 'Hide explanation' : 'Explain'}
+      </Button>
+      {showExplain ? (
+        <div className="pt-1">
+          <ExplainPanel explanation={explanation} />
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 export function PlateInspector(props: PlateInspectorProps) {
@@ -189,16 +224,19 @@ export function PlateInspector(props: PlateInspectorProps) {
       </InspectorSection>
       <InspectorSection title="Validation">
         {errors.length ? (
-          <ul className="space-y-1 text-xs text-danger">
-            {errors.map((error, index) => (
-              <li
-                key={`${error.code}-${index}`}
-                className="rounded border border-danger/30 bg-danger/5 p-2"
-              >
-                {error.message}
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-1 text-xs text-danger">
+              {errors.map((error, index) => (
+                <li
+                  key={`${error.code}-${index}`}
+                  className="rounded border border-danger/30 bg-danger/5 p-2"
+                >
+                  {error.message}
+                </li>
+              ))}
+            </ul>
+            <PlateValidationExplain errors={errors} />
+          </>
         ) : (
           <p className="rounded border border-success/30 bg-success/10 p-2 text-xs text-success">
             No issues

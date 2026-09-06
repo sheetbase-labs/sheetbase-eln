@@ -59,6 +59,35 @@ function fakeClient(): DataClient {
     }) as DataClient['list'],
     rpc: vi.fn(async (name: string) => {
       if (name === 'model_field_usage') return 3
+      if (name === 'preview_model_field_evolution')
+        return {
+          classification: 'migration-requiring',
+          reason: 'retire_field',
+          blocked: false,
+          impact: [],
+        }
+      if (name === 'apply_model_field_evolution')
+        return {
+          classification: 'migration-requiring',
+          reason: 'retire_field',
+          blocked: false,
+          ok: true,
+        }
+      if (name === 'discover_object_dependencies')
+        return {
+          kind: 'model_field',
+          id: 'field-1',
+          dependencies: [
+            {
+              kind: 'model_field_usage',
+              id: 'field-1',
+              relation: 'record_custom_field_count',
+              liveness: 'informational',
+              effect: 'informational',
+              label: '3 records',
+            },
+          ],
+        }
       return undefined
     }) as DataClient['rpc'],
     count: vi.fn(),
@@ -190,6 +219,7 @@ describe('AdminModelFields', () => {
     expect(screen.getByText(/Key:/)).toBeTruthy()
     expect(screen.getAllByText('purity').length).toBe(2)
     expect(screen.getAllByText(/Decimal number/).length).toBe(2)
+    expect(await screen.findByText(/Evolution check:/)).toBeTruthy()
 
     const label = screen.getByLabelText('Label')
     await user.clear(label)
@@ -201,13 +231,26 @@ describe('AdminModelFields', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
-      expect(client.rpc).toHaveBeenCalledWith('update_model_field', {
+      expect(client.rpc).toHaveBeenCalledWith('preview_model_field_evolution', {
         p_definition_id: 'field-1',
+        p_action: 'update',
         p_patch: {
           label: 'Sample purity',
           description: 'Measured purity',
           displayOrder: 4,
         },
+      }),
+    )
+    await waitFor(() =>
+      expect(client.rpc).toHaveBeenCalledWith('apply_model_field_evolution', {
+        p_definition_id: 'field-1',
+        p_action: 'update',
+        p_patch: {
+          label: 'Sample purity',
+          description: 'Measured purity',
+          displayOrder: 4,
+        },
+        p_confirm: true,
       }),
     )
   })
@@ -238,5 +281,98 @@ describe('AdminModelFields', () => {
         }),
       ),
     )
+  })
+  it('surfaces kernel validation inline before adding a category field', async () => {
+    const user = userEvent.setup()
+    mount(true)
+    await screen.findByText('Purity')
+    await user.click(screen.getByRole('button', { name: 'Add field' }))
+
+    await user.type(screen.getByLabelText('Label'), 'Therapeutic area')
+    await user.type(screen.getByLabelText('Stable key'), 'therapeutic_area')
+    await user.selectOptions(screen.getByLabelText('Type'), 'category')
+    expect(await screen.findByText('Resolve before adding')).toBeTruthy()
+    expect(screen.getByText(/needs an active option/)).toBeTruthy()
+    expect(
+      screen
+        .getByRole('button', { name: 'Add and activate' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+
+    await user.type(
+      screen.getByLabelText('Options, separated by commas'),
+      'oncology, cardio',
+    )
+    await waitFor(() =>
+      expect(screen.queryByText('Resolve before adding')).toBeNull(),
+    )
+    expect(screen.getByText(/Field contract valid/)).toBeTruthy()
+    expect(
+      screen
+        .getByRole('button', { name: 'Add and activate' })
+        .hasAttribute('disabled'),
+    ).toBe(false)
+  })
+
+  it('rejects a duplicate stable key before submit', async () => {
+    const user = userEvent.setup()
+    mount(true)
+    await screen.findByText('Purity')
+    await user.click(screen.getByRole('button', { name: 'Add field' }))
+
+    await user.type(screen.getByLabelText('Label'), 'Purity copy')
+    await user.type(screen.getByLabelText('Stable key'), 'purity')
+
+    expect(await screen.findByText('Resolve before adding')).toBeTruthy()
+    expect(screen.getByText(/already in use/)).toBeTruthy()
+    expect(
+      screen
+        .getByRole('button', { name: 'Add and activate' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+  })
+
+  it('previews impact and confirms retire through the evolution gate', async () => {
+    const user = userEvent.setup()
+    const { client } = mount(true)
+    await screen.findByText('Purity')
+
+    await user.click(screen.getByRole('button', { name: 'Retire' }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Retire Purity' }),
+    ).toBeTruthy()
+    expect(await screen.findByText(/migration-requiring/)).toBeTruthy()
+    expect(screen.getByText('Dependency impact')).toBeTruthy()
+    expect(
+      screen.getByText('3 records · informational · informational'),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Preview Purity in Records' }),
+    ).toHaveProperty('href', expect.stringContaining('/samples'))
+
+    await user.click(screen.getByRole('button', { name: 'Confirm retire' }))
+    await waitFor(() =>
+      expect(client.rpc).toHaveBeenCalledWith('preview_model_field_evolution', {
+        p_definition_id: 'field-1',
+        p_action: 'retire',
+        p_patch: {},
+      }),
+    )
+    await waitFor(() =>
+      expect(client.rpc).toHaveBeenCalledWith('apply_model_field_evolution', {
+        p_definition_id: 'field-1',
+        p_action: 'retire',
+        p_patch: {},
+        p_confirm: true,
+      }),
+    )
+  })
+
+  it('links field rows out to the Records preview', async () => {
+    mount(true)
+    await screen.findByText('Purity')
+    expect(
+      screen.getByRole('link', { name: 'Preview Purity in Records' }),
+    ).toHaveProperty('href', expect.stringContaining('/samples'))
   })
 })

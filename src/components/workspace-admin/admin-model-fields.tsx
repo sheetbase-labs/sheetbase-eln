@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LockKeyhole, Pencil, Plus } from 'lucide-react'
 
@@ -23,12 +23,20 @@ import {
   TableRow,
 } from '#/components/ui'
 import type { DataClient } from '#/lib/data-client'
+import {
+  fieldDefinitionFromModelField,
+  validateFieldDefinition,
+} from '#/lib/field-definition'
 import { fetchModelFieldsWithUsage, fetchModelKinds } from '#/lib/model-fields'
 import type {
   ModelFieldDefinition,
   ModelFieldLogicalType,
 } from '#/lib/model-fields'
-
+import { discoverObjectDependencies } from '#/lib/object-dependencies'
+import {
+  applyModelFieldEvolution,
+  previewModelFieldEvolution,
+} from '#/lib/schema-evolution'
 const TYPES: Array<{ value: ModelFieldLogicalType; label: string }> = [
   { value: 'text', label: 'Text' },
   { value: 'integer', label: 'Whole number' },
@@ -39,6 +47,274 @@ const TYPES: Array<{ value: ModelFieldLogicalType; label: string }> = [
   { value: 'category', label: 'Category' },
   { value: 'reference', label: 'Record reference' },
 ]
+interface AddFieldForm {
+  key: string
+  label: string
+  type: ModelFieldLogicalType
+  description: string
+  required: boolean
+  defaultValue: string
+  unitSymbol: string
+  options: string
+  targetModelKey: string
+}
+
+function parseCategoryOptionKeys(input: string): string[] {
+  return input
+    .split(',')
+    .map((option) => option.trim())
+    .filter(Boolean)
+}
+
+function parseDefaultValue(
+  type: ModelFieldLogicalType,
+  raw: string,
+): unknown {
+  if (raw === '') return null
+  if (type === 'integer' || type === 'decimal') return Number(raw)
+  if (type === 'boolean') return raw === 'true'
+  return raw
+}
+
+/**
+ * Project the Add-field dialog state through the same canonical adapter the
+ * persisted fields use, so inline feedback is the kernel contract
+ * (validateFieldDefinition) rather than a second rules engine.
+ */
+function draftDefinitionFromForm(form: AddFieldForm) {
+  const targetModelKey = form.targetModelKey.trim()
+  return fieldDefinitionFromModelField({
+    id: 'draft',
+    fieldName: form.key.trim(),
+    label: form.label.trim(),
+    description: form.description.trim() || null,
+    logicalType: form.type,
+    nullable: !form.required,
+    defaultValue: parseDefaultValue(form.type, form.defaultValue),
+    unit:
+      (form.type === 'integer' || form.type === 'decimal') &&
+      form.unitSymbol.trim()
+        ? { symbol: form.unitSymbol.trim() }
+        : null,
+    validation: form.type === 'reference' ? { targetModelKey } : {},
+    relationship:
+      form.type === 'reference' && targetModelKey
+        ? {
+            target: { kind: 'model', modelKey: targetModelKey },
+            cardinality: 'one',
+          }
+        : null,
+    lifecycle: 'active',
+    options: parseCategoryOptionKeys(form.options).map((key, index) => ({
+      id: `draft-${index}`,
+      key,
+      label: key,
+      displayOrder: index,
+      lifecycle: 'active' as const,
+    })),
+  })
+}
+
+
+/**
+ * Dependency list reusing the ConfigurationWorkspace impact-panel shape
+ * (label · liveness · effect) for model_field discovery.
+ */
+function ModelFieldImpactList({
+  dependencies,
+}: {
+  dependencies: Array<{
+    kind: string
+    id: string
+    relation: string
+    liveness: string
+    effect: string
+    label: string
+  }>
+}) {
+  return (
+    <div className="mt-4">
+      <h3 className="text-sm font-semibold">Dependency impact</h3>
+      {dependencies.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">No dependants.</p>
+      ) : (
+        <ul className="mt-2 space-y-1 text-xs">
+          {dependencies.map((item) => (
+            <li key={`${item.kind}:${item.id}`}>
+              {item.label} · {item.liveness} · {item.effect}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function UpdateEvolutionCheck({
+  client,
+  definitionId,
+  patch,
+}: {
+  client: DataClient
+  definitionId: string
+  patch: Record<string, unknown>
+}) {
+  const serialized = JSON.stringify(patch)
+  const previewQuery = useQuery({
+    queryKey: [
+      'model-fields-admin',
+      'evolution',
+      definitionId,
+      'update',
+      serialized,
+    ],
+    queryFn: () =>
+      previewModelFieldEvolution(client, {
+        definitionId,
+        action: 'update',
+        patch: JSON.parse(serialized) as Record<string, unknown>,
+      }),
+  })
+  const preview = previewQuery.data
+  if (previewQuery.isLoading) {
+    return (
+      <p className="text-xs text-muted-foreground sm:col-span-2">
+        Checking evolution impact…
+      </p>
+    )
+  }
+  if (previewQuery.isError || !preview) {
+    return (
+      <p className="text-xs text-muted-foreground sm:col-span-2">
+        Evolution preview unavailable — saving still runs the server gate.
+      </p>
+    )
+  }
+  return (
+    <p className="text-xs text-muted-foreground sm:col-span-2">
+      Evolution check: {String(preview.classification ?? 'unknown')}
+      {typeof preview.reason === 'string' && preview.reason
+        ? ` — ${preview.reason}`
+        : null}
+      {preview.blocked ? ' (blocked)' : null}
+    </p>
+  )
+}
+
+function RetireFieldDialog({
+  client,
+  field,
+  onClose,
+  onRetired,
+}: {
+  client: DataClient
+  field: ModelFieldDefinition & { usageCount: number }
+  onClose: () => void
+  onRetired: () => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const previewQuery = useQuery({
+    queryKey: ['model-fields-admin', 'evolution', field.id, 'retire'],
+    queryFn: () =>
+      previewModelFieldEvolution(client, {
+        definitionId: field.id,
+        action: 'retire',
+      }),
+  })
+  const impactQuery = useQuery({
+    queryKey: ['model-fields-admin', 'impact', field.id],
+    queryFn: () => discoverObjectDependencies(client, 'model_field', field.id),
+  })
+  const preview = previewQuery.data
+  const dependencies = impactQuery.data?.dependencies ?? []
+  const blocked = preview?.blocked === true
+  const apply = useMutation({
+    mutationFn: () =>
+      applyModelFieldEvolution(client, {
+        definitionId: field.id,
+        action: 'retire',
+        confirm: true,
+      }),
+    onSuccess: () => {
+      setError(null)
+      onRetired()
+    },
+    onError: (cause) =>
+      setError(
+        cause instanceof Error ? cause.message : 'Could not retire the field.',
+      ),
+  })
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Retire {field.label}</DialogTitle>
+          <DialogDescription>
+            Retiring keeps stored values but locks the field for new and edited
+            records. Review the impact before confirming.
+          </DialogDescription>
+        </DialogHeader>
+        {previewQuery.isLoading ? (
+          <p className="text-xs text-muted-foreground">
+            Previewing evolution impact…
+          </p>
+        ) : previewQuery.isError || !preview ? (
+          <p className="text-xs text-muted-foreground">
+            Evolution preview unavailable — confirming still runs the server
+            gate.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Evolution check: {String(preview.classification ?? 'unknown')}
+            {typeof preview.reason === 'string' && preview.reason
+              ? ` — ${preview.reason}`
+              : null}
+            {blocked ? ' (blocked)' : null} · {field.usageCount}{' '}
+            {field.usageCount === 1 ? 'record carries' : 'records carry'} a
+            value.
+          </p>
+        )}
+        <ModelFieldImpactList dependencies={dependencies} />
+        <p className="mt-4 text-xs">
+          <a
+            className="text-primary underline-offset-4 hover:underline"
+            href="/samples"
+            aria-label={`Preview ${field.label} in Records`}
+          >
+            Preview in Records
+          </a>
+        </p>
+        {blocked ? (
+          <p role="alert" className="text-sm text-destructive">
+            This retire is blocked by the evolution gate
+            {typeof preview?.reason === 'string' && preview.reason
+              ? `: ${preview.reason}`
+              : '.'}
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={
+              apply.isPending || previewQuery.isLoading || blocked
+            }
+            onClick={() => apply.mutate()}
+          >
+            Confirm retire
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 
 export function AdminModelFields({
   client,
@@ -60,16 +336,19 @@ export function AdminModelFields({
   const [editingField, setEditingField] = useState<
     (ModelFieldDefinition & { usageCount: number }) | null
   >(null)
+  const [retiringField, setRetiringField] = useState<
+    (ModelFieldDefinition & { usageCount: number }) | null
+  >(null)
   const [editForm, setEditForm] = useState({
     label: '',
     description: '',
     displayOrder: 0,
   })
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<AddFieldForm>({
     key: '',
     label: '',
-    type: 'text' as ModelFieldLogicalType,
+    type: 'text',
     description: '',
     required: false,
     defaultValue: '',
@@ -118,34 +397,60 @@ export function AdminModelFields({
     void queryClient.invalidateQueries({ queryKey: ['model-fields'] })
   }
 
+  const draftIssues = useMemo(() => {
+    const issues = validateFieldDefinition(draftDefinitionFromForm(form))
+    const key = form.key.trim()
+    if (key) {
+      if (!/^[a-z][a-z0-9_]{0,62}$/.test(key)) {
+        issues.push({
+          path: 'key',
+          message:
+            'Stable key must match ^[a-z][a-z0-9_]{0,62}$ — the server rejects anything else.',
+        })
+      } else if (
+        baseFields.some((field) => field.field_key === key) ||
+        fields.some((field) => field.fieldName === key)
+      ) {
+        issues.push({
+          path: 'key',
+          message: `Stable key "${key}" is already in use — the server rejects protected and duplicate custom field keys.`,
+        })
+      }
+    }
+    if (
+      form.type === 'category' &&
+      parseCategoryOptionKeys(form.options).length === 0
+    ) {
+      issues.push({
+        path: 'category',
+        message:
+          'Category needs an active option — the server rejects activation without one.',
+      })
+    }
+    return issues
+  }, [form, baseFields, fields])
+
   const create = useMutation({
     mutationFn: async () => {
       const validation =
-        form.type === 'reference' ? { targetModelKey: form.targetModelKey } : {}
-      const parsedDefault =
-        form.defaultValue === ''
-          ? null
-          : form.type === 'integer' || form.type === 'decimal'
-            ? Number(form.defaultValue)
-            : form.type === 'boolean'
-              ? form.defaultValue === 'true'
-              : form.defaultValue
+        form.type === 'reference'
+          ? { targetModelKey: form.targetModelKey.trim() }
+          : {}
       const options =
         form.type === 'category'
-          ? form.options
-              .split(',')
-              .map((option) => option.trim())
-              .filter(Boolean)
-              .map((option) => ({ key: option, label: option }))
+          ? parseCategoryOptionKeys(form.options).map((option) => ({
+              key: option,
+              label: option,
+            }))
           : []
       await client.rpc('create_and_activate_model_field', {
         p_workspace_id: workspaceId,
         p_model_key: modelKey,
-        p_field_name: form.key,
-        p_label: form.label,
+        p_field_name: form.key.trim(),
+        p_label: form.label.trim(),
         p_logical_type: form.type,
         p_nullable: !form.required,
-        p_default_value: parsedDefault,
+        p_default_value: parseDefaultValue(form.type, form.defaultValue),
         p_validation: validation,
         p_options: options,
         p_unit:
@@ -177,25 +482,31 @@ export function AdminModelFields({
         cause instanceof Error ? cause.message : 'Could not add the field.',
       ),
   })
-  const retire = useMutation({
-    mutationFn: (id: string) =>
-      client.rpc('retire_model_field', { p_definition_id: id }),
-    onSuccess: invalidate,
-    onError: (cause) =>
-      setError(
-        cause instanceof Error ? cause.message : 'Could not retire the field.',
-      ),
-  })
   const update = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!editingField) throw new Error('No field selected.')
-      return client.rpc('update_model_field', {
-        p_definition_id: editingField.id,
-        p_patch: {
-          label: editForm.label.trim(),
-          description: editForm.description.trim() || null,
-          displayOrder: editForm.displayOrder,
-        },
+      const patch: Record<string, unknown> = {
+        label: editForm.label.trim(),
+        description: editForm.description.trim() || null,
+        displayOrder: editForm.displayOrder,
+      }
+      const preview = await previewModelFieldEvolution(client, {
+        definitionId: editingField.id,
+        action: 'update',
+        patch,
+      })
+      if (preview.blocked === true) {
+        throw new Error(
+          typeof preview.reason === 'string' && preview.reason
+            ? `Change blocked: ${preview.reason}`
+            : 'Change blocked by the evolution gate.',
+        )
+      }
+      return applyModelFieldEvolution(client, {
+        definitionId: editingField.id,
+        action: 'update',
+        patch,
+        confirm: true,
       })
     },
     onSuccess: () => {
@@ -348,7 +659,16 @@ export function AdminModelFields({
                 Workspace fields
               </TableCell>
             </TableRow>
-            {fields.map((field) => (
+            {fields.map((field) => {
+              const target = field.relationship?.target
+              const targetModelKey =
+                target?.kind === 'model' && target.modelKey.trim()
+                  ? target.modelKey
+                  : typeof field.validation.targetModelKey === 'string' &&
+                      field.validation.targetModelKey.trim()
+                    ? field.validation.targetModelKey
+                    : null
+              return (
               <TableRow key={field.id}>
                 <TableCell>
                   <p className="font-medium">{field.label}</p>
@@ -360,6 +680,24 @@ export function AdminModelFields({
                       {field.description}
                     </p>
                   ) : null}
+                  <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
+                    <a
+                      className="text-primary underline-offset-4 hover:underline"
+                      href="/samples"
+                      aria-label={`Preview ${field.label} in Records`}
+                    >
+                      Preview in Records
+                    </a>
+                    {field.logicalType === 'reference' && targetModelKey ? (
+                      <a
+                        className="text-primary underline-offset-4 hover:underline"
+                        href={`/configure?kind=model&model=${encodeURIComponent(targetModelKey)}`}
+                        aria-label={`Open referenced model for ${field.label}`}
+                      >
+                        Open referenced model
+                      </a>
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {
@@ -398,8 +736,8 @@ export function AdminModelFields({
                       <Button
                         size="sm"
                         variant="ghost"
-                        disabled={!canManage || retire.isPending}
-                        onClick={() => retire.mutate(field.id)}
+                        disabled={!canManage}
+                        onClick={() => setRetiringField(field)}
                       >
                         Retire
                       </Button>
@@ -407,7 +745,8 @@ export function AdminModelFields({
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+              )
+            })}
             {!fieldsQuery.isLoading && fields.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
@@ -558,6 +897,25 @@ export function AdminModelFields({
               />
               Required for new and editable records
             </Label>
+            {draftIssues.length > 0 ? (
+              <div
+                role="alert"
+                className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs sm:col-span-2"
+              >
+                <p className="font-medium">Resolve before adding</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+                  {draftIssues.map((issue) => (
+                    <li key={`${issue.path}:${issue.message}`}>
+                      {issue.path}: {issue.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Field contract valid — the key and type lock on activation.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -568,7 +926,8 @@ export function AdminModelFields({
                 create.isPending ||
                 !form.label.trim() ||
                 !form.key.trim() ||
-                (form.type === 'category' && !form.options.trim())
+                (form.type === 'category' && !form.options.trim()) ||
+                draftIssues.length > 0
               }
               onClick={() => create.mutate()}
             >
@@ -639,6 +998,17 @@ export function AdminModelFields({
                   : null}
               </p>
             </div>
+            {editingField ? (
+              <UpdateEvolutionCheck
+                client={client}
+                definitionId={editingField.id}
+                patch={{
+                  label: editForm.label.trim(),
+                  description: editForm.description.trim() || null,
+                  displayOrder: editForm.displayOrder,
+                }}
+              />
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingField(null)}>
@@ -653,6 +1023,17 @@ export function AdminModelFields({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {retiringField ? (
+        <RetireFieldDialog
+          client={client}
+          field={retiringField}
+          onClose={() => setRetiringField(null)}
+          onRetired={() => {
+            setRetiringField(null)
+            invalidate()
+          }}
+        />
+      ) : null}
     </div>
   )
 }

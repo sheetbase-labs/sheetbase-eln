@@ -118,6 +118,7 @@ import {
 import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
+import { RelatedWorkPanel } from '#/components/related-work/related-work-panel'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
@@ -2238,6 +2239,11 @@ export function NotebookInspector({
               </>
             )}
           </InspectorSection>
+          {/* FIND-03: contextual discovery across links, provenance and
+              project membership. Silent when empty. */}
+          {isHistorical ? null : (
+            <RelatedWorkPanel kind="record" id={record.id} />
+          )}
 
           <InspectorSection title="Files">
             <FileList items={fileItems} />

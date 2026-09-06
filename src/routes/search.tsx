@@ -61,6 +61,7 @@ import { Inspector } from '#/components/record/inspector'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusDomain } from '#/components/scientific/status-badge'
 import { Badge, Button, Input, Select, Skeleton } from '#/components/ui'
+import { RelatedWorkPanel } from '#/components/related-work/related-work-panel'
 import { cn } from '#/lib/utils'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -95,6 +96,7 @@ import type {
   SearchSuggestion,
   SearchUrlParams,
 } from '#/lib/search'
+import { searchResultToRelatedKind } from '#/lib/related-work'
 
 export const Route = createFileRoute('/search')({
   // SEARCH-001: filter and query state lives in the URL so searches are
@@ -1710,6 +1712,12 @@ function SearchResultInspector({
           </div>
         </div>
       ) : null}
+      {/* FIND-03: contextual discovery for the selected result — augments
+          the global search inspector without touching search ranking. */}
+      <RelatedWorkPanel
+        kind={searchResultToRelatedKind(result.resultType)}
+        id={result.recordId}
+      />
 
       {/* SEARCH-001: safe quick actions. Only show actions that navigate to
           the record or common operations — no restricted payloads or

@@ -17,21 +17,29 @@
  *
  * ## Logging policy
  *
- * Exactly these fields are logged, and nothing else:
+ * Default telemetry carries hashes, sizes and identifiers — never prompt or
+ * output text:
  *
  * - `ai.gateway.call` (info): model, actor kind + id, tool names, prompt
- *   SHA-256 hash, a redacted excerpt of at most `GATEWAY_EXCERPT_CHARS`
- *   characters, prompt length in chars, estimated tokens/cost, citation IDs.
+ *   SHA-256 hash, prompt length in chars, estimated tokens/cost, citation IDs.
  * - `ai.gateway.result` (info): model, prompt hash (joins to the call line),
  *   actual tokens/cost, latency in ms, citation IDs.
  * - `ai.gateway.rejected` (warn): error code, reason, model as given, actor
  *   kind + id. No prompt material at all.
  *
- * Both info payloads pass through the canonical logger `redact()`, so
- * secret-shaped keys are stripped even if a future envelope field carries
- * them. Full prompts, full envelope sections and raw secret values are never
- * logged — operators debug with the hash (recomputed from a local
- * reproduction) and the citation IDs.
+ * Full prompts, excerpts, envelope sections, provider output text and raw
+ * secret values are never logged by default — operators debug with the hash
+ * (recomputed from a local reproduction) and the citation IDs. Every payload
+ * passes through the canonical logger `redact()`, so secret-shaped keys are
+ * stripped even if a future envelope field carries them.
+ *
+ * Explicit opt-in debug excerpt: a caller may set
+ * `CallModelInput.includeDebugExcerpt` for a single call to attach a
+ * `debugPromptExcerpt` field to `ai.gateway.call`. The boundary is
+ * `redact()` + `redactDebugExcerpt()` string scrubbing + the
+ * `GATEWAY_EXCERPT_CHARS` cap + per-call opt-in — never ambient (no env var,
+ * no global toggle). Debug excerpts stay out of production; they exist for
+ * local reproduction of truncation or grounding faults.
  */
 
 import { createHash } from 'node:crypto'
@@ -104,7 +112,7 @@ export const MODEL_MICROUSD_PER_TOKEN: Record<GatewayModel, number> = {
 /** Chars-per-token proxy, matching the AI-01 envelope convention (~4 chars). */
 export const GATEWAY_CHARS_PER_TOKEN = 4
 
-/** Max prompt characters kept in the `ai.gateway.call` log record. */
+/** Max prompt characters kept in the opt-in `debugPromptExcerpt` field. */
 export const GATEWAY_EXCERPT_CHARS = 200
 
 export function estimateTokensFromChars(chars: number): number {
@@ -113,6 +121,23 @@ export function estimateTokensFromChars(chars: number): number {
 
 export function hashPrompt(prompt: string): string {
   return createHash('sha256').update(prompt, 'utf8').digest('hex')
+}
+/**
+ * String-level scrub for the opt-in debug excerpt. The canonical `redact()`
+ * only strips secret-shaped object keys — a raw prompt slice needs its own
+ * pass: secret-shaped tokens and `key: value` / `key=value` pairs are
+ * replaced with `[redacted]`, then the result is capped at
+ * `GATEWAY_EXCERPT_CHARS`. Debug-only; default telemetry never calls this.
+ */
+function redactDebugExcerpt(prompt: string): string {
+  const scrubbed = prompt
+    .replace(/\bsk[_-][A-Za-z0-9_-]{4,}/g, '[redacted]')
+    .replace(
+      /(api[_-]?token|session[_-]?token|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|password|secret|authorization|set-cookie|cookie|pgrst_jwt_secret|better_auth_secret|github_client_secret|postgres_password)\s*[:=]\s*[^\s,}]+/gi,
+      '$1=[redacted]',
+    )
+    .replace(/(\btoken\b|\bbearer\b)\s*[:=]\s*[^\s,}]+/gi, '$1=[redacted]')
+  return scrubbed.slice(0, GATEWAY_EXCERPT_CHARS)
 }
 
 /**
@@ -160,6 +185,12 @@ export interface CallModelInput {
   contextEnvelope: AiContextEnvelope
   citations?: AiCitation[]
   limits: GatewayLimits
+  /**
+   * Per-call opt-in for a redacted, capped `debugPromptExcerpt` on the
+   * `ai.gateway.call` log record. Default false; there is no ambient or
+   * global toggle. Debug-only — never enable in production.
+   */
+  includeDebugExcerpt?: boolean
 }
 
 export interface GatewayDeps {
@@ -284,21 +315,21 @@ export async function callModel(
   const prompt = buildGatewayPrompt(envelope, citations)
   const promptHash = hashPrompt(prompt)
   const citationIds = citations.map((citation) => citation.stableId)
-  logger.info(
-    'ai.gateway.call',
-    redact({
-      model,
-      tools: input.tools,
-      actorKind: actor.kind,
-      actorId: actor.id,
-      promptHash,
-      promptExcerpt: prompt.slice(0, GATEWAY_EXCERPT_CHARS),
-      promptChars: prompt.length,
-      estimatedTokens,
-      estimatedCostMicrousd,
-      citationIds,
-    }),
-  )
+  const callFields: Record<string, unknown> = {
+    model,
+    tools: input.tools,
+    actorKind: actor.kind,
+    actorId: actor.id,
+    promptHash,
+    promptChars: prompt.length,
+    estimatedTokens,
+    estimatedCostMicrousd,
+    citationIds,
+  }
+  if (input.includeDebugExcerpt === true) {
+    callFields['debugPromptExcerpt'] = redactDebugExcerpt(prompt)
+  }
+  logger.info('ai.gateway.call', redact(callFields))
 
   const provider = deps.provider ?? new StubModelProvider(model)
   const startedAt = Date.now()

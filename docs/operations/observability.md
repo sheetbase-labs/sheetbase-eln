@@ -230,6 +230,23 @@ string, body, headers or row filters.
 
 When in doubt, log less, not more.
 
+### Model gateway log fields
+
+Model calls (`src/lib/ai-gateway.ts`) log hashes, sizes and identifiers by
+default — never prompt or output text:
+
+| Event | Fields |
+| ----- | ------ |
+| `ai.gateway.call` | `model`, `tools`, `actorKind`, `actorId`, `promptHash` (SHA-256), `promptChars`, `estimatedTokens`, `estimatedCostMicrousd`, `citationIds` |
+| `ai.gateway.result` | `model`, `promptHash` (joins to the call line), `tokensUsed`, `costMicrousd`, `latencyMs`, `citationIds` |
+| `ai.gateway.rejected` | `code`, `reason`, `model`, `actorKind`, `actorId` — no prompt material at all |
+
+A caller may set `includeDebugExcerpt` for a single call to attach a
+`debugPromptExcerpt` to `ai.gateway.call`. The excerpt is string-scrubbed for
+secret-shaped material, capped at `GATEWAY_EXCERPT_CHARS` characters, and
+requires explicit per-call opt-in — there is no ambient toggle. Debug excerpts
+are for local reproduction only, never production.
+
 ## Stable public error categories
 
 Proxy failures and upstream PostgREST errors are returned as:

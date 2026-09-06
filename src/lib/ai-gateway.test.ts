@@ -231,16 +231,17 @@ describe('ai-gateway budgets', () => {
 })
 
 describe('ai-gateway logging policy', () => {
-  it('logs hashes, bounded excerpts and citation IDs — never secrets or full content', async () => {
+  it('logs hashes, sizes and citation IDs by default — never prompt text, excerpts or secrets', async () => {
     const registry = createMetricsRegistry()
     const info = vi.spyOn(logger, 'info')
     try {
-      // Secret-shaped keys planted where free-form content could carry them.
+      // Secret material in a known prompt field (section body) plus
+      // secret-shaped keys where free-form content could carry them.
       const envelope = baseEnvelope()
       envelope.objects[0].sections = [
         {
           heading: 'Summary',
-          body: 'Benign summary of the experiment.',
+          body: `Benign summary of the experiment. Operator note ${SECRET}.`,
           truncated: false,
           ...{ apiToken: SECRET },
         },
@@ -253,23 +254,104 @@ describe('ai-gateway logging policy', () => {
       expect(logged).not.toContain(SECRET)
 
       const fullPrompt = buildGatewayPrompt(envelope, citations)
+      // The test is only meaningful if the prompt really carries the secret.
+      expect(fullPrompt).toContain(SECRET)
       expect(logged).not.toContain(fullPrompt)
+
+      // No prompt material at all: not even benign body/title fragments.
+      expect(logged).not.toContain('Benign summary of the experiment.')
+      expect(logged).not.toContain('Visible experiment')
 
       const callRecord = info.mock.calls.find((call) => call[0] === 'ai.gateway.call')
       expect(callRecord).toBeDefined()
       const fields = callRecord?.[1] as Record<string, unknown>
+      expect(Object.keys(fields).sort()).toEqual(
+        [
+          'model',
+          'tools',
+          'actorKind',
+          'actorId',
+          'promptHash',
+          'promptChars',
+          'estimatedTokens',
+          'estimatedCostMicrousd',
+          'citationIds',
+        ].sort(),
+      )
       expect(fields['promptHash']).toBe(hashPrompt(fullPrompt))
-      expect(fields['promptExcerpt']).toBe(fullPrompt.slice(0, GATEWAY_EXCERPT_CHARS))
-      expect(String(fields['promptExcerpt']).length).toBeLessThanOrEqual(GATEWAY_EXCERPT_CHARS)
+      expect(fields['promptChars']).toBe(fullPrompt.length)
+      expect(fields).not.toHaveProperty('promptExcerpt')
+      expect(fields).not.toHaveProperty('debugPromptExcerpt')
       expect(fields['citationIds']).toEqual(citations.map((citation) => citation.stableId))
 
       const resultRecord = info.mock.calls.find((call) => call[0] === 'ai.gateway.result')
       expect(resultRecord).toBeDefined()
-      expect((resultRecord?.[1] as Record<string, unknown>)['promptHash']).toBe(
-        hashPrompt(fullPrompt),
-      )
+      const resultFields = resultRecord?.[1] as Record<string, unknown>
+      expect(resultFields['promptHash']).toBe(hashPrompt(fullPrompt))
+      expect(resultFields).not.toHaveProperty('text')
+      expect(resultFields).not.toHaveProperty('outputExcerpt')
+      expect(resultFields).not.toHaveProperty('promptExcerpt')
+      expect(resultFields).not.toHaveProperty('debugPromptExcerpt')
     } finally {
       info.mockRestore()
+    }
+  })
+
+  it('emits a redacted, capped debug excerpt only with explicit per-call opt-in', async () => {
+    const envelope = baseEnvelope()
+    envelope.objects[0].sections = [
+      { heading: 'Summary', body: `Operator note ${SECRET}. ${'x'.repeat(600)}`, truncated: false },
+    ]
+    const citations = baseCitations()
+    const fullPrompt = buildGatewayPrompt(envelope, citations)
+    expect(fullPrompt.length).toBeGreaterThan(GATEWAY_EXCERPT_CHARS)
+    // The secret sits early enough to fall inside the excerpt window, so the
+    // redaction assertion below is meaningful rather than vacuous.
+    expect(fullPrompt.indexOf(SECRET)).toBeLessThan(GATEWAY_EXCERPT_CHARS)
+
+    // Default (and explicit false): no excerpt field at all, no secret in logs.
+    for (const includeDebugExcerpt of [undefined, false] as const) {
+      const registry = createMetricsRegistry()
+      const info = vi.spyOn(logger, 'info')
+      try {
+        await callModel(
+          ACTOR,
+          baseInput({ contextEnvelope: envelope, citations, includeDebugExcerpt }),
+          { registry },
+        )
+        const callRecord = info.mock.calls.find((call) => call[0] === 'ai.gateway.call')
+        const fields = callRecord?.[1] as Record<string, unknown>
+        expect(fields).not.toHaveProperty('debugPromptExcerpt')
+        expect(fields).not.toHaveProperty('promptExcerpt')
+        const logged = info.mock.calls.map((call) => JSON.stringify(call[1] ?? null)).join('\n')
+        expect(logged).not.toContain(SECRET)
+      } finally {
+        info.mockRestore()
+      }
+    }
+
+    // Explicit opt-in: redacted, capped, clearly marked debug-only.
+    {
+      const registry = createMetricsRegistry()
+      const info = vi.spyOn(logger, 'info')
+      try {
+        await callModel(
+          ACTOR,
+          baseInput({ contextEnvelope: envelope, citations, includeDebugExcerpt: true }),
+          { registry },
+        )
+        const callRecord = info.mock.calls.find((call) => call[0] === 'ai.gateway.call')
+        const fields = callRecord?.[1] as Record<string, unknown>
+        const excerpt = fields['debugPromptExcerpt']
+        expect(typeof excerpt).toBe('string')
+        expect(String(excerpt).length).toBeLessThanOrEqual(GATEWAY_EXCERPT_CHARS)
+        expect(String(excerpt)).toContain('[redacted]')
+        expect(String(excerpt)).not.toContain(SECRET)
+        const logged = info.mock.calls.map((call) => JSON.stringify(call[1] ?? null)).join('\n')
+        expect(logged).not.toContain(SECRET)
+      } finally {
+        info.mockRestore()
+      }
     }
   })
 })

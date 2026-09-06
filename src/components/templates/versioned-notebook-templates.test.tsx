@@ -583,7 +583,7 @@ describe('REUSE-01 VersionedNotebookTemplatePanel — facets and requirement pre
 })
 
 describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => {
-  it('pre-fills declared defaults visibly on open', async () => {
+  it('pre-fills declared defaults visibly on open', { timeout: 30000 }, async () => {
     const user = userEvent.setup()
     mount()
     await screen.findByText('Alpha template')

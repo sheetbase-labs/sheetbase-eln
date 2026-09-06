@@ -10,10 +10,22 @@ import {
   redirect,
 } from '@tanstack/react-router'
 import { Archive, FileWarning, Lock } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { useShell } from '#/components/app-shell'
+import {
+  ExtensionObjectActions,
+  toExtensionPanelTabs,
+} from '#/components/extensions/extension-slots'
+import { useExtensionPoints } from '#/components/extensions/use-extension-points'
+import {
+  describeExtensionInvocationError,
+  invokeExtensionContribution,
+} from '#/lib/extensions/registry'
+import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
+import { SAMPLE_EXTENSION_KEY } from '#/lib/extensions/sample/manifest'
+import { SampleExtensionPanel } from '#/lib/extensions/sample/panel'
 import {
   CollaborationRoom,
   safeBuildRoomId,
@@ -46,6 +58,7 @@ import {
   TagPills,
   EmptyHint,
 } from '#/components/record'
+import type { InspectorTab } from '#/components/record'
 import { ScientificRecordLinker, StatusBadge } from '#/components/scientific'
 import {
   Badge,
@@ -258,6 +271,31 @@ function ExperimentNotebookRoute() {
     queryFn: () => fetchNotebookReviewContext(notebookDataClient, recordId),
     enabled: isNotebookIndex,
   })
+  // EXT-02: enabled-install contributions for this caller. The hook reads
+  // the workspace installs through the public client surface and resolves
+  // them through the single registry; loading/failure degrades to empty
+  // points, never an error surface.
+  const workspaceId = context.workspace?.id ?? null
+  const workspaceRole = context.workspace?.role ?? null
+  const extensionPoints = useExtensionPoints(notebookDataClient, workspaceId, workspaceRole)
+  const [samplePanelOpen, setSamplePanelOpen] = useState(false)
+  const [extensionError, setExtensionError] = useState<string | null>(null)
+  // EXT-02 invocation: the server-side assert gates execution (fail-closed);
+  // the sample's read-only affordance then opens its data panel. The
+  // returned audit fragment has no durable write to stamp here — writers
+  // stamp it into their canonical payload channel.
+  const runExtensionContribution = (contribution: ResolvedExtensionContribution) => {
+    if (!workspaceId) return
+    setExtensionError(null)
+    void invokeExtensionContribution(
+      notebookDataClient,
+      workspaceId,
+      contribution,
+      async () => undefined,
+    )
+      .then(() => setSamplePanelOpen(true))
+      .catch((cause: unknown) => setExtensionError(describeExtensionInvocationError(cause)))
+  }
 
   // NOTE-04: the document-level unsaved-work signal lives at the route so the
   // submit dialog's readiness checklist reflects unsaved drafts. It mirrors
@@ -439,6 +477,28 @@ function ExperimentNotebookRoute() {
     ? inspectorEvidenceFromRevision(historicalRevisionQuery.data)
     : undefined
 
+  // EXT-02 sample panel content, bound to the ordinary public contract
+  // reads this route already performs (record/activity/links queries).
+  // The panel receives only this loader — no data import of its own.
+  const loadSampleSummary = useCallback(async () => ({
+    heading: displayRecord.title,
+    subheading: `${recordKindLabel(displayRecord.kind)} · ${displayRecord.identifier}`,
+    rows: [
+      { label: 'Status', value: displayRecord.status },
+      { label: 'Updated', value: formatDate(displayRecord.updatedAt) },
+      { label: 'Activity', value: `${activity.length} events` },
+      { label: 'Links', value: `${links.length} links` },
+    ],
+  }), [displayRecord, activity.length, links.length])
+  // Historical revisions show pinned evidence only: live extension panels
+  // stay hidden there so frozen state is never mixed with live reads.
+  const extensionPanelTabs: InspectorTab[] = historicalRevisionId
+    ? []
+    : toExtensionPanelTabs(extensionPoints.panels, (panel) =>
+        panel.extensionKey === SAMPLE_EXTENSION_KEY
+          ? <SampleExtensionPanel loadSummary={loadSampleSummary} />
+          : null,
+      )
   return (
     // COLLAB-02: the whole page (canvas + inspector) lives inside the
     // record room; CollaborationRoom renders children unchanged until the
@@ -466,6 +526,10 @@ function ExperimentNotebookRoute() {
           ) : undefined
         }
         inspectorCollapsible
+        // EXT-02: palette commands resolve per caller; historical revisions
+        // contribute nothing so frozen evidence stays free of live affordances.
+        extensionCommands={historicalRevisionId ? [] : extensionPoints.commands}
+        onExtensionCommand={runExtensionContribution}
         inspector={
           <NotebookInspector
             record={displayRecord}
@@ -489,6 +553,7 @@ function ExperimentNotebookRoute() {
             }
             reviewActivity={reviewActivity}
             isHistorical={Boolean(historicalRevisionId)}
+            extensionPanels={extensionPanelTabs}
           />
         }
       >
@@ -507,7 +572,21 @@ function ExperimentNotebookRoute() {
             hasUnsavedWork={hasUnsavedWork}
             liveLockedAt={record.lockedAt}
             liveLockedByRevisionId={record.lockedByRevisionId}
+            extensionActions={historicalRevisionId ? [] : extensionPoints.objectActions}
+            onExtensionAction={runExtensionContribution}
+            extensionError={extensionError}
           />
+          {/* EXT-02 sample panel: contributed object-actions and palette
+              commands converge here. Rendered through the existing Dialog
+              primitive with a labelled title for focus management. */}
+          <Dialog open={samplePanelOpen} onOpenChange={setSamplePanelOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Sample panel</DialogTitle>
+              </DialogHeader>
+              <SampleExtensionPanel loadSummary={loadSampleSummary} />
+            </DialogContent>
+          </Dialog>
           {historicalRevisionId ? (
             <HistoricalEvidenceBanner recordId={record.id} />
           ) : null}
@@ -585,6 +664,14 @@ export function StickyRecordHeader({
   review = null,
   /** NOTE-04: document-level unsaved-work signal for the submit dialog. */
   hasUnsavedWork = false,
+  /**
+   * EXT-02: resolved object-actions for this record. Mounted as ghost
+   * buttons in the header action row; invocation (with the server-side
+   * assert) stays with the host via `onExtensionAction`.
+   */
+  extensionActions = [],
+  onExtensionAction,
+  extensionError = null,
   liveLockedAt,
   liveLockedByRevisionId,
 }: {
@@ -599,6 +686,10 @@ export function StickyRecordHeader({
   review?: NotebookReviewContext | null
   /** NOTE-04: NotebookDocument's unsaved-work signal. */
   hasUnsavedWork?: boolean
+  extensionActions?: ResolvedExtensionContribution[]
+  onExtensionAction?: (action: ResolvedExtensionContribution) => void
+  /** Honest invoke-time failure from the last extension action, if any. */
+  extensionError?: string | null
   /** Live lock fields when `record` is a historical snapshot overlay. */
   liveLockedAt?: string | null
   liveLockedByRevisionId?: string | null
@@ -729,6 +820,12 @@ export function StickyRecordHeader({
               Open review
             </Link>
           ) : null}
+          {/* EXT-02: enabled extensions' object-actions. Ghost buttons match
+              the surrounding utility controls; nothing renders while empty
+              (the slot hides contributions the caller could never invoke). */}
+          {onExtensionAction ? (
+            <ExtensionObjectActions actions={extensionActions} onSelect={onExtensionAction} />
+          ) : null}
         </div>
       </div>
 
@@ -774,6 +871,11 @@ export function StickyRecordHeader({
           </>
         ) : null}
       </div>
+      {extensionError ? (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {extensionError}
+        </p>
+      ) : null}
       {canSubmit && submitOpen && projectId && currentUserId ? (
         <SubmitNotebookDialog
           open={submitOpen}
@@ -2100,6 +2202,12 @@ export function NotebookInspector({
   isHistorical = false,
   revisionEvidence,
   outlineControls,
+  /**
+   * EXT-02: host-composed extension panel tabs, appended after the
+   * canonical tabs. Empty (and always empty in historical mode) unless
+   * the route resolved an installed extension it can render.
+   */
+  extensionPanels = [],
 }: {
   record: NotebookRecord
   projectName?: string | null
@@ -2123,6 +2231,7 @@ export function NotebookInspector({
   }
   /** NOTE-02: section-collapse controls; absent on read-only/historical views. */
   outlineControls?: NotebookOutlineControls
+  extensionPanels?: InspectorTab[]
 }) {
   const evidenceBlocks = isHistorical
     ? (revisionEvidence?.blocks ?? [])
@@ -2335,6 +2444,9 @@ export function NotebookInspector({
             ),
           },
         ]),
+    // EXT-02: contributed panels render as ordinary inspector tabs after
+    // the canonical ones — same tab affordances, labels and focus order.
+    ...extensionPanels,
   ]
 
   return (

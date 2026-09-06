@@ -18,7 +18,7 @@ import {
   redirect,
   useNavigate,
 } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { flexRender } from '@tanstack/react-table'
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
@@ -35,6 +35,14 @@ import {
 
 import { ExportMenu } from '#/components/export/export-menu'
 import { useShell } from '#/components/app-shell'
+import { ExtensionObjectActions } from '#/components/extensions/extension-slots'
+import { useExtensionPoints } from '#/components/extensions/use-extension-points'
+import {
+  describeExtensionInvocationError,
+  invokeExtensionContribution,
+} from '#/lib/extensions/registry'
+import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
+import { SampleExtensionPanel } from '#/lib/extensions/sample/panel'
 import { PipelineDatasetTab } from '#/components/pipelines/pipeline-dataset-tab'
 import {
   CollaborationRoom,
@@ -87,6 +95,10 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from '#/components/ui'
 import {
   materialiseLiveChart,
@@ -258,6 +270,28 @@ function DatasetExplorerRoute() {
   })
 
   const datasets = summariesQuery.data ?? []
+  // EXT-02: enabled-install object-actions for this caller, mounted in the
+  // explorer header actions slot. Same resolve path as the record surface.
+  const extensionPoints = useExtensionPoints(
+    datasetExplorerDataClient,
+    context.workspace?.id ?? null,
+    context.workspace?.role ?? null,
+  )
+  const [samplePanelOpen, setSamplePanelOpen] = useState(false)
+  const [extensionError, setExtensionError] = useState<string | null>(null)
+  const runExtensionContribution = (contribution: ResolvedExtensionContribution) => {
+    const workspaceId = context.workspace?.id
+    if (!workspaceId) return
+    setExtensionError(null)
+    void invokeExtensionContribution(
+      datasetExplorerDataClient,
+      workspaceId,
+      contribution,
+      async () => undefined,
+    )
+      .then(() => setSamplePanelOpen(true))
+      .catch((cause: unknown) => setExtensionError(describeExtensionInvocationError(cause)))
+  }
   const [activeTab, setActiveTab] = useState<
     'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines'
   >(
@@ -299,6 +333,22 @@ function DatasetExplorerRoute() {
     [datasets, selection.selectedDatasetId],
   )
   const selectedTableId = selectedTable?.id ?? null
+  // EXT-02 sample panel content: ordinary public reads already on this
+  // route (explorer summaries + selection). The panel gets only this
+  // loader — no data import of its own.
+  const loadSampleSummary = useCallback(async () => ({
+    heading: selectedTable?.name ?? 'No dataset selected',
+    subheading: selectedTable ? `Dataset · ${selectedTable.lifecycle}` : undefined,
+    rows: [
+      { label: 'Datasets in view', value: String(datasets.length) },
+      ...(selectedTable
+        ? [
+            { label: 'Status', value: selectedTable.lifecycle },
+            { label: 'ID', value: selectedTable.id },
+          ]
+        : []),
+    ],
+  }), [datasets.length, selectedTable])
 
   function selectDataset(dataset: string) {
     void navigate({
@@ -391,6 +441,12 @@ function DatasetExplorerRoute() {
             <>
               {/* FIND-02: deliberate pin for the selected dataset. */}
               <FavouriteToggle kind="dataset" objectId={selectedTableId} />
+              {/* EXT-02: enabled extensions' object-actions for the selected
+                  dataset. Absent while empty; failures surface inline. */}
+              <ExtensionObjectActions
+                actions={selectedTable ? extensionPoints.objectActions : []}
+                onSelect={runExtensionContribution}
+              />
               <DatasetProductActions
                 table={selectedTable}
                 client={datasetExplorerDataClient}
@@ -399,6 +455,11 @@ function DatasetExplorerRoute() {
                 onRefresh={refreshDatasets}
                 onCreate={selectDataset}
               />
+              {extensionError ? (
+                <span role="alert" className="text-xs text-destructive">
+                  {extensionError}
+                </span>
+              ) : null}
             </>
           }
         />
@@ -428,6 +489,15 @@ function DatasetExplorerRoute() {
             error={summariesQuery.error}
           />
         )}
+        {/* EXT-02 sample panel dialog, shared with the record surface. */}
+        <Dialog open={samplePanelOpen} onOpenChange={setSamplePanelOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Sample panel</DialogTitle>
+            </DialogHeader>
+            <SampleExtensionPanel loadSummary={loadSampleSummary} />
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   )

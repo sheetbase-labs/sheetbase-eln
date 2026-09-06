@@ -48,6 +48,8 @@ import {
   FAVOURITES_LIMIT,
 } from '#/lib/favourites'
 import type { FavouriteItem } from '#/lib/favourites'
+import { ExtensionCommandGroup } from '#/components/extensions/extension-slots'
+import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import type { ProjectWire } from '#/lib/notebook-data'
 import { projectPath } from '#/lib/navigation'
@@ -162,6 +164,13 @@ interface ShellConfig {
   primaryAction?: React.ReactNode
   projectTree?: React.ReactNode
   navExtra?: React.ReactNode
+  /**
+   * EXT-02: resolved palette commands for the current route. Rendered as
+   * an additive "Extensions" group in the ⌘K palette (absent while
+   * empty); cleared with the other per-route slots on unmount.
+   */
+  extensionCommands?: ResolvedExtensionContribution[]
+  onExtensionCommand?: (command: ResolvedExtensionContribution) => void
 }
 
 const ShellContext = React.createContext<{
@@ -241,9 +250,10 @@ export function ShellProvider({
       inspectorLabel={config.inspectorLabel}
       inspectorCollapsible={config.inspectorCollapsible}
       fullBleed={config.fullBleed}
-      primaryAction={config.primaryAction}
       projectTree={config.projectTree}
       navExtra={config.navExtra}
+      extensionCommands={config.extensionCommands}
+      onExtensionCommand={config.onExtensionCommand}
     >
       <ShellContent setConfig={setConfig}>{children}</ShellContent>
     </AppShell>
@@ -295,6 +305,8 @@ export function useShell(config: Partial<ShellConfig>) {
         primaryAction: undefined,
         projectTree: undefined,
         navExtra: undefined,
+        extensionCommands: undefined,
+        onExtensionCommand: undefined,
         breadcrumbs: [],
       })
     }
@@ -337,6 +349,12 @@ export interface AppShellContext {
 export interface AppShellProps {
   context: AppShellContext | null
   breadcrumbs: AppShellBreadcrumb[]
+  /**
+   * EXT-02: resolved palette commands for the ⌘K "Extensions" group.
+   * Routes set these via `useShell`; the group is absent while empty.
+   */
+  extensionCommands?: ResolvedExtensionContribution[]
+  onExtensionCommand?: (command: ResolvedExtensionContribution) => void
   navSections?: AppShellNavSection[]
   /** Active-project tree slot rendered under a CURRENT PROJECT heading. */
   projectTree?: React.ReactNode
@@ -462,6 +480,8 @@ export function AppShell({
   projectTree,
   navExtra,
   primaryAction,
+  extensionCommands = [],
+  onExtensionCommand,
   inspector,
   inspectorLabel = 'Inspector',
   inspectorCollapsible = false,
@@ -1060,6 +1080,8 @@ export function AppShell({
             density={density}
             setDensity={setDensity}
             onSignOut={signOut}
+            extensionCommands={extensionCommands}
+            onExtensionCommand={onExtensionCommand}
           />
         )}
       </div>
@@ -1161,6 +1183,8 @@ function CommandPalette({
   density,
   setDensity,
   onSignOut,
+  extensionCommands = [],
+  onExtensionCommand,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -1171,6 +1195,8 @@ function CommandPalette({
   density: 'comfortable' | 'compact'
   setDensity: (d: 'comfortable' | 'compact') => void
   onSignOut: () => void
+  extensionCommands?: ResolvedExtensionContribution[]
+  onExtensionCommand?: (command: ResolvedExtensionContribution) => void
 }) {
   const navigate = useNavigate()
   const go = (to: string) => {
@@ -1212,6 +1238,13 @@ function CommandPalette({
             })}
             <FavouritesCommandGroup onSelect={go} />
             <ProjectsCommandGroup open={open} onSelect={go} />
+            <ExtensionCommandGroup
+              commands={extensionCommands}
+              onSelect={(command) => {
+                onOpenChange(false)
+                onExtensionCommand?.(command)
+              }}
+            />
             <CommandGroup heading="Actions">
               <CommandItem
                 onSelect={() => {

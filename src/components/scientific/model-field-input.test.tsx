@@ -6,6 +6,12 @@ import { ModelFieldInput } from './model-field-input'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 
 afterEach(cleanup)
+// jsdom does not implement ResizeObserver; cmdk reads it on mount.
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 
 function field(
   overrides: Partial<ModelFieldDefinition> = {},
@@ -109,7 +115,7 @@ describe('ModelFieldInput', () => {
     expect(onChange).toHaveBeenLastCalledWith('2.75')
   })
 
-  it('renders a Record reference as a text input rather than an invalid HTML type', () => {
+  it('renders a Record reference picker rather than a raw UUID input', () => {
     render(
       <ModelFieldInput
         definition={field({
@@ -123,18 +129,19 @@ describe('ModelFieldInput', () => {
     )
 
     expect(
-      screen
-        .getByRole('textbox', { name: 'Source sample' })
-        .getAttribute('type'),
-    ).toBe('text')
+      screen.queryByRole('textbox', { name: 'Source sample' }),
+    ).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Select record' }),
+    ).toBeTruthy()
     expect(
       screen.getByText(
-        'Persists the Record UUID. Record ID and Name are display only.',
+        'Selection persists the Record UUID. Record ID and Name are display only.',
       ),
     ).toBeTruthy()
   })
 
-  it('accepts a Record UUID and refuses a generated Record ID as identity', async () => {
+  it('refuses a generated Record ID as identity without losing the stored value', () => {
     const onChange = vi.fn()
     render(
       <ModelFieldInput
@@ -143,21 +150,87 @@ describe('ModelFieldInput', () => {
           label: 'Source sample',
           validation: { targetModelKey: 'sample' },
         })}
-        value=""
+        value="SMP-2026-0001"
         onChange={onChange}
       />,
     )
-    const input = screen.getByRole('textbox', { name: 'Source sample' })
-    fireEvent.change(input, { target: { value: 'SMP-2026-0001' } })
     expect(onChange).not.toHaveBeenCalled()
     expect(
       screen.getByText(
         'Record reference identity is the Record UUID, not the Record ID or Name.',
       ),
     ).toBeTruthy()
-    fireEvent.change(input, {
-      target: { value: '11111111-1111-4111-8111-111111111111' },
-    })
+  })
+
+  it('resolves a linked Record to its human label', async () => {
+    render(
+      <ModelFieldInput
+        definition={field({
+          logicalType: 'reference',
+          label: 'Source sample',
+          validation: { targetModelKey: 'sample' },
+        })}
+        value="11111111-1111-4111-8111-111111111111"
+        onChange={vi.fn()}
+        resolveReferenceSnapshot={async () => ({
+          recordId: '11111111-1111-4111-8111-111111111111',
+          modelKey: 'sample',
+          kind: 'sample',
+          identifier: 'SMP-2026-0042',
+          title: 'Liver section',
+          archived: false,
+          deleted: false,
+        })}
+      />,
+    )
+    expect(await screen.findByText('SMP-2026-0042 · Liver section')).toBeTruthy()
+  })
+
+  it('reports a missing Record honestly instead of inventing a label', async () => {
+    render(
+      <ModelFieldInput
+        definition={field({
+          logicalType: 'reference',
+          label: 'Source sample',
+          validation: { targetModelKey: 'sample' },
+        })}
+        value="11111111-1111-4111-8111-111111111111"
+        onChange={vi.fn()}
+        resolveReferenceSnapshot={async () => null}
+      />,
+    )
+    expect(
+      await screen.findByText(/not found or not visible in this workspace/),
+    ).toBeTruthy()
+  })
+
+  it('selects a Record through the picker and persists the stable UUID', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <ModelFieldInput
+        definition={field({
+          logicalType: 'reference',
+          label: 'Source batch',
+          validation: { targetModelKey: 'batch' },
+        })}
+        value=""
+        onChange={onChange}
+        searchReferenceRecords={async () => [
+          {
+            id: '11111111-1111-4111-8111-111111111111',
+            kind: 'batch',
+            identifier: 'BAT-2026-0007',
+            title: 'Batch seven',
+            status: 'active',
+            archived: false,
+          },
+        ]}
+        resolveReferenceSnapshot={async () => null}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Select record' }))
+    await user.click(await screen.findByText('Batch seven'))
     expect(onChange).toHaveBeenCalledWith(
       '11111111-1111-4111-8111-111111111111',
     )

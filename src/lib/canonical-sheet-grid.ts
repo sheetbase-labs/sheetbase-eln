@@ -4,6 +4,7 @@ import type { ComposedSheetSnapshot } from './sheet-composition-data'
 import { fieldEditorPresentation } from './field-presentation'
 import type { FieldEditorPresentation } from './field-presentation'
 import type { FieldDefinition, FieldOption } from './field-definition'
+import { parseQuantityNumericValue } from './field-value-validation'
 import { sheetLocalValueError } from './sheet-local-data'
 import type { SheetInstance } from './sheet-instance-data'
 import type { SheetPresentation } from './sheet-instance'
@@ -110,27 +111,11 @@ export function parseSheetCellInput(
       return false
     return raw
   }
-  if (field.logicalType === 'integer') {
-    if (typeof raw === 'number' && Number.isSafeInteger(raw)) return raw
-    if (typeof raw === 'string') {
-      const trimmed = raw.trim()
-      if (/^-?\d+$/.test(trimmed)) return Number(trimmed)
-      // GRID-03: thousands-separated clipboard values coerce when the
-      // grouping is unambiguous; anything else fails closed.
-      if (/^-?\d{1,3}(,\d{3})+$/.test(trimmed))
-        return Number(trimmed.replace(/,/g, ''))
-    }
-    return raw
-  }
-  if (field.logicalType === 'decimal') {
-    if (typeof raw === 'number' && Number.isFinite(raw)) return raw
-    if (typeof raw === 'string') {
-      const trimmed = raw.trim()
-      if (trimmed !== '' && !Number.isNaN(Number(trimmed)))
-        return Number(trimmed)
-      if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(trimmed))
-        return Number(trimmed.replace(/,/g, ''))
-    }
+  if (field.logicalType === 'integer' || field.logicalType === 'decimal') {
+    // MODEL-02: one numeric coercion (quantity-unit suffixes, thousands
+    // separators) shared with Record input; unparseable input fails closed.
+    const parsed = parseQuantityNumericValue(field, raw)
+    if (typeof parsed === 'number') return parsed
     return raw
   }
   if (field.logicalType === 'timestamp' && typeof raw === 'string') {

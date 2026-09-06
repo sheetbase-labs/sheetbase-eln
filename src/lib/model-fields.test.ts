@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import type { DataClient } from './data-client'
 import {
+  createModelFieldWithSemantics,
   displayModelFieldValue,
   modelFieldValuesFromInput,
   parseModelFieldInput,
@@ -77,6 +79,88 @@ describe('model field values', () => {
 
     expect(modelFieldValuesFromInput(definitions, {}, true)).toEqual({
       confirmed: false,
+    })
+  })
+})
+describe('model field semantics flow', () => {
+  it('parses quantity-unit input with the shared numeric coercion', () => {
+    const definition = field('decimal', {
+      quantity: {
+        kind: 'concentration',
+        dimension: 'mass/volume',
+        storageUnit: 'mg/mL',
+        allowedInputUnits: ['mg/mL', 'µg/mL'],
+      },
+    })
+    expect(parseModelFieldInput(definition, '2.5 mg/mL')).toBe(2.5)
+    expect(parseModelFieldInput(definition, '2.5 µg/mL')).toBe(2.5)
+    expect(parseModelFieldInput(definition, 'nope')).toBe('nope')
+  })
+
+  it('prefers the governed display unit over legacy symbols', () => {
+    expect(
+      displayModelFieldValue(
+        field('decimal', {
+          unit: { symbol: 'g/L' },
+          quantity: {
+            kind: 'concentration',
+            dimension: 'mass/volume',
+            storageUnit: 'mg/mL',
+            preferredDisplayUnit: 'µg/mL',
+          },
+        }),
+        2.5,
+      ),
+    ).toBe('2.5 µg/mL')
+  })
+
+  it('drafts, configures, options and activates using only existing RPCs', async () => {
+    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const client = {
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        calls.push({ name, args })
+        if (name === 'create_model_field') return { id: 'definition-1' }
+        return { id: 'definition-1' }
+      },
+    } as unknown as DataClient
+    await createModelFieldWithSemantics(client, {
+      workspaceId: 'workspace-1',
+      modelKey: 'sample',
+      fieldName: 'concentration',
+      label: 'Concentration',
+      logicalType: 'decimal',
+      nullable: true,
+      defaultValue: null,
+      validation: { min: 0, pattern: '^\\d' },
+      unit: { symbol: 'mg/mL' },
+      description: null,
+      options: [],
+      semantics: {
+        quantity: {
+          kind: 'concentration',
+          dimension: 'mass/volume',
+          storageUnit: 'mg/mL',
+        },
+        cardinality: 'one',
+        categorySource: null,
+        relationship: null,
+      },
+    })
+    expect(calls.map((call) => call.name)).toEqual([
+      'create_model_field',
+      'configure_model_field_semantics',
+      'activate_model_field',
+    ])
+    // The kernel `pattern` persists under the server `regex` key.
+    expect(calls[0].args.p_validation).toEqual({ min: 0, regex: '^\\d' })
+    expect(calls[1].args).toMatchObject({
+      p_definition_id: 'definition-1',
+      p_quantity: {
+        kind: 'concentration',
+        dimension: 'mass/volume',
+        storageUnit: 'mg/mL',
+      },
+      p_cardinality: 'one',
     })
   })
 })

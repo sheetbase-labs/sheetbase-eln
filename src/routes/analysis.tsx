@@ -17,6 +17,7 @@
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
+import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { CompareView } from '#/components/viz/compare-view'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
@@ -166,6 +167,10 @@ function AnalysisStudioRoute() {
   const [mode, setMode] = useState<'chart' | 'analyse' | 'compare'>('chart')
   const [compareConfig, setCompareConfig] =
     useState<ComparativeViewConfig | null>(null)
+  // ASSIST-03: whether the live compare config was promoted through the
+  // canonical hand-off (CompareView Promote or the guide accept — both feed
+  // the same follow-on). Session state only; resets with the dataset.
+  const [comparePromoted, setComparePromoted] = useState(false)
   const [configOpen, setConfigOpen] = useState(true)
   const [viewName, setViewName] = useState('')
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
@@ -225,6 +230,7 @@ function AnalysisStudioRoute() {
     } else {
       setCompareConfig(null)
     }
+    setComparePromoted(false)
   }, [selectedSource])
 
   // Live preview resolution: read source data read-only (never mutate). The
@@ -256,6 +262,17 @@ function AnalysisStudioRoute() {
       datasetQuery.data.rows,
     )
   }, [spec, datasetQuery.data])
+
+  // Canonical hand-off shared by the CompareView Promote button and the
+  // ASSIST-03 guide accept: the promoted ChartSpec becomes the chart builder
+  // spec, where save/export/freeze already live.
+  function promoteCompareToChart(promoted: ChartSpec) {
+    setSpec(promoted)
+    setSelectedViewId(null)
+    setViewName('')
+    setComparePromoted(true)
+    setMode('chart')
+  }
 
   const queryClient = useQueryClient()
 
@@ -418,6 +435,30 @@ function AnalysisStudioRoute() {
           </div>
         ) : mode === 'compare' ? (
           <div className="min-h-0 flex-1 overflow-auto p-3">
+            {/* ASSIST-03: step-aware guidance for dataset → compare → chart
+                propose → notebook embed. The guide reads the same live studio
+                state as the Compare tab it sits beside; its propose accept
+                runs the identical promote hand-off as the manual Promote
+                button below. */}
+            {selectedSource ? (
+              <div className="mb-3">
+                <AnalysisFigureGuide
+                  datasetId={selectedSource.datasetId}
+                  columnCount={selectedSource.columns.length}
+                  rowCount={datasetQuery.data?.rows.length ?? 0}
+                  compareConfig={compareConfig}
+                  columns={
+                    datasetQuery.data?.source.columns ??
+                    selectedSource.columns
+                  }
+                  chartSpecReady={comparePromoted}
+                  onPromoteGuide={promoteCompareToChart}
+                  onNavigateGuide={(href) => {
+                    window.location.assign(href)
+                  }}
+                />
+              </div>
+            ) : null}
             {selectedSource && compareConfig ? (
               <CompareView
                 source={selectedSource}
@@ -429,14 +470,7 @@ function AnalysisStudioRoute() {
                 }
                 config={compareConfig}
                 onConfigChange={setCompareConfig}
-                onPromote={(promoted) => {
-                  // Canonical hand-off: the promoted ChartSpec becomes the
-                  // chart builder spec, where save/export/freeze already live.
-                  setSpec(promoted)
-                  setSelectedViewId(null)
-                  setViewName('')
-                  setMode('chart')
-                }}
+                onPromote={promoteCompareToChart}
               />
             ) : (
               <EmptyAnalysisState

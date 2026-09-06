@@ -246,9 +246,14 @@ and repeated failures are highlighted. Schedule state is not silently
 
 ### Run health overview
 
-A general operational view shows recent pipeline and connector runs grouped
-by: Running, Failed, Recently succeeded, Stale/reconciled. Links go to the
-canonical detailed run views.
+A general operational view shows recent pipeline, connector, and webhook runs
+grouped by: Running, Failed, Recently succeeded, Stale/reconciled — failed
+jobs of every kind (connector/pipeline/webhook dead letters) are visible in
+one place. Webhook failures come from EVENT-02 delivery state (`dead_letter`
+rows with their subscription key) plus a delivery summary (dead-lettered in
+24h, retry debt, auto-disabled endpoints); the per-plane detail stays on the
+canonical surfaces (`/admin/pipelines`, `/admin/connectors`,
+`/admin/webhooks`). Links go to the canonical detailed run views.
 
 ## Webhook administration
 
@@ -293,6 +298,11 @@ The Storage section (`/admin/storage`, any member) shows:
   type, size, status, storage backend, and linked Record context.
 - Recent files (bounded to 10, ordered by created_at descending) with the same
   metadata.
+- Quota context: no workspace storage quota is configured in this
+  deployment, so the section labels figures as observed usage rather than
+  quota consumption and states that uploads are never blocked by a quota.
+  If a quota is ever configured, the section reports the limit and the
+  at-limit behaviour from the server — limits are never invented client-side.
 
 Estimates are labelled explicitly. Exact physical storage metrics are not
 fabricated if the database cannot provide them cheaply.
@@ -303,18 +313,22 @@ The Usage section (`/admin/usage`, any member) shows workspace counts:
 
 - Members, records, datasets, dataset versions, files, file bytes,
   connectors, pipeline definitions, pipeline runs, connector runs.
+- Limit context per figure: where no limit is configured the section says so
+  ("No quota configured — observed usage, nothing blocked") instead of
+  showing a theatre number.
 
 ### Capacity indicators
 
-Practical capacity warnings are shown when values exceed validated scale:
+Practical capacity warnings are shown when values exceed validated scale.
+Each warning links to its corrective-action section and, where an
+operational runbook exists, to the runbook:
 
-- Datasets above 100k rows — "Above validated scale".
-- High file storage (>10 GB) — informational warning.
-- High schedule count (>100) — "Above validated scale".
+- High schedule count (>100 enabled) — "Above validated scale" (guidance, not
+  a quota; nothing is enforced). Links to `/admin/pipelines`.
+- High file storage (>10 GB observed) — informational; states that no quota
+  is configured and nothing is blocked. Links to `/admin/storage`.
 
-These are informational warnings, not SLO violation alerts. Language uses
-explicit terms like "Above validated scale" and "Approaching configured
-limit".
+These are informational warnings, not SLO violation alerts.
 
 ## Audit administration
 
@@ -345,13 +359,18 @@ The Diagnostics section (`/admin/diagnostics`, any member) surfaces:
   shows "No schedules evaluated yet" rather than a false healthy value.
 - **Pipeline executor diagnostics** — active runs, recent failures,
   execution timeout, row/input caps.
+- **Webhook delivery diagnostics** — dead-lettered deliveries (24h), retry
+  debt, auto-disabled endpoints, with a link to endpoint health in
+  `/admin/webhooks` and to the observability runbook.
 - **Connector diagnostics** — active/paused counts, recent failures, missing
   secrets, repeated failures, per-connector status. Requires
   `integrations.manage`; non-managers see an explicit notice naming the
   required capability instead of a silently missing section.
 - **Configuration state** — file backend, auth mode, external API enabled,
   connector secret encryption, metrics enabled, collaboration enabled.
-- **Migration state** — current vs expected migration, up to date/behind/unknown.
+- **Migration state** — current vs expected migration, up to
+  date/behind/unknown, with a link to the deployment runbook when behind or
+  unknown.
 
 ### Health semantics
 
@@ -387,13 +406,27 @@ exposed.
 
 ## Attention indicators
 
-The Dashboard includes a deterministic "needs attention" model:
+The Dashboard includes a deterministic "needs attention" model. Every item
+derives from existing state (no new tracking tables) and carries a
+corrective-action link plus a runbook link where an operational runbook
+exists:
 
-- Failed pipeline/connector runs (last 24 hours).
-- Stale running runs (>15 minutes, linked to `/admin/pipelines`).
-- Active connectors missing required secrets.
-- Overdue schedules.
-- Disabled connectors.
+- Failed pipeline/connector runs (last 24 hours) → `/admin/pipelines`,
+  `/admin/connectors`; observability runbook.
+- Webhook deliveries dead-lettered (last 24 hours), retry debt
+  (pending/retrying), auto-disabled endpoints, and active endpoints with
+  consecutive failures → `/admin/webhooks`; observability runbook.
+- Stale running runs (>15 minutes) → `/admin/pipelines`; observability
+  runbook.
+- Active connectors missing required secrets → `/admin/connectors`;
+  administration runbook.
+- Overdue schedules → `/admin/pipelines`; observability runbook.
+- Expired / expiring (30 days) / stale-unused (90 days) service credentials
+  → `/admin/api-credentials`; security runbook.
+- Incompatible extension installs (declared-range violation against the
+  running app version; unknown compatibility never warns) and disabled
+  installs → `/admin/extensions`; administration runbook.
+- Disabled connectors (info).
 
 These are bounded, deterministic conditions — not AI ranking or an unbounded
 notification framework.

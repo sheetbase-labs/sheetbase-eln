@@ -44,6 +44,21 @@ export function AdminStorage({ workspaceId }: { workspaceId: string }) {
             </div>
           ))}
         </dl>
+        <p className="text-xs text-muted-foreground">
+          {data?.quota?.byteLimit != null ? (
+            <>
+              Storage quota {formatBytes(data.quota.byteLimit)} —{' '}
+              {data.quota.atLimitBehaviour ?? 'limit enforced'}.
+            </>
+          ) : (
+            <>
+              No workspace storage quota is configured — figures are observed
+              usage, not quota consumption. Uploads are never blocked by a
+              quota; reclaim space by deleting unneeded files from their
+              canonical record surfaces.
+            </>
+          )}
+        </p>
       </section>
       <section className="space-y-3">
         <h2 className="font-semibold">Largest files</h2>

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 
 import { Badge, Table, TableBody, TableCell, TableRow } from '#/components/ui'
 import { fetchUsageFn } from '#/lib/admin-platform'
@@ -10,18 +11,25 @@ export function AdminUsage({ workspaceId }: { workspaceId: string }) {
     queryFn: () => fetchUsageFn({ data: { workspaceId } }),
   })
   const data = query.data
-  const rows: Array<[string, string]> = data
+  // Limit context comes from the server (null = no quota configured).
+  // Never invent a theatre number here — the note states what is true.
+  const quota = data?.limits?.fileBytes
+  const quotaNote =
+    quota == null || quota.byteLimit == null
+      ? 'No quota configured — observed usage, nothing blocked.'
+      : `Quota ${formatBytes(quota.byteLimit)} — ${quota.atLimitBehaviour ?? 'limit enforced'}.`
+  const rows: Array<[string, string, string | null]> = data
     ? [
-        ['Members', data.members.toLocaleString()],
-        ['Records', data.records.toLocaleString()],
-        ['Datasets', data.datasets.toLocaleString()],
-        ['Dataset versions', data.datasetVersions.toLocaleString()],
-        ['Files', data.files.toLocaleString()],
-        ['File storage', formatBytes(data.fileBytes)],
-        ['Connectors', data.connectors.toLocaleString()],
-        ['Pipeline definitions', data.pipelineDefinitions.toLocaleString()],
-        ['Pipeline runs', data.pipelineRuns.toLocaleString()],
-        ['Connector runs', data.connectorRuns.toLocaleString()],
+        ['Members', data.members.toLocaleString(), null],
+        ['Records', data.records.toLocaleString(), null],
+        ['Datasets', data.datasets.toLocaleString(), null],
+        ['Dataset versions', data.datasetVersions.toLocaleString(), null],
+        ['Files', data.files.toLocaleString(), null],
+        ['File storage', formatBytes(data.fileBytes), quotaNote],
+        ['Connectors', data.connectors.toLocaleString(), null],
+        ['Pipeline definitions', data.pipelineDefinitions.toLocaleString(), null],
+        ['Pipeline runs', data.pipelineRuns.toLocaleString(), null],
+        ['Connector runs', data.connectorRuns.toLocaleString(), null],
       ]
     : []
   return (
@@ -29,9 +37,16 @@ export function AdminUsage({ workspaceId }: { workspaceId: string }) {
       <div className="rounded-lg border bg-background">
         <Table>
           <TableBody>
-            {rows.map(([label, value]) => (
+            {rows.map(([label, value, note]) => (
               <TableRow key={label}>
-                <TableCell className="font-medium">{label}</TableCell>
+                <TableCell className="font-medium">
+                  {label}
+                  {note ? (
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      {note}
+                    </span>
+                  ) : null}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {value}
                 </TableCell>
@@ -58,7 +73,24 @@ export function AdminUsage({ workspaceId }: { workspaceId: string }) {
                 >
                   {warning.level}
                 </Badge>
-                <span>{warning.message}</span>
+                <span className="min-w-0 flex-1">{warning.message}</span>
+                {warning.runbook ? (
+                  <Link
+                    to="/docs/$name"
+                    params={{ name: warning.runbook }}
+                    className="shrink-0 text-muted-foreground hover:underline"
+                  >
+                    Runbook
+                  </Link>
+                ) : null}
+                {warning.link ? (
+                  <Link
+                    to={warning.link}
+                    className="shrink-0 font-medium text-primary hover:underline"
+                  >
+                    View
+                  </Link>
+                ) : null}
               </div>
             ))}
           </div>

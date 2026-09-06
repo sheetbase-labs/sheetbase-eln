@@ -41,6 +41,8 @@ export function AdminDashboard({ workspaceId }: { workspaceId: string }) {
   const pipelineFailed = countRuns(runHealth.data?.failed, 'pipeline')
   const connectorRunning = countRuns(runHealth.data?.running, 'connector')
   const connectorFailed = countRuns(runHealth.data?.failed, 'connector')
+  const webhookFailed = countRuns(runHealth.data?.failed, 'webhook')
+  const webhookSummary = runHealth.data?.webhook
   const latestSuccess = runHealth.data?.recentlySucceeded[0]
 
   return (
@@ -97,7 +99,6 @@ export function AdminDashboard({ workspaceId }: { workspaceId: string }) {
           ]}
         />
       </Section>
-
       <Section title="Activity">
         <Table>
           <TableHeader>
@@ -113,6 +114,7 @@ export function AdminDashboard({ workspaceId }: { workspaceId: string }) {
                 kind === 'Pipeline' ? pipelineRunning : connectorRunning
               const failed =
                 kind === 'Pipeline' ? pipelineFailed : connectorFailed
+              const section = kind === 'Pipeline' ? 'pipelines' : 'connectors'
               return (
                 <TableRow key={kind}>
                   <TableCell className="py-2 pl-0 font-medium">
@@ -123,9 +125,21 @@ export function AdminDashboard({ workspaceId }: { workspaceId: string }) {
                   </TableCell>
                   <TableCell className="py-2">
                     {runHealth.data ? (
-                      <Badge variant={failed ? 'danger' : 'outline'}>
-                        {failed} failed
-                      </Badge>
+                      <span className="flex items-center gap-2">
+                        <Badge variant={failed ? 'danger' : 'outline'}>
+                          {failed} failed
+                        </Badge>
+                        {failed > 0 ? (
+                          <Link
+                            to="/admin/$section"
+                            params={{ section }}
+                            search={{ model: undefined }}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            View
+                          </Link>
+                        ) : null}
+                      </span>
                     ) : (
                       queryPlaceholder(runHealth)
                     )}
@@ -133,8 +147,52 @@ export function AdminDashboard({ workspaceId }: { workspaceId: string }) {
                 </TableRow>
               )
             })}
+            <TableRow>
+              <TableCell className="py-2 pl-0 font-medium">
+                Webhook deliveries
+              </TableCell>
+              <TableCell className="py-2">
+                {runHealth.data && webhookSummary
+                  ? `${webhookSummary.retryDebt} queued`
+                  : '—'}
+              </TableCell>
+              <TableCell className="py-2">
+                {runHealth.data && webhookSummary ? (
+                  <span className="flex items-center gap-2">
+                    <Badge variant={webhookFailed ? 'danger' : 'outline'}>
+                      {webhookFailed} dead-lettered
+                    </Badge>
+                    <Link
+                      to="/admin/$section"
+                      params={{ section: 'webhooks' }}
+                      search={{ model: undefined }}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      View
+                    </Link>
+                  </span>
+                ) : (
+                  queryPlaceholder(runHealth)
+                )}
+              </TableCell>
+            </TableRow>
           </TableBody>
         </Table>
+        {webhookSummary && webhookSummary.autoDisabled > 0 ? (
+          <p className="mt-2 text-xs text-warning">
+            {webhookSummary.autoDisabled} webhook endpoint
+            {webhookSummary.autoDisabled === 1 ? '' : 's'} auto-disabled —{' '}
+            <Link
+              to="/admin/$section"
+              params={{ section: 'webhooks' }}
+              search={{ model: undefined }}
+              className="font-medium text-primary hover:underline"
+            >
+              re-enable from endpoint health
+            </Link>
+            .
+          </p>
+        ) : null}
         {latestSuccess ? (
           <p className="mt-2 text-xs text-muted-foreground">
             Last successful run{' '}
@@ -168,6 +226,24 @@ export function AdminDashboard({ workspaceId }: { workspaceId: string }) {
             },
           ]}
         />
+        <p className="mt-2 text-xs text-muted-foreground">
+          {usage.data?.limits?.fileBytes?.byteLimit != null ? (
+            <>Storage quota applies — see usage for the limit and at-limit behaviour.</>
+          ) : (
+            <>
+              No workspace storage quota is configured — figures are observed
+              usage, not quota consumption. Nothing is blocked at any size.
+            </>
+          )}{' '}
+          <Link
+            to="/admin/$section"
+            params={{ section: 'usage' }}
+            search={{ model: undefined }}
+            className="font-medium text-primary hover:underline"
+          >
+            Details
+          </Link>
+        </p>
       </Section>
 
       <Section title="Attention">
@@ -196,6 +272,15 @@ export function AdminDashboard({ workspaceId }: { workspaceId: string }) {
                     }
                   />
                   <span className="min-w-0 flex-1">{item.message}</span>
+                  {item.runbook ? (
+                    <Link
+                      to="/docs/$name"
+                      params={{ name: item.runbook }}
+                      className="shrink-0 text-muted-foreground hover:underline"
+                    >
+                      Runbook
+                    </Link>
+                  ) : null}
                   {item.link ? (
                     <Link
                       to={item.link}
@@ -261,10 +346,9 @@ function DefinitionRows({
     </dl>
   )
 }
-
 function countRuns(
-  runs: Array<{ kind: 'pipeline' | 'connector' }> | undefined,
-  kind: 'pipeline' | 'connector',
+  runs: Array<{ kind: 'pipeline' | 'connector' | 'webhook' }> | undefined,
+  kind: 'pipeline' | 'connector' | 'webhook',
 ) {
   return runs?.filter((run) => run.kind === kind).length ?? 0
 }

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 
 import {
   Badge,
@@ -12,6 +13,7 @@ import {
 import {
   fetchConnectorDiagnosticsFn,
   fetchDiagnosticsFn,
+  fetchRunHealthFn,
 } from '#/lib/admin-platform'
 import { hasCapability } from '#/lib/capability'
 import { formatRelativeTime } from '#/lib/workspace-admin'
@@ -60,9 +62,13 @@ export function AdminDiagnostics({
   })
   const canManageConnectors = hasCapability(role, 'integrations.manage')
   const connectorDiagnostics = useQuery({
-    queryKey: ['admin-connector-diagnostics', workspaceId],
+    queryKey: ['admin', workspaceId, 'connector-diagnostics'],
     queryFn: () => fetchConnectorDiagnosticsFn({ data: { workspaceId } }),
     enabled: canManageConnectors,
+  })
+  const runHealth = useQuery({
+    queryKey: ['admin', workspaceId, 'run-health'],
+    queryFn: () => fetchRunHealthFn({ data: { workspaceId } }),
   })
 
   if (diagnostics.isPending) {
@@ -179,6 +185,57 @@ export function AdminDiagnostics({
             ['Input cap', data.pipelineExecutor.inputCap.toLocaleString()],
           ]}
         />
+      </section>
+      <section className="space-y-2">
+        <h2 className="font-semibold">Webhook delivery diagnostics</h2>
+        {runHealth.isPending ? (
+          <p className="text-sm text-muted-foreground">
+            Loading webhook delivery diagnostics…
+          </p>
+        ) : runHealth.isError || !runHealth.data ? (
+          <p className="text-sm text-destructive">
+            Webhook delivery diagnostics could not be loaded.
+          </p>
+        ) : (
+          <>
+            <DefinitionTable
+              rows={[
+                [
+                  'Dead-lettered (24h)',
+                  runHealth.data.webhook.deadLetter24h.toLocaleString(),
+                ],
+                [
+                  'Retry debt',
+                  runHealth.data.webhook.retryDebt.toLocaleString(),
+                ],
+                [
+                  'Auto-disabled endpoints',
+                  runHealth.data.webhook.autoDisabled.toLocaleString(),
+                ],
+              ]}
+            />
+            <p className="text-xs text-muted-foreground">
+              Dead-lettered deliveries exhausted retries — recovery is an
+              explicit operator replay.{' '}
+              <Link
+                to="/admin/$section"
+                params={{ section: 'webhooks' }}
+                search={{ model: undefined }}
+                className="font-medium text-primary hover:underline"
+              >
+                Inspect endpoint health
+              </Link>{' '}
+              ·{' '}
+              <Link
+                to="/docs/$name"
+                params={{ name: 'observability' }}
+                className="hover:underline"
+              >
+                Observability runbook
+              </Link>
+            </p>
+          </>
+        )}
       </section>
 
       <section className="space-y-2">
@@ -331,6 +388,17 @@ export function AdminDiagnostics({
             ],
           ]}
         />
+        <p className="text-xs text-muted-foreground">
+          A behind or unknown state means the app and database are out of
+          sync —{' '}
+          <Link
+            to="/docs/$name"
+            params={{ name: 'deployment' }}
+            className="hover:underline"
+          >
+            Deployment runbook
+          </Link>
+        </p>
       </section>
     </div>
   )

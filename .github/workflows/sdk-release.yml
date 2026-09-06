@@ -6,25 +6,17 @@
 # step afterwards (see sdks/RELEASE.md) so registry credentials never live in
 # GitHub.
 #
-# Note (PLAT-03): the GitHub account currently cannot run hosted-runner jobs
-# (see deploy.yml). The trigger is commented out accordingly — see the `on:`
-# block below and sdks/RELEASE.md for the local-commands fallback, which is
-# the operative release process until hosted runners are restored.
+# Note: hosted runners work again, so manual dispatch is re-enabled. It only
+# validates, builds and uploads artifacts — publishing stays a manual
+# maintainer step (see sdks/RELEASE.md).
 
-name: SDK release
-
-# PAUSED — the GitHub account currently cannot run hosted-runner jobs (see
-# deploy.yml). Dispatching would only produce a red failed run, so the trigger
-# is commented out like the sibling deploy workflows. Until runners are
-# available, run the build/test/pack steps locally per sdks/RELEASE.md, then
-# uncomment this block to re-enable.
-# on:
-#   workflow_dispatch:
-#     inputs:
-#       version:
-#         description: 'Package version being released (must match both SDK manifests, e.g. 0.1.0)'
-#         required: true
-#         default: '0.1.0'
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version being released (must match both SDK manifests, e.g. 0.1.0)'
+        required: true
+        default: '0.1.0'
 
 concurrency:
   group: sdk-release

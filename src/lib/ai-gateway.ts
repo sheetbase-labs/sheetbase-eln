@@ -21,7 +21,8 @@
  * output text:
  *
  * - `ai.gateway.call` (info): model, actor kind + id, tool names, prompt
- *   SHA-256 hash, prompt length in chars, estimated tokens/cost, citation IDs.
+ *   content hash (FNV-1a 64-bit log-join key, not a security digest),
+ *   prompt length in chars, estimated tokens/cost, citation IDs.
  * - `ai.gateway.result` (info): model, prompt hash (joins to the call line),
  *   actual tokens/cost, latency in ms, citation IDs.
  * - `ai.gateway.rejected` (warn): error code, reason, model as given, actor
@@ -41,8 +42,6 @@
  * no global toggle). Debug excerpts stay out of production; they exist for
  * local reproduction of truncation or grounding faults.
  */
-
-import { createHash } from 'node:crypto'
 
 import type { AiContextActor, AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
@@ -121,7 +120,16 @@ export function estimateTokensFromChars(chars: number): number {
 }
 
 export function hashPrompt(prompt: string): string {
-  return createHash('sha256').update(prompt, 'utf8').digest('hex')
+  // FNV-1a 64-bit over UTF-16 code units. Isomorphic by construction:
+  // ai-gateway ships in client bundles (ASSIST surfaces), where
+  // `node:crypto` is externalized and unusable. This is a log-join key,
+  // not a security boundary — it only needs determinism, not SHA-256.
+  let hash = 0xcbf29ce484222325n
+  for (let i = 0; i < prompt.length; i++) {
+    hash ^= BigInt(prompt.charCodeAt(i))
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n)
+  }
+  return hash.toString(16).padStart(16, '0')
 }
 /**
  * String-level scrub for the opt-in debug excerpt. The canonical `redact()`

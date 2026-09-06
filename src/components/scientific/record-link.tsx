@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
-import { ArrowUpRight, FileWarning, Link2, Lock, Trash2 } from 'lucide-react'
+import { Archive, ArrowUpRight, FileWarning, Link2, Lock, Trash2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
@@ -11,14 +11,15 @@ import { cn } from '#/lib/utils'
  * and the viewer can reach it, and an honest, non-interactive row when it
  * does not.
  *
- * States (UI-005): available, missing (target not found), deleted (soft-
- * deleted), permission-restricted (viewer lacks access). Each non-available
- * state explains itself in text and never renders a link. Auxiliary actions
- * (open, unlink, etc.) are preserved and stay keyboard-operable.
+ * States (UI-005, extended by KNOW-01 with `archived`): available, archived,
+ * missing (target not found), deleted (soft-deleted), permission-restricted
+ * (viewer lacks access). Each non-available state explains itself in text
+ * and never renders a link. Auxiliary actions (open, unlink, etc.) are
+ * preserved and stay keyboard-operable.
  */
 
 export type RecordLinkState =
-  'available' | 'missing' | 'deleted' | 'permission-restricted'
+  'available' | 'archived' | 'missing' | 'deleted' | 'permission-restricted'
 
 export interface RecordLinkProps {
   /** Internal path. Required for `available`; ignored for other states. */
@@ -38,6 +39,11 @@ const stateMeta: Record<
   Exclude<RecordLinkState, 'available'>,
   { icon: LucideIcon; label: string; className: string }
 > = {
+  archived: {
+    icon: Archive,
+    label: 'Archived',
+    className: 'text-muted-foreground',
+  },
   missing: {
     icon: FileWarning,
     label: 'Unavailable',

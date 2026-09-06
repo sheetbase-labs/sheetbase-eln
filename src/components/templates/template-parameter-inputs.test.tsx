@@ -187,3 +187,73 @@ describe('TemplateParameterInputs', () => {
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
   })
 })
+
+describe('TemplateParameterInputs defaults and requirements', () => {
+  const defaulted: Parameter[] = [
+    {
+      id: '20000000-0000-4000-8000-000000000010',
+      key: 'passages',
+      label: 'Passages',
+      required: true,
+      type: { kind: 'scalar', valueType: 'integer' },
+      defaultValue: 5,
+      constraints: {},
+    },
+    {
+      id: '20000000-0000-4000-8000-000000000011',
+      key: 'note',
+      label: 'Note',
+      required: false,
+      type: { kind: 'scalar', valueType: 'text' },
+      constraints: {},
+    },
+  ]
+
+  function mount(
+    parameters: Parameter[],
+    props: { disabled?: boolean; values?: Record<string, string> } = {},
+  ) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TemplateParameterInputs
+          client={client()}
+          workspaceId="workspace-1"
+          parameters={parameters}
+          values={props.values ?? {}}
+          onChange={vi.fn()}
+          disabled={props.disabled}
+        />
+      </QueryClientProvider>,
+    )
+  }
+
+  it('marks required parameters and surfaces declared defaults', () => {
+    mount(defaulted)
+    expect(screen.getByText(/· Required · default 5/)).toBeTruthy()
+    expect(screen.getByText(/· Optional/)).toBeTruthy()
+    expect(
+      screen.getByPlaceholderText('Default: 5'),
+    ).toBeTruthy()
+    expect(screen.getByPlaceholderText('Enter a value')).toBeTruthy()
+  })
+
+  it('shows a pre-filled default value visibly once seeded', () => {
+    mount(defaulted, {
+      values: { '20000000-0000-4000-8000-000000000010': '5' },
+    })
+    expect(screen.getByDisplayValue('5')).toBeTruthy()
+  })
+
+  it('disables every input when the form is disabled', () => {
+    mount([...parameters, ...defaulted], { disabled: true })
+    for (const parameter of [...parameters, ...defaulted]) {
+      const input = document.getElementById(
+        `template-parameter-${parameter.id}`,
+      ) as HTMLInputElement | HTMLSelectElement | null
+      expect(input?.disabled).toBe(true)
+    }
+  })
+})

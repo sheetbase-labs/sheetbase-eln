@@ -1,4 +1,6 @@
 import { Field, FieldLabel, Input, Select } from '#/components/ui'
+import { TemplateParameterInputs } from '#/components/templates/template-parameter-inputs'
+import type { DataClient } from '#/lib/data-client'
 import type { Parameter } from '#/lib/parameter'
 import { buildParameterInputs } from '#/lib/parameter-input'
 import type { SheetDefinitionUpgradeDecisionDraft } from '#/lib/notebook-template-upgrade'
@@ -13,6 +15,8 @@ export function SheetDefinitionUpgradeForm({
   onDecisionChange,
   onParameterChange,
   disabled = false,
+  client,
+  workspaceId,
 }: {
   preview: SheetDefinitionUpgradePreview
   targetParameters: Parameter[]
@@ -24,6 +28,14 @@ export function SheetDefinitionUpgradeForm({
   ) => void
   onParameterChange: (parameterId: string, value: string) => void
   disabled?: boolean
+  /**
+   * REUSE-02: when a governed data client and workspace are available, the
+   * target source bindings resolve through the same record/dataset
+   * exact-lineage-semantic contract checks as Template instantiation.
+   * Without them the form falls back to raw object-ID inputs.
+   */
+  client?: DataClient
+  workspaceId?: string
 }) {
   const requiredParameterIds = new Set(requiredTargetParameterIds(preview))
   const parametersToCollect = targetParameters.filter(
@@ -127,29 +139,41 @@ export function SheetDefinitionUpgradeForm({
         </div>
       ) : null}
       {parametersToCollect.length ? (
-        <div className="space-y-2">
-          <p className="text-xs font-medium">Target parameters</p>
-          {parametersToCollect.map((parameter) => (
-            <Field key={parameter.id}>
-              <FieldLabel htmlFor={`upgrade-parameter-${parameter.id}`}>
-                {parameter.label}
-              </FieldLabel>
-              <Input
-                id={`upgrade-parameter-${parameter.id}`}
-                value={parameterDrafts[parameter.id] ?? ''}
-                disabled={disabled}
-                onChange={(event) =>
-                  onParameterChange(parameter.id, event.target.value)
-                }
-                placeholder={
-                  parameter.type.kind === 'scalar'
-                    ? 'Enter a value'
-                    : 'Enter object ID'
-                }
-              />
-            </Field>
-          ))}
-        </div>
+        client && workspaceId ? (
+          <TemplateParameterInputs
+            client={client}
+            workspaceId={workspaceId}
+            parameters={parametersToCollect}
+            values={parameterDrafts}
+            onChange={onParameterChange}
+            disabled={disabled}
+            heading="Target source bindings"
+          />
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs font-medium">Target parameters</p>
+            {parametersToCollect.map((parameter) => (
+              <Field key={parameter.id}>
+                <FieldLabel htmlFor={`upgrade-parameter-${parameter.id}`}>
+                  {parameter.label}
+                </FieldLabel>
+                <Input
+                  id={`upgrade-parameter-${parameter.id}`}
+                  value={parameterDrafts[parameter.id] ?? ''}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    onParameterChange(parameter.id, event.target.value)
+                  }
+                  placeholder={
+                    parameter.type.kind === 'scalar'
+                      ? 'Enter a value'
+                      : 'Enter object ID'
+                  }
+                />
+              </Field>
+            ))}
+          </div>
+        )
       ) : null}
     </div>
   )

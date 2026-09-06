@@ -1821,6 +1821,8 @@ function SheetDefinitionPlane({
             decisionDrafts={consumerUpgradeDecisionDrafts}
             parameterDrafts={consumerUpgradeParameterDrafts}
             disabled={applyConsumerUpgrade.isPending}
+            client={client}
+            workspaceId={workspaceId}
             onDecisionChange={(conflictId, draft) =>
               setConsumerUpgradeDecisionDrafts((current) => ({
                 ...current,

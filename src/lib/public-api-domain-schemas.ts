@@ -1585,11 +1585,27 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
   },
   InstantiateNotebookTemplateResult: {
     type: 'object',
-    required: ['record', 'templateVersionId', 'idempotent'],
+    required: ['record', 'templateVersionId', 'composition', 'idempotent'],
     additionalProperties: false,
     properties: {
       record: { $ref: '#/components/schemas/RecordsRow' },
       templateVersionId: UUID,
+      composition: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['placementId', 'kind'],
+          additionalProperties: false,
+          properties: {
+            placementId: UUID,
+            kind: TEXT,
+            definitionVersionId: UUID,
+            instanceId: UUID,
+            blockId: UUID,
+            blockType: TEXT,
+          },
+        },
+      },
       idempotent: BOOL,
     },
   },

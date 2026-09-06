@@ -82,6 +82,32 @@ export type NotebookTemplateParameterInput =
       datasetVersionId: string
     }
 
+/**
+ * REUSE-02: per-placement composition pins stored on the instantiation
+ * result. Governed pins (`templateVersionId`, `definitionVersionId`) name
+ * the exact published versions composed; working-state IDs (`instanceId`,
+ * `blockId`) name the independent local state each part received. Upgrade
+ * detection reads these pins without starting an upgrade flow.
+ */
+export interface NotebookTemplateInstantiationComposition {
+  placementId: string
+  kind: string
+  /** Governed pin: exact published Sheet Definition Version composed. */
+  definitionVersionId?: string
+  /** Independent working state created for this part. */
+  instanceId?: string
+  /** Notebook block hosting this part's working state. */
+  blockId?: string
+  blockType?: string
+}
+
+export interface NotebookTemplateInstantiationResult {
+  record: { id: string; project_id: string | null; identifier: string }
+  templateVersionId: string
+  composition: NotebookTemplateInstantiationComposition[]
+  idempotent: boolean
+}
+
 export const notebookTemplateDataClient = createDataClient()
 
 export function notebookTemplateFromWire(wire: unknown): NotebookTemplate {
@@ -241,17 +267,16 @@ export async function instantiateNotebookTemplateVersion(
   },
   client: DataClient = notebookTemplateDataClient,
 ) {
-  return client.rpc<{
-    record: { id: string; project_id: string | null; identifier: string }
-    templateVersionId: string
-    idempotent: boolean
-  }>('instantiate_notebook_template_version', {
-    p_version_id: input.versionId,
-    p_target_project_id: input.targetProjectId,
-    p_title: input.title ?? null,
-    p_parameter_inputs: input.parameterInputs ?? [],
-    p_idempotency_key: input.idempotencyKey,
-  })
+  return client.rpc<NotebookTemplateInstantiationResult>(
+    'instantiate_notebook_template_version',
+    {
+      p_version_id: input.versionId,
+      p_target_project_id: input.targetProjectId,
+      p_title: input.title ?? null,
+      p_parameter_inputs: input.parameterInputs ?? [],
+      p_idempotency_key: input.idempotencyKey,
+    },
+  )
 }
 
 export async function fetchSheetInstanceNotebookEmbeddings(

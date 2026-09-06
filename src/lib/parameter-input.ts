@@ -85,6 +85,36 @@ export function parseScalarParameterValue(
   return parsed
 }
 
+/**
+ * Visible default drafts for scalar parameters: the instantiate UI pre-fills
+ * these so declared defaults are shown and overridable, never silently
+ * substituted at another layer. Non-scalar parameters cannot declare
+ * defaults, so they contribute nothing here.
+ */
+export function defaultParameterDrafts(
+  parameters: Parameter[],
+): Record<string, string> {
+  const drafts: Record<string, string> = {}
+  for (const parameter of parameters) {
+    if (parameter.type.kind !== 'scalar') continue
+    if (parameter.defaultValue === undefined) continue
+    drafts[parameter.id] =
+      typeof parameter.defaultValue === 'string'
+        ? parameter.defaultValue
+        : String(parameter.defaultValue)
+  }
+  return drafts
+}
+
+/** Display text for a scalar parameter's declared default, if any. */
+export function scalarDefaultText(parameter: Parameter): string | null {
+  if (parameter.type.kind !== 'scalar') return null
+  if (parameter.defaultValue === undefined) return null
+  return typeof parameter.defaultValue === 'string'
+    ? parameter.defaultValue
+    : String(parameter.defaultValue)
+}
+
 export type ParameterInputWire =
   | { parameterId: string; kind: 'scalar'; value: unknown }
   | { parameterId: string; kind: 'record'; recordId: string }

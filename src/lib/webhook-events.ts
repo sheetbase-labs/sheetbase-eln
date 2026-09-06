@@ -11,7 +11,14 @@
  * not in this map (e.g. `storage_movement`, `calendar_booking`) are not
  * delivered to webhooks. This is intentional: the webhook surface is a
  * stable product contract, not a mirror of every internal change.
+ *
+ * The canonical name/alias record lives in `./event-catalogue` (EVENT-01):
+ * several shipped wire names leak table names (`sheet_instance.*`,
+ * `sheet_definition.*`, `notebook_template.*`) and stay on the wire for
+ * compatibility while the catalogue pins the canonical domain names.
+ * `matchesFilter` accepts either form. The emitted strings below are frozen.
  */
+import { resolveEventAlias } from './event-catalogue'
 
 /** Internal entity_type + operation → stable external event type. */
 const EVENT_TYPE_MAP: Record<string, Record<string, string>> = {
@@ -92,14 +99,17 @@ export function mapEventType(
 
 /**
  * Check whether a stable event type matches a subscription's event type
- * filter. An empty filter array means "all events".
+ * filter. An empty filter array means "all events". Canonical names and
+ * their wire aliases match interchangeably, so a filter written with
+ * either form matches deliveries emitted under the other.
  */
 export function matchesFilter(
   eventType: string,
   filter: readonly string[],
 ): boolean {
   if (filter.length === 0) return true
-  return filter.includes(eventType)
+  const canonical = resolveEventAlias(eventType)
+  return filter.some((entry) => resolveEventAlias(entry) === canonical)
 }
 
 /**

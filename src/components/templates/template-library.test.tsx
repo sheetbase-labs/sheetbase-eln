@@ -928,3 +928,163 @@ describe('TPL-001 TemplateInspector — version, author, usage, links, pinning',
     expect(screen.getByText('Approved')).toBeTruthy()
   })
 })
+
+// ---------------------------------------------------------------------------
+// REUSE-01: purpose/context facets and requirement previews for the protocol
+// template catalogue. Purpose options come from tags already in use; the
+// lifecycle facet covers the archived state the status vocabulary lacks.
+// ---------------------------------------------------------------------------
+
+describe('REUSE-01 TemplateFilters — purpose facet and archived lifecycle', () => {
+  function filters(
+    overrides: Partial<Parameters<typeof TemplateFilters>[0]> = {},
+  ) {
+    return (
+      <TemplateFilters
+        statusFilter="all"
+        onStatusChange={vi.fn()}
+        search=""
+        onSearchChange={vi.fn()}
+        purposeFilter="all"
+        onPurposeChange={vi.fn()}
+        purposeOptions={[
+          { tag: 'stability', count: 2 },
+          { tag: 'assay', count: 1 },
+        ]}
+        {...overrides}
+      />
+    )
+  }
+
+  it('offers the archived lifecycle alongside record statuses', () => {
+    render(filters())
+    expect(
+      screen.getByRole('option', { name: 'Archived' }),
+    ).toBeTruthy()
+  })
+
+  it('lists purpose options from the tag vocabulary in use', () => {
+    render(filters())
+    expect(
+      screen.getByRole('option', { name: 'stability (2)' }),
+    ).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'assay (1)' })).toBeTruthy()
+  })
+
+  it('forwards purpose changes to onPurposeChange', async () => {
+    const user = userEvent.setup()
+    const onPurposeChange = vi.fn()
+    render(filters({ onPurposeChange }))
+    await user.selectOptions(
+      screen.getByLabelText(/filter by purpose/i),
+      'assay',
+    )
+    expect(onPurposeChange).toHaveBeenCalledWith('assay')
+  })
+
+  it('hides the purpose facet when no handler is provided', () => {
+    render(
+      <TemplateFilters
+        statusFilter="all"
+        onStatusChange={vi.fn()}
+        search=""
+        onSearchChange={vi.fn()}
+      />,
+    )
+    expect(screen.queryByLabelText(/filter by purpose/i)).toBeNull()
+  })
+})
+
+describe('REUSE-01 TemplateList — purpose tags in rows', () => {
+  it('shows purpose tags in list rows', () => {
+    render(
+      <TemplateList
+        templates={[template({ id: 't-1', tags: ['stability', 'assay'] })]}
+        isLoading={false}
+        error={null}
+        selectedId={null}
+        onSelect={vi.fn()}
+        onRetry={vi.fn()}
+        currentUserId="u-1"
+      />,
+    )
+    expect(screen.getByText(/stability, assay/)).toBeTruthy()
+  })
+})
+
+describe('REUSE-01 TemplateInspector — purpose and requirements preview', () => {
+  function inspector(
+    overrides: Partial<Parameters<typeof TemplateInspector>[0]> = {},
+  ) {
+    return (
+      <TemplateInspector
+        template={template({ id: 't-1', status: 'active' })}
+        blocks={blocks}
+        blocksLoading={false}
+        projects={projects}
+        onInstantiate={vi.fn()}
+        isInstantiating={false}
+        instantiationError={null}
+        instantiationSuccess={null}
+        usageCount={0}
+        linkedRecords={[]}
+        currentUserId="u-1"
+        role="member"
+        onArchive={vi.fn()}
+        onDuplicate={vi.fn()}
+        onExport={vi.fn()}
+        isArchiving={false}
+        isDuplicating={false}
+        actionError={null}
+        {...overrides}
+      />
+    )
+  }
+
+  it('shows purpose tags from template metadata', () => {
+    render(
+      inspector({
+        template: template({ id: 't-1', tags: ['stability', 'assay'] }),
+      }),
+    )
+    expect(screen.getByText('stability · assay')).toBeTruthy()
+  })
+
+  it('names the empty purpose explicitly', () => {
+    render(inspector())
+    expect(screen.getByText(/no purposes assigned/i)).toBeTruthy()
+  })
+
+  it('previews blocks, uses and readiness before instantiation', () => {
+    render(inspector({ blockCount: 3, usageCount: 2 }))
+    expect(
+      screen.getByText(/3 blocks · 2 uses · Ready/i),
+    ).toBeTruthy()
+  })
+
+  it('previews archived unreadiness', () => {
+    render(
+      inspector({
+        template: template({
+          id: 't-1',
+          status: 'active',
+          archivedAt: '2026-02-01T00:00:00Z',
+        }),
+        blockCount: 1,
+        usageCount: 0,
+      }),
+    )
+    expect(screen.getByText(/archived — cannot be used/i)).toBeTruthy()
+  })
+
+  it('previews draft unreadiness', () => {
+    render(
+      inspector({
+        template: template({ id: 't-1', status: 'draft' }),
+        blockCount: 2,
+        usageCount: 0,
+      }),
+    )
+    expect(screen.getByText(/requires active status/i)).toBeTruthy()
+  })
+})

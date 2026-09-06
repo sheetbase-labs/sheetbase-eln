@@ -37,6 +37,12 @@ import {
   templateQueryKeys,
 } from '#/lib/templates'
 import type { TargetKind } from '#/lib/templates'
+import {
+  derivePurposeFacets,
+  matchesProtocolLifecycle,
+  matchesPurposeFacet,
+} from '#/lib/reuse-discovery'
+import type { ProtocolLifecycleState } from '#/lib/reuse-discovery'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 
@@ -89,6 +95,7 @@ function TemplateLibraryRoute() {
   const [search, setSearch] = useState('')
   const [ownership, setOwnership] = useState<TemplateOwnershipFilter>('all')
   const [favouritesOnly, setFavouritesOnly] = useState(false)
+  const [purposeFilter, setPurposeFilter] = useState('all')
   const [view, setView] = useState<TemplateView>('list')
   const selectedId = routeSearch.protocol ?? null
   const [instantiationError, setInstantiationError] = useState<string | null>(
@@ -130,18 +137,24 @@ function TemplateLibraryRoute() {
     setFavourites(new Set(favouritesStore.list()))
   }
 
-  // Template list query
+  // Template list query. "archived" is an effective lifecycle state, not a
+  // record status, so it filters client-side below (includeArchived fetches
+  // everything); other statuses filter server-side as before.
+  const serverStatus =
+    statusFilter !== 'all' && statusFilter !== 'archived'
+      ? statusFilter
+      : undefined
   const templatesQuery = useQuery({
     queryKey: templateQueryKeys.list({
       kind: 'protocol_template',
-      status: statusFilter !== 'all' ? statusFilter : undefined,
+      status: serverStatus,
       search,
       includeArchived: true,
     }),
     queryFn: async () => {
       return fetchTemplates(notebookDataClient, {
         kind: 'protocol_template',
-        status: statusFilter !== 'all' ? statusFilter : undefined,
+        status: serverStatus,
         search,
         includeArchived: true,
       })
@@ -267,14 +280,27 @@ function TemplateLibraryRoute() {
     },
   })
 
-  // Apply client-side filters: ownership + favourites (server filters handle
-  // kind/status/search). Ownership uses the current user id; the records
-  // endpoint does not expose a created_by_user_id filter via the proxy list
-  // helper without a join, so filter in the browser — the template count is
-  // bounded by workspace size.
+  // Apply client-side filters: ownership + favourites + purpose + archived
+  // lifecycle (server filters handle kind/status/search). Ownership uses the
+  // current user id; the records endpoint does not expose a
+  // created_by_user_id filter via the proxy list helper without a join, so
+  // filter in the browser — the template count is bounded by workspace size.
+  // Purpose options come from the tag vocabulary in use across the fetched
+  // templates, so the facet updates with the result set.
   const allTemplates = templatesQuery.data ?? []
+  const purposeOptions = useMemo(
+    () => derivePurposeFacets(allTemplates),
+    [allTemplates],
+  )
   const templates = useMemo(() => {
     let rows = allTemplates
+    if (statusFilter !== 'all') {
+      const lifecycle = statusFilter as ProtocolLifecycleState
+      rows = rows.filter((t) => matchesProtocolLifecycle(t, lifecycle))
+    }
+    if (purposeFilter !== 'all') {
+      rows = rows.filter((t) => matchesPurposeFacet(t.tags, purposeFilter))
+    }
     if (ownership === 'mine') {
       rows = rows.filter((t) => t.createdByUserId === currentUserId)
     }
@@ -282,7 +308,7 @@ function TemplateLibraryRoute() {
       rows = rows.filter((t) => favourites.has(t.id))
     }
     return rows
-  }, [allTemplates, ownership, favouritesOnly, favourites, currentUserId])
+  }, [allTemplates, statusFilter, purposeFilter, ownership, favouritesOnly, favourites, currentUserId])
 
   const selected = selectedQuery.data ?? null
   const selectedBlocks = blocksQuery.data ?? []
@@ -483,6 +509,7 @@ function TemplateLibraryRoute() {
       instantiationError={instantiationError}
       instantiationSuccess={instantiationSuccess}
       usageCount={selectedUsageCount}
+      blockCount={selected ? blockCounts[selected.id] : undefined}
       linkedRecords={linkedRecords}
       currentUserId={currentUserId}
       role={role}
@@ -556,6 +583,9 @@ function TemplateLibraryRoute() {
             onOwnershipChange={setOwnership}
             view={view}
             onViewChange={setView}
+            purposeFilter={purposeFilter}
+            onPurposeChange={setPurposeFilter}
+            purposeOptions={purposeOptions}
           />
 
           <TemplateList

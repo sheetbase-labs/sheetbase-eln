@@ -37,16 +37,24 @@ import {
   configureModelRelationshipRule,
   fetchModelRelationshipRules,
   removeModelRelationshipRule,
+  ruleDeclarationGuidance,
+  ruleRemovalGuidance,
 } from '#/lib/model-relationships'
 import type {
   ModelFieldDefinition,
   ModelFieldLogicalType,
 } from '#/lib/model-fields'
+import {
+  countActionableModelImpact,
+  discoverModelImpact,
+  groupModelImpact,
+} from '#/lib/model-impact'
 import { discoverObjectDependencies } from '#/lib/object-dependencies'
 import {
   applyModelFieldEvolution,
   previewModelFieldEvolution,
 } from '#/lib/schema-evolution'
+
 const TYPES: Array<{ value: ModelFieldLogicalType; label: string }> = [
   { value: 'text', label: 'Text' },
   { value: 'integer', label: 'Whole number' },
@@ -299,6 +307,23 @@ function ModelRelationshipRulesSection({
     queryFn: () => fetchModelRelationshipRules(client, modelKey),
   })
   const rules = rulesQuery.data ?? []
+  const declarationGuidance = useMemo(() => {
+    if (!targetModelKey) return []
+    const min = minLinks.trim() === '' ? 0 : Number(minLinks)
+    const max = maxLinks.trim() === '' ? null : Number(maxLinks)
+    if (!Number.isInteger(min) || min < 0) return []
+    if (max !== null && (!Number.isInteger(max) || max < min)) return []
+    return ruleDeclarationGuidance(
+      {
+        sourceModelKey: modelKey,
+        linkType,
+        targetModelKey,
+        minLinks: min,
+        maxLinks: max,
+      },
+      rules.length,
+    )
+  }, [modelKey, linkType, targetModelKey, minLinks, maxLinks, rules.length])
 
   function invalidateRules() {
     void queryClient.invalidateQueries({
@@ -373,33 +398,53 @@ function ModelRelationshipRulesSection({
         </p>
       ) : (
         <ul className="divide-y rounded-md border">
-          {rules.map((rule) => (
-            <li
-              key={rule.id}
-              className="flex items-center justify-between gap-3 px-3 py-2"
-            >
-              <p className="text-xs">
-                <span className="font-mono font-medium">{rule.linkType}</span>
-                <span className="text-muted-foreground"> → </span>
-                <span className="font-medium">
-                  {recordModels.find((model) => model.key === rule.targetModelKey)?.label ?? rule.targetModelKey}
-                </span>
-                <span className="text-muted-foreground">
-                  {' '}· {rule.minLinks}–{rule.maxLinks ?? '∞'}
-                  {rule.label ? ` · “${rule.label}”` : null}
-                </span>
-              </p>
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label={`Remove ${rule.linkType} to ${rule.targetModelKey}`}
-                disabled={!canManage || remove.isPending}
-                onClick={() => remove.mutate(rule.id)}
-              >
-                Remove
-              </Button>
-            </li>
-          ))}
+          {rules.map((rule) => {
+            const remainingForLinkType =
+              rules.filter(
+                (sibling) =>
+                  sibling.id !== rule.id &&
+                  sibling.linkType === rule.linkType,
+              ).length
+            const remainingForSource = rules.filter(
+              (sibling) => sibling.id !== rule.id,
+            ).length
+            return (
+              <li key={rule.id} className="space-y-1 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs">
+                    <span className="font-mono font-medium">{rule.linkType}</span>
+                    <span className="text-muted-foreground"> → </span>
+                    <span className="font-medium">
+                      {recordModels.find((model) => model.key === rule.targetModelKey)?.label ?? rule.targetModelKey}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {' '}· {rule.minLinks}–{rule.maxLinks ?? '∞'}
+                      {rule.label ? ` · “${rule.label}”` : null}
+                    </span>
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Remove ${rule.linkType} to ${rule.targetModelKey}`}
+                    disabled={!canManage || remove.isPending}
+                    onClick={() => remove.mutate(rule.id)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                {canManage ? (
+                  <p className="text-xs text-muted-foreground">
+                    Removing:{' '}
+                    {ruleRemovalGuidance(
+                      rule,
+                      remainingForLinkType,
+                      remainingForSource,
+                    ).join(' ')}
+                  </p>
+                ) : null}
+              </li>
+            )
+          })}
         </ul>
       )}
       {isRecordModel && canManage ? (
@@ -469,7 +514,17 @@ function ModelRelationshipRulesSection({
         </div>
       ) : null}
       {isRecordModel && canManage ? (
-        <div>
+        <div className="space-y-2">
+          {targetModelKey && declarationGuidance.length > 0 ? (
+            <div className="text-xs text-muted-foreground">
+              <p className="font-medium">Before saving</p>
+              {declarationGuidance.map((line) => (
+                <p key={line} className="mt-1">
+                  {line}
+                </p>
+              ))}
+            </div>
+          ) : null}
           <Button
             size="sm"
             disabled={!targetModelKey || save.isPending}
@@ -523,6 +578,87 @@ function ModelFieldImpactList({
   )
 }
 
+/**
+ * MODEL-04: per-model impact view. Same label · liveness · effect shape as
+ * the other configuration tabs, grouped by consumer class so a Steward sees
+ * affected sheets, templates, records and rules before retiring or
+ * updating anything. Local working state is never auto-migrated — the
+ * panel names what the steward must handle downstream instead.
+ */
+function ModelImpactPanel({
+  client,
+  modelKey,
+}: {
+  client: DataClient
+  modelKey: string
+}) {
+  const impactQuery = useQuery({
+    queryKey: ['model-fields-admin', 'model-impact', modelKey],
+    queryFn: () => discoverModelImpact(client, modelKey),
+  })
+  const dependencies = impactQuery.data?.dependencies ?? []
+  const groups = groupModelImpact(dependencies)
+  const actionable = countActionableModelImpact(dependencies)
+  return (
+    <section
+      aria-label="Model impact"
+      className="space-y-2 rounded-md border p-4"
+    >
+      <div>
+        <h3 className="text-sm font-semibold">Model impact</h3>
+        <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground">
+          Consumers of this model across records, sheets, templates and
+          relationship rules. Review before retiring or updating fields —
+          retiring a carried field always needs explicit confirmation and
+          local working state is never auto-migrated.
+        </p>
+      </div>
+      {impactQuery.isLoading ? (
+        <p className="text-xs text-muted-foreground">
+          Loading model impact…
+        </p>
+      ) : impactQuery.isError || !impactQuery.data ? (
+        <p className="text-xs text-muted-foreground">
+          Model impact unavailable — retire and update actions still run the
+          server gate before changing anything.
+        </p>
+      ) : dependencies.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No dependants outside this field list.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {dependencies.length}{' '}
+            {dependencies.length === 1 ? 'consumer' : 'consumers'} ·{' '}
+            {actionable} {actionable === 1 ? 'needs' : 'need'} steward
+            handling on retire.
+          </p>
+          {groups.map((group) => (
+            <div key={group.group}>
+              <h4 className="text-xs font-semibold">{group.title}</h4>
+              <ul className="mt-1 space-y-1 text-xs">
+                {group.items.map((item) => (
+                  <li key={`${item.kind}:${item.id}:${item.relation}`}>
+                    {item.label} · {item.liveness} · {item.effect}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          {impactQuery.data.truncated ? (
+            <p className="text-xs text-muted-foreground">
+              Showing the first entries per consumer class — the server caps
+              each class. Narrow the model before retiring when capped.
+            </p>
+          ) : null}
+        </div>
+      )}
+    </section>
+  )
+}
+
+
 function UpdateEvolutionCheck({
   client,
   definitionId,
@@ -563,14 +699,27 @@ function UpdateEvolutionCheck({
       </p>
     )
   }
+  const guidance = Array.isArray(preview.guidance)
+    ? preview.guidance.filter(
+        (line): line is string =>
+          typeof line === 'string' && line.length > 0,
+      )
+    : []
   return (
-    <p className="text-xs text-muted-foreground sm:col-span-2">
-      Evolution check: {String(preview.classification ?? 'unknown')}
-      {typeof preview.reason === 'string' && preview.reason
-        ? ` — ${preview.reason}`
-        : null}
-      {preview.blocked ? ' (blocked)' : null}
-    </p>
+    <div className="text-xs text-muted-foreground sm:col-span-2">
+      <p>
+        Evolution check: {String(preview.classification ?? 'unknown')}
+        {typeof preview.reason === 'string' && preview.reason
+          ? ` — ${preview.reason}`
+          : null}
+        {preview.blocked ? ' (blocked)' : null}
+      </p>
+      {guidance.map((line) => (
+        <p key={line} className="mt-1">
+          {line}
+        </p>
+      ))}
+    </div>
   )
 }
 
@@ -637,17 +786,45 @@ function RetireFieldDialog({
             gate.
           </p>
         ) : (
-          <p className="text-xs text-muted-foreground">
-            Evolution check: {String(preview.classification ?? 'unknown')}
-            {typeof preview.reason === 'string' && preview.reason
-              ? ` — ${preview.reason}`
+          <div className="text-xs text-muted-foreground">
+            <p>
+              Evolution check: {String(preview.classification ?? 'unknown')}
+              {typeof preview.reason === 'string' && preview.reason
+                ? ` — ${preview.reason}`
+                : null}
+              {blocked ? ' (blocked)' : null} · {field.usageCount}{' '}
+              {field.usageCount === 1 ? 'record carries' : 'records carry'}{' '}
+              a value.
+            </p>
+            {Array.isArray(preview.guidance)
+              ? preview.guidance
+                  .filter(
+                    (line): line is string =>
+                      typeof line === 'string' && line.length > 0,
+                  )
+                  .map((line) => (
+                    <p key={line} className="mt-1">
+                      {line}
+                    </p>
+                  ))
               : null}
-            {blocked ? ' (blocked)' : null} · {field.usageCount}{' '}
-            {field.usageCount === 1 ? 'record carries' : 'records carry'} a
-            value.
-          </p>
+          </div>
         )}
         <ModelFieldImpactList dependencies={dependencies} />
+        {impactQuery.isLoading ? (
+          <p className="text-xs text-muted-foreground">
+            Loading dependent consumers — confirmation stays disabled until
+            the consequences are named.
+          </p>
+        ) : dependencies.length > 0 ? (
+          <p className="text-xs font-medium">
+            Confirming retires {field.label} for the{' '}
+            {dependencies.length}{' '}
+            {dependencies.length === 1 ? 'consumer' : 'consumers'} listed
+            above. Stored values stay readable; local working state is never
+            auto-migrated.
+          </p>
+        ) : null}
         <p className="mt-4 text-xs">
           <a
             className="text-primary underline-offset-4 hover:underline"
@@ -676,7 +853,10 @@ function RetireFieldDialog({
           </Button>
           <Button
             disabled={
-              apply.isPending || previewQuery.isLoading || blocked
+              apply.isPending ||
+              previewQuery.isLoading ||
+              impactQuery.isLoading ||
+              blocked
             }
             onClick={() => apply.mutate()}
           >
@@ -1078,6 +1258,7 @@ export function AdminModelFields({
           </Button>
         </div>
       </div>
+      <ModelImpactPanel client={client} modelKey={modelKey} />
 
       <div className="overflow-hidden rounded-md border">
         <Table>

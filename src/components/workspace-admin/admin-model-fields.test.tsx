@@ -70,6 +70,9 @@ function fakeClient(): DataClient {
           reason: 'retire_field',
           blocked: false,
           impact: [],
+          guidance: [
+            '3 record(s) of model "sample" carry a value for "Purity". Retiring locks the field.',
+          ],
         }
       if (name === 'apply_model_field_evolution')
         return {
@@ -92,6 +95,54 @@ function fakeClient(): DataClient {
               label: '3 records',
             },
           ],
+        }
+      if (name === 'discover_model_dependencies')
+        return {
+          kind: 'model',
+          id: 'sample',
+          dependencies: [
+            {
+              kind: 'model_field',
+              id: 'field-1',
+              relation: 'defines_field',
+              liveness: 'active',
+              effect: 'informational',
+              label: 'Purity (purity) · 3 records',
+            },
+            {
+              kind: 'record',
+              id: 'rec-1',
+              relation: 'carries_custom_values',
+              liveness: 'active',
+              effect: 'requires_migration',
+              label: 'SMP-2026-0001',
+            },
+            {
+              kind: 'model_relationship_rule',
+              id: 'rule-1',
+              relation: 'constrains_source_links',
+              liveness: 'active',
+              effect: 'requires_migration',
+              label: 'sample → batch (0–∞)',
+            },
+            {
+              kind: 'sheet_instance',
+              id: 'inst-1',
+              relation: 'binds_model_record',
+              liveness: 'active',
+              effect: 'requires_migration',
+              label: 'Assay plate',
+            },
+            {
+              kind: 'notebook_template_version',
+              id: 'tpl-1',
+              relation: 'parameter_model_contract',
+              liveness: 'active',
+              effect: 'requires_migration',
+              label: 'pk_study v1',
+            },
+          ],
+          truncated: false,
         }
       return undefined
     }) as DataClient['rpc'],
@@ -434,6 +485,53 @@ describe('AdminModelFields', () => {
         p_confirm: true,
       }),
     )
+  })
+
+  it('shows the per-model impact report before retire or update', async () => {
+    const { client } = mount(true)
+    await screen.findByText('Purity')
+    expect(
+      await screen.findByRole('region', { name: 'Model impact' }),
+    ).toBeTruthy()
+    expect(screen.getByText('Fields')).toBeTruthy()
+    expect(screen.getByText('Records & host rows')).toBeTruthy()
+    expect(screen.getByText('Relationship rules')).toBeTruthy()
+    expect(screen.getByText('Sheets')).toBeTruthy()
+    expect(screen.getByText('Templates')).toBeTruthy()
+    expect(
+      screen.getByText('Assay plate · active · requires_migration'),
+    ).toBeTruthy()
+    expect(
+      screen.getByText('pk_study v1 · active · requires_migration'),
+    ).toBeTruthy()
+    expect(
+      screen.getByText('sample → batch (0–∞) · active · requires_migration'),
+    ).toBeTruthy()
+    await waitFor(() =>
+      expect(client.rpc).toHaveBeenCalledWith('discover_model_dependencies', {
+        p_model_key: 'sample',
+      }),
+    )
+  })
+
+  it('names migration guidance and consequences before confirming retire', async () => {
+    const user = userEvent.setup()
+    mount(true)
+    await screen.findByText('Purity')
+
+    await user.click(screen.getByRole('button', { name: 'Retire' }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Retire Purity' }),
+    ).toBeTruthy()
+    expect(
+      await screen.findByText(/carry a value for "Purity"/),
+    ).toBeTruthy()
+    // Named consequences: the dialog counts the listed consumers and the
+    // confirm stays explicit about them.
+    expect(await screen.findByText(/for the 1 consumer/)).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Confirm retire' }),
+    ).toBeTruthy()
   })
 
   it('links field rows out to the Records preview', async () => {

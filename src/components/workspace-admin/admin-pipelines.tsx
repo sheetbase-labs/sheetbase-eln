@@ -245,8 +245,18 @@ export function AdminPipelines({
         <h2 className="font-semibold">Recent run health</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {[
-            ['Running', healthQuery.data?.counts.running ?? 0],
-            ['Failed', healthQuery.data?.counts.failed ?? 0],
+            [
+              'Running',
+              (healthQuery.data?.running ?? []).filter(
+                (run) => run.kind !== 'webhook',
+              ).length,
+            ],
+            [
+              'Failed',
+              (healthQuery.data?.failed ?? []).filter(
+                (run) => run.kind !== 'webhook',
+              ).length,
+            ],
             [
               'Recently succeeded',
               healthQuery.data?.counts.recentlySucceeded ?? 0,
@@ -258,6 +268,18 @@ export function AdminPipelines({
             </div>
           ))}
         </div>
+        <p className="text-xs text-muted-foreground">
+          Webhook delivery failures are tracked separately —{' '}
+          <Link
+            to="/admin/$section"
+            params={{ section: 'webhooks' }}
+            search={{ model: undefined }}
+            className="font-medium text-primary hover:underline"
+          >
+            inspect endpoint health
+          </Link>
+          .
+        </p>
         <div className="rounded-lg border bg-background">
           <Table>
             <TableHeader>

@@ -118,6 +118,10 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
             pipelineDefinitions: 0,
             pipelineRuns: 0,
             connectorRuns: 0,
+            limits: {
+              fileBytes: { byteLimit: null, atLimitBehaviour: null },
+              enabledSchedules: { validatedScaleThreshold: 100 },
+            },
             capacityWarnings: [],
           },
         }
@@ -129,6 +133,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
             running: [],
             failed: [],
             recentlySucceeded: [],
+            webhook: { deadLetter24h: 0, retryDebt: 0, autoDisabled: 0 },
             counts: { running: 0, failed: 0, recentlySucceeded: 0 },
           },
         }

@@ -19,6 +19,7 @@ import {
   INPUT_ROW_LIMIT,
   EXECUTION_TIMEOUT_SECONDS,
 } from '#/lib/pipeline-limits'
+import { checkExtensionCompat } from '#/lib/extensions/compat'
 
 // Scheduler configuration — mirrors the env check in
 // src/lib/pipeline-scheduler.server.ts startPipelineScheduler().
@@ -76,6 +77,35 @@ export interface CapacityWarning {
   level: 'info' | 'warning'
   message: string
   category: string
+  /** Corrective-action destination (an /admin section route). */
+  link?: string
+  /** Operational runbook slug (a /docs/$name destination). */
+  runbook?: string
+}
+
+/**
+ * Configured workspace quota context for a usage/storage figure.
+ *
+ * Limits are reported only where they are actually configured. A null limit
+ * means "no quota configured" — the UI must say so rather than invent a
+ * theatre number, and atLimitBehaviour is null alongside it.
+ */
+export interface QuotaContext {
+  /** Configured byte quota, or null when no quota is configured. */
+  byteLimit: number | null
+  /**
+   * What happens at the limit (e.g. "uploads rejected"), or null when no
+   * limit is configured.
+   */
+  atLimitBehaviour: string | null
+}
+
+export interface UsageLimits {
+  fileBytes: QuotaContext
+  enabledSchedules: {
+    /** Validated-scale guidance threshold, or null when not applicable. */
+    validatedScaleThreshold: number | null
+  }
 }
 
 export interface UsageResult {
@@ -89,6 +119,8 @@ export interface UsageResult {
   pipelineDefinitions: number
   pipelineRuns: number
   connectorRuns: number
+  /** Limit context per figure; null limits mean "no quota configured". */
+  limits: UsageLimits
   capacityWarnings: CapacityWarning[]
 }
 
@@ -108,13 +140,15 @@ export interface StorageOverviewResult {
   fileBytes: number
   datasetCount: number
   datasetVersionCount: number
+  /** Quota context; byteLimit null means no workspace quota is configured. */
+  quota: QuotaContext
   largestFiles: StorageFileWire[]
   recentFiles: StorageFileWire[]
 }
 
 export interface RunHealthItem {
   id: string
-  kind: 'pipeline' | 'connector'
+  kind: 'pipeline' | 'connector' | 'webhook'
   status: string
   startedAt: string
   finishedAt: string | null
@@ -122,12 +156,27 @@ export interface RunHealthItem {
   error_message: string | null
   connectorId: string | null
   definitionVersionId: string | null
+  /** Webhook-only: the delivery's subscription id. */
+  subscriptionId: string | null
+  /** Webhook-only: the subscription key for display. */
+  label: string | null
+}
+
+export interface WebhookRunHealthSummary {
+  /** Dead-letter deliveries created in the last 24 hours. */
+  deadLetter24h: number
+  /** Deliveries currently awaiting (re)delivery. */
+  retryDebt: number
+  /** Endpoints auto-disabled after exhausting their failure threshold. */
+  autoDisabled: number
 }
 
 export interface RunHealthResult {
   running: RunHealthItem[]
   failed: RunHealthItem[]
   recentlySucceeded: RunHealthItem[]
+  /** Webhook delivery health folded in from EVENT-02 delivery state. */
+  webhook: WebhookRunHealthSummary
   counts: {
     running: number
     failed: number
@@ -139,8 +188,12 @@ export interface AttentionItem {
   level: 'warning' | 'info'
   category: string
   message: string
+  /** Corrective-action destination (an /admin section route). */
   link?: string
+  /** Operational runbook slug (a /docs/$name destination) where one exists. */
+  runbook?: string
 }
+
 
 export interface ConnectorDiagnosticsResult {
   activeConnectors: number
@@ -470,19 +523,28 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
     const row = res.rows[0] as Record<string, unknown> | undefined
     const fileBytes = num(row?.file_bytes)
     const enabledSchedules = num(row?.enabled_schedules)
+    // No workspace storage quota or schedule quota is configured in this
+    // deployment (WORKSPACE_QUOTA reports null limits) — the UI states that
+    // explicitly instead of inventing theatre numbers. The schedule
+    // threshold is validated-scale guidance, not a quota.
     const capacityWarnings: CapacityWarning[] = []
-    if (enabledSchedules > 100) {
+    if (enabledSchedules > SCHEDULE_VALIDATED_SCALE) {
       capacityWarnings.push({
         level: 'warning',
         category: 'schedules',
-        message: `${enabledSchedules} enabled pipeline schedules — above validated scale.`,
+        message: `${enabledSchedules} enabled pipeline schedules — above validated scale (${SCHEDULE_VALIDATED_SCALE}). No quota is enforced; review unused schedules.`,
+        link: '/admin/pipelines',
+        runbook: 'observability',
       })
     }
     if (fileBytes > 10_000_000_000) {
       capacityWarnings.push({
         level: 'warning',
         category: 'file_storage',
-        message: 'Workspace file storage exceeds 10 GB.',
+        message:
+          'Workspace file storage exceeds 10 GB of observed usage. No storage quota is configured — nothing is blocked. Archive or delete unneeded files to reclaim space.',
+        link: '/admin/storage',
+        runbook: 'administration',
       })
     }
     return {
@@ -496,6 +558,12 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
       pipelineDefinitions: num(row?.pipeline_definitions),
       pipelineRuns: num(row?.pipeline_runs),
       connectorRuns: num(row?.connector_runs),
+      limits: {
+        fileBytes: WORKSPACE_QUOTA,
+        enabledSchedules: {
+          validatedScaleThreshold: SCHEDULE_VALIDATED_SCALE,
+        },
+      },
       capacityWarnings,
     }
   })
@@ -551,6 +619,9 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
       fileBytes: num(countRow?.file_bytes),
       datasetCount: num(countRow?.dataset_count),
       datasetVersionCount: num(countRow?.dataset_version_count),
+      // No workspace storage quota is configured — WORKSPACE_QUOTA's null
+      // limit tells the UI to label figures as observed usage.
+      quota: WORKSPACE_QUOTA,
       largestFiles: mapFiles(largestRes.rows),
       recentFiles: mapFiles(recentRes.rows),
     }
@@ -565,10 +636,16 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<RunHealthResult> => {
     await loadAdminSession(data.workspaceId)
     const { db } = await import('#/db/client.server')
-    const [pipeRes, connRes] = await Promise.all([
+    // Webhook delivery health comes from EVENT-02 delivery state directly:
+    // dead_letter rows are the failed jobs of the webhook plane, and
+    // pending/retrying rows are its retry debt. Read here (any-member
+    // run-health surface) rather than through the integrations.manage-gated
+    // endpoint-health RPC — no secrets are involved.
+    const [pipeRes, connRes, hookRes, hookSummaryRes] = await Promise.all([
       db.execute(sql`
         SELECT id, 'pipeline' AS kind, status, started_at::text, finished_at::text,
-               error_code, error_message, NULL::text AS connector_id, definition_version_id::text
+               error_code, error_message, NULL::text AS connector_id, definition_version_id::text,
+               NULL::text AS subscription_id, NULL::text AS label
         FROM api.pipeline_runs
         WHERE workspace_id = ${data.workspaceId}::uuid
         ORDER BY started_at DESC
@@ -576,16 +653,37 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
       `),
       db.execute(sql`
         SELECT id, 'connector' AS kind, status, started_at::text, finished_at::text,
-               error_code, error_message, connector_id::text, NULL::text AS definition_version_id
+               error_code, error_message, connector_id::text, NULL::text AS definition_version_id,
+               NULL::text AS subscription_id, NULL::text AS label
         FROM api.connector_runs
         WHERE workspace_id = ${data.workspaceId}::uuid
         ORDER BY started_at DESC
         LIMIT 50
       `),
+      db.execute(sql`
+        SELECT d.id, 'webhook' AS kind, d.status, d.created_at::text AS started_at,
+               d.delivered_at::text AS finished_at,
+               d.error_code, d.error_message, NULL::text AS connector_id,
+               NULL::text AS definition_version_id,
+               d.subscription_id::text AS subscription_id, s.key AS label
+        FROM api.webhook_deliveries d
+        JOIN api.webhook_subscriptions s ON s.id = d.subscription_id
+        WHERE d.workspace_id = ${data.workspaceId}::uuid
+          AND d.status = 'dead_letter'
+          AND d.created_at > now() - interval '24 hours'
+        ORDER BY d.created_at DESC
+        LIMIT 20
+      `),
+      db.execute(sql`
+        SELECT
+          (SELECT count(*)::int FROM api.webhook_deliveries WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'dead_letter' AND created_at > now() - interval '24 hours') AS dead_letter_24h,
+          (SELECT count(*)::int FROM api.webhook_deliveries WHERE workspace_id = ${data.workspaceId}::uuid AND status IN ('pending', 'retrying')) AS retry_debt,
+          (SELECT count(*)::int FROM api.webhook_subscriptions WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'disabled' AND failure_threshold > 0 AND consecutive_failures >= failure_threshold) AS auto_disabled
+      `),
     ])
-    const all: RunHealthItem[] = [...pipeRes.rows, ...connRes.rows].map((r) => ({
+    const all: RunHealthItem[] = [...pipeRes.rows, ...connRes.rows, ...hookRes.rows].map((r) => ({
       id: String(r.id),
-      kind: r.kind as 'pipeline' | 'connector',
+      kind: r.kind as 'pipeline' | 'connector' | 'webhook',
       status: String(r.status),
       startedAt: String(r.started_at),
       finishedAt: str(r.finished_at),
@@ -593,18 +691,27 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
       error_message: str(r.error_message),
       connectorId: str(r.connector_id),
       definitionVersionId: str(r.definition_version_id),
+      subscriptionId: str(r.subscription_id),
+      label: str(r.label),
     }))
     const running = all.filter((r) => r.status === 'running')
     const failed = all
-      .filter((r) => r.status === 'failed')
+      .filter((r) => r.status === 'failed' || r.status === 'dead_letter')
+      .sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1))
       .slice(0, 20)
     const recentlySucceeded = all
       .filter((r) => r.status === 'succeeded')
       .slice(0, 10)
+    const summaryRow = hookSummaryRes.rows[0] as Record<string, unknown> | undefined
     return {
       running,
       failed,
       recentlySucceeded,
+      webhook: {
+        deadLetter24h: num(summaryRow?.dead_letter_24h),
+        retryDebt: num(summaryRow?.retry_debt),
+        autoDisabled: num(summaryRow?.auto_disabled),
+      },
       counts: {
         running: running.length,
         failed: failed.length,
@@ -612,6 +719,213 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
       },
     }
   })
+// ---------------------------------------------------------------------------
+// Pure attention builders (ADMIN-03) — exported for unit testing. The
+// handlers above/below supply counts from existing state; these functions
+// own the deterministic mapping to actionable items.
+// ---------------------------------------------------------------------------
+
+/** Validated-scale guidance for enabled pipeline schedules (not a quota). */
+export const SCHEDULE_VALIDATED_SCALE = 100
+
+/**
+ * Quota context served with usage/storage figures. No workspace quotas are
+ * configured in this deployment, so limits are null — the UI states that
+ * explicitly instead of inventing theatre numbers.
+ */
+export const WORKSPACE_QUOTA: QuotaContext = {
+  byteLimit: null,
+  atLimitBehaviour: null,
+}
+
+/** Aggregate counts feeding the attention model. */
+export interface AttentionCounts {
+  failedPipelineRuns: number
+  failedConnectorRuns: number
+  deadLetterDeliveries: number
+  webhookRetryDebt: number
+  autoDisabledEndpoints: number
+  failingEndpoints: number
+  staleRunningRuns: number
+  connectorsMissingSecrets: number
+  overdueSchedules: number
+  expiredCredentials: number
+  expiringCredentials: number
+  staleCredentials: number
+  disabledConnectors: number
+  disabledExtensions: number
+}
+
+/**
+ * Map aggregate counts plus incompatible-extension keys to attention items.
+ * Every item carries a corrective-action link; items with an operational
+ * runbook carry its docs slug too.
+ */
+export function buildAttentionItems(
+  counts: AttentionCounts,
+  incompatibleExtensionKeys: string[],
+): AttentionItem[] {
+  const items: AttentionItem[] = []
+  const plural = (n: number) => (n === 1 ? '' : 's')
+  if (counts.failedPipelineRuns > 0) {
+    items.push({
+      level: 'warning',
+      category: 'pipeline_runs',
+      message: `${counts.failedPipelineRuns} failed pipeline run${plural(counts.failedPipelineRuns)} in the last 24 hours.`,
+      link: '/admin/pipelines',
+      runbook: 'observability',
+    })
+  }
+  if (counts.failedConnectorRuns > 0) {
+    items.push({
+      level: 'warning',
+      category: 'connector_runs',
+      message: `${counts.failedConnectorRuns} failed connector run${plural(counts.failedConnectorRuns)} in the last 24 hours.`,
+      link: '/admin/connectors',
+      runbook: 'observability',
+    })
+  }
+  if (counts.deadLetterDeliveries > 0) {
+    items.push({
+      level: 'warning',
+      category: 'webhook_deliveries',
+      message: `${counts.deadLetterDeliveries} webhook deliver${counts.deadLetterDeliveries === 1 ? 'y' : 'ies'} dead-lettered in the last 24 hours — retries exhausted, recovery is an explicit operator replay.`,
+      link: '/admin/webhooks',
+      runbook: 'observability',
+    })
+  }
+  if (counts.webhookRetryDebt > 0) {
+    items.push({
+      level: 'warning',
+      category: 'webhook_retry_debt',
+      message: `${counts.webhookRetryDebt} webhook deliver${counts.webhookRetryDebt === 1 ? 'y' : 'ies'} awaiting (re)delivery.`,
+      link: '/admin/webhooks',
+      runbook: 'observability',
+    })
+  }
+  if (counts.autoDisabledEndpoints > 0) {
+    items.push({
+      level: 'warning',
+      category: 'webhook_endpoints',
+      message: `${counts.autoDisabledEndpoints} webhook endpoint${plural(counts.autoDisabledEndpoints)} auto-disabled after exhausting ${counts.autoDisabledEndpoints === 1 ? 'its' : 'their'} failure threshold — re-enable from the endpoint to reset consecutive failures.`,
+      link: '/admin/webhooks',
+      runbook: 'observability',
+    })
+  }
+  if (counts.failingEndpoints > 0) {
+    items.push({
+      level: 'warning',
+      category: 'webhook_endpoints',
+      message: `${counts.failingEndpoints} active webhook endpoint${plural(counts.failingEndpoints)} ha${counts.failingEndpoints === 1 ? 's' : 've'} consecutive failures — approaching auto-disable.`,
+      link: '/admin/webhooks',
+      runbook: 'observability',
+    })
+  }
+  if (counts.staleRunningRuns > 0) {
+    items.push({
+      level: 'warning',
+      category: 'stale_runs',
+      message: `${counts.staleRunningRuns} run${plural(counts.staleRunningRuns)} have been running longer than 15 minutes.`,
+      link: '/admin/pipelines',
+      runbook: 'observability',
+    })
+  }
+  if (counts.connectorsMissingSecrets > 0) {
+    items.push({
+      level: 'warning',
+      category: 'connector_secrets',
+      message: `${counts.connectorsMissingSecrets} active connector${plural(counts.connectorsMissingSecrets)} missing required secrets.`,
+      link: '/admin/connectors',
+      runbook: 'administration',
+    })
+  }
+  if (counts.overdueSchedules > 0) {
+    items.push({
+      level: 'warning',
+      category: 'schedules',
+      message: `${counts.overdueSchedules} schedule${plural(counts.overdueSchedules)} are overdue.`,
+      link: '/admin/pipelines',
+      runbook: 'observability',
+    })
+  }
+  if (counts.expiredCredentials > 0) {
+    items.push({
+      level: 'warning',
+      category: 'api_credentials',
+      message: `${counts.expiredCredentials} service credential${plural(counts.expiredCredentials)} expired — rotate to restore external automation.`,
+      link: '/admin/api-credentials',
+      runbook: 'security',
+    })
+  }
+  if (counts.expiringCredentials > 0) {
+    items.push({
+      level: 'warning',
+      category: 'api_credentials',
+      message: `${counts.expiringCredentials} service credential${plural(counts.expiringCredentials)} expire${counts.expiringCredentials === 1 ? 's' : ''} within 30 days — rotate before expiry.`,
+      link: '/admin/api-credentials',
+      runbook: 'security',
+    })
+  }
+  if (counts.staleCredentials > 0) {
+    items.push({
+      level: 'info',
+      category: 'api_credentials',
+      message: `${counts.staleCredentials} service credential${plural(counts.staleCredentials)} unused for over 90 days — review and revoke if no longer needed.`,
+      link: '/admin/api-credentials',
+      runbook: 'security',
+    })
+  }
+  if (counts.disabledConnectors > 0) {
+    items.push({
+      level: 'info',
+      category: 'connectors',
+      message: `${counts.disabledConnectors} connector${plural(counts.disabledConnectors)} disabled.`,
+      link: '/admin/connectors',
+    })
+  }
+  if (incompatibleExtensionKeys.length > 0) {
+    items.push({
+      level: 'warning',
+      category: 'extensions',
+      message: `${incompatibleExtensionKeys.length} extension${plural(incompatibleExtensionKeys.length)} incompatible with this app version (${incompatibleExtensionKeys.slice(0, 3).join(', ')}${incompatibleExtensionKeys.length > 3 ? ', …' : ''}) — enabling or updating needs explicit acknowledgement.`,
+      link: '/admin/extensions',
+      runbook: 'administration',
+    })
+  }
+  if (counts.disabledExtensions > 0) {
+    items.push({
+      level: 'info',
+      category: 'extensions',
+      message: `${counts.disabledExtensions} extension install${plural(counts.disabledExtensions)} disabled.`,
+      link: '/admin/extensions',
+    })
+  }
+  return items
+}
+
+/**
+ * Keys of extension installs whose declared `compatibleWith` range is
+ * violated by the running app version. Unknown compatibility (no range,
+ * unparsable version) never reports — warn loudly only on a declared
+ * violation, per EXT-03.
+ */
+export function findIncompatibleExtensionKeys(
+  rows: Array<{ key: unknown; compatible_with: unknown }>,
+  appVersion: string,
+): string[] {
+  return rows
+    .filter(
+      (r) =>
+        checkExtensionCompat(
+          {
+            compatibleWith:
+              typeof r.compatible_with === 'string' ? r.compatible_with : null,
+          },
+          appVersion,
+        ) === 'incompatible',
+    )
+    .map((r) => String(r.key))
+}
 
 // ---------------------------------------------------------------------------
 // fetchAttentionFn
@@ -622,72 +936,59 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<AttentionItem[]> => {
     await loadAdminSession(data.workspaceId)
     const { db } = await import('#/db/client.server')
-    const res = await db.execute(sql`
+    // Every warning below derives from existing state — no new tracking
+    // tables. Each carries a corrective-action link (an /admin section) and,
+    // where an operational runbook exists, a runbook slug (a /docs/$name
+    // destination from the docs allowlist).
+    const [res, extRes] = await Promise.all([
+      db.execute(sql`
       SELECT
         (SELECT count(*)::int FROM api.pipeline_runs WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'failed' AND started_at > now() - interval '24 hours') AS failed_pipeline_runs,
         (SELECT count(*)::int FROM api.connector_runs WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'failed' AND started_at > now() - interval '24 hours') AS failed_connector_runs,
         (SELECT count(*)::int FROM api.pipeline_runs WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'running' AND started_at < now() - interval '15 minutes') AS stale_running_runs,
         (SELECT count(*)::int FROM api.connectors WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'paused') AS disabled_connectors,
         (SELECT count(*)::int FROM api.connectors c WHERE workspace_id = ${data.workspaceId}::uuid AND c.status = 'active' AND NOT EXISTS (SELECT 1 FROM internal.connector_secrets cs WHERE cs.connector_id = c.id)) AS connectors_missing_secrets,
-        (SELECT count(*)::int FROM api.pipeline_schedules WHERE workspace_id = ${data.workspaceId}::uuid AND enabled AND next_run_at IS NOT NULL AND next_run_at < now()) AS overdue_schedules
-    `)
+        (SELECT count(*)::int FROM api.pipeline_schedules WHERE workspace_id = ${data.workspaceId}::uuid AND enabled AND next_run_at IS NOT NULL AND next_run_at < now()) AS overdue_schedules,
+        (SELECT count(*)::int FROM api.webhook_deliveries WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'dead_letter' AND created_at > now() - interval '24 hours') AS dead_letter_deliveries,
+        (SELECT count(*)::int FROM api.webhook_deliveries WHERE workspace_id = ${data.workspaceId}::uuid AND status IN ('pending', 'retrying')) AS webhook_retry_debt,
+        (SELECT count(*)::int FROM api.webhook_subscriptions WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'disabled' AND failure_threshold > 0 AND consecutive_failures >= failure_threshold) AS auto_disabled_endpoints,
+        (SELECT count(*)::int FROM api.webhook_subscriptions WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'active' AND consecutive_failures > 0) AS failing_endpoints,
+        (SELECT count(*)::int FROM api.extensions WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'disabled') AS disabled_extensions,
+        (SELECT count(*)::int FROM internal.api_credentials WHERE workspace_id = ${data.workspaceId}::uuid AND kind = 'service' AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at < now()) AS expired_credentials,
+        (SELECT count(*)::int FROM internal.api_credentials WHERE workspace_id = ${data.workspaceId}::uuid AND kind = 'service' AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at >= now() AND expires_at < now() + interval '30 days') AS expiring_credentials,
+        (SELECT count(*)::int FROM internal.api_credentials WHERE workspace_id = ${data.workspaceId}::uuid AND kind = 'service' AND revoked_at IS NULL AND (last_used_at IS NULL AND created_at < now() - interval '90 days' OR last_used_at < now() - interval '90 days')) AS stale_credentials
+    `),
+      db.execute(sql`
+        SELECT key, status, manifest->>'compatibleWith' AS compatible_with
+        FROM api.extensions
+        WHERE workspace_id = ${data.workspaceId}::uuid
+      `),
+    ])
     const row = res.rows[0] as Record<string, unknown> | undefined
-    const items: AttentionItem[] = []
-    const failedPipeline = num(row?.failed_pipeline_runs)
-    const failedConnector = num(row?.failed_connector_runs)
-    const staleRunning = num(row?.stale_running_runs)
-    const disabledConn = num(row?.disabled_connectors)
-    const missingSecrets = num(row?.connectors_missing_secrets)
-    const overdueSched = num(row?.overdue_schedules)
-    if (failedPipeline > 0) {
-      items.push({
-        level: 'warning',
-        category: 'pipeline_runs',
-        message: `${failedPipeline} failed pipeline run${failedPipeline === 1 ? '' : 's'} in the last 24 hours.`,
-        link: '/admin/pipelines',
-      })
+    const counts: AttentionCounts = {
+      failedPipelineRuns: num(row?.failed_pipeline_runs),
+      failedConnectorRuns: num(row?.failed_connector_runs),
+      deadLetterDeliveries: num(row?.dead_letter_deliveries),
+      webhookRetryDebt: num(row?.webhook_retry_debt),
+      autoDisabledEndpoints: num(row?.auto_disabled_endpoints),
+      failingEndpoints: num(row?.failing_endpoints),
+      staleRunningRuns: num(row?.stale_running_runs),
+      connectorsMissingSecrets: num(row?.connectors_missing_secrets),
+      overdueSchedules: num(row?.overdue_schedules),
+      expiredCredentials: num(row?.expired_credentials),
+      expiringCredentials: num(row?.expiring_credentials),
+      staleCredentials: num(row?.stale_credentials),
+      disabledConnectors: num(row?.disabled_connectors),
+      disabledExtensions: num(row?.disabled_extensions),
     }
-    if (failedConnector > 0) {
-      items.push({
-        level: 'warning',
-        category: 'connector_runs',
-        message: `${failedConnector} failed connector run${failedConnector === 1 ? '' : 's'} in the last 24 hours.`,
-        link: '/admin/connectors',
-      })
-    }
-    if (staleRunning > 0) {
-      items.push({
-        level: 'warning',
-        category: 'stale_runs',
-        message: `${staleRunning} run${staleRunning === 1 ? '' : 's'} have been running longer than 15 minutes.`,
-        link: '/admin/pipelines',
-      })
-    }
-    if (missingSecrets > 0) {
-      items.push({
-        level: 'warning',
-        category: 'connector_secrets',
-        message: `${missingSecrets} active connector${missingSecrets === 1 ? '' : 's'} missing required secrets.`,
-        link: '/admin/connectors',
-      })
-    }
-    if (overdueSched > 0) {
-      items.push({
-        level: 'warning',
-        category: 'schedules',
-        message: `${overdueSched} schedule${overdueSched === 1 ? '' : 's'} are overdue.`,
-        link: '/admin/pipelines',
-      })
-    }
-    if (disabledConn > 0) {
-      items.push({
-        level: 'info',
-        category: 'connectors',
-        message: `${disabledConn} connector${disabledConn === 1 ? '' : 's'} disabled.`,
-        link: '/admin/connectors',
-      })
-    }
-    return items
+    // Incompatible extensions (EXT-03): computed against the running app
+    // version via the shared compat check — unknown never warns.
+    const appVersion = getDeploymentConfig().artifact.version
+    const incompatibleKeys = findIncompatibleExtensionKeys(
+      extRes.rows as Array<{ key: unknown; compatible_with: unknown }>,
+      appVersion,
+    )
+    return buildAttentionItems(counts, incompatibleKeys)
   })
 
 // ---------------------------------------------------------------------------

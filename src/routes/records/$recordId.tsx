@@ -1392,6 +1392,11 @@ function EditableNotebook({
       }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+      // NOTE-01 atomic undo: insert_block positions against both anchors and
+      // returns the full (id, order) list (migration 0154), so the cache
+      // reconciles from the insert alone — no second move. The historical
+      // move-after-insert is deleted, not kept as a fallback: a missing
+      // order list already degrades to upsert-only like every other insert.
       const inserted = await insertBlock(client, {
         recordId: record.id,
         type,
@@ -1401,16 +1406,7 @@ function EditableNotebook({
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
-      if (destination.afterBlockId === null && destination.beforeBlockId) {
-        const moved = await moveBlock(client, {
-          blockId: inserted.block.id,
-          afterBlockId: null,
-          beforeBlockId: destination.beforeBlockId,
-          expectedStructureVersion: inserted.structureVersion,
-        })
-        return { ...inserted, ...moved, order: moved.order }
-      }
-      return { ...inserted, order: null }
+      return { ...inserted, order: inserted.order ?? null }
     },
     onSuccess: (res) => {
       upsertBlock(res.block)

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -163,8 +163,12 @@ describe('StickyRecordHeader', () => {
       .setup()
       .click(screen.getByRole('button', { name: 'Submit' }))
     expect(await screen.findByText('No unsaved drafts')).toBeTruthy()
+    // Scoped to the Readiness checklist group: the ASSIST-03 guide below
+    // states the same warning in its own assistance voice.
     expect(
-      screen.getByText(/save or discard them before submitting/i),
+      within(
+        await screen.findByRole('group', { name: 'Readiness' }),
+      ).getByText(/save or discard them before submitting/i),
     ).toBeTruthy()
   })
 })

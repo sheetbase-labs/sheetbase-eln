@@ -269,4 +269,38 @@ describe('link enforcement', () => {
       createLink(owner, exp.id, { kind: 'sample', identifier: cross.identifier, id: cross.id, linkType: 'sample' }),
     ).rejects.toMatchObject({ code: 'SB002' })
   })
+
+  it('serializes concurrent inserts under max_links so the bound holds', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    await configureRule(owner, 'experiment', 'sample', 'sample', 0, 1)
+    const exp = await createRecord(owner, PROJ_A, 'experiment', 'Race source')
+    const s1 = await createRecord(owner, PROJ_A, 'sample', 'Race S1')
+    const s2 = await createRecord(owner, PROJ_A, 'sample', 'Race S2')
+    const a = await asAuthenticated(OWNER_A, WS_A)
+    const b = await asAuthenticated(OWNER_A, WS_A)
+    // Two open transactions racing the same bound: without serialization
+    // both would count zero committed links and both would commit,
+    // overshooting max_links.
+    await a.query('BEGIN')
+    await b.query('BEGIN')
+    const { rows: first } = await a.query(
+      `SELECT * FROM api.create_record_link($1, 'sample', $2, 'sample', $3, NULL)`,
+      [exp.id, s1.identifier, s1.id],
+    )
+    expect(first).toHaveLength(1)
+    // The loser blocks on the matched rule-row lock until the winner
+    // commits, then recounts and fails closed with the named error.
+    const loser = b.query(
+      `SELECT * FROM api.create_record_link($1, 'sample', $2, 'sample', $3, NULL)`,
+      [exp.id, s2.identifier, s2.id],
+    )
+    await a.query('COMMIT')
+    await expect(loser).rejects.toMatchObject({ code: 'SB081' })
+    await b.query('ROLLBACK')
+    const { rows: counted } = await owner.query(
+      `SELECT count(*)::int AS n FROM api.record_links WHERE source_record_id = $1 AND link_type = 'sample'`,
+      [exp.id],
+    )
+    expect(counted[0].n).toBe(1)
+  })
 })

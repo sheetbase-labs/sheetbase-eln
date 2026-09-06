@@ -107,7 +107,12 @@ GRANT EXECUTE ON FUNCTION "api"."remove_model_relationship_rule"(uuid) TO authen
 -- type/target allowability.
 CREATE OR REPLACE FUNCTION "internal"."assert_model_relationship_rule"()
 RETURNS trigger
-LANGUAGE plpgsql SET search_path='' AS $$
+-- SECURITY DEFINER: row locks (FOR UPDATE below) require more than the
+-- SELECT-only grants member roles hold on the rules table. Scope is
+-- re-established inside: the workspace derives from the source-record row
+-- and the rule lookup is pinned to it; the outer INSERT's RLS still
+-- authorizes the link itself.
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
   v_workspace uuid; v_source_model text; v_target_model text; v_count integer;
   v_has_rules boolean; v_rule api.model_relationship_rules;
@@ -143,6 +148,10 @@ BEGIN
       WHERE source_record_id=NEW.source_record_id AND target_identifier=NEW.target_identifier AND link_type=NEW.link_type) THEN
       RETURN NEW;
     END IF;
+    -- Serialize competing inserts per matched rule: lock the rule row before
+    -- counting so two concurrent transactions cannot both observe count < max.
+    -- One row, always the same row per bound: waits stay linear, no cycles.
+    PERFORM 1 FROM api.model_relationship_rules WHERE id=v_rule.id FOR UPDATE;
     SELECT count(*) INTO v_count FROM api.record_links l
       LEFT JOIN api.records r ON r.id=l.target_record_id
       LEFT JOIN api.model_kinds mr ON mr.record_kind=r.kind AND mr.identity_table='api.records'

@@ -7,6 +7,7 @@ import type { DatasetVersionWire } from '#/lib/dataset-product'
 import { toRecord } from '#/lib/notebook-data'
 import type { RecordWire } from '#/lib/notebook-data'
 import type { Parameter } from '#/lib/parameter'
+import { scalarDefaultText } from '#/lib/parameter-input'
 
 const RECORD_SELECT =
   'id,workspace_id,project_id,folder_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,locked_at,locked_by_revision_id'
@@ -134,12 +135,16 @@ export function TemplateParameterInputs({
   parameters,
   values,
   onChange,
+  disabled = false,
+  heading = 'Template parameters',
 }: {
   client: DataClient
   workspaceId: string
   parameters: Parameter[]
   values: Record<string, string>
   onChange: (parameterId: string, value: string) => void
+  disabled?: boolean
+  heading?: string
 }) {
   const recordKinds = [
     ...new Set(
@@ -271,22 +276,35 @@ export function TemplateParameterInputs({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium text-muted-foreground">
-        Template parameters
-      </p>
+      <p className="text-xs font-medium text-muted-foreground">{heading}</p>
       {parameters.map((parameter) => {
         const inputId = `template-parameter-${parameter.id}`
         const value = values[parameter.id] ?? ''
         const type = parameter.type
+        const requirement = parameter.required ? 'Required' : 'Optional'
         if (type.kind === 'scalar') {
+          const defaultText = scalarDefaultText(parameter)
           return (
             <Field key={parameter.id}>
-              <FieldLabel htmlFor={inputId}>{parameter.label}</FieldLabel>
+              <FieldLabel htmlFor={inputId}>
+                {parameter.label}{' '}
+                <span className="font-normal text-muted-foreground">
+                  · {requirement}
+                  {defaultText !== null
+                    ? ` · default ${defaultText}`
+                    : ''}
+                </span>
+              </FieldLabel>
               <Input
                 id={inputId}
                 value={value}
+                disabled={disabled}
                 onChange={(event) => onChange(parameter.id, event.target.value)}
-                placeholder="Enter a value"
+                placeholder={
+                  defaultText !== null
+                    ? `Default: ${defaultText}`
+                    : 'Enter a value'
+                }
               />
             </Field>
           )
@@ -298,11 +316,16 @@ export function TemplateParameterInputs({
           )
           return (
             <Field key={parameter.id}>
-              <FieldLabel htmlFor={inputId}>{parameter.label}</FieldLabel>
+              <FieldLabel htmlFor={inputId}>
+                {parameter.label}{' '}
+                <span className="font-normal text-muted-foreground">
+                  · {requirement} · {modelKey}
+                </span>
+              </FieldLabel>
               <Select
                 id={inputId}
                 value={value}
-                disabled={records.isLoading}
+                disabled={disabled || records.isLoading}
                 onChange={(event) => onChange(parameter.id, event.target.value)}
               >
                 <option value="">
@@ -336,11 +359,18 @@ export function TemplateParameterInputs({
           )
           return (
             <Field key={parameter.id}>
-              <FieldLabel htmlFor={inputId}>{parameter.label}</FieldLabel>
+              <FieldLabel htmlFor={inputId}>
+                {parameter.label}{' '}
+                <span className="font-normal text-muted-foreground">
+                  · {requirement} · {type.contract.mode}
+                </span>
+              </FieldLabel>
               <Select
                 id={inputId}
                 value={value}
-                disabled={datasets.isLoading || compatibilityLoading}
+                disabled={
+                  disabled || datasets.isLoading || compatibilityLoading
+                }
                 onChange={(event) => onChange(parameter.id, event.target.value)}
               >
                 <option value="">
@@ -379,11 +409,18 @@ export function TemplateParameterInputs({
         )
         return (
           <Field key={parameter.id}>
-            <FieldLabel htmlFor={inputId}>{parameter.label}</FieldLabel>
+            <FieldLabel htmlFor={inputId}>
+              {parameter.label}{' '}
+              <span className="font-normal text-muted-foreground">
+                  · {requirement} · {type.contract.mode}
+              </span>
+            </FieldLabel>
             <Select
               id={inputId}
               value={value}
-              disabled={datasetVersions.isLoading || compatibilityLoading}
+              disabled={
+                disabled || datasetVersions.isLoading || compatibilityLoading
+              }
               onChange={(event) => onChange(parameter.id, event.target.value)}
             >
               <option value="">

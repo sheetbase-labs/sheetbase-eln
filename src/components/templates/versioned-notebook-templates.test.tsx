@@ -344,8 +344,8 @@ describe('VersionedNotebookTemplatePanel', () => {
     await user.click(
       screen.getAllByRole('button', { name: 'Create notebook' })[0],
     )
-    expect(await screen.findByLabelText('Alpha required')).toBeTruthy()
-    expect(screen.queryByLabelText('Beta required')).toBeNull()
+    expect(await screen.findByLabelText(/Alpha required/)).toBeTruthy()
+    expect(screen.queryByLabelText(/Beta required/)).toBeNull()
   })
 
   it('submits scalar parameters with typed integer/decimal/boolean values', async () => {
@@ -355,9 +355,9 @@ describe('VersionedNotebookTemplatePanel', () => {
     await user.click(
       screen.getAllByRole('button', { name: 'Create notebook' })[0],
     )
-    await user.clear(screen.getByLabelText('Alpha required'))
-    await user.type(screen.getByLabelText('Alpha decimal'), '1.25')
-    await user.type(screen.getByLabelText('Alpha boolean'), 'true')
+    await user.clear(screen.getByLabelText(/Alpha required/))
+    await user.type(screen.getByLabelText(/Alpha decimal/), '1.25')
+    await user.type(screen.getByLabelText(/Alpha boolean/), 'true')
     instantiateMock.mockResolvedValueOnce({
       record: { id: 'rec-1', project_id: 'project-1', identifier: 'NB-1' },
       templateVersionId: '33333333-3333-4333-8333-333333333333',
@@ -395,11 +395,11 @@ describe('VersionedNotebookTemplatePanel', () => {
       screen.getAllByRole('button', { name: 'Create notebook' })[0],
     )
     await user.selectOptions(
-      await screen.findByLabelText('Reference sample'),
+      await screen.findByLabelText(/Reference sample/),
       '13131313-1313-4131-8131-131313131313',
     )
-    await user.type(screen.getByLabelText('Alpha decimal'), '1.25')
-    await user.type(screen.getByLabelText('Alpha boolean'), 'true')
+    await user.type(screen.getByLabelText(/Alpha decimal/), '1.25')
+    await user.type(screen.getByLabelText(/Alpha boolean/), 'true')
     instantiateMock.mockResolvedValueOnce({
       record: { id: 'rec-1', project_id: 'project-1', identifier: 'NB-1' },
       templateVersionId: '33333333-3333-4333-8333-333333333333',
@@ -422,10 +422,10 @@ describe('VersionedNotebookTemplatePanel', () => {
     await user.click(
       screen.getAllByRole('button', { name: 'Create notebook' })[0],
     )
-    await user.clear(screen.getByLabelText('Alpha required'))
-    await user.type(screen.getByLabelText('Alpha required'), '100')
-    await user.type(screen.getByLabelText('Alpha decimal'), '1.25')
-    await user.type(screen.getByLabelText('Alpha boolean'), 'true')
+    await user.clear(screen.getByLabelText(/Alpha required/))
+    await user.type(screen.getByLabelText(/Alpha required/), '100')
+    await user.type(screen.getByLabelText(/Alpha decimal/), '1.25')
+    await user.type(screen.getByLabelText(/Alpha boolean/), 'true')
     await user.click(screen.getByRole('button', { name: 'Create and open' }))
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(instantiateMock).not.toHaveBeenCalled()
@@ -438,7 +438,7 @@ describe('VersionedNotebookTemplatePanel', () => {
     await user.click(
       screen.getAllByRole('button', { name: 'Create notebook' })[0],
     )
-    await user.clear(screen.getByLabelText('Alpha boolean'))
+    await user.clear(screen.getByLabelText(/Alpha boolean/))
     await user.click(screen.getByRole('button', { name: 'Create and open' }))
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(instantiateMock).not.toHaveBeenCalled()
@@ -451,8 +451,8 @@ describe('VersionedNotebookTemplatePanel', () => {
     await user.click(
       screen.getAllByRole('button', { name: 'Create notebook' })[0],
     )
-    await user.type(screen.getByLabelText('Alpha decimal'), '1.25')
-    await user.type(screen.getByLabelText('Alpha boolean'), 'true')
+    await user.type(screen.getByLabelText(/Alpha decimal/), '1.25')
+    await user.type(screen.getByLabelText(/Alpha boolean/), 'true')
     instantiateMock.mockResolvedValueOnce({
       record: { id: 'rec-1', project_id: 'project-1', identifier: 'NB-1' },
       templateVersionId: '33333333-3333-4333-8333-333333333333',
@@ -580,6 +580,78 @@ describe('REUSE-01 VersionedNotebookTemplatePanel — facets and requirement pre
     )
     expect(
       await screen.findByText(/this version needs:/i),
+    ).toBeTruthy()
+  })
+})
+
+describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => {
+  it('pre-fills declared defaults visibly on open', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(
+      screen.getAllByRole('button', { name: 'Create notebook' })[0],
+    )
+    expect(await screen.findByDisplayValue('5')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Default: 5')).toBeTruthy()
+  })
+
+  it('names missing required parameters and blocks creation fail-closed', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(
+      screen.getAllByRole('button', { name: 'Create notebook' })[0],
+    )
+    expect(
+      await screen.findByText(
+        /Missing required: Alpha decimal, Alpha boolean/,
+      ),
+    ).toBeTruthy()
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Create and open',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+    expect(instantiateMock).not.toHaveBeenCalled()
+  })
+
+  it('enables creation once every required input resolves', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(
+      screen.getAllByRole('button', { name: 'Create notebook' })[0],
+    )
+    await user.type(screen.getByLabelText(/Alpha decimal/), '1.25')
+    await user.type(screen.getByLabelText(/Alpha boolean/), 'true')
+    expect(
+      screen.queryByText(/Missing required:/),
+    ).toBeNull()
+    instantiateMock.mockResolvedValueOnce({
+      record: { id: 'rec-1', project_id: 'project-1', identifier: 'NB-1' },
+      templateVersionId: '33333333-3333-4333-8333-333333333333',
+      composition: [],
+      idempotent: false,
+    })
+    await user.click(screen.getByRole('button', { name: 'Create and open' }))
+    expect(instantiateMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('previews composed sheet parts with governed pins and mapped inputs', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(
+      screen.getAllByRole('button', { name: 'Create notebook' })[0],
+    )
+    expect(await screen.findByText('Composed sheets')).toBeTruthy()
+    expect(screen.getByText(/governed pin aaaaaaaa/)).toBeTruthy()
+    expect(screen.getByText(/Mapped optional \(optional\)/)).toBeTruthy()
+    expect(
+      screen.getByText(/no part mutates another/i),
     ).toBeTruthy()
   })
 })

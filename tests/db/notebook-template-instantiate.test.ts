@@ -1185,4 +1185,179 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0]
     expect(instance.parameter_values).toEqual([])
   })
+
+  it('REUSE-02 fails closed naming missing parameters and stores composition pins', async () => {
+    const owner = await actor(OWNER, WS)
+    const member = await actor(MEMBER, WS)
+
+    const local = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'reuse02_local','REUSE-02 local',null,$2::jsonb) result`,
+        [WS, JSON.stringify(localDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      local.version.id,
+      local.version.revision,
+    ])
+
+    const config = {
+      formatVersion: 1,
+      parameters: [
+        {
+          id: TEMPLATE_PARAMETER,
+          key: 'passage_count',
+          label: 'Passage count',
+          required: true,
+          type: { kind: 'scalar', valueType: 'integer' },
+          defaultValue: 3,
+          constraints: { min: 1, max: 10 },
+        },
+      ],
+      placements: [
+        ...dualSheetConfig(local.version.id).placements,
+        { ...narrativeConfig(NARRATIVE_ONLY, 3).placements[0] },
+      ],
+    }
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'reuse02_nb','REUSE-02 notebook',null,$2::jsonb) result`,
+        [WS, JSON.stringify(config)],
+      )
+    ).rows[0].result
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+
+    const recordCount = async () =>
+      (
+        await member.query(`select count(*)::int count from api.records`)
+      ).rows[0].count as number
+    const before = await recordCount()
+
+    // Required inputs fail closed naming the missing key; nothing is created.
+    const missing = await member
+      .query(
+        `select api.instantiate_notebook_template_version($1,$2,'Fail','[]'::jsonb,'reuse02-missing')`,
+        [published.id, PROJECT],
+      )
+      .then(
+        () => null,
+        (error: { code?: string; message?: string }) => error,
+      )
+    expect(missing?.code).toBe('SB091')
+    expect(String(missing?.message)).toContain('passage_count')
+    expect(await recordCount()).toBe(before)
+
+    // Duplicate and unknown inputs are rejected before any write.
+    const duplicateInput = JSON.stringify([
+      { parameterId: TEMPLATE_PARAMETER, kind: 'scalar', value: 3 },
+      { parameterId: TEMPLATE_PARAMETER, kind: 'scalar', value: 4 },
+    ])
+    await expectDenied(
+      member.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Fail',$3::jsonb,'reuse02-duplicate')`,
+        [published.id, PROJECT, duplicateInput],
+      ),
+      'SB091',
+    )
+    await expectDenied(
+      member.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Fail',$3::jsonb,'reuse02-unknown')`,
+        [
+          published.id,
+          PROJECT,
+          JSON.stringify([
+            {
+              parameterId: '06500000-0000-4000-8000-00ffffffff00',
+              kind: 'scalar',
+              value: 3,
+            },
+          ]),
+        ],
+      ),
+      'SB091',
+    )
+    expect(await recordCount()).toBe(before)
+
+    // A resolved instantiation stores per-part composition pins while each
+    // composed part keeps independent working state.
+    const supplied = JSON.stringify([
+      { parameterId: TEMPLATE_PARAMETER, kind: 'scalar', value: 3 },
+    ])
+    const result = (
+      await member.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Run C',$3::jsonb,'reuse02-ok') result`,
+        [published.id, PROJECT, supplied],
+      )
+    ).rows[0].result
+    expect(result.templateVersionId).toBe(published.id)
+    expect(result.composition).toHaveLength(3)
+    const sheets = result.composition.filter(
+      (entry: { kind: string }) => entry.kind === 'sheet',
+    )
+    expect(sheets.map((entry: { placementId: string }) => entry.placementId)).toEqual(
+      [PLACEMENT_A, PLACEMENT_B],
+    )
+    for (const entry of sheets) {
+      expect(entry.definitionVersionId).toBe(local.version.id)
+      expect(entry.instanceId).toBeTruthy()
+      expect(entry.blockId).toBeTruthy()
+    }
+    expect(sheets[0].instanceId).not.toBe(sheets[1].instanceId)
+    expect(sheets[0].blockId).not.toBe(sheets[1].blockId)
+    const narrative = result.composition.find(
+      (entry: { kind: string }) => entry.kind === 'narrative',
+    )
+    expect(narrative.placementId).toBe(NARRATIVE_ONLY)
+    expect(narrative.blockType).toBe('rich_text')
+    expect(narrative.blockId).toBeTruthy()
+
+    // Pins are durable: the record, both instances and both blocks each name
+    // their governed source, and the stored receipt carries the composition.
+    const stored = (
+      await member.query(
+        `select result from api.notebook_template_instantiations
+          where workspace_id=$1 and idempotency_key='reuse02-ok'`,
+        [WS],
+      )
+    ).rows[0].result
+    expect(stillPinned(stored)).toBe(true)
+    function stillPinned(value: typeof result) {
+      return (
+        value.templateVersionId === published.id &&
+        value.composition.filter(
+          (entry: { kind: string }) => entry.kind === 'sheet',
+        ).length === 2
+      )
+    }
+    const instances = (
+      await member.query(
+        `select i.id, i.source_definition_version_id source
+           from api.blocks b
+           join api.sheet_instances i on i.id = (b.payload->>'instanceId')::uuid
+          where b.record_id = $1 and b.type = 'sheet'
+          order by b."order"`,
+        [result.record.id],
+      )
+    ).rows
+    expect(instances).toHaveLength(2)
+    expect(instances[0].id).not.toBe(instances[1].id)
+    for (const instance of instances) {
+      expect(instance.source).toBe(local.version.id)
+    }
+    const placements = (
+      await member.query(
+        `select payload->>'templatePlacementId' placement
+           from api.blocks
+          where record_id = $1 and type = 'sheet'
+          order by "order"`,
+        [result.record.id],
+      )
+    ).rows.map((row: { placement: string }) => row.placement)
+    expect(placements).toEqual([PLACEMENT_A, PLACEMENT_B])
+  })
 })

@@ -1,4 +1,6 @@
 import { Field, FieldLabel, Input, Select } from '#/components/ui'
+import { TemplateParameterInputs } from '#/components/templates/template-parameter-inputs'
+import type { DataClient } from '#/lib/data-client'
 import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
 import { buildParameterInputs } from '#/lib/parameter-input'
 import type {
@@ -28,6 +30,8 @@ export function NotebookTemplateUpgradeForm({
   onDecisionChange,
   onParameterChange,
   disabled = false,
+  client,
+  workspaceId,
 }: {
   preview: NotebookUpgradePreview
   targetConfiguration: NotebookTemplateConfiguration
@@ -39,6 +43,12 @@ export function NotebookTemplateUpgradeForm({
   ) => void
   onParameterChange: (parameterId: string, value: string) => void
   disabled?: boolean
+  /**
+   * REUSE-02: enables contract-checked parameter selectors (same
+   * record/dataset exact-lineage-semantic vocabulary as instantiation).
+   */
+  client?: DataClient
+  workspaceId?: string
 }) {
   const mappedParameterIds = mappedTemplateParameterIds(targetConfiguration)
   const templateParameters = targetConfiguration.parameters.filter(
@@ -107,6 +117,8 @@ export function NotebookTemplateUpgradeForm({
                     decisionDrafts={draft.instanceDecisionDrafts ?? {}}
                     parameterDrafts={draft.instanceParameterDrafts ?? {}}
                     disabled={disabled}
+                    client={client}
+                    workspaceId={workspaceId}
                     onDecisionChange={(nestedConflictId, nestedDraft) =>
                       onDecisionChange(conflict.id, {
                         ...draft,
@@ -135,31 +147,43 @@ export function NotebookTemplateUpgradeForm({
         </div>
       ) : null}
       {templateParameters.length ? (
-        <div className="space-y-2">
-          <p className="text-xs font-medium">Template parameters</p>
-          {templateParameters.map((parameter) => (
-            <Field key={parameter.id}>
-              <FieldLabel
-                htmlFor={`template-upgrade-parameter-${parameter.id}`}
-              >
-                {parameter.label}
-              </FieldLabel>
-              <Input
-                id={`template-upgrade-parameter-${parameter.id}`}
-                value={parameterDrafts[parameter.id] ?? ''}
-                disabled={disabled}
-                onChange={(event) =>
-                  onParameterChange(parameter.id, event.target.value)
-                }
-                placeholder={
-                  parameter.type.kind === 'scalar'
-                    ? 'Enter a value'
-                    : 'Enter object ID'
-                }
-              />
-            </Field>
-          ))}
-        </div>
+        client && workspaceId ? (
+          <TemplateParameterInputs
+            client={client}
+            workspaceId={workspaceId}
+            parameters={templateParameters}
+            values={parameterDrafts}
+            onChange={onParameterChange}
+            disabled={disabled}
+            heading="Mapped template parameters"
+          />
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs font-medium">Template parameters</p>
+            {templateParameters.map((parameter) => (
+              <Field key={parameter.id}>
+                <FieldLabel
+                  htmlFor={`template-upgrade-parameter-${parameter.id}`}
+                >
+                  {parameter.label}
+                </FieldLabel>
+                <Input
+                  id={`template-upgrade-parameter-${parameter.id}`}
+                  value={parameterDrafts[parameter.id] ?? ''}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    onParameterChange(parameter.id, event.target.value)
+                  }
+                  placeholder={
+                    parameter.type.kind === 'scalar'
+                      ? 'Enter a value'
+                      : 'Enter object ID'
+                  }
+                />
+              </Field>
+            ))}
+          </div>
+        )
       ) : null}
     </div>
   )

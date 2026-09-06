@@ -1285,7 +1285,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
   instantiate_notebook_template_version: {
     summary: 'Instantiate a Notebook Template Version',
     description:
-      'Idempotency field is `p_idempotency_key` (1–128 characters). Template must be instantiable (`template_not_instantiable` otherwise).',
+      'Idempotency field is `p_idempotency_key` (1–128 characters). Template must be instantiable (`template_not_instantiable` otherwise). Missing required parameters fail closed naming the parameter keys; duplicate or unknown inputs are rejected before any write, so a failed call creates nothing. Each sheet placement creates an independent Sheet Instance (no composed part mutates another). The result carries per-placement composition pins — governed Definition versions alongside the working-state IDs — for upgrade detection to read.',
     required: [
       'p_version_id',
       'p_target_project_id',

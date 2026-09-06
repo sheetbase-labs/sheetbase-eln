@@ -13408,7 +13408,7 @@
         "x-sheetbase-scopes": [
           "templates:write"
         ],
-        "description": "Idempotency field is `p_idempotency_key` (1–128 characters). Template must be instantiable (`template_not_instantiable` otherwise).",
+        "description": "Idempotency field is `p_idempotency_key` (1–128 characters). Template must be instantiable (`template_not_instantiable` otherwise). Missing required parameters fail closed naming the parameter keys; duplicate or unknown inputs are rejected before any write, so a failed call creates nothing. Each sheet placement creates an independent Sheet Instance (no composed part mutates another). The result carries per-placement composition pins — governed Definition versions alongside the working-state IDs — for upgrade detection to read.",
         "requestBody": {
           "required": true,
           "content": {
@@ -22160,6 +22160,7 @@
         "required": [
           "record",
           "templateVersionId",
+          "composition",
           "idempotent"
         ],
         "additionalProperties": false,
@@ -22170,6 +22171,41 @@
           "templateVersionId": {
             "type": "string",
             "format": "uuid"
+          },
+          "composition": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "placementId",
+                "kind"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "placementId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "definitionVersionId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "instanceId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "blockId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "blockType": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "idempotent": {
             "type": "boolean"

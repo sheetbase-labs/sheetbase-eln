@@ -55,7 +55,7 @@ import type {
   NotebookTemplateNeedsFilter,
   NotebookTemplateRequirementSummary,
 } from '#/lib/reuse-discovery'
-import { buildParameterInputs } from '#/lib/parameter-input'
+import { buildParameterInputs, defaultParameterDrafts } from '#/lib/parameter-input'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type {
   NotebookUpgradeDecisionDraft,
@@ -232,6 +232,23 @@ export function VersionedNotebookTemplatePanel({
   const instantiateVersion =
     (versions.data ?? []).find((version) => version.id === createVersionId) ??
     null
+
+  // REUSE-02: client-side fail-closed gate mirroring the server contract —
+  // a required parameter counts as resolved when it carries a visible draft
+  // value or a declared scalar default (pre-filled on open, overridable).
+  const missingRequiredParameters = useMemo(() => {
+    if (!instantiateVersion) return []
+    return instantiateVersion.configuration.parameters.filter((parameter) => {
+      if (!parameter.required) return false
+      if ((parameterValues[parameter.id] ?? '').trim().length > 0) return false
+      if (
+        parameter.type.kind === 'scalar' &&
+        parameter.defaultValue !== undefined
+      )
+        return false
+      return true
+    })
+  }, [instantiateVersion, parameterValues])
 
   useEffect(() => {
     const firstTemplateId = visibleTemplates[0]?.id ?? null
@@ -615,6 +632,13 @@ export function VersionedNotebookTemplatePanel({
                             setCreateVersionId(published.id)
                             setCreateTitle(template.name)
                             setCreateProjectId(projects[0]?.id ?? '')
+                            // REUSE-02: pre-fill declared defaults visibly so
+                            // what the user sees is what gets instantiated.
+                            setParameterValues(
+                              defaultParameterDrafts(
+                                published.configuration.parameters,
+                              ),
+                            )
                             setCreateOpen(true)
                           }}
                         >
@@ -1040,6 +1064,8 @@ export function VersionedNotebookTemplatePanel({
                   decisionDrafts={upgradeDecisionDrafts}
                   parameterDrafts={upgradeParameterDrafts}
                   disabled={applyUpgrade.isPending}
+                  client={notebookTemplateDataClient}
+                  workspaceId={workspaceId}
                   onDecisionChange={(conflictId, draft) =>
                     setUpgradeDecisionDrafts((current) => ({
                       ...current,
@@ -1148,6 +1174,58 @@ export function VersionedNotebookTemplatePanel({
               . Resolve each input before creating the Notebook.
             </p>
           ) : null}
+          {instantiateVersion &&
+          instantiateVersion.configuration.placements.some(
+            (placement) => placement.kind === 'sheet',
+          ) ? (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Composed sheets
+              </p>
+              <ul className="space-y-1 text-xs">
+                {instantiateVersion.configuration.placements
+                  .filter((placement) => placement.kind === 'sheet')
+                  .map((placement) => {
+                    if (placement.kind !== 'sheet') return null
+                    const mapped = placement.parameterMappings
+                      .map((mapping) =>
+                        instantiateVersion?.configuration.parameters.find(
+                          (parameter) =>
+                            parameter.id === mapping.templateParameterId,
+                        ),
+                      )
+                      .filter(
+                        (parameter): parameter is NonNullable<typeof parameter> =>
+                          parameter != null,
+                      )
+                    return (
+                      <li key={placement.id}>
+                        <span className="font-medium">
+                          {placement.title ?? 'Notebook sheet'}
+                        </span>{' '}
+                        <span className="text-muted-foreground">
+                          · governed pin{' '}
+                          {placement.definitionVersionId.slice(0, 8)}
+                          {mapped.length > 0
+                            ? ` · inputs: ${mapped
+                                .map(
+                                  (parameter) =>
+                                    `${parameter.label}${parameter.required ? '' : ' (optional)'}`,
+                                )
+                                .join(', ')}`
+                            : ' · no inputs'}
+                        </span>
+                      </li>
+                    )
+                  })}
+              </ul>
+              <p className="text-xs text-muted-foreground">
+                Governed pins name the exact published versions composed. Each
+                sheet becomes an independent instance — no part mutates
+                another. Titles, projects and parameter values stay local.
+              </p>
+            </div>
+          ) : null}
           {instantiateVersion?.configuration.parameters.length ? (
             <TemplateParameterInputs
               client={notebookTemplateDataClient}
@@ -1161,6 +1239,13 @@ export function VersionedNotebookTemplatePanel({
                 }))
               }
             />
+          ) : null}
+          {missingRequiredParameters.length > 0 ? (
+            <p className="text-sm text-destructive" role="alert">
+              Missing required:{' '}
+              {missingRequiredParameters.map((parameter) => parameter.label).join(', ')}
+              . No Notebook is created until every required input resolves.
+            </p>
           ) : null}
           {instantiate.error ? (
             <p className="text-sm text-destructive" role="alert">
@@ -1178,7 +1263,10 @@ export function VersionedNotebookTemplatePanel({
             <Button
               type="button"
               disabled={
-                !createProjectId || !createVersionId || instantiate.isPending
+                !createProjectId ||
+                !createVersionId ||
+                instantiate.isPending ||
+                missingRequiredParameters.length > 0
               }
               onClick={() => instantiate.mutate()}
             >

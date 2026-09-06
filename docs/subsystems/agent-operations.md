@@ -54,6 +54,18 @@ are absent. Adding one of those requires an explicit policy decision.
 Reads and previews stay outside this model. Agents use the ordinary read
 APIs.
 
+## Tool catalogue (AUTO-PLUS-01)
+
+The bounded agent-callable surface is `src/lib/agent-tool-catalogue.ts`:
+7 operation tools (6 `draft`, 1 `mutate`), 5 workflow lifecycle RPCs, and
+4 read-only canonical reads — 16 entries total, each with a description,
+zod input contract, existing server error codes, and the capability the
+server asserts. Agents discover it through `listAgentTools` (mode +
+capability filtering) and `describeAgentTool`; human-only attestation
+(`decide`, `execute-as-human`, `resume`, submit/sign/amend/checks) is
+listed in `UNAVAILABLE_AGENT_OPERATIONS` with reasons. `AGENT_OPERATION_TOOL_NAMES`
+is the single authority behind `AGENT_WORKFLOW_TOOLS` and the AI gateway's `GATEWAY_TOOLS` (drift-tested).
+
 ## Policy
 
 This is the AUTO-04 addition: execution is policy-driven, not “approve every

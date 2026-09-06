@@ -20,6 +20,8 @@ import {
   relationshipTypeLabels,
   removeModelRelationshipRule,
   resolveRelationshipLabel,
+  ruleDeclarationGuidance,
+  ruleRemovalGuidance,
   rulesForLinkType,
   toModelRelationshipRule,
 } from './model-relationships'
@@ -294,5 +296,62 @@ describe('rulesForLinkType', () => {
     ]
     expect(rulesForLinkType(rules, 'experiment', 'sample')).toHaveLength(1)
     expect(rulesForLinkType(rules, 'experiment', 'reagent')).toHaveLength(0)
+  })
+})
+
+describe('MODEL-04 migration guidance', () => {
+  it('names world-closing on the first declaration', () => {
+    const guidance = ruleDeclarationGuidance(
+      {
+        sourceModelKey: 'experiment',
+        linkType: 'sample',
+        targetModelKey: 'sample',
+        minLinks: 0,
+        maxLinks: null,
+      },
+      0,
+    )
+    expect(guidance.join(' ')).toMatch(/closes the world/)
+    expect(guidance.join(' ')).toMatch(/never rewrites existing links/)
+  })
+
+  it('warns about maxima and explains minima on later declarations', () => {
+    const guidance = ruleDeclarationGuidance(
+      {
+        sourceModelKey: 'experiment',
+        linkType: 'sample',
+        targetModelKey: 'sample',
+        minLinks: 1,
+        maxLinks: 2,
+      },
+      3,
+    )
+    expect(guidance.join(' ')).not.toMatch(/closes the world/)
+    expect(guidance.join(' ')).toMatch(/maximum of 2/)
+    expect(guidance.join(' ')).toMatch(/never enforced/)
+  })
+
+  it('names re-opening when the last declarations are removed', () => {
+    expect(
+      ruleRemovalGuidance(
+        rule({ linkType: 'sample' }),
+        0,
+        0,
+      ).join(' '),
+    ).toMatch(/unrestricted/)
+    expect(
+      ruleRemovalGuidance(
+        rule({ linkType: 'sample' }),
+        0,
+        2,
+      ).join(' '),
+    ).toMatch(/re-opens “sample”/)
+    expect(
+      ruleRemovalGuidance(
+        rule({ linkType: 'sample' }),
+        1,
+        2,
+      ).join(' '),
+    ).toMatch(/still constrain/)
   })
 })

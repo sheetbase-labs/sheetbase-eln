@@ -410,3 +410,78 @@ export const RELATIONSHIP_NOT_ALLOWED_MESSAGE =
 /** Friendly linker message for an SB081 rejection. */
 export const RELATIONSHIP_CARDINALITY_MESSAGE =
   'This record already has the maximum number of links of that kind.'
+
+// ---------------------------------------------------------------------------
+// Migration guidance — pure mirrors of the server enforcement grain for the
+// steward preview. Rule changes alter link-creation meaning (SB080/SB081);
+// local working state is never auto-migrated, so every change names what
+// the steward must do downstream instead.
+// ---------------------------------------------------------------------------
+
+export interface PendingRelationshipDeclaration {
+  sourceModelKey: string
+  linkType: string
+  targetModelKey: string
+  minLinks: number
+  maxLinks: number | null
+}
+
+/**
+ * Steward-facing consequences of declaring (or re-declaring) one rule.
+ * Mirrors the trigger grain: the first declaration for a source Model
+ * closes the world for that model; maxima fail closed at creation;
+ * minima are completeness metadata, never write-time enforcement.
+ */
+export function ruleDeclarationGuidance(
+  pending: PendingRelationshipDeclaration,
+  existingSourceRules: number,
+): string[] {
+  const guidance: string[] = []
+  if (existingSourceRules === 0) {
+    guidance.push(
+      `This first declaration closes the world for model “${pending.sourceModelKey}”: from now on only declared (link type, target model) pairs are accepted at link creation, and anything else is rejected.`,
+    )
+  }
+  if (pending.maxLinks !== null) {
+    guidance.push(
+      `Links beyond the maximum of ${pending.maxLinks} are rejected when created. Existing over-maximum links stay readable but cannot be recreated once removed — review them before tightening.`,
+    )
+  }
+  if (pending.minLinks > 0) {
+    guidance.push(
+      `The minimum of ${pending.minLinks} is completeness metadata for readers; it is never enforced when links are created, so under-linked records need a steward pass, not a migration.`,
+    )
+  }
+  guidance.push(
+    'Declaring a rule never rewrites existing links or local working state; it only changes which future links are accepted.',
+  )
+  return guidance
+}
+
+/**
+ * Steward-facing consequences of removing one rule. Removing the last
+ * declaration for a (source model, link type) pair re-opens that pair;
+ * removing the last rule of the model restores unrestricted behaviour.
+ */
+export function ruleRemovalGuidance(
+  rule: Pick<
+    ModelRelationshipRule,
+    'sourceModelKey' | 'linkType' | 'targetModelKey'
+  >,
+  remainingForLinkType: number,
+  remainingForSource: number,
+): string[] {
+  if (remainingForSource === 0) {
+    return [
+      `Removing this last declaration restores unrestricted links for model “${rule.sourceModelKey}”: every link type is accepted again. Existing links are unaffected.`,
+    ]
+  }
+  if (remainingForLinkType === 0) {
+    return [
+      `Removing this declaration re-opens “${rule.linkType}” links for model “${rule.sourceModelKey}”: that type no longer requires a declared target. Existing links are unaffected.`,
+    ]
+  }
+  return [
+    `Other declarations still constrain “${rule.linkType}” links for model “${rule.sourceModelKey}”. Existing links are unaffected.`,
+  ]
+}

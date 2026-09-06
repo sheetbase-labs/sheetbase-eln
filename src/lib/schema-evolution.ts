@@ -10,6 +10,8 @@ export interface EvolutionPreview {
   ok?: boolean
   reason?: string | null
   impact?: unknown
+  /** MODEL-04: steward-facing migration guidance from preview_model_field_evolution. */
+  guidance?: string[]
   advancesLiveDatasets?: boolean
   copiesValues?: boolean
   historicalValuesRemainLocal?: boolean

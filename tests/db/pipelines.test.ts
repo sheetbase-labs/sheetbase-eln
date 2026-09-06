@@ -1084,6 +1084,78 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     )
     expect(rows[0].n).toBeGreaterThanOrEqual(1)
   })
+  it('validates event specs on update the same way as on create', async () => {
+    const owner = await actor(OWNER, WS)
+    const schedule = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_schedule',
+      {
+        p_workspace_id: WS,
+        p_definition_id: pipelineDefinitionId,
+        p_kind: 'event',
+        p_spec: {
+          eventType: 'dataset.versioned',
+          inputName: 'measurements',
+        },
+        p_enabled: true,
+      },
+    )
+    const update = (
+      spec: Record<string, unknown>,
+    ): Promise<{ id: string; spec: { eventType: string } }> =>
+      rpc(owner, 'update_pipeline_schedule', {
+        p_workspace_id: WS,
+        p_schedule_id: schedule.id,
+        p_kind: 'event',
+        p_spec: spec,
+        p_enabled: true,
+      })
+    // Update rejects what create rejects: non-triggerable events and bad
+    // dataset filters (previously the update path normalized the name only).
+    await expect(
+      update({ eventType: 'pipeline.created', inputName: 'measurements' }),
+    ).rejects.toMatchObject({ code: 'SB034' })
+    await expect(
+      update({
+        eventType: 'dataset.versioned',
+        datasetId: 'not-a-uuid',
+        inputName: 'measurements',
+      }),
+    ).rejects.toMatchObject({ code: 'SB034' })
+    await expect(
+      update({
+        eventType: 'dataset.versioned',
+        datasetId: 42,
+        inputName: 'measurements',
+      }),
+    ).rejects.toMatchObject({ code: 'SB034' })
+    // ... and still accepts what create accepts (alias in, canonical out).
+    const updated = await update({
+      eventType: 'dataset_version_created',
+      inputName: 'measurements',
+    })
+    expect(updated.spec.eventType).toBe('dataset.versioned')
+  })
+
+  it('create path still rejects invalid event specs', async () => {
+    const owner = await actor(OWNER, WS)
+    const create = (
+      spec: Record<string, unknown>,
+    ): Promise<{ id: string }> =>
+      rpc(owner, 'create_pipeline_schedule', {
+        p_workspace_id: WS,
+        p_definition_id: pipelineDefinitionId,
+        p_kind: 'event',
+        p_spec: spec,
+        p_enabled: true,
+      })
+    await expect(
+      create({ eventType: 'dataset.versioned', datasetId: 'not-a-uuid' }),
+    ).rejects.toMatchObject({ code: 'SB034' })
+    await expect(
+      create({ eventType: 'nope.notreal' }),
+    ).rejects.toMatchObject({ code: 'SB034' })
+  })
 
   it('records run outputs and stage logs for provenance', async () => {
     const { rows: outputs } = await migrator.query(

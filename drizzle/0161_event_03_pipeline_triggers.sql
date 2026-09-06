@@ -55,9 +55,49 @@ END $$;
 --> statement-breakpoint
 REVOKE EXECUTE ON FUNCTION api.normalize_pipeline_event_type(text) FROM PUBLIC;
 --> statement-breakpoint
+-- ---------------------------------------------------------------------------
+-- Review fix: centralise event-spec validation. create_pipeline_schedule
+-- validated the event dataset filter while update_pipeline_schedule only
+-- normalized the event name, so an update could persist a spec that create
+-- would reject. Both RPCs pass through api.validate_pipeline_event_spec,
+-- the single choke point: it canonicalizes eventType and enforces the
+-- datasetId filter, returning the normalized spec. Missing and JSON-null
+-- datasetId both mean "no filter" (matches the client gate).
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION api.validate_pipeline_event_spec(p_spec jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = ''
+AS $$
+DECLARE
+  v_spec jsonb := p_spec;
+  v_event text;
+  v_dataset jsonb;
+BEGIN
+  v_event := api.normalize_pipeline_event_type(v_spec->>'eventType');
+  v_spec := jsonb_set(v_spec, '{eventType}', to_jsonb(v_event));
+  v_dataset := v_spec->'datasetId';
+  IF v_dataset IS NOT NULL AND v_dataset <> 'null'::jsonb THEN
+    IF jsonb_typeof(v_dataset) <> 'string' THEN
+      RAISE EXCEPTION 'invalid event dataset filter' USING ERRCODE = 'SB034';
+    END IF;
+    BEGIN
+      PERFORM (v_spec->>'datasetId')::uuid;
+    EXCEPTION WHEN others THEN
+      RAISE EXCEPTION 'invalid event dataset filter' USING ERRCODE = 'SB034';
+    END;
+  END IF;
+  RETURN v_spec;
+END $$;
+--> statement-breakpoint
+REVOKE EXECUTE ON FUNCTION api.validate_pipeline_event_spec(jsonb) FROM PUBLIC;
+--> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
--- create_pipeline_schedule: normalize the trigger name, store canonical.
+-- create_pipeline_schedule: validate the event spec through the shared
+-- validator, store canonical.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION api.create_pipeline_schedule(
@@ -75,7 +115,6 @@ AS $$
 DECLARE
   v api.pipeline_schedules;
   v_definition api.pipeline_definitions;
-  v_event text;
   v_spec jsonb;
 BEGIN
   IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id THEN
@@ -92,17 +131,7 @@ BEGIN
   END IF;
   v_spec := p_spec;
   IF p_kind = 'event' THEN
-    v_event := api.normalize_pipeline_event_type(p_spec->>'eventType');
-    v_spec := jsonb_set(v_spec, '{eventType}', to_jsonb(v_event));
-    IF v_spec ? 'datasetId' AND jsonb_typeof(v_spec->'datasetId') <> 'string' THEN
-      RAISE EXCEPTION 'invalid event dataset filter' USING ERRCODE = 'SB034';
-    ELSIF jsonb_typeof(v_spec->'datasetId') = 'string' THEN
-      BEGIN
-        PERFORM (v_spec->>'datasetId')::uuid;
-      EXCEPTION WHEN others THEN
-        RAISE EXCEPTION 'invalid event dataset filter' USING ERRCODE = 'SB034';
-      END;
-    END IF;
+    v_spec := api.validate_pipeline_event_spec(p_spec);
   ELSE
     PERFORM api.pipeline_schedule_next_run(p_kind, p_spec, now());
   END IF;
@@ -122,7 +151,7 @@ GRANT EXECUTE ON FUNCTION api.create_pipeline_schedule(uuid, uuid, text, jsonb, 
 --> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
--- update_pipeline_schedule: same normalization on rewrite.
+-- update_pipeline_schedule: same shared validation on rewrite.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION api.update_pipeline_schedule(
@@ -141,7 +170,6 @@ DECLARE
   v api.pipeline_schedules;
   v_kind text;
   v_spec jsonb;
-  v_event text;
 BEGIN
   IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id THEN
     RAISE EXCEPTION 'wrong workspace' USING ERRCODE = 'SB033';
@@ -158,8 +186,7 @@ BEGIN
     RAISE EXCEPTION 'invalid schedule kind' USING ERRCODE = 'SB034';
   END IF;
   IF v_kind = 'event' THEN
-    v_event := api.normalize_pipeline_event_type(v_spec->>'eventType');
-    v_spec := jsonb_set(v_spec, '{eventType}', to_jsonb(v_event));
+    v_spec := api.validate_pipeline_event_spec(v_spec);
   ELSE
     PERFORM api.pipeline_schedule_next_run(v_kind, v_spec, now());
   END IF;

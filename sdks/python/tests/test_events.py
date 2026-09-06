@@ -8,6 +8,7 @@ from pathlib import Path
 from sheetbase.resources.events import (
     EVENT_ALIASES,
     EVENT_NAMES,
+    WebhookEventPayload,
     is_event_name,
     resolve_event_alias,
     verify_webhook_signature,
@@ -63,3 +64,48 @@ def test_verify_rejects_mismatches() -> None:
     assert not verify_webhook_signature(body + " ", secret, signature)
     assert not verify_webhook_signature(body, "wrong-secret", signature)
     assert not verify_webhook_signature(body, secret, "sha256=deadbeef")
+
+
+def test_verify_accepts_bytes_body() -> None:
+    body = b'{"eventType": "record.created", "eventId": "e1"}'
+    secret = "test-signing-secret"
+    signature = "sha256=" + hmac.new(
+        secret.encode(), body, hashlib.sha256
+    ).hexdigest()
+    assert verify_webhook_signature(body, secret, signature)
+    assert not verify_webhook_signature(body + b" ", secret, signature)
+
+
+def test_verify_str_and_bytes_bodies_agree() -> None:
+    text = '{"eventType": "record.created", "eventId": "e1", "n": "caf\u00e9"}'
+    raw = text.encode("utf-8")
+    secret = "test-signing-secret"
+    signature = "sha256=" + hmac.new(
+        secret.encode(), raw, hashlib.sha256
+    ).hexdigest()
+    assert verify_webhook_signature(text, secret, signature)
+    assert verify_webhook_signature(raw, secret, signature)
+    assert verify_webhook_signature(raw, secret.encode(), signature)
+    assert verify_webhook_signature(text, secret.encode(), signature)
+
+
+def test_payload_keys_are_required() -> None:
+    assert WebhookEventPayload.__optional_keys__ == frozenset()
+    assert WebhookEventPayload.__required_keys__ == frozenset(
+        {
+            "schemaVersion",
+            "eventType",
+            "eventId",
+            "sequence",
+            "workspaceId",
+            "entityUuid",
+            "entityType",
+            "operation",
+            "recordId",
+            "projectId",
+            "actorUserId",
+            "actorCredentialId",
+            "payload",
+            "createdAt",
+        }
+    )

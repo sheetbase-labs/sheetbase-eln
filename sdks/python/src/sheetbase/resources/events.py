@@ -99,13 +99,18 @@ def is_event_name(value: str) -> bool:
     return value in EVENT_NAMES
 
 
-class WebhookEventPayload(TypedDict, total=False):
+class WebhookEventPayload(TypedDict):
     """JSON body delivered to a webhook endpoint.
 
     Mirrors the server's ``WebhookEventPayload``
     (``src/lib/webhook-events.ts``): ``event_id`` is the idempotency key,
     ``sequence`` orders events within a workspace, and ``payload`` is a
     lightweight summary — never the source of truth.
+
+    Every key is required: the server always emits all of them (context and
+    actor fields arrive as ``None`` when there is no context, never absent),
+    so no field uses ``NotRequired``. Nullable-but-present fields are typed
+    ``Optional[...]``.
     """
 
     schemaVersion: str
@@ -124,14 +129,20 @@ class WebhookEventPayload(TypedDict, total=False):
     createdAt: str
 
 
-def verify_webhook_signature(body: str, secret: str, signature: str) -> bool:
+def verify_webhook_signature(
+    body: bytes | str, secret: bytes | str, signature: str
+) -> bool:
     """Verify a webhook delivery against the ``X-Sheetbase-Signature`` header.
 
     Recomputes ``sha256=<hex>`` HMAC-SHA256 over the raw JSON body (per
     ``src/lib/webhook-signing.ts``) and compares with
     :func:`hmac.compare_digest`. Returns True only on a full match.
+
+    ``body`` may be the raw request bytes (hashed as-is) or ``str`` (encoded
+    once as UTF-8 — prefer passing bytes when the framework gives them, to
+    avoid double-encoding drift). ``secret`` likewise accepts bytes or str.
     """
-    expected = "sha256=" + hmac.new(
-        secret.encode("utf-8"), body.encode("utf-8"), hashlib.sha256
-    ).hexdigest()
+    body_bytes = body if isinstance(body, bytes) else body.encode("utf-8")
+    key = secret if isinstance(secret, bytes) else secret.encode("utf-8")
+    expected = "sha256=" + hmac.new(key, body_bytes, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)

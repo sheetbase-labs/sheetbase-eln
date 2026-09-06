@@ -36,6 +36,7 @@ import {
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 
 import { BlockPreview } from './block-preview'
+import { SubmissionReadinessGuide } from '#/components/assist/submission-readiness-guide'
 
 const WORKFLOW_KEY = 'default-scientific-review'
 const WORKFLOW_VERSION = 1
@@ -389,6 +390,27 @@ export function SubmitNotebookDialog({
               </p>
             ) : null}
           </fieldset>
+          {/* ASSIST-03: step-aware guidance over the same canonical inputs
+              as the readiness checklist above. Its snapshot accept runs the
+              dialog's own check and its submit accept runs the dialog's own
+              guarded submit; review accepts navigate to the review
+              workspace. */}
+          <SubmissionReadinessGuide
+            recordId={recordId}
+            hasUnsavedWork={hasUnsavedWork}
+            archivedAt={archivedAt}
+            lockedAt={lockedAt}
+            activeReview={activeReview}
+            reviewerCount={selectedReviewerIds.length}
+            digest={verified?.digest.sourceDigest ?? null}
+            digestPending={preview.isPending}
+            digestError={previewErrorMessage}
+            onCheckSnapshot={() => preview.mutate()}
+            onSubmitRevision={() => submit.mutate()}
+            onOpenReviews={() => {
+              void navigate({ to: '/reviews' })
+            }}
+          />
 
           {/* NOTE-04: preview of what submission will pin, rendered from
               the frozen snapshot bound to the verified digest. Reuses the

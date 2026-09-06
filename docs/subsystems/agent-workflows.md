@@ -91,9 +91,10 @@ budget. Crossing any limit changes the workflow to `budget_exhausted` and
 cancels a pending or approved proposal before it can mutate data.
 
 `/agent-operations` shows plans, input references, proposal attempts,
-provenance, operation/token/cost limits and usage, recovery state, and the
-workflow event timeline. The proposal tab retains the exact per-operation
-preview, diff, approval, execution, and canonical evidence path.
+provenance, operation/token/cost limits and usage, wall latency and step
+rollups, recovery state, and the workflow event timeline. The proposal
+tab retains the exact per-operation preview, diff, approval, execution,
+and canonical evidence path.
 
 ## External boundary
 
@@ -157,3 +158,56 @@ closed to `pending-approval`.
 
 No migration was needed: approval stays on the existing decide/policy
 RPCs and every gate above derives from stored proposal columns.
+
+## AUTO-PLUS-03: run provenance, evidence, evaluation
+
+No new tables and no second engine. Everything below is a derived view
+over the workflow, step, proposal, and event rows.
+
+### Run provenance record
+
+`buildWorkflowProvenanceRecord(workflow, steps, proposalsById)` in
+`src/lib/agent-provenance.ts` projects one run into a single inspectable
+record: workflow run (goal, plan digest, budget/usage, actors) → ordered
+step attempts → linked proposals (status, approval policy and reason,
+risk class, request digest, proposed/decided/executed actors, error) →
+input version pins and output references. Steps without a stored
+proposal yet carry nulls, never invented values. Output references are
+operation-derived targets (always computable) plus result-derived ids
+only from known canonical identity keys holding UUIDs; unknown result
+shapes yield no refs rather than guesses.
+
+### Evidence boundaries
+
+`markProposalEvidence` / `markWorkflowStepEvidence` mark every
+agent-produced output as agent-produced. Only a *succeeded* proposal
+carries a canonical result whose pins may enter submitted work after
+human review; pending, approved-but-unexecuted, rejected, failed, and
+cancelled outputs are marked not submittable with the reason.
+`/agent-operations` shows the marking on both tabs. The marking is
+information, never attestation: submit/sign RPCs stay denied to agent
+credentials and only a human may submit or sign.
+
+### Run cost/latency rollups
+
+Metrics decision: run-level rollups live in
+`summarizeWorkflowRunMetrics` on the stored workflow usage reporting
+(budgets, used tokens/cost, step states, wall-clock timestamps) — not
+in the AI-03 gateway registry, which stays scoped to per-model-call
+telemetry. Gateway usage reaches a run through
+`report_agent_workflow_usage`; the rollup only reads stored run state.
+Wall latency is completed_at − created_at (null until completion).
+`/agent-operations` renders latency and the per-state step rollup in
+the Budget and usage section.
+
+### Evaluation suites
+
+`src/lib/agent-provenance.test.ts` evaluates the projections (joins,
+output extraction, evidence marking, rollups).
+`tests/db/agent-evaluations.test.ts` evaluates correctness (a
+representative two-step run produces canonical Pipeline/Dataset
+effects with a joinable provenance chain), permission isolation (every
+human-only and cross-principal path fails closed at the database
+layer), and failure behaviour (rejected, budget-exhausted, and
+cancelled runs stay inspectable and resume the same pinned operation).
+

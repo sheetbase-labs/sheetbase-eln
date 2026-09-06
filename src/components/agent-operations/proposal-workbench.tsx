@@ -1,6 +1,10 @@
 import { AlertTriangle, Bot, Check, Play, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import {
+  AGENT_EVIDENCE_HUMAN_ATTESTATION_NOTE,
+  markProposalEvidence,
+} from '#/lib/agent-provenance'
 import { agentOperationLabel, proposalRevision } from '#/lib/agent-operations'
 import type {
   AgentOperationEvent,
@@ -105,6 +109,7 @@ export function ProposalWorkbench({
             <div className="min-w-0">
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <ProposalStatus status={selected.status} />
+                <Badge variant="secondary">Agent-produced</Badge>
                 <Badge variant="outline">
                   {selected.approval_policy.replaceAll('_', ' ')}
                 </Badge>
@@ -251,6 +256,48 @@ export function ProposalWorkbench({
                     mono
                   />
                 </dl>
+              </section>
+              <section aria-labelledby="proposal-evidence">
+                <h3 id="proposal-evidence" className="text-sm font-semibold">
+                  Evidence boundary
+                </h3>
+                {(() => {
+                  const marking = markProposalEvidence(selected)
+                  return (
+                    <div className="mt-2 space-y-2 text-sm">
+                      <p>
+                        <Badge
+                          variant={
+                            marking.qualifiesForSubmission
+                              ? 'default'
+                              : 'outline'
+                          }
+                        >
+                          {marking.qualifiesForSubmission
+                            ? 'May enter submitted work'
+                            : 'Not submittable'}
+                        </Badge>
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {marking.qualification}
+                      </p>
+                      {marking.outputReferences.length > 0 && (
+                        <ul className="text-muted-foreground space-y-1 font-mono text-[11px]">
+                          {marking.outputReferences.map((reference) => (
+                            <li
+                              key={`${reference.kind}:${reference.id}`}
+                            >
+                              {reference.kind}: {reference.id}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="text-muted-foreground text-xs">
+                        {AGENT_EVIDENCE_HUMAN_ATTESTATION_NOTE}
+                      </p>
+                    </div>
+                  )
+                })()}
               </section>
 
               <section aria-labelledby="proposal-timeline">

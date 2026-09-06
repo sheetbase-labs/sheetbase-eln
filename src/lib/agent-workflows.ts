@@ -529,6 +529,81 @@ export function summarizeWorkflowRecovery(
   }
 }
 
+/**
+ * AUTO-PLUS-03 — workflow run cost/latency rollup.
+ *
+ * Metrics decision: run-level rollups live here, on the workflow usage
+ * reporting already stored per run (budgets, used tokens/cost, step
+ * states, wall-clock timestamps) — not in the AI-03 gateway registry,
+ * which stays scoped to per-model-call telemetry (calls, cost, latency
+ * histograms). Gateway usage reaches a run through
+ * `reportAgentWorkflowUsage`; this summary only reads stored run state,
+ * so it never disagrees with the durable counters.
+ */
+export interface AgentWorkflowRunMetrics {
+  operations: { used: number; max: number; remaining: number }
+  tokens: { used: string; max: string }
+  costMicrousd: { used: string; max: string }
+  costUsd: { used: string; max: string }
+  /** Wall latency completed_at − created_at; null until the run completes. */
+  wallLatencyMs: number | null
+  steps: {
+    total: number
+    succeeded: number
+    failed: number
+    rejected: number
+    cancelled: number
+    open: number
+  }
+  budgetExhausted: boolean
+}
+
+const MICROUSD_PER_USD = 1_000_000
+
+export function summarizeWorkflowRunMetrics(
+  workflow: AgentWorkflow,
+  steps: Pick<AgentWorkflowStep, 'status'>[],
+): AgentWorkflowRunMetrics {
+  const count = (status: AgentWorkflowStep['status']) =>
+    steps.filter((step) => step.status === status).length
+  const latency =
+    workflow.completed_at == null
+      ? null
+      : Date.parse(workflow.completed_at) - Date.parse(workflow.created_at)
+  return {
+    operations: {
+      used: workflow.used_operations,
+      max: workflow.max_operations,
+      remaining: workflowRetriesRemaining(workflow),
+    },
+    tokens: {
+      used: String(workflow.used_tokens),
+      max: String(workflow.max_tokens),
+    },
+    costMicrousd: {
+      used: String(workflow.used_cost_microusd),
+      max: String(workflow.max_cost_microusd),
+    },
+    costUsd: {
+      used: (Number(workflow.used_cost_microusd) / MICROUSD_PER_USD).toFixed(4),
+      max: (Number(workflow.max_cost_microusd) / MICROUSD_PER_USD).toFixed(4),
+    },
+    wallLatencyMs:
+      latency != null && Number.isFinite(latency) && latency >= 0
+        ? latency
+        : null,
+    steps: {
+      total: steps.length,
+      succeeded: count('succeeded'),
+      failed: count('failed'),
+      rejected: count('rejected'),
+      cancelled: count('cancelled'),
+      open: count('planned') + count('waiting_approval'),
+    },
+    budgetExhausted: workflow.status === 'budget_exhausted',
+  }
+}
+
 
 export const agentWorkflowQueryKeys = {
   workflows: ['agent-operations', 'workflows'] as const,

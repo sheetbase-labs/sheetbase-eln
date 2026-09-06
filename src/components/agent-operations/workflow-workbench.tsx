@@ -29,8 +29,14 @@ import {
   dryRunAgentWorkflow,
   summarizeWorkflowApprovals,
   summarizeWorkflowRecovery,
+  summarizeWorkflowRunMetrics,
   workflowCostUsd,
 } from '#/lib/agent-workflows'
+import {
+  AGENT_EVIDENCE_HUMAN_ATTESTATION_NOTE,
+  extractAgentOutputReferences,
+  markWorkflowStepEvidence,
+} from '#/lib/agent-provenance'
 import type { AgentOperationProposal } from '#/lib/agent-operations'
 import { cn } from '#/lib/utils'
 
@@ -81,6 +87,10 @@ export function WorkflowWorkbench({
   const approvals = useMemo(() => summarizeWorkflowApprovals(dryRun), [dryRun])
   const recovery = useMemo(
     () => (selected ? summarizeWorkflowRecovery(selected, steps) : null),
+    [selected, steps],
+  )
+  const runMetrics = useMemo(
+    () => (selected ? summarizeWorkflowRunMetrics(selected, steps) : null),
     [selected, steps],
   )
 
@@ -170,6 +180,7 @@ export function WorkflowWorkbench({
             <div className="min-w-0">
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <WorkflowStatus status={selected.status} />
+                <Badge variant="secondary">Agent-produced</Badge>
                 <Badge variant="outline">sequential · policy gated</Badge>
                 <Badge variant="secondary">
                   {selected.plan.steps.length} pinned steps
@@ -401,15 +412,51 @@ export function WorkflowWorkbench({
                           </Button>
                         )}
                       </div>
-                      {step.input_references.length > 0 && (
-                        <ul className="text-muted-foreground mt-2 space-y-1 font-mono text-[11px]">
-                          {step.input_references.map((reference) => (
-                            <li key={`${reference.kind}:${reference.id}`}>
-                              {reference.kind}: {reference.id}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                      {(() => {
+                        const linked = step.proposal_id
+                          ? (proposalsById[step.proposal_id] ?? null)
+                          : null
+                        const pins = step.input_references.map(
+                          (reference) => ({
+                            key: `in:${reference.kind}:${reference.id}`,
+                            text: `pin ${reference.kind}: ${reference.id}`,
+                          }),
+                        )
+                        const outputs = extractAgentOutputReferences(
+                          step.operation,
+                          linked?.status === 'succeeded'
+                            ? linked.result
+                            : null,
+                        ).map((reference) => ({
+                          key: `out:${reference.kind}:${reference.id}`,
+                          text: `out ${reference.kind}: ${reference.id}`,
+                        }))
+                        const rows = [...pins, ...outputs]
+                        if (rows.length === 0) return null
+                        return (
+                          <ul className="text-muted-foreground mt-2 space-y-1 font-mono text-[11px]">
+                            {rows.map((row) => (
+                              <li key={row.key}>{row.text}</li>
+                            ))}
+                          </ul>
+                        )
+                      })()}
+                      {(() => {
+                        const marking = markWorkflowStepEvidence(
+                          step,
+                          step.proposal_id
+                            ? (proposalsById[step.proposal_id] ?? null)
+                            : null,
+                        )
+                        return (
+                          <p className="text-muted-foreground mt-2 text-[11px]">
+                            Agent-produced ·{' '}
+                            {marking.qualifiesForSubmission
+                              ? 'may enter submitted work after human review'
+                              : marking.qualification}
+                          </p>
+                        )
+                      })()}
                     </li>
                   ))}
                 </ol>
@@ -441,6 +488,22 @@ export function WorkflowWorkbench({
                     percent={costPercent}
                   />
                 </div>
+                {runMetrics && (
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <Property
+                      label="Wall latency"
+                      value={
+                        runMetrics.wallLatencyMs == null
+                          ? 'Running — measured at completion'
+                          : `${(runMetrics.wallLatencyMs / 1000).toFixed(1)}s`
+                      }
+                    />
+                    <Property
+                      label="Steps"
+                      value={`${runMetrics.steps.succeeded}/${runMetrics.steps.total} succeeded${runMetrics.steps.failed > 0 ? ` · ${runMetrics.steps.failed} failed` : ''}${runMetrics.steps.rejected > 0 ? ` · ${runMetrics.steps.rejected} rejected` : ''}${runMetrics.steps.cancelled > 0 ? ` · ${runMetrics.steps.cancelled} cancelled` : ''}`}
+                    />
+                  </dl>
+                )}
               </section>
 
               <section aria-labelledby="workflow-provenance">
@@ -463,6 +526,9 @@ export function WorkflowWorkbench({
                     mono
                   />
                 </dl>
+                <p className="text-muted-foreground mt-2 text-xs">
+                  {AGENT_EVIDENCE_HUMAN_ATTESTATION_NOTE}
+                </p>
               </section>
 
               <section aria-labelledby="workflow-timeline">

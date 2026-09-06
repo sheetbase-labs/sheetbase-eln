@@ -128,6 +128,18 @@ Automatic execution records the acting credential. Human execution records
 the acting user. The canonical mutation still emits its ordinary
 `change_events` and evidence.
 
+### Evidence boundary (AUTO-PLUS-03)
+
+Every agent proposal is marked agent-produced on the review surface.
+Only a *succeeded* proposal carries a canonical result whose version
+pins may enter submitted work after human review; all other states are
+marked not submittable with the reason. Workflow steps join their
+pinned input references with operation- and result-derived output
+references (`extractAgentOutputReferences`,
+`markProposalEvidence`/`markWorkflowStepEvidence` in
+`src/lib/agent-provenance.ts`). The marking is information, never
+attestation: agents cannot submit or sign on behalf of humans.
+
 ## External boundary
 
 | Scope | Allows |

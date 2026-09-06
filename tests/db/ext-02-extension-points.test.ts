@@ -31,9 +31,11 @@ async function actor(userId: string, workspaceId: string): Promise<Client> {
 }
 
 async function installSample(client: Client, key = SAMPLE_EXTENSION_KEY) {
+  // The sample ships from a `dev:` source, untrusted under the EXT-03
+  // policy: installs acknowledge it explicitly, never silently.
   const rows = (
     await client.query(
-      `select * from api.install_extension($1,$2,$3,$4,$5,$6::jsonb)`,
+      `select * from api.install_extension($1,$2,$3,$4,$5,$6::jsonb,$7)`,
       [
         WS,
         key,
@@ -41,6 +43,7 @@ async function installSample(client: Client, key = SAMPLE_EXTENSION_KEY) {
         SAMPLE_EXTENSION_MANIFEST.version,
         SAMPLE_EXTENSION_MANIFEST.source,
         JSON.stringify(SAMPLE_EXTENSION_MANIFEST),
+        true,
       ],
     )
   ).rows

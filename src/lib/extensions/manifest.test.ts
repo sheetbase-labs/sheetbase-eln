@@ -60,6 +60,34 @@ describe('extension manifest validation', () => {
       { eventType: 'sheet.created' },
     ])
   })
+  it('accepts an optional compatibleWith range and rejects malformed ones', () => {
+    expect(
+      validateExtensionManifest({
+        ...validManifestInput(),
+        compatibleWith: '>=1.0.0 <2.0.0',
+      }),
+    ).toEqual([])
+    expect(
+      parseExtensionManifest({
+        ...validManifestInput(),
+        compatibleWith: '>=1.0.0 <2.0.0',
+      }).compatibleWith,
+    ).toBe('>=1.0.0 <2.0.0')
+    expect(
+      validateExtensionManifest({
+        ...validManifestInput(),
+        compatibleWith: '^1.0.0',
+      }),
+    ).not.toEqual([])
+    expect(
+      validateExtensionManifest({
+        ...validManifestInput(),
+        compatibleWith: 'banana',
+      }),
+    ).not.toEqual([])
+    expect(parseExtensionManifest(validManifestInput()).compatibleWith).toBeUndefined()
+  })
+
 
   it('rejects unknown contribution points fail-closed', () => {
     const errors = validateExtensionManifest({

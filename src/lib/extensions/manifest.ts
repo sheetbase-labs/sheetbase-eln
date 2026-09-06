@@ -18,6 +18,7 @@
 import { CAPABILITIES, type Capability } from '../capability'
 import { VALID_SCOPES, type Scope } from '../api-credential-scopes'
 import { eventByName, resolveEventAlias } from '../event-catalogue'
+import { validateCompatRange } from './compat'
 
 /** Contribution points an extension may declare. EXT-02 registers them. */
 export const EXTENSION_CONTRIBUTION_POINTS = [
@@ -78,6 +79,14 @@ export interface ExtensionManifest {
   name: string
   version: string
   source: string
+  /**
+   * Optional app-version range this manifest supports (`*`, or
+   * space-separated `>=`/`<=`/`>`/`<`/`=` comparators, all ANDed).
+   * Absent means compatibility is unknown, never assumed. Grammar and
+   * evaluation live in `./compat` (EXT-03); this contract only pins the
+   * shape so TS and SQL validation stay in lockstep.
+   */
+  compatibleWith?: string
   capabilities: Capability[]
   scopes: Scope[]
   contributions: ExtensionContributions
@@ -142,6 +151,19 @@ function checkSource(value: unknown, errors: string[]): string | null {
   if (SOURCE_PATTERN.test(value)) return value
   errors.push('source must be an https: URL or a namespaced scheme:id reference')
   return null
+}
+function checkCompatibleWith(value: unknown, errors: string[]): string | null {
+  if (value === undefined) return null
+  if (typeof value !== 'string') {
+    errors.push('compatibleWith must be a version range string')
+    return null
+  }
+  const before = errors.length
+  const trimmed = value.trim()
+  for (const problem of validateCompatRange(trimmed)) {
+    errors.push(problem)
+  }
+  return errors.length > before ? null : trimmed
 }
 
 function checkCapabilities(value: unknown, errors: string[]): Capability[] | null {
@@ -261,6 +283,7 @@ export function validateExtensionManifest(input: unknown): string[] {
   checkName(input.name, errors)
   checkVersion(input.version, errors)
   checkSource(input.source, errors)
+  checkCompatibleWith(input.compatibleWith, errors)
   const capabilities = checkCapabilities(input.capabilities, errors)
   const scopes = checkScopes(input.scopes, errors)
   if (
@@ -340,6 +363,9 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
     name: (raw.name as string).trim(),
     version: raw.version as string,
     source: raw.source as string,
+    ...(typeof raw.compatibleWith === 'string'
+      ? { compatibleWith: raw.compatibleWith.trim() }
+      : {}),
     capabilities: [...new Set(raw.capabilities as Capability[])],
     scopes: [...new Set(raw.scopes as Scope[])],
     contributions,

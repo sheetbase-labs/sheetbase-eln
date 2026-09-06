@@ -9,6 +9,7 @@ const sections = new Set([
   'api-credentials',
   'connectors',
   'pipelines',
+  'extensions',
   'storage',
   'usage',
   'activity',

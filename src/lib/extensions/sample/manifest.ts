@@ -24,6 +24,9 @@ export const SAMPLE_EXTENSION_MANIFEST = {
   name: 'Sample Panel',
   version: '1.0.0',
   source: 'dev:sheetbase-sample-panel',
+  // The dev sample runs against any app version; declared explicitly so
+  // compat reads `compatible`, never `unknown`.
+  compatibleWith: '*',
   capabilities: [],
   scopes: ['projects:read'],
   contributions: {
@@ -36,6 +39,7 @@ export const SAMPLE_EXTENSION_MANIFEST = {
   name: string
   version: string
   source: string
+  compatibleWith: string
   capabilities: ExtensionManifest['capabilities']
   scopes: ExtensionManifest['scopes']
   contributions: Record<string, Array<{ id: string; title: string }>>

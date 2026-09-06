@@ -17,7 +17,7 @@ Questions include:
 - membership inheritance;
 - how organisation boundaries affect RLS, credentials, administration and audit.
 
-**Rule:** requires a dedicated ADR before implementation.
+**Rule:** requires a dedicated ADR before implementation. Draft proposed in [`0044-organisation-team-domain-model.md`](../0044-organisation-team-domain-model.md) (status: proposed, adoption-gated); implementation additionally needs a concrete multi-workspace deployment need.
 
 ## Stable Sheet row identity for collaboration
 

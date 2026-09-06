@@ -110,6 +110,8 @@ import {
   moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
+import { acceptTextDraft } from '#/lib/assist-drafts'
+import type { AssistTextDraftProposal } from '#/lib/assist-drafts'
 import {
   fetchNotebookTemplate,
   fetchNotebookTemplateVersion,
@@ -1277,6 +1279,28 @@ function EditableNotebook({
       }
     },
   })
+  // --- ASSIST-02 accepted text draft (ordinary insert_block, same cache
+  // reconciliation as a manual insert) ------------------------------------
+  const draftAcceptMutation = useMutation({
+    mutationFn: async (proposal: AssistTextDraftProposal) => {
+      const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+      return acceptTextDraft(client, {
+        recordId: record.id,
+        proposal,
+        expectedStructureVersion:
+          current?.structureVersion ?? record.structureVersion,
+      })
+    },
+    onSuccess: (res) => {
+      upsertBlock(res.block)
+      setRecordStructureVersion(res.structureVersion)
+    },
+    onError: async (error) => {
+      if (error instanceof DataClientError && error.code === 'stale_version') {
+        await refreshStructure()
+      }
+    },
+  })
 
   // --- Duplicate ---------------------------------------------------------
   const duplicateMutation = useMutation({
@@ -1468,6 +1492,11 @@ function EditableNotebook({
       }
     }
   }
+  // ASSIST-02: insert an accepted text draft; the document owns the
+  // preview, this route owns the canonical mutation + cache update.
+  async function handleAcceptDraft(proposal: AssistTextDraftProposal) {
+    await draftAcceptMutation.mutateAsync(proposal)
+  }
 
   async function handleInsert(
     type: string,
@@ -1657,6 +1686,7 @@ function EditableNotebook({
           onUnsavedWorkChange?.(value)
         }}
         onInsertBlock={handleInsert}
+        onAcceptDraft={handleAcceptDraft}
         onPinProtocol={handlePinProtocol}
         onAttachFile={handleAttachFile}
         onFreezeChart={handleFreezeChart}

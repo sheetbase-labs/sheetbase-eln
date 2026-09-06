@@ -30,6 +30,12 @@ import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
 import { validateAndCommitImport } from '#/lib/import-commit'
 import type { ImportCommitTarget } from '#/lib/import-commit'
 import {
+  applyMappingProposal,
+  suggestMappingProposal,
+} from '#/lib/assist-drafts'
+import type { AssistMappingProposal } from '#/lib/assist-drafts'
+import { DraftProposalPanel } from '#/components/assist/draft-proposal-panel'
+import {
   datasetFieldsFromColumns,
   mapImportSheet,
   recordFieldsFromModel,
@@ -86,10 +92,14 @@ export function ImportWizard({
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [sheetName, setSheetName] = useState('')
   const [mappingValues, setMappingValues] = useState<Record<string, string>>({})
+  // ASSIST-02: deterministic mapping suggestions with confidence + preview.
+  // Accept applies them through the ordinary mappingValues path the wizard
+  // already commits; Discard leaves zero state.
+  const [mappingProposal, setMappingProposal] =
+    useState<AssistMappingProposal | null>(null)
   const [projectId, setProjectId] = useState(
     mode.kind === 'record' ? mode.projectId : '',
   )
-
   const sheet = preview
     ? selectImportSheet(preview, sheetName || undefined)
     : null
@@ -360,7 +370,36 @@ export function ImportWizard({
               </Table>
             </div>
             <div className="grid gap-2">
-              <p className="text-xs font-medium">Column mapping</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs font-medium">Column mapping</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (sheet) setMappingProposal(suggestMappingProposal(sheet.headers, fields))
+                  }}
+                >
+                  Suggest mapping
+                </Button>
+              </div>
+              {mappingProposal ? (
+                <DraftProposalPanel
+                  proposal={mappingProposal}
+                  onAccept={() => {
+                    setMappingValues(
+                      Object.fromEntries(
+                        applyMappingProposal(mappingProposal).map((mapping) => [
+                          mapping.source,
+                          mapping.kind === 'field' ? mapping.field.id : 'ignore',
+                        ]),
+                      ),
+                    )
+                    setMappingProposal(null)
+                  }}
+                  onDiscard={() => setMappingProposal(null)}
+                />
+              ) : null}
               {sheet.headers.map((header) => (
                 <Label
                   key={header}

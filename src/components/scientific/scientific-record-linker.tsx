@@ -33,12 +33,24 @@ import {
   fetchRecordById,
   isDuplicateLinkError,
   isScientificRecordKind,
+  linkTypeForKind,
   scientificRecordQueryKeys,
   searchRecords,
 } from '#/lib/scientific-records'
 import type { ScientificRecordKind } from '#/lib/scientific-records'
 import type { NotebookLink } from '#/lib/notebook-data'
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
+import {
+  RELATIONSHIP_CARDINALITY_MESSAGE,
+  RELATIONSHIP_NOT_ALLOWED_MESSAGE,
+  countLinksForRule,
+  isLinkAllowed,
+  isRelationshipCardinalityError,
+  isRelationshipNotAllowedError,
+  relationshipRuleStatus,
+  rulesForLinkType,
+} from '#/lib/model-relationships'
+import type { ModelRelationshipRule } from '#/lib/model-relationships'
 
 export interface ScientificRecordLinkerProps {
   /** The notebook record that owns the outgoing links. */
@@ -54,6 +66,14 @@ export interface ScientificRecordLinkerProps {
    * count pills) and doesn't want the detailed properties dumped into the
    * same scroll. */
   hideSummaries?: boolean
+  /**
+   * MODEL-03: the source record's Model key. With `rules`, kind tabs the
+   * Model does not accept are not offered; omitted leaves every kind
+   * available as today.
+   */
+  sourceModelKey?: string
+  /** MODEL-03: declared relationship rules for the source Model. */
+  rules?: ModelRelationshipRule[]
 }
 
 const KIND_OPTIONS: { kind: ScientificRecordKind; label: string }[] = [
@@ -62,33 +82,84 @@ const KIND_OPTIONS: { kind: ScientificRecordKind; label: string }[] = [
   { kind: 'protocol_template', label: 'Protocol' },
 ]
 
+/**
+ * Whether the kind tab may be offered for the source Model. Record-backed
+ * model keys align with record kinds by canonical seed, so the kind
+ * addresses the rule's target model directly.
+ */
+export function isLinkerKindAllowed(
+  kind: ScientificRecordKind,
+  sourceModelKey: string | undefined,
+  rules: ModelRelationshipRule[] | undefined,
+): boolean {
+  if (!sourceModelKey || !rules) return true
+  return isLinkAllowed(rules, {
+    sourceModelKey,
+    linkType: linkTypeForKind(kind),
+    targetModelKey: kind,
+  })
+}
+
 export function ScientificRecordLinker({
   sourceRecordId,
   links,
   client = notebookDataClient,
   onLinked,
   hideSummaries = false,
+  sourceModelKey,
+  rules,
 }: ScientificRecordLinkerProps) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [kind, setKind] = useState<ScientificRecordKind>('sample')
+  const allowedKinds = KIND_OPTIONS.filter((opt) =>
+    isLinkerKindAllowed(opt.kind, sourceModelKey, rules),
+  )
+  const [kind, setKind] = useState<ScientificRecordKind>(() =>
+    allowedKinds.some((opt) => opt.kind === 'sample')
+      ? 'sample'
+      : (allowedKinds[0]?.kind ?? 'sample'),
+  )
   const [query, setQuery] = useState('')
+  const restricted = allowedKinds.length < KIND_OPTIONS.length
+  // Rules can arrive after mount (async fetch); never strand the picker on
+  // a tab the Model does not accept.
+  const activeKind = allowedKinds.some((opt) => opt.kind === kind)
+    ? kind
+    : (allowedKinds[0]?.kind ?? 'sample')
+  const activeLinkType = linkTypeForKind(activeKind)
+  // Capacity context for the active tab, from the declared rule and the
+  // current outgoing edges (target kinds address model keys by seed).
+  const activeRule =
+    sourceModelKey && rules
+      ? rulesForLinkType(rules, sourceModelKey, activeLinkType).find(
+          (rule) => rule.targetModelKey === activeKind,
+        )
+      : undefined
+  const activeStatus =
+    activeRule?.maxLinks != null
+      ? relationshipRuleStatus(
+          activeRule,
+          countLinksForRule(links, {
+            linkType: activeLinkType,
+            targetModelKey: activeKind,
+          }),
+        )
+      : undefined
 
   const searchQuery = useQuery({
-    queryKey: scientificRecordQueryKeys.search(kind, query),
+    queryKey: scientificRecordQueryKeys.search(activeKind, query),
     queryFn: () =>
-      searchRecords(client, kind, query, { includeArchived: true }),
+      searchRecords(client, activeKind, query, { includeArchived: true }),
     enabled: open,
     staleTime: 15_000,
   })
 
   const defsQuery = useQuery({
-    queryKey: scientificRecordQueryKeys.fieldDefinitions(kind),
-    queryFn: () => fetchFieldDefinitions(client, kind),
+    queryKey: scientificRecordQueryKeys.fieldDefinitions(activeKind),
+    queryFn: () => fetchFieldDefinitions(client, activeKind),
     enabled: open,
     staleTime: 60_000,
   })
-
   const linkMutation = useMutation({
     mutationFn: (target: {
       id: string
@@ -143,14 +214,14 @@ export function ScientificRecordLinker({
           className="space-y-2 rounded-md border bg-popover p-2"
         >
           <div className="flex gap-1" role="tablist" aria-label="Record kind">
-            {KIND_OPTIONS.map((opt) => (
+            {allowedKinds.map((opt) => (
               <Button
                 key={opt.kind}
                 type="button"
-                variant={kind === opt.kind ? 'default' : 'ghost'}
+                variant={activeKind === opt.kind ? 'default' : 'ghost'}
                 size="sm"
                 role="tab"
-                aria-selected={kind === opt.kind}
+                aria-selected={activeKind === opt.kind}
                 onClick={() => {
                   setKind(opt.kind)
                   setQuery('')
@@ -160,6 +231,34 @@ export function ScientificRecordLinker({
               </Button>
             ))}
           </div>
+          {restricted ? (
+            <p className="px-2 text-[0.65rem] text-muted-foreground">
+              This Model accepts{' '}
+              {allowedKinds.map((opt) => opt.label).join(', ') || 'no'}{' '}
+              links
+              {KIND_OPTIONS.filter(
+                (opt) =>
+                  !allowedKinds.some((allowed) => allowed.kind === opt.kind),
+              ).length > 0
+                ? ` — ${KIND_OPTIONS.filter(
+                    (opt) =>
+                      !allowedKinds.some(
+                        (allowed) => allowed.kind === opt.kind,
+                      ),
+                  )
+                    .map((opt) => opt.label)
+                    .join(', ')} not accepted`
+                : null}
+              .
+            </p>
+          ) : null}
+          {activeStatus?.atMaximum ? (
+            <p className="px-2 text-[0.65rem] text-muted-foreground">
+              Maximum reached ({activeStatus.count} of {activeRule?.maxLinks}{' '}
+              {activeKind === 'protocol_template' ? 'Protocol' : activeKind}{' '}
+              links).
+            </p>
+          ) : null}
 
           {/*
             RecordPicker renders its own cmdk Command root and search input;
@@ -168,7 +267,7 @@ export function ScientificRecordLinker({
             search query state above.
           */}
           <RecordPicker
-            kind={kind}
+            kind={activeKind}
             results={searchQuery.data ?? []}
             loading={searchQuery.isLoading}
             error={searchQuery.error ?? null}
@@ -178,7 +277,7 @@ export function ScientificRecordLinker({
               if (isScientificRecordKind(result.kind)) {
                 linkMutation.mutate({
                   id: result.id,
-                  kind,
+                  kind: activeKind,
                   identifier: result.identifier,
                 })
               }
@@ -189,9 +288,17 @@ export function ScientificRecordLinker({
             <p role="alert" className="px-2 py-1 text-xs text-danger">
               {isDuplicateLinkError(linkMutation.error)
                 ? DUPLICATE_SCIENTIFIC_LINK_MESSAGE
-                : linkMutation.error instanceof DataClientError
-                  ? linkMutation.error.message
-                  : 'Could not create link.'}
+                : isRelationshipNotAllowedError(linkMutation.error)
+                  ? (linkMutation.error instanceof DataClientError &&
+                    linkMutation.error.message) ||
+                    RELATIONSHIP_NOT_ALLOWED_MESSAGE
+                  : isRelationshipCardinalityError(linkMutation.error)
+                    ? (linkMutation.error instanceof DataClientError &&
+                      linkMutation.error.message) ||
+                      RELATIONSHIP_CARDINALITY_MESSAGE
+                    : linkMutation.error instanceof DataClientError
+                      ? linkMutation.error.message
+                      : 'Could not create link.'}
             </p>
           ) : null}
         </div>

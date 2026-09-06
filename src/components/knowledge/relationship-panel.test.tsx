@@ -8,7 +8,9 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type * as Relationships from '#/lib/relationships'
+import type * as ModelRelationships from '#/lib/model-relationships'
 import { useRelationships } from '#/lib/relationships'
+import { useRelationshipTypeLabels } from '#/lib/model-relationships'
 import type { RelationshipRow } from '#/lib/relationships'
 import {
   PinnedRelationshipPanel,
@@ -33,8 +35,13 @@ vi.mock('#/lib/relationships', async (importOriginal) => {
   const actual = await importOriginal<typeof Relationships>()
   return { ...actual, useRelationships: vi.fn() }
 })
+vi.mock('#/lib/model-relationships', async (importOriginal) => {
+  const actual = await importOriginal<typeof ModelRelationships>()
+  return { ...actual, useRelationshipTypeLabels: vi.fn(() => undefined) }
+})
 
 const mockedHook = vi.mocked(useRelationships)
+const mockedLabelsHook = vi.mocked(useRelationshipTypeLabels)
 
 afterEach(() => {
   cleanup()
@@ -144,6 +151,14 @@ describe('RelationshipPanel', () => {
       screen.getByRole('link', { name: /Cell line/ }).getAttribute('href'),
     ).toBe('/samples?selected=rec-2')
     expect(screen.getByText('Restricted record')).toBeTruthy()
+  })
+
+  it('feeds the source Model rules into the relationship labels', () => {
+    mockedLabelsHook.mockReturnValue({ sample: 'consumes' })
+    mockedHook.mockReturnValue({ outgoing, incoming, isLoading: false })
+    render(<RelationshipPanel recordId="rec-1" sourceModelKey="experiment" />)
+    expect(useRelationshipTypeLabels).toHaveBeenCalledWith('experiment')
+    expect(mockedHook).toHaveBeenCalledWith('rec-1', true, { sample: 'consumes' })
   })
 })
 

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -54,6 +54,7 @@ function fakeClient(): DataClient {
               },
             ]
       }
+      if (resource === 'model_relationship_rules') return []
       if (resource === 'model_field_options') return []
       throw new Error(`Unexpected list request: ${resource}`)
     }) as DataClient['list'],
@@ -150,7 +151,7 @@ describe('AdminModelFields', () => {
         name: 'Model',
       }),
     ).toHaveProperty('value', 'batch')
-    await screen.findByRole('option', { name: 'Samples' })
+    await within(screen.getByRole('combobox', { name: 'Model' })).findByRole('option', { name: 'Samples' })
     await user.selectOptions(
       screen.getByRole('combobox', { name: 'Model' }),
       'sample',
@@ -441,5 +442,109 @@ describe('AdminModelFields', () => {
     expect(
       screen.getByRole('link', { name: 'Preview Purity in Records' }),
     ).toHaveProperty('href', expect.stringContaining('/samples'))
+  })
+})
+
+describe('AdminModelFields relationships', () => {
+  function rulesClient(rules: unknown[]): DataClient {
+    const client = fakeClient()
+    client.list = (async (resource: string) => {
+      if (resource === 'model_relationship_rules') return rules
+      if (resource === 'model_kinds')
+        return [
+          { key: 'sample', label: 'Samples', identity_table: 'api.records' },
+          { key: 'batch', label: 'Batches', identity_table: 'api.records' },
+        ]
+      if (resource === 'model_base_fields') return []
+      if (resource === 'record_field_definitions') return []
+      if (resource === 'model_field_options') return []
+      throw new Error(`Unexpected list request: ${resource}`)
+    }) as DataClient['list']
+    client.rpc = vi.fn(async () => ({})) as DataClient['rpc']
+    return client
+  }
+
+  function mountWith(client: DataClient) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AdminModelFields
+          client={client}
+          workspaceId="workspace-1"
+          canManage
+          selectedModelKey="sample"
+        />
+      </QueryClientProvider>,
+    )
+    return { client }
+  }
+
+  it('declares the closed world when no rules exist', async () => {
+    mountWith(rulesClient([]))
+    expect(
+      await screen.findByText(/accept every link type/),
+    ).toBeTruthy()
+  })
+
+  it('lists declared rules with bounds and labels', async () => {
+    mountWith(
+      rulesClient([
+        {
+          id: 'rule-1',
+          source_model_key: 'sample',
+          link_type: 'sample',
+          target_model_key: 'sample',
+          min_links: 1,
+          max_links: 8,
+          label: 'consumes',
+        },
+      ]),
+    )
+    expect(await screen.findByText(/consumes/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Remove sample to sample' })).toBeTruthy()
+  })
+
+  it('saves a relationship through the configure RPC', async () => {
+    const user = userEvent.setup()
+    const { client } = mountWith(rulesClient([]))
+    await screen.findByText(/accept every link type/)
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Target model' }), 'batch')
+    await user.click(screen.getByRole('button', { name: 'Save relationship' }))
+    await waitFor(() =>
+      expect(client.rpc).toHaveBeenCalledWith('configure_model_relationship_rule', {
+        p_workspace_id: 'workspace-1',
+        p_source_model_key: 'sample',
+        p_link_type: 'sample',
+        p_target_model_key: 'batch',
+        p_min_links: 0,
+        p_max_links: null,
+        p_label: null,
+      }),
+    )
+  })
+
+  it('removes a relationship through the remove RPC', async () => {
+    const user = userEvent.setup()
+    const { client } = mountWith(
+      rulesClient([
+        {
+          id: 'rule-1',
+          source_model_key: 'sample',
+          link_type: 'sample',
+          target_model_key: 'sample',
+          min_links: 0,
+          max_links: null,
+          label: null,
+        },
+      ]),
+    )
+    await user.click(await screen.findByRole('button', { name: 'Remove sample to sample' }))
+    await waitFor(() =>
+      expect(client.rpc).toHaveBeenCalledWith('remove_model_relationship_rule', {
+        p_rule_id: 'rule-1',
+      }),
+    )
   })
 })

@@ -236,3 +236,76 @@ describe('ModelFieldInput', () => {
     )
   })
 })
+
+describe('ModelFieldInput with MODEL-03 rules', () => {
+  const rules = [
+    {
+      id: 'rule-1',
+      sourceModelKey: 'experiment',
+      linkType: 'sample',
+      targetModelKey: 'sample',
+      minLinks: 0,
+      maxLinks: null,
+      label: null,
+    },
+  ]
+
+  it('hides the picker with an honest message when the target is disallowed', () => {
+    render(
+      <ModelFieldInput
+        definition={field({
+          modelKey: 'experiment',
+          logicalType: 'reference',
+          label: 'Reagent lot',
+          validation: { targetModelKey: 'reagent' },
+        })}
+        value=""
+        onChange={vi.fn()}
+        relationshipRules={rules}
+      />,
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Select record' }),
+    ).toBeNull()
+    expect(
+      screen.getByText(/experiment does not accept reagent references/i),
+    ).toBeTruthy()
+  })
+
+  it('keeps offering the picker when the target is declared', () => {
+    render(
+      <ModelFieldInput
+        definition={field({
+          modelKey: 'experiment',
+          logicalType: 'reference',
+          label: 'Source sample',
+          validation: { targetModelKey: 'sample' },
+        })}
+        value=""
+        onChange={vi.fn()}
+        relationshipRules={rules}
+      />,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Select record' }),
+    ).toBeTruthy()
+  })
+
+  it('stays unrestricted without rules', () => {
+    render(
+      <ModelFieldInput
+        definition={field({
+          modelKey: 'experiment',
+          logicalType: 'reference',
+          label: 'Reagent lot',
+          validation: { targetModelKey: 'reagent' },
+        })}
+        value=""
+        onChange={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Select record' }),
+    ).toBeTruthy()
+  })
+})

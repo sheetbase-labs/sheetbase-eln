@@ -24,6 +24,8 @@ import {
   sheetRecordSearchHitsAsNotebookRecords,
 } from '#/lib/sheet-record-search'
 import type { SheetRecordSearchHit } from '#/lib/sheet-record-search'
+import { isReferenceTargetAllowed } from '#/lib/model-relationships'
+import type { ModelRelationshipRule } from '#/lib/model-relationships'
 export function ModelFieldInput({
   definition,
   value,
@@ -31,6 +33,8 @@ export function ModelFieldInput({
   showLabel = true,
   searchReferenceRecords,
   resolveReferenceSnapshot,
+  sourceModelKey,
+  relationshipRules,
 }: {
   definition: ModelFieldDefinition
   value: string | boolean
@@ -42,6 +46,13 @@ export function ModelFieldInput({
   resolveReferenceSnapshot?: (
     recordId: string,
   ) => Promise<RecordReferenceSnapshot | null>
+  /**
+   * MODEL-03: the source record's Model key for relationship rules.
+   * Defaults to the field's own Model.
+   */
+  sourceModelKey?: string
+  /** MODEL-03: declared relationship rules for the source Model. */
+  relationshipRules?: ModelRelationshipRule[]
 }) {
   const field = definitionOfModelField(definition)
   const presentation = fieldEditorPresentation(field.logicalType, {
@@ -104,6 +115,8 @@ export function ModelFieldInput({
         targetModelKey={targetModelKey}
         searchReferenceRecords={searchReferenceRecords}
         resolveReferenceSnapshot={resolveReferenceSnapshot}
+        sourceModelKey={sourceModelKey ?? definition.modelKey}
+        relationshipRules={relationshipRules}
       />
     )
   }
@@ -186,6 +199,8 @@ function ModelReferencePicker({
   targetModelKey,
   searchReferenceRecords,
   resolveReferenceSnapshot,
+  sourceModelKey,
+  relationshipRules,
 }: {
   label: string
   description: string | null
@@ -198,6 +213,8 @@ function ModelReferencePicker({
   resolveReferenceSnapshot?: (
     recordId: string,
   ) => Promise<RecordReferenceSnapshot | null>
+  sourceModelKey?: string
+  relationshipRules?: ModelRelationshipRule[]
 }) {
   const [client] = useState(() => createDataClient())
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -273,6 +290,24 @@ function ModelReferencePicker({
         <span className="mt-1 block text-[0.65rem] text-destructive">
           Reference target is not configured — ask a Steward to set the
           relationship target before linking Records.
+        </span>
+      </Label>
+    )
+  }
+  // MODEL-03: the source Model's declared relationships disallow this
+  // target — offer nothing, say so honestly, and keep the stored value
+  // untouched for a Steward to resolve.
+  const targetAllowed =
+    !relationshipRules ||
+    !sourceModelKey ||
+    isReferenceTargetAllowed(relationshipRules, sourceModelKey, targetModelKey)
+  if (!targetAllowed) {
+    return (
+      <Label className="text-xs text-muted-foreground">
+        {showLabel ? label : null}
+        <span className="mt-1 block text-[0.65rem] text-destructive">
+          {sourceModelKey} does not accept {targetModelKey} references —
+          ask a Steward to declare the relationship before linking Records.
         </span>
       </Label>
     )

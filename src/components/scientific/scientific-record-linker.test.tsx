@@ -15,6 +15,7 @@ import type { DataClient } from '#/lib/data-client'
 import type { NotebookLink } from '#/lib/notebook-data'
 
 // jsdom polyfills for cmdk.
+import type { ModelRelationshipRule } from '#/lib/model-relationships'
 globalThis.ResizeObserver = class {
   observe() {}
   unobserve() {}
@@ -81,6 +82,8 @@ function mount(
     client?: DataClient
     links?: NotebookLink[]
     onLinked?: () => void
+    sourceModelKey?: string
+    rules?: ModelRelationshipRule[]
   } = {},
 ) {
   queryClient = new QueryClient({
@@ -93,6 +96,8 @@ function mount(
         links={props.links ?? []}
         client={props.client ?? mockClient()}
         onLinked={props.onLinked}
+        sourceModelKey={props.sourceModelKey}
+        rules={props.rules}
       />
     </QueryClientProvider>,
   )
@@ -219,5 +224,100 @@ describe('ScientificRecordLinker', () => {
     await waitFor(() => {
       expect(screen.getByText(/SMP-2026-0099 — unavailable/i)).toBeTruthy()
     })
+  })
+})
+
+describe('ScientificRecordLinker with MODEL-03 rules', () => {
+  function sampleRule(overrides: Partial<ModelRelationshipRule> = {}): ModelRelationshipRule {
+    return {
+      id: 'rule-1',
+      sourceModelKey: 'experiment',
+      linkType: 'sample',
+      targetModelKey: 'sample',
+      minLinks: 0,
+      maxLinks: null,
+      label: null,
+      ...overrides,
+    }
+  }
+
+  it('offers only the allowed kind tabs with an honest restriction note', async () => {
+    const user = userEvent.setup()
+    mount({
+      sourceModelKey: 'experiment',
+      rules: [sampleRule()],
+    })
+    await user.click(screen.getByRole('button', { name: /link record/i }))
+    expect(screen.getByRole('tab', { name: 'Sample' })).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'Reagent' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Protocol' })).toBeNull()
+    expect(screen.getByText(/accepts sample links/i)).toBeTruthy()
+    expect(screen.getByText(/reagent.*not accepted/i)).toBeTruthy()
+  })
+
+  it('opens further tabs only as more pairs are declared', async () => {
+    const user = userEvent.setup()
+    mount({
+      sourceModelKey: 'experiment',
+      rules: [
+        sampleRule(),
+        sampleRule({ id: 'rule-2', linkType: 'protocol', targetModelKey: 'protocol_template' }),
+      ],
+    })
+    await user.click(screen.getByRole('button', { name: /link record/i }))
+    expect(screen.getByRole('tab', { name: 'Sample' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Protocol' })).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'Reagent' })).toBeNull()
+  })
+
+  it('falls back to the first allowed tab when the default is disallowed', async () => {
+    const user = userEvent.setup()
+    mount({
+      sourceModelKey: 'experiment',
+      rules: [sampleRule({ id: 'rule-2', linkType: 'protocol', targetModelKey: 'protocol_template' })],
+    })
+    await user.click(screen.getByRole('button', { name: /link record/i }))
+    expect(screen.queryByRole('tab', { name: 'Sample' })).toBeNull()
+    const protocolTab = screen.getByRole('tab', { name: 'Protocol' })
+    expect(protocolTab.getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('surfaces the server not-allowed rejection honestly', async () => {
+    const user = userEvent.setup()
+    const list = vi.fn().mockResolvedValue([sampleWire()])
+    const rpc = vi
+      .fn()
+      .mockRejectedValue(new DataClientError('SB080', 'link type sample to model reagent is not allowed', 400))
+    mount({ client: mockClient({ list, rpc }) })
+    await user.click(screen.getByRole('button', { name: /link record/i }))
+    await screen.findByText('Virus stock A')
+    await user.click(screen.getByText('Virus stock A'))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByText(/not allowed/i)).toBeTruthy()
+  })
+
+  it('surfaces the server cardinality rejection honestly', async () => {
+    const user = userEvent.setup()
+    const list = vi.fn().mockResolvedValue([sampleWire()])
+    const rpc = vi
+      .fn()
+      .mockRejectedValue(new DataClientError('SB081', 'link type sample exceeds the maximum of 2', 400))
+    mount({ client: mockClient({ list, rpc }) })
+    await user.click(screen.getByRole('button', { name: /link record/i }))
+    await screen.findByText('Virus stock A')
+    await user.click(screen.getByText('Virus stock A'))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByText(/exceeds the maximum/i)).toBeTruthy()
+  })
+
+  it('notes when the active tab is at its declared maximum', async () => {
+    const user = userEvent.setup()
+    mount({
+      sourceModelKey: 'experiment',
+      rules: [sampleRule({ maxLinks: 1 })],
+      links: [link()],
+    })
+    await user.click(screen.getByRole('button', { name: /link record/i }))
+    expect(screen.getByText(/maximum reached \(1 of 1/i)).toBeTruthy()
   })
 })

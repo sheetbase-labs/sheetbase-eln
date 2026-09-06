@@ -257,13 +257,14 @@ function toRelationshipRow(
   direction: RelationshipDirection,
   recordId: string,
   endpoints: Map<string, RelationshipEndpoint>,
+  typeLabels?: Record<string, string>,
 ): RelationshipRow | null {
   const otherRecordId =
     direction === 'outgoing' ? link.targetRecordId : link.sourceRecordId
   if (otherRecordId !== null && otherRecordId === recordId) return null
   const endpoint = otherRecordId ? (endpoints.get(otherRecordId) ?? null) : null
   const state = lifecycleToRowState(endpoint, otherRecordId !== null)
-  const label = relationshipLabel(link.linkType)
+  const label = typeLabels?.[link.linkType] ?? relationshipLabel(link.linkType)
   const available = state === 'available' && endpoint !== null
   return {
     linkId: link.id,
@@ -309,10 +310,11 @@ export function buildRelationshipRows(
   recordId: string,
   links: RelationshipLinks,
   endpoints: Map<string, RelationshipEndpoint>,
+  typeLabels?: Record<string, string>,
 ): AggregatedRelationships {
   return {
-    outgoing: collectRows('outgoing', recordId, links.outgoing, endpoints),
-    incoming: collectRows('incoming', recordId, links.incoming, endpoints),
+    outgoing: collectRows('outgoing', recordId, links.outgoing, endpoints, typeLabels),
+    incoming: collectRows('incoming', recordId, links.incoming, endpoints, typeLabels),
   }
 }
 
@@ -342,11 +344,12 @@ function collectRows(
   recordId: string,
   links: NotebookLink[],
   endpoints: Map<string, RelationshipEndpoint>,
+  typeLabels?: Record<string, string>,
 ): RelationshipRow[] {
   const rows: RelationshipRow[] = []
   const seen = new Map<string, RelationshipRow>()
   for (const link of links) {
-    const row = toRelationshipRow(link, direction, recordId, endpoints)
+    const row = toRelationshipRow(link, direction, recordId, endpoints, typeLabels)
     if (!row) continue
     const key = collapseKey(direction, link)
     const existing = seen.get(key)
@@ -386,10 +389,16 @@ export interface RelationshipsResult {
   isLoading: boolean
 }
 
-/** Reactive bidirectional relationships for the panel; silent while id-less. */
+/**
+ * Reactive bidirectional relationships for the panel; silent while id-less.
+ * `typeLabels` overrides the canonical label vocabulary per link type —
+ * MODEL-03 feeds model-declared relationship names here; omitted keeps
+ * current behaviour.
+ */
 export function useRelationships(
   recordId: string | null,
   enabled = true,
+  typeLabels?: Record<string, string>,
 ): RelationshipsResult {
   const linksQuery = useQuery({
     queryKey: relationshipQueryKeys.links(recordId ?? 'none'),
@@ -417,8 +426,9 @@ export function useRelationships(
         recordId ?? '',
         linksQuery.data ?? { outgoing: [], incoming: [] },
         endpointsQuery.data ?? new Map(),
+        typeLabels,
       ),
-    [recordId, linksQuery.data, endpointsQuery.data],
+    [recordId, linksQuery.data, endpointsQuery.data, typeLabels],
   )
   return {
     outgoing: rows.outgoing,

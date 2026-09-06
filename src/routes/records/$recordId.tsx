@@ -2256,7 +2256,7 @@ export function NotebookInspector({
           {isHistorical ? (
             <PinnedRelationshipPanel links={evidenceLinks} />
           ) : (
-            <RelationshipPanel recordId={record.id} />
+            <RelationshipPanel recordId={record.id} sourceModelKey={record.kind} />
           )}
           {/* KNOW-02: per-object lineage — the existing traversal BFS seeded
               from this record at a bounded depth, with an `Open full lineage`

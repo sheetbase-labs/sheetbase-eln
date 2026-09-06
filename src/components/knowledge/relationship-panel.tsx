@@ -22,6 +22,7 @@ import { recordKindLabel } from '#/lib/notebook-data'
 import type { NotebookLink } from '#/lib/notebook-data'
 import { useRelationships } from '#/lib/relationships'
 import type { RelationshipRow } from '#/lib/relationships'
+import { useRelationshipTypeLabels } from '#/lib/model-relationships'
 
 /**
  * Presentation window per direction. The hook always loads the full edge
@@ -124,10 +125,20 @@ export function RelationshipList({
 /**
  * Live bidirectional panel for a record. Shows a loading hint while
  * fetching and renders nothing when there are no relationships in either
- * direction.
+ * direction. `sourceModelKey` (the record's Model) lets MODEL-03 rules
+ * rename the typed relationships — record-backed model keys align with
+ * record kinds by canonical seed, and a miss simply falls back to the
+ * canonical vocabulary. Omitted keeps current behaviour.
  */
-export function RelationshipPanel({ recordId }: { recordId: string }) {
-  const { outgoing, incoming, isLoading } = useRelationships(recordId)
+export function RelationshipPanel({
+  recordId,
+  sourceModelKey,
+}: {
+  recordId: string
+  sourceModelKey?: string
+}) {
+  const typeLabels = useRelationshipTypeLabels(sourceModelKey)
+  const { outgoing, incoming, isLoading } = useRelationships(recordId, true, typeLabels)
   if (isLoading) {
     return (
       <InspectorSection title="Relationships">

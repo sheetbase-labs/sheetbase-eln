@@ -17,6 +17,7 @@
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
+import { CompareView } from '#/components/viz/compare-view'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -104,6 +105,8 @@ import type {
 } from '#/lib/analysis-studio-data'
 import { buildDefaultChartSpec } from '#/lib/dataset-explorer-data'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
+import { buildDefaultComparativeViewConfig } from '#/lib/comparative-view'
+import type { ComparativeViewConfig } from '#/lib/comparative-view'
 import { formatCount } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 import { rasteriseSvgToPng } from '#/lib/visualisation-export'
@@ -158,7 +161,11 @@ function AnalysisStudioRoute() {
   )
   // SCI-02: the studio serves both chart authoring and reusable analysis
   // definitions; the mode is session state, never persisted server-side.
-  const [mode, setMode] = useState<'chart' | 'analyse'>('chart')
+  // VIEW-03 adds the compare mode: grouped time-series / distribution
+  // inspection over the same live rows, promoting into the chart builder.
+  const [mode, setMode] = useState<'chart' | 'analyse' | 'compare'>('chart')
+  const [compareConfig, setCompareConfig] =
+    useState<ComparativeViewConfig | null>(null)
   const [configOpen, setConfigOpen] = useState(true)
   const [viewName, setViewName] = useState('')
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
@@ -202,6 +209,23 @@ function AnalysisStudioRoute() {
       setViewName('')
     }
   }, [selectedDataset, search.x, search.y])
+  // Build a default compare config when the dataset (or its columns) change.
+  // Explicit source fields only — never label-inferred.
+  useEffect(() => {
+    if (selectedSource) {
+      setCompareConfig(
+        buildDefaultComparativeViewConfig({
+          datasetId: selectedSource.datasetId,
+          columns: selectedSource.columns.map((column) => ({
+            id: column.id,
+            logicalType: column.logicalType,
+          })),
+        }),
+      )
+    } else {
+      setCompareConfig(null)
+    }
+  }, [selectedSource])
 
   // Live preview resolution: read source data read-only (never mutate). The
   // materialised chart is lifted here so the preview and the export panel
@@ -348,7 +372,7 @@ function AnalysisStudioRoute() {
             aria-label="Studio mode"
             className="flex items-center gap-1"
           >
-            {(['chart', 'analyse'] as const).map((value) => (
+            {(['chart', 'analyse', 'compare'] as const).map((value) => (
               <Button
                 key={value}
                 type="button"
@@ -358,7 +382,11 @@ function AnalysisStudioRoute() {
                 aria-selected={mode === value}
                 onClick={() => setMode(value)}
               >
-                {value === 'chart' ? 'Chart builder' : 'Analyse'}
+                {value === 'chart'
+                  ? 'Chart builder'
+                  : value === 'analyse'
+                    ? 'Analyse'
+                    : 'Compare'}
               </Button>
             ))}
           </div>
@@ -387,6 +415,35 @@ function AnalysisStudioRoute() {
               workspaceId={workspaceId}
               userId={userId}
             />
+          </div>
+        ) : mode === 'compare' ? (
+          <div className="min-h-0 flex-1 overflow-auto p-3">
+            {selectedSource && compareConfig ? (
+              <CompareView
+                source={selectedSource}
+                columns={datasetQuery.data?.source.columns ?? selectedSource.columns}
+                rows={datasetQuery.data?.rows ?? []}
+                loading={datasetQuery.isLoading}
+                error={
+                  datasetQuery.error ? String(datasetQuery.error) : null
+                }
+                config={compareConfig}
+                onConfigChange={setCompareConfig}
+                onPromote={(promoted) => {
+                  // Canonical hand-off: the promoted ChartSpec becomes the
+                  // chart builder spec, where save/export/freeze already live.
+                  setSpec(promoted)
+                  setSelectedViewId(null)
+                  setViewName('')
+                  setMode('chart')
+                }}
+              />
+            ) : (
+              <EmptyAnalysisState
+                loading={summariesQuery.isLoading}
+                error={summariesQuery.error}
+              />
+            )}
           </div>
         ) : selectedSource && spec ? (
           <div className="flex min-h-0 flex-1 overflow-hidden">

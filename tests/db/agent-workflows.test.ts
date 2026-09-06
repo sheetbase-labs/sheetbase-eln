@@ -99,7 +99,13 @@ async function humanRequiredRowPlan(
       ? 'a0050000-0000-4000-8000-000000000040'
       : suffix === 'operation_budget'
         ? 'a0050000-0000-4000-8000-000000000041'
-        : 'a0050000-0000-4000-8000-000000000042'
+        : suffix === 'dry_run_preview'
+          ? 'a0050000-0000-4000-8000-000000000043'
+          : suffix === 'safe_execution'
+            ? 'a0050000-0000-4000-8000-000000000044'
+            : suffix === 'cancel_inspectable'
+              ? 'a0050000-0000-4000-8000-000000000045'
+              : 'a0050000-0000-4000-8000-000000000042'
   await owner.query(
     `SELECT api.commit_dataset_row_batch($1,1,$2::jsonb,$3)`,
     [
@@ -902,5 +908,213 @@ describe('AUTO-05 agentic scientific workflows', () => {
         plan: invalidPlan,
       }),
     ).rejects.toMatchObject({ code: '22023' })
+  })
+  it('AUTO-PLUS-02 previews a plan without advancing state', async () => {
+    const agent = await credential()
+    const owner = await actor(OWNER, WS)
+    const created = await createWorkflow(agent, {
+      key: 'dry_run_preview',
+      plan: await humanRequiredRowPlan(owner, 'dry_run_preview'),
+    })
+    const before = await owner.query<{
+      revision: string
+      status: string
+      used_operations: number
+    }>(`SELECT revision,status,used_operations FROM api.agent_workflows WHERE id=$1`, [
+      created.id,
+    ])
+    // Dry-run: the same join the workbench renders — plain reads over
+    // steps plus their stored PostgreSQL preview/impact/risk/policy.
+    const preview = await owner.query<{
+      step_key: string
+      status: string
+      attempt: number
+      operation_kind: string
+      preview: unknown
+      impact: unknown
+      risk_class: string
+      approval_policy: string
+      proposal_status: string | null
+    }>(
+      `SELECT s.step_key,s.status,s.attempt,
+              s.operation->>'kind' AS operation_kind,
+              p.preview,p.impact,p.risk_class,p.approval_policy,
+              p.status AS proposal_status
+         FROM api.agent_workflow_steps s
+         LEFT JOIN api.agent_operation_proposals p ON p.id = s.proposal_id
+        WHERE s.workflow_id=$1
+        ORDER BY s.position`,
+      [created.id],
+    )
+    expect(preview.rows).toHaveLength(2)
+    expect(preview.rows[0]).toMatchObject({
+      status: 'waiting_approval',
+      attempt: 1,
+      operation_kind: 'dataset_rows.commit',
+      risk_class: 'consequential_write',
+      approval_policy: 'human_required',
+      proposal_status: 'pending',
+    })
+    expect(preview.rows[0].preview).toMatchObject({ formatVersion: 1 })
+    expect(preview.rows[0].impact).toMatchObject({
+      formatVersion: 1,
+      mutationClass: 'data',
+    })
+    // The later step is planned: predicted consequential, nothing proposed.
+    expect(preview.rows[1]).toMatchObject({
+      status: 'planned',
+      attempt: 0,
+      proposal_status: null,
+    })
+    const after = await owner.query<{
+      revision: string
+      status: string
+      used_operations: number
+    }>(`SELECT revision,status,used_operations FROM api.agent_workflows WHERE id=$1`, [
+      created.id,
+    ])
+    expect(after.rows[0]).toEqual(before.rows[0])
+    expect(
+      await owner.query(`SELECT count(*) FROM api.agent_operation_proposals p
+        JOIN api.agent_workflow_steps s ON s.proposal_id = p.id
+        WHERE s.workflow_id=$1`, [created.id]),
+    ).toMatchObject({ rowCount: 1 })
+  })
+
+  it('AUTO-PLUS-02 keys every attempt distinctly and never double-executes on resume', async () => {
+    const agent = await credential()
+    const owner = await actor(OWNER, WS)
+    const created = await createWorkflow(agent, {
+      key: 'safe_execution',
+      plan: await humanRequiredRowPlan(owner, 'safe_execution'),
+    })
+    // Workflow-level reuse with different content fails 23505.
+    await expect(
+      agent.query(
+        `SELECT * FROM api.create_agent_workflow(
+          $1::uuid,$2::text,$3::jsonb,$4::jsonb,$5::jsonb,$6::jsonb,$7::text
+        )`,
+        [
+          WS,
+          'A different goal for the same key.',
+          JSON.stringify(pipelinePlan('safe_execution_reuse')),
+          JSON.stringify({ maxOperations: 4, maxTokens: 10_000, maxCostMicrousd: 500_000 }),
+          JSON.stringify({ tokens: 500, costMicrousd: 20_000 }),
+          JSON.stringify(provenance),
+          'safe_execution',
+        ],
+      ),
+    ).rejects.toMatchObject({ code: '23505' })
+
+    const first = await currentProposal(owner, created.id)
+    const firstKey = await owner.query<{ idempotency_key: string }>(
+      `SELECT idempotency_key FROM api.agent_operation_proposals WHERE id=$1`,
+      [first.id],
+    )
+    expect(firstKey.rows[0].idempotency_key).toBe(
+      `workflow:${created.id}:${'correct_safe_execution_1'}:1`,
+    )
+    await owner.query(
+      `SELECT api.decide_agent_operation($1,1,'reject','Needs re-review')`,
+      [first.id],
+    )
+    await agent.query(`SELECT api.advance_agent_workflow($1,2)`, [created.id])
+    await owner.query(`SELECT api.resume_agent_workflow($1,3)`, [created.id])
+    const retry = await currentProposal(owner, created.id)
+    // Resume never reuses the prior attempt: new proposal, fresh key.
+    expect(retry.id).not.toBe(first.id)
+    expect(retry).toMatchObject({ status: 'pending', attempt: 2 })
+    const retryKey = await owner.query<{ idempotency_key: string }>(
+      `SELECT idempotency_key FROM api.agent_operation_proposals WHERE id=$1`,
+      [retry.id],
+    )
+    expect(retryKey.rows[0].idempotency_key).toBe(
+      `workflow:${created.id}:${'correct_safe_execution_1'}:2`,
+    )
+    // The rejected attempt is untouched — resume did not revive or mutate it.
+    const original = await owner.query<{ status: string; revision: string }>(
+      `SELECT status,revision FROM api.agent_operation_proposals WHERE id=$1`,
+      [first.id],
+    )
+    expect(original.rows[0]).toEqual({ status: 'rejected', revision: '2' })
+
+    // Approve and execute the retry, then advance past it.
+    await owner.query(`SELECT api.decide_agent_operation($1,1,'approve',NULL)`, [
+      retry.id,
+    ])
+    await owner.query(`SELECT api.execute_agent_operation($1,2)`, [retry.id])
+    const done = await owner.query<{ status: string; result: unknown }>(
+      `SELECT status,result FROM api.agent_operation_proposals WHERE id=$1`,
+      [retry.id],
+    )
+    expect(done.rows[0].status).toBe('succeeded')
+    await agent.query(`SELECT api.advance_agent_workflow($1,4)`, [created.id])
+    // Completed work cannot be resumed again: the workflow is no longer paused.
+    await expect(
+      owner.query(`SELECT api.resume_agent_workflow($1,5)`, [created.id]),
+    ).rejects.toMatchObject({ code: 'SB001' })
+  })
+
+  it('AUTO-PLUS-02 leaves partial state inspectable after cancellation', async () => {
+    const agent = await credential()
+    const owner = await actor(OWNER, WS)
+    const created = await createWorkflow(agent, {
+      key: 'cancel_inspectable',
+      plan: await humanRequiredRowPlan(owner, 'cancel_inspectable'),
+    })
+    const first = await currentProposal(owner, created.id)
+    await owner.query(`SELECT api.decide_agent_operation($1,1,'approve',NULL)`, [
+      first.id,
+    ])
+    await owner.query(`SELECT api.execute_agent_operation($1,2)`, [first.id])
+    await agent.query(`SELECT api.advance_agent_workflow($1,2)`, [created.id])
+    const mid = await owner.query<{ revision: string }>(
+      `SELECT revision FROM api.agent_workflows WHERE id=$1`,
+      [created.id],
+    )
+    const cancelled = await agent.query<{ status: string; cancellation_reason: string }>(
+      `SELECT status,cancellation_reason
+         FROM api.cancel_agent_workflow($1,$2,'Assay superseded')`,
+      [created.id, mid.rows[0].revision],
+    )
+    expect(cancelled.rows[0]).toEqual({
+      status: 'cancelled',
+      cancellation_reason: 'Assay superseded',
+    })
+    // The completed step keeps its status and canonical result; the
+    // unfinished step is terminal; the timeline stays readable.
+    const steps = await owner.query<{
+      step_key: string
+      status: string
+      result: unknown
+    }>(
+      `SELECT s.step_key,s.status,p.result
+         FROM api.agent_workflow_steps s
+         LEFT JOIN api.agent_operation_proposals p ON p.id = s.proposal_id
+        WHERE s.workflow_id=$1
+        ORDER BY s.position`,
+      [created.id],
+    )
+    expect(steps.rows[0].status).toBe('succeeded')
+    expect(steps.rows[0].result).toBeTruthy()
+    expect(steps.rows[1].status).toBe('cancelled')
+    const events = await owner.query<{ event_type: string }>(
+      `SELECT event_type FROM api.agent_workflow_events
+        WHERE workflow_id=$1 ORDER BY sequence`,
+      [created.id],
+    )
+    expect(events.rows.map((event) => event.event_type)).toContain('cancelled')
+    expect(events.rows.map((event) => event.event_type)).toContain('step_succeeded')
+    // Terminal workflows refuse resume.
+    const terminal = await owner.query<{ revision: string }>(
+      `SELECT revision FROM api.agent_workflows WHERE id=$1`,
+      [created.id],
+    )
+    await expect(
+      owner.query(`SELECT api.resume_agent_workflow($1,$2)`, [
+        created.id,
+        terminal.rows[0].revision,
+      ]),
+    ).rejects.toMatchObject({ code: 'SB001' })
   })
 })

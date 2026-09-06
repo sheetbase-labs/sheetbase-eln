@@ -104,3 +104,56 @@ report usage for, and cancel workflows they created.
 
 External credentials cannot resume workflows, approve proposals, or execute
 proposals. Those operations require a human session.
+
+## AUTO-PLUS-02: dry-run, approval gates, safe execution
+
+No new engine and no new RPC. Everything below is a derived view over the
+proposal and workflow tables plus the existing decide/policy path.
+
+### Dry-run / preview
+
+`dryRunAgentWorkflow(steps, proposalsById)` in `src/lib/agent-workflows.ts`
+previews every step without advancing state: it is a pure join, issues no
+RPC, and touches no revision, budget, or proposal. Steps already proposed
+carry their stored PostgreSQL preview, impact, and risk class; planned
+steps carry the catalogue prediction (tool mode, risk, predicted gate).
+`/agent-operations` renders this as the Dry-run preview section before
+approval, so a human sees each step's operation, mode (`draft` vs
+`mutate`), risk, gate, and stored preview/impact line.
+
+### Approval gates
+
+Consequential (`mutate`-mode, `consequential_write`) steps require explicit
+human approval per step through `decide_agent_operation`; the per-plan gate
+is the rollup (`summarizeWorkflowApprovals`): pending-approval, approved,
+and rejected step keys. Safe drafts and delegated create/appends flow
+without a click under the existing automatic/delegated policy. Gates are
+visible as per-step badges (`planned`, `flowing`, `pending-approval`,
+`approved`, `rejected`, `failed`, `cancelled`, `succeeded`) and as
+plan-header counts. Without loaded proposal data a proposed step fails
+closed to `pending-approval`.
+
+### Safe execution
+
+- **Idempotency:** every step attempt proposes under
+  `workflow:{workflowId}:{stepKey}:{1-based attempt}`
+  (`workflowStepIdempotencyKey`, parity with
+  `internal.agent_workflow_propose_step`). Resume proposes attempt + 1
+  under a fresh key, so it never double-executes a prior attempt;
+  reusing a key with different content fails `23505`, at both workflow
+  and proposal level.
+- **Bounded retry:** attempts consume the durable operation budget, so
+  `workflowRetriesRemaining` (max − used) is the retry bound —
+  `canRetryWorkflowStep` allows a human resume only while paused on a
+  failed/rejected step with budget left.
+- **Resume after partial failure:** completed steps keep their canonical
+  results and are never re-executed; the failed step retries the same
+  pinned operation as a new attempt; a stale later step stays paused
+  until cancelled and re-planned.
+- **Cancellation:** terminal but inspectable — completed steps keep
+  status and results, unfinished steps flip to cancelled, the reason is
+  recorded, and the event timeline stays readable. Continue with a new
+  workflow.
+
+No migration was needed: approval stays on the existing decide/policy
+RPCs and every gate above derives from stored proposal columns.

@@ -1360,4 +1360,132 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows.map((row: { placement: string }) => row.placement)
     expect(placements).toEqual([PLACEMENT_A, PLACEMENT_B])
   })
+
+  it('REUSE-02 rejects malformed parameter inputs before any other check', async () => {
+    const owner = await actor(OWNER, WS)
+    const member = await actor(MEMBER, WS)
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'reuse02_malformed','REUSE-02 malformed',null,$2::jsonb) result`,
+        [
+          WS,
+          JSON.stringify({
+            formatVersion: 1,
+            parameters: [
+              {
+                id: TEMPLATE_PARAMETER,
+                key: 'passage_count',
+                label: 'Passage count',
+                required: true,
+                type: { kind: 'scalar', valueType: 'integer' },
+                defaultValue: 3,
+                constraints: { min: 1, max: 10 },
+              },
+            ],
+            placements: narrativeConfig().placements,
+          }),
+        ],
+      )
+    ).rows[0].result
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    const empty = (
+      await owner.query(
+        `select api.create_notebook_template($1,'reuse02_empty','REUSE-02 empty',null,$2::jsonb) result`,
+        [WS, JSON.stringify(narrativeOnlyTemplateConfig())],
+      )
+    ).rows[0].result
+    const emptyPublished = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [empty.version.id, empty.version.revision],
+      )
+    ).rows[0].result
+
+    const recordCount = async () =>
+      (
+        await member.query(`select count(*)::int count from api.records`)
+      ).rows[0].count as number
+    const before = await recordCount()
+    const attempt = (versionId: string, inputs: unknown, key: string) =>
+      member.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Fail',$3::jsonb,$4)`,
+        [versionId, PROJECT, JSON.stringify(inputs), key],
+      )
+
+    // A NULL parameterId must read as malformed — the shape gate runs before
+    // duplicate/unknown/required checks — never as a missing required key.
+    const nullId = await attempt(
+      published.id,
+      [{ parameterId: null, kind: 'scalar', value: 3 }],
+      'reuse02-malformed-null',
+    ).then(
+      () => null,
+      (error: { code?: string; message?: string }) => error,
+    )
+    expect(nullId?.code).toBe('SB091')
+    expect(String(nullId?.message)).toContain('malformed')
+    await expectDenied(
+      attempt(
+        published.id,
+        [
+          { parameterId: null, kind: 'scalar', value: 1 },
+          { parameterId: null, kind: 'scalar', value: 2 },
+        ],
+        'reuse02-malformed-null-pair',
+      ),
+      'SB091',
+    )
+    await expectDenied(
+      attempt(
+        published.id,
+        [{ kind: 'scalar', value: 3 }],
+        'reuse02-malformed-missing',
+      ),
+      'SB091',
+    )
+    await expectDenied(
+      attempt(published.id, [3], 'reuse02-malformed-entry'),
+      'SB091',
+    )
+    await expectDenied(
+      attempt(
+        published.id,
+        [{ parameterId: TEMPLATE_PARAMETER, kind: 'scalar' }],
+        'reuse02-malformed-value',
+      ),
+      'SB091',
+    )
+    await expectDenied(
+      attempt(
+        published.id,
+        [{ parameterId: TEMPLATE_PARAMETER, kind: 'bogus', value: 3 }],
+        'reuse02-malformed-kind',
+      ),
+      'SB091',
+    )
+    await expectDenied(
+      attempt(
+        published.id,
+        [{ parameterId: 42, kind: 'scalar', value: 3 }],
+        'reuse02-malformed-id-type',
+      ),
+      'SB091',
+    )
+    // On a template with no parameters at all, malformed entries were
+    // previously dropped silently and instantiation succeeded; they now fail.
+    await expectDenied(
+      attempt(
+        emptyPublished.id,
+        [{ parameterId: null, kind: 'scalar', value: 3 }],
+        'reuse02-malformed-empty',
+      ),
+      'SB091',
+    )
+    expect(await recordCount()).toBe(before)
+  })
 })

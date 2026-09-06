@@ -1,9 +1,10 @@
 -- REUSE-02: instantiate-time composition depth. Required Template parameters
--- fail closed naming the missing keys, duplicate/unknown inputs are rejected
--- before any write, and the stored result carries per-placement composition
--- pins: governed Definition versions alongside the independent working-state
--- IDs each composed part received. No definition mutates another at
--- instantiate time; each sheet placement still creates its own Sheet Instance.
+-- fail closed naming the missing keys, malformed inputs are rejected before
+-- duplicate/unknown/required checks and any write, and the stored result
+-- carries per-placement composition pins: governed Definition versions
+-- alongside the independent working-state IDs each composed part received. No
+-- definition mutates another at instantiate time; each sheet placement still
+-- creates its own Sheet Instance.
 -- Upgrade detection (REUSE-03) reads these pins; no upgrade flow starts here.
 
 CREATE OR REPLACE FUNCTION api.instantiate_notebook_template_version(
@@ -37,6 +38,7 @@ DECLARE
   missing_keys text[];
   duplicate_input text;
   unknown_input text;
+  entry jsonb;
 BEGIN
   IF workspace IS NULL OR actor IS NULL OR NOT api.is_workspace_writer(workspace) THEN
     RAISE EXCEPTION 'workspace member required' USING ERRCODE = '42501';
@@ -73,6 +75,31 @@ BEGIN
   IF p_parameter_inputs IS NOT NULL AND jsonb_typeof(p_parameter_inputs) <> 'array' THEN
     RAISE EXCEPTION 'Template parameter inputs must be an array' USING ERRCODE = 'SB091';
   END IF;
+  -- Shape gate runs before duplicate/unknown/required checks: input->>'parameterId'
+  -- yields SQL NULL for a missing key, an explicit JSON null, or a non-object
+  -- entry, so without this gate NULL parameterIds evade both GROUP BY duplicate
+  -- detection (INTO a NULL variable the IS NOT NULL guard misses) and the
+  -- unknown-input NOT EXISTS check. Every entry must mirror the SheetParameterInput
+  -- wire shape: an object with a string parameterId, a known kind, and the
+  -- kind-appropriate payload (scalar values stay JSON scalars; reference kinds
+  -- carry their UUID as text — deeper resolution stays downstream).
+  FOR entry IN SELECT value FROM jsonb_array_elements(coalesce(p_parameter_inputs,'[]'::jsonb)) LOOP
+    IF jsonb_typeof(entry) IS DISTINCT FROM 'object'
+       OR jsonb_typeof(entry->'parameterId') IS DISTINCT FROM 'string'
+       OR coalesce(entry->>'kind','') NOT IN ('scalar','record','dataset','dataset-version')
+       OR (entry->>'kind' = 'scalar'
+           AND (NOT (entry ? 'value')
+                OR coalesce(jsonb_typeof(entry->'value'),'') NOT IN ('string','number','boolean','null')))
+       OR (entry->>'kind' = 'record'
+           AND jsonb_typeof(entry->'recordId') IS DISTINCT FROM 'string')
+       OR (entry->>'kind' = 'dataset'
+           AND jsonb_typeof(entry->'datasetId') IS DISTINCT FROM 'string')
+       OR (entry->>'kind' = 'dataset-version'
+           AND jsonb_typeof(entry->'datasetVersionId') IS DISTINCT FROM 'string')
+    THEN
+      RAISE EXCEPTION 'malformed Template parameter input' USING ERRCODE = 'SB091';
+    END IF;
+  END LOOP;
   SELECT input->>'parameterId' INTO duplicate_input
     FROM jsonb_array_elements(coalesce(p_parameter_inputs,'[]'::jsonb)) input
     GROUP BY input->>'parameterId'

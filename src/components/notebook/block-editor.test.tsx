@@ -589,6 +589,44 @@ describe('BlockEditor — failed save surface', () => {
   })
 })
 
+describe('BlockEditor — explain surface (ASSIST-01)', () => {
+  it('offers a grounded explanation for a validation failure', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn(async () => ({ ok: true }))
+    renderWithQuery(
+      <BlockEditor
+        block={block({
+          type: 'linked_record',
+          payload: {
+            targetKind: 'experiment',
+            targetIdentifier: '',
+            linkType: 'general',
+            label: '',
+          },
+        })}
+        save={save}
+      />,
+    )
+    // Touch the draft then leave the identifier blank: client validation
+    // rejects the save and the footer surfaces the Explain affordance.
+    const idInput = screen.getByPlaceholderText('EXP-2025-0001')
+    await user.click(idInput)
+    await user.type(idInput, 'X')
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.tab()
+    expect(save).not.toHaveBeenCalled()
+    await user.click(await screen.findByRole('button', { name: 'Explain' }))
+    // Grounded explanation: what failed, a cited rule, and the
+    // assistive-not-authoritative marking. No mutation path.
+    expect(
+      await screen.findByText(/Why this linked_record block cannot save/),
+    ).toBeTruthy()
+    expect(screen.getByText(/Nothing was written/)).toBeTruthy()
+    expect(screen.getAllByText(/\[Block rule/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Not authoritative/)).toBeTruthy()
+  })
+})
+
 describe('BlockEditor — conflict surface', () => {
   it('renders the conflict banner with a server preview', async () => {
     const user = userEvent.setup()

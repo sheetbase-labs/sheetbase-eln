@@ -390,3 +390,48 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
     ).toEqual([0, 200, 0, 200])
   })
 })
+describe('CanonicalSheetWorkspace — explain surface (ASSIST-01)', () => {
+  it('explains a mixed-authority rejection with a cited, read-only panel', async () => {
+    const user = userEvent.setup()
+    const instance = await composedInstance()
+    rpcMock.mockResolvedValue(twoDatasetWire())
+
+    renderWorkspace(
+      <CanonicalSheetEditor instance={instance} projectId={instance.projectId} />,
+    )
+
+    await waitFor(() => expect(gridRender).toHaveBeenCalled())
+    const settings = gridRender.mock.lastCall?.[0] as {
+      beforeChange: (
+        changes: Array<[number, number, unknown, unknown]>,
+        source: string,
+      ) => boolean | undefined
+      afterChange: (
+        changes: Array<[number, number, unknown, unknown]>,
+        source: string,
+      ) => void
+    }
+    const paste = [
+      [0, 0, 'old-a', '21000000-0000-4000-8000-0000000000c1'],
+      [0, 1, 'old-b', '21000000-0000-4000-8000-0000000000c2'],
+    ] as Array<[number, number, unknown, unknown]>
+    expect(settings.beforeChange(paste, 'CopyPaste.paste')).toBeUndefined()
+    settings.afterChange(paste, 'CopyPaste.paste')
+
+    const writeBack = await screen.findByRole('button', { name: 'Write back' })
+    await waitFor(() => expect(writeBack.hasAttribute('disabled')).toBe(false))
+    await user.click(writeBack)
+    expect(await screen.findByText(/nothing was written/i)).toBeTruthy()
+
+    // The rejection carries structured state, so Explain opens a grounded,
+    // read-only panel: what failed, why with a citation, and how to
+    // resolve — marked as assistance, with no mutation path.
+    await user.click(await screen.findByRole('button', { name: 'Explain' }))
+    expect(await screen.findByText(/Why write-back was rejected/)).toBeTruthy()
+    expect(screen.getByText(/write back each part separately/)).toBeTruthy()
+    expect(
+      screen.getAllByText(/\[Write-back rule mixed_authority_write\]/).length,
+    ).toBeGreaterThan(0)
+    expect(screen.getByText(/Not authoritative/)).toBeTruthy()
+  })
+})

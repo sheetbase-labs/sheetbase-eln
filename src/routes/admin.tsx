@@ -11,6 +11,7 @@ import {
   Boxes,
   Database,
   Gauge,
+  Globe,
   HardDrive,
   KeyRound,
   Lock,
@@ -20,6 +21,7 @@ import {
   Terminal,
   UserRoundCog,
   Users,
+  Webhook,
   Workflow,
 } from 'lucide-react'
 
@@ -32,6 +34,7 @@ import {
   AdminDeployment,
   AdminDiagnostics,
   AdminExtensions,
+  AdminExternalAccess,
   AdminInspector,
   AdminMembers,
   AdminPipelines,
@@ -40,6 +43,7 @@ import {
   AdminSettings,
   AdminStorage,
   AdminUsage,
+  AdminWebhooks,
 } from '#/components/workspace-admin'
 import { Button } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
@@ -112,6 +116,15 @@ export const ADMIN_SECTIONS: AdminSectionDef[] = [
     capability: null,
   },
   {
+    key: 'external-access',
+    label: 'External access',
+    description:
+      'Unified lifecycle view over members, credentials, connectors, webhooks and extensions.',
+    group: 'Overview',
+    icon: Globe,
+    capability: null,
+  },
+  {
     key: 'users',
     label: 'Members',
     description: 'Manage workspace membership, roles and invitations.',
@@ -177,6 +190,15 @@ export const ADMIN_SECTIONS: AdminSectionDef[] = [
     group: 'Integrations',
     icon: Puzzle,
     capability: 'extensions.manage',
+  },
+  {
+    key: 'webhooks',
+    label: 'Webhooks',
+    description:
+      'Webhook subscriptions, endpoint health, delivery history and replay.',
+    group: 'Integrations',
+    icon: Webhook,
+    capability: 'integrations.manage',
   },
   {
     key: 'storage',
@@ -588,6 +610,9 @@ function AdminRoute() {
             {activeSection === 'dashboard' ? (
               <AdminDashboard workspaceId={workspaceId} />
             ) : null}
+            {activeSection === 'external-access' ? (
+              <AdminExternalAccess workspaceId={workspaceId} role={role ?? ''} />
+            ) : null}
             {activeSection === 'users' ? (
               <AdminMembers
                 members={members}
@@ -651,6 +676,9 @@ function AdminRoute() {
             ) : null}
             {activeSection === 'extensions' ? (
               <AdminExtensions workspaceId={workspaceId} role={role ?? ''} />
+            ) : null}
+            {activeSection === 'webhooks' ? (
+              <AdminWebhooks workspaceId={workspaceId} role={role ?? ''} />
             ) : null}
             {activeSection === 'storage' ? (
               <AdminStorage workspaceId={workspaceId} />

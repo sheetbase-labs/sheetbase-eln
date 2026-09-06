@@ -257,7 +257,7 @@ export async function getScopedClient(
  *
  * The caller must call `session.release()` in a finally block.
  */
-async function requireCapability(
+export async function requireCapability(
   workspaceId: string,
   capability: string,
 ): Promise<ScopedAdminSession> {

@@ -261,6 +261,7 @@ describe('AdminRoute', () => {
     )
     for (const label of [
       'Dashboard',
+      'External access',
       'Members',
       'Access',
       'Sessions',
@@ -268,6 +269,7 @@ describe('AdminRoute', () => {
       'Connectors',
       'Pipelines',
       'Extensions',
+      'Webhooks',
       'Storage',
       'Usage',
       'Audit',
@@ -338,6 +340,7 @@ describe('Admin IA gating contract', () => {
       if (role === 'viewer') {
         expect(visible).toEqual([
           'dashboard',
+          'external-access',
           'storage',
           'usage',
           'activity',

@@ -17,6 +17,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Manual runs for debugging CI itself (branch selectable in the UI/API).
+  workflow_dispatch:
 permissions:
   contents: read
 

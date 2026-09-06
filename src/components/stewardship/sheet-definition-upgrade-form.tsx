@@ -5,6 +5,7 @@ import type { Parameter } from '#/lib/parameter'
 import { buildParameterInputs } from '#/lib/parameter-input'
 import type { SheetDefinitionUpgradeDecisionDraft } from '#/lib/notebook-template-upgrade'
 import { requiredTargetParameterIds } from '#/lib/notebook-template-upgrade'
+import { summarizeSheetDefinitionUpgradeImpact } from '#/lib/reuse-upgrade'
 import type { SheetDefinitionUpgradePreview } from '#/lib/sheet-definition-upgrade'
 
 export function SheetDefinitionUpgradeForm({
@@ -37,6 +38,7 @@ export function SheetDefinitionUpgradeForm({
   client?: DataClient
   workspaceId?: string
 }) {
+  const impact = summarizeSheetDefinitionUpgradeImpact(preview)
   const requiredParameterIds = new Set(requiredTargetParameterIds(preview))
   const parametersToCollect = targetParameters.filter(
     (parameter) =>
@@ -51,6 +53,17 @@ export function SheetDefinitionUpgradeForm({
 
   return (
     <div className="space-y-3 rounded-md border p-3">
+      <div className="space-y-1">
+        <p className="text-xs font-medium">{impact.title}</p>
+        <ul className="space-y-1 text-xs text-muted-foreground">
+          {impact.lines.map((line, index) => (
+            <li key={`change-${index}`}>{line}</li>
+          ))}
+          {impact.localEffects.map((effect, index) => (
+            <li key={`local-${index}`}>{effect}</li>
+          ))}
+        </ul>
+      </div>
       <p className="text-xs text-muted-foreground">
         {preview.automaticChanges.length} automatic change(s),{' '}
         {preview.conflicts.length} conflict(s).

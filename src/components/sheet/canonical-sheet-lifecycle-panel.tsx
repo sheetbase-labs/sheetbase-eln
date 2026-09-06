@@ -3,12 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Workflow } from 'lucide-react'
 
-import { Button, Input, Label } from '#/components/ui'
+import { Badge, Button, Input, Label } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import {
   extractSheetDefinitionDraft,
   fetchSheetDefinitions,
+  fetchSheetDefinitionVersion,
   fetchSheetDefinitionVersions,
   previewSheetDefinitionExtraction,
   publishSheetDefinitionVersion,
@@ -31,6 +32,7 @@ import {
   materializeSheetInstance,
   previewSheetMaterialization,
 } from '#/lib/sheet-materialization-data'
+import { sheetDefinitionUpgradeAvailability } from '#/lib/reuse-upgrade'
 
 function errorText(error: unknown) {
   if (error instanceof DataClientError) return error.message
@@ -104,6 +106,33 @@ export function CanonicalSheetLifecyclePanel({
   })
   const published = (versions.data ?? []).filter(
     (item) => item.lifecycle === 'published',
+  )
+  // REUSE-03: governed pin vs published lineage. Badge-only: never
+  // auto-applies, never an error style, silent unless a newer published
+  // version exists.
+  const pinnedVersion = useQuery({
+    queryKey: ['sheet-definition-version', instance.sourceDefinitionVersionId],
+    enabled: Boolean(instance.sourceDefinitionVersionId),
+    queryFn: () =>
+      fetchSheetDefinitionVersion(
+        instance.sourceDefinitionVersionId!,
+        sheetDefinitionDataClient,
+      ),
+  })
+  const pinnedLineage = useQuery({
+    queryKey: ['sheet-definition-versions', pinnedVersion.data?.definitionId],
+    enabled: Boolean(pinnedVersion.data?.definitionId),
+    queryFn: () =>
+      fetchSheetDefinitionVersions(
+        pinnedVersion.data!.definitionId,
+        sheetDefinitionDataClient,
+      ),
+  })
+  const upgradeAvailability = sheetDefinitionUpgradeAvailability(
+    pinnedVersion.data
+      ? { id: pinnedVersion.data.id, version: pinnedVersion.data.version }
+      : null,
+    pinnedLineage.data ?? [],
   )
   const datasets = useQuery({
     queryKey: ['dataset-explorer-summaries'],
@@ -319,14 +348,22 @@ export function CanonicalSheetLifecyclePanel({
 
   return (
     <div className="border-t px-2 py-2">
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        onClick={() => setOpen((value) => !value)}
-      >
-        {open ? 'Hide sources and reuse' : 'Sources, extract, upgrade'}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => setOpen((value) => !value)}
+        >
+          {open ? 'Hide sources and reuse' : 'Sources, extract, upgrade'}
+        </Button>
+        {upgradeAvailability.status === 'upgrade-available' &&
+        upgradeAvailability.latestVersion ? (
+          <Badge variant="outline" className="text-xs">
+            Upgrade available · v{upgradeAvailability.latestVersion.version}
+          </Badge>
+        ) : null}
+      </div>
       {open ? (
         <div className="mt-2 grid gap-3 md:grid-cols-2">
           <fieldset className="space-y-2 rounded-md border p-2">

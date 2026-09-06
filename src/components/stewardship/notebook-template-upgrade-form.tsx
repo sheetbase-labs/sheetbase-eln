@@ -7,6 +7,7 @@ import type {
   NotebookUpgradeDecisionDraft,
   NotebookUpgradePreview,
 } from '#/lib/notebook-template-upgrade'
+import { summarizeNotebookTemplateUpgradeImpact } from '#/lib/reuse-upgrade'
 import { buildNotebookTemplateUpgradeDecisions } from '#/lib/notebook-template-upgrade'
 import { SheetDefinitionUpgradeForm } from '#/components/stewardship/sheet-definition-upgrade-form'
 
@@ -50,6 +51,7 @@ export function NotebookTemplateUpgradeForm({
   client?: DataClient
   workspaceId?: string
 }) {
+  const impact = summarizeNotebookTemplateUpgradeImpact(preview)
   const mappedParameterIds = mappedTemplateParameterIds(targetConfiguration)
   const templateParameters = targetConfiguration.parameters.filter(
     (parameter) => mappedParameterIds.has(parameter.id),
@@ -61,6 +63,17 @@ export function NotebookTemplateUpgradeForm({
         {preview.automatic.length} automatic change(s),{' '}
         {preview.conflicts.length} conflict(s).
       </p>
+      <div className="space-y-1">
+        <p className="text-xs font-medium">{impact.title}</p>
+        <ul className="space-y-1 text-xs text-muted-foreground">
+          {impact.lines.map((line, index) => (
+            <li key={`change-${index}`}>{line}</li>
+          ))}
+          {impact.localEffects.map((effect, index) => (
+            <li key={`local-${index}`}>{effect}</li>
+          ))}
+        </ul>
+      </div>
       {preview.automatic.length ? (
         <ul className="space-y-1 text-xs">
           {preview.automatic.map((change, index) => (

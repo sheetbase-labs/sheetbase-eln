@@ -56,6 +56,7 @@ import type {
   NotebookTemplateRequirementSummary,
 } from '#/lib/reuse-discovery'
 import { buildParameterInputs, defaultParameterDrafts } from '#/lib/parameter-input'
+import { buildNotebookTemplateUpgradeAdoption } from '#/lib/reuse-upgrade'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type {
   NotebookUpgradeDecisionDraft,
@@ -450,11 +451,19 @@ export function VersionedNotebookTemplatePanel({
         upgradeDecisionDrafts,
         upgradeParameterDrafts,
       )
+      // REUSE-03: explicit adoption — the preview must name this target and
+      // every placement conflict needs one decision. Governed pins re-pin on
+      // apply; local values and overrides stay with the working state.
+      const adoption = buildNotebookTemplateUpgradeAdoption({
+        preview: upgradePreview,
+        targetVersionId: selectedVersion.id,
+        decisions: collected.decisions,
+      })
       return applyNotebookTemplateUpgrade({
         recordId: upgradeRecordId.trim(),
         expectedStructureVersion: expectedVersion,
-        targetVersionId: selectedVersion.id,
-        decisions: collected.decisions,
+        targetVersionId: adoption.targetVersionId,
+        decisions: adoption.decisions,
         parameterInputs: collected.parameterInputs,
       })
     },

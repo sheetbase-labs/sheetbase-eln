@@ -42,6 +42,7 @@ import {
 } from '#/lib/dataset-schema-definition-rpc'
 import type { DatasetSchemaFieldInput } from '#/lib/dataset-schema-definition-rpc'
 import { discoverObjectDependencies } from '#/lib/object-dependencies'
+import { buildSheetDefinitionUpgradeAdoption } from '#/lib/reuse-upgrade'
 import {
   createSheetDefinition,
   createSheetDefinitionVersion,
@@ -1503,12 +1504,20 @@ function SheetDefinitionPlane({
         consumerUpgradeDecisionDrafts,
         consumerUpgradeParameterDrafts,
       )
+      // REUSE-03: explicit adoption — the preview must name this target and
+      // every conflict needs one decision. Governed values re-pin on apply;
+      // local values and overrides stay with the instance.
+      const adoption = buildSheetDefinitionUpgradeAdoption({
+        preview: consumerUpgradePreview,
+        targetVersionId: latestVersion.id,
+        decisions: collected.decisions,
+      })
       return applySheetInstanceDefinitionUpgrade(
         {
           instanceId: targetInstanceId,
           expectedRevision,
-          targetDefinitionVersionId: latestVersion.id,
-          decisions: collected.decisions,
+          targetDefinitionVersionId: adoption.targetDefinitionVersionId,
+          decisions: adoption.decisions,
           parameterInputs: collected.parameterInputs,
         },
         client,

@@ -100,8 +100,10 @@ import {
 import {
   fetchNotebookTemplate,
   fetchNotebookTemplateVersion,
+  fetchNotebookTemplateVersions,
   notebookTemplateDataClient,
 } from '#/lib/notebook-template-data'
+import { notebookTemplateUpgradeAvailability } from '#/lib/reuse-upgrade'
 import {
   fetchSheetInstances,
   sheetInstanceDataClient,
@@ -2004,6 +2006,22 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
         notebookTemplateDataClient,
       ),
   })
+  const versions = useQuery({
+    queryKey: ['notebook-template-versions', version.data?.templateId],
+    enabled: Boolean(version.data?.templateId),
+    queryFn: () =>
+      fetchNotebookTemplateVersions(
+        version.data!.templateId,
+        notebookTemplateDataClient,
+      ),
+  })
+  // REUSE-03: governed pin vs published lineage. Badge-only: never
+  // auto-applies, never an error style, silent unless a newer published
+  // version exists.
+  const availability = notebookTemplateUpgradeAvailability(
+    version.data ? { id: version.data.id, version: version.data.version } : null,
+    versions.data ?? [],
+  )
   if (version.isLoading || template.isLoading) {
     return (
       <span className="text-xs text-muted-foreground" role="status">
@@ -2016,8 +2034,16 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
   }
   const name = template.data?.name ?? 'Notebook template'
   return (
-    <span className="text-right text-xs">
-      {name} · version {version.data.version}
+    <span className="inline-flex items-center gap-2 text-right text-xs">
+      <span>
+        {name} · version {version.data.version}
+      </span>
+      {availability.status === 'upgrade-available' &&
+      availability.latestVersion ? (
+        <Badge variant="outline" className="text-xs">
+          Upgrade available · v{availability.latestVersion.version}
+        </Badge>
+      ) : null}
     </span>
   )
 }

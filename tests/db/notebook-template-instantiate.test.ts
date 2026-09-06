@@ -977,6 +977,10 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
       }),
     ])
 
+    // api_client holds no EXECUTE grant on insert_block: the forged insert
+    // dies at the permission layer (42501) before any payload check fires.
+    // The spoof fails either way; direct-update coverage below proves the
+    // payload check itself fires where the caller can reach it.
     await expectDenied(
       apiClient.query(
         `select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`,
@@ -988,7 +992,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
           }),
         ],
       ),
-      '23514',
+      '42501',
     )
 
     await expectDenied(
@@ -1058,6 +1062,8 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
       `select set_config('sheetbase.template_placement_assign', 'v1', true)`,
     )
 
+    // Same permission-layer denial as above (no EXECUTE grant): the forged
+    // GUC cannot promote the call past it.
     await expectDenied(
       apiClient.query(
         `select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`,
@@ -1069,7 +1075,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
           }),
         ],
       ),
-      '23514',
+      '42501',
     )
 
     await expectDenied(

@@ -6261,6 +6261,55 @@ export const connectors = api.table(
   ],
 )
 
+export const extensions = api.table(
+  'extensions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    version: text('version').notNull(),
+    /** Source identity: https URL or namespaced scheme:id reference. */
+    source: text('source').notNull(),
+    /**
+     * Validated manifest (identity, declared capabilities/scopes,
+     * contribution-point declarations). EXT-02 registers the points;
+     * EXT-01 stores and validates them.
+     */
+    manifest: jsonb('manifest').notNull().default(sql`'{}'::jsonb`),
+    status: text('status').notNull().default('installed'),
+    /** Per-extension scoped credential (minimal manifest-declared scopes). */
+    credentialId: uuid('credential_id').references(() => apiCredentials.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    uniqueIndex('uq_extensions_workspace_key').on(table.workspaceId, table.key),
+    // Composite identity target so future child rows cannot join a foreign
+    // workspace's extension.
+    unique('uq_extensions_workspace_id').on(table.workspaceId, table.id),
+    index('idx_extensions_workspace').on(table.workspaceId),
+    check('chk_extensions_key', sql`${table.key} ~ '^[a-z][a-z0-9-]{0,48}$'`),
+    check(
+      'chk_extensions_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_extensions_status',
+      sql`${table.status} IN ('installed', 'enabled', 'disabled')`,
+    ),
+  ],
+)
+
 export const connectorRuns = api.table(
   'connector_runs',
   {

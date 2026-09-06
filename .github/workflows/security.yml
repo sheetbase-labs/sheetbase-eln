@@ -30,7 +30,8 @@ on:
 permissions:
   contents: read
   security-events: write
-
+  # CodeQL analyze queries the workflow-run API for status reporting.
+  actions: read
 jobs:
   codeql:
     name: CodeQL SAST (javascript-typescript)

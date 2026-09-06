@@ -11,4 +11,5 @@ minimumReleaseAgeExclude:
   - '@tanstack/start-plugin-core@1.171.22'
 overrides:
   'js-yaml@>=4.0.0 <4.3.1': '>=4.3.1'
+  'browserslist@<=4.28.6': '>=4.28.7'
   'nanoid@>=3.0.0 <3.3.18': '>=3.3.18'

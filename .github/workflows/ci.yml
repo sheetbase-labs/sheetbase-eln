@@ -27,6 +27,7 @@ env:
   # build time (mirrors deploy.yml verify). Unit tests mock or override
   # whatever they actually exercise.
   DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
+  FORMULA_DATABASE_URL: postgresql://formula_runtime:sheetbase-ci@localhost:5432/sheetbase
   PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
   BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
   PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
@@ -131,9 +132,11 @@ jobs:
           POSTGREST_AUTHENTICATOR_PASSWORD: sheetbase-ci
           MIGRATOR_PASSWORD: sheetbase-ci
           FORMULA_WRITER_PASSWORD: sheetbase-ci
+          PGHOST: localhost
+          PGUSER: sheetbase
           PGPASSWORD: sheetbase-ci
         run: |
-          psql -h localhost -U sheetbase -d sheetbase -f docker/db/init/00-roles.sh
+          sh docker/db/init/00-roles.sh
           psql -h localhost -U sheetbase -d sheetbase -c 'ALTER USER sheetbase CREATEDB'
 
       - name: Run database tests

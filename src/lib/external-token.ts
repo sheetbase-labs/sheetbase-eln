@@ -231,6 +231,8 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   rotate_webhook_secret: ['webhooks:write'],
   list_webhook_deliveries: ['webhooks:read'],
   replay_webhook_delivery: ['webhooks:write'],
+  replay_webhook_deliveries: ['webhooks:write'],
+  get_webhook_endpoint_health: ['webhooks:read'],
 
   propose_agent_operation: ['agent_operations:write'],
   create_agent_workflow: ['agent_operations:write'],

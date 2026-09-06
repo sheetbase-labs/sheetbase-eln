@@ -323,6 +323,12 @@
       "typescript": "resource"
     },
     {
+      "name": "get_webhook_endpoint_health",
+      "resource": "webhooks",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "insert_block",
       "resource": "records",
       "python": "resource",
@@ -433,6 +439,12 @@
     {
       "name": "read_sheet_instance_calculation_results",
       "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "replay_webhook_deliveries",
+      "resource": "webhooks",
       "python": "resource",
       "typescript": "resource"
     },

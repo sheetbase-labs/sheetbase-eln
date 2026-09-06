@@ -119,13 +119,30 @@ metadata only, never secrets).
   (`X-Sheetbase-Signature: sha256=<hex>`); verify with a timing-safe
   compare and deduplicate on the event id — retries reuse the same id and
   must not duplicate downstream effects.
+- Every delivery also carries `X-Sheetbase-Event-Id` (the same event id in
+  a header) so receivers can deduplicate without parsing the body. Replays
+  reuse the original body/signature, hence the same idempotency key.
 - Deliveries run through the engine in `src/lib/webhook-delivery.ts` with
-  exponential backoff, auto-disablement on consecutive failures, and
-  single-delivery replay. Operational recovery (dead-letter, replay
-  windows, endpoint health) is EVENT-02 scope.
-- `api_client` credentials manage subscriptions under `webhooks:read` /
-  `webhooks:write` (see [`external-api.md`](external-api.md)); `change_events`
-  itself is never externally readable.
+  exponential backoff, per-endpoint rate budgets (`rate_limit_per_minute`;
+  over-budget attempts defer, never drop), and auto-disablement on
+  consecutive failures.
+- Exhausted backoff lands in the explicit `dead_letter` state — the DLQ
+  surface, listing reason (`error_code`/`error_message`) with the payload
+  referenced by delivery id. The retry sweep never picks dead letters up;
+  recovery is an explicit operator replay.
+- Recover with `api.replay_webhook_delivery` (single terminal delivery) or
+  `api.replay_webhook_deliveries` (subscription and/or time-window replay
+  of `dead_letter`/`failed`/`delivered` originals; re-running a window is
+  safe). Replays are audited via `replay_of_delivery_id` lineage plus a
+  `webhook_delivery` change event.
+- Diagnose with `api.list_webhook_deliveries` (status/event-type/time
+  filters) and `api.get_webhook_endpoint_health` (24h success rate, last
+  error, consecutive failures, disable state, retry debt). Re-enable a
+  disabled endpoint via `api.update_webhook_subscription` with
+  `status: 'active'` (resets `consecutive_failures`).
+- `api_client` credentials manage subscriptions and replay under
+  `webhooks:read` / `webhooks:write` (see [`external-api.md`](external-api.md));
+  `change_events` itself is never externally readable.
 
 ## Intentionally excluded
 

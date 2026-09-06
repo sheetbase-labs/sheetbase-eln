@@ -32,6 +32,7 @@ class WebhooksResource:
         max_retries: Optional[int] = None,
         failure_threshold: Optional[int] = None,
         signing_secret: Optional[str] = None,
+        rate_limit_per_minute: Optional[int] = None,
     ) -> Any:
         body: dict[str, Any] = {
             "p_workspace_id": workspace_id,
@@ -48,6 +49,8 @@ class WebhooksResource:
             body["p_failure_threshold"] = failure_threshold
         if signing_secret is not None:
             body["p_signing_secret"] = signing_secret
+        if rate_limit_per_minute is not None:
+            body["p_rate_limit_per_minute"] = rate_limit_per_minute
         return self._transport.post(
             "/api/db/rpc/create_webhook_subscription", json_body=body
         )
@@ -63,6 +66,7 @@ class WebhooksResource:
         status: Optional[str] = None,
         max_retries: Optional[int] = None,
         failure_threshold: Optional[int] = None,
+        rate_limit_per_minute: Optional[int] = None,
     ) -> Any:
         body: dict[str, Any] = {
             "p_workspace_id": workspace_id,
@@ -80,6 +84,8 @@ class WebhooksResource:
             body["p_max_retries"] = max_retries
         if failure_threshold is not None:
             body["p_failure_threshold"] = failure_threshold
+        if rate_limit_per_minute is not None:
+            body["p_rate_limit_per_minute"] = rate_limit_per_minute
         return self._transport.post(
             "/api/db/rpc/update_webhook_subscription", json_body=body
         )
@@ -114,6 +120,9 @@ class WebhooksResource:
         workspace_id: str,
         subscription_id: Optional[str] = None,
         status: Optional[str] = None,
+        event_type: Optional[str] = None,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> Any:
@@ -126,6 +135,12 @@ class WebhooksResource:
             body["p_subscription_id"] = subscription_id
         if status is not None:
             body["p_status"] = status
+        if event_type is not None:
+            body["p_event_type"] = event_type
+        if since is not None:
+            body["p_since"] = since
+        if until is not None:
+            body["p_until"] = until
         return self._transport.post(
             "/api/db/rpc/list_webhook_deliveries", json_body=body
         )
@@ -137,4 +152,42 @@ class WebhooksResource:
                 "p_workspace_id": workspace_id,
                 "p_delivery_id": delivery_id,
             },
+        )
+
+    def replay_deliveries(
+        self,
+        *,
+        workspace_id: str,
+        subscription_id: Optional[str] = None,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> Any:
+        body: dict[str, Any] = {"p_workspace_id": workspace_id}
+        if subscription_id is not None:
+            body["p_subscription_id"] = subscription_id
+        if since is not None:
+            body["p_since"] = since
+        if until is not None:
+            body["p_until"] = until
+        if status is not None:
+            body["p_status"] = status
+        if limit is not None:
+            body["p_limit"] = limit
+        return self._transport.post(
+            "/api/db/rpc/replay_webhook_deliveries", json_body=body
+        )
+
+    def endpoint_health(
+        self,
+        *,
+        workspace_id: str,
+        subscription_id: Optional[str] = None,
+    ) -> Any:
+        body: dict[str, Any] = {"p_workspace_id": workspace_id}
+        if subscription_id is not None:
+            body["p_subscription_id"] = subscription_id
+        return self._transport.post(
+            "/api/db/rpc/get_webhook_endpoint_health", json_body=body
         )

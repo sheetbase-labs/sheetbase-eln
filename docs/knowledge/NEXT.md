@@ -1,7 +1,7 @@
 ---
 title: Sheetbase Current Work
 status: canonical
-last_reviewed: 2026-08-31
+last_reviewed: 2026-09-06
 ---
 
 # Sheetbase — Current Work
@@ -15,7 +15,7 @@ Do not infer current priority from historical roadmap task ordering, old hand-of
 ```text
 Roadmap 1    COMPLETE
 Roadmap 2    COMPLETE
-Roadmap 3    ACTIVE — Product Depth
+Roadmap 3    ACTIVE — Waves A–C delivered as one stacked chain, in review
 ```
 
 ## Roadmap 2 closure
@@ -41,65 +41,53 @@ or RLS topology changes.
 
 ## Active Roadmap 3 work
 
-Roadmap 3 is active. Wave A (Product Depth) and the first Open Platform SDK
-tasks are delivered through one stacked PR chain, `#97 → #98 → #99 → #100 →
-#101 → #102`, reviewed bottom-up and merged in order:
+Roadmap 3 Waves A (Product Depth remainder), B (Scientific Depth + Open
+Platform) and C (Intelligent Workspace) are delivered as one linear stacked
+PR chain, `#127 → … → #161`, each based on the previous head, reviewed
+bottom-up and merged in order. Wave D is attempted as `#162` (proposed ADRs
+plus explicit deferral) at the top of the same stack:
 
 ```text
-✓ NAV-01  — Canonical Navigation Model        (#98, completed 2026-08-30)
-▶ GRID-01 — Keyboard & Selection Model        (#99, in review)
-▶ NOTE-01 — Authoring Interaction Baseline    (#100, in review)
-▶ SDK-01  — Contract Coverage & Parity        (#101, in review)
-▶ SDK-02  — Scientific Developer Ergonomics   (#102, in review)
+Wave A remainder   #127 NAV-03 · #128 GRID-05 · #129 FIND-03
+KNOW               #130 KNOW-01 · #131 KNOW-02 · #132 KNOW-03
+VIEW               #133 VIEW-01 · #134 VIEW-02 · #135 VIEW-03 · #136 VIEW-04
+MODEL              #137 MODEL-01 · #138 MODEL-02 · #139 MODEL-03 · #140 MODEL-04
+REUSE              #141 REUSE-01 · #142 REUSE-02 · #143 REUSE-03
+EVENT              #144 EVENT-01 · #145 EVENT-02 · #146 EVENT-03
+EXT                #147 EXT-01 · #148 EXT-02 · #149 EXT-03
+ADMIN              #150 ADMIN-01 · #151 ADMIN-02 · #152 ADMIN-03
+AI                 #153 AI-01 · #154 AI-02 · #155 AI-03
+ASSIST             #156 ASSIST-01 · #157 ASSIST-02 · #158 ASSIST-03
+AUTO-PLUS          #159 AUTO-PLUS-01 · #160 AUTO-PLUS-02 · #161 AUTO-PLUS-03
+Wave D             #162 organisation + regulated-control proposals, deferral
 ```
 
-Wave A's foundation activation rides #97. Each task owns its complete
-numbered-task exit criterion. SDK-02 builds dataframe/analysis helpers, bulk
-transfer, version access and provenance ergonomics directly on SDK-01's
-support matrix and does not start SDK-03 implicitly.
+Earlier Wave A work (NAV-01/02, GRID-01..04, NOTE-01..04, FIND-01/02, SDK-01..03)
+is merged reality on `main`. Each stacked task owns its complete numbered-task
+exit criterion; supporting fixes found during verification ride with their task
+PR (notably the `in.(eq.…)` lineage filter fix in #131 and the admin gate fix
+in #149).
 
 ## Next tasks, in order
 
-The next work queue, in recommended start order. The first three are
-independent and may proceed in parallel once the stack above merges; each
-must reconcile the current implementation before editing.
-
-```text
-1. NAV-02  — Context-Preserving Object Navigation
-2. GRID-02 — Clipboard, Fill & Range Operations
-3. NOTE-02 — Sections, Structure & Long-Document Navigation
-4. FIND-01 — Recents & Work Resumption
-5. SDK-03  — Lifecycle, Compatibility & Release Quality
-```
-
-Ordering rationale:
-
-- **NAV-02** continues the completed NAV-01 foundation and is the depth task
-  navigation quality depends on.
-- **GRID-02** builds range operations on GRID-01's selection model.
-- **NOTE-02** adds structure/outline on NOTE-01's authoring baseline.
-- **FIND-01** becomes Ready after the stack merges (its NAV-01 prerequisite is
-  then merged reality); it should start once navigation context from NAV-02
-  is shaping the home/resume surfaces it feeds.
-- **SDK-03** follows SDK-02 and is release/lifecycle work; do not start it
-  implicitly while SDK-02 is in review.
-
-Beyond this queue, Wave B (KNOW, VIEW, MODEL, REUSE, EVENT, EXT, ADMIN)
-becomes Ready only through the gates in
-[`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md). Roadmap order
-alone does not assign work; promoting a Wave B task requires an explicit
-update to this file.
+1. Review the stack bottom-up (`#127` first) and merge in order. Do not
+   reorder: every branch is based on the previous PR's head.
+2. Decide ADR-0044 (organisation domain) and ADR-0045 (regulated control
+   model): accept, amend, or leave proposed. Acceptance gates ENT-ORG-02 and
+   GXP-02..04 respectively, each additionally requiring its concrete adoption
+   need.
+3. Promote Wave B/C follow-ups only through explicit assignment here;
+   roadmap order alone does not assign work.
 
 ### Programme scope decisions
 
-- ENT-ORG and GXP remain in scope. Their first tasks must establish and accept
-  the required organisation-domain ADR and regulated intended-use/control model
-  before implementation proceeds.
-- OPS is deferred. Do not start OPS-01..03 without a later explicit programme
+- ENT-ORG-02/03 deferred: no production users, therefore no multi-workspace
+  adoption need. Implementation begins only with an accepted ADR-0044 plus a
+  concrete deployment need.
+- GXP-02..04 deferred: no concrete regulated intended use. Building further
+  controls without one would be compliance theatre.
+- OPS-01..03 deferred. Do not start without a later explicit programme
   decision based on institutional scale/adoption evidence.
-- All other Roadmap 3 streams remain planned according to
-  [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md); roadmap ordering
-  alone does not make their numbered tasks current.
 
 Do not create a Roadmap-3-local `NEXT.md`.
 

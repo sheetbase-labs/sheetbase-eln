@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
+import { computeBackoff, attemptDelivery } from './webhook-delivery'
 
 // This suite exercises pure delivery helpers, but the module imports the
 // server env for its live engine defaults. Mock the boundary so the file
@@ -7,7 +8,6 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('#/env.server', () => ({
   env: { DATABASE_URL: 'postgresql://localhost:5432/test' },
 }))
-import { computeBackoff, attemptDelivery } from './webhook-delivery'
 
 describe('computeBackoff', () => {
   it('returns a positive number for attempt 0', () => {
@@ -48,7 +48,12 @@ describe('attemptDelivery', () => {
       vi.fn(async () => new Response('ok', { status: 200 })),
     )
     try {
-      const result = await attemptDelivery(HOOK, '{"test":true}', 'sha256=abc', 5000)
+      const result = await attemptDelivery(
+        HOOK,
+        '{"test":true}',
+        'sha256=abc',
+        5000,
+      )
       expect(result.success).toBe(true)
       expect(result.responseStatus).toBe(200)
     } finally {
@@ -62,7 +67,12 @@ describe('attemptDelivery', () => {
       vi.fn(async () => new Response('err', { status: 500 })),
     )
     try {
-      const result = await attemptDelivery(HOOK, '{"test":true}', 'sha256=abc', 5000)
+      const result = await attemptDelivery(
+        HOOK,
+        '{"test":true}',
+        'sha256=abc',
+        5000,
+      )
       expect(result.success).toBe(false)
       expect(result.responseStatus).toBe(500)
       expect(result.errorCode).toBe('http_error')
@@ -79,7 +89,12 @@ describe('attemptDelivery', () => {
       }),
     )
     try {
-      const result = await attemptDelivery(HOOK, '{"test":true}', 'sha256=abc', 5000)
+      const result = await attemptDelivery(
+        HOOK,
+        '{"test":true}',
+        'sha256=abc',
+        5000,
+      )
       expect(result.success).toBe(false)
       expect(result.errorCode).toBe('delivery_error')
     } finally {
@@ -94,14 +109,21 @@ describe('attemptDelivery', () => {
         // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
         const hanging = new Promise<Response>((_resolve, reject) => {
           init?.signal?.addEventListener('abort', () =>
-            reject(new DOMException('The operation was aborted.', 'AbortError')),
+            reject(
+              new DOMException('The operation was aborted.', 'AbortError'),
+            ),
           )
         })
         return hanging
       }),
     )
     try {
-      const result = await attemptDelivery(HOOK, '{"test":true}', 'sha256=abc', 1000)
+      const result = await attemptDelivery(
+        HOOK,
+        '{"test":true}',
+        'sha256=abc',
+        1000,
+      )
       expect(result.success).toBe(false)
       expect(result.errorCode).toBe('timeout')
     } finally {

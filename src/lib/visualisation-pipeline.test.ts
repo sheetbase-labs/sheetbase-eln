@@ -34,8 +34,18 @@ const COL_LO = '0198d970-e266-4000-8000-000000000005'
 const COL_HI = '0198d970-e266-4000-8000-000000000006'
 
 const COLUMNS: ChartColumn[] = [
-  { id: COL_X, label: 'Dose', logicalType: 'decimal', unit: { symbol: 'ng/mL' } },
-  { id: COL_Y, label: 'Response', logicalType: 'decimal', unit: { symbol: '%' } },
+  {
+    id: COL_X,
+    label: 'Dose',
+    logicalType: 'decimal',
+    unit: { symbol: 'ng/mL' },
+  },
+  {
+    id: COL_Y,
+    label: 'Response',
+    logicalType: 'decimal',
+    unit: { symbol: '%' },
+  },
   { id: COL_G, label: 'Construct', logicalType: 'text' },
   { id: COL_LO, label: 'Low', logicalType: 'decimal' },
   { id: COL_HI, label: 'High', logicalType: 'decimal' },
@@ -82,7 +92,11 @@ const ROWS = [
 describe('stable field identity', () => {
   it('does not rebind a retired field by label', () => {
     const impostor: ChartColumn[] = [
-      { id: '0198d970-e266-4000-8000-000000000099', label: 'Dose', logicalType: 'decimal' },
+      {
+        id: '0198d970-e266-4000-8000-000000000099',
+        label: 'Dose',
+        logicalType: 'decimal',
+      },
       { id: COL_Y, label: 'Response', logicalType: 'decimal' },
     ]
     const m = materialiseChart(spec(), impostor, ROWS)
@@ -164,11 +178,7 @@ describe('plot types', () => {
   })
 
   it('builds violin density from the same groups', () => {
-    const m = materialiseChart(
-      spec({ type: 'violin' }),
-      COLUMNS,
-      ROWS,
-    )
+    const m = materialiseChart(spec({ type: 'violin' }), COLUMNS, ROWS)
     expect(m.series[0].violin?.length).toBeGreaterThan(4)
   })
 
@@ -228,7 +238,10 @@ describe('filters and transforms', () => {
       transformations: [{ kind: 'log10', params: { fieldId: COL_Y } }],
     })
     const { rows, transformInvalid } = applyTransformations(
-      [{ [COL_X]: 1, [COL_Y]: 100, [COL_G]: 'A' }, { [COL_X]: 2, [COL_Y]: 0, [COL_G]: 'A' }],
+      [
+        { [COL_X]: 1, [COL_Y]: 100, [COL_G]: 'A' },
+        { [COL_X]: 2, [COL_Y]: 0, [COL_G]: 'A' },
+      ],
       s.transformations,
       s,
     )
@@ -298,7 +311,10 @@ describe('fitting', () => {
     const m = materialiseChart(
       spec({
         fields: { ...spec().fields, series: null, color: null },
-        overlays: { errorBars: null, fit: { method: 'ols', degree: 1, showBand: true } },
+        overlays: {
+          errorBars: null,
+          fit: { method: 'ols', degree: 1, showBand: true },
+        },
       }),
       COLUMNS,
       ROWS.filter((r) => r[COL_G] === 'A'),
@@ -311,8 +327,17 @@ describe('fitting', () => {
 
   it('reports insufficient data instead of drawing a fake line', () => {
     const overlay = attachFitOverlay(
-      spec({ overlays: { errorBars: null, fit: { method: 'ols', degree: 1 } } }),
-      [{ identifier: 'all', label: 'all', color: '#006edc', points: [{ x: 1, y: 2 }] }],
+      spec({
+        overlays: { errorBars: null, fit: { method: 'ols', degree: 1 } },
+      }),
+      [
+        {
+          identifier: 'all',
+          label: 'all',
+          color: '#006edc',
+          points: [{ x: 1, y: 2 }],
+        },
+      ],
     )
     expect(overlay.fit?.error).toBe('insufficient_data')
   })
@@ -353,11 +378,9 @@ describe('log scale', () => {
 
 describe('point provenance', () => {
   it('maps plotted points back to dataset field ids and optional row id', () => {
-    const m = materialiseChart(
-      spec(),
-      COLUMNS,
-      [{ ...ROWS[0], __sheetbaseRowId: 'row-1' }],
-    )
+    const m = materialiseChart(spec(), COLUMNS, [
+      { ...ROWS[0], __sheetbaseRowId: 'row-1' },
+    ])
     expect(m.series[0].points[0].rowId).toBe('row-1')
   })
 })
@@ -431,7 +454,10 @@ describe('live versus frozen rematerialisation', () => {
       }),
       spec({
         type: 'summary',
-        overlays: { errorBars: { source: 'computed', basis: 'sem' }, fit: null },
+        overlays: {
+          errorBars: { source: 'computed', basis: 'sem' },
+          fit: null,
+        },
       }),
       spec({
         type: 'violin',
@@ -470,7 +496,9 @@ describe('live versus frozen rematerialisation', () => {
     const mutated = [...ROWS, { [COL_X]: 4, [COL_Y]: 16, [COL_G]: 'A' }]
     const live = materialiseChart(chartSpec, COLUMNS, mutated)
     const frozenAgain = materialiseChart(chartSpec, COLUMNS, ROWS)
-    expect(live.series[0].points.length).not.toBe(pinned.series[0].points.length)
+    expect(live.series[0].points.length).not.toBe(
+      pinned.series[0].points.length,
+    )
     expect(frozenAgain.series).toEqual(pinned.series)
   })
 })
@@ -494,7 +522,12 @@ describe('formatting, recommendation, handoff, export', () => {
     const handoff = sheetVisualisationHandoff({
       datasetId: DS,
       columns: [
-        { id: COL_X, source: 'dataset', fieldId: COL_X, logicalType: 'decimal' },
+        {
+          id: COL_X,
+          source: 'dataset',
+          fieldId: COL_X,
+          logicalType: 'decimal',
+        },
         { id: 'local-1', source: 'local', logicalType: 'decimal' },
       ],
       selectedColumnIds: [COL_X, 'local-1'],

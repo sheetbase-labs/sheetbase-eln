@@ -11,10 +11,7 @@ import {
   DialogTrigger,
 } from '#/components/ui'
 import { ObjectHistoryTimeline } from './object-history-timeline'
-import {
-  auditHistoryDataClient,
-  fetchAuditEvents,
-} from '#/lib/audit-history'
+import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
 
 /**
@@ -58,12 +55,12 @@ export function ObjectHistoryDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type='button' size='sm' variant='outline'>
-          <History className='size-3.5' aria-hidden='true' />
+        <Button type="button" size="sm" variant="outline">
+          <History className="size-3.5" aria-hidden="true" />
           {triggerLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent className='max-w-xl'>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{objectLabel} history</DialogTitle>
           <DialogDescription>
@@ -71,7 +68,7 @@ export function ObjectHistoryDialog({
             , when, how, and what changed — frozen after the fact.
           </DialogDescription>
         </DialogHeader>
-        <div className='max-h-[60vh] overflow-y-auto pr-1'>
+        <div className="max-h-[60vh] overflow-y-auto pr-1">
           <ObjectHistoryTimeline
             events={events}
             loading={historyQuery.isLoading}
@@ -85,7 +82,7 @@ export function ObjectHistoryDialog({
             hasMore={Boolean(historyQuery.hasNextPage)}
             onLoadMore={() => void historyQuery.fetchNextPage()}
             loadingMore={historyQuery.isFetchingNextPage}
-            maxHeight='52vh'
+            maxHeight="52vh"
           />
         </div>
       </DialogContent>

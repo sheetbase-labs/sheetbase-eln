@@ -280,7 +280,10 @@ export async function runPipelineExecution(
         datasetSnapshot: output.snapshotMs,
         // Everything in the output phase beyond commit + snapshot (dataset
         // creation, mapping, revision loads, output recording).
-        outputOverhead: Math.max(0, outputMs - output.commitMs - output.snapshotMs),
+        outputOverhead: Math.max(
+          0,
+          outputMs - output.commitMs - output.snapshotMs,
+        ),
         total: Date.now() - startedAt,
       },
     })

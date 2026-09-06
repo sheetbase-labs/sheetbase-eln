@@ -35,14 +35,18 @@ function contribution(
 
 describe('ExtensionObjectActions', () => {
   it('renders nothing when there are no actions', () => {
-    const { container } = render(<ExtensionObjectActions actions={[]} onSelect={() => {}} />)
+    const { container } = render(
+      <ExtensionObjectActions actions={[]} onSelect={() => {}} />,
+    )
     expect(container.innerHTML).toBe('')
   })
 
   it('renders labelled buttons that invoke on click', async () => {
     const user = userEvent.setup()
     const onSelect = vi.fn()
-    render(<ExtensionObjectActions actions={[contribution()]} onSelect={onSelect} />)
+    render(
+      <ExtensionObjectActions actions={[contribution()]} onSelect={onSelect} />,
+    )
     const button = screen.getByRole('button', { name: 'Open sample panel' })
     expect(button.getAttribute('title')).toMatch(/sample/)
     await user.click(button)
@@ -52,7 +56,9 @@ describe('ExtensionObjectActions', () => {
 
 describe('ExtensionCommandGroup', () => {
   it('renders nothing while empty', () => {
-    const { container } = render(<ExtensionCommandGroup commands={[]} onSelect={() => {}} />)
+    const { container } = render(
+      <ExtensionCommandGroup commands={[]} onSelect={() => {}} />,
+    )
     expect(screen.queryByText('Extensions')).toBeNull()
     expect(container.innerHTML).toBe('')
   })
@@ -61,7 +67,11 @@ describe('ExtensionCommandGroup', () => {
 describe('toExtensionPanelTabs', () => {
   it('maps panels through the host renderer and skips unknown extensions', () => {
     const panels = [
-      contribution({ point: 'panels', id: 'sample-panel', key: 'sample:panels:sample-panel' }),
+      contribution({
+        point: 'panels',
+        id: 'sample-panel',
+        key: 'sample:panels:sample-panel',
+      }),
       contribution({
         point: 'panels',
         id: 'other',

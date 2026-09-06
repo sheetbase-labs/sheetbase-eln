@@ -55,7 +55,10 @@ import type {
   NotebookTemplateNeedsFilter,
   NotebookTemplateRequirementSummary,
 } from '#/lib/reuse-discovery'
-import { buildParameterInputs, defaultParameterDrafts } from '#/lib/parameter-input'
+import {
+  buildParameterInputs,
+  defaultParameterDrafts,
+} from '#/lib/parameter-input'
 import { buildNotebookTemplateUpgradeAdoption } from '#/lib/reuse-upgrade'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type {
@@ -71,6 +74,7 @@ import {
   fetchSheetDefinitionVersions,
   sheetDefinitionDataClient,
 } from '#/lib/sheet-definition-data'
+
 function emptyNotebookTemplateConfiguration(): NotebookTemplateConfiguration {
   return {
     formatVersion: 1,
@@ -224,7 +228,13 @@ export function VersionedNotebookTemplatePanel({
         }
         return true
       }),
-    [templates.data, versionsByTemplate, summariesByTemplate, lifecycleFilter, needsFilter],
+    [
+      templates.data,
+      versionsByTemplate,
+      summariesByTemplate,
+      lifecycleFilter,
+      needsFilter,
+    ],
   )
   const selectedVersion =
     selectedTemplateVersions?.find(
@@ -516,9 +526,7 @@ export function VersionedNotebookTemplatePanel({
           id="notebook-template-lifecycle"
           value={lifecycleFilter}
           onChange={(event) =>
-            setLifecycleFilter(
-              event.target.value as typeof lifecycleFilter,
-            )
+            setLifecycleFilter(event.target.value as typeof lifecycleFilter)
           }
           className="w-auto"
         >
@@ -562,7 +570,7 @@ export function VersionedNotebookTemplatePanel({
           <TableBody>
             {visibleTemplates.map((template) => {
               const templateVersions = versionsByTemplate.get(template.id) ?? []
-              const latest = templateVersions[0] ?? null
+              const latest = templateVersions.at(0) ?? null
               const summary = summariesByTemplate.get(template.id) ?? null
               const published = templateVersions.find(
                 (version) => version.lifecycle === 'published',
@@ -1195,16 +1203,17 @@ export function VersionedNotebookTemplatePanel({
                 {instantiateVersion.configuration.placements
                   .filter((placement) => placement.kind === 'sheet')
                   .map((placement) => {
-                    if (placement.kind !== 'sheet') return null
                     const mapped = placement.parameterMappings
                       .map((mapping) =>
-                        instantiateVersion?.configuration.parameters.find(
+                        instantiateVersion.configuration.parameters.find(
                           (parameter) =>
                             parameter.id === mapping.templateParameterId,
                         ),
                       )
                       .filter(
-                        (parameter): parameter is NonNullable<typeof parameter> =>
+                        (
+                          parameter,
+                        ): parameter is NonNullable<typeof parameter> =>
                           parameter != null,
                       )
                     return (
@@ -1230,8 +1239,8 @@ export function VersionedNotebookTemplatePanel({
               </ul>
               <p className="text-xs text-muted-foreground">
                 Governed pins name the exact published versions composed. Each
-                sheet becomes an independent instance — no part mutates
-                another. Titles, projects and parameter values stay local.
+                sheet becomes an independent instance — no part mutates another.
+                Titles, projects and parameter values stay local.
               </p>
             </div>
           ) : null}
@@ -1252,7 +1261,9 @@ export function VersionedNotebookTemplatePanel({
           {missingRequiredParameters.length > 0 ? (
             <p className="text-sm text-destructive" role="alert">
               Missing required:{' '}
-              {missingRequiredParameters.map((parameter) => parameter.label).join(', ')}
+              {missingRequiredParameters
+                .map((parameter) => parameter.label)
+                .join(', ')}
               . No Notebook is created until every required input resolves.
             </p>
           ) : null}

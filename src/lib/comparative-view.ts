@@ -167,15 +167,15 @@ export function toComparableNumber(value: unknown): number | null {
 }
 
 /** Deterministic summary over a non-empty numeric sample. */
-export function summarizeValues(values: number[]): ComparativeGroupStats | null {
+export function summarizeValues(
+  values: number[],
+): ComparativeGroupStats | null {
   if (values.length === 0) return null
   const sorted = [...values].sort((a, b) => a - b)
   const sum = sorted.reduce((acc, v) => acc + v, 0)
   const mid = Math.floor(sorted.length / 2)
   const median =
-    sorted.length % 2 === 1
-      ? sorted[mid]
-      : (sorted[mid - 1] + sorted[mid]) / 2
+    sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
   return {
     n: sorted.length,
     min: sorted[0],
@@ -214,9 +214,7 @@ export function groupRowsByFields(
     })
     const key = JSON.stringify(parts)
     const label = parts
-      .map((part) =>
-        part === null ? COMPARATIVE_VIEW_MISSING_LABEL : part,
-      )
+      .map((part) => (part === null ? COMPARATIVE_VIEW_MISSING_LABEL : part))
       .join(' · ')
     const existing = groups.get(key)
     if (existing) existing.rowIndexes.push(index)
@@ -324,9 +322,7 @@ export function promoteToChartSpec(
   const facetField = config.facetBy ?? null
   const yLabel = columnLabel(columns, config.valueField)
   if (config.viewType === 'distribution') {
-    const seriesLabel = seriesField
-      ? columnLabel(columns, seriesField)
-      : 'all'
+    const seriesLabel = seriesField ? columnLabel(columns, seriesField) : 'all'
     return {
       specVersion: CHART_SPEC_VERSION,
       type: 'box',
@@ -347,9 +343,7 @@ export function promoteToChartSpec(
           x: { label: seriesLabel, scale: 'linear' },
           y: { label: yLabel, scale: 'linear' },
         },
-        series: [
-          { identifier: 'all', label: 'all', color: CHART_PALETTE[0] },
-        ],
+        series: [{ identifier: 'all', label: 'all', color: CHART_PALETTE[0] }],
         legend: { visible: true },
       },
       overlays: { errorBars: null },
@@ -401,8 +395,12 @@ export function buildDefaultComparativeViewConfig(source: {
   versionId?: string | null
   columns: Array<{ id: string; logicalType: string }>
 }): ComparativeViewConfig | null {
-  const numerics = source.columns.filter((c) => NUMERIC_TYPES.has(c.logicalType))
-  const groupable = source.columns.find((c) => GROUPABLE_TYPES.has(c.logicalType))
+  const numerics = source.columns.filter((c) =>
+    NUMERIC_TYPES.has(c.logicalType),
+  )
+  const groupable = source.columns.find((c) =>
+    GROUPABLE_TYPES.has(c.logicalType),
+  )
   if (numerics.length === 0 || !groupable) return null
   const valueField = numerics[0].id
   const timeField =

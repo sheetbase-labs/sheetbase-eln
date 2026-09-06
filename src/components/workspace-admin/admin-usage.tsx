@@ -13,7 +13,7 @@ export function AdminUsage({ workspaceId }: { workspaceId: string }) {
   const data = query.data
   // Limit context comes from the server (null = no quota configured).
   // Never invent a theatre number here — the note states what is true.
-  const quota = data?.limits?.fileBytes
+  const quota = data?.limits.fileBytes
   const quotaNote =
     quota == null || quota.byteLimit == null
       ? 'No quota configured — observed usage, nothing blocked.'
@@ -27,7 +27,11 @@ export function AdminUsage({ workspaceId }: { workspaceId: string }) {
         ['Files', data.files.toLocaleString(), null],
         ['File storage', formatBytes(data.fileBytes), quotaNote],
         ['Connectors', data.connectors.toLocaleString(), null],
-        ['Pipeline definitions', data.pipelineDefinitions.toLocaleString(), null],
+        [
+          'Pipeline definitions',
+          data.pipelineDefinitions.toLocaleString(),
+          null,
+        ],
         ['Pipeline runs', data.pipelineRuns.toLocaleString(), null],
         ['Connector runs', data.connectorRuns.toLocaleString(), null],
       ]

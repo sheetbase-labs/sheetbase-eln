@@ -53,7 +53,10 @@ export function SampleExtensionPanel({
       (cause: unknown) =>
         setState({
           status: 'error',
-          message: cause instanceof Error ? cause.message : 'Could not load the sample summary.',
+          message:
+            cause instanceof Error
+              ? cause.message
+              : 'Could not load the sample summary.',
         }),
     )
   }, [loadSummary])
@@ -94,19 +97,31 @@ export function SampleExtensionPanel({
       <div>
         <p className="text-sm font-semibold">{state.summary.heading}</p>
         {state.summary.subheading ? (
-          <p className="text-xs text-muted-foreground">{state.summary.subheading}</p>
+          <p className="text-xs text-muted-foreground">
+            {state.summary.subheading}
+          </p>
         ) : null}
       </div>
       <dl className="divide-y divide-border rounded-md border border-border">
         {state.summary.rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between gap-2 px-2 py-1.5">
-            <dt className="shrink-0 text-xs text-muted-foreground">{row.label}</dt>
+          <div
+            key={row.label}
+            className="flex items-center justify-between gap-2 px-2 py-1.5"
+          >
+            <dt className="shrink-0 text-xs text-muted-foreground">
+              {row.label}
+            </dt>
             <dd className="truncate text-xs text-foreground">{row.value}</dd>
           </div>
         ))}
       </dl>
       {onOpenRecord ? (
-        <Button type="button" variant="outline" size="sm" onClick={onOpenRecord}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onOpenRecord}
+        >
           Open full record
         </Button>
       ) : null}

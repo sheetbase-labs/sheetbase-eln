@@ -37,7 +37,11 @@ function textProposal(): AssistDraftProposal {
           freshness: 'live',
           pins: [],
           sections: [
-            { heading: 'Properties', body: 'organism: E. coli', truncated: false },
+            {
+              heading: 'Properties',
+              body: 'organism: E. coli',
+              truncated: false,
+            },
           ],
           truncated: false,
         },
@@ -116,7 +120,9 @@ describe('DraftProposalPanel', () => {
     )
     expect(screen.getByText(/Draft preview/)).toBeTruthy()
     // Title and preview both name the draft; both must render.
-    expect(screen.getAllByText(/Draft summary for/).length).toBeGreaterThanOrEqual(2)
+    expect(
+      screen.getAllByText(/Draft summary for/).length,
+    ).toBeGreaterThanOrEqual(2)
   })
 
   it('previews per-column confidence for a mapping proposal', () => {

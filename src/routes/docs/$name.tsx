@@ -52,7 +52,12 @@ function DocPage() {
   if (!html) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
-        <Link to="/admin/$section" params={{ section: 'deployment' }} search={{ model: undefined }} className="text-sm text-primary hover:underline">
+        <Link
+          to="/admin/$section"
+          params={{ section: 'deployment' }}
+          search={{ model: undefined }}
+          className="text-sm text-primary hover:underline"
+        >
           ← Back to deployment
         </Link>
         <h1 className="mt-4 text-2xl font-semibold">{title}</h1>
@@ -65,7 +70,12 @@ function DocPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
-      <Link to="/admin/$section" params={{ section: 'deployment' }} search={{ model: undefined }} className="text-sm text-primary hover:underline">
+      <Link
+        to="/admin/$section"
+        params={{ section: 'deployment' }}
+        search={{ model: undefined }}
+        className="text-sm text-primary hover:underline"
+      >
         ← Back to deployment
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">{title}</h1>

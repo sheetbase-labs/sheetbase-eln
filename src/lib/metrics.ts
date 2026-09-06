@@ -100,7 +100,10 @@ export const PIPELINE_OUTCOMES = ['succeeded', 'failed', 'cancelled'] as const
 export const PIPELINE_TRIGGER_KINDS = ['manual', 'scheduled', 'event'] as const
 
 /** Bounded gateway model vocabulary. The AI-03 model allowlist is this list. */
-export const MODEL_NAMES = ['sheetbase-assist-1', 'sheetbase-summarise-1'] as const
+export const MODEL_NAMES = [
+  'sheetbase-assist-1',
+  'sheetbase-summarise-1',
+] as const
 export type ModelName = (typeof MODEL_NAMES)[number]
 
 /** Bounded gateway call outcomes: ok, policy rejection, or provider error. */

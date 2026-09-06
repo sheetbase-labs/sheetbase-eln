@@ -5,9 +5,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
-import {
-  RegisterConnectorDialog,
-} from '#/components/integrations/register-connector-dialog'
+import { RegisterConnectorDialog } from '#/components/integrations/register-connector-dialog'
 import {
   Badge,
   Button,
@@ -57,7 +55,10 @@ function IntegrationsRoute() {
   })
 
   const connectors = connectorsQuery.data ?? []
-  const canManage = hasCapability(context.workspace?.role, 'integrations.manage')
+  const canManage = hasCapability(
+    context.workspace?.role,
+    'integrations.manage',
+  )
 
   useShell({
     context: {
@@ -68,10 +69,7 @@ function IntegrationsRoute() {
         role: context.workspace?.role,
       },
     },
-    breadcrumbs: [
-      { label: 'Home', to: '/' },
-      { label: 'Integrations' },
-    ],
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Integrations' }],
     primaryAction:
       canManage && connectors.length > 0 ? (
         <Button size="sm" onClick={() => setRegisterOpen(true)}>
@@ -145,12 +143,17 @@ function IntegrationsRoute() {
 
 function ConnectorCard({ connector }: { connector: ConnectorWire }) {
   return (
-    <Link to="/integrations/$connectorId" params={{ connectorId: connector.id }}>
+    <Link
+      to="/integrations/$connectorId"
+      params={{ connectorId: connector.id }}
+    >
       <Card className="h-full transition-colors hover:border-primary">
         <CardHeader>
           <CardTitle className="flex items-center justify-between gap-2">
             {connector.name}
-            <Badge variant={connector.status === 'active' ? 'default' : 'secondary'}>
+            <Badge
+              variant={connector.status === 'active' ? 'default' : 'secondary'}
+            >
               {connector.status}
             </Badge>
           </CardTitle>

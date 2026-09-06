@@ -299,9 +299,7 @@ describe('PlateMap VIEW-02 row-band windowing', () => {
     expect(screen.getByRole('rowheader', { name: 'H' })).toBeTruthy()
     expect(screen.queryByRole('rowheader', { name: 'I' })).toBeNull()
     // One band mounts: 8 × 48 wells instead of 1536.
-    expect(container.querySelectorAll('button[data-cell]')).toHaveLength(
-      8 * 48,
-    )
+    expect(container.querySelectorAll('button[data-cell]')).toHaveLength(8 * 48)
   })
 
   it('pages between row bands', async () => {
@@ -311,9 +309,7 @@ describe('PlateMap VIEW-02 row-band windowing', () => {
     expect(screen.getByText(/Rows I–P of AF/)).toBeTruthy()
     expect(screen.getByRole('rowheader', { name: 'I' })).toBeTruthy()
     expect(screen.queryByRole('rowheader', { name: 'A' })).toBeNull()
-    await user.click(
-      screen.getByRole('button', { name: 'Previous row band' }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Previous row band' }))
     expect(screen.getByText(/Rows A–H of AF/)).toBeTruthy()
   })
 

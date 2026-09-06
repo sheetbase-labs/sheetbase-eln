@@ -444,8 +444,7 @@ export function useFrozenPinnedRows(frozen: FrozenChart | null) {
   const expected = frozen?.datasetProvenance[0]?.rowCount ?? 0
   const query = useQuery({
     queryKey: chartQueryKeys.versionRows(versionId ?? ''),
-    queryFn: () =>
-      fetchFrozenAnalysisRows(sciDataClient, versionId!, expected),
+    queryFn: () => fetchFrozenAnalysisRows(sciDataClient, versionId!, expected),
     enabled: Boolean(versionId),
   })
   return query

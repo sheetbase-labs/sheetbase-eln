@@ -12,10 +12,8 @@ import { useQuery } from '@tanstack/react-query'
 
 import type { DataClient } from '#/lib/data-client'
 import { extensionQueryKeys, listExtensions } from '#/lib/extensions/client'
-import {
-  resolveExtensionContributions,
-  type ResolvedExtensionPoints,
-} from '#/lib/extensions/registry'
+import { resolveExtensionContributions } from '#/lib/extensions/registry'
+import type { ResolvedExtensionPoints } from '#/lib/extensions/registry'
 
 export function useExtensionPoints(
   client: DataClient,

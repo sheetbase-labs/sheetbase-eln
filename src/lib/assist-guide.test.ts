@@ -20,12 +20,16 @@ import {
   evaluateAnalysisToFigure,
   evaluateSubmissionReadiness,
   GUIDED_ACCEPTS,
-  type AnalysisToFigureState,
-  type GuideAcceptKey,
-  type SubmissionReadinessState,
+} from './assist-guide'
+import type {
+  AnalysisToFigureState,
+  GuideAcceptKey,
+  SubmissionReadinessState,
 } from './assist-guide'
 
-function analysisState(overrides: Partial<AnalysisToFigureState> = {}): AnalysisToFigureState {
+function analysisState(
+  overrides: Partial<AnalysisToFigureState> = {},
+): AnalysisToFigureState {
   return {
     datasetId: 'd1',
     columnCount: 0,
@@ -37,7 +41,9 @@ function analysisState(overrides: Partial<AnalysisToFigureState> = {}): Analysis
   }
 }
 
-function submissionState(overrides: Partial<SubmissionReadinessState> = {}): SubmissionReadinessState {
+function submissionState(
+  overrides: Partial<SubmissionReadinessState> = {},
+): SubmissionReadinessState {
   return {
     recordId: 'r1',
     hasUnsavedWork: true,
@@ -67,13 +73,25 @@ function envelope(): AiContextEnvelope {
         deepLink: '/records/rec-1',
         freshness: 'live',
         pins: [],
-        sections: [{ heading: 'Properties', body: 'organism: E. coli', truncated: false }],
+        sections: [
+          {
+            heading: 'Properties',
+            body: 'organism: E. coli',
+            truncated: false,
+          },
+        ],
         truncated: false,
       },
     ],
     omissions: [],
     budgets: {
-      applied: { maxObjects: 5, maxSectionsPerObject: 5, maxCharsPerSection: 100, maxCharsTotal: 1000, maxRowsPerDataset: 10 },
+      applied: {
+        maxObjects: 5,
+        maxSectionsPerObject: 5,
+        maxCharsPerSection: 100,
+        maxCharsTotal: 1000,
+        maxRowsPerDataset: 10,
+      },
       usage: { chars: 10, sections: 1, rows: 0, objects: 1 },
     },
   }
@@ -85,36 +103,81 @@ describe('evaluateAnalysisToFigure', () => {
     expect(workflow.workflowId).toBe('analysis-to-figure')
     expect(workflow.currentStepId).toBe('dataset-ready')
     expect(workflow.complete).toBe(false)
-    expect(workflow.steps.map((s) => s.state)).toEqual(['current', 'blocked', 'blocked', 'blocked'])
+    expect(workflow.steps.map((s) => s.state)).toEqual([
+      'current',
+      'blocked',
+      'blocked',
+      'blocked',
+    ])
     expect(workflow.steps[1]?.blockedReason).toContain('Dataset ready')
-    expect(workflow.steps[1]?.nextActions[0]?.target).toMatchObject({ kind: 'navigate' })
+    expect(workflow.steps[1]?.nextActions[0]?.target).toMatchObject({
+      kind: 'navigate',
+    })
     // Done steps carry no actions or reasons; current step names the live gap.
     expect(workflow.steps[0]?.blockedReason).toContain('no columns')
     expect(workflow.steps[0]?.nextActions).toHaveLength(1)
   })
 
   it('walks dataset → compare → chart → embed as canonical state fills in', () => {
-    const withDataset = evaluateAnalysisToFigure(analysisState({ columnCount: 3, rowCount: 10 }))
-    expect(withDataset.steps.map((s) => s.state)).toEqual(['done', 'current', 'blocked', 'blocked'])
+    const withDataset = evaluateAnalysisToFigure(
+      analysisState({ columnCount: 3, rowCount: 10 }),
+    )
+    expect(withDataset.steps.map((s) => s.state)).toEqual([
+      'done',
+      'current',
+      'blocked',
+      'blocked',
+    ])
     expect(withDataset.currentStepId).toBe('compare-configured')
 
     const compared = evaluateAnalysisToFigure(
       analysisState({ columnCount: 3, rowCount: 10, compareConfigValid: true }),
     )
-    expect(compared.steps.map((s) => s.state)).toEqual(['done', 'done', 'current', 'blocked'])
+    expect(compared.steps.map((s) => s.state)).toEqual([
+      'done',
+      'done',
+      'current',
+      'blocked',
+    ])
     const chartStep = compared.steps[2]
-    expect(chartStep?.nextActions.map((a) => a.label)).toContain('Propose chart from compare config')
-    expect(chartStep?.nextActions[0]?.target).toMatchObject({ kind: 'accept', acceptKey: 'promoteToChartSpec' })
+    expect(chartStep.nextActions.map((a) => a.label)).toContain(
+      'Propose chart from compare config',
+    )
+    expect(chartStep.nextActions[0].target).toMatchObject({
+      kind: 'accept',
+      acceptKey: 'promoteToChartSpec',
+    })
 
     const proposed = evaluateAnalysisToFigure(
-      analysisState({ columnCount: 3, rowCount: 10, compareConfigValid: true, chartSpecReady: true, recordId: 'r1' }),
+      analysisState({
+        columnCount: 3,
+        rowCount: 10,
+        compareConfigValid: true,
+        chartSpecReady: true,
+        recordId: 'r1',
+      }),
     )
-    expect(proposed.steps.map((s) => s.state)).toEqual(['done', 'done', 'done', 'current'])
-    expect(proposed.steps[3]?.nextActions[0]?.target).toMatchObject({ kind: 'accept', acceptKey: 'acceptTextDraft' })
+    expect(proposed.steps.map((s) => s.state)).toEqual([
+      'done',
+      'done',
+      'done',
+      'current',
+    ])
+    expect(proposed.steps[3]?.nextActions[0]?.target).toMatchObject({
+      kind: 'accept',
+      acceptKey: 'acceptTextDraft',
+    })
     expect(proposed.currentStepId).toBe('figure-embedded')
 
     const done = evaluateAnalysisToFigure(
-      analysisState({ columnCount: 3, rowCount: 10, compareConfigValid: true, chartSpecReady: true, embeddedBlockId: 'b1', recordId: 'r1' }),
+      analysisState({
+        columnCount: 3,
+        rowCount: 10,
+        compareConfigValid: true,
+        chartSpecReady: true,
+        embeddedBlockId: 'b1',
+        recordId: 'r1',
+      }),
     )
     expect(done.complete).toBe(true)
     expect(done.currentStepId).toBeNull()
@@ -131,13 +194,21 @@ describe('evaluateAnalysisToFigure', () => {
         chartSpecReady: true,
         recordId: 'r1',
         blockType: 'chart',
-        blockErrors: [{ code: 'missing_required_field', field: 'y', message: 'y is required' }],
+        blockErrors: [
+          {
+            code: 'missing_required_field',
+            field: 'y',
+            message: 'y is required',
+          },
+        ],
       }),
     )
     const embed = workflow.steps[3]
-    expect(embed?.state).toBe('current')
-    expect(embed?.explanation?.title).toContain('chart')
-    expect(embed?.explanation?.citations[0]?.label).toContain('missing_required_field')
+    expect(embed.state).toBe('current')
+    expect(embed.explanation?.title).toContain('chart')
+    expect(embed.explanation?.citations[0]?.label).toContain(
+      'missing_required_field',
+    )
   })
 
   it('marks assistance on every evaluation', () => {
@@ -152,15 +223,26 @@ describe('evaluateSubmissionReadiness', () => {
     const workflow = evaluateSubmissionReadiness(submissionState())
     expect(workflow.workflowId).toBe('submission-readiness')
     expect(workflow.currentStepId).toBe('drafts-saved')
-    expect(workflow.steps.map((s) => s.state)).toEqual(['current', 'blocked', 'blocked', 'blocked', 'blocked'])
+    expect(workflow.steps.map((s) => s.state)).toEqual([
+      'current',
+      'blocked',
+      'blocked',
+      'blocked',
+      'blocked',
+    ])
     expect(workflow.steps[0]?.blockedReason).toContain('unsaved drafts')
     expect(workflow.steps[1]?.blockedReason).toContain('Drafts saved')
   })
 
   it('walks checks → digest → reviewers → submit → decision as state fills in', () => {
-    const saved = evaluateSubmissionReadiness(submissionState({ hasUnsavedWork: false }))
+    const saved = evaluateSubmissionReadiness(
+      submissionState({ hasUnsavedWork: false }),
+    )
     expect(saved.currentStepId).toBe('snapshot-verified')
-    expect(saved.steps[1]?.nextActions[0]?.target).toMatchObject({ kind: 'accept', acceptKey: 'previewSubmissionDigest' })
+    expect(saved.steps[1]?.nextActions[0]?.target).toMatchObject({
+      kind: 'accept',
+      acceptKey: 'previewSubmissionDigest',
+    })
 
     const verified = evaluateSubmissionReadiness(
       submissionState({ hasUnsavedWork: false, digest: 'abc123' }),
@@ -169,23 +251,45 @@ describe('evaluateSubmissionReadiness', () => {
     expect(verified.steps[2]?.blockedReason).toContain('reviewer')
 
     const staffed = evaluateSubmissionReadiness(
-      submissionState({ hasUnsavedWork: false, digest: 'abc123', reviewerCount: 2 }),
+      submissionState({
+        hasUnsavedWork: false,
+        digest: 'abc123',
+        reviewerCount: 2,
+      }),
     )
     expect(staffed.currentStepId).toBe('submitted')
-    expect(staffed.steps[3]?.nextActions[0]?.target).toMatchObject({ kind: 'accept', acceptKey: 'submitRecordRevision' })
+    expect(staffed.steps[3]?.nextActions[0]?.target).toMatchObject({
+      kind: 'accept',
+      acceptKey: 'submitRecordRevision',
+    })
 
     const submitted = evaluateSubmissionReadiness(
-      submissionState({ hasUnsavedWork: false, digest: 'abc123', reviewerCount: 2, submissionId: 'sub-1', revisionId: 'rev-1' }),
+      submissionState({
+        hasUnsavedWork: false,
+        digest: 'abc123',
+        reviewerCount: 2,
+        submissionId: 'sub-1',
+        revisionId: 'rev-1',
+      }),
     )
     expect(submitted.currentStepId).toBe('review-decided')
     const acceptKeys = submitted.steps[4]?.nextActions
       .map((a) => a.target)
       .filter((t) => t.kind === 'accept')
       .map((t) => (t as { acceptKey: GuideAcceptKey }).acceptKey)
-    expect(acceptKeys).toEqual(expect.arrayContaining(['approveReview', 'requestChangesOnReview']))
+    expect(acceptKeys).toEqual(
+      expect.arrayContaining(['approveReview', 'requestChangesOnReview']),
+    )
 
     const decided = evaluateSubmissionReadiness(
-      submissionState({ hasUnsavedWork: false, digest: 'abc123', reviewerCount: 2, submissionId: 'sub-1', revisionId: 'rev-1', decision: 'approved' }),
+      submissionState({
+        hasUnsavedWork: false,
+        digest: 'abc123',
+        reviewerCount: 2,
+        submissionId: 'sub-1',
+        revisionId: 'rev-1',
+        decision: 'approved',
+      }),
     )
     expect(decided.complete).toBe(true)
     expect(decided.currentStepId).toBeNull()
@@ -193,20 +297,32 @@ describe('evaluateSubmissionReadiness', () => {
 
   it('surfaces the archived/locked guard on the submit step from NOTE-04 state', () => {
     const workflow = evaluateSubmissionReadiness(
-      submissionState({ hasUnsavedWork: false, digest: 'abc123', reviewerCount: 1, archivedAt: '2026-08-01T00:00:00Z' }),
+      submissionState({
+        hasUnsavedWork: false,
+        digest: 'abc123',
+        reviewerCount: 1,
+        archivedAt: '2026-08-01T00:00:00Z',
+      }),
     )
     expect(workflow.currentStepId).toBe('submitted')
-    expect(workflow.steps[3]?.blockedReason).toContain('Archived')
+    expect(workflow.steps[3].blockedReason).toContain('Archived')
   })
 
   it('grounds snapshot trouble with the ASSIST-01 sheet explanation', () => {
     const workflow = evaluateSubmissionReadiness(
-      submissionState({ hasUnsavedWork: false, sheetFailures: [{ code: 'validation_failed', rowId: 'row-1', fieldId: 'temp' }] }),
+      submissionState({
+        hasUnsavedWork: false,
+        sheetFailures: [
+          { code: 'validation_failed', rowId: 'row-1', fieldId: 'temp' },
+        ],
+      }),
     )
     const snapshot = workflow.steps[1]
-    expect(snapshot?.state).toBe('current')
-    expect(snapshot?.explanation?.title).toContain('write-back')
-    expect(snapshot?.explanation?.citations[0]?.label).toContain('validation_failed')
+    expect(snapshot.state).toBe('current')
+    expect(snapshot.explanation?.title).toContain('write-back')
+    expect(snapshot.explanation?.citations[0]?.label).toContain(
+      'validation_failed',
+    )
   })
 })
 
@@ -221,18 +337,41 @@ describe('execution parity (no new write paths)', () => {
   })
 
   it('every guided next action resolves to the registry — never an inline executor', () => {
-    const states: Array<ReturnType<typeof evaluateAnalysisToFigure> | ReturnType<typeof evaluateSubmissionReadiness>> = [
+    const states: Array<
+      | ReturnType<typeof evaluateAnalysisToFigure>
+      | ReturnType<typeof evaluateSubmissionReadiness>
+    > = [
       evaluateAnalysisToFigure(analysisState()),
-      evaluateAnalysisToFigure(analysisState({ columnCount: 2, rowCount: 5, compareConfigValid: true, chartSpecReady: true, recordId: 'r1' })),
+      evaluateAnalysisToFigure(
+        analysisState({
+          columnCount: 2,
+          rowCount: 5,
+          compareConfigValid: true,
+          chartSpecReady: true,
+          recordId: 'r1',
+        }),
+      ),
       evaluateSubmissionReadiness(submissionState()),
-      evaluateSubmissionReadiness(submissionState({ hasUnsavedWork: false, digest: 'd', reviewerCount: 1, submissionId: 's', revisionId: 'rev-1' })),
+      evaluateSubmissionReadiness(
+        submissionState({
+          hasUnsavedWork: false,
+          digest: 'd',
+          reviewerCount: 1,
+          submissionId: 's',
+          revisionId: 'rev-1',
+        }),
+      ),
     ]
     for (const workflow of states) {
       for (const step of workflow.steps) {
         for (const action of step.nextActions) {
           if (action.target.kind === 'accept') {
-            expect(Object.keys(GUIDED_ACCEPTS)).toContain(action.target.acceptKey)
-            expect(typeof GUIDED_ACCEPTS[action.target.acceptKey]).toBe('function')
+            expect(Object.keys(GUIDED_ACCEPTS)).toContain(
+              action.target.acceptKey,
+            )
+            expect(typeof GUIDED_ACCEPTS[action.target.acceptKey]).toBe(
+              'function',
+            )
           }
         }
       }
@@ -242,7 +381,9 @@ describe('execution parity (no new write paths)', () => {
   it('evaluated workflows are pure data: JSON round-trip preserves them (no closures/executors)', () => {
     const workflows = [
       evaluateAnalysisToFigure(analysisState({ columnCount: 2, rowCount: 5 })),
-      evaluateSubmissionReadiness(submissionState({ sheetFailures: [{ code: 'validation_failed' }] })),
+      evaluateSubmissionReadiness(
+        submissionState({ sheetFailures: [{ code: 'validation_failed' }] }),
+      ),
     ]
     for (const workflow of workflows) {
       expect(JSON.parse(JSON.stringify(workflow))).toEqual(workflow)
@@ -250,7 +391,10 @@ describe('execution parity (no new write paths)', () => {
   })
 
   it('a guided accept produces the identical client call sequence as the manual accept (permission/provenance parity)', async () => {
-    const proposal = buildTextDraftProposal({ recordTitle: 'EXP-1', envelope: envelope() })
+    const proposal = buildTextDraftProposal({
+      recordTitle: 'EXP-1',
+      envelope: envelope(),
+    })
     if (!proposal) throw new Error('fixture proposal must build')
     const blockRow = {
       id: 'b1',
@@ -263,8 +407,14 @@ describe('execution parity (no new write paths)', () => {
       created_at: '2026-07-19T00:00:00.000Z',
       updated_at: '2026-07-19T00:00:00.000Z',
     }
-    const manualRpc = vi.fn(async () => ({ block: blockRow, structure_version: 2 }))
-    const guidedRpc = vi.fn(async () => ({ block: blockRow, structure_version: 2 }))
+    const manualRpc = vi.fn(async () => ({
+      block: blockRow,
+      structure_version: 2,
+    }))
+    const guidedRpc = vi.fn(async () => ({
+      block: blockRow,
+      structure_version: 2,
+    }))
     const manualClient = { rpc: manualRpc } as unknown as DataClient
     const guidedClient = { rpc: guidedRpc } as unknown as DataClient
 
@@ -272,15 +422,30 @@ describe('execution parity (no new write paths)', () => {
     await acceptTextDraft(manualClient, { recordId: 'r1', proposal })
     // Guided: the workflow's next action invokes the same registered accept.
     const workflow = evaluateAnalysisToFigure(
-      analysisState({ columnCount: 2, rowCount: 5, compareConfigValid: true, chartSpecReady: true, recordId: 'r1' }),
+      analysisState({
+        columnCount: 2,
+        rowCount: 5,
+        compareConfigValid: true,
+        chartSpecReady: true,
+        recordId: 'r1',
+      }),
     )
-    const embedAction = workflow.steps[3]?.nextActions[0]
-    expect(embedAction?.target).toMatchObject({ kind: 'accept', acceptKey: 'acceptTextDraft' })
-    await GUIDED_ACCEPTS.acceptTextDraft(guidedClient, { recordId: 'r1', proposal })
+    const embedAction = workflow.steps[3].nextActions[0]
+    expect(embedAction.target).toMatchObject({
+      kind: 'accept',
+      acceptKey: 'acceptTextDraft',
+    })
+    await GUIDED_ACCEPTS.acceptTextDraft(guidedClient, {
+      recordId: 'r1',
+      proposal,
+    })
 
     // Same function, same actor client shape, same RPC — so permission,
     // provenance and audit are identical by construction.
     expect(manualRpc.mock.calls).toEqual(guidedRpc.mock.calls)
-    expect(manualRpc).toHaveBeenCalledWith('insert_block', expect.objectContaining({ p_record_id: 'r1', p_type: 'rich_text' }))
+    expect(manualRpc).toHaveBeenCalledWith(
+      'insert_block',
+      expect.objectContaining({ p_record_id: 'r1', p_type: 'rich_text' }),
+    )
   })
 })

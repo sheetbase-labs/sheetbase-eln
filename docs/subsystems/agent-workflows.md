@@ -180,7 +180,7 @@ shapes yield no refs rather than guesses.
 ### Evidence boundaries
 
 `markProposalEvidence` / `markWorkflowStepEvidence` mark every
-agent-produced output as agent-produced. Only a *succeeded* proposal
+agent-produced output as agent-produced. Only a _succeeded_ proposal
 carries a canonical result whose pins may enter submitted work after
 human review; pending, approved-but-unexecuted, rejected, failed, and
 cancelled outputs are marked not submittable with the reason.
@@ -210,4 +210,3 @@ effects with a joinable provenance chain), permission isolation (every
 human-only and cross-principal path fails closed at the database
 layer), and failure behaviour (rejected, budget-exhausted, and
 cancelled runs stay inspectable and resume the same pinned operation).
-

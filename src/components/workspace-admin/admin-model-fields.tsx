@@ -116,10 +116,7 @@ function parseOptionalInt(raw: string): number | null {
   return Number(trimmed)
 }
 
-function parseDefaultValue(
-  type: ModelFieldLogicalType,
-  raw: string,
-): unknown {
+function parseDefaultValue(type: ModelFieldLogicalType, raw: string): unknown {
   if (raw === '') return null
   if (type === 'integer' || type === 'decimal') return Number(raw)
   if (type === 'boolean') return raw === 'true'
@@ -151,7 +148,8 @@ function draftDefinitionFromForm(form: AddFieldForm) {
     logicalType: form.type,
     nullable: !form.required,
     defaultValue: parseDefaultValue(form.type, form.defaultValue),
-    unit: isNumeric && quantityStorageUnit ? { symbol: quantityStorageUnit } : null,
+    unit:
+      isNumeric && quantityStorageUnit ? { symbol: quantityStorageUnit } : null,
     quantity:
       isNumeric && (quantityKind || quantityDimension || quantityStorageUnit)
         ? {
@@ -216,8 +214,11 @@ function FieldSemanticsSummary({ field }: { field: ModelFieldDefinition }) {
   ) {
     segments.push(`unit ${field.unit.symbol.trim()} (legacy)`)
   }
-  const validation = field.validation as Record<string, unknown>
-  if (typeof validation.min === 'number' || typeof validation.max === 'number') {
+  const validation = field.validation
+  if (
+    typeof validation.min === 'number' ||
+    typeof validation.max === 'number'
+  ) {
     segments.push(
       `range ${typeof validation.min === 'number' ? validation.min : '−∞'}…${typeof validation.max === 'number' ? validation.max : '+∞'}`,
     )
@@ -244,7 +245,7 @@ function FieldSemanticsSummary({ field }: { field: ModelFieldDefinition }) {
   if (field.logicalType === 'category') {
     segments.push(
       field.categorySource?.kind === 'vocabulary' &&
-      field.categorySource.vocabularyId.trim()
+        field.categorySource.vocabularyId.trim()
         ? `vocabulary ${field.categorySource.vocabularyId.trim()}`
         : `${field.options.length} embedded options`,
     )
@@ -338,7 +339,9 @@ function ModelRelationshipRulesSection({
       if (!Number.isInteger(min) || min < 0)
         throw new Error('Minimum must be a whole number of 0 or more.')
       if (max !== null && (!Number.isInteger(max) || max < min))
-        throw new Error('Maximum must be empty (unlimited) or a whole number at or above the minimum.')
+        throw new Error(
+          'Maximum must be empty (unlimited) or a whole number at or above the minimum.',
+        )
       return configureModelRelationshipRule(client, {
         workspaceId,
         sourceModelKey: modelKey,
@@ -359,7 +362,9 @@ function ModelRelationshipRulesSection({
     },
     onError: (cause) =>
       setRulesError(
-        cause instanceof Error ? cause.message : 'Could not save the relationship.',
+        cause instanceof Error
+          ? cause.message
+          : 'Could not save the relationship.',
       ),
   })
 
@@ -371,19 +376,24 @@ function ModelRelationshipRulesSection({
     },
     onError: (cause) =>
       setRulesError(
-        cause instanceof Error ? cause.message : 'Could not remove the relationship.',
+        cause instanceof Error
+          ? cause.message
+          : 'Could not remove the relationship.',
       ),
   })
 
   return (
-    <section aria-label="Model relationships" className="space-y-3 rounded-md border p-4">
+    <section
+      aria-label="Model relationships"
+      className="space-y-3 rounded-md border p-4"
+    >
       <div>
         <h3 className="text-sm font-semibold">Relationships</h3>
         <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground">
           Declare which typed links this Model&apos;s records accept. A Model
           with no declarations stays unrestricted; once any relationship is
-          declared, only declared link types are accepted and over-maximum
-          links are rejected when created.
+          declared, only declared link types are accepted and over-maximum links
+          are rejected when created.
         </p>
       </div>
       {!isRecordModel ? (
@@ -394,17 +404,16 @@ function ModelRelationshipRulesSection({
         <p className="text-xs text-muted-foreground">Loading relationships…</p>
       ) : rules.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No relationships declared — records of this Model accept every link type.
+          No relationships declared — records of this Model accept every link
+          type.
         </p>
       ) : (
         <ul className="divide-y rounded-md border">
           {rules.map((rule) => {
-            const remainingForLinkType =
-              rules.filter(
-                (sibling) =>
-                  sibling.id !== rule.id &&
-                  sibling.linkType === rule.linkType,
-              ).length
+            const remainingForLinkType = rules.filter(
+              (sibling) =>
+                sibling.id !== rule.id && sibling.linkType === rule.linkType,
+            ).length
             const remainingForSource = rules.filter(
               (sibling) => sibling.id !== rule.id,
             ).length
@@ -412,13 +421,18 @@ function ModelRelationshipRulesSection({
               <li key={rule.id} className="space-y-1 px-3 py-2">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs">
-                    <span className="font-mono font-medium">{rule.linkType}</span>
+                    <span className="font-mono font-medium">
+                      {rule.linkType}
+                    </span>
                     <span className="text-muted-foreground"> → </span>
                     <span className="font-medium">
-                      {recordModels.find((model) => model.key === rule.targetModelKey)?.label ?? rule.targetModelKey}
+                      {recordModels.find(
+                        (model) => model.key === rule.targetModelKey,
+                      )?.label ?? rule.targetModelKey}
                     </span>
                     <span className="text-muted-foreground">
-                      {' '}· {rule.minLinks}–{rule.maxLinks ?? '∞'}
+                      {' '}
+                      · {rule.minLinks}–{rule.maxLinks ?? '∞'}
                       {rule.label ? ` · “${rule.label}”` : null}
                     </span>
                   </p>
@@ -543,7 +557,6 @@ function ModelRelationshipRulesSection({
   )
 }
 
-
 /**
  * Dependency list reusing the ConfigurationWorkspace impact-panel shape
  * (label · liveness · effect) for model_field discovery.
@@ -609,14 +622,12 @@ function ModelImpactPanel({
         <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground">
           Consumers of this model across records, sheets, templates and
           relationship rules. Review before retiring or updating fields —
-          retiring a carried field always needs explicit confirmation and
-          local working state is never auto-migrated.
+          retiring a carried field always needs explicit confirmation and local
+          working state is never auto-migrated.
         </p>
       </div>
       {impactQuery.isLoading ? (
-        <p className="text-xs text-muted-foreground">
-          Loading model impact…
-        </p>
+        <p className="text-xs text-muted-foreground">Loading model impact…</p>
       ) : impactQuery.isError || !impactQuery.data ? (
         <p className="text-xs text-muted-foreground">
           Model impact unavailable — retire and update actions still run the
@@ -631,8 +642,8 @@ function ModelImpactPanel({
           <p className="text-xs text-muted-foreground">
             {dependencies.length}{' '}
             {dependencies.length === 1 ? 'consumer' : 'consumers'} ·{' '}
-            {actionable} {actionable === 1 ? 'needs' : 'need'} steward
-            handling on retire.
+            {actionable} {actionable === 1 ? 'needs' : 'need'} steward handling
+            on retire.
           </p>
           {groups.map((group) => (
             <div key={group.group}>
@@ -657,7 +668,6 @@ function ModelImpactPanel({
     </section>
   )
 }
-
 
 function UpdateEvolutionCheck({
   client,
@@ -701,8 +711,7 @@ function UpdateEvolutionCheck({
   }
   const guidance = Array.isArray(preview.guidance)
     ? preview.guidance.filter(
-        (line): line is string =>
-          typeof line === 'string' && line.length > 0,
+        (line): line is string => typeof line === 'string' && line.length > 0,
       )
     : []
   return (
@@ -767,7 +776,12 @@ function RetireFieldDialog({
       ),
   })
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Retire {field.label}</DialogTitle>
@@ -793,8 +807,8 @@ function RetireFieldDialog({
                 ? ` — ${preview.reason}`
                 : null}
               {blocked ? ' (blocked)' : null} · {field.usageCount}{' '}
-              {field.usageCount === 1 ? 'record carries' : 'records carry'}{' '}
-              a value.
+              {field.usageCount === 1 ? 'record carries' : 'records carry'} a
+              value.
             </p>
             {Array.isArray(preview.guidance)
               ? preview.guidance
@@ -813,15 +827,14 @@ function RetireFieldDialog({
         <ModelFieldImpactList dependencies={dependencies} />
         {impactQuery.isLoading ? (
           <p className="text-xs text-muted-foreground">
-            Loading dependent consumers — confirmation stays disabled until
-            the consequences are named.
+            Loading dependent consumers — confirmation stays disabled until the
+            consequences are named.
           </p>
         ) : dependencies.length > 0 ? (
           <p className="text-xs font-medium">
-            Confirming retires {field.label} for the{' '}
-            {dependencies.length}{' '}
-            {dependencies.length === 1 ? 'consumer' : 'consumers'} listed
-            above. Stored values stay readable; local working state is never
+            Confirming retires {field.label} for the {dependencies.length}{' '}
+            {dependencies.length === 1 ? 'consumer' : 'consumers'} listed above.
+            Stored values stay readable; local working state is never
             auto-migrated.
           </p>
         ) : null}
@@ -837,7 +850,7 @@ function RetireFieldDialog({
         {blocked ? (
           <p role="alert" className="text-sm text-destructive">
             This retire is blocked by the evolution gate
-            {typeof preview?.reason === 'string' && preview.reason
+            {typeof preview.reason === 'string' && preview.reason
               ? `: ${preview.reason}`
               : '.'}
           </p>
@@ -867,7 +880,6 @@ function RetireFieldDialog({
     </Dialog>
   )
 }
-
 
 export function AdminModelFields({
   client,
@@ -1040,11 +1052,7 @@ export function AdminModelFields({
           message: 'Maximum length must be a non-negative integer.',
         })
       }
-      if (
-        minLength !== null &&
-        maxLength !== null &&
-        minLength > maxLength
-      ) {
+      if (minLength !== null && maxLength !== null && minLength > maxLength) {
         issues.push({
           path: 'validation',
           message: 'Validation minLength must not exceed maxLength.',
@@ -1111,9 +1119,7 @@ export function AdminModelFields({
                   kind: quantityKind,
                   dimension: quantityDimension,
                   storageUnit,
-                  allowedInputUnits: parseCsvSymbols(
-                    form.quantityAllowedUnits,
-                  ),
+                  allowedInputUnits: parseCsvSymbols(form.quantityAllowedUnits),
                   preferredDisplayUnit: quantityDisplayUnit || undefined,
                 }
               : null,
@@ -1354,83 +1360,83 @@ export function AdminModelFields({
                     ? field.validation.targetModelKey
                     : null
               return (
-              <TableRow key={field.id}>
-                <TableCell>
-                  <p className="font-medium">{field.label}</p>
-                  <p className="font-mono text-[0.65rem] text-muted-foreground">
-                    {field.fieldName}
-                  </p>
-                  {field.description ? (
-                    <p className="mt-0.5 max-w-md text-xs text-muted-foreground">
-                      {field.description}
+                <TableRow key={field.id}>
+                  <TableCell>
+                    <p className="font-medium">{field.label}</p>
+                    <p className="font-mono text-[0.65rem] text-muted-foreground">
+                      {field.fieldName}
                     </p>
-                  ) : null}
-                  <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
-                    <a
-                      className="text-primary underline-offset-4 hover:underline"
-                      href="/samples"
-                      aria-label={`Preview ${field.label} in Records`}
-                    >
-                      Preview in Records
-                    </a>
-                    {field.logicalType === 'reference' && targetModelKey ? (
+                    {field.description ? (
+                      <p className="mt-0.5 max-w-md text-xs text-muted-foreground">
+                        {field.description}
+                      </p>
+                    ) : null}
+                    <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
                       <a
                         className="text-primary underline-offset-4 hover:underline"
-                        href={`/configure?kind=model&model=${encodeURIComponent(targetModelKey)}`}
-                        aria-label={`Open referenced model for ${field.label}`}
+                        href="/samples"
+                        aria-label={`Preview ${field.label} in Records`}
                       >
-                        Open referenced model
+                        Preview in Records
                       </a>
-                    ) : null}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {
-                    TYPES.find((type) => type.value === field.logicalType)
-                      ?.label
-                  }
-                  <FieldSemanticsSummary field={field} />
-                </TableCell>
-                <TableCell className="hidden lg:table-cell">
-                  {field.nullable ? 'No' : 'Yes'}
-                </TableCell>
-                <TableCell className="hidden xl:table-cell">
-                  {field.usageCount} records
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      field.lifecycle === 'active' ? 'success' : 'secondary'
+                      {field.logicalType === 'reference' && targetModelKey ? (
+                        <a
+                          className="text-primary underline-offset-4 hover:underline"
+                          href={`/configure?kind=model&model=${encodeURIComponent(targetModelKey)}`}
+                          aria-label={`Open referenced model for ${field.label}`}
+                        >
+                          Open referenced model
+                        </a>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {
+                      TYPES.find((type) => type.value === field.logicalType)
+                        ?.label
                     }
-                    className="capitalize"
-                  >
-                    {field.lifecycle}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label={`Edit ${field.label}`}
-                      disabled={!canManage}
-                      onClick={() => beginEditing(field)}
+                    <FieldSemanticsSummary field={field} />
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {field.nullable ? 'No' : 'Yes'}
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell">
+                    {field.usageCount} records
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        field.lifecycle === 'active' ? 'success' : 'secondary'
+                      }
+                      className="capitalize"
                     >
-                      <Pencil className="size-3.5" />
-                    </Button>
-                    {field.lifecycle === 'active' ? (
+                      {field.lifecycle}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
                       <Button
-                        size="sm"
+                        size="icon-sm"
                         variant="ghost"
+                        aria-label={`Edit ${field.label}`}
                         disabled={!canManage}
-                        onClick={() => setRetiringField(field)}
+                        onClick={() => beginEditing(field)}
                       >
-                        Retire
+                        <Pencil className="size-3.5" />
                       </Button>
-                    ) : null}
-                  </div>
-                </TableCell>
-              </TableRow>
+                      {field.lifecycle === 'active' ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!canManage}
+                          onClick={() => setRetiringField(field)}
+                        >
+                          Retire
+                        </Button>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                </TableRow>
               )
             })}
             {!fieldsQuery.isLoading && fields.length === 0 ? (
@@ -1679,17 +1685,14 @@ export function AdminModelFields({
                       setForm({
                         ...form,
                         categorySource: event.target.value as
-                          | 'embedded'
-                          | 'vocabulary',
+                          'embedded' | 'vocabulary',
                       })
                     }
                   >
                     <option value="embedded">
                       Embedded options (this field)
                     </option>
-                    <option value="vocabulary">
-                      Controlled vocabulary
-                    </option>
+                    <option value="vocabulary">Controlled vocabulary</option>
                   </Select>
                 </Label>
                 {form.categorySource === 'embedded' ? (
@@ -1740,10 +1743,15 @@ export function AdminModelFields({
             ) : null}
             <Label className="text-xs text-muted-foreground sm:col-span-2">
               Cardinality
-              <Select className="mt-1" value="one" disabled aria-label="Cardinality">
+              <Select
+                className="mt-1"
+                value="one"
+                disabled
+                aria-label="Cardinality"
+              >
                 <option value="one">
-                  One value per record (many-valued fields are reserved by
-                  the server)
+                  One value per record (many-valued fields are reserved by the
+                  server)
                 </option>
               </Select>
             </Label>

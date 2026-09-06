@@ -19,14 +19,27 @@ afterEach(() => cleanup())
 describe('sample extension manifest', () => {
   it('parses under EXT-01 validation', () => {
     const manifest = parseExtensionManifest({ ...SAMPLE_EXTENSION_MANIFEST })
-    expect(manifest.contributions['object-actions']?.map((d) => d.id)).toEqual(['open-panel'])
-    expect(manifest.contributions.panels?.map((d) => d.id)).toEqual(['sample-panel'])
-    expect(manifest.contributions.commands?.map((d) => d.id)).toEqual(['sample-overview'])
+    expect(manifest.contributions['object-actions']?.map((d) => d.id)).toEqual([
+      'open-panel',
+    ])
+    expect(manifest.contributions.panels?.map((d) => d.id)).toEqual([
+      'sample-panel',
+    ])
+    expect(manifest.contributions.commands?.map((d) => d.id)).toEqual([
+      'sample-overview',
+    ])
   })
 
   it('resolves all three points when enabled, nothing when disabled', () => {
     const enabled = resolveExtensionContributions(
-      [{ id: 'ext', key: SAMPLE_EXTENSION_KEY, status: 'enabled', manifest: SAMPLE_EXTENSION_MANIFEST }],
+      [
+        {
+          id: 'ext',
+          key: SAMPLE_EXTENSION_KEY,
+          status: 'enabled',
+          manifest: SAMPLE_EXTENSION_MANIFEST,
+        },
+      ],
       'member',
     )
     expect(enabled.objectActions).toHaveLength(1)
@@ -34,7 +47,14 @@ describe('sample extension manifest', () => {
     expect(enabled.commands).toHaveLength(1)
 
     const disabled = resolveExtensionContributions(
-      [{ id: 'ext', key: SAMPLE_EXTENSION_KEY, status: 'disabled', manifest: SAMPLE_EXTENSION_MANIFEST }],
+      [
+        {
+          id: 'ext',
+          key: SAMPLE_EXTENSION_KEY,
+          status: 'disabled',
+          manifest: SAMPLE_EXTENSION_MANIFEST,
+        },
+      ],
       'member',
     )
     expect(disabled).toEqual({ objectActions: [], panels: [], commands: [] })
@@ -45,11 +65,17 @@ describe('sample extension manifest', () => {
     await installSampleExtension({ rpc } as unknown as DataClient, 'ws-1')
     expect(rpc).toHaveBeenCalledWith(
       'install_extension',
-      expect.objectContaining({ p_workspace_id: 'ws-1', p_key: SAMPLE_EXTENSION_KEY }),
+      expect.objectContaining({
+        p_workspace_id: 'ws-1',
+        p_key: SAMPLE_EXTENSION_KEY,
+      }),
     )
     expect(rpc).toHaveBeenCalledWith(
       'enable_extension',
-      expect.objectContaining({ p_workspace_id: 'ws-1', p_extension_id: 'ext-1' }),
+      expect.objectContaining({
+        p_workspace_id: 'ws-1',
+        p_extension_id: 'ext-1',
+      }),
     )
   })
 })

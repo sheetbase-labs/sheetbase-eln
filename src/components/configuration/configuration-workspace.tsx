@@ -1619,8 +1619,7 @@ function SheetDefinitionPlane({
             return (
               <>
                 <p className="text-xs text-muted-foreground">
-                  {sheetDefinitionNeedsLine(summary)} ·{' '}
-                  {summary.columnCount}{' '}
+                  {sheetDefinitionNeedsLine(summary)} · {summary.columnCount}{' '}
                   {summary.columnCount === 1 ? 'column' : 'columns'}
                   {summary.joinCount > 0
                     ? ` · ${summary.joinCount} ${summary.joinCount === 1 ? 'join' : 'joins'}`
@@ -1633,8 +1632,8 @@ function SheetDefinitionPlane({
                   Reusing this version pins its configuration: consuming Sheet
                   Instances resolve the listed parameters and supply a dataset
                   for each of the {summary.bindingCount}{' '}
-                  {summary.bindingCount === 1 ? 'binding' : 'bindings'}.
-                  Preview consumer upgrades before applying them below.
+                  {summary.bindingCount === 1 ? 'binding' : 'bindings'}. Preview
+                  consumer upgrades before applying them below.
                 </p>
               </>
             )
@@ -1651,9 +1650,7 @@ function SheetDefinitionPlane({
             Usage & dependencies · v{latestVersion.version}
           </p>
           {usageQuery.isLoading ? (
-            <p className="text-xs text-muted-foreground">
-              Loading usage…
-            </p>
+            <p className="text-xs text-muted-foreground">Loading usage…</p>
           ) : usageDependencies.length > 0 ? (
             <ul className="space-y-1 text-xs text-muted-foreground">
               {usageDependencies.map((dependency) => (

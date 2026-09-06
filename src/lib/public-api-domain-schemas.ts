@@ -2124,8 +2124,14 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
             retrying_24h: INT,
             pending_24h: INT,
             success_rate_24h: { type: 'number', nullable: true },
-            last_delivered_at: { type: ['string', 'null'], format: 'date-time' },
-            oldest_pending_at: { type: ['string', 'null'], format: 'date-time' },
+            last_delivered_at: {
+              type: ['string', 'null'],
+              format: 'date-time',
+            },
+            oldest_pending_at: {
+              type: ['string', 'null'],
+              format: 'date-time',
+            },
             last_error: {
               type: 'object',
               nullable: true,

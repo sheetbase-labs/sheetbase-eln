@@ -522,7 +522,6 @@ function createEventCalendarStore<TData>(
   ) => {
     const controlled = options[key] !== undefined
     if (!controlled) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(internal as any)[key] = value
       invalidate()
     }
@@ -951,9 +950,9 @@ function useEventCalendarState<TData = unknown>(
   return store.instance
 }
 
-const EventCalendarContext =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createContext<EventCalendarInstance<any> | null>(null)
+const EventCalendarContext = createContext<EventCalendarInstance<any> | null>(
+  null,
+)
 
 /** The stable calendar instance; throws outside <EventCalendar>. */
 function useEventCalendar<TData = unknown>(): EventCalendarInstance<TData> {
@@ -1647,10 +1646,8 @@ const DEFAULT_VIEW_CONFIG: EventCalendarViewConfig = {
   agendaSummaryMaxDots: 6,
 }
 
-const EventCalendarViewConfigContext = createContext<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  EventCalendarViewConfig<any>
->(DEFAULT_VIEW_CONFIG)
+const EventCalendarViewConfigContext =
+  createContext<EventCalendarViewConfig<any>>(DEFAULT_VIEW_CONFIG)
 
 /** Root-level display props + render overrides, for view components. */
 function useEventCalendarViewConfig<

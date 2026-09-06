@@ -82,7 +82,9 @@ describe('mergeComposedSheetSnapshots', () => {
         limit: 200,
         hasMore,
         localFieldIds: [],
-        rows: [{ rowKey: `sb-row-v1:row-${offset}`, compositionOffset: offset }],
+        rows: [
+          { rowKey: `sb-row-v1:row-${offset}`, compositionOffset: offset },
+        ],
         boundProjection: {
           columns: [{ id: 'col' }],
           rows: [{ rowKey: `sb-row-v1:row-${offset}`, values: {} }],
@@ -187,14 +189,9 @@ describe('fetchComposedSheetPaged', () => {
       'k2a',
       'k2b',
     ])
-    expect(third.snapshot.boundProjection?.rows.map((row) => row.rowKey)).toEqual([
-      'k0a',
-      'k0b',
-      'k1a',
-      'k1b',
-      'k2a',
-      'k2b',
-    ])
+    expect(
+      third.snapshot.boundProjection?.rows.map((row) => row.rowKey),
+    ).toEqual(['k0a', 'k0b', 'k1a', 'k1b', 'k2a', 'k2b'])
     expect(third.snapshot.hasMore).toBe(false)
     expect(third.snapshot.offset).toBe(0)
     expect(third.snapshot.revision).toBe(7)

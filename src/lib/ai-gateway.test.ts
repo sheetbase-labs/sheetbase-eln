@@ -12,9 +12,8 @@ import {
   callModel,
   estimateTokensFromChars,
   hashPrompt,
-  type CallModelInput,
-  type ModelProvider,
 } from './ai-gateway'
+import type { CallModelInput, ModelProvider } from './ai-gateway'
 import { logger } from './logger'
 import { createMetricsRegistry } from './metrics'
 
@@ -22,7 +21,9 @@ const WS = '20000000-0000-4000-8000-000000000001'
 const ACTOR: AiContextActor = { kind: 'user', id: 'user-1' }
 const SECRET = 'sk-live-planted-secret-abcdef-12345'
 
-function baseEnvelope(overrides: Partial<AiContextEnvelope> = {}): AiContextEnvelope {
+function baseEnvelope(
+  overrides: Partial<AiContextEnvelope> = {},
+): AiContextEnvelope {
   const envelope: AiContextEnvelope = {
     version: AI_CONTEXT_VERSION,
     actor: ACTOR,
@@ -37,7 +38,11 @@ function baseEnvelope(overrides: Partial<AiContextEnvelope> = {}): AiContextEnve
         pins: [],
         truncated: false,
         sections: [
-          { heading: 'Summary', body: 'Benign summary of the experiment.', truncated: false },
+          {
+            heading: 'Summary',
+            body: 'Benign summary of the experiment.',
+            truncated: false,
+          },
         ],
       },
     ],
@@ -80,7 +85,9 @@ function baseInput(overrides: Partial<CallModelInput> = {}): CallModelInput {
   }
 }
 
-async function gatewayError(promise: Promise<unknown>): Promise<ModelGatewayError> {
+async function gatewayError(
+  promise: Promise<unknown>,
+): Promise<ModelGatewayError> {
   const outcome: unknown = await promise.then(
     () => null,
     (error: unknown) => error,
@@ -100,7 +107,9 @@ describe('ai-gateway allowlist', () => {
     expect(result.text).toContain('sheetbase-assist-1')
     expect(result.text).toContain(input.citations?.[0]?.stableId ?? '')
     expect(result.citations).toEqual(input.citations)
-    expect(result.usage.tokensUsed).toBe(estimateTokensFromChars(result.text.length))
+    expect(result.usage.tokensUsed).toBe(
+      estimateTokensFromChars(result.text.length),
+    )
     expect(result.usage.costMicrousd).toBe(
       result.usage.tokensUsed * MODEL_MICROUSD_PER_TOKEN['sheetbase-assist-1'],
     )
@@ -111,7 +120,10 @@ describe('ai-gateway allowlist', () => {
     const first = await callModel(ACTOR, baseInput(), { registry })
     const second = await callModel(ACTOR, baseInput(), { registry })
     expect(second.text).toBe(first.text)
-    expect(second.usage).toEqual({ ...first.usage, latencyMs: expect.any(Number) as number })
+    expect(second.usage).toEqual({
+      ...first.usage,
+      latencyMs: expect.any(Number) as number,
+    })
   })
 
   it('rejects an unknown model fail-closed without touching the provider', async () => {
@@ -125,7 +137,10 @@ describe('ai-gateway allowlist', () => {
       },
     }
     const error = await gatewayError(
-      callModel(ACTOR, baseInput({ model: 'gpt-evil-9' }), { registry, provider }),
+      callModel(ACTOR, baseInput({ model: 'gpt-evil-9' }), {
+        registry,
+        provider,
+      }),
     )
     expect(error.code).toBe('model_not_allowed')
     expect(providerCalls).toBe(0)
@@ -145,10 +160,14 @@ describe('ai-gateway allowlist', () => {
       },
     }
     const error = await gatewayError(
-      callModel(ACTOR, baseInput({ tools: ['sheetbase.dataset_rows.commit', 'shell.exec'] }), {
-        registry,
-        provider,
-      }),
+      callModel(
+        ACTOR,
+        baseInput({ tools: ['sheetbase.dataset_rows.commit', 'shell.exec'] }),
+        {
+          registry,
+          provider,
+        },
+      ),
     )
     expect(error.code).toBe('tool_not_allowed')
     expect(providerCalls).toBe(0)
@@ -180,9 +199,16 @@ describe('ai-gateway budgets', () => {
     const envelope = baseEnvelope()
     envelope.budgets.usage.chars = 40_000 // ~10k tokens
     const error = await gatewayError(
-      callModel(ACTOR, baseInput({ contextEnvelope: envelope, limits: { maxTokens: 100, maxCostMicrousd: 1_000_000 } }), {
-        registry,
-      }),
+      callModel(
+        ACTOR,
+        baseInput({
+          contextEnvelope: envelope,
+          limits: { maxTokens: 100, maxCostMicrousd: 1_000_000 },
+        }),
+        {
+          registry,
+        },
+      ),
     )
     expect(error.code).toBe('budget_exhausted')
   })
@@ -192,7 +218,13 @@ describe('ai-gateway budgets', () => {
     const error = await gatewayError(
       callModel(
         ACTOR,
-        baseInput({ limits: { maxTokens: 120, maxCostMicrousd: 1_000_000, usedTokens: 100 } }),
+        baseInput({
+          limits: {
+            maxTokens: 120,
+            maxCostMicrousd: 1_000_000,
+            usedTokens: 100,
+          },
+        }),
         { registry },
       ),
     )
@@ -250,7 +282,9 @@ describe('ai-gateway logging policy', () => {
       const input = baseInput({ contextEnvelope: envelope, citations })
       await callModel(ACTOR, input, { registry })
 
-      const logged = info.mock.calls.map((call) => JSON.stringify(call[1] ?? null)).join('\n')
+      const logged = info.mock.calls
+        .map((call) => JSON.stringify(call[1] ?? null))
+        .join('\n')
       expect(logged).not.toContain(SECRET)
 
       const fullPrompt = buildGatewayPrompt(envelope, citations)
@@ -262,7 +296,9 @@ describe('ai-gateway logging policy', () => {
       expect(logged).not.toContain('Benign summary of the experiment.')
       expect(logged).not.toContain('Visible experiment')
 
-      const callRecord = info.mock.calls.find((call) => call[0] === 'ai.gateway.call')
+      const callRecord = info.mock.calls.find(
+        (call) => call[0] === 'ai.gateway.call',
+      )
       expect(callRecord).toBeDefined()
       const fields = callRecord?.[1] as Record<string, unknown>
       expect(Object.keys(fields).sort()).toEqual(
@@ -282,9 +318,13 @@ describe('ai-gateway logging policy', () => {
       expect(fields['promptChars']).toBe(fullPrompt.length)
       expect(fields).not.toHaveProperty('promptExcerpt')
       expect(fields).not.toHaveProperty('debugPromptExcerpt')
-      expect(fields['citationIds']).toEqual(citations.map((citation) => citation.stableId))
+      expect(fields['citationIds']).toEqual(
+        citations.map((citation) => citation.stableId),
+      )
 
-      const resultRecord = info.mock.calls.find((call) => call[0] === 'ai.gateway.result')
+      const resultRecord = info.mock.calls.find(
+        (call) => call[0] === 'ai.gateway.result',
+      )
       expect(resultRecord).toBeDefined()
       const resultFields = resultRecord?.[1] as Record<string, unknown>
       expect(resultFields['promptHash']).toBe(hashPrompt(fullPrompt))
@@ -300,7 +340,11 @@ describe('ai-gateway logging policy', () => {
   it('emits a redacted, capped debug excerpt only with explicit per-call opt-in', async () => {
     const envelope = baseEnvelope()
     envelope.objects[0].sections = [
-      { heading: 'Summary', body: `Operator note ${SECRET}. ${'x'.repeat(600)}`, truncated: false },
+      {
+        heading: 'Summary',
+        body: `Operator note ${SECRET}. ${'x'.repeat(600)}`,
+        truncated: false,
+      },
     ]
     const citations = baseCitations()
     const fullPrompt = buildGatewayPrompt(envelope, citations)
@@ -316,14 +360,22 @@ describe('ai-gateway logging policy', () => {
       try {
         await callModel(
           ACTOR,
-          baseInput({ contextEnvelope: envelope, citations, includeDebugExcerpt }),
+          baseInput({
+            contextEnvelope: envelope,
+            citations,
+            includeDebugExcerpt,
+          }),
           { registry },
         )
-        const callRecord = info.mock.calls.find((call) => call[0] === 'ai.gateway.call')
+        const callRecord = info.mock.calls.find(
+          (call) => call[0] === 'ai.gateway.call',
+        )
         const fields = callRecord?.[1] as Record<string, unknown>
         expect(fields).not.toHaveProperty('debugPromptExcerpt')
         expect(fields).not.toHaveProperty('promptExcerpt')
-        const logged = info.mock.calls.map((call) => JSON.stringify(call[1] ?? null)).join('\n')
+        const logged = info.mock.calls
+          .map((call) => JSON.stringify(call[1] ?? null))
+          .join('\n')
         expect(logged).not.toContain(SECRET)
       } finally {
         info.mockRestore()
@@ -337,17 +389,27 @@ describe('ai-gateway logging policy', () => {
       try {
         await callModel(
           ACTOR,
-          baseInput({ contextEnvelope: envelope, citations, includeDebugExcerpt: true }),
+          baseInput({
+            contextEnvelope: envelope,
+            citations,
+            includeDebugExcerpt: true,
+          }),
           { registry },
         )
-        const callRecord = info.mock.calls.find((call) => call[0] === 'ai.gateway.call')
+        const callRecord = info.mock.calls.find(
+          (call) => call[0] === 'ai.gateway.call',
+        )
         const fields = callRecord?.[1] as Record<string, unknown>
         const excerpt = fields['debugPromptExcerpt']
         expect(typeof excerpt).toBe('string')
-        expect(String(excerpt).length).toBeLessThanOrEqual(GATEWAY_EXCERPT_CHARS)
+        expect(String(excerpt).length).toBeLessThanOrEqual(
+          GATEWAY_EXCERPT_CHARS,
+        )
         expect(String(excerpt)).toContain('[redacted]')
         expect(String(excerpt)).not.toContain(SECRET)
-        const logged = info.mock.calls.map((call) => JSON.stringify(call[1] ?? null)).join('\n')
+        const logged = info.mock.calls
+          .map((call) => JSON.stringify(call[1] ?? null))
+          .join('\n')
         expect(logged).not.toContain(SECRET)
       } finally {
         info.mockRestore()
@@ -398,8 +460,16 @@ describe('ai-gateway telemetry', () => {
 describe('StubModelProvider', () => {
   it('charges fixture pricing deterministically', async () => {
     const stub = new StubModelProvider('sheetbase-summarise-1')
-    const first = await stub.complete({ prompt: 'hello', maxTokens: 100, citationIds: ['a'] })
-    const second = await stub.complete({ prompt: 'hello', maxTokens: 100, citationIds: ['a'] })
+    const first = await stub.complete({
+      prompt: 'hello',
+      maxTokens: 100,
+      citationIds: ['a'],
+    })
+    const second = await stub.complete({
+      prompt: 'hello',
+      maxTokens: 100,
+      citationIds: ['a'],
+    })
     expect(second).toEqual(first)
     expect(first.costMicrousd).toBe(
       first.tokensUsed * MODEL_MICROUSD_PER_TOKEN['sheetbase-summarise-1'],

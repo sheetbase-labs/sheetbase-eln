@@ -235,7 +235,8 @@ export const ADMIN_SECTIONS: AdminSectionDef[] = [
   {
     key: 'deployment',
     label: 'Deploy',
-    description: 'Version, environment, migration state, and operational links.',
+    description:
+      'Version, environment, migration state, and operational links.',
     group: 'Platform',
     icon: Shield,
     capability: null,
@@ -247,7 +248,7 @@ type AdminSectionKey = (typeof ADMIN_SECTIONS)[number]['key']
 function sectionFromPath(pathname: string): AdminSectionKey {
   const candidate = pathname.split('/')[2]
   return ADMIN_SECTIONS.some((section) => section.key === candidate)
-    ? (candidate)
+    ? candidate
     : 'dashboard'
 }
 
@@ -363,8 +364,9 @@ function AdminRoute() {
     ),
   )
   const roleChange = useMutation(
-    mutation(({ userId, role: newRole }: { userId: string; role: WorkspaceRole }) =>
-      changeMemberRole(dataClient, { workspaceId, userId, newRole }),
+    mutation(
+      ({ userId, role: newRole }: { userId: string; role: WorkspaceRole }) =>
+        changeMemberRole(dataClient, { workspaceId, userId, newRole }),
     ),
   )
   const remove = useMutation(
@@ -499,19 +501,20 @@ function AdminRoute() {
       { label: 'Platform Administration' },
     ],
     inspectorLabel: 'Member details',
-    inspector: selectedMember && activeSection === 'users' ? (
-      <AdminInspector
-        member={selectedMember}
-        currentUserId={context.user.id}
-        isOwner={isOwner}
-        onSuspend={() => suspend.mutate(selectedMember.userId)}
-        onReinstate={() => reinstate.mutate(selectedMember.userId)}
-        onRemove={() => remove.mutate(selectedMember.userId)}
-        onRoleChange={(newRole) =>
-          roleChange.mutate({ userId: selectedMember.userId, role: newRole })
-        }
-      />
-    ) : null,
+    inspector:
+      selectedMember && activeSection === 'users' ? (
+        <AdminInspector
+          member={selectedMember}
+          currentUserId={context.user.id}
+          isOwner={isOwner}
+          onSuspend={() => suspend.mutate(selectedMember.userId)}
+          onReinstate={() => reinstate.mutate(selectedMember.userId)}
+          onRemove={() => remove.mutate(selectedMember.userId)}
+          onRoleChange={(newRole) =>
+            roleChange.mutate({ userId: selectedMember.userId, role: newRole })
+          }
+        />
+      ) : null,
     primaryAction:
       isOwner && activeSection === 'activity' ? (
         <Button onClick={exportAudit} disabled={auditExport.isPending}>
@@ -543,7 +546,10 @@ function AdminRoute() {
               Configuration
             </Link>{' '}
             and personal API tokens live in{' '}
-            <Link to="/settings" className="font-medium text-primary hover:underline">
+            <Link
+              to="/settings"
+              className="font-medium text-primary hover:underline"
+            >
               Settings
             </Link>
             .
@@ -611,7 +617,10 @@ function AdminRoute() {
               <AdminDashboard workspaceId={workspaceId} />
             ) : null}
             {activeSection === 'external-access' ? (
-              <AdminExternalAccess workspaceId={workspaceId} role={role ?? ''} />
+              <AdminExternalAccess
+                workspaceId={workspaceId}
+                role={role ?? ''}
+              />
             ) : null}
             {activeSection === 'users' ? (
               <AdminMembers

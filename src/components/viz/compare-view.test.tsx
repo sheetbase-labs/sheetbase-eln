@@ -5,14 +5,18 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import { CompareView } from './compare-view'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import { validateChartSpec } from '#/lib/chart-spec'
 import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
-import {
-  COMPARATIVE_VIEW_CONFIG_VERSION,
-} from '#/lib/comparative-view'
+import { COMPARATIVE_VIEW_CONFIG_VERSION } from '#/lib/comparative-view'
 import type { ComparativeViewConfig } from '#/lib/comparative-view'
 
 globalThis.ResizeObserver = class {
@@ -105,7 +109,7 @@ describe('CompareView', () => {
 
   it('binds faceting controls to explicit fields only', () => {
     renderCompare(baseConfig())
-    const facet = screen.getByLabelText('Facet field') as HTMLSelectElement
+    const facet = screen.getByLabelText('Facet field')
     // The active groupBy field is never offered as a facet.
     const options = [...facet.querySelectorAll('option')].map(
       (o) => o.textContent,

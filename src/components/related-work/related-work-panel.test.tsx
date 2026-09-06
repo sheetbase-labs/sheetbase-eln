@@ -67,9 +67,7 @@ describe('RelatedWorkPanel', () => {
 
   it('stays silent when there is nothing related', () => {
     mockedHook.mockReturnValue({ data: [], isLoading: false } as never)
-    const { container } = render(
-      <RelatedWorkPanel kind="record" id="rec-1" />,
-    )
+    const { container } = render(<RelatedWorkPanel kind="record" id="rec-1" />)
     expect(container.textContent).toBe('')
   })
 

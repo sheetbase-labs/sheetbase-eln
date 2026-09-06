@@ -70,7 +70,7 @@ const preview: SheetDefinitionUpgradePreview = {
     bindingProvenanceRevalidated: true,
     writeOwnershipFromTarget: true,
   },
-} as SheetDefinitionUpgradePreview
+}
 
 function client(): DataClient {
   return {
@@ -140,9 +140,7 @@ describe('SheetDefinitionUpgradeForm source bindings', () => {
   it('falls back to raw object-ID inputs without a data client', () => {
     mount({})
     expect(screen.getByText('Target parameters')).toBeTruthy()
-    expect(
-      screen.getByPlaceholderText('Enter object ID'),
-    ).toBeTruthy()
+    expect(screen.getByPlaceholderText('Enter object ID')).toBeTruthy()
     expect(screen.queryByText('Target source bindings')).toBeNull()
   })
 })

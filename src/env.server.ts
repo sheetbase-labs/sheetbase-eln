@@ -54,7 +54,11 @@ export const env = createEnv({
     // PLAT-03 — general API abuse bound for the data proxy and file byte
     // routes (credential exchange keeps its own per-credential limiter).
     // Requests per window per authenticated principal; fail-open posture.
-    SHEETBASE_RATE_LIMIT_MAX: z.coerce.number().int().min(10).max(100_000)
+    SHEETBASE_RATE_LIMIT_MAX: z.coerce
+      .number()
+      .int()
+      .min(10)
+      .max(100_000)
       .default(600),
     SHEETBASE_RATE_LIMIT_WINDOW_SECONDS: z.coerce
       .number()

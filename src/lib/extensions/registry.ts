@@ -40,12 +40,17 @@ import type { Capability } from '../capability'
 import {
   effectiveExtensionCapabilities,
   extensionAuditIdentity,
-  type ExtensionAuditIdentity,
 } from './contract'
-import { parseExtensionManifest, type ExtensionManifest } from './manifest'
+import type { ExtensionAuditIdentity } from './contract'
+import { parseExtensionManifest } from './manifest'
+import type { ExtensionManifest } from './manifest'
 
 /** UI points this registry resolves. Event subscriptions deliver; they do not render. */
-export const EXTENSION_UI_POINTS = ['object-actions', 'panels', 'commands'] as const
+export const EXTENSION_UI_POINTS = [
+  'object-actions',
+  'panels',
+  'commands',
+] as const
 
 export type ExtensionUiPoint = (typeof EXTENSION_UI_POINTS)[number]
 
@@ -182,8 +187,10 @@ export function resolveExtensionContributions(
   }
   // Deterministic order: extension key, then point, then declaration id —
   // hosts render this order verbatim so repeated resolves never reshuffle.
-  const byKey = (a: ResolvedExtensionContribution, b: ResolvedExtensionContribution) =>
-    a.key < b.key ? -1 : a.key > b.key ? 1 : 0
+  const byKey = (
+    a: ResolvedExtensionContribution,
+    b: ResolvedExtensionContribution,
+  ) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
   objectActions.sort(byKey)
   panels.sort(byKey)
   commands.sort(byKey)
@@ -200,7 +207,10 @@ export function extensionInvocationAudit(
   return extensionAuditIdentity({
     extensionId: contribution.extensionId,
     extensionKey: contribution.extensionKey,
-    manifest: { id: contribution.manifestId, version: contribution.manifestVersion },
+    manifest: {
+      id: contribution.manifestId,
+      version: contribution.manifestVersion,
+    },
   })
 }
 

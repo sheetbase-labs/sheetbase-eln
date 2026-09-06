@@ -426,7 +426,13 @@ async function sweepEventSchedule(
                OR (payload->>'datasetId')::uuid = $5::uuid)
         ORDER BY sequence
         LIMIT ${MAX_EVENTS_PER_SWEEP}`,
-      [locked.workspace_id, producer.entityType, producer.operation, cursor, datasetFilter],
+      [
+        locked.workspace_id,
+        producer.entityType,
+        producer.operation,
+        cursor,
+        datasetFilter,
+      ],
     )
     // Only `dataset.versioned` supplies an input version (the created
     // Dataset Version id). Other events fire with the schedule's configured

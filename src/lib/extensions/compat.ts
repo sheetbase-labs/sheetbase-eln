@@ -55,7 +55,8 @@ export function parseSemver(version: unknown): ParsedSemver | null {
 function compareIdentifiers(a: string, b: string): number {
   const aNum = /^(0|[1-9]\d*)$/.test(a) ? Number(a) : null
   const bNum = /^(0|[1-9]\d*)$/.test(b) ? Number(b) : null
-  if (aNum !== null && bNum !== null) return aNum < bNum ? -1 : aNum > bNum ? 1 : 0
+  if (aNum !== null && bNum !== null)
+    return aNum < bNum ? -1 : aNum > bNum ? 1 : 0
   // Numeric identifiers sort below alphanumeric ones (semver §11.4.4).
   if (aNum !== null) return -1
   if (bNum !== null) return 1
@@ -123,13 +124,16 @@ function parseCompatComparators(range: string): CompatComparator[] | null {
   const out: CompatComparator[] = []
   for (const token of range.trim().split(/\s+/)) {
     if (token === '*') {
-      out.push({ op: '*', version: { major: 0, minor: 0, patch: 0, prerelease: null } })
+      out.push({
+        op: '*',
+        version: { major: 0, minor: 0, patch: 0, prerelease: null },
+      })
       continue
     }
     const match = RANGE_TOKEN.exec(token)
     if (!match) return null
     out.push({
-      op: (match[1] ?? '=') as ComparatorOp,
+      op: ((match[1] as string | undefined) ?? '=') as ComparatorOp,
       version: {
         major: Number(match[2]),
         minor: Number(match[3]),

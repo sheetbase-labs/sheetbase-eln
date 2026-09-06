@@ -16,7 +16,9 @@ import type { AssistExplanation } from './assist-explain'
 import { GATEWAY_MODELS } from './ai-gateway'
 import type { RecordFieldDefinition } from './scientific-records'
 
-function fieldDef(overrides: Partial<RecordFieldDefinition> = {}): RecordFieldDefinition {
+function fieldDef(
+  overrides: Partial<RecordFieldDefinition> = {},
+): RecordFieldDefinition {
   return {
     id: '11111111-0000-4000-8000-000000000001',
     workspaceId: '20000000-0000-4000-8000-000000000001',
@@ -65,7 +67,13 @@ function envelope(): AiContextEnvelope {
         deepLink: '/records/rec-1',
         freshness: 'live',
         pins: [],
-        sections: [{ heading: 'Properties', body: 'organism: E. coli', truncated: false }],
+        sections: [
+          {
+            heading: 'Properties',
+            body: 'organism: E. coli',
+            truncated: false,
+          },
+        ],
         truncated: false,
       },
     ],
@@ -88,8 +96,16 @@ describe('assist-explain block validation', () => {
     const explanation = explainBlockValidation({
       blockType: 'chart',
       errors: [
-        { code: 'missing_required_field', field: 'spec', message: 'spec is required.' },
-        { code: 'invalid_field_value', field: 'spec.type', message: 'Unknown chart type.' },
+        {
+          code: 'missing_required_field',
+          field: 'spec',
+          message: 'spec is required.',
+        },
+        {
+          code: 'invalid_field_value',
+          field: 'spec.type',
+          message: 'Unknown chart type.',
+        },
       ],
     })
     expect(explanation).not.toBeNull()
@@ -107,7 +123,9 @@ describe('assist-explain block validation', () => {
   })
 
   it('returns null when there is nothing to explain', () => {
-    expect(explainBlockValidation({ blockType: 'chart', errors: [] })).toBeNull()
+    expect(
+      explainBlockValidation({ blockType: 'chart', errors: [] }),
+    ).toBeNull()
   })
 })
 
@@ -127,15 +145,23 @@ describe('assist-explain property validation', () => {
   it('stays honest when no active definition exists', () => {
     const explanation = explainPropertyValidation({
       kind: 'experiment',
-      errors: [{ field: 'retired_field', message: 'Retired field has a value.' }],
+      errors: [
+        { field: 'retired_field', message: 'Retired field has a value.' },
+      ],
       definitions: [fieldDef()],
     })
-    expect(explanation?.why[0]?.citation.detail).toContain('no active field definition')
+    expect(explanation?.why[0]?.citation.detail).toContain(
+      'no active field definition',
+    )
   })
 
   it('returns null when there is nothing to explain', () => {
     expect(
-      explainPropertyValidation({ kind: 'experiment', errors: [], definitions: [] }),
+      explainPropertyValidation({
+        kind: 'experiment',
+        errors: [],
+        definitions: [],
+      }),
     ).toBeNull()
   })
 })
@@ -153,8 +179,13 @@ describe('assist-explain sheet write-back', () => {
   })
 
   it('explains mixed-authority rejection without blaming validation', () => {
-    const explanation = explainSheetWriteBack({ errors: [], mixedAuthority: true })
-    expect(explanation?.whatFailed).toContain('more than one authoritative target')
+    const explanation = explainSheetWriteBack({
+      errors: [],
+      mixedAuthority: true,
+    })
+    expect(explanation?.whatFailed).toContain(
+      'more than one authoritative target',
+    )
     expect(explanation?.howTo.join(' ')).toContain('Split the edit')
   })
 
@@ -203,7 +234,10 @@ describe('assist-explain grounding', () => {
   it('merges envelope objects and unmatched citations as cited sources', () => {
     const merged = attachGrounding(base, {
       envelope: envelope(),
-      citations: [citation(), citation({ stableId: 'ds-9', kind: 'dataset', title: 'Assay' })],
+      citations: [
+        citation(),
+        citation({ stableId: 'ds-9', kind: 'dataset', title: 'Assay' }),
+      ],
     })
     expect(merged.citations).toHaveLength(3)
     expect(merged.citations[1]?.label).toContain('Visible experiment')
@@ -224,12 +258,14 @@ describe('assist-explain stub phrasing', () => {
   it('marks gateway phrasing as assistance naming the citations', async () => {
     const explanation = explainBlockValidation({
       blockType: 'chart',
-      errors: [{ code: 'missing_required_field', message: 'spec is required.' }],
+      errors: [
+        { code: 'missing_required_field', message: 'spec is required.' },
+      ],
     })
     const phrasing = await stubPhraseExplanation(explanation!)
     expect(phrasing.assistance).toBe(true)
     expect(phrasing.model).toBe(ASSIST_STUB_MODEL)
-    expect((GATEWAY_MODELS as readonly string[])).toContain(phrasing.model)
+    expect(GATEWAY_MODELS as readonly string[]).toContain(phrasing.model)
     expect(phrasing.text).toContain('Block rule missing_required_field')
     expect(ASSISTANCE_NOTE).toContain('Not authoritative')
   })

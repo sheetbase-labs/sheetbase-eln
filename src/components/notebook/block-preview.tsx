@@ -77,18 +77,19 @@ import type {
   PlateWell,
   PlateMapRoleLegendEntry,
 } from '#/components/viz/plate-map'
-import { PLATE_MAP_SPEC_VERSION, ROLE_STYLES } from '#/lib/plate-map'
+import {
+  PLATE_MAP_SPEC_VERSION,
+  ROLE_STYLES,
+  liveSampleObservationFromQuery,
+  resolveWellSample,
+  wellSelectionContext,
+} from '#/lib/plate-map'
 import type {
   LiveSampleObservation,
   PlateMapSpec,
   WellAssignment,
   WellSampleResolution,
   WellSelectionContext,
-} from '#/lib/plate-map'
-import {
-  liveSampleObservationFromQuery,
-  resolveWellSample,
-  wellSelectionContext,
 } from '#/lib/plate-map'
 import {
   fetchSheetInstance,
@@ -1052,7 +1053,11 @@ function chartSourcesFromFrozen(
  * dataset" label; multi-source charts disambiguate ("Dataset 1", "Dataset 2")
  * and frozen multi-source charts also surface each pinned Version short-id.
  */
-function ChartOpenDatasetActions({ sources }: { sources: ChartDatasetSource[] }) {
+function ChartOpenDatasetActions({
+  sources,
+}: {
+  sources: ChartDatasetSource[]
+}) {
   if (sources.length === 0) return null
   const multi = sources.length > 1
   return (
@@ -1146,7 +1151,7 @@ function PinnedFrozenChartPreview({
     return (
       <ChartRenderer
         title={title}
-          hideTitle={hideTitle}
+        hideTitle={hideTitle}
         provenance={provenance}
         spec={spec}
         materialised={reconstructed.chart}
@@ -1163,7 +1168,7 @@ function PinnedFrozenChartPreview({
   return (
     <ChartRenderer
       title={title}
-          hideTitle={hideTitle}
+      hideTitle={hideTitle}
       provenance={provenance}
       spec={spec}
       materialised={materialised}
@@ -1227,7 +1232,7 @@ function LiveChartPreview({
   return (
     <ChartRenderer
       title={title}
-        hideTitle={hideTitle}
+      hideTitle={hideTitle}
       provenance={provenance}
       spec={spec}
       materialised={materialised}
@@ -1327,7 +1332,7 @@ function PlateMapBlockPreview({
   const observations = new Map<string, LiveSampleObservation>()
   if (!frozen) {
     sampleRefs.forEach((ref, i) => {
-      const q = sampleQueries[i]
+      const q = sampleQueries.at(i)
       observations.set(
         ref.recordId,
         liveSampleObservationFromQuery({
@@ -1342,13 +1347,14 @@ function PlateMapBlockPreview({
   const resolutionByWell = new Map<string, WellSampleResolution>()
   for (const w of spec.wells) {
     if (!w.sampleRef) continue
-    const resolution = resolveWellSample(w, observations.get(w.sampleRef.recordId))
+    const resolution = resolveWellSample(
+      w,
+      observations.get(w.sampleRef.recordId),
+    )
     if (resolution) resolutionByWell.set(w.wellCode, resolution)
   }
 
-  const loading = [...observations.values()].some(
-    (o) => o.status === 'loading',
-  )
+  const loading = [...observations.values()].some((o) => o.status === 'loading')
   const referenceFailure = [...observations.values()].some(
     (o) => o.status === 'error' || o.status === 'restricted',
   )
@@ -1434,9 +1440,7 @@ function PlateMapBlockPreview({
         }
         compact
       />
-      {selection ? (
-        <PlateWellSelectionSummary selection={selection} />
-      ) : null}
+      {selection ? <PlateWellSelectionSummary selection={selection} /> : null}
       {linkedSamples.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-xs text-muted-foreground">Samples:</span>

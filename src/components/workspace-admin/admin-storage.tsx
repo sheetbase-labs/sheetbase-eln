@@ -45,7 +45,7 @@ export function AdminStorage({ workspaceId }: { workspaceId: string }) {
           ))}
         </dl>
         <p className="text-xs text-muted-foreground">
-          {data?.quota?.byteLimit != null ? (
+          {data?.quota.byteLimit != null ? (
             <>
               Storage quota {formatBytes(data.quota.byteLimit)} —{' '}
               {data.quota.atLimitBehaviour ?? 'limit enforced'}.

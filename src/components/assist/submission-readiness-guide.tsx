@@ -10,10 +10,8 @@
  * workspace, so they navigate there. The wrapper never mutates anything
  * itself.
  */
-import {
-  evaluateSubmissionReadiness,
-  type GuideAcceptKey,
-} from '#/lib/assist-guide'
+import { evaluateSubmissionReadiness } from '#/lib/assist-guide'
+import type { GuideAcceptKey } from '#/lib/assist-guide'
 
 import { GuidePanel } from './guide-panel'
 

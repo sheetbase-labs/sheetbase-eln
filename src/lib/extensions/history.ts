@@ -12,16 +12,11 @@
  * here creates a second event system.
  */
 import type { DataClient } from '../data-client'
-import {
-  fetchAuditEvents,
-  type AuditEventWire,
-} from '../audit-history'
+import { fetchAuditEvents } from '../audit-history'
+import type { AuditEventWire } from '../audit-history'
 
 export type ExtensionHistoryKind =
-  | 'lifecycle'
-  | 'invocation'
-  | 'credential'
-  | 'other'
+  'lifecycle' | 'invocation' | 'credential' | 'other'
 
 export interface ExtensionHistoryEntry {
   event: AuditEventWire
@@ -54,12 +49,10 @@ export async function fetchExtensionHistory(
     merged.push(event)
   }
   merged.sort((a, b) => b.sequence - a.sequence)
-  return merged
-    .slice(0, limit)
-    .map((event) => ({
-      event,
-      kind: classifyExtensionHistoryEvent(event, extensionId),
-    }))
+  return merged.slice(0, limit).map((event) => ({
+    event,
+    kind: classifyExtensionHistoryEvent(event, extensionId),
+  }))
 }
 
 /** Classify one history event relative to an extension install. */
@@ -71,7 +64,8 @@ export function classifyExtensionHistoryEvent(
     return 'lifecycle'
   }
   if (event.entityType === 'api_credential') return 'credential'
-  const payload = event.payload ?? {}
+  const payload =
+    (event.payload as Record<string, unknown> | null | undefined) ?? {}
   if (
     payload['extension_id'] === extensionId ||
     payload['extensionId'] === extensionId
@@ -110,5 +104,6 @@ export function describeExtensionHistoryEvent(
 }
 
 export const extensionHistoryQueryKeys = {
-  history: (extensionId: string) => ['extensions', extensionId, 'history'] as const,
+  history: (extensionId: string) =>
+    ['extensions', extensionId, 'history'] as const,
 }

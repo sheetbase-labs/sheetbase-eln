@@ -450,9 +450,7 @@ describe('fetchMyRecentSignals paging', () => {
       pageSize: 1,
     })
     expect(queries).toHaveLength(2)
-    expect(new Set(signals.map((s) => s.id))).toEqual(
-      new Set(['r-1', 'r-2']),
-    )
+    expect(new Set(signals.map((s) => s.id))).toEqual(new Set(['r-1', 'r-2']))
   })
 
   it('stops at the end of the feed without a final empty-page request', async () => {
@@ -484,7 +482,10 @@ describe('fetchRecentItems', () => {
   /** Reads the `id=in.(a,b)` filter out of a PostgREST query string. */
   function idsFromInQuery(query: string): string[] {
     const raw = new URLSearchParams(query).get('id') ?? ''
-    return raw.replace(/^in\.\(/, '').replace(/\)$/, '').split(',')
+    return raw
+      .replace(/^in\.\(/, '')
+      .replace(/\)$/, '')
+      .split(',')
   }
 
   it('replenishes from older candidates when the newest are hidden', async () => {

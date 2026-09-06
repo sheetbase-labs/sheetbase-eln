@@ -152,7 +152,10 @@ describe('shapeComparativeView', () => {
     expect(a?.facet).toBe('batch-1')
     // Group B spans both batches after row 4 joins it... rows 2,3 are
     // batch-2, so B is uniform batch-2 here; mix facet across one group:
-    const mixed = shapeComparativeView(withBatch, timeSeriesConfig({ facetBy: TIME }))
+    const mixed = shapeComparativeView(
+      withBatch,
+      timeSeriesConfig({ facetBy: TIME }),
+    )
     // TIME varies within group A (0 and 1) → facet must not pick one.
     expect(mixed.groups.find((g) => g.label === 'A')?.facet).toBeNull()
   })
@@ -165,14 +168,10 @@ describe('validateComparativeViewConfig', () => {
 
   it('rejects missing time, value and grouping fields', () => {
     expect(
-      validateComparativeViewConfig(
-        timeSeriesConfig({ timeField: null }),
-      ),
+      validateComparativeViewConfig(timeSeriesConfig({ timeField: null })),
     ).toContain('config.timeField is required for time_series views')
     expect(
-      validateComparativeViewConfig(
-        timeSeriesConfig({ valueField: '' }),
-      ),
+      validateComparativeViewConfig(timeSeriesConfig({ valueField: '' })),
     ).toContain('config.valueField is required')
     expect(
       validateComparativeViewConfig(timeSeriesConfig({ groupBy: [] })),
@@ -186,9 +185,7 @@ describe('validateComparativeViewConfig', () => {
       ),
     ).toContain('config.viewType must be one of time_series, distribution')
     expect(
-      validateComparativeViewConfig(
-        timeSeriesConfig({ facetBy: BUFFER }),
-      ),
+      validateComparativeViewConfig(timeSeriesConfig({ facetBy: BUFFER })),
     ).toContain('config.facetBy must not duplicate a groupBy field')
     expect(
       validateComparativeViewConfig(
@@ -233,9 +230,9 @@ describe('promoteToChartSpec', () => {
   })
 
   it('throws fail-closed on an invalid config', () => {
-    expect(() =>
-      promoteToChartSpec(timeSeriesConfig({ groupBy: [] })),
-    ).toThrow(/groupBy/)
+    expect(() => promoteToChartSpec(timeSeriesConfig({ groupBy: [] }))).toThrow(
+      /groupBy/,
+    )
   })
 })
 

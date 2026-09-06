@@ -50,8 +50,7 @@ export const AGENT_OPERATION_TOOL_NAMES = [
   'sheetbase.dataset_rows.commit',
 ] as const
 
-export type AgentOperationToolName =
-  (typeof AGENT_OPERATION_TOOL_NAMES)[number]
+export type AgentOperationToolName = (typeof AGENT_OPERATION_TOOL_NAMES)[number]
 
 /** read: no state change. draft: proposes a durable operation, never applies it. mutate: changes durable state. */
 export type AgentToolMode = 'read' | 'draft' | 'mutate'
@@ -98,20 +97,29 @@ export interface UnavailableOperation {
 }
 
 const uuid = parameterUuidSchema
-const workspaceId = uuid.describe('Workspace UUID; must match the bearer token workspace.')
+const workspaceId = uuid.describe(
+  'Workspace UUID; must match the bearer token workspace.',
+)
 const key = z
   .string()
   .regex(/^[a-z][a-z0-9_]{0,59}$/)
   .describe('Definition key, unique per workspace.')
 const name = z.string().min(1).max(200)
 const description = z.string().max(2000).nullish()
-const revision = z.number().int().positive().describe('Optimistic-concurrency revision.')
+const revision = z
+  .number()
+  .int()
+  .positive()
+  .describe('Optimistic-concurrency revision.')
 
 const provenanceSchema = z
   .object({
     agentId: z.string().min(1).max(200),
     agentName: z.string().max(200).nullish(),
-    tool: z.object({ name: z.string().min(1).max(200), version: z.string().max(100).nullish() }),
+    tool: z.object({
+      name: z.string().min(1).max(200),
+      version: z.string().max(100).nullish(),
+    }),
     model: z.object({
       provider: z.string().min(1).max(100),
       name: z.string().min(1).max(200),
@@ -120,7 +128,9 @@ const provenanceSchema = z
     invocationId: z.string().min(1).max(200),
   })
   .strict()
-  .describe('Required agent/tool/model/invocation attribution (AUTO-04 provenance).')
+  .describe(
+    'Required agent/tool/model/invocation attribution (AUTO-04 provenance).',
+  )
 
 /**
  * Shared error rows. Codes already exist server-side (0148 propose/decide/
@@ -129,19 +139,23 @@ const provenanceSchema = z
  */
 const ERR_WORKSPACE_ACTOR: AgentToolError = {
   code: '42501',
-  meaning: 'Caller is not a write actor of the target workspace, or lacks the required scope.',
+  meaning:
+    'Caller is not a write actor of the target workspace, or lacks the required scope.',
 }
 const ERR_INVALID: AgentToolError = {
   code: '22023',
-  meaning: 'Input failed contract validation (shape, key format, length, lifecycle, or tool/operation mismatch).',
+  meaning:
+    'Input failed contract validation (shape, key format, length, lifecycle, or tool/operation mismatch).',
 }
 const ERR_STALE: AgentToolError = {
   code: 'SB001',
-  meaning: 'Optimistic-concurrency mismatch: proposal, target, or definition revision moved since preview.',
+  meaning:
+    'Optimistic-concurrency mismatch: proposal, target, or definition revision moved since preview.',
 }
 const ERR_IDEMPOTENCY_MISMATCH: AgentToolError = {
   code: '23505',
-  meaning: 'Idempotency key was already used for different content by the same actor.',
+  meaning:
+    'Idempotency key was already used for different content by the same actor.',
 }
 const ERR_ROW_VALIDATION: AgentToolError = {
   code: 'SB073',
@@ -149,15 +163,18 @@ const ERR_ROW_VALIDATION: AgentToolError = {
 }
 const ERR_DRAFT_UNAVAILABLE: AgentToolError = {
   code: '42501',
-  meaning: 'Target draft version is missing, outside the workspace, or no longer a draft.',
+  meaning:
+    'Target draft version is missing, outside the workspace, or no longer a draft.',
 }
 const ERR_BUDGET_EXHAUSTED: AgentToolError = {
   code: 'budget_exhausted',
-  meaning: 'Reported usage exceeded the durable token or cost budget; the workflow stops.',
+  meaning:
+    'Reported usage exceeded the durable token or cost budget; the workflow stops.',
 }
 const ERR_TERMINAL_STATE: AgentToolError = {
   code: 'SB001',
-  meaning: 'Workflow already reached a terminal state (succeeded, cancelled, budget_exhausted).',
+  meaning:
+    'Workflow already reached a terminal state (succeeded, cancelled, budget_exhausted).',
 }
 
 /** Configuration payloads are validated in depth by the canonical validators
@@ -176,7 +193,9 @@ const datasetCommitRows = z
   .array(z.record(z.string(), z.unknown()))
   .min(1)
   .max(1000)
-  .describe('Dataset commit rows (DatasetCommitRow[]); updates stay human_required.')
+  .describe(
+    'Dataset commit rows (DatasetCommitRow[]); updates stay human_required.',
+  )
 
 function operationEntry(entry: AgentToolEntry): AgentToolEntry {
   return entry
@@ -198,7 +217,14 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       note: 'Proposing needs agent_operations:write. Automatic execution additionally requires schema:write; the server checks both.',
     },
     inputSchema: z
-      .object({ kind: z.literal('dataset_schema.create'), workspaceId, key, name, description, fields: datasetSchemaFields })
+      .object({
+        kind: z.literal('dataset_schema.create'),
+        workspaceId,
+        key,
+        name,
+        description,
+        fields: datasetSchemaFields,
+      })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
@@ -231,7 +257,8 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
   operationEntry({
     name: 'sheetbase.sheet_definition.update_draft',
     mode: 'draft',
-    description: 'Update an existing Sheet Definition draft version via proposal. The target must still be a draft in the same workspace.',
+    description:
+      'Update an existing Sheet Definition draft version via proposal. The target must still be a draft in the same workspace.',
     operationKind: 'sheet_definition.update_draft',
     rpc: 'update_sheet_definition_draft',
     via: 'propose_agent_operation',
@@ -249,12 +276,19 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
         configuration: opaqueConfiguration,
       })
       .strict(),
-    errors: [ERR_WORKSPACE_ACTOR, ERR_DRAFT_UNAVAILABLE, ERR_STALE, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_DRAFT_UNAVAILABLE,
+      ERR_STALE,
+      ERR_INVALID,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
   }),
   operationEntry({
     name: 'sheetbase.pipeline_definition.draft',
     mode: 'draft',
-    description: 'Draft a Pipeline Definition via proposal. Creates the definition shell; versions are drafted separately.',
+    description:
+      'Draft a Pipeline Definition via proposal. Creates the definition shell; versions are drafted separately.',
     operationKind: 'pipeline_definition.create',
     rpc: 'create_pipeline_definition',
     via: 'propose_agent_operation',
@@ -265,14 +299,21 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       note: 'Server asserts the pipelines.manage capability; proposing needs agent_operations:write.',
     },
     inputSchema: z
-      .object({ kind: z.literal('pipeline_definition.create'), workspaceId, key, name, description })
+      .object({
+        kind: z.literal('pipeline_definition.create'),
+        workspaceId,
+        key,
+        name,
+        description,
+      })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
     name: 'sheetbase.pipeline_definition.version_draft',
     mode: 'draft',
-    description: 'Draft a new version of an active Pipeline Definition via proposal. The definition revision is pinned optimistically.',
+    description:
+      'Draft a new version of an active Pipeline Definition via proposal. The definition revision is pinned optimistically.',
     operationKind: 'pipeline_definition.create_version',
     rpc: 'create_pipeline_definition_version',
     via: 'propose_agent_operation',
@@ -291,12 +332,18 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
         configuration: opaqueConfiguration,
       })
       .strict(),
-    errors: [ERR_WORKSPACE_ACTOR, ERR_STALE, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_STALE,
+      ERR_INVALID,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
   }),
   operationEntry({
     name: 'sheetbase.pipeline_definition.update_draft',
     mode: 'draft',
-    description: 'Update an existing Pipeline Definition draft version via proposal. The target version must still be a draft.',
+    description:
+      'Update an existing Pipeline Definition draft version via proposal. The target version must still be a draft.',
     operationKind: 'pipeline_definition.update_draft',
     rpc: 'update_pipeline_definition_version_draft',
     via: 'propose_agent_operation',
@@ -315,7 +362,13 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
         configuration: opaqueConfiguration,
       })
       .strict(),
-    errors: [ERR_WORKSPACE_ACTOR, ERR_DRAFT_UNAVAILABLE, ERR_STALE, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_DRAFT_UNAVAILABLE,
+      ERR_STALE,
+      ERR_INVALID,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
   }),
   operationEntry({
     name: 'sheetbase.dataset_rows.commit',
@@ -339,7 +392,13 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
         rows: datasetCommitRows,
       })
       .strict(),
-    errors: [ERR_WORKSPACE_ACTOR, ERR_ROW_VALIDATION, ERR_STALE, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_ROW_VALIDATION,
+      ERR_STALE,
+      ERR_INVALID,
+      ERR_IDEMPOTENCY_MISMATCH,
+    ],
   }),
 ]
 
@@ -347,7 +406,8 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
   {
     name: 'sheetbase.agent.propose',
     mode: 'draft',
-    description: 'Propose one canonical operation with provenance. Validates, previews, evaluates policy, and may auto-execute safe drafts.',
+    description:
+      'Propose one canonical operation with provenance. Validates, previews, evaluates policy, and may auto-execute safe drafts.',
     rpc: 'propose_agent_operation',
     via: 'propose_agent_operation',
     capability: {
@@ -366,12 +426,18 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
         idempotencyKey: z.string().min(1).max(128),
       })
       .strict(),
-    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH, ERR_ROW_VALIDATION],
+    errors: [
+      ERR_WORKSPACE_ACTOR,
+      ERR_INVALID,
+      ERR_IDEMPOTENCY_MISMATCH,
+      ERR_ROW_VALIDATION,
+    ],
   },
   {
     name: 'sheetbase.agent.workflow_create',
     mode: 'draft',
-    description: 'Create a bounded 2–20 step sequential workflow plan and propose its first pinned operation.',
+    description:
+      'Create a bounded 2–20 step sequential workflow plan and propose its first pinned operation.',
     rpc: 'create_agent_workflow',
     via: 'create_agent_workflow',
     capability: {
@@ -396,7 +462,8 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
   {
     name: 'sheetbase.agent.workflow_advance',
     mode: 'draft',
-    description: 'Observe the current proposal at the expected revision and move to the next pinned step. Never approves or executes.',
+    description:
+      'Observe the current proposal at the expected revision and move to the next pinned step. Never approves or executes.',
     rpc: 'advance_agent_workflow',
     via: 'advance_agent_workflow',
     capability: {
@@ -405,13 +472,16 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Observation only: rejection, failure, or cancellation pauses the workflow for a human.',
     },
-    inputSchema: z.object({ workflowId: uuid, expectedRevision: revision }).strict(),
+    inputSchema: z
+      .object({ workflowId: uuid, expectedRevision: revision })
+      .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_STALE, ERR_TERMINAL_STATE],
   },
   {
     name: 'sheetbase.agent.workflow_report_usage',
     mode: 'mutate',
-    description: 'Report incremental token/cost usage. Overrunning a durable budget stops the workflow and cancels the pending proposal.',
+    description:
+      'Report incremental token/cost usage. Overrunning a durable budget stops the workflow and cancels the pending proposal.',
     rpc: 'report_agent_workflow_usage',
     via: 'report_agent_workflow_usage',
     capability: {
@@ -421,14 +491,20 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
       note: 'Positive increments only; at least one of tokens/cost must be greater than zero.',
     },
     inputSchema: z
-      .object({ workflowId: uuid, expectedRevision: revision, tokens: z.number().int().min(0), costMicrousd: z.number().int().min(0) })
+      .object({
+        workflowId: uuid,
+        expectedRevision: revision,
+        tokens: z.number().int().min(0),
+        costMicrousd: z.number().int().min(0),
+      })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_STALE, ERR_BUDGET_EXHAUSTED],
   },
   {
     name: 'sheetbase.agent.workflow_cancel',
     mode: 'mutate',
-    description: 'Cancel remaining steps and a pending/approved current proposal with a reason. Completed workflows fail closed.',
+    description:
+      'Cancel remaining steps and a pending/approved current proposal with a reason. Completed workflows fail closed.',
     rpc: 'cancel_agent_workflow',
     via: 'cancel_agent_workflow',
     capability: {
@@ -438,7 +514,11 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
       note: 'Credentials or a workspace writer may cancel; completed and already-cancelled workflows fail closed.',
     },
     inputSchema: z
-      .object({ workflowId: uuid, expectedRevision: revision, reason: z.string().min(1).max(1000) })
+      .object({
+        workflowId: uuid,
+        expectedRevision: revision,
+        reason: z.string().min(1).max(1000),
+      })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_STALE, ERR_TERMINAL_STATE],
   },
@@ -448,7 +528,8 @@ const READ_TOOLS: AgentToolEntry[] = [
   {
     name: 'sheetbase.dataset_rows.query',
     mode: 'read',
-    description: 'Query live Dataset rows with bounded windows. Read-only grounding for agents; outside the proposal model.',
+    description:
+      'Query live Dataset rows with bounded windows. Read-only grounding for agents; outside the proposal model.',
     rpc: 'query_dataset_rows',
     via: 'query_dataset_rows',
     capability: {
@@ -458,14 +539,19 @@ const READ_TOOLS: AgentToolEntry[] = [
       note: 'Ordinary canonical read; same RLS as normal clients.',
     },
     inputSchema: z
-      .object({ datasetId: uuid, limit: z.number().int().min(1).max(1000).nullish(), offset: z.number().int().min(0).nullish() })
+      .object({
+        datasetId: uuid,
+        limit: z.number().int().min(1).max(1000).nullish(),
+        offset: z.number().int().min(0).nullish(),
+      })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
     name: 'sheetbase.dataset_version_rows.query',
     mode: 'read',
-    description: 'Read rows from an immutable Dataset Version snapshot. Read-only grounding for agents.',
+    description:
+      'Read rows from an immutable Dataset Version snapshot. Read-only grounding for agents.',
     rpc: 'query_dataset_version_rows',
     via: 'query_dataset_version_rows',
     capability: {
@@ -475,14 +561,19 @@ const READ_TOOLS: AgentToolEntry[] = [
       note: 'Historical projection; versions are immutable.',
     },
     inputSchema: z
-      .object({ versionId: uuid, limit: z.number().int().min(1).max(1000).nullish(), offset: z.number().int().min(0).nullish() })
+      .object({
+        versionId: uuid,
+        limit: z.number().int().min(1).max(1000).nullish(),
+        offset: z.number().int().min(0).nullish(),
+      })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
     name: 'sheetbase.sheet_instance_rows.query',
     mode: 'read',
-    description: 'Query Sheet Instance composition rows. Read-only grounding for agents.',
+    description:
+      'Query Sheet Instance composition rows. Read-only grounding for agents.',
     rpc: 'query_sheet_instance_rows',
     via: 'query_sheet_instance_rows',
     capability: {
@@ -492,14 +583,19 @@ const READ_TOOLS: AgentToolEntry[] = [
       note: 'Ordinary canonical read; same RLS as normal clients.',
     },
     inputSchema: z
-      .object({ instanceId: uuid, limit: z.number().int().min(1).max(200).nullish(), offset: z.number().int().min(0).max(10000).nullish() })
+      .object({
+        instanceId: uuid,
+        limit: z.number().int().min(1).max(200).nullish(),
+        offset: z.number().int().min(0).max(10000).nullish(),
+      })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
     name: 'sheetbase.search',
     mode: 'read',
-    description: 'Full-text search over workspace records. Read-only grounding for agents.',
+    description:
+      'Full-text search over workspace records. Read-only grounding for agents.',
     rpc: 'search',
     via: 'search',
     capability: {
@@ -508,7 +604,12 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; same RLS as normal clients.',
     },
-    inputSchema: z.object({ query: z.string().min(1).max(500), limit: z.number().int().min(1).max(100).nullish() }).strict(),
+    inputSchema: z
+      .object({
+        query: z.string().min(1).max(500),
+        limit: z.number().int().min(1).max(100).nullish(),
+      })
+      .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
 ]
@@ -525,21 +626,79 @@ export const AGENT_TOOL_CATALOGUE: readonly AgentToolEntry[] = [
  * Agents cannot sign or attest on behalf of humans (AUTO+ boundary).
  */
 export const UNAVAILABLE_AGENT_OPERATIONS: readonly UnavailableOperation[] = [
-  { name: 'decide_agent_operation', reason: 'Approval/rejection is a human session act; credentials cannot approve or execute human_required proposals.' },
-  { name: 'execute_agent_operation', reason: 'Execution of an approved proposal requires a human session; agents never execute on behalf of humans.' },
-  { name: 'resume_agent_workflow', reason: 'Resuming a paused workflow revalidates pinned work as a human; agent credentials are excluded fail-closed.' },
-  { name: 'create_agent_operation_policy', reason: 'Delegation policies are created by workspace owners/stewards in a human session.' },
-  { name: 'disable_agent_operation_policy', reason: 'Disabling delegation is an owner/steward human-session act.' },
-  { name: 'submit_record_revision', reason: 'Submission is human attestation; denied to external credentials of either kind.' },
-  { name: 'sign_revision', reason: 'Signature is human attestation; denied to external credentials of either kind.' },
-  { name: 'run_revision_checks', reason: 'Review checks run in the human attestation path; not agent-callable.' },
-  { name: 'amend_record_revision', reason: 'Amendment is human attestation; not agent-callable.' },
-  { name: 'publish_dataset_schema_version', reason: 'Schema publication is a steward lifecycle act outside the agent draft vocabulary; adding it needs an explicit policy decision.' },
-  { name: 'publish_pipeline_definition_version', reason: 'Pipeline publication is a human lifecycle act outside the agent draft vocabulary.' },
-  { name: 'delete_record', reason: 'Destructive deletes are outside the bounded catalogue; adding one needs an explicit policy decision.' },
-  { name: 'arbitrary_rpc', reason: 'Agents may only invoke catalogue entries; arbitrary RPC calls are fail-closed.' },
-  { name: 'direct_table_write', reason: 'Agents have no private DB access; writes go through canonical RPCs via proposals.' },
-  { name: 'ui_automation', reason: 'Agents discover via listAgentTools/describeAgentTool and invoke via RPCs, never via UI automation.' },
+  {
+    name: 'decide_agent_operation',
+    reason:
+      'Approval/rejection is a human session act; credentials cannot approve or execute human_required proposals.',
+  },
+  {
+    name: 'execute_agent_operation',
+    reason:
+      'Execution of an approved proposal requires a human session; agents never execute on behalf of humans.',
+  },
+  {
+    name: 'resume_agent_workflow',
+    reason:
+      'Resuming a paused workflow revalidates pinned work as a human; agent credentials are excluded fail-closed.',
+  },
+  {
+    name: 'create_agent_operation_policy',
+    reason:
+      'Delegation policies are created by workspace owners/stewards in a human session.',
+  },
+  {
+    name: 'disable_agent_operation_policy',
+    reason: 'Disabling delegation is an owner/steward human-session act.',
+  },
+  {
+    name: 'submit_record_revision',
+    reason:
+      'Submission is human attestation; denied to external credentials of either kind.',
+  },
+  {
+    name: 'sign_revision',
+    reason:
+      'Signature is human attestation; denied to external credentials of either kind.',
+  },
+  {
+    name: 'run_revision_checks',
+    reason:
+      'Review checks run in the human attestation path; not agent-callable.',
+  },
+  {
+    name: 'amend_record_revision',
+    reason: 'Amendment is human attestation; not agent-callable.',
+  },
+  {
+    name: 'publish_dataset_schema_version',
+    reason:
+      'Schema publication is a steward lifecycle act outside the agent draft vocabulary; adding it needs an explicit policy decision.',
+  },
+  {
+    name: 'publish_pipeline_definition_version',
+    reason:
+      'Pipeline publication is a human lifecycle act outside the agent draft vocabulary.',
+  },
+  {
+    name: 'delete_record',
+    reason:
+      'Destructive deletes are outside the bounded catalogue; adding one needs an explicit policy decision.',
+  },
+  {
+    name: 'arbitrary_rpc',
+    reason:
+      'Agents may only invoke catalogue entries; arbitrary RPC calls are fail-closed.',
+  },
+  {
+    name: 'direct_table_write',
+    reason:
+      'Agents have no private DB access; writes go through canonical RPCs via proposals.',
+  },
+  {
+    name: 'ui_automation',
+    reason:
+      'Agents discover via listAgentTools/describeAgentTool and invoke via RPCs, never via UI automation.',
+  },
 ]
 
 export interface AgentToolFilter {
@@ -559,10 +718,19 @@ export interface AgentToolFilter {
  * no UI automation — this function is the discovery surface.
  */
 export function listAgentTools(filter: AgentToolFilter = {}): AgentToolEntry[] {
-  const modes = filter.mode === undefined ? undefined : Array.isArray(filter.mode) ? filter.mode : [filter.mode]
+  const modes =
+    filter.mode === undefined
+      ? undefined
+      : Array.isArray(filter.mode)
+        ? filter.mode
+        : [filter.mode]
   return AGENT_TOOL_CATALOGUE.filter((entry) => {
     if (modes && !modes.includes(entry.mode)) return false
-    if (filter.scopes && !entry.capability.scopes.every((scope) => filter.scopes!.includes(scope))) return false
+    if (
+      filter.scopes &&
+      !entry.capability.scopes.every((scope) => filter.scopes!.includes(scope))
+    )
+      return false
     return true
   })
 }
@@ -574,5 +742,8 @@ export function describeAgentTool(name: string): AgentToolEntry | null {
 
 /** True when the name is explicitly unavailable (with reason), false when catalogue-listed or unknown. */
 export function unavailableReason(name: string): string | null {
-  return UNAVAILABLE_AGENT_OPERATIONS.find((entry) => entry.name === name)?.reason ?? null
+  return (
+    UNAVAILABLE_AGENT_OPERATIONS.find((entry) => entry.name === name)?.reason ??
+    null
+  )
 }

@@ -310,10 +310,7 @@ export function requiresExplicitApproval(
  */
 export function workflowStepGate(
   step: Pick<AgentWorkflowStep, 'status'>,
-  proposal?: Pick<
-    AgentOperationProposal,
-    'status' | 'approval_policy'
-  > | null,
+  proposal?: Pick<AgentOperationProposal, 'status' | 'approval_policy'> | null,
 ): AgentWorkflowStepGate {
   if (!proposal) {
     if (step.status === 'failed') return 'failed'
@@ -370,12 +367,12 @@ export interface AgentWorkflowStepDryRun {
  */
 export function dryRunAgentWorkflow(
   steps: AgentWorkflowStep[],
-  proposalsById: Map<string, AgentOperationProposal> | Record<string, AgentOperationProposal>,
+  proposalsById:
+    | Map<string, AgentOperationProposal>
+    | Record<string, AgentOperationProposal>,
 ): AgentWorkflowStepDryRun[] {
   const lookup = (id: string): AgentOperationProposal | undefined =>
-    proposalsById instanceof Map
-      ? proposalsById.get(id)
-      : proposalsById[id]
+    proposalsById instanceof Map ? proposalsById.get(id) : proposalsById[id]
   return [...steps]
     .sort((a, b) => a.position - b.position)
     .map((step) => {
@@ -388,7 +385,10 @@ export function dryRunAgentWorkflow(
         mode: workflowStepMode(step.tool_name),
         operationKind: step.operation.kind,
         riskClass: workflowStepRiskClass(step),
-        requiresExplicitApproval: requiresExplicitApproval(step, proposal ?? null),
+        requiresExplicitApproval: requiresExplicitApproval(
+          step,
+          proposal ?? null,
+        ),
         gate: workflowStepGate(step, proposal ?? null),
         proposalId: step.proposal_id,
         attempt: step.attempt,
@@ -517,7 +517,10 @@ export function summarizeWorkflowRecovery(
   return {
     completed: steps
       .filter((step) => step.status === 'succeeded')
-      .map((step) => ({ stepKey: step.step_key, proposalId: step.proposal_id })),
+      .map((step) => ({
+        stepKey: step.step_key,
+        proposalId: step.proposal_id,
+      })),
     retryable: steps
       .filter((step) => canRetryWorkflowStep(workflow, step))
       .map((step) => step.step_key),
@@ -603,7 +606,6 @@ export function summarizeWorkflowRunMetrics(
     budgetExhausted: workflow.status === 'budget_exhausted',
   }
 }
-
 
 export const agentWorkflowQueryKeys = {
   workflows: ['agent-operations', 'workflows'] as const,

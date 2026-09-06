@@ -358,8 +358,7 @@ export async function fetchMyRecentSignals(
   let offset = 0
   for (let page = 0; page < maxPages; page += 1) {
     const query =
-      `${baseQuery}&limit=${pageSize}` +
-      (offset > 0 ? `&offset=${offset}` : '')
+      `${baseQuery}&limit=${pageSize}` + (offset > 0 ? `&offset=${offset}` : '')
     const rows = await client.list<ChangeEventRecordWire>(
       'change_events',
       query,

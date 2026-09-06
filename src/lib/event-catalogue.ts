@@ -31,12 +31,7 @@ export type CatalogueSchemaVersion = typeof CATALOGUE_SCHEMA_VERSION
 
 /** Domain families covered by the catalogue. */
 export type EventFamily =
-  | 'record'
-  | 'dataset'
-  | 'sheet'
-  | 'notebook'
-  | 'pipeline'
-  | 'administration'
+  'record' | 'dataset' | 'sheet' | 'notebook' | 'pipeline' | 'administration'
 
 /** Which `change_events` row produces the event. */
 export interface ProducerMapping {
@@ -317,7 +312,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'sheet.updated',
     family: 'sheet',
-    summary: 'A working Sheet changed (values, bindings or definition version).',
+    summary:
+      'A working Sheet changed (values, bindings or definition version).',
     producer: { entityType: 'sheet_instance', operation: 'update' },
     wireName: 'sheet_instance.updated',
     status: 'stable',
@@ -501,7 +497,10 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'pipeline.version.created',
     family: 'pipeline',
     summary: 'A Pipeline definition version was created.',
-    producer: { entityType: 'pipeline_definition_version', operation: 'create' },
+    producer: {
+      entityType: 'pipeline_definition_version',
+      operation: 'create',
+    },
     wireName: null,
     status: 'provisional',
     introducedIn: 'event-01',
@@ -514,7 +513,10 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     family: 'pipeline',
     summary:
       'A Pipeline definition version changed, including publish/retire lifecycle transitions.',
-    producer: { entityType: 'pipeline_definition_version', operation: 'update' },
+    producer: {
+      entityType: 'pipeline_definition_version',
+      operation: 'update',
+    },
     wireName: null,
     status: 'provisional',
     introducedIn: 'event-01',
@@ -659,7 +661,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'workspace.credential.revoked',
     family: 'administration',
-    summary: 'An API credential or personal token was revoked (or rotated out).',
+    summary:
+      'An API credential or personal token was revoked (or rotated out).',
     producer: { entityType: 'api_credential', operation: 'revoke' },
     wireName: null,
     status: 'provisional',
@@ -674,8 +677,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
  * database vocabulary — this list is the closed record of deliberate
  * exclusions.
  */
-export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] = Object.freeze(
-  [
+export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
+  Object.freeze([
     {
       entityType: 'dataset',
       operation: 'delete',
@@ -748,8 +751,7 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] = Object.freeze
       reason:
         'Delivery machinery must not fan out to itself; delivery history is the record.',
     },
-  ],
-)
+  ])
 
 /** All canonical stable event names. */
 export const EVENT_NAMES: readonly string[] = Object.freeze(
@@ -769,9 +771,7 @@ export function eventByName(name: string): EventCatalogueEntry | undefined {
  * closed at match time rather than here.
  */
 export function resolveEventAlias(name: string): string {
-  const entry = EVENT_CATALOGUE.find(
-    (candidate) => candidate.wireName === name,
-  )
+  const entry = EVENT_CATALOGUE.find((candidate) => candidate.wireName === name)
   return entry ? entry.name : name
 }
 

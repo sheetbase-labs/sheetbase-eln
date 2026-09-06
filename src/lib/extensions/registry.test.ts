@@ -10,8 +10,8 @@ import {
   extensionInvocationAudit,
   invokeExtensionContribution,
   resolveExtensionContributions,
-  type ExtensionInstallLike,
 } from './registry'
+import type { ExtensionInstallLike } from './registry'
 
 function install(
   overrides: Partial<ExtensionInstallLike> & { manifest: unknown },
@@ -44,9 +44,13 @@ describe('resolveExtensionContributions', () => {
         install({
           manifest: manifest({
             contributions: {
-              'object-actions': [{ id: 'open-panel', title: 'Open sample panel' }],
+              'object-actions': [
+                { id: 'open-panel', title: 'Open sample panel' },
+              ],
               panels: [{ id: 'sample-panel', title: 'Sample panel' }],
-              commands: [{ id: 'sample-overview', title: 'Open sample overview' }],
+              commands: [
+                { id: 'sample-overview', title: 'Open sample overview' },
+              ],
             },
           }),
         }),
@@ -73,16 +77,23 @@ describe('resolveExtensionContributions', () => {
     })
     for (const status of ['installed', 'disabled', 'revoked']) {
       expect(
-        resolveExtensionContributions([install({ manifest: withContributions, status })], 'member')
-          .commands,
+        resolveExtensionContributions(
+          [install({ manifest: withContributions, status })],
+          'member',
+        ).commands,
       ).toEqual([])
     }
     expect(
-      resolveExtensionContributions([install({ manifest: withContributions })], null).commands,
+      resolveExtensionContributions(
+        [install({ manifest: withContributions })],
+        null,
+      ).commands,
     ).toEqual([])
     expect(
-      resolveExtensionContributions([install({ manifest: withContributions })], undefined)
-        .commands,
+      resolveExtensionContributions(
+        [install({ manifest: withContributions })],
+        undefined,
+      ).commands,
     ).toEqual([])
   })
 
@@ -116,11 +127,17 @@ describe('resolveExtensionContributions', () => {
         ],
       },
     })
-    const member = resolveExtensionContributions([install({ manifest: withHint })], 'member')
+    const member = resolveExtensionContributions(
+      [install({ manifest: withHint })],
+      'member',
+    )
     expect(member.objectActions.map((c) => c.id)).toEqual(['gated', 'open'])
     expect(member.objectActions[0].requiredCapability).toBe('record.create')
 
-    const viewer = resolveExtensionContributions([install({ manifest: withHint })], 'viewer')
+    const viewer = resolveExtensionContributions(
+      [install({ manifest: withHint })],
+      'viewer',
+    )
     expect(viewer.objectActions.map((c) => c.id)).toEqual(['open'])
   })
 
@@ -134,7 +151,11 @@ describe('resolveExtensionContributions', () => {
             contributions: {
               commands: [
                 { id: 'bad', title: 'Bad', capability: 'schema.edit' },
-                { id: 'alsobad', title: 'Also bad', capability: 'database.drop' },
+                {
+                  id: 'alsobad',
+                  title: 'Also bad',
+                  capability: 'database.drop',
+                },
               ],
             },
           }),
@@ -151,12 +172,16 @@ describe('resolveExtensionContributions', () => {
         install({
           id: 'b',
           key: 'bravo',
-          manifest: manifest({ contributions: { commands: [{ id: 'z', title: 'Z' }] } }),
+          manifest: manifest({
+            contributions: { commands: [{ id: 'z', title: 'Z' }] },
+          }),
         }),
         install({
           id: 'a',
           key: 'alpha',
-          manifest: manifest({ contributions: { commands: [{ id: 'a', title: 'A' }] } }),
+          manifest: manifest({
+            contributions: { commands: [{ id: 'a', title: 'A' }] },
+          }),
         }),
       ],
       'member',
@@ -176,7 +201,9 @@ describe('invokeExtensionContribution', () => {
           manifest: manifest({
             capabilities: ['record.create'],
             scopes: [],
-            contributions: { commands: [{ id: 'c', title: 'C', capability: 'record.create' }] },
+            contributions: {
+              commands: [{ id: 'c', title: 'C', capability: 'record.create' }],
+            },
           }),
         }),
       ],
@@ -214,14 +241,25 @@ describe('invokeExtensionContribution', () => {
     })
     const operation = vi.fn(async () => 'done')
     await expect(
-      invokeExtensionContribution({ rpc } as unknown as DataClient, 'ws-1', contribution(), operation),
+      invokeExtensionContribution(
+        { rpc } as unknown as DataClient,
+        'ws-1',
+        contribution(),
+        operation,
+      ),
     ).rejects.toThrow('capability required')
     expect(operation).not.toHaveBeenCalled()
   })
 
   it('skips the assert for authority-free contributions', async () => {
     const free = resolveExtensionContributions(
-      [install({ manifest: manifest({ contributions: { commands: [{ id: 'c', title: 'C' }] } }) })],
+      [
+        install({
+          manifest: manifest({
+            contributions: { commands: [{ id: 'c', title: 'C' }] },
+          }),
+        }),
+      ],
       'member',
     ).commands[0]
     const rpc = vi.fn(async () => undefined)
@@ -254,14 +292,14 @@ describe('extension invocation audit + errors', () => {
   })
 
   it('explains gating failures without leaking internals', () => {
-    expect(describeExtensionInvocationError(new Error('extension is not enabled'))).toMatch(
-      /no longer enabled/,
-    )
-    expect(describeExtensionInvocationError(new Error('capability required: x'))).toMatch(
-      /permission/,
-    )
-    expect(describeExtensionInvocationError(new Error('extension not found'))).toMatch(
-      /no longer installed/,
-    )
+    expect(
+      describeExtensionInvocationError(new Error('extension is not enabled')),
+    ).toMatch(/no longer enabled/)
+    expect(
+      describeExtensionInvocationError(new Error('capability required: x')),
+    ).toMatch(/permission/)
+    expect(
+      describeExtensionInvocationError(new Error('extension not found')),
+    ).toMatch(/no longer installed/)
   })
 })

@@ -128,10 +128,7 @@ export async function fetchDatasetLifecycleById(
 ): Promise<'active' | 'archived' | 'retired' | null> {
   const rows = await client.list<{
     lifecycle: 'active' | 'archived' | 'retired'
-  }>(
-    'datasets',
-    `?id=eq.${encodeURIComponent(datasetId)}&select=lifecycle`,
-  )
+  }>('datasets', `?id=eq.${encodeURIComponent(datasetId)}&select=lifecycle`)
   return rows.at(0)?.lifecycle ?? null
 }
 
@@ -170,7 +167,10 @@ export function resolveDatasetDeepLinkSelection({
   summariesLoaded,
 }: DatasetDeepLinkSelectionInput): DatasetDeepLinkSelection {
   if (!requestedDatasetId) {
-    return { selectedDatasetId: datasets.at(0)?.id ?? null, flipToArchived: false }
+    return {
+      selectedDatasetId: datasets.at(0)?.id ?? null,
+      flipToArchived: false,
+    }
   }
   if (datasets.some((dataset) => dataset.id === requestedDatasetId)) {
     return { selectedDatasetId: requestedDatasetId, flipToArchived: false }
@@ -184,7 +184,10 @@ export function resolveDatasetDeepLinkSelection({
   }
   if (requestedLifecycle === null) {
     // The requested Dataset does not exist: fall back to the list default.
-    return { selectedDatasetId: datasets.at(0)?.id ?? null, flipToArchived: false }
+    return {
+      selectedDatasetId: datasets.at(0)?.id ?? null,
+      flipToArchived: false,
+    }
   }
   if (requestedLifecycle !== 'active') {
     // Archived/retired: keep selecting the requested Dataset, but in the
@@ -192,7 +195,10 @@ export function resolveDatasetDeepLinkSelection({
     return { selectedDatasetId: null, flipToArchived: true }
   }
   // Active but absent from the list (e.g. raced creation): fall back.
-  return { selectedDatasetId: datasets.at(0)?.id ?? null, flipToArchived: false }
+  return {
+    selectedDatasetId: datasets.at(0)?.id ?? null,
+    flipToArchived: false,
+  }
 }
 
 /** List canonical Datasets and the active fields pinned to each version. */

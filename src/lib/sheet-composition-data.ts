@@ -248,7 +248,7 @@ export async function fetchComposedSheetPaged(
     const pages: ComposedSheetSnapshot[] = []
     for (let page = 0; page < wanted; page += 1) {
       const next = await pull(page)
-      const pin = pages[0]?.revision
+      const pin = pages.at(0)?.revision
       if (pin !== undefined && next.revision !== pin) {
         throw { moved: true }
       }
@@ -324,8 +324,7 @@ export async function fetchComposedSheetPaged(
         fetchedPages,
       }
     } catch (error) {
-      const moved =
-        !!error && typeof error === 'object' && 'moved' in error
+      const moved = !!error && typeof error === 'object' && 'moved' in error
       if (!moved) throw error
       if (restarts < maxRestarts) {
         restarts += 1
@@ -350,8 +349,8 @@ export async function fetchComposedSheetPaged(
           'The Sheet changed while loading more rows — restarted from the first rows against the latest revision.',
         fetchedPages,
       }
-      }
-}
+    }
+  }
 }
 
 /**

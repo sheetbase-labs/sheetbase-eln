@@ -38,9 +38,9 @@ describe('derivePurposeFacets', () => {
   })
 
   it('counts a repeated tag once per template', () => {
-    expect(
-      derivePurposeFacets([{ tags: ['assay', 'assay'] }]),
-    ).toEqual([{ tag: 'assay', count: 1 }])
+    expect(derivePurposeFacets([{ tags: ['assay', 'assay'] }])).toEqual([
+      { tag: 'assay', count: 1 },
+    ])
   })
 
   it('returns no options when nothing is tagged', () => {
@@ -75,9 +75,9 @@ describe('protocolLifecycleState', () => {
     expect(
       protocolLifecycleState({ status: 'under_review', archivedAt: null }),
     ).toBe('under_review')
-    expect(
-      protocolLifecycleState({ status: 'active', archivedAt: null }),
-    ).toBe('active')
+    expect(protocolLifecycleState({ status: 'active', archivedAt: null })).toBe(
+      'active',
+    )
   })
 
   it('filters by effective lifecycle', () => {
@@ -103,9 +103,9 @@ describe('lifecycle badge variants', () => {
 
 describe('parameterKindDetail', () => {
   it('labels scalar, record and dataset parameter kinds', () => {
-    expect(
-      parameterKindDetail({ kind: 'scalar', valueType: 'integer' }),
-    ).toBe('scalar · integer')
+    expect(parameterKindDetail({ kind: 'scalar', valueType: 'integer' })).toBe(
+      'scalar · integer',
+    )
     expect(parameterKindDetail({ kind: 'record', modelKey: 'sample' })).toBe(
       'record · sample',
     )
@@ -166,8 +166,7 @@ describe('summarizeNotebookTemplateRequirements', () => {
             parameterMappings: [
               {
                 templateParameterId: '11111111-1111-4111-8111-111111111111',
-                definitionParameterId:
-                  '66666666-6666-4666-8666-666666666666',
+                definitionParameterId: '66666666-6666-4666-8666-666666666666',
               },
             ],
           },

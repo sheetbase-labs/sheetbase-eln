@@ -80,15 +80,15 @@ describe('checkExtensionCompat', () => {
 
   it('reports unknown without a range or without an app version — never assumes', () => {
     expect(checkExtensionCompat({}, '1.0.0')).toBe('unknown')
-    expect(
-      checkExtensionCompat({ compatibleWith: '>=1.0.0' }, null),
-    ).toBe('unknown')
+    expect(checkExtensionCompat({ compatibleWith: '>=1.0.0' }, null)).toBe(
+      'unknown',
+    )
     expect(
       checkExtensionCompat({ compatibleWith: '>=1.0.0' }, 'not-a-version'),
     ).toBe('unknown')
-    expect(
-      checkExtensionCompat({ compatibleWith: 'banana' }, '1.0.0'),
-    ).toBe('unknown')
+    expect(checkExtensionCompat({ compatibleWith: 'banana' }, '1.0.0')).toBe(
+      'unknown',
+    )
   })
 
   it('describes every state without leaking internals', () => {
@@ -114,18 +114,20 @@ describe('isUpdateAvailable', () => {
 
 describe('source trust policy', () => {
   it('trusts https sources only', () => {
-    expect(isTrustedExtensionSource('https://extensions.example.com/x.tgz')).toBe(
-      true,
-    )
+    expect(
+      isTrustedExtensionSource('https://extensions.example.com/x.tgz'),
+    ).toBe(true)
     expect(isTrustedExtensionSource('dev:sheetbase-sample-panel')).toBe(false)
     expect(isTrustedExtensionSource('registry:acme/retest-tracker')).toBe(false)
-    expect(isTrustedExtensionSource('http://extensions.example.com/x.tgz')).toBe(
-      false,
-    )
+    expect(
+      isTrustedExtensionSource('http://extensions.example.com/x.tgz'),
+    ).toBe(false)
   })
 
   it('requires acknowledgement exactly for untrusted sources', () => {
-    expect(requiresTrustAcknowledgement('https://example.com/x.tgz')).toBe(false)
+    expect(requiresTrustAcknowledgement('https://example.com/x.tgz')).toBe(
+      false,
+    )
     expect(requiresTrustAcknowledgement('dev:sample')).toBe(true)
   })
 })

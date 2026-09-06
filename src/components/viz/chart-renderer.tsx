@@ -136,11 +136,7 @@ export function ChartRenderer({
             : 'Choose an X and Y field to create a scatter plot.'}
         </ChartStateMessage>
       ) : (
-        <div
-          className={
-            fillPlot ? 'flex h-full min-h-0 flex-col' : undefined
-          }
-        >
+        <div className={fillPlot ? 'flex h-full min-h-0 flex-col' : undefined}>
           {fillPlot ? (
             <div className="min-h-0 flex-1">
               <MeasuredPlotHeight>
@@ -175,8 +171,8 @@ export function ChartRenderer({
           {materialised.transformInvalidCount ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
               {materialised.transformInvalidCount} value
-              {materialised.transformInvalidCount === 1 ? '' : 's'} could not
-              be transformed
+              {materialised.transformInvalidCount === 1 ? '' : 's'} could not be
+              transformed
               {materialised.transformInvalidReasons?.length
                 ? ` (${materialised.transformInvalidReasons.join('; ')})`
                 : ''}
@@ -402,11 +398,15 @@ function ChartPlot({
       }}
     />
   ))
-  if (type === 'scatter' || type === 'scatter_line' || type === 'connected_scatter' || type === 'strip') {
+  if (
+    type === 'scatter' ||
+    type === 'scatter_line' ||
+    type === 'connected_scatter' ||
+    type === 'strip'
+  ) {
     // Scatter types plot the same pivoted rows as line charts. Marks are
     // Line dots so they share axes and the fill-height container.
-    const connect =
-      type === 'scatter_line' || type === 'connected_scatter'
+    const connect = type === 'scatter_line' || type === 'connected_scatter'
     const scatterChildren = (
       <>
         {grid}

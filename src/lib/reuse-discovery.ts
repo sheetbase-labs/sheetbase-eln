@@ -65,8 +65,7 @@ export const PROTOCOL_LIFECYCLE_STATES = [
   'archived',
 ] as const
 
-export type ProtocolLifecycleState =
-  (typeof PROTOCOL_LIFECYCLE_STATES)[number]
+export type ProtocolLifecycleState = (typeof PROTOCOL_LIFECYCLE_STATES)[number]
 
 export const PROTOCOL_LIFECYCLE_LABEL: Record<ProtocolLifecycleState, string> =
   {
@@ -220,8 +219,7 @@ export function summarizeNotebookTemplateRequirements(
   return {
     parameterCount: configuration.parameters.length,
     requiredCount: requiredParameters.length,
-    optionalCount:
-      configuration.parameters.length - requiredParameters.length,
+    optionalCount: configuration.parameters.length - requiredParameters.length,
     requiredParameters,
     placements: {
       total: configuration.placements.length,
@@ -261,10 +259,7 @@ export function notebookTemplateNeedsLine(
 }
 
 export type NotebookTemplateNeedsFilter =
-  | 'all'
-  | 'none'
-  | 'optional-only'
-  | 'has-required'
+  'all' | 'none' | 'optional-only' | 'has-required'
 
 export function matchesNotebookTemplateNeeds(
   summary: Pick<

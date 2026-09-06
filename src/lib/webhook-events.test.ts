@@ -35,11 +35,15 @@ describe('mapEventType', () => {
   })
 
   it('maps review_submission create to notebook.submitted', () => {
-    expect(mapEventType('review_submission', 'create')).toBe('notebook.submitted')
+    expect(mapEventType('review_submission', 'create')).toBe(
+      'notebook.submitted',
+    )
   })
 
   it('maps sheet_instance update to sheet_instance.updated', () => {
-    expect(mapEventType('sheet_instance', 'update')).toBe('sheet_instance.updated')
+    expect(mapEventType('sheet_instance', 'update')).toBe(
+      'sheet_instance.updated',
+    )
   })
 
   it('maps project archive to project.archived', () => {
@@ -119,6 +123,8 @@ describe('buildEventPayload', () => {
     const payload = buildEventPayload(event, 'record.created')
     expect(payload.recordId).toBe('00000000-0000-4000-8000-000000000003')
     expect(payload.projectId).toBe('00000000-0000-4000-8000-000000000004')
-    expect(payload.actorCredentialId).toBe('00000000-0000-4000-8000-000000000005')
+    expect(payload.actorCredentialId).toBe(
+      '00000000-0000-4000-8000-000000000005',
+    )
   })
 })

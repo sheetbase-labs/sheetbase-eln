@@ -25,8 +25,7 @@ const RECORD_ID = '77777777-7777-4777-8777-777777777777'
 const PLACEMENT_ID = '88888888-8888-4888-8888-888888888888'
 const BLOCK_ID = '99999999-9999-4999-8999-999999999999'
 
-const CONFLICT_ID =
-  'parameter-removed:aaaaaaaa-bbbbbbbb-cccccccc-dddddddd-eeee'
+const CONFLICT_ID = 'parameter-removed:aaaaaaaa-bbbbbbbb-cccccccc-dddddddd-eeee'
 
 function sheetPreview(overrides: Record<string, unknown> = {}) {
   return {
@@ -237,9 +236,7 @@ describe('summarizeSheetDefinitionUpgradeImpact', () => {
         ],
       }),
     )
-    expect(summary.lines).toContain(
-      'Parameters: 1 newly required parameter',
-    )
+    expect(summary.lines).toContain('Parameters: 1 newly required parameter')
     expect(summary.localEffects).toContain(
       '1 conflict references local state — check each decision.',
     )
@@ -294,9 +291,7 @@ describe('summarizeNotebookTemplateUpgradeImpact', () => {
     expect(summary.lines).toContain(
       '1 part re-pins cleanly to a newer Definition version',
     )
-    expect(summary.lines).toContain(
-      `Part ${PLACEMENT_ID}: Parameters: 1 added`,
-    )
+    expect(summary.lines).toContain(`Part ${PLACEMENT_ID}: Parameters: 1 added`)
     expect(summary.conflictCount).toBe(1)
     expect(summary.automaticCount).toBe(2)
   })

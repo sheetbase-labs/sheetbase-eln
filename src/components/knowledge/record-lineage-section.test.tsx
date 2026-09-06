@@ -22,11 +22,7 @@ import {
 
 const SEED_ID = 'seed-id'
 
-function makeRecord(
-  id: string,
-  kind: string,
-  identifier: string,
-): RecordWire {
+function makeRecord(id: string, kind: string, identifier: string): RecordWire {
   return {
     id,
     workspace_id: 'ws-1',

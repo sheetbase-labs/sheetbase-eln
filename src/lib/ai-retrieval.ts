@@ -41,22 +41,19 @@
  * become explicit `unsupported_kind` omissions in the envelope.
  */
 
-import {
-  assembleAiContext,
-  type AiContextActor,
-  type AiContextBudgets,
-  type AiContextEnvelope,
-  type AiContextOmission,
-  type AiFreshness,
-  type AiObjectRef,
-  type AiObjectRefKind,
+import { assembleAiContext } from './ai-context'
+import type {
+  AiContextActor,
+  AiContextBudgets,
+  AiContextEnvelope,
+  AiContextOmission,
+  AiFreshness,
+  AiObjectRef,
+  AiObjectRefKind,
 } from './ai-context'
 import type { DataClient } from './data-client'
-import {
-  executeSearch,
-  type SearchResult,
-  type SearchResultType,
-} from './search'
+import { executeSearch } from './search'
+import type { SearchResult, SearchResultType } from './search'
 
 /** Object classes retrieval can cite. Matches the search RPC contract. */
 export type AiCitationKind = SearchResultType
@@ -140,10 +137,7 @@ function resolveLimit(limit: number | undefined): number {
   if (typeof limit !== 'number' || !Number.isFinite(limit)) {
     return DEFAULT_AI_RETRIEVAL_LIMIT
   }
-  return Math.min(
-    MAX_AI_RETRIEVAL_LIMIT,
-    Math.max(1, Math.floor(limit)),
-  )
+  return Math.min(MAX_AI_RETRIEVAL_LIMIT, Math.max(1, Math.floor(limit)))
 }
 
 /**
@@ -153,15 +147,21 @@ function resolveLimit(limit: number | undefined): number {
  */
 export async function retrieveForAi(
   client: DataClient,
-  actor: AiContextActor,
+  actor: AiContextActor | null | undefined,
   query: string,
-  scope: AiRetrievalScope,
+  scope: AiRetrievalScope | null | undefined,
 ): Promise<AiRetrievalResult> {
   if (!actor || typeof actor.id !== 'string' || actor.id === '') {
     throw new Error('retrieveForAi: actor with a non-empty id is required')
   }
-  if (!scope || typeof scope.workspaceId !== 'string' || scope.workspaceId === '') {
-    throw new Error('retrieveForAi: scope.workspaceId is required (fail closed)')
+  if (
+    !scope ||
+    typeof scope.workspaceId !== 'string' ||
+    scope.workspaceId === ''
+  ) {
+    throw new Error(
+      'retrieveForAi: scope.workspaceId is required (fail closed)',
+    )
   }
   if (typeof query !== 'string' || query.trim() === '') {
     throw new Error('retrieveForAi: a non-empty query is required')
@@ -191,9 +191,7 @@ export async function retrieveForAi(
  * for template citations: the template catalogue has no envelope object
  * kind, so templates stay citable but cannot be summarised.
  */
-export function citationToObjectRef(
-  citation: AiCitation,
-): AiObjectRef | null {
+export function citationToObjectRef(citation: AiCitation): AiObjectRef | null {
   const kind: AiObjectRefKind | null =
     citation.kind === 'record' || citation.kind === 'file'
       ? 'record'

@@ -73,19 +73,16 @@ export async function insertBlock(
     structure_version: number
     rebalanced?: boolean
     order?: BlockOrderEntry[]
-  }>(
-    'insert_block',
-    {
-      p_record_id: args.recordId,
-      p_type: args.type,
-      p_payload: args.payload,
-      p_payload_schema_version:
-        args.payloadSchemaVersion ?? PAYLOAD_SCHEMA_VERSION,
-      p_after_block_id: args.afterBlockId ?? null,
-      p_before_block_id: args.beforeBlockId ?? null,
-      p_expected_structure_version: args.expectedStructureVersion ?? null,
-    },
-  )
+  }>('insert_block', {
+    p_record_id: args.recordId,
+    p_type: args.type,
+    p_payload: args.payload,
+    p_payload_schema_version:
+      args.payloadSchemaVersion ?? PAYLOAD_SCHEMA_VERSION,
+    p_after_block_id: args.afterBlockId ?? null,
+    p_before_block_id: args.beforeBlockId ?? null,
+    p_expected_structure_version: args.expectedStructureVersion ?? null,
+  })
   return {
     block: toBlock(res.block),
     structureVersion: res.structure_version,

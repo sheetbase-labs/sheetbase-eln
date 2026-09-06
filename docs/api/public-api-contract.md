@@ -475,16 +475,16 @@ Once API-03 publishes versioned docs:
 
 ## 10. Implementation backlog (later API epics)
 
-| Epic                | Work                                                                                                                                           |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **API-02**          | Workspace service credentials, personal tokens, credential lifecycle audit events. **Done** (`#47`, `#56`).                                    |
-| **API-07**          | Core Dataset/Sheet `requiredScopes()` cut-over; credential write actors; human attestation kept off the credential path. **Done**.             |
+| Epic                | Work                                                                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API-02**          | Workspace service credentials, personal tokens, credential lifecycle audit events. **Done** (`#47`, `#56`).                                        |
+| **API-07**          | Core Dataset/Sheet `requiredScopes()` cut-over; credential write actors; human attestation kept off the credential path. **Done**.                 |
 | **API-03**          | OpenAPI 3.1 of the external credential surface (`docs/api/openapi/external-api-v0.json`), covering both credential kinds. **Done** (`#51`, `#56`). |
-| **API-04**          | Python SDK — pagination iterators, pandas, idempotent helpers                                                                                  |
-| **API-05**          | TypeScript SDK — typed resources, isomorphic fetch                                                                                             |
-| **API-06**          | Webhooks — signed delivery, retries, event schema (`record.submitted`, `dataset.versioned`, …)                                                 |
-| **DATA-02/PLAT-01** | `api_client` file access; S3 backend                                                                                                           |
-| **GOV-01**          | `viewer` read-only semantics (affects RLS, not contract shape)                                                                                 |
+| **API-04**          | Python SDK — pagination iterators, pandas, idempotent helpers                                                                                      |
+| **API-05**          | TypeScript SDK — typed resources, isomorphic fetch                                                                                                 |
+| **API-06**          | Webhooks — signed delivery, retries, event schema (`record.submitted`, `dataset.versioned`, …)                                                     |
+| **DATA-02/PLAT-01** | `api_client` file access; S3 backend                                                                                                               |
+| **GOV-01**          | `viewer` read-only semantics (affects RLS, not contract shape)                                                                                     |
 
 **Out of API-07:** schema/template **authoring** RPCs, named service-account
 principals (queued; requires an ADR). Personal tokens and credential audit
@@ -494,15 +494,15 @@ events shipped with API-02 completion (`#56`). Files remain DATA-02/PLAT-01.
 
 ## 11. Related documentation
 
-| Document                                               | Contents                                                                    |
-| ------------------------------------------------------ | --------------------------------------------------------------------------- |
-| `docs/api/openapi/external-api-v0.json`                    | OpenAPI 3.1 for operations an external credential can complete (both kinds) |
-| `docs/api/external-api.md`                                 | Credential exchange, **current** allowlist, CLI examples                    |
-| `docs/api/notebook-api.md`                                 | Notebook/block/revision RPC reference                                       |
-| `docs/api/search-api.md`                                   | `search` RPC                                                                |
-| `docs/operations/authentication.md`                               | Browser session auth                                                        |
-| `docs/knowledge/decisions/0005-postgrest-claim-set-and-proxy.md` | Proxy architecture                                                |
-| `docs/core/PRODUCT_CORE.md`                            | Domain model principles                                                     |
+| Document                                                         | Contents                                                                    |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `docs/api/openapi/external-api-v0.json`                          | OpenAPI 3.1 for operations an external credential can complete (both kinds) |
+| `docs/api/external-api.md`                                       | Credential exchange, **current** allowlist, CLI examples                    |
+| `docs/api/notebook-api.md`                                       | Notebook/block/revision RPC reference                                       |
+| `docs/api/search-api.md`                                         | `search` RPC                                                                |
+| `docs/operations/authentication.md`                              | Browser session auth                                                        |
+| `docs/knowledge/decisions/0005-postgrest-claim-set-and-proxy.md` | Proxy architecture                                                          |
+| `docs/core/PRODUCT_CORE.md`                                      | Domain model principles                                                     |
 
 ---
 

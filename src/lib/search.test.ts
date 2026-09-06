@@ -562,7 +562,10 @@ describe('search cache behaviour (resultType in query key)', () => {
       })
 
     const recordResults = await fetch({ query: 'virus', resultType: 'record' })
-    const datasetResults = await fetch({ query: 'virus', resultType: 'dataset' })
+    const datasetResults = await fetch({
+      query: 'virus',
+      resultType: 'dataset',
+    })
 
     // Two distinct object-class filters must fire two distinct requests.
     expect(calls).toEqual(['record', 'dataset'])

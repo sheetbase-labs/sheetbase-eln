@@ -41,12 +41,12 @@ import {
   CHART_TYPES_NULL_X,
   CHART_TYPES_REQUIRING_X,
   validateChartSpec,
-  type ChartSpec,
-  type ChartType,
 } from './chart-spec'
+import type { ChartSpec, ChartType } from './chart-spec'
 import type { DataClient } from './data-client'
 import type { ImportColumnMapping, ImportTargetField } from './import-mapping'
-import { insertBlock, type InsertBlockResult } from './notebook-mutations'
+import { insertBlock } from './notebook-mutations'
+import type { InsertBlockResult } from './notebook-mutations'
 
 /**
  * Badge rendered beside every proposal preview. Assistance is
@@ -110,9 +110,7 @@ export interface AssistChartProposal extends AssistDraftBase {
 }
 
 export type AssistDraftProposal =
-  | AssistTextDraftProposal
-  | AssistMappingProposal
-  | AssistChartProposal
+  AssistTextDraftProposal | AssistMappingProposal | AssistChartProposal
 
 const MARKING: AssistDraftMarking = {
   badge: GENERATED_DRAFT_BADGE,
@@ -176,7 +174,7 @@ function draftPayload(paragraphs: string[]): RichTextPayload {
         content: [textNode(text)],
       })),
     },
-  } as RichTextPayload
+  }
 }
 
 /**
@@ -270,7 +268,7 @@ export async function acceptTextDraft(
   return insertBlock(client, {
     recordId: args.recordId,
     type: args.proposal.block.type,
-    payload: args.proposal.block.payload as Record<string, unknown>,
+    payload: args.proposal.block.payload,
     afterBlockId: args.afterBlockId,
     expectedStructureVersion: args.expectedStructureVersion,
   })
@@ -305,9 +303,12 @@ export function summariseNotebookBlocks(input: {
   const maxChars = input.maxCharsPerBlock ?? MAX_DRAFT_CHARS_PER_BLOCK
   const taken = input.blocks.slice(0, maxBlocks)
   const bodies = taken.map((block) => {
-    if (!isRichTextPayload(block.payload)) return `(${block.type} block — no text summary)`
+    if (!isRichTextPayload(block.payload))
+      return `(${block.type} block — no text summary)`
     const text = richTextToPlainText(block.payload).trim()
-    return text.length <= maxChars ? text : `${text.slice(0, maxChars).trimEnd()}…`
+    return text.length <= maxChars
+      ? text
+      : `${text.slice(0, maxChars).trimEnd()}…`
   })
   const sections = bodies.map((body, index) => ({
     heading: `${taken[index]?.type ?? 'unknown'} block ${index + 1}`,
@@ -453,7 +454,8 @@ export function suggestMappingProposal(
       source,
       mapping: { source, kind: 'ignore' },
       confidence: 'none' as const,
-      reason: 'No matching target field — the column will be ignored unless mapped by hand.',
+      reason:
+        'No matching target field — the column will be ignored unless mapped by hand.',
     }
   })
   const mappedCount = suggestions.filter(
@@ -535,7 +537,7 @@ export function proposeChartSpec(input: {
   // anything else), so only UUID fields can ground a valid proposal.
   const fields = input.fields.filter((field) => isUuid(field.fieldId))
   if (fields.length === 0) return null
-  const first = fields[0] as AssistChartField
+  const first = fields[0]
   const numerics = fields.filter((field) => isNumericType(field.logicalType))
   const categories = fields.filter((field) => !isNumericType(field.logicalType))
   const y = numerics[0] ?? first
@@ -674,7 +676,8 @@ function buildChartProposal(
       },
       {
         label: 'Chart spec validator',
-        detail: 'chart-spec validation kernel (validateChartSpec, spec v1) · proposed spec passes with zero errors',
+        detail:
+          'chart-spec validation kernel (validateChartSpec, spec v1) · proposed spec passes with zero errors',
       },
     ],
     groundedFrom:

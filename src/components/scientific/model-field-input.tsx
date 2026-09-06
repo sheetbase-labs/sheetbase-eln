@@ -26,6 +26,7 @@ import {
 import type { SheetRecordSearchHit } from '#/lib/sheet-record-search'
 import { isReferenceTargetAllowed } from '#/lib/model-relationships'
 import type { ModelRelationshipRule } from '#/lib/model-relationships'
+
 export function ModelFieldInput({
   definition,
   value,
@@ -222,9 +223,9 @@ function ModelReferencePicker({
   const [results, setResults] = useState<SheetRecordSearchHit[]>([])
   const [loading, setLoading] = useState(false)
   const [searchError, setSearchError] = useState<Error | null>(null)
-  const [snapshot, setSnapshot] = useState<RecordReferenceSnapshot | null | undefined>(
-    undefined,
-  )
+  const [snapshot, setSnapshot] = useState<
+    RecordReferenceSnapshot | null | undefined
+  >(undefined)
   const [identityError, setIdentityError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -243,7 +244,9 @@ function ModelReferencePicker({
       return
     }
     if (persisted === null) return
-    const resolve = resolveReferenceSnapshot ?? ((id: string) => defaultResolveSnapshot(client, id))
+    const resolve =
+      resolveReferenceSnapshot ??
+      ((id: string) => defaultResolveSnapshot(client, id))
     resolve(persisted)
       .then((resolved) => {
         if (!cancelled) setSnapshot(resolved)
@@ -263,10 +266,7 @@ function ModelReferencePicker({
     const search =
       searchReferenceRecords ??
       ((next: string) =>
-        searchSheetRecords(
-          { modelKey: targetModelKey, query: next },
-          client,
-        ))
+        searchSheetRecords({ modelKey: targetModelKey, query: next }, client))
     const handle = setTimeout(() => {
       search(query)
         .then((hits) => {
@@ -306,8 +306,8 @@ function ModelReferencePicker({
       <Label className="text-xs text-muted-foreground">
         {showLabel ? label : null}
         <span className="mt-1 block text-[0.65rem] text-destructive">
-          {sourceModelKey} does not accept {targetModelKey} references —
-          ask a Steward to declare the relationship before linking Records.
+          {sourceModelKey} does not accept {targetModelKey} references — ask a
+          Steward to declare the relationship before linking Records.
         </span>
       </Label>
     )
@@ -368,9 +368,7 @@ function ModelReferencePicker({
       <div className={`${showLabel ? 'mt-1' : ''} space-y-1`}>
         {state.kind === 'empty' ? (
           <span className="block text-[0.65rem]">
-            {nullable
-              ? 'No Record linked.'
-              : 'Record reference is required.'}
+            {nullable ? 'No Record linked.' : 'Record reference is required.'}
           </span>
         ) : null}
         {state.kind === 'invalid' ? (
@@ -388,8 +386,8 @@ function ModelReferencePicker({
         ) : null}
         {state.kind === 'archived' ? (
           <span className="block text-[0.65rem]">
-            {formatRecordReferenceLabel(state.snapshot)} · archived — the
-            link persists, archived Records stay read-only history.
+            {formatRecordReferenceLabel(state.snapshot)} · archived — the link
+            persists, archived Records stay read-only history.
           </span>
         ) : null}
         {state.kind === 'invalid-model' ? (
@@ -401,8 +399,7 @@ function ModelReferencePicker({
         {state.kind === 'missing' ? (
           <span role="alert" className="block text-[0.65rem] text-destructive">
             Record {state.recordId} is not found or not visible in this
-            workspace — the stored UUID is kept, pick a replacement or
-            clear it.
+            workspace — the stored UUID is kept, pick a replacement or clear it.
           </span>
         ) : null}
         <div className="flex flex-wrap gap-1">

@@ -58,7 +58,10 @@ export function GuidePanel({
             </div>
             <p className="text-muted-foreground">{step.detail}</p>
             {step.objects.map((object) => (
-              <p key={`${object.kind}:${object.id}`} className="text-muted-foreground">
+              <p
+                key={`${object.kind}:${object.id}`}
+                className="text-muted-foreground"
+              >
                 <span className="font-mono">
                   [{object.kind} {object.id}]
                 </span>{' '}
@@ -66,7 +69,9 @@ export function GuidePanel({
               </p>
             ))}
             {step.blockedReason ? <p>{step.blockedReason}</p> : null}
-            {step.explanation ? <ExplainPanel explanation={step.explanation} /> : null}
+            {step.explanation ? (
+              <ExplainPanel explanation={step.explanation} />
+            ) : null}
             {step.nextActions.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {step.nextActions.map((action) => {

@@ -578,9 +578,7 @@ describe('REUSE-01 VersionedNotebookTemplatePanel — facets and requirement pre
     await user.click(
       screen.getAllByRole('button', { name: 'Create notebook' })[0],
     )
-    expect(
-      await screen.findByText(/this version needs:/i),
-    ).toBeTruthy()
+    expect(await screen.findByText(/this version needs:/i)).toBeTruthy()
   })
 })
 
@@ -604,17 +602,15 @@ describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => 
       screen.getAllByRole('button', { name: 'Create notebook' })[0],
     )
     expect(
-      await screen.findByText(
-        /Missing required: Alpha decimal, Alpha boolean/,
-      ),
+      await screen.findByText(/Missing required: Alpha decimal, Alpha boolean/),
     ).toBeTruthy()
-    expect(
-      (
-        screen.getByRole('button', {
-          name: 'Create and open',
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true)
+    // tsc resolves getByRole to HTMLElement (no .disabled), so the
+    // assertion below is load-bearing despite the lint rule.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    const createButton = screen.getByRole('button', {
+      name: 'Create and open',
+    }) as HTMLButtonElement
+    expect(createButton.disabled).toBe(true)
     expect(instantiateMock).not.toHaveBeenCalled()
   })
 
@@ -627,9 +623,7 @@ describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => 
     )
     await user.type(screen.getByLabelText(/Alpha decimal/), '1.25')
     await user.type(screen.getByLabelText(/Alpha boolean/), 'true')
-    expect(
-      screen.queryByText(/Missing required:/),
-    ).toBeNull()
+    expect(screen.queryByText(/Missing required:/)).toBeNull()
     instantiateMock.mockResolvedValueOnce({
       record: { id: 'rec-1', project_id: 'project-1', identifier: 'NB-1' },
       templateVersionId: '33333333-3333-4333-8333-333333333333',
@@ -650,8 +644,6 @@ describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => 
     expect(await screen.findByText('Composed sheets')).toBeTruthy()
     expect(screen.getByText(/governed pin aaaaaaaa/)).toBeTruthy()
     expect(screen.getByText(/Mapped optional \(optional\)/)).toBeTruthy()
-    expect(
-      screen.getByText(/no part mutates another/i),
-    ).toBeTruthy()
+    expect(screen.getByText(/no part mutates another/i)).toBeTruthy()
   })
 })

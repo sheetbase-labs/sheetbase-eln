@@ -7,7 +7,8 @@
  * so the sample's contribution path can be exercised without either.
  */
 import type { DataClient } from '../../data-client'
-import { enableExtension, installExtension, type ExtensionWire } from '../client'
+import { enableExtension, installExtension } from '../client'
+import type { ExtensionWire } from '../client'
 import { SAMPLE_EXTENSION_KEY, SAMPLE_EXTENSION_MANIFEST } from './manifest'
 
 export async function installSampleExtension(
@@ -31,7 +32,9 @@ export async function installSampleExtension(
       capabilities: [...SAMPLE_EXTENSION_MANIFEST.capabilities],
       scopes: [...SAMPLE_EXTENSION_MANIFEST.scopes],
       contributions: {
-        'object-actions': [...SAMPLE_EXTENSION_MANIFEST.contributions['object-actions']],
+        'object-actions': [
+          ...SAMPLE_EXTENSION_MANIFEST.contributions['object-actions'],
+        ],
         panels: [...SAMPLE_EXTENSION_MANIFEST.contributions.panels],
         commands: [...SAMPLE_EXTENSION_MANIFEST.contributions.commands],
       },

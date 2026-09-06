@@ -277,7 +277,6 @@ describe('AdminExternalAccess', () => {
     )
   })
 
-
   it('limits stewards to the integration domains', async () => {
     setup('steward')
     expect(await screen.findByText('Connectors')).toBeTruthy()

@@ -55,20 +55,23 @@ function recordWire(
 
 /** Fake DataClient routing on (resource, query-substring) matchers. */
 function fakeClient(
-  routes: { match: (resource: string, query: string) => boolean; rows: unknown[] }[],
+  routes: {
+    match: (resource: string, query: string) => boolean
+    rows: unknown[]
+  }[],
 ): DataClient {
-  const list = async <T,>(resource: string, query = ''): Promise<T[]> => {
-    const route = routes.find((r) => r.match(resource, query ?? ''))
+  const list = async <T>(resource: string, query = ''): Promise<T[]> => {
+    const route = routes.find((r) => r.match(resource, query))
     if (!route) throw new Error(`unexpected query: ${resource} ${query}`)
     return route.rows as T[]
   }
   return {
     list,
     count: async () => 0,
-    rpc: async <T,>(): Promise<T> => {
+    rpc: async <T>(): Promise<T> => {
       throw new Error('no rpc in related-work tests')
     },
-    insert: async <T,>(): Promise<T> => {
+    insert: async <T>(): Promise<T> => {
       throw new Error('no insert in related-work tests')
     },
     patch: async () => [],
@@ -144,9 +147,7 @@ describe('relatedDestination / relatedKindLabel', () => {
     expect(relatedDestination('record', 's-1', 'sample')).toBe(
       '/samples?selected=s-1',
     )
-    expect(relatedDestination('dataset', 'd-1')).toBe(
-      '/datasets?dataset=d-1',
-    )
+    expect(relatedDestination('dataset', 'd-1')).toBe('/datasets?dataset=d-1')
     expect(relatedDestination('sheet', 'sh-1')).toBe('/sheets/sh-1')
     expect(relatedDestination('template', 't-1')).toBe(
       '/templates?template=t-1',
@@ -216,9 +217,11 @@ describe('assembleRelatedWork', () => {
     const forward = assembleRelatedWork('record', 'seed', input).map(
       (i) => i.id,
     )
-    const reversed = assembleRelatedWork('record', 'seed', [...input].reverse()).map(
-      (i) => i.id,
-    )
+    const reversed = assembleRelatedWork(
+      'record',
+      'seed',
+      [...input].reverse(),
+    ).map((i) => i.id)
     expect(forward).toEqual(reversed)
     expect(forward).toEqual(['r-3', 'r-1', 'r-2', 'd-1', 's-b'])
   })
@@ -369,10 +372,10 @@ describe('fetchRelatedWork for records', () => {
         throw new Error('db down')
       },
       count: async () => 0,
-      rpc: async <T,>(): Promise<T> => {
+      rpc: async <T>(): Promise<T> => {
         throw new Error('db down')
       },
-      insert: async <T,>(): Promise<T> => {
+      insert: async <T>(): Promise<T> => {
         throw new Error('db down')
       },
       patch: async () => [],

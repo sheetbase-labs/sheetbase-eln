@@ -28,18 +28,23 @@ Roadmap 3 should make this proposition materially stronger:
 ## User outcomes by stage
 
 ### Product Depth
+
 Scientists navigate confidently, work quickly in Sheets, compose Notebooks naturally and can reliably get back to relevant work.
 
 ### Scientific Depth
+
 Scientific objects are connected, understandable and reusable. Users can see relationships and context without flattening science into generic tables.
 
 ### Open Platform
+
 Developers can use stable SDK/event/extension surfaces without recreating Sheetbase business logic or shadow models.
 
 ### Intelligent Workspace
+
 Assistance is contextual, permission-aware, provenance-aware and capable of safely operating through ordinary Sheetbase contracts.
 
 ### Institutionalise
+
 Larger organisations can adopt Sheetbase with appropriate administration, evidence and operational controls without changing the fundamental scientist experience.
 
 ## Non-goals

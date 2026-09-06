@@ -27,26 +27,26 @@ is ADR 0043.
 
 ## Concepts
 
-| Concept | Table / RPC | Notes |
-| --- | --- | --- |
-| Proposal | `api.agent_operation_proposals` | Exact operation, preview, impact, policy evidence, status, result, provenance |
-| Event | `api.agent_operation_events` | Append-only proposal timeline |
-| Policy | `api.agent_operation_policies` | Owner/steward delegation of create/append Dataset writes to one service credential |
-| Propose | `api.propose_agent_operation` | Validates, stores, and may auto-execute |
-| Decide | `api.decide_agent_operation` | Human approve or reject |
-| Execute | `api.execute_agent_operation` | Human session; runs the canonical RPC |
+| Concept  | Table / RPC                     | Notes                                                                              |
+| -------- | ------------------------------- | ---------------------------------------------------------------------------------- |
+| Proposal | `api.agent_operation_proposals` | Exact operation, preview, impact, policy evidence, status, result, provenance      |
+| Event    | `api.agent_operation_events`    | Append-only proposal timeline                                                      |
+| Policy   | `api.agent_operation_policies`  | Owner/steward delegation of create/append Dataset writes to one service credential |
+| Propose  | `api.propose_agent_operation`   | Validates, stores, and may auto-execute                                            |
+| Decide   | `api.decide_agent_operation`    | Human approve or reject                                                            |
+| Execute  | `api.execute_agent_operation`   | Human session; runs the canonical RPC                                              |
 
 ## Supported operations
 
-| Kind | Canonical RPC | Risk |
-| --- | --- | --- |
-| `dataset_schema.create` | `create_dataset_schema_definition` | Safe draft |
-| `sheet_definition.create` | `create_sheet_definition` | Safe draft |
-| `sheet_definition.update_draft` | `update_sheet_definition_draft` | Safe draft |
-| `pipeline_definition.create` | `create_pipeline_definition` | Safe draft |
-| `pipeline_definition.create_version` | `create_pipeline_definition_version` | Safe draft |
-| `pipeline_definition.update_draft` | `update_pipeline_definition_version_draft` | Safe draft |
-| `dataset_rows.commit` | `commit_dataset_row_batch` | Consequential write |
+| Kind                                 | Canonical RPC                              | Risk                |
+| ------------------------------------ | ------------------------------------------ | ------------------- |
+| `dataset_schema.create`              | `create_dataset_schema_definition`         | Safe draft          |
+| `sheet_definition.create`            | `create_sheet_definition`                  | Safe draft          |
+| `sheet_definition.update_draft`      | `update_sheet_definition_draft`            | Safe draft          |
+| `pipeline_definition.create`         | `create_pipeline_definition`               | Safe draft          |
+| `pipeline_definition.create_version` | `create_pipeline_definition_version`       | Safe draft          |
+| `pipeline_definition.update_draft`   | `update_pipeline_definition_version_draft` | Safe draft          |
+| `dataset_rows.commit`                | `commit_dataset_row_batch`                 | Consequential write |
 
 Publish, submit, sign, amend, lock, delete, archive, and arbitrary RPC calls
 are absent. Adding one of those requires an explicit policy decision.
@@ -72,11 +72,11 @@ This is the AUTO-04 addition: execution is policy-driven, not “approve every
 proposal”. PostgreSQL decides `approval_policy` at propose time and records
 the evaluation on the proposal.
 
-| Decision | When | What happens |
-| --- | --- | --- |
-| `automatic` | Safe draft, and the actor has `schema:write` (credential) or is a human session | `propose_agent_operation` calls the canonical RPC immediately |
-| `delegated` | Dataset **create/append** matches an enabled policy for this credential, target, and row limit, and the credential has `datasets:write` | Same: the canonical commit runs inside propose |
-| `human_required` | Everything else | Proposal stays `pending` until a human session approves and executes |
+| Decision         | When                                                                                                                                    | What happens                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `automatic`      | Safe draft, and the actor has `schema:write` (credential) or is a human session                                                         | `propose_agent_operation` calls the canonical RPC immediately        |
+| `delegated`      | Dataset **create/append** matches an enabled policy for this credential, target, and row limit, and the credential has `datasets:write` | Same: the canonical commit runs inside propose                       |
+| `human_required` | Everything else                                                                                                                         | Proposal stays `pending` until a human session approves and executes |
 
 ### Delegation policies
 
@@ -131,7 +131,7 @@ the acting user. The canonical mutation still emits its ordinary
 ### Evidence boundary (AUTO-PLUS-03)
 
 Every agent proposal is marked agent-produced on the review surface.
-Only a *succeeded* proposal carries a canonical result whose version
+Only a _succeeded_ proposal carries a canonical result whose version
 pins may enter submitted work after human review; all other states are
 marked not submittable with the reason. Workflow steps join their
 pinned input references with operation- and result-derived output
@@ -142,12 +142,12 @@ attestation: agents cannot submit or sign on behalf of humans.
 
 ## External boundary
 
-| Scope | Allows |
-| --- | --- |
-| `agent_operations:write` | Create and inspect proposals |
-| `agent_operations:read` | Read proposals, events, and policies under workspace RLS |
-| `schema:write` | Automatic safe-draft execution |
-| `datasets:write` | Required for delegated Dataset create/append |
+| Scope                    | Allows                                                   |
+| ------------------------ | -------------------------------------------------------- |
+| `agent_operations:write` | Create and inspect proposals                             |
+| `agent_operations:read`  | Read proposals, events, and policies under workspace RLS |
+| `schema:write`           | Automatic safe-draft execution                           |
+| `datasets:write`         | Required for delegated Dataset create/append             |
 
 Exchange a service credential at `POST /api/token` as usual
 ([`external-api.md`](../api/external-api.md)). Then call the RPCs through the

@@ -16,20 +16,26 @@ import {
 // is also a client entry, so the server-only scheduler is imported
 // dynamically and guarded per-process). The unref'd interval never keeps
 // the process alive and never runs under test runners.
-const pipelineSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
-  const { startPipelineScheduler } = await import('#/lib/pipeline-scheduler.server')
-  startPipelineScheduler()
-  return next()
-})
+const pipelineSchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startPipelineScheduler } =
+      await import('#/lib/pipeline-scheduler.server')
+    startPipelineScheduler()
+    return next()
+  },
+)
 
 // API-06: webhook delivery engine. LISTENs for change events, matches
 // active subscriptions, and attempts signed HTTP POST delivery with
 // retries and auto-disablement. Started lazily per-process.
-const webhookDeliveryMiddleware = createMiddleware().server(async ({ next }) => {
-  const { startWebhookDeliveryEngine } = await import('#/lib/webhook-delivery')
-  startWebhookDeliveryEngine()
-  return next()
-})
+const webhookDeliveryMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startWebhookDeliveryEngine } =
+      await import('#/lib/webhook-delivery')
+    startWebhookDeliveryEngine()
+    return next()
+  },
+)
 
 // Preserve TanStack Start's default CSRF protection for server functions.
 // Providing requestMiddleware replaces the framework default list, so CSRF

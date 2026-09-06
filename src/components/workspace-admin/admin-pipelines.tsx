@@ -209,8 +209,7 @@ export function AdminPipelines({
                           variant="outline"
                           disabled={
                             toggleSchedule.isPending ||
-                            toggleSchedule.variables?.scheduleId ===
-                              schedule.id
+                            toggleSchedule.variables?.scheduleId === schedule.id
                           }
                           onClick={() =>
                             toggleSchedule.mutate({

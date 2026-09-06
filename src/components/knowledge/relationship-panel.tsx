@@ -35,9 +35,7 @@ export const RELATIONSHIP_RENDER_LIMIT = 25
 function rowDetail(row: RelationshipRow): string {
   const createdBy = row.createdByUserId ? ` by ${row.createdByUserId}` : ''
   const dupes =
-    row.duplicateCount > 1
-      ? ` · ${row.duplicateCount} identical links`
-      : ''
+    row.duplicateCount > 1 ? ` · ${row.duplicateCount} identical links` : ''
   return `Linked ${row.createdAt}${createdBy}${dupes}`
 }
 
@@ -138,7 +136,11 @@ export function RelationshipPanel({
   sourceModelKey?: string
 }) {
   const typeLabels = useRelationshipTypeLabels(sourceModelKey)
-  const { outgoing, incoming, isLoading } = useRelationships(recordId, true, typeLabels)
+  const { outgoing, incoming, isLoading } = useRelationships(
+    recordId,
+    true,
+    typeLabels,
+  )
   if (isLoading) {
     return (
       <InspectorSection title="Relationships">

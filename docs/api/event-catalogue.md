@@ -15,16 +15,16 @@ second audit/evidence store.
 
 Every catalogue event shares one envelope:
 
-| Field         | Meaning                                                                    |
-| ------------- | -------------------------------------------------------------------------- |
-| `event`       | Canonical stable name (e.g. `sheet.updated`).                              |
-| `schemaVersion` | Envelope schema version, currently `'1'`.                                |
-| `id`          | Globally unique event id (the `change_events` id). Use as idempotency key. |
-| `occurredAt`  | Creation timestamp (ISO 8601).                                             |
-| `workspaceId` | Owning workspace.                                                          |
-| `actor`       | `{ userId, credentialId, clientId }` — exactly one of user/credential set. |
-| `provenance`  | `{ entityType, operation, entityUuid, sequence, recordId, projectId }`.    |
-| `data`        | Lightweight summary — never the source of truth. Re-read the object.       |
+| Field           | Meaning                                                                    |
+| --------------- | -------------------------------------------------------------------------- |
+| `event`         | Canonical stable name (e.g. `sheet.updated`).                              |
+| `schemaVersion` | Envelope schema version, currently `'1'`.                                  |
+| `id`            | Globally unique event id (the `change_events` id). Use as idempotency key. |
+| `occurredAt`    | Creation timestamp (ISO 8601).                                             |
+| `workspaceId`   | Owning workspace.                                                          |
+| `actor`         | `{ userId, credentialId, clientId }` — exactly one of user/credential set. |
+| `provenance`    | `{ entityType, operation, entityUuid, sequence, recordId, projectId }`.    |
+| `data`          | Lightweight summary — never the source of truth. Re-read the object.       |
 
 Order within a workspace with `provenance.sequence` (gapless, monotonic).
 Deduplicate across retries/replays with `id`.
@@ -49,25 +49,25 @@ claimed so it cannot be reused.
 
 ### Record (`stable`)
 
-| Event | Produced by |
-| ----- | ----------- |
+| Event                                                                                                           | Produced by                                                                |
+| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `record.created` / `record.updated` / `record.moved` / `record.deleted` / `record.archived` / `record.restored` | `record` + `create` / `update` / `move` / `delete` / `archive` / `restore` |
-| `record.amended` (`provisional`) | `record` + `amend` (via `api.create_amendment`) |
+| `record.amended` (`provisional`)                                                                                | `record` + `amend` (via `api.create_amendment`)                            |
 
 ### Dataset / Version (`stable`)
 
-| Event | Produced by |
-| ----- | ----------- |
-| `dataset.created` / `dataset.updated` / `dataset.archived` / `dataset.restored` | `dataset` + `create` / `update` / `archive` / `restore` |
-| `dataset.versioned` | `dataset_version` + `create`. Carries the parent `datasetId`. Consumed by pipeline event schedules (with `datasetId` filtering). |
+| Event                                                                           | Produced by                                                                                                                      |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset.created` / `dataset.updated` / `dataset.archived` / `dataset.restored` | `dataset` + `create` / `update` / `archive` / `restore`                                                                          |
+| `dataset.versioned`                                                             | `dataset_version` + `create`. Carries the parent `datasetId`. Consumed by pipeline event schedules (with `datasetId` filtering). |
 
 ### Sheet (`stable`, canonical names with wire aliases)
 
-| Canonical event | Wire alias (still emitted) | Produced by |
-| --------------- | -------------------------- | ----------- |
-| `sheet.created` / `sheet.updated` / `sheet.archived` / `sheet.restored` | `sheet_instance.*` | `sheet_instance` + `create` / `update` / `archive` / `restore` |
-| `sheet.definition.created` / `sheet.definition.updated` | `sheet_definition.*` | `sheet_definition` + `create` / `update` |
-| `sheet.definition.versioned` | `sheet_definition.versioned` | `sheet_definition_version` + `create` |
+| Canonical event                                                         | Wire alias (still emitted)   | Produced by                                                    |
+| ----------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------- |
+| `sheet.created` / `sheet.updated` / `sheet.archived` / `sheet.restored` | `sheet_instance.*`           | `sheet_instance` + `create` / `update` / `archive` / `restore` |
+| `sheet.definition.created` / `sheet.definition.updated`                 | `sheet_definition.*`         | `sheet_definition` + `create` / `update`                       |
+| `sheet.definition.versioned`                                            | `sheet_definition.versioned` | `sheet_definition_version` + `create`                          |
 
 A Sheet Definition is the reusable versioned configuration; a Sheet is the
 instantiated working object. Instances stay bound to the definition version
@@ -75,14 +75,14 @@ they were created from.
 
 ### Notebook / Review (`stable`, one reserved, template aliases)
 
-| Canonical event | Wire alias | Produced by |
-| --------------- | ---------- | ----------- |
-| `notebook.submitted` | — | `review_submission` + `create` |
-| `notebook.amended` (`reserved`, never emitted) | `notebook.amended` | none — the submission trigger is INSERT-only; amendments emit `record.amended` |
-| `review.decided` | — | `review_decision` + `create` (request-changes / reject / approve / withdraw) |
-| `notebook.signed` | — | `signature` + `create` |
-| `notebook.template.created` / `notebook.template.updated` | `notebook_template.*` | `notebook_template` + `create` / `update` |
-| `notebook.template.versioned` | `notebook_template.versioned` | `notebook_template_version` + `create` |
+| Canonical event                                           | Wire alias                    | Produced by                                                                    |
+| --------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------ |
+| `notebook.submitted`                                      | —                             | `review_submission` + `create`                                                 |
+| `notebook.amended` (`reserved`, never emitted)            | `notebook.amended`            | none — the submission trigger is INSERT-only; amendments emit `record.amended` |
+| `review.decided`                                          | —                             | `review_decision` + `create` (request-changes / reject / approve / withdraw)   |
+| `notebook.signed`                                         | —                             | `signature` + `create`                                                         |
+| `notebook.template.created` / `notebook.template.updated` | `notebook_template.*`         | `notebook_template` + `create` / `update`                                      |
+| `notebook.template.versioned`                             | `notebook_template.versioned` | `notebook_template_version` + `create`                                         |
 
 "Notebook" is the block document owned by a record (experiment, protocol
 template, report) — not a separate table.

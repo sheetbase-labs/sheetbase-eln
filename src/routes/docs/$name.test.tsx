@@ -46,9 +46,9 @@ afterEach(() => {
 
 describe('docs/$name route — auth guard', () => {
   it('redirects unauthenticated users to sign-in', async () => {
-    await expect(
-      beforeLoad({ context: { auth: null } }),
-    ).rejects.toMatchObject({ to: '/sign-in' })
+    await expect(beforeLoad({ context: { auth: null } })).rejects.toMatchObject(
+      { to: '/sign-in' },
+    )
   })
 
   it('redirects authenticated users with no workspace to home', async () => {
@@ -56,9 +56,9 @@ describe('docs/$name route — auth guard', () => {
       user: { id: 'u1', name: 'Test', email: 't@e.com' },
       workspace: null,
     }
-    await expect(
-      beforeLoad({ context: { auth } }),
-    ).rejects.toMatchObject({ to: '/' })
+    await expect(beforeLoad({ context: { auth } })).rejects.toMatchObject({
+      to: '/',
+    })
   })
 
   it('allows authenticated workspace members', async () => {
@@ -85,7 +85,9 @@ describe('docs/$name route — component', () => {
     const DocPage = Route.options.component as React.ComponentType
     render(<DocPage />)
     expect(
-      screen.getByText('This document is not available in the current deployment.'),
+      screen.getByText(
+        'This document is not available in the current deployment.',
+      ),
     ).toBeTruthy()
   })
 

@@ -234,9 +234,7 @@ describe('TemplateParameterInputs defaults and requirements', () => {
     mount(defaulted)
     expect(screen.getByText(/· Required · default 5/)).toBeTruthy()
     expect(screen.getByText(/· Optional/)).toBeTruthy()
-    expect(
-      screen.getByPlaceholderText('Default: 5'),
-    ).toBeTruthy()
+    expect(screen.getByPlaceholderText('Default: 5')).toBeTruthy()
     expect(screen.getByPlaceholderText('Enter a value')).toBeTruthy()
   })
 

@@ -8,9 +8,7 @@ import {
   scalarDefaultText,
 } from './parameter-input'
 
-function scalar(
-  overrides: Partial<Parameter> & { id: string },
-): Parameter {
+function scalar(overrides: Partial<Parameter> & { id: string }): Parameter {
   return {
     key: 'value',
     label: 'Value',
@@ -18,7 +16,7 @@ function scalar(
     type: { kind: 'scalar', valueType: 'integer' },
     constraints: {},
     ...overrides,
-  } as Parameter
+  }
 }
 
 describe('defaultParameterDrafts', () => {
@@ -46,7 +44,7 @@ describe('defaultParameterDrafts', () => {
         required: false,
         type: { kind: 'record', modelKey: 'sample' },
         constraints: {},
-      } as Parameter,
+      },
     ])
     expect(drafts).toEqual({
       '20000000-0000-4000-8000-000000000001': '5',
@@ -65,9 +63,7 @@ describe('defaultParameterDrafts', () => {
       ),
     ).toBe('5')
     expect(
-      scalarDefaultText(
-        scalar({ id: '20000000-0000-4000-8000-000000000004' }),
-      ),
+      scalarDefaultText(scalar({ id: '20000000-0000-4000-8000-000000000004' })),
     ).toBeNull()
   })
 })

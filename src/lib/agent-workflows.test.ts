@@ -246,7 +246,9 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
   it('marks only dataset_rows.commit as consequential and mutate-mode', () => {
     expect(workflowStepRiskClass(draftStep)).toBe('safe_draft')
     expect(workflowStepRiskClass(commitStep)).toBe('consequential_write')
-    expect(workflowStepMode('sheetbase.pipeline_definition.draft')).toBe('draft')
+    expect(workflowStepMode('sheetbase.pipeline_definition.draft')).toBe(
+      'draft',
+    )
     expect(workflowStepMode('sheetbase.dataset_rows.commit')).toBe('mutate')
     expect(requiresExplicitApproval(draftStep)).toBe(false)
     expect(requiresExplicitApproval(commitStep)).toBe(true)
@@ -255,22 +257,33 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
   it('observes the stored decide/policy outcome per gate', () => {
     const waiting = { status: 'waiting_approval' } as AgentWorkflowStep
     expect(
-      workflowStepGate(waiting, proposal({ status: 'pending', approval_policy: 'human_required' })),
+      workflowStepGate(
+        waiting,
+        proposal({ status: 'pending', approval_policy: 'human_required' }),
+      ),
     ).toBe('pending-approval')
     expect(
-      workflowStepGate(waiting, proposal({ status: 'pending', approval_policy: 'delegated' })),
+      workflowStepGate(
+        waiting,
+        proposal({ status: 'pending', approval_policy: 'delegated' }),
+      ),
     ).toBe('flowing')
-    expect(workflowStepGate(waiting, proposal({ status: 'approved' }))).toBe('approved')
-    expect(workflowStepGate(waiting, proposal({ status: 'executing' }))).toBe('approved')
+    expect(workflowStepGate(waiting, proposal({ status: 'approved' }))).toBe(
+      'approved',
+    )
+    expect(workflowStepGate(waiting, proposal({ status: 'executing' }))).toBe(
+      'approved',
+    )
     expect(
-      workflowStepGate({ status: 'rejected' } as AgentWorkflowStep, proposal({ status: 'rejected' })),
+      workflowStepGate(
+        { status: 'rejected' },
+        proposal({ status: 'rejected' }),
+      ),
     ).toBe('rejected')
-    expect(
-      workflowStepGate({ status: 'planned' } as AgentWorkflowStep, null),
-    ).toBe('planned')
-    expect(
-      workflowStepGate({ status: 'waiting_approval' } as AgentWorkflowStep, null),
-    ).toBe('pending-approval')
+    expect(workflowStepGate({ status: 'planned' }, null)).toBe('planned')
+    expect(workflowStepGate({ status: 'waiting_approval' }, null)).toBe(
+      'pending-approval',
+    )
   })
 
   it('dry-runs a plan without touching state: stored preview where proposed, prediction where planned', () => {
@@ -343,20 +356,16 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
     expect(workflowStepIdempotencyKey('workflow-1', 'first_commit', 1)).toBe(
       'workflow:workflow-1:first_commit:1',
     )
-    expect(workflowStepIdempotencyKey('workflow-1', 'first_commit', 2)).not.toBe(
-      workflowStepIdempotencyKey('workflow-1', 'first_commit', 1),
-    )
+    expect(
+      workflowStepIdempotencyKey('workflow-1', 'first_commit', 2),
+    ).not.toBe(workflowStepIdempotencyKey('workflow-1', 'first_commit', 1))
     expect(workflowRetriesRemaining(workflow)).toBe(2)
-    expect(
-      workflowRetriesRemaining({ ...workflow, used_operations: 3 }),
-    ).toBe(0)
+    expect(workflowRetriesRemaining({ ...workflow, used_operations: 3 })).toBe(
+      0,
+    )
     const paused = { ...workflow, status: 'paused' } as AgentWorkflow
-    expect(
-      canRetryWorkflowStep(paused, { status: 'failed' }),
-    ).toBe(true)
-    expect(
-      canRetryWorkflowStep(paused, { status: 'succeeded' }),
-    ).toBe(false)
+    expect(canRetryWorkflowStep(paused, { status: 'failed' })).toBe(true)
+    expect(canRetryWorkflowStep(paused, { status: 'succeeded' })).toBe(false)
     expect(
       canRetryWorkflowStep(
         { ...paused, used_operations: 3 },
@@ -365,7 +374,7 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
     ).toBe(false)
     expect(
       canRetryWorkflowStep(
-        { ...paused, status: 'cancelled' } as AgentWorkflow,
+        { ...paused, status: 'cancelled' },
         { status: 'failed' },
       ),
     ).toBe(false)

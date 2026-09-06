@@ -18,17 +18,10 @@ import { createServerFn } from '@tanstack/react-start'
 import { requireCapability } from '#/lib/admin-platform'
 
 export type WebhookSubscriptionStatus =
-  | 'active'
-  | 'paused'
-  | 'disabled'
-  | 'archived'
+  'active' | 'paused' | 'disabled' | 'archived'
 
 export type WebhookDeliveryStatus =
-  | 'pending'
-  | 'delivered'
-  | 'failed'
-  | 'retrying'
-  | 'dead_letter'
+  'pending' | 'delivered' | 'failed' | 'retrying' | 'dead_letter'
 
 export interface WebhookSubscriptionWire {
   id: string
@@ -117,7 +110,12 @@ export const webhookAdminKeys = {
   subscriptions: (workspaceId: string) =>
     ['admin-001', 'webhook-subscriptions', workspaceId] as const,
   health: (workspaceId: string, subscriptionId?: string) =>
-    ['admin-001', 'webhook-health', workspaceId, subscriptionId ?? 'all'] as const,
+    [
+      'admin-001',
+      'webhook-health',
+      workspaceId,
+      subscriptionId ?? 'all',
+    ] as const,
   deliveries: (
     workspaceId: string,
     filters: Record<string, string | undefined>,
@@ -141,17 +139,13 @@ export function toSubscriptionWire(
     key: String(row.key),
     url: String(row.url),
     description: str(row.description),
-    eventTypes: Array.isArray(rawEventTypes)
-      ? rawEventTypes.map(String)
-      : [],
+    eventTypes: Array.isArray(rawEventTypes) ? rawEventTypes.map(String) : [],
     status: String(row.status) as WebhookSubscriptionStatus,
     maxRetries: num(row.max_retries),
     failureThreshold: num(row.failure_threshold),
     consecutiveFailures: num(row.consecutive_failures),
     rateLimitPerMinute:
-      row.rate_limit_per_minute != null
-        ? num(row.rate_limit_per_minute)
-        : null,
+      row.rate_limit_per_minute != null ? num(row.rate_limit_per_minute) : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   }
@@ -170,9 +164,7 @@ export function toHealthWire(
     failureThreshold: num(row.failure_threshold),
     maxRetries: num(row.max_retries),
     rateLimitPerMinute:
-      row.rate_limit_per_minute != null
-        ? num(row.rate_limit_per_minute)
-        : null,
+      row.rate_limit_per_minute != null ? num(row.rate_limit_per_minute) : null,
     total24h: num(row.total_24h),
     delivered24h: num(row.delivered_24h),
     failed24h: num(row.failed_24h),
@@ -194,7 +186,9 @@ export function toHealthWire(
   }
 }
 
-export function toDeliveryWire(row: Record<string, unknown>): WebhookDeliveryWire {
+export function toDeliveryWire(
+  row: Record<string, unknown>,
+): WebhookDeliveryWire {
   return {
     id: String(row.id),
     subscriptionId: String(row.subscription_id),
@@ -230,7 +224,11 @@ export function describeWebhookAdminError(cause: unknown): string {
   if (message.includes('SB033')) {
     return 'This action belongs to a different workspace.'
   }
-  if (/42501|permission denied|not allowed|required for this operation/i.test(message)) {
+  if (
+    /42501|permission denied|not allowed|required for this operation/i.test(
+      message,
+    )
+  ) {
     return 'You do not have permission to manage webhooks (integrations.manage required).'
   }
   return message || 'Could not complete the webhook operation. Try again.'
@@ -261,9 +259,7 @@ export const listWebhookSubscriptionsFn = createServerFn({ method: 'POST' })
           ORDER BY key ASC`,
         [data.workspaceId],
       )
-      return rows.map((row: Record<string, unknown>) =>
-        toSubscriptionWire(row),
-      )
+      return rows.map((row: Record<string, unknown>) => toSubscriptionWire(row))
     } finally {
       await session.release()
     }
@@ -276,8 +272,7 @@ export const listWebhookSubscriptionsFn = createServerFn({ method: 'POST' })
 
 export const fetchWebhookHealthFn = createServerFn({ method: 'POST' })
   .validator(
-    (input: { workspaceId: string; subscriptionId?: string | null }) =>
-      input,
+    (input: { workspaceId: string; subscriptionId?: string | null }) => input,
   )
   .handler(async ({ data }): Promise<WebhookHealthResultWire> => {
     const session = await requireCapability(
@@ -348,9 +343,7 @@ export const setWebhookSubscriptionStatusFn = createServerFn({
 // ---------------------------------------------------------------------------
 
 export const archiveWebhookSubscriptionFn = createServerFn({ method: 'POST' })
-  .validator(
-    (input: { workspaceId: string; subscriptionId: string }) => input,
-  )
+  .validator((input: { workspaceId: string; subscriptionId: string }) => input)
   .handler(async ({ data }): Promise<WebhookSubscriptionWire> => {
     const session = await requireCapability(
       data.workspaceId,
@@ -380,9 +373,7 @@ export const archiveWebhookSubscriptionFn = createServerFn({ method: 'POST' })
 // ---------------------------------------------------------------------------
 
 export const rotateWebhookSecretFn = createServerFn({ method: 'POST' })
-  .validator(
-    (input: { workspaceId: string; subscriptionId: string }) => input,
-  )
+  .validator((input: { workspaceId: string; subscriptionId: string }) => input)
   .handler(async ({ data }): Promise<RotatedWebhookSecretWire> => {
     const session = await requireCapability(
       data.workspaceId,
@@ -398,9 +389,7 @@ export const rotateWebhookSecretFn = createServerFn({ method: 'POST' })
         throw new Error('Webhook secret rotation failed.')
       }
       return {
-        subscriptionId: String(
-          result.subscriptionId ?? data.subscriptionId,
-        ),
+        subscriptionId: String(result.subscriptionId ?? data.subscriptionId),
         signingSecret: String(result.signing_secret),
       }
     } finally {
@@ -469,9 +458,7 @@ export const listWebhookDeliveriesFn = createServerFn({ method: 'POST' })
 // ---------------------------------------------------------------------------
 
 export const replayWebhookDeliveryFn = createServerFn({ method: 'POST' })
-  .validator(
-    (input: { workspaceId: string; deliveryId: string }) => input,
-  )
+  .validator((input: { workspaceId: string; deliveryId: string }) => input)
   .handler(async ({ data }): Promise<WebhookDeliveryWire> => {
     const session = await requireCapability(
       data.workspaceId,

@@ -179,19 +179,16 @@ export function canonicalSheetGridMatrix(input: {
         index < composed.rowKeys.length ? composed.data[index] : null
       // GRID-05: a composed row without a local entry has no local values —
       // read them safely instead of throwing (mirrors frozen-sheet-grid).
-      const localRow = input.instance.state.localValues[rowKey]
+      const localRow = input.instance.state.localValues[rowKey] as
+        Record<string, unknown> | undefined
       const calculatedRow = input.calculationResults?.[rowKey]
       return columns.map((column, columnIndex) => {
         if (column.origin === 'bound' && composedRow) {
           const sourceIndex = boundSourceIndex[columnIndex]
-          return sourceIndex === undefined || sourceIndex < 0
-            ? null
-            : (composedRow[sourceIndex] ?? null)
+          return sourceIndex < 0 ? null : (composedRow[sourceIndex] ?? null)
         }
         if (column.origin === 'calculation') {
-          return (
-            calculatedRow?.[column.id] ?? localRow?.[column.id] ?? null
-          )
+          return calculatedRow?.[column.id] ?? localRow?.[column.id] ?? null
         }
         return localRow?.[column.id] ?? null
       })
@@ -217,9 +214,9 @@ export function canonicalSheetGridMatrix(input: {
       const calculatedRow = input.calculationResults?.[rowKey]
       return columns.map((column) => {
         if (column.origin === 'calculation') {
-          return calculatedRow?.[column.id] ?? localRow?.[column.id] ?? null
+          return calculatedRow?.[column.id] ?? localRow[column.id] ?? null
         }
-        return localRow?.[column.id] ?? null
+        return localRow[column.id] ?? null
       })
     }),
     rowKinds: rowKeys.map(() => 'local'),
@@ -274,9 +271,7 @@ export function applySheetPresentation(
   const orderIndex = ordered.map(
     (column) => sourceIndexById.get(column.id) as number,
   )
-  const data = matrix.data.map((row) =>
-    orderIndex.map((index) => row[index]),
-  )
+  const data = matrix.data.map((row) => orderIndex.map((index) => row[index]))
   return {
     columns: ordered,
     rowKeys: matrix.rowKeys,

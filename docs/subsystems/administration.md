@@ -14,11 +14,11 @@ authoritative permission boundary.
 Administration spans three planes with one authority each. No configuration
 is writable in two places:
 
-| Plane | Surface | Authority |
-| ----- | ------- | --------- |
-| Steward data-language | `/configure` (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, vocabularies, promotions) | Stewards publish without `workspace.admin`; owners keep security administration |
-| Security and platform operations | `/admin` (this document) | Capability-gated per section; server enforcement is authoritative |
-| Personal tokens | `/settings` | Each member manages only their own tokens |
+| Plane                            | Surface                                                                                                 | Authority                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Steward data-language            | `/configure` (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, vocabularies, promotions) | Stewards publish without `workspace.admin`; owners keep security administration |
+| Security and platform operations | `/admin` (this document)                                                                                | Capability-gated per section; server enforcement is authoritative               |
+| Personal tokens                  | `/settings`                                                                                             | Each member manages only their own tokens                                       |
 
 Cross-links point users at the right plane: the `/admin` header and the
 permission-denied notice link to Configuration and Settings; the
@@ -30,24 +30,24 @@ stays, and stored links should point at `/configure` directly.
 
 ## Admin information architecture
 
-| Section              | Route                  | Capability required          | Purpose                                                    |
-| -------------------- | ---------------------- | ---------------------------- | ---------------------------------------------------------- |
-| Dashboard            | `/admin/dashboard`     | (any member)                 | Health, activity, usage, and attention indicators         |
-| External access      | `/admin/external-access`| (any member)                | Unified lifecycle view over members, credentials, connectors, webhooks, extensions |
-| Members              | `/admin/users`         | `workspace.admin`            | Membership, roles, invitations, suspension                 |
-| Project access       | `/admin/project-access`| `workspace.admin`            | Explicit per-project access grants                         |
-| Workspace settings   | `/admin/settings`      | `workspace.admin`            | Registration, review, signature, retention policies       |
-| Sessions             | `/admin/sessions`      | `workspace.admin`            | Authenticated session review and revocation                |
-| API credentials      | `/admin/api-credentials`| `workspace.admin`           | Workspace service credentials only (personal tokens live in `/settings`) |
-| Connectors           | `/admin/connectors`    | `integrations.manage`        | Connector status, secrets, run health                      |
-| Pipelines            | `/admin/pipelines`     | `pipelines.manage`           | Pipeline definitions, schedules, run health                |
-| Extensions           | `/admin/extensions`    | `extensions.manage`          | Extension install, update, disable, remove and history     |
-| Webhooks             | `/admin/webhooks`      | `integrations.manage`        | Subscriptions, endpoint health, delivery history, replay   |
-| Storage              | `/admin/storage`       | (any member)                 | File storage overview and largest files                    |
-| Usage                | `/admin/usage`         | (any member)                 | Workspace counts and capacity indicators                   |
-| Audit                | `/admin/activity`      | (any member)                 | Audit trail browser with filters and export                |
-| Diagnostics          | `/admin/diagnostics`   | (any member)                 | Health checks, scheduler, executor, configuration state    |
-| Deployment           | `/admin/deployment`    | (any member)                 | Version, environment, migration state, operational links   |
+| Section            | Route                    | Capability required   | Purpose                                                                            |
+| ------------------ | ------------------------ | --------------------- | ---------------------------------------------------------------------------------- |
+| Dashboard          | `/admin/dashboard`       | (any member)          | Health, activity, usage, and attention indicators                                  |
+| External access    | `/admin/external-access` | (any member)          | Unified lifecycle view over members, credentials, connectors, webhooks, extensions |
+| Members            | `/admin/users`           | `workspace.admin`     | Membership, roles, invitations, suspension                                         |
+| Project access     | `/admin/project-access`  | `workspace.admin`     | Explicit per-project access grants                                                 |
+| Workspace settings | `/admin/settings`        | `workspace.admin`     | Registration, review, signature, retention policies                                |
+| Sessions           | `/admin/sessions`        | `workspace.admin`     | Authenticated session review and revocation                                        |
+| API credentials    | `/admin/api-credentials` | `workspace.admin`     | Workspace service credentials only (personal tokens live in `/settings`)           |
+| Connectors         | `/admin/connectors`      | `integrations.manage` | Connector status, secrets, run health                                              |
+| Pipelines          | `/admin/pipelines`       | `pipelines.manage`    | Pipeline definitions, schedules, run health                                        |
+| Extensions         | `/admin/extensions`      | `extensions.manage`   | Extension install, update, disable, remove and history                             |
+| Webhooks           | `/admin/webhooks`        | `integrations.manage` | Subscriptions, endpoint health, delivery history, replay                           |
+| Storage            | `/admin/storage`         | (any member)          | File storage overview and largest files                                            |
+| Usage              | `/admin/usage`           | (any member)          | Workspace counts and capacity indicators                                           |
+| Audit              | `/admin/activity`        | (any member)          | Audit trail browser with filters and export                                        |
+| Diagnostics        | `/admin/diagnostics`     | (any member)          | Health checks, scheduler, executor, configuration state                            |
+| Deployment         | `/admin/deployment`      | (any member)          | Version, environment, migration state, operational links                           |
 
 The navigation bar only shows sections the current user can access. Direct
 URL access to a restricted section shows a permission-denied notice rather
@@ -61,12 +61,12 @@ capabilities through `api.has_capability` (PostgreSQL SECURITY DEFINER RPCs
 with RLS). The UI mirrors the same capability mapping from
 `src/lib/capability.ts`.
 
-| Capability              | Roles                              | Admin sections gated           |
-| ----------------------- | ---------------------------------- | ------------------------------ |
-| `integrations.manage`   | owner, admin, steward              | Connectors, Webhooks           |
-| `pipelines.manage`      | owner, admin, steward              | Pipelines                      |
-| `extensions.manage`     | owner, admin, steward              | Extensions                     |
-| (none — member access)  | all workspace members              | Dashboard, External access, Storage, Usage, Audit, Diagnostics, Deployment |
+| Capability             | Roles                 | Admin sections gated                                                       |
+| ---------------------- | --------------------- | -------------------------------------------------------------------------- |
+| `integrations.manage`  | owner, admin, steward | Connectors, Webhooks                                                       |
+| `pipelines.manage`     | owner, admin, steward | Pipelines                                                                  |
+| `extensions.manage`    | owner, admin, steward | Extensions                                                                 |
+| (none — member access) | all workspace members | Dashboard, External access, Storage, Usage, Audit, Diagnostics, Deployment |
 
 Key invariants:
 
@@ -224,6 +224,7 @@ operational administration, not authoring duplication.
 
   `api.update_pipeline_schedule` RPC. Requires `pipelines.manage`. Produces
   audit/change evidence.
+
 - **Run health** — recent failed/running/stale counts.
 - **Retry/cancel** — links to the canonical pipeline run detail for retry/cancel
   where supported by the pipeline runtime.

@@ -23,7 +23,7 @@ proposal, not permission.
    audit rows stay workspace-owned with unchanged IDs and unchanged RLS.
 2. Membership is explicit per workspace. An organisation role grants nothing
    by itself: access flows only through per-workspace grants. Organisation
-   administration may *offer* membership batches, but each workspace grant is
+   administration may _offer_ membership batches, but each workspace grant is
    still an explicit row — organisation hierarchy must never silently broaden
    workspace access.
 3. Service credentials and API scopes stay workspace-bound. No

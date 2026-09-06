@@ -308,7 +308,15 @@ function TemplateLibraryRoute() {
       rows = rows.filter((t) => favourites.has(t.id))
     }
     return rows
-  }, [allTemplates, statusFilter, purposeFilter, ownership, favouritesOnly, favourites, currentUserId])
+  }, [
+    allTemplates,
+    statusFilter,
+    purposeFilter,
+    ownership,
+    favouritesOnly,
+    favourites,
+    currentUserId,
+  ])
 
   const selected = selectedQuery.data ?? null
   const selectedBlocks = blocksQuery.data ?? []
@@ -509,7 +517,7 @@ function TemplateLibraryRoute() {
       instantiationError={instantiationError}
       instantiationSuccess={instantiationSuccess}
       usageCount={selectedUsageCount}
-      blockCount={selected ? blockCounts[selected.id] : undefined}
+      blockCount={blockCounts[selected.id]}
       linkedRecords={linkedRecords}
       currentUserId={currentUserId}
       role={role}

@@ -111,10 +111,7 @@ export function deriveReviewLifecycle(input: {
 // Signature applicability.
 // ---------------------------------------------------------------------------
 
-export type SignatureApplicability =
-  | 'current'
-  | 'superseded'
-  | 'stale-view'
+export type SignatureApplicability = 'current' | 'superseded' | 'stale-view'
 
 export interface SignatureValidity {
   applicability: SignatureApplicability

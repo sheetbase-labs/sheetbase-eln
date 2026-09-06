@@ -34,24 +34,24 @@ The app runs at `http://localhost:3000`. The PostgREST API runs at `http://local
 
 ## Commands
 
-| Task | Command |
-| --- | --- |
-| Start local services | `pnpm services:up` |
-| Stop local services | `pnpm services:down` |
-| Inspect service status | `pnpm services:ps` |
-| Follow service logs | `pnpm services:logs` |
-| Recreate services | `pnpm services:recreate` |
-| Start the app | `pnpm dev` |
-| Build deployment artifact | `pnpm artifact:build` |
-| Validate deployment plan | `pnpm deploy:plan` |
-| Run tests | `pnpm test` |
-| Run DB tests | `pnpm test:db` |
-| Generate migration | `pnpm db:generate` |
-| Apply migrations | `pnpm db:migrate` |
-| Seed demo data | `pnpm db:seed:demo` |
-| Fresh database | `pnpm db:fresh` |
-| Format | `pnpm format` |
-| Full quality gate | `pnpm validate` |
+| Task                      | Command                  |
+| ------------------------- | ------------------------ |
+| Start local services      | `pnpm services:up`       |
+| Stop local services       | `pnpm services:down`     |
+| Inspect service status    | `pnpm services:ps`       |
+| Follow service logs       | `pnpm services:logs`     |
+| Recreate services         | `pnpm services:recreate` |
+| Start the app             | `pnpm dev`               |
+| Build deployment artifact | `pnpm artifact:build`    |
+| Validate deployment plan  | `pnpm deploy:plan`       |
+| Run tests                 | `pnpm test`              |
+| Run DB tests              | `pnpm test:db`           |
+| Generate migration        | `pnpm db:generate`       |
+| Apply migrations          | `pnpm db:migrate`        |
+| Seed demo data            | `pnpm db:seed:demo`      |
+| Fresh database            | `pnpm db:fresh`          |
+| Format                    | `pnpm format`            |
+| Full quality gate         | `pnpm validate`          |
 
 Implementation/runbook documentation remains directly under `docs/`, including migrations, testing, security, deployment, recovery, integrations, APIs and observability.
 

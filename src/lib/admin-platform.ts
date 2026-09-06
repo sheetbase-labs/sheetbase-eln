@@ -194,7 +194,6 @@ export interface AttentionItem {
   runbook?: string
 }
 
-
 export interface ConnectorDiagnosticsResult {
   activeConnectors: number
   pausedConnectors: number
@@ -280,10 +279,9 @@ export async function getScopedClient(
   try {
     await client.query('BEGIN')
     await client.query('SET LOCAL ROLE authenticated')
-    await client.query(
-      `SELECT set_config('request.jwt.claims', $1, true)`,
-      [JSON.stringify({ sub: userId, workspace_id: workspaceId })],
-    )
+    await client.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
+      JSON.stringify({ sub: userId, workspace_id: workspaceId }),
+    ])
   } catch (err) {
     client.release()
     throw err
@@ -448,7 +446,12 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
       }
     }
 
-    const healthStatus = !dbOk || !pgrOk ? 'not_ready' : migrationStatus === 'incompatible' ? 'degraded' : 'ready'
+    const healthStatus =
+      !dbOk || !pgrOk
+        ? 'not_ready'
+        : migrationStatus === 'incompatible'
+          ? 'degraded'
+          : 'ready'
 
     // Scheduler state: report the actual env-driven enabled flag and use
     // last_evaluated_at only as a best-effort signal, not a heartbeat.
@@ -681,7 +684,11 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
           (SELECT count(*)::int FROM api.webhook_subscriptions WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'disabled' AND failure_threshold > 0 AND consecutive_failures >= failure_threshold) AS auto_disabled
       `),
     ])
-    const all: RunHealthItem[] = [...pipeRes.rows, ...connRes.rows, ...hookRes.rows].map((r) => ({
+    const all: RunHealthItem[] = [
+      ...pipeRes.rows,
+      ...connRes.rows,
+      ...hookRes.rows,
+    ].map((r) => ({
       id: String(r.id),
       kind: r.kind as 'pipeline' | 'connector' | 'webhook',
       status: String(r.status),
@@ -702,7 +709,8 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
     const recentlySucceeded = all
       .filter((r) => r.status === 'succeeded')
       .slice(0, 10)
-    const summaryRow = hookSummaryRes.rows[0] as Record<string, unknown> | undefined
+    const summaryRow = hookSummaryRes.rows[0] as
+      Record<string, unknown> | undefined
     return {
       running,
       failed,
@@ -1023,22 +1031,35 @@ export const fetchConnectorDiagnosticsFn = createServerFn({ method: 'POST' })
         ORDER BY c.name ASC`,
         [data.workspaceId],
       )
-      const connectors: ConnectorDiagnosticsResult['connectors'] = rows.map((r: Record<string, unknown>) => ({
-        id: String(r.id),
-        name: String(r.name),
-        connectorType: String(r.connector_type),
-        status: String(r.status),
-        lastRunStatus: str(r.last_run_status),
-        lastRunAt: str(r.last_run_at),
-        lastErrorCode: str(r.last_error_code),
-        hasSecrets: Boolean(r.has_secrets),
-        recentFailureCount: num(r.recent_failure_count),
-      }))
-      const activeConnectors = connectors.filter((c) => c.status === 'active').length
-      const pausedConnectors = connectors.filter((c) => c.status === 'paused').length
-      const recentFailures = connectors.reduce((sum, c) => sum + c.recentFailureCount, 0)
-      const missingSecrets = connectors.filter((c) => c.status === 'active' && !c.hasSecrets).length
-      const repeatedFailures = connectors.filter((c) => c.recentFailureCount >= 3).length
+      const connectors: ConnectorDiagnosticsResult['connectors'] = rows.map(
+        (r: Record<string, unknown>) => ({
+          id: String(r.id),
+          name: String(r.name),
+          connectorType: String(r.connector_type),
+          status: String(r.status),
+          lastRunStatus: str(r.last_run_status),
+          lastRunAt: str(r.last_run_at),
+          lastErrorCode: str(r.last_error_code),
+          hasSecrets: Boolean(r.has_secrets),
+          recentFailureCount: num(r.recent_failure_count),
+        }),
+      )
+      const activeConnectors = connectors.filter(
+        (c) => c.status === 'active',
+      ).length
+      const pausedConnectors = connectors.filter(
+        (c) => c.status === 'paused',
+      ).length
+      const recentFailures = connectors.reduce(
+        (sum, c) => sum + c.recentFailureCount,
+        0,
+      )
+      const missingSecrets = connectors.filter(
+        (c) => c.status === 'active' && !c.hasSecrets,
+      ).length
+      const repeatedFailures = connectors.filter(
+        (c) => c.recentFailureCount >= 3,
+      ).length
       return {
         activeConnectors,
         pausedConnectors,
@@ -1098,9 +1119,7 @@ export const togglePipelineScheduleFn = createServerFn({ method: 'POST' })
 // ---------------------------------------------------------------------------
 
 export const retryConnectorRunFn = createServerFn({ method: 'POST' })
-  .validator(
-    (input: { workspaceId: string; runId: string }) => input,
-  )
+  .validator((input: { workspaceId: string; runId: string }) => input)
   .handler(async ({ data }) => {
     const session = await requireCapability(
       data.workspaceId,

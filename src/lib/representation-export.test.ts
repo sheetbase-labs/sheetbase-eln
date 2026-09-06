@@ -10,15 +10,15 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import {
-  ANALYSIS_DEFINITION_VERSION,
-  runAnalysis,
-} from './analysis-definition'
+import { ANALYSIS_DEFINITION_VERSION, runAnalysis } from './analysis-definition'
 import type { AnalysisDefinition } from './analysis-definition'
 import { validateBlock } from './blocks/index'
-import { validateChartSpec } from './chart-spec'
+import {
+  validateChartSpec,
+  CHART_SPEC_VERSION,
+  materialiseChart,
+} from './chart-spec'
 import type { ChartColumn, ChartSpec } from './chart-spec'
-import { CHART_SPEC_VERSION, materialiseChart } from './chart-spec'
 import {
   COMPARATIVE_VIEW_CONFIG_VERSION,
   validateComparativeViewConfig,
@@ -272,7 +272,9 @@ describe('provenance-stamped data export', () => {
     expect(lines.some((l) => l.includes(DATASET_ID))).toBe(true)
     expect(lines.some((l) => l.includes(VERSION_ID))).toBe(true)
     expect(lines.some((l) => l.includes(EXPORTED_AT))).toBe(true)
-    expect(lines.some((l) => l.includes(`config_version: ${CHART_SPEC_VERSION}`))).toBe(true)
+    expect(
+      lines.some((l) => l.includes(`config_version: ${CHART_SPEC_VERSION}`)),
+    ).toBe(true)
     expect(lines.every((l) => l.startsWith('#'))).toBe(true)
   })
 
@@ -299,11 +301,14 @@ describe('frozen evidence reconstruction', () => {
     const handle = chartHandle()
     const frozen = frozenChartPayload()
     const input = { columns: COLUMNS, rows: ROWS }
-    const first = reconstructFrozenRepresentation(handle, frozen as never, input)
-    const second = reconstructFrozenRepresentation(handle, frozen as never, input)
+    const first = reconstructFrozenRepresentation(handle, frozen, input)
+    const second = reconstructFrozenRepresentation(handle, frozen, input)
     expect(JSON.stringify(first)).toBe(JSON.stringify(second))
-    if (first.kind !== 'chart' || second.kind !== 'chart') throw new Error('unreachable')
-    expect(first.materialised).toEqual(materialiseChart(chartSpec(), COLUMNS, ROWS))
+    if (first.kind !== 'chart' || second.kind !== 'chart')
+      throw new Error('unreachable')
+    expect(first.materialised).toEqual(
+      materialiseChart(chartSpec(), COLUMNS, ROWS),
+    )
     // The stamped figure is byte-identical for a pinned export timestamp.
     const stamp = representationExportStamp(handle, EXPORTED_AT)
     const svg = '<svg><circle r="4"/></svg>'
@@ -319,8 +324,8 @@ describe('frozen evidence reconstruction', () => {
     })!
     const frozen = frozenAnalysisPayload()
     const input = { columns: COLUMNS, rows: ROWS }
-    const first = reconstructFrozenRepresentation(handle, frozen as never, input)
-    const second = reconstructFrozenRepresentation(handle, frozen as never, input)
+    const first = reconstructFrozenRepresentation(handle, frozen, input)
+    const second = reconstructFrozenRepresentation(handle, frozen, input)
     expect(JSON.stringify(first)).toBe(JSON.stringify(second))
     expect(first).toEqual({
       kind: 'analysis',
@@ -433,21 +438,30 @@ describe('notebook embedding coverage', () => {
     expect(
       validateBlock({ type: 'chart', payload: { spec, title: 'Trend' } }).ok,
     ).toBe(true)
-    const handle = chartToRepresentationHandle({ spec, frozen: null, title: 'Trend' })
-    expect(handle?.config.kind).toBe('chart')
-    expect(validateRepresentationEmbed({
-      kind: 'chart',
-      configVersion: CHART_SPEC_VERSION,
-      config: spec,
-      source: { datasetId: DATASET_ID, versionId: null },
+    const handle = chartToRepresentationHandle({
+      spec,
+      frozen: null,
       title: 'Trend',
-    }).ok).toBe(true)
+    })
+    expect(handle?.config.kind).toBe('chart')
+    expect(
+      validateRepresentationEmbed({
+        kind: 'chart',
+        configVersion: CHART_SPEC_VERSION,
+        config: spec,
+        source: { datasetId: DATASET_ID, versionId: null },
+        title: 'Trend',
+      }).ok,
+    ).toBe(true)
   })
 
   it('embeds plate blocks through validation plus the plate adapter', () => {
     const spec = plateSpec()
     expect(
-      validateBlock({ type: 'plate_map', payload: { spec, title: 'qPCR plate' } }).ok,
+      validateBlock({
+        type: 'plate_map',
+        payload: { spec, title: 'qPCR plate' },
+      }).ok,
     ).toBe(true)
     const handle = plateMapToRepresentationHandle({ spec, title: 'qPCR plate' })
     expect(handle?.config.kind).toBe('plate_map')
@@ -462,7 +476,10 @@ describe('notebook embedding coverage', () => {
     })
     expect(analysis?.config.kind).toBe('analysis')
     expect(analysis?.readOnly).toBe(true)
-    const sheet = sheetToRepresentationHandle({ instanceId: INSTANCE_ID, title: 'Grid' })
+    const sheet = sheetToRepresentationHandle({
+      instanceId: INSTANCE_ID,
+      title: 'Grid',
+    })
     expect(sheet?.config.kind).toBe('sheet')
     expect(sheet?.readOnly).toBe(false)
   })
@@ -479,7 +496,11 @@ describe('notebook embedding coverage', () => {
       facetBy: null,
     }
     expect(validateComparativeViewConfig(config)).toEqual([])
-    const promoted = comparativeViewToRepresentationHandle(config, COLUMNS, 'Compare')
+    const promoted = comparativeViewToRepresentationHandle(
+      config,
+      COLUMNS,
+      'Compare',
+    )
     expect(promoted.config.kind).toBe('chart')
     if (promoted.config.kind !== 'chart') throw new Error('unreachable')
     // The promoted spec passes the canonical validator — the existing chart

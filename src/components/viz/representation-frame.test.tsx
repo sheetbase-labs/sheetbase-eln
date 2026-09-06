@@ -50,7 +50,11 @@ describe('RepresentationFrame', () => {
   it('renders the title, a Live badge and the dataset source badge', () => {
     const handle = createRepresentationHandle({
       source: { datasetId: DATASET_ID, versionId: null },
-      config: { kind: 'chart', configVersion: CHART_SPEC_VERSION, config: chartSpec() },
+      config: {
+        kind: 'chart',
+        configVersion: CHART_SPEC_VERSION,
+        config: chartSpec(),
+      },
       title: 'Assay trend',
     })
     render(
@@ -68,7 +72,11 @@ describe('RepresentationFrame', () => {
   it('renders a Snapshot badge plus the pinned version when frozen', () => {
     const handle = createRepresentationHandle({
       source: { datasetId: DATASET_ID, versionId: VERSION_ID },
-      config: { kind: 'chart', configVersion: CHART_SPEC_VERSION, config: chartSpec() },
+      config: {
+        kind: 'chart',
+        configVersion: CHART_SPEC_VERSION,
+        config: chartSpec(),
+      },
       title: 'Frozen trend',
     })
     render(
@@ -105,7 +113,11 @@ describe('RepresentationFrame', () => {
 
     const chart = createRepresentationHandle({
       source: { datasetId: DATASET_ID, versionId: null },
-      config: { kind: 'chart', configVersion: CHART_SPEC_VERSION, config: chartSpec() },
+      config: {
+        kind: 'chart',
+        configVersion: CHART_SPEC_VERSION,
+        config: chartSpec(),
+      },
       title: 'Trend',
     })
     render(
@@ -119,11 +131,19 @@ describe('RepresentationFrame', () => {
   it('renders the error state instead of children', () => {
     const handle = createRepresentationHandle({
       source: { datasetId: DATASET_ID, versionId: null },
-      config: { kind: 'chart', configVersion: CHART_SPEC_VERSION, config: chartSpec() },
+      config: {
+        kind: 'chart',
+        configVersion: CHART_SPEC_VERSION,
+        config: chartSpec(),
+      },
       title: 'Trend',
     })
     render(
-      <RepresentationFrame title="Trend" handle={handle} error="Source dataset is archived.">
+      <RepresentationFrame
+        title="Trend"
+        handle={handle}
+        error="Source dataset is archived."
+      >
         <p>should be hidden</p>
       </RepresentationFrame>,
     )

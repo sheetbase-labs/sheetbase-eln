@@ -52,6 +52,9 @@ export function sheetVisualisationHandoff(input: {
   }
 }
 
-export function isDurableDatasetField(fieldId: string, localFieldIds: string[]) {
+export function isDurableDatasetField(
+  fieldId: string,
+  localFieldIds: string[],
+) {
   return !localFieldIds.includes(fieldId)
 }

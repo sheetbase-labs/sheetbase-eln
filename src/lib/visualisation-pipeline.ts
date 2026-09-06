@@ -92,7 +92,8 @@ export function rowMatchesFilterSci04(
     case 'in':
       return Array.isArray(filter.value) && filter.value.includes(value)
     case 'between': {
-      if (!Array.isArray(filter.value) || filter.value.length !== 2) return false
+      if (!Array.isArray(filter.value) || filter.value.length !== 2)
+        return false
       if (
         typeof filter.value[0] === 'string' &&
         typeof filter.value[1] === 'string' &&
@@ -274,7 +275,7 @@ function applyFieldTransform(
         return _exhaustive
       }
     }
-  if (value === null || !Number.isFinite(value)) {
+    if (value === null || !Number.isFinite(value)) {
       invalid++
       reasons.push(reasonForInvalidTransform(kind, y, params))
       return { ...row, [fieldId]: null }
@@ -664,9 +665,7 @@ function accSum(sum: number, count: number): number {
   return sum + count
 }
 
-export function sampleSeriesForRender(
-  series: MaterialisedSeries[],
-): {
+export function sampleSeriesForRender(series: MaterialisedSeries[]): {
   series: MaterialisedSeries[]
   sampling: MaterialisedChart['sampling']
 } {

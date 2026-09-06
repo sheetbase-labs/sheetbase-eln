@@ -171,7 +171,9 @@ describe('record summaries', () => {
   it('redacts secret-shaped property keys', async () => {
     const client = mockClient({
       records: [
-        recordWire({ properties: { token: 'super-secret', organism: 'E. coli' } }),
+        recordWire({
+          properties: { token: 'super-secret', organism: 'E. coli' },
+        }),
       ],
     })
     const envelope = await assemble(client, [{ kind: 'record', id: 'rec-1' }])
@@ -325,11 +327,9 @@ describe('budget enforcement', () => {
     const client = mockClient({
       records: [recordWire({ title: 'A very long title '.repeat(50) })],
     })
-    const envelope = await assemble(
-      client,
-      [{ kind: 'record', id: 'rec-1' }],
-      { budgets: { maxCharsPerSection: 120 } },
-    )
+    const envelope = await assemble(client, [{ kind: 'record', id: 'rec-1' }], {
+      budgets: { maxCharsPerSection: 120 },
+    })
     const truncated = envelope.objects[0].sections.filter((s) => s.truncated)
     expect(truncated.length).toBeGreaterThan(0)
     for (const section of truncated) {
@@ -341,11 +341,9 @@ describe('budget enforcement', () => {
 
   it('drops trailing sections over the per-object cap and names them', async () => {
     const client = mockClient({ records: [recordWire()] })
-    const envelope = await assemble(
-      client,
-      [{ kind: 'record', id: 'rec-1' }],
-      { budgets: { maxSectionsPerObject: 1 } },
-    )
+    const envelope = await assemble(client, [{ kind: 'record', id: 'rec-1' }], {
+      budgets: { maxSectionsPerObject: 1 },
+    })
     const object = envelope.objects[0]
     expect(object.truncated).toBe(true)
     const tail = object.sections.at(-1)
@@ -357,11 +355,9 @@ describe('budget enforcement', () => {
 
   it('drops objects over the total budget as explicit omissions', async () => {
     const client = mockClient({ records: [recordWire()] })
-    const envelope = await assemble(
-      client,
-      [{ kind: 'record', id: 'rec-1' }],
-      { budgets: { maxCharsTotal: 10 } },
-    )
+    const envelope = await assemble(client, [{ kind: 'record', id: 'rec-1' }], {
+      budgets: { maxCharsTotal: 10 },
+    })
     expect(envelope.objects).toEqual([])
     expect(envelope.omissions[0]).toMatchObject({
       kind: 'record',
@@ -456,7 +452,7 @@ describe('dataset summaries', () => {
 
   it('withholds live rows for a pinned version and states the pin', async () => {
     const rpc = vi.fn(
-      async <T,>(..._args: unknown[]): Promise<T> =>
+      async <T>(..._args: unknown[]): Promise<T> =>
         ({ rows: [], totalCount: 0 }) as T,
     )
     const base = mockClient(datasetTables())
@@ -590,9 +586,7 @@ describe('sheet and analysis summaries', () => {
         },
       ],
     })
-    const envelope = await assemble(client, [
-      { kind: 'analysis', id: 'def-1' },
-    ])
+    const envelope = await assemble(client, [{ kind: 'analysis', id: 'def-1' }])
     const object = envelope.objects[0]
 
     expect(object.freshness).toBe('live')

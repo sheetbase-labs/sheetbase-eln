@@ -674,9 +674,9 @@ describe('resolveWellSample', () => {
 
   it('maps live observations to honest states', () => {
     const id = assigned().sampleRef!.recordId
-    expect(
-      resolveWellSample(assigned(), { status: 'loading' })?.state,
-    ).toBe('loading')
+    expect(resolveWellSample(assigned(), { status: 'loading' })?.state).toBe(
+      'loading',
+    )
     expect(
       resolveWellSample(assigned(), { status: 'found', archivedAt: null })
         ?.state,
@@ -785,9 +785,7 @@ describe('wellSelectionContext', () => {
     const ctx = wellSelectionContext(specWithWells(), 'A1', new Map())!
     expect(ctx.assigned).toBe(true)
     expect(ctx.well?.role).toBe('sample')
-    expect(ctx.sampleRef?.recordId).toBe(
-      '00000000-0000-4000-8000-000000000999',
-    )
+    expect(ctx.sampleRef?.recordId).toBe('00000000-0000-4000-8000-000000000999')
     expect(ctx.resolution?.snapshotOnly).toBe(true)
   })
 

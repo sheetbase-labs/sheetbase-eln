@@ -16,20 +16,16 @@
  * assistance badge + note (PRODUCT.md:91), grounded facts first, guidance
  * never authoritative.
  */
-import type { AssistExplanation } from './assist-explain'
+import type { AssistExplanation, SheetWriteBackFailure } from './assist-explain'
 import {
   ASSISTANCE_NOTE,
   explainBlockValidation,
   explainSheetWriteBack,
-  type SheetWriteBackFailure,
 } from './assist-explain'
 import { acceptTextDraft } from './assist-drafts'
 import type { BlockValidationError } from './blocks'
 import { promoteToChartSpec } from './comparative-view'
-import {
-  previewSubmissionDigest,
-  submitRecordRevision,
-} from './notebook-data'
+import { previewSubmissionDigest, submitRecordRevision } from './notebook-data'
 import { submissionReadinessChecks } from './notebook-submission'
 import type { SubmissionReadinessInput } from './notebook-submission'
 import { approveReview, requestChangesOnReview } from './review-workspace'
@@ -96,29 +92,32 @@ export interface GuidedWorkflow {
   steps: GuideStep[]
   currentStepId: string | null
   complete: boolean
-  marking: { badge: typeof GUIDE_ASSISTANCE_BADGE; note: typeof ASSISTANCE_NOTE }
+  marking: {
+    badge: typeof GUIDE_ASSISTANCE_BADGE
+    note: typeof ASSISTANCE_NOTE
+  }
 }
 
-interface GuideStepDef<State> {
+interface GuideStepDef<TState> {
   id: string
   title: string
   detail: string
-  objects: (state: State) => GuideObjectContext[]
-  isDone: (state: State) => boolean
+  objects: (state: TState) => GuideObjectContext[]
+  isDone: (state: TState) => boolean
   /** Live-state reason the step cannot advance yet (current step). Null when actionable. */
-  waitingDetail: (state: State) => string | null
-  explanation: (state: State) => AssistExplanation | null
-  nextActions: (state: State) => GuideAction[]
+  waitingDetail: (state: TState) => string | null
+  explanation: (state: TState) => AssistExplanation | null
+  nextActions: (state: TState) => GuideAction[]
 }
 
 const MARKING = { badge: GUIDE_ASSISTANCE_BADGE, note: ASSISTANCE_NOTE }
 
-function evaluate<S>(
+function evaluate<TState>(
   workflowId: GuidedWorkflow['workflowId'],
   title: string,
   description: string,
-  defs: Array<GuideStepDef<S>>,
-  state: S,
+  defs: Array<GuideStepDef<TState>>,
+  state: TState,
 ): GuidedWorkflow {
   const done = defs.map((def) => def.isDone(state))
   const steps: GuideStep[] = defs.map((def, index) => {
@@ -199,7 +198,11 @@ export interface AnalysisToFigureState {
   /** Notebook record the figure embeds into (navigation context). */
   recordId?: string
   /** Live block validation errors on the embed target (ASSIST-01 grounding). */
-  blockErrors?: Array<{ code: BlockValidationError; field?: string; message: string }>
+  blockErrors?: Array<{
+    code: BlockValidationError
+    field?: string
+    message: string
+  }>
   blockType?: string
 }
 
@@ -212,7 +215,9 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
     id: 'dataset-ready',
     title: 'Dataset ready',
     detail: 'The source dataset exposes columns and rows to analyse.',
-    objects: (s) => [{ kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) }],
+    objects: (s) => [
+      { kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) },
+    ],
     isDone: (s) => s.columnCount > 0 && s.rowCount > 0,
     waitingDetail: (s) =>
       s.columnCount <= 0
@@ -234,7 +239,9 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
     id: 'compare-configured',
     title: 'Compare configured',
     detail: 'A valid comparative view selects the value field and groupings.',
-    objects: (s) => [{ kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) }],
+    objects: (s) => [
+      { kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) },
+    ],
     isDone: (s) => s.compareConfigValid,
     waitingDetail: () =>
       'No valid comparative-view config yet — pick a value field and at least one grouping on the compare surface.',
@@ -253,8 +260,11 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
   {
     id: 'chart-proposed',
     title: 'Chart proposed',
-    detail: 'The compare config is promoted to a chart spec through the canonical hand-off.',
-    objects: (s) => [{ kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) }],
+    detail:
+      'The compare config is promoted to a chart spec through the canonical hand-off.',
+    objects: (s) => [
+      { kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) },
+    ],
     isDone: (s) => s.chartSpecReady,
     waitingDetail: () =>
       'No chart spec yet — promote the valid compare config. The proposal is previewed before anything is committed.',
@@ -281,10 +291,17 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
   {
     id: 'figure-embedded',
     title: 'Figure embedded',
-    detail: 'The figure is embedded in the notebook through the canonical block insert.',
+    detail:
+      'The figure is embedded in the notebook through the canonical block insert.',
     objects: (s) =>
       s.recordId
-        ? [{ kind: 'notebook', id: s.recordId, deepLink: `/records/${s.recordId}` }]
+        ? [
+            {
+              kind: 'notebook',
+              id: s.recordId,
+              deepLink: `/records/${s.recordId}`,
+            },
+          ]
         : [{ kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) }],
     isDone: (s) => s.embeddedBlockId !== null,
     waitingDetail: () =>
@@ -322,7 +339,9 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
 ]
 
 /** Evaluate the analysis-to-figure workflow against live canonical state. Pure: returns guidance data only. */
-export function evaluateAnalysisToFigure(state: AnalysisToFigureState): GuidedWorkflow {
+export function evaluateAnalysisToFigure(
+  state: AnalysisToFigureState,
+): GuidedWorkflow {
   return evaluate(
     'analysis-to-figure',
     'Analysis to figure',
@@ -345,7 +364,9 @@ export interface SubmissionReadinessState extends SubmissionReadinessInput {
   sheetFailures?: SheetWriteBackFailure[]
 }
 
-function readinessDetails(state: SubmissionReadinessState): Map<string, { state: string; detail: string }> {
+function readinessDetails(
+  state: SubmissionReadinessState,
+): Map<string, { state: string; detail: string }> {
   const checks = submissionReadinessChecks({
     hasUnsavedWork: state.hasUnsavedWork,
     archivedAt: state.archivedAt,
@@ -356,7 +377,12 @@ function readinessDetails(state: SubmissionReadinessState): Map<string, { state:
     digestPending: state.digestPending,
     digestError: state.digestError,
   })
-  return new Map(checks.map((check) => [check.id, { state: check.state, detail: check.detail }]))
+  return new Map(
+    checks.map((check) => [
+      check.id,
+      { state: check.state, detail: check.detail },
+    ]),
+  )
 }
 
 /**
@@ -377,10 +403,14 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
   {
     id: 'drafts-saved',
     title: 'Drafts saved',
-    detail: 'Every block edit is saved — the server snapshot sees what you see (NOTE-04 readiness).',
-    objects: (s) => [{ kind: 'notebook', id: s.recordId, deepLink: recordLink(s) }],
+    detail:
+      'Every block edit is saved — the server snapshot sees what you see (NOTE-04 readiness).',
+    objects: (s) => [
+      { kind: 'notebook', id: s.recordId, deepLink: recordLink(s) },
+    ],
     isDone: (s) => !s.hasUnsavedWork,
-    waitingDetail: (s) => tracked(readinessDetails(s).get('unsaved-drafts')?.detail),
+    waitingDetail: (s) =>
+      tracked(readinessDetails(s).get('unsaved-drafts')?.detail),
     explanation: () => null,
     nextActions: (s) => [
       {
@@ -396,10 +426,14 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
   {
     id: 'snapshot-verified',
     title: 'Snapshot verified',
-    detail: 'The server digest pins the exact content submission will freeze (evidence preview).',
-    objects: (s) => [{ kind: 'notebook', id: s.recordId, deepLink: recordLink(s) }],
+    detail:
+      'The server digest pins the exact content submission will freeze (evidence preview).',
+    objects: (s) => [
+      { kind: 'notebook', id: s.recordId, deepLink: recordLink(s) },
+    ],
     isDone: (s) => s.digest !== null,
-    waitingDetail: (s) => tracked(readinessDetails(s).get('snapshot-digest')?.detail),
+    waitingDetail: (s) =>
+      tracked(readinessDetails(s).get('snapshot-digest')?.detail),
     explanation: (s) =>
       s.sheetFailures && s.sheetFailures.length > 0
         ? explainSheetWriteBack({ errors: s.sheetFailures })
@@ -426,8 +460,11 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
   {
     id: 'reviewers-assigned',
     title: 'Reviewers assigned',
-    detail: 'At least one workspace reviewer is assigned — the server rejects submissions without one.',
-    objects: (s) => [{ kind: 'notebook', id: s.recordId, deepLink: recordLink(s) }],
+    detail:
+      'At least one workspace reviewer is assigned — the server rejects submissions without one.',
+    objects: (s) => [
+      { kind: 'notebook', id: s.recordId, deepLink: recordLink(s) },
+    ],
     isDone: (s) => s.reviewerCount > 0,
     waitingDetail: (s) => tracked(readinessDetails(s).get('reviewers')?.detail),
     explanation: () => null,
@@ -445,8 +482,11 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
   {
     id: 'submitted',
     title: 'Submitted',
-    detail: 'The verified snapshot is submitted as immutable revision evidence.',
-    objects: (s) => [{ kind: 'notebook', id: s.recordId, deepLink: recordLink(s) }],
+    detail:
+      'The verified snapshot is submitted as immutable revision evidence.',
+    objects: (s) => [
+      { kind: 'notebook', id: s.recordId, deepLink: recordLink(s) },
+    ],
     isDone: (s) => s.submissionId !== null,
     waitingDetail: (s) => {
       const notebookState = readinessDetails(s).get('notebook-state')
@@ -471,7 +511,13 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
     detail: 'An assigned reviewer records a decision on the submission.',
     objects: (s) =>
       s.submissionId
-        ? [{ kind: 'review', id: s.submissionId, deepLink: s.revisionId ? `/reviews/${s.revisionId}` : '/reviews' }]
+        ? [
+            {
+              kind: 'review',
+              id: s.submissionId,
+              deepLink: s.revisionId ? `/reviews/${s.revisionId}` : '/reviews',
+            },
+          ]
         : [{ kind: 'notebook', id: s.recordId, deepLink: recordLink(s) }],
     isDone: (s) => s.decision !== null,
     waitingDetail: () =>
@@ -507,7 +553,9 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
 ]
 
 /** Evaluate the submission-readiness workflow against live canonical state. Pure: returns guidance data only. */
-export function evaluateSubmissionReadiness(state: SubmissionReadinessState): GuidedWorkflow {
+export function evaluateSubmissionReadiness(
+  state: SubmissionReadinessState,
+): GuidedWorkflow {
   return evaluate(
     'submission-readiness',
     'Submission readiness',

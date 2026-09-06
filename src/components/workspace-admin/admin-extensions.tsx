@@ -23,8 +23,8 @@ import {
   describeExtensionCompat,
   isTrustedExtensionSource,
   isUpdateAvailable,
-  type ExtensionCompatState,
 } from '#/lib/extensions/compat'
+import type { ExtensionCompatState } from '#/lib/extensions/compat'
 import {
   describeExtensionsError,
   disableExtension,
@@ -34,14 +34,15 @@ import {
   listExtensions,
   removeExtension,
   updateExtension,
-  type ExtensionWire,
 } from '#/lib/extensions/client'
+import type { ExtensionWire } from '#/lib/extensions/client'
 import {
   describeExtensionHistoryEvent,
   extensionHistoryQueryKeys,
   fetchExtensionHistory,
 } from '#/lib/extensions/history'
-import { validateExtensionManifest, type ExtensionManifest } from '#/lib/extensions/manifest'
+import { validateExtensionManifest } from '#/lib/extensions/manifest'
+import type { ExtensionManifest } from '#/lib/extensions/manifest'
 
 const dataClient = createDataClient()
 
@@ -51,7 +52,10 @@ const statusVariant: Record<string, 'success' | 'warning' | 'outline'> = {
   disabled: 'outline',
 }
 
-const compatVariant: Record<ExtensionCompatState, 'success' | 'warning' | 'danger'> = {
+const compatVariant: Record<
+  ExtensionCompatState,
+  'success' | 'warning' | 'danger'
+> = {
   compatible: 'success',
   unknown: 'warning',
   incompatible: 'danger',
@@ -89,7 +93,9 @@ function formToManifest(form: ManifestForm): {
 } {
   let contributions: unknown = {}
   try {
-    contributions = form.contributions.trim() ? JSON.parse(form.contributions) : {}
+    contributions = form.contributions.trim()
+      ? JSON.parse(form.contributions)
+      : {}
   } catch {
     return { manifest: {}, errors: ['contributions must be valid JSON'] }
   }
@@ -123,9 +129,11 @@ function formForExtension(extension: ExtensionWire): ManifestForm {
     source: extension.source,
     compatibleWith:
       typeof manifest['compatibleWith'] === 'string'
-        ? (manifest['compatibleWith'] as string)
+        ? manifest['compatibleWith']
         : '',
-    capabilities: ((manifest['capabilities'] as string[] | undefined) ?? []).join(', '),
+    capabilities: (
+      (manifest['capabilities'] as string[] | undefined) ?? []
+    ).join(', '),
     scopes: ((manifest['scopes'] as string[] | undefined) ?? []).join(', '),
     contributions: JSON.stringify(manifest['contributions'] ?? {}, null, 2),
     acknowledgeUntrusted: false,
@@ -246,14 +254,17 @@ export function AdminExtensions({
   )
 
   const historyQuery = useQuery({
-    queryKey: expandedId ? extensionHistoryQueryKeys.history(expandedId) : ['extensions', 'history', 'none'],
+    queryKey: expandedId
+      ? extensionHistoryQueryKeys.history(expandedId)
+      : ['extensions', 'history', 'none'],
     queryFn: () => fetchExtensionHistory(dataClient, expandedId!),
     enabled: Boolean(expandedId),
   })
 
   const draft = formToManifest(form)
   const draftSource = form.source.trim()
-  const draftUntrusted = draftSource !== '' && !isTrustedExtensionSource(draftSource)
+  const draftUntrusted =
+    draftSource !== '' && !isTrustedExtensionSource(draftSource)
   const draftManifestForCompat = {
     compatibleWith: form.compatibleWith.trim() || undefined,
   }
@@ -340,9 +351,15 @@ export function AdminExtensions({
               Updating resets {updating.key} to installed and revokes its
               credential. Re-enable after review and re-issue credentials.
               Installed version: {updating.version}
-              {updateVerdict === 'newer' ? ' — the typed version is newer: update available.' : null}
-              {updateVerdict === 'same' ? ' — same version: metadata refresh only.' : null}
-              {updateVerdict === 'older' ? ' — older version: downgrade, proceed only if intended.' : null}
+              {updateVerdict === 'newer'
+                ? ' — the typed version is newer: update available.'
+                : null}
+              {updateVerdict === 'same'
+                ? ' — same version: metadata refresh only.'
+                : null}
+              {updateVerdict === 'older'
+                ? ' — older version: downgrade, proceed only if intended.'
+                : null}
             </p>
           ) : null}
           <div className="grid gap-3 md:grid-cols-3">
@@ -441,8 +458,9 @@ export function AdminExtensions({
               />
               <span>
                 This source is untrusted (only https: sources are trusted).
-                Acknowledge explicitly to {updating ? 'update from' : 'install from'} it —
-                trust is never silent.
+                Acknowledge explicitly to{' '}
+                {updating ? 'update from' : 'install from'} it — trust is never
+                silent.
               </span>
             </label>
           ) : null}
@@ -457,8 +475,8 @@ export function AdminExtensions({
               <span>
                 Incompatible with app version {appVersion ?? 'unknown'}: this
                 manifest declares {form.compatibleWith.trim()}. Acknowledge
-                explicitly to proceed — the install is recorded, never
-                silently broken.
+                explicitly to proceed — the install is recorded, never silently
+                broken.
               </span>
             </label>
           ) : null}
@@ -515,7 +533,7 @@ export function AdminExtensions({
                 {
                   compatibleWith:
                     typeof manifest['compatibleWith'] === 'string'
-                      ? (manifest['compatibleWith'] as string)
+                      ? manifest['compatibleWith']
                       : undefined,
                 },
                 appVersion,
@@ -549,7 +567,9 @@ export function AdminExtensions({
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant[extension.status] ?? 'outline'}>
+                      <Badge
+                        variant={statusVariant[extension.status] ?? 'outline'}
+                      >
                         {extension.status}
                       </Badge>
                     </TableCell>

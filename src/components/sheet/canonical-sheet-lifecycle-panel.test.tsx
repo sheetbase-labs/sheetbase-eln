@@ -11,16 +11,18 @@ import { CanonicalSheetLifecyclePanel } from './canonical-sheet-lifecycle-panel'
 const previewExtraction = vi.fn()
 const extractDraft = vi.fn()
 const fetchPinnedVersion = vi.fn(
-  async (..._args: unknown[]): Promise<{
+  async (
+    ..._args: unknown[]
+  ): Promise<{
     id: string
     definitionId: string
     version: number
   } | null> => null,
 )
 const fetchDefinitionVersions = vi.fn(
-  async (..._args: unknown[]): Promise<
-    Array<{ id: string; version: number; lifecycle: string }>
-  > => [],
+  async (
+    ..._args: unknown[]
+  ): Promise<Array<{ id: string; version: number; lifecycle: string }>> => [],
 )
 vi.mock('#/lib/dataset-explorer-data', () => ({
   fetchDatasetSummaries: vi.fn(async () => []),

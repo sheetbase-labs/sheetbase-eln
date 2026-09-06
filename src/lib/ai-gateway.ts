@@ -47,14 +47,8 @@ import type { AiContextActor, AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
 import { AGENT_OPERATION_TOOL_NAMES } from './agent-tool-catalogue'
 import { logger, redact } from './logger'
-import {
-  MODEL_ERROR_CODES,
-  MODEL_NAMES,
-  metrics,
-  type MetricsRegistry,
-  type ModelErrorCode,
-  type ModelName,
-} from './metrics'
+import { MODEL_ERROR_CODES, MODEL_NAMES, metrics } from './metrics'
+import type { MetricsRegistry, ModelErrorCode, ModelName } from './metrics'
 
 /** Allowlisted models: the gateway rejects anything else fail-closed. */
 export const GATEWAY_MODELS = MODEL_NAMES
@@ -73,7 +67,11 @@ export type GatewayErrorCode = ModelErrorCode
 
 export class ModelGatewayError extends Error {
   readonly code: GatewayErrorCode
-  constructor(code: GatewayErrorCode, message: string, options?: { cause?: unknown }) {
+  constructor(
+    code: GatewayErrorCode,
+    message: string,
+    options?: { cause?: unknown },
+  ) {
     super(message, options)
     this.name = 'ModelGatewayError'
     this.code = code
@@ -97,7 +95,7 @@ export interface ModelResponse {
 
 export interface ModelProvider {
   readonly name: string
-  complete(request: ModelRequest): Promise<ModelResponse>
+  complete: (request: ModelRequest) => Promise<ModelResponse>
 }
 
 /**
@@ -243,7 +241,9 @@ export function buildGatewayPrompt(
     `workspace: ${envelope.workspace.id}`,
   ]
   for (const object of envelope.objects) {
-    lines.push(`## [${object.kind}:${object.id}] ${object.title} (${object.freshness})`)
+    lines.push(
+      `## [${object.kind}:${object.id}] ${object.title} (${object.freshness})`,
+    )
     for (const section of object.sections) {
       lines.push(`### ${section.heading}`)
       lines.push(section.body)
@@ -286,16 +286,31 @@ export async function callModel(
   const registry = deps.registry ?? metrics
   const citations = input.citations ?? []
 
-  if (!actor.kind || !actor.id) {
-    throw new ModelGatewayError('actor_mismatch', 'callModel requires a concrete actor')
+  if (!actor.id) {
+    throw new ModelGatewayError(
+      'actor_mismatch',
+      'callModel requires a concrete actor',
+    )
   }
   if (!isGatewayModel(input.model)) {
-    reject(registry, input.model, 'model_not_allowed', `model '${input.model}' is not allowlisted`, actor)
+    reject(
+      registry,
+      input.model,
+      'model_not_allowed',
+      `model '${input.model}' is not allowlisted`,
+      actor,
+    )
   }
   const model = input.model
   for (const tool of input.tools) {
     if (!isGatewayTool(tool)) {
-      reject(registry, model, 'tool_not_allowed', `tool '${tool}' is not allowlisted`, actor)
+      reject(
+        registry,
+        model,
+        'tool_not_allowed',
+        `tool '${tool}' is not allowlisted`,
+        actor,
+      )
     }
   }
   const envelope = input.contextEnvelope
@@ -315,10 +330,22 @@ export async function callModel(
   const estimatedCostMicrousd =
     estimatedTokens * MODEL_MICROUSD_PER_TOKEN[model]
   if (usedTokens + estimatedTokens > input.limits.maxTokens) {
-    reject(registry, model, 'budget_exhausted', 'estimated tokens exceed the call token budget', actor)
+    reject(
+      registry,
+      model,
+      'budget_exhausted',
+      'estimated tokens exceed the call token budget',
+      actor,
+    )
   }
   if (usedCostMicrousd + estimatedCostMicrousd > input.limits.maxCostMicrousd) {
-    reject(registry, model, 'budget_exhausted', 'estimated cost exceeds the call cost budget', actor)
+    reject(
+      registry,
+      model,
+      'budget_exhausted',
+      'estimated cost exceeds the call cost budget',
+      actor,
+    )
   }
 
   const prompt = buildGatewayPrompt(envelope, citations)
@@ -352,8 +379,13 @@ export async function callModel(
   } catch (cause) {
     registry.modelCalls.inc({ model, outcome: 'error' })
     registry.modelErrors.inc({ model, code: 'provider_error' })
-    logger.warn('ai.gateway.rejected', redact({ code: 'provider_error', model, promptHash }))
-    throw new ModelGatewayError('provider_error', 'model provider failed', { cause })
+    logger.warn(
+      'ai.gateway.rejected',
+      redact({ code: 'provider_error', model, promptHash }),
+    )
+    throw new ModelGatewayError('provider_error', 'model provider failed', {
+      cause,
+    })
   }
   const latencyMs = Date.now() - startedAt
   registry.modelDuration.observe({ model }, latencyMs / 1000)
@@ -365,8 +397,14 @@ export async function callModel(
   ) {
     registry.modelCalls.inc({ model, outcome: 'rejected' })
     registry.modelErrors.inc({ model, code: 'budget_exhausted' })
-    logger.warn('ai.gateway.rejected', redact({ code: 'budget_exhausted', model, promptHash }))
-    throw new ModelGatewayError('budget_exhausted', 'actual provider usage exceeded the call budget')
+    logger.warn(
+      'ai.gateway.rejected',
+      redact({ code: 'budget_exhausted', model, promptHash }),
+    )
+    throw new ModelGatewayError(
+      'budget_exhausted',
+      'actual provider usage exceeded the call budget',
+    )
   }
 
   registry.modelCalls.inc({ model, outcome: 'ok' })

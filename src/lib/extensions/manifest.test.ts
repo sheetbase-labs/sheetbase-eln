@@ -85,22 +85,27 @@ describe('extension manifest validation', () => {
         compatibleWith: 'banana',
       }),
     ).not.toEqual([])
-    expect(parseExtensionManifest(validManifestInput()).compatibleWith).toBeUndefined()
+    expect(
+      parseExtensionManifest(validManifestInput()).compatibleWith,
+    ).toBeUndefined()
   })
-
 
   it('rejects unknown contribution points fail-closed', () => {
     const errors = validateExtensionManifest({
       ...validManifestInput(),
       contributions: { widgets: [{ id: 'x', title: 'X' }] },
     })
-    expect(errors.some((error) => error.includes('unknown contribution point: widgets'))).toBe(
-      true,
-    )
-    expect(() => parseExtensionManifest({
-      ...validManifestInput(),
-      contributions: { widgets: [{ id: 'x', title: 'X' }] },
-    })).toThrow(ExtensionManifestError)
+    expect(
+      errors.some((error) =>
+        error.includes('unknown contribution point: widgets'),
+      ),
+    ).toBe(true)
+    expect(() =>
+      parseExtensionManifest({
+        ...validManifestInput(),
+        contributions: { widgets: [{ id: 'x', title: 'X' }] },
+      }),
+    ).toThrow(ExtensionManifestError)
   })
 
   it('rejects unknown capabilities, scopes and event subscriptions', () => {
@@ -128,13 +133,22 @@ describe('extension manifest validation', () => {
 
   it('rejects malformed identity, empty authority and bad declarations', () => {
     expect(
-      validateExtensionManifest({ ...validManifestInput(), id: 'not namespaced!' }),
+      validateExtensionManifest({
+        ...validManifestInput(),
+        id: 'not namespaced!',
+      }),
     ).not.toEqual([])
     expect(
-      validateExtensionManifest({ ...validManifestInput(), version: 'tomorrow' }),
+      validateExtensionManifest({
+        ...validManifestInput(),
+        version: 'tomorrow',
+      }),
     ).not.toEqual([])
     expect(
-      validateExtensionManifest({ ...validManifestInput(), source: 'ftp://x/y' }),
+      validateExtensionManifest({
+        ...validManifestInput(),
+        source: 'ftp://x/y',
+      }),
     ).not.toEqual([])
     expect(
       validateExtensionManifest({
@@ -167,7 +181,11 @@ describe('extension manifest validation', () => {
 
 describe('extension capability mapping', () => {
   const manifest = {
-    capabilities: ['record.create', 'schema.edit', 'extensions.manage'] as const,
+    capabilities: [
+      'record.create',
+      'schema.edit',
+      'extensions.manage',
+    ] as const,
   } as unknown as Parameters<typeof effectiveExtensionCapabilities>[0]
 
   it('intersects declared capabilities with the caller role', () => {

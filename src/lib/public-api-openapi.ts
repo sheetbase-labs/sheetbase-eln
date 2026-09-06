@@ -30,7 +30,8 @@ import {
   tableSchemaName,
 } from '#/lib/public-api-table-schemas'
 
-export const OPENAPI_SPEC_PATH = 'docs/api/openapi/external-api-v0.json' as const
+export const OPENAPI_SPEC_PATH =
+  'docs/api/openapi/external-api-v0.json' as const
 
 export const HUMAN_SESSION_ONLY_RPCS = [
   'submit_record_revision',

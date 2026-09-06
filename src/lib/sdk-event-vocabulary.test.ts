@@ -36,10 +36,7 @@ describe('catalogue == SDK vocabulary', () => {
 
   it('Python SDK mirrors every canonical catalogue name and alias', () => {
     const source = readFileSync(
-      resolve(
-        process.cwd(),
-        'sdks/python/src/sheetbase/resources/events.py',
-      ),
+      resolve(process.cwd(), 'sdks/python/src/sheetbase/resources/events.py'),
       'utf8',
     )
     for (const name of EVENT_NAMES) {
@@ -56,9 +53,7 @@ describe('catalogue == SDK vocabulary', () => {
 
   it('SDK alias resolution agrees with the catalogue', () => {
     expect(sdkResolveEventAlias('sheet_instance.updated')).toBe('sheet.updated')
-    expect(sdkResolveEventAlias('dataset.versioned')).toBe(
-      'dataset.versioned',
-    )
+    expect(sdkResolveEventAlias('dataset.versioned')).toBe('dataset.versioned')
   })
 })
 

@@ -39,9 +39,7 @@ import {
 } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
-import {
-  listCanonicalDatasetSchemaVersionFields,
-} from '#/lib/dataset-schema-definition-rpc'
+import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
 import type { ImportTargetField } from '#/lib/import-mapping'
 import { mapImportSheet, suggestImportMappings } from '#/lib/import-mapping'
 import { describeConnectorsError } from '#/lib/connectors/client'
@@ -301,7 +299,10 @@ export function IngestPanel({
           >
             <option value="">Select a published Schema…</option>
             {(schemasQuery.data ?? []).map((option) => (
-              <option key={option.schemaVersionId} value={option.schemaVersionId}>
+              <option
+                key={option.schemaVersionId}
+                value={option.schemaVersionId}
+              >
                 {option.name} v{option.version}
               </option>
             ))}
@@ -359,7 +360,10 @@ export function IngestPanel({
         {mutation.data && (
           <Alert variant="info">
             <AlertTitle>
-              Run {mutation.data.alreadyCompleted ? 'already completed' : 'succeeded'}
+              Run{' '}
+              {mutation.data.alreadyCompleted
+                ? 'already completed'
+                : 'succeeded'}
             </AlertTitle>
             <AlertDescription>
               {mutation.data.rowCount} rows landed in the target Dataset via{' '}

@@ -21,6 +21,7 @@ import {
 } from './app-shell'
 import type { AppShellNavItem } from './app-shell'
 import type { FavouriteItem } from '#/lib/favourites'
+import { notebookDataClient } from '#/lib/notebook-data'
 
 // Stub auth-client so signOut never hits the network.
 vi.mock('#/lib/auth-client', () => ({
@@ -53,10 +54,12 @@ vi.mock('#/components/theme-provider', () => ({
 }))
 
 // Stub the router hooks/Link the shell uses so no route tree is required.
+// navigateMock is hoisted so keyboard/palette tests can assert destinations.
+const navigateMock = vi.hoisted(() => vi.fn())
 let currentPathname = '/projects'
 vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ invalidate: vi.fn() }),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateMock,
   useRouterState: ({
     select,
   }: {
@@ -77,6 +80,7 @@ afterEach(() => {
   cleanup()
   localStorage.clear()
   currentPathname = '/projects'
+  navigateMock.mockReset()
   fetchFavouriteItemsMock.mockReset()
   fetchFavouriteItemsMock.mockImplementation(() => Promise.resolve([]))
 })
@@ -378,6 +382,197 @@ describe('AppShell', () => {
       screen.getByRole('button', { name: 'Account: Gareth Price' }),
     ).toBeTruthy()
     expect(screen.getByText('OXB Labs')).toBeTruthy()
+  })
+
+  it.each([
+    ['h', '/'],
+    ['p', '/projects'],
+    ['d', '/datasets'],
+    ['s', '/sheets'],
+    ['t', '/templates'],
+    ['a', '/samples'],
+    ['r', '/reagents'],
+  ])('navigates on the g-then-%s sequence (NAV-03)', async (letter, to) => {
+    const { user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      children: null,
+    })
+    await user.keyboard('g')
+    await user.keyboard(letter)
+    expect(navigateMock).toHaveBeenCalledWith({ to })
+  })
+
+  it('ignores unknown g-sequence second keys and lone letters', async () => {
+    const { user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      children: null,
+    })
+    await user.keyboard('g')
+    await user.keyboard('x')
+    expect(navigateMock).not.toHaveBeenCalled()
+    // The pending `g` is consumed — a later letter alone does nothing.
+    await user.keyboard('p')
+    expect(navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('does not fire g-sequences while typing in editable targets', async () => {
+    const { user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      children: <input aria-label="note-input" />,
+    })
+    await user.click(screen.getByRole('textbox', { name: 'note-input' }))
+    await user.keyboard('g')
+    await user.keyboard('p')
+    expect(navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('lists projects in the palette and navigating closes it (NAV-03)', async () => {
+    const listSpy = vi
+      .spyOn(notebookDataClient, 'list')
+      .mockResolvedValue([
+        {
+          id: 'p-1',
+          workspace_id: 'w-1',
+          key: 'LV-1',
+          title: 'Stability study',
+          status: 'active',
+          created_at: '2026-08-01T00:00:00Z',
+          updated_at: '2026-08-01T00:00:00Z',
+          archived_at: null,
+        },
+      ])
+    try {
+      const { user } = renderShell({
+        context: baseContext,
+        breadcrumbs: [{ label: 'Home' }],
+        children: null,
+      })
+      await user.keyboard('{Meta>}k{/Meta}')
+      const dialog = screen.getByRole('dialog', { name: 'Command palette' })
+      await waitFor(() => {
+        expect(dialog.textContent).toContain('Projects')
+      })
+      expect(dialog.textContent).toContain('Stability study')
+      await user.click(screen.getByRole('option', { name: /Stability study/ }))
+      expect(navigateMock).toHaveBeenCalledWith({ to: '/projects/p-1' })
+      await waitFor(() => {
+        expect(
+          screen.queryByRole('dialog', { name: 'Command palette' }),
+        ).toBeNull()
+      })
+    } finally {
+      listSpy.mockRestore()
+    }
+  })
+
+  it('omits the projects group when loading fails (NAV-03)', async () => {
+    const listSpy = vi
+      .spyOn(notebookDataClient, 'list')
+      .mockRejectedValue(new Error('offline'))
+    try {
+      const { user } = renderShell({
+        context: baseContext,
+        breadcrumbs: [{ label: 'Home' }],
+        children: null,
+      })
+      await user.keyboard('{Meta>}k{/Meta}')
+      const dialog = screen.getByRole('dialog', { name: 'Command palette' })
+      // Both palette queries fire; the projects one rejects and must
+      // degrade to "group absent" once it settles.
+      await waitFor(() => {
+        expect(listSpy).toHaveBeenCalled()
+      })
+      await waitFor(() => {
+        expect(fetchFavouriteItemsMock).toHaveBeenCalled()
+      })
+      expect(dialog.textContent).not.toContain('Stability study')
+      // No error UI leaks into the palette surface.
+      expect(dialog.textContent).not.toMatch(/offline|error/i)
+    } finally {
+      listSpy.mockRestore()
+    }
+  })
+
+  it('documents the g-sequences in the palette footer (NAV-03)', async () => {
+    const { user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      children: null,
+    })
+    await user.keyboard('{Meta>}k{/Meta}')
+    const dialog = screen.getByRole('dialog', { name: 'Command palette' })
+    for (const hint of [
+      'g h Home',
+      'g p Projects',
+      'g d Datasets',
+      'g s Sheets',
+      'g t Templates',
+      'g a Samples',
+      'g r Reagents',
+    ]) {
+      expect(dialog.textContent).toContain(hint)
+    }
+  })
+
+  it('returns focus to the trigger after the palette closes (NAV-03)', async () => {
+    const { user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      children: null,
+    })
+    const trigger = screen.getByRole('button', {
+      name: 'Search records and samples',
+    })
+    await user.click(trigger)
+    expect(
+      screen.getByRole('dialog', { name: 'Command palette' }),
+    ).toBeTruthy()
+    await user.keyboard('{Escape}')
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: 'Command palette' }),
+      ).toBeNull()
+    })
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('renders the same enabled destinations in the drawer and sidebar (NAV-03)', async () => {
+    const items: AppShellNavItem[] = [
+      { to: '/', label: 'Home', icon: Home },
+      { to: '/projects', label: 'Projects', icon: Folder },
+      { to: '/tasks', label: 'Tasks', icon: ListTodo, disabled: true },
+    ]
+    const { container, user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      navSections: [{ label: 'Workspace', items }],
+      children: null,
+    })
+    const desktopHrefs = [
+      ...container
+        .querySelector('[data-slot="sidebar"] nav[aria-label="Primary"]')!
+        .querySelectorAll('a'),
+    ].map((a) => a.getAttribute('href'))
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
+    const drawer = screen.getByRole('dialog', { name: 'Navigation' })
+    const drawerPrimary = within(drawer).getByRole('navigation', {
+      name: 'Primary',
+    })
+    const drawerHrefs = within(drawerPrimary)
+      .getAllByRole('link')
+      .map((a) => a.getAttribute('href'))
+    // Same enabled destinations, no separate drawer semantics: disabled
+    // placeholders stay out of both link sets.
+    expect(drawerHrefs.sort()).toEqual([...desktopHrefs].sort())
+    expect(drawerHrefs).toContain('/')
+    expect(drawerHrefs).toContain('/projects')
+    // Disabled placeholders are text, not links, on both surfaces.
+    expect(
+      within(drawerPrimary).queryByRole('link', { name: 'Tasks' }),
+    ).toBeNull()
   })
 })
 

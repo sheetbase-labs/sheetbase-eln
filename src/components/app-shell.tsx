@@ -48,7 +48,9 @@ import {
   FAVOURITES_LIMIT,
 } from '#/lib/favourites'
 import type { FavouriteItem } from '#/lib/favourites'
-import { notebookDataClient } from '#/lib/notebook-data'
+import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
+import type { ProjectWire } from '#/lib/notebook-data'
+import { projectPath } from '#/lib/navigation'
 import { cn } from '#/lib/utils'
 import { useTheme } from '#/components/theme-provider'
 import { ConnectionStatus, useLiveStatus } from '#/components/live'
@@ -103,6 +105,42 @@ import {
 const COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
 const INSPECTOR_COLLAPSE_KEY = 'sheetbase-inspector-collapsed'
 
+// NAV-03: `g`-then-letter keyboard navigation. The second key must land
+// within the window after `g`; anything else consumes the pending `g`.
+const G_SEQUENCE_WINDOW_MS = 800
+const G_SEQUENCE_DESTINATIONS: Record<string, string> = {
+  h: '/',
+  p: '/projects',
+  d: '/datasets',
+  s: '/sheets',
+  t: '/templates',
+  a: '/samples',
+  r: '/reagents',
+}
+
+/**
+ * NAV-03: restore focus to the element that was focused before an overlay
+ * opened. Call the returned `capture` synchronously from the open trigger
+ * (click/keydown handler, before the overlay steals focus); when `open`
+ * flips back to false the captured element is re-focused if still mounted.
+ */
+function useFocusRestore(open: boolean): () => void {
+  const triggerRef = React.useRef<HTMLElement | null>(null)
+  const capture = React.useCallback(() => {
+    triggerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+  }, [])
+  React.useEffect(() => {
+    if (!open) {
+      const el = triggerRef.current
+      triggerRef.current = null
+      if (el && document.contains(el)) el.focus()
+    }
+  }, [open])
+  return capture
+}
 export const APP_SHELL_MAIN_ID = 'app-shell-main'
 export const APP_SHELL_NAV_ID = 'app-shell-nav'
 
@@ -450,6 +488,20 @@ export function AppShell({
   const [inspectorOpen, setInspectorOpen] = React.useState(false)
   const [inspectorCollapsed, setInspectorCollapsed] = React.useState(false)
 
+  // NAV-03: return focus to the trigger when the palette Dialog or the
+  // mobile navigation Sheet closes (both open under state control, not via
+  // a Radix Trigger, so Radix has no trigger to restore to).
+  const capturePaletteFocus = useFocusRestore(commandOpen)
+  const captureMobileFocus = useFocusRestore(mobileOpen)
+
+  const navigate = useNavigate()
+  const openPalette = React.useCallback(() => {
+    capturePaletteFocus()
+    setCommandOpen(true)
+  }, [capturePaletteFocus])
+  // NAV-03: timestamp of the last standalone `g` keypress for sequences.
+  const gPressedAt = React.useRef(0)
+
   React.useEffect(() => {
     try {
       setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1')
@@ -495,12 +547,41 @@ export function AppShell({
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        setCommandOpen(true)
+        openPalette()
+        return
+      }
+      // NAV-03: `g`-then-letter keyboard navigation. Skipped inside
+      // editable targets and with modifiers held so typing is unaffected.
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+      const key = event.key.toLowerCase()
+      const now = Date.now()
+      if (key === 'g') {
+        gPressedAt.current = now
+        return
+      }
+      if (gPressedAt.current !== 0 && now - gPressedAt.current <= G_SEQUENCE_WINDOW_MS) {
+        gPressedAt.current = 0
+        const to = G_SEQUENCE_DESTINATIONS[key]
+        if (to !== undefined) {
+          event.preventDefault()
+          void navigate({ to })
+        }
+        // Unknown second keys are ignored — the pending `g` is consumed.
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [navigate, openPalette])
 
   const signOut = React.useCallback(async () => {
     await authClient.signOut()
@@ -751,7 +832,10 @@ export function AppShell({
                 size="icon-sm"
                 className="md:hidden"
                 aria-label="Open navigation"
-                onClick={() => setMobileOpen(true)}
+                onClick={() => {
+                  captureMobileFocus()
+                  setMobileOpen(true)
+                }}
               >
                 <Menu />
               </Button>
@@ -834,7 +918,7 @@ export function AppShell({
                 <NotificationInbox />
                 <button
                   type="button"
-                  onClick={() => setCommandOpen(true)}
+                  onClick={openPalette}
                   className="hidden h-8 w-56 items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-muted/50 sm:flex"
                   aria-label="Search records and samples"
                 >
@@ -849,7 +933,7 @@ export function AppShell({
                   size="icon-sm"
                   className="sm:hidden"
                   aria-label="Search"
-                  onClick={() => setCommandOpen(true)}
+                  onClick={openPalette}
                 >
                   <Search />
                 </Button>
@@ -1127,6 +1211,7 @@ function CommandPalette({
               )
             })}
             <FavouritesCommandGroup onSelect={go} />
+            <ProjectsCommandGroup open={open} onSelect={go} />
             <CommandGroup heading="Actions">
               <CommandItem
                 onSelect={() => {
@@ -1161,6 +1246,16 @@ function CommandPalette({
               </CommandItem>
             </CommandGroup>
           </CommandList>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium">Go to:</span>
+            <span>g h Home</span>
+            <span>g p Projects</span>
+            <span>g d Datasets</span>
+            <span>g s Sheets</span>
+            <span>g t Templates</span>
+            <span>g a Samples</span>
+            <span>g r Reagents</span>
+          </div>
         </Command>
       </DialogContent>
     </Dialog>
@@ -1226,6 +1321,56 @@ function FavouritesCommandGroup({ onSelect }: { onSelect: (to: string) => void }
           </CommandItem>
         )
       })}
+    </CommandGroup>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Projects (NAV-03) in the command palette.
+//
+// Compact project switcher: up to 10 projects via the shared
+// `notebookQueryKeys.projectsList()` key (same collection the workspace
+// views list — no new fetch layer), mounted inside the palette Dialog and
+// enabled only while it is open. Loading and failure render no group,
+// never an error UI — the same degradation pattern as Favourites above.
+// Selecting a project navigates to its canonical `projectPath` and closes
+// the palette.
+// ---------------------------------------------------------------------------
+
+const PROJECTS_COMMAND_LIMIT = 10
+
+function ProjectsCommandGroup({
+  open,
+  onSelect,
+}: {
+  open: boolean
+  onSelect: (to: string) => void
+}) {
+  const projectsQuery = useQuery({
+    queryKey: notebookQueryKeys.projectsList(),
+    queryFn: () =>
+      notebookDataClient.list<ProjectWire>('projects', '?order=title.asc'),
+    enabled: open,
+    staleTime: 30_000,
+    retry: false,
+  })
+  const projects = (projectsQuery.data ?? []).slice(0, PROJECTS_COMMAND_LIMIT)
+  if (projects.length === 0) return null
+  return (
+    <CommandGroup heading="Projects">
+      {projects.map((project) => (
+        <CommandItem
+          key={project.id}
+          value={`${project.title} ${project.key} project`}
+          onSelect={() => onSelect(projectPath(project.id))}
+        >
+          <FolderOpen className="size-4" />
+          <span className="flex-1 truncate">{project.title}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {project.key}
+          </span>
+        </CommandItem>
+      ))}
     </CommandGroup>
   )
 }

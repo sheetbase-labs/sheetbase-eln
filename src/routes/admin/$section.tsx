@@ -1,21 +1,21 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-const sections = new Set([
-  'dashboard',
-  'users',
-  'project-access',
-  'settings',
-  'sessions',
-  'api-credentials',
-  'connectors',
-  'pipelines',
-  'extensions',
-  'storage',
-  'usage',
-  'activity',
-  'diagnostics',
-  'deployment',
-])
+export const adminSectionKeys: Record<string, true> = {
+  dashboard: true,
+  users: true,
+  'project-access': true,
+  settings: true,
+  sessions: true,
+  'api-credentials': true,
+  connectors: true,
+  pipelines: true,
+  extensions: true,
+  storage: true,
+  usage: true,
+  activity: true,
+  diagnostics: true,
+  deployment: true,
+}
 
 export const Route = createFileRoute('/admin/$section')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -32,7 +32,7 @@ export const Route = createFileRoute('/admin/$section')({
         },
       })
     }
-    if (!sections.has(params.section)) {
+    if (!adminSectionKeys[params.section]) {
       throw redirect({
         to: '/admin/$section',
         params: { section: 'dashboard' },

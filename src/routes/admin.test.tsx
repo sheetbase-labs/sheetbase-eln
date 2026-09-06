@@ -3,12 +3,14 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ShellProvider } from '#/components/app-shell'
-import { Route } from './admin'
+
+import { CAPABILITIES, hasCapability } from '#/lib/capability'
+import { ADMIN_SECTIONS, Route } from './admin'
+import { adminSectionKeys, Route as SectionRoute } from './admin/$section'
 
 const AdminRoute = Route.options.component as React.ComponentType
 let pathname = '/admin/dashboard'
 const navigate = vi.fn()
-
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useRouteContext: () => ({
@@ -265,25 +267,84 @@ describe('AdminRoute', () => {
       'API',
       'Connectors',
       'Pipelines',
+      'Extensions',
       'Storage',
       'Usage',
       'Audit',
       'Diagnostics',
       'Deploy',
-      'Settings',
+      'Workspace',
     ]) {
       expect(screen.getByRole('link', { name: label })).toBeTruthy()
     }
     expect(screen.queryByRole('link', { name: 'Model fields' })).toBeNull()
   })
-
   it('does not mention scientific models in the header copy', () => {
     render(
       <ShellProvider>
         <AdminRoute />
       </ShellProvider>,
     )
-    expect(screen.getByText(/Administer workspace access/)).toBeTruthy()
+    expect(screen.queryByText(/Administer workspace access/)).toBeNull()
+    expect(
+      screen.getByText(/Security and platform operations/),
+    ).toBeTruthy()
     expect(screen.queryByText(/scientific models/i)).toBeNull()
+  })
+
+  it('states the steward and personal-token planes in the header', () => {
+    render(
+      <ShellProvider>
+        <AdminRoute />
+      </ShellProvider>,
+    )
+    expect(screen.getByRole('link', { name: 'Configuration' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeTruthy()
+  })
+})
+
+describe('Admin IA gating contract', () => {
+  it('keeps the route gate keys in sync with the section definitions', () => {
+    expect(SectionRoute).toBeTruthy()
+    expect(new Set(Object.keys(adminSectionKeys))).toEqual(
+      new Set(ADMIN_SECTIONS.map((section) => section.key)),
+    )
+  })
+
+  it('applies one capability contract to nav visibility and section access', () => {
+    for (const section of ADMIN_SECTIONS) {
+      if (section.capability !== null) {
+        expect(CAPABILITIES as readonly string[]).toContain(section.capability)
+      }
+    }
+    for (const role of ['owner', 'admin', 'steward', 'member', 'viewer']) {
+      // The shell derives both the nav filter and the denied notice from
+      // `section.capability` via `hasCapability`, so the visible set and the
+      // reachable set coincide by construction: no section is
+      // visible-but-blocked or hidden-but-reachable.
+      const visible = ADMIN_SECTIONS.filter(
+        (section) =>
+          !section.capability || hasCapability(role, section.capability),
+      ).map((section) => section.key)
+      const denied = ADMIN_SECTIONS.filter(
+        (section) =>
+          section.capability && !hasCapability(role, section.capability),
+      ).map((section) => section.key)
+      expect(denied.every((key) => !visible.includes(key))).toBe(true)
+      if (role === 'owner') {
+        expect(visible).toHaveLength(ADMIN_SECTIONS.length)
+        expect(denied).toHaveLength(0)
+      }
+      if (role === 'viewer') {
+        expect(visible).toEqual([
+          'dashboard',
+          'storage',
+          'usage',
+          'activity',
+          'diagnostics',
+          'deployment',
+        ])
+      }
+    }
   })
 })

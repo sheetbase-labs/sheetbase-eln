@@ -71,6 +71,14 @@ export function AdminApiCredentials({
   return (
     <div className="space-y-6">
       <p className="max-w-3xl text-sm text-muted-foreground">
+        Workspace service credentials for external automation. Each member's
+        personal API tokens live in{' '}
+        <a href="/settings" className="font-medium text-primary hover:underline">
+          Settings
+        </a>
+        .
+      </p>
+      <p className="max-w-3xl text-sm text-muted-foreground">
         External automation exchanges a credential for a short-lived token at{' '}
         <code>POST /api/token</code>. The full secret is shown once. Canonical
         Core-domain scopes are enforced on Dataset and Sheet Instance operations

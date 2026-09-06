@@ -660,6 +660,7 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
         level: 'warning',
         category: 'stale_runs',
         message: `${staleRunning} run${staleRunning === 1 ? '' : 's'} have been running longer than 15 minutes.`,
+        link: '/admin/pipelines',
       })
     }
     if (missingSecrets > 0) {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { KeyRound } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
@@ -97,7 +97,16 @@ function SettingsRoute() {
         </h2>
         <p className="text-sm text-muted-foreground">
           Personal API tokens act as you. Workspace service credentials are
-          managed by owners in Administration.
+          managed by owners in{' '}
+          <Link
+            to="/admin/$section"
+            params={{ section: 'api-credentials' }}
+            search={{ model: undefined }}
+            className="font-medium text-primary hover:underline"
+          >
+            Administration
+          </Link>
+          .
         </p>
       </div>
 

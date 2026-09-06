@@ -7,6 +7,7 @@ import {
   ScatterChart,
   Trash2,
 } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
@@ -27,6 +28,11 @@ import {
 } from '#/lib/chart-spec'
 import type { ChartAnnotation, ChartSpec, FieldBinding } from '#/lib/chart-spec'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import {
+  proposeChartSpec,
+} from '#/lib/assist-drafts'
+import type { AssistChartProposal } from '#/lib/assist-drafts'
+import { DraftProposalPanel } from '#/components/assist/draft-proposal-panel'
 
 export interface ChartConfiguratorProps {
   source: CanonicalDatasetSource
@@ -65,6 +71,29 @@ export function ChartConfigurator({
   const normaliseTransform = spec.transformations.find(
     (transformation) => transformation.kind === 'normalise',
   )
+  // ASSIST-02: deterministic chart-config proposal from the current
+  // dataset/fields. Previewed in DraftProposalPanel; Accept loads the spec
+  // through the ordinary onSpecChange; Discard leaves zero state.
+  const [chartProposal, setChartProposal] =
+    useState<AssistChartProposal | null>(null)
+  const [proposalStatus, setProposalStatus] = useState('')
+
+  function proposeFromDataset() {
+    const proposal = proposeChartSpec({
+      datasetId: source.datasetId,
+      fields: source.columns.map((column) => ({
+        fieldId: column.id,
+        label: column.label,
+        logicalType: column.logicalType,
+      })),
+    })
+    setChartProposal(proposal)
+    setProposalStatus(
+      proposal
+        ? ''
+        : 'No suggestion available for these fields — configure the chart by hand.',
+    )
+  }
 
   function update(patch: Partial<ChartSpec>) {
     onSpecChange({ ...spec, ...patch })
@@ -329,6 +358,29 @@ export function ChartConfigurator({
       <h2 id={`${idPrefix}-controls-title`} className="sr-only">
         Chart configuration
       </h2>
+      <div className="flex flex-wrap items-center gap-2" data-print-hide>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={proposeFromDataset}
+        >
+          Propose chart
+        </Button>
+        {proposalStatus ? (
+          <p className="text-xs text-muted-foreground">{proposalStatus}</p>
+        ) : null}
+      </div>
+      {chartProposal ? (
+        <DraftProposalPanel
+          proposal={chartProposal}
+          onAccept={() => {
+            onSpecChange(chartProposal.spec)
+            setChartProposal(null)
+          }}
+          onDiscard={() => setChartProposal(null)}
+        />
+      ) : null}
       <FieldGroup
         className={
           layout === 'rail'

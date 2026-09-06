@@ -160,3 +160,59 @@ describe('ImportWizard', () => {
     expect(onDone).toHaveBeenCalled()
   })
 })
+
+describe('ImportWizard suggested mapping (ASSIST-02)', () => {
+  function renderWizard() {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ImportWizard
+          open
+          onOpenChange={() => {}}
+          client={{ rpc: vi.fn() } as unknown as DataClient}
+          mode={{ kind: 'dataset', table }}
+          onDone={() => {}}
+        />
+      </QueryClientProvider>,
+    )
+  }
+
+  async function previewCloseMatchPaste() {
+    const user = userEvent.setup()
+    renderWizard()
+    await user.click(screen.getByRole('tab', { name: 'Paste' }))
+    // 'sampleid' has no exact target: the kernel leaves it ignored, while
+    // the suggester offers a close match with a reason.
+    await user.type(screen.getByLabelText('Import paste'), 'sampleid,pH{enter}A,7.4')
+    await user.click(screen.getByRole('button', { name: 'Preview paste' }))
+    expect(await screen.findByText('A')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Suggest mapping' }))
+    expect(
+      await screen.findByRole('note', { name: 'Generated draft' }),
+    ).toBeTruthy()
+    return user
+  }
+
+  it('previews confidence per column and applies the suggestion on Accept', async () => {
+    const user = await previewCloseMatchPaste()
+    expect(screen.getByText(/\[close\]/)).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Accept and apply mapping' }))
+    // The suggestion flows through the ordinary mapping selects …
+    expect(
+      (screen.getByLabelText('Map sampleid') as HTMLSelectElement).value,
+    ).toBe('11111111-1111-4111-8111-111111111111')
+    // … and the proposal clears.
+    expect(screen.queryByRole('note', { name: 'Generated draft' })).toBeNull()
+  })
+
+  it('Discard leaves the mapping untouched with zero state', async () => {
+    const user = await previewCloseMatchPaste()
+    await user.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(
+      (screen.getByLabelText('Map sampleid') as HTMLSelectElement).value,
+    ).toBe('ignore')
+    expect(screen.queryByRole('note', { name: 'Generated draft' })).toBeNull()
+  })
+})

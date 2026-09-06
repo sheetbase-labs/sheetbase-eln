@@ -106,6 +106,10 @@ development it is open on localhost for convenience.
 | `sheetbase_scheduler_recovered_occurrences_total` | counter   | —                                                                                                                                |
 | `sheetbase_scheduler_events_processed_total`      | counter   | —                                                                                                                                |
 | `sheetbase_search_duration_seconds`               | histogram | —                                                                                                                                |
+| `sheetbase_model_calls_total`                     | counter   | `model` (gateway allowlist, else `other`), `outcome` (ok, rejected, error)                                                       |
+| `sheetbase_model_cost_microusd_total`             | counter   | `model`                                                                                                                          |
+| `sheetbase_model_errors_total`                    | counter   | `model`, `code` (model_not_allowed, tool_not_allowed, actor_mismatch, budget_exhausted, provider_error)                          |
+| `sheetbase_model_duration_seconds`                | histogram | `model`                                                                                                                          |
 
 ### Cardinality policy
 
@@ -225,6 +229,23 @@ HTTP method, the status, the duration and the request id — never the query
 string, body, headers or row filters.
 
 When in doubt, log less, not more.
+
+### Model gateway log fields
+
+Model calls (`src/lib/ai-gateway.ts`) log hashes, sizes and identifiers by
+default — never prompt or output text:
+
+| Event | Fields |
+| ----- | ------ |
+| `ai.gateway.call` | `model`, `tools`, `actorKind`, `actorId`, `promptHash` (SHA-256), `promptChars`, `estimatedTokens`, `estimatedCostMicrousd`, `citationIds` |
+| `ai.gateway.result` | `model`, `promptHash` (joins to the call line), `tokensUsed`, `costMicrousd`, `latencyMs`, `citationIds` |
+| `ai.gateway.rejected` | `code`, `reason`, `model`, `actorKind`, `actorId` — no prompt material at all |
+
+A caller may set `includeDebugExcerpt` for a single call to attach a
+`debugPromptExcerpt` to `ai.gateway.call`. The excerpt is string-scrubbed for
+secret-shaped material, capped at `GATEWAY_EXCERPT_CHARS` characters, and
+requires explicit per-call opt-in — there is no ambient toggle. Debug excerpts
+are for local reproduction only, never production.
 
 ## Stable public error categories
 

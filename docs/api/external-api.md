@@ -67,7 +67,7 @@ exchange and rotation.
 | `reviews:read`                       | Preview a submission digest. Does not run revision checks             |
 | `reviews:write`                      | Mintable. Does not submit, sign or amend                              |
 | `schema:read`                        | Catalogue GET only                                                    |
-| `webhooks:read` / `webhooks:write`   | Subscriptions and delivery history                                    |
+| `webhooks:read` / `webhooks:write`   | Subscriptions and delivery history (stable event names in [`event-catalogue.md`](event-catalogue.md)) |
 | `agent_operations:read` / `agent_operations:write` | Inspect and submit typed proposals and workflows. Does not approve, execute, resume, or create policies |
 
 ### Still fail-closed

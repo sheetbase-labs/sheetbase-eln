@@ -162,7 +162,10 @@ those tables. Outputs are written with the run actor's JWT claims through the
   Dataset). Delivery is a polling approximation, but **at-least-once**: the
   cursor advances only with a durable disposition, failures are recorded in
   `api.pipeline_trigger_failures` and retried, and abandonment after the
-  budget is explicit and visible.
+  budget is explicit and visible. The canonical name for the consumed change
+  is `dataset.versioned`; see the [event catalogue](../api/event-catalogue.md)
+  for the full vocabulary (pipeline/administration names are provisional there
+  until EVENT-03 surfaces them).
 
 ## Product integration
 

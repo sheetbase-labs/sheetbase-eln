@@ -245,6 +245,8 @@ canonical audit/change-event system (`change_events`):
 
 This is a filtered view of existing evidence, not a second audit log.
 Sensitive audit classes remain subject to existing permissions.
+The stable external names for these changes are pinned in the
+[event catalogue](../api/event-catalogue.md).
 
 ## Diagnostics
 

@@ -330,9 +330,7 @@ describe('SheetbaseGrid bulk-write guards (GRID-02)', () => {
       [0, 0, null, 'new-local'],
       [0, 2, null, 'new-derived'],
     ]
-    expect(
-      hot.runHooks('beforeChange', pasted, 'CopyPaste.paste'),
-    ).toBe(false)
+    expect(hot.runHooks('beforeChange', pasted, 'CopyPaste.paste')).toBe(false)
     expect(beforeChange).not.toHaveBeenCalled()
     expect(document.getElementById('cut-status')?.textContent).toContain(
       'Paste is unavailable',

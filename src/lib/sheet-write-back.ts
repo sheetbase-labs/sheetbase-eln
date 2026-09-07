@@ -16,7 +16,8 @@ export class SheetBatchValidationError extends Error {
   readonly errors: Array<{ code: string; rowId?: string; fieldId?: string }>
 
   constructor(
-    errors: Array<{ code: string; rowId?: string; fieldId?: string }> | undefined,
+    errors:
+      Array<{ code: string; rowId?: string; fieldId?: string }> | undefined,
   ) {
     const first = errors?.[0]
     super(

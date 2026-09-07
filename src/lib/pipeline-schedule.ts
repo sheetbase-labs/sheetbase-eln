@@ -20,7 +20,11 @@
  * the scheduler sweep and its unit tests.
  */
 
-import { EVENT_CATALOGUE, eventByName, resolveEventAlias } from './event-catalogue'
+import {
+  EVENT_CATALOGUE,
+  eventByName,
+  resolveEventAlias,
+} from './event-catalogue'
 
 export type PipelineScheduleKind = 'interval' | 'daily' | 'event'
 
@@ -28,7 +32,7 @@ export type PipelineScheduleKind = 'interval' | 'daily' | 'event'
 export const LEGACY_DATASET_VERSION_EVENT = 'dataset_version_created' as const
 
 /** Catalogue families whose stable events can trigger pipelines. */
-const TRIGGERABLE_FAMILY: Record<string, true> = {
+const TRIGGERABLE_FAMILY: Record<string, true | undefined> = {
   record: true,
   dataset: true,
   notebook: true,
@@ -72,7 +76,9 @@ export interface EventSpec {
 export function normalizeTriggerEventName(name: unknown): string | null {
   if (typeof name !== 'string' || name.length === 0) return null
   const canonical =
-    name === LEGACY_DATASET_VERSION_EVENT ? 'dataset.versioned' : resolveEventAlias(name)
+    name === LEGACY_DATASET_VERSION_EVENT
+      ? 'dataset.versioned'
+      : resolveEventAlias(name)
   const entry = eventByName(canonical)
   if (!entry || entry.name !== canonical) return null
   if (entry.status !== 'stable' || entry.producer === null) return null

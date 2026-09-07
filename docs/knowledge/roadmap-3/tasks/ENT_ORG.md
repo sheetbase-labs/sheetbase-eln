@@ -9,9 +9,11 @@ Support multi-workspace organisational structure only when real adoption require
 ## ENT-ORG-01 — Organisation Domain ADR
 
 ### Goal
+
 Resolve the organisation/team domain model before implementation.
 
 ### Scope
+
 - organisation, workspace and team ownership semantics;
 - membership/invitation and role inheritance options;
 - service credentials/integrations ownership implications;
@@ -19,14 +21,17 @@ Resolve the organisation/team domain model before implementation.
 - explicit non-goals and adoption evidence.
 
 ### Exit
+
 An accepted ADR defines the organisation/team ownership and security model with no unresolved ambiguity about workspace authority.
 
 ## ENT-ORG-02 — Organisation Membership & Workspace Governance
 
 ### Goal
+
 Implement the accepted organisation/workspace membership model.
 
 ### Scope
+
 - organisation/workspace membership lifecycle;
 - invitations and role assignment;
 - organisation-level versus workspace-level capabilities;
@@ -34,14 +39,17 @@ Implement the accepted organisation/workspace membership model.
 - administration UI/API.
 
 ### Exit
+
 Organisation membership can govern multiple workspaces according to the ADR while existing workspace-scoped security remains fail-closed.
 
 ## ENT-ORG-03 — Teams, Shared Configuration & Organisation Operations
 
 ### Goal
+
 Add only the team/shared-configuration capabilities proven necessary by institutional use.
 
 ### Scope
+
 - teams/groups if justified by the ADR/use cases;
 - assignment/discovery of shared organisational configuration;
 - organisation-level administration and lifecycle;
@@ -49,6 +57,7 @@ Add only the team/shared-configuration capabilities proven necessary by institut
 - scale/performance tests for larger memberships.
 
 ### Exit
+
 Required institutional organisation/team workflows work end-to-end without creating duplicate scientific configuration authorities.
 
 ## Boundaries

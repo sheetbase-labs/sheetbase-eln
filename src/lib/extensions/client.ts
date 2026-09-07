@@ -166,7 +166,11 @@ export function describeExtensionsError(cause: unknown): string {
   if (/extension key|invalid extension/i.test(message)) {
     return 'Choose a different lowercase key for this workspace.'
   }
-  if (/unknown contribution point|unknown capability|unknown scope|unknown event subscription/i.test(message)) {
+  if (
+    /unknown contribution point|unknown capability|unknown scope|unknown event subscription/i.test(
+      message,
+    )
+  ) {
     return 'The extension manifest declares something this workspace does not support.'
   }
   return message

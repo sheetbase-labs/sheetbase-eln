@@ -342,19 +342,16 @@ export const DUPLICATE_SCIENTIFIC_LINK_MESSAGE =
 export function isDuplicateLinkError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const code =
-    'code' in error && typeof error.code === 'string'
-      ? error.code
-      : null
+    'code' in error && typeof error.code === 'string' ? error.code : null
   const message =
-    'message' in error && typeof error.message === 'string'
-      ? error.message
-      : ''
+    'message' in error && typeof error.message === 'string' ? error.message : ''
   const status =
-    'status' in error && typeof error.status === 'number'
-      ? error.status
-      : null
+    'status' in error && typeof error.status === 'number' ? error.status : null
   if (code === '23505' || code === 'conflict') return true
-  if (status === 409 && /duplicate|already exists|already linked/i.test(message))
+  if (
+    status === 409 &&
+    /duplicate|already exists|already linked/i.test(message)
+  )
     return true
   return /duplicate key|already linked|already exists/i.test(message)
 }

@@ -50,7 +50,7 @@ other Roadmap 3 waves does not satisfy this gate.
 ## Consequences
 
 - Exploratory work stays unburdened: stronger controls are configured per
-   workflow, never forced globally.
+  workflow, never forced globally.
 - When a regulated use arrives, its implementation is mapping and activation,
   not architecture.
 - Until then, this ADR costs nothing and constrains nothing.

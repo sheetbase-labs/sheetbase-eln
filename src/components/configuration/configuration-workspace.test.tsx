@@ -1021,9 +1021,7 @@ describe('REUSE-01 ConfigurationWorkspace — catalogue facets and definition pr
     mount('steward', 'definition')
     await screen.findByText('Sheet def')
     await user.type(
-      screen.getByLabelText(
-        /filter sheet definitions and notebook templates/i,
-      ),
+      screen.getByLabelText(/filter sheet definitions and notebook templates/i),
       'zzz-no-match',
     )
     expect(screen.queryByText('Sheet def')).toBeNull()

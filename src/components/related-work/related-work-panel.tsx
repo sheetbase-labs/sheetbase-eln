@@ -20,19 +20,10 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import {
-  InspectorSection,
-  LinkedRecordList,
-} from '#/components/record'
+import { InspectorSection, LinkedRecordList } from '#/components/record'
 import type { LinkedRecordItem } from '#/components/record'
-import {
-  relatedKindLabel,
-  useRelatedWork,
-} from '#/lib/related-work'
-import type {
-  RelatedWorkItem,
-  RelatedWorkKind,
-} from '#/lib/related-work'
+import { relatedKindLabel, useRelatedWork } from '#/lib/related-work'
+import type { RelatedWorkItem, RelatedWorkKind } from '#/lib/related-work'
 
 const KIND_ICON: Record<RelatedWorkKind, LucideIcon> = {
   record: FileText,

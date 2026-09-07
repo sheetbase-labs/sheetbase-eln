@@ -23,6 +23,7 @@ import type {
 } from './plate-designer'
 import type { SampleRef } from './plate-map'
 import { validatePlateMapSpec } from './plate-map'
+
 const samples: SampleRef[] = Array.from({ length: 6 }, (_, index) => ({
   recordId: `sample-${index + 1}`,
   identifier: `S${index + 1}`,

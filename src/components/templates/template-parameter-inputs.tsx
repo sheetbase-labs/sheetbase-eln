@@ -290,9 +290,7 @@ export function TemplateParameterInputs({
                 {parameter.label}{' '}
                 <span className="font-normal text-muted-foreground">
                   · {requirement}
-                  {defaultText !== null
-                    ? ` · default ${defaultText}`
-                    : ''}
+                  {defaultText !== null ? ` · default ${defaultText}` : ''}
                 </span>
               </FieldLabel>
               <Input
@@ -412,7 +410,7 @@ export function TemplateParameterInputs({
             <FieldLabel htmlFor={inputId}>
               {parameter.label}{' '}
               <span className="font-normal text-muted-foreground">
-                  · {requirement} · {type.contract.mode}
+                · {requirement} · {type.contract.mode}
               </span>
             </FieldLabel>
             <Select

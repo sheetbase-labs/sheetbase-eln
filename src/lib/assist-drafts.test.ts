@@ -57,7 +57,11 @@ function envelope(): AiContextEnvelope {
         freshness: 'live',
         pins: [],
         sections: [
-          { heading: 'Properties', body: 'organism: E. coli', truncated: false },
+          {
+            heading: 'Properties',
+            body: 'organism: E. coli',
+            truncated: false,
+          },
         ],
         truncated: false,
       },
@@ -76,7 +80,9 @@ function envelope(): AiContextEnvelope {
   }
 }
 
-function targetField(overrides: Partial<ImportTargetField> = {}): ImportTargetField {
+function targetField(
+  overrides: Partial<ImportTargetField> = {},
+): ImportTargetField {
   return {
     id: 'organism',
     key: 'organism',
@@ -114,9 +120,7 @@ describe('buildTextDraftProposal', () => {
   })
 
   it('returns null when there are no sources rather than drafting ungrounded text', () => {
-    expect(
-      buildTextDraftProposal({ recordTitle: 'EXP-1' }),
-    ).toBeNull()
+    expect(buildTextDraftProposal({ recordTitle: 'EXP-1' })).toBeNull()
     expect(
       buildTextDraftProposal({
         recordTitle: 'EXP-1',
@@ -153,10 +157,13 @@ describe('acceptTextDraft', () => {
       recordId: 'r1',
       proposal,
     })
-    expect(rpc).toHaveBeenCalledWith('insert_block', expect.objectContaining({
-      p_record_id: 'r1',
-      p_type: 'rich_text',
-    }))
+    expect(rpc).toHaveBeenCalledWith(
+      'insert_block',
+      expect.objectContaining({
+        p_record_id: 'r1',
+        p_type: 'rich_text',
+      }),
+    )
     expect(result.block.id).toBe('b1')
   })
 })
@@ -215,7 +222,9 @@ describe('proposeChartSpec', () => {
   it('proposes a valid histogram for a single measured field', () => {
     const proposal = proposeChartSpec({
       datasetId: DATASET_ID,
-      fields: [{ fieldId: TEMP_ID, label: 'Temperature', logicalType: 'number' }],
+      fields: [
+        { fieldId: TEMP_ID, label: 'Temperature', logicalType: 'number' },
+      ],
     })
     expect(proposal?.spec.type).toBe('histogram')
     expect(validateChartSpec(proposal?.spec)).toEqual([])
@@ -240,7 +249,9 @@ describe('proposeChartSpec', () => {
     expect(
       proposeChartSpec({
         datasetId: DATASET_ID,
-        fields: [{ fieldId: 'f-temp', label: 'Temperature', logicalType: 'number' }],
+        fields: [
+          { fieldId: 'f-temp', label: 'Temperature', logicalType: 'number' },
+        ],
       }),
     ).toBeNull()
   })
@@ -284,7 +295,10 @@ describe('summariseNotebookBlocks', () => {
       recordId: 'r1',
       title: 'EXP-1',
       deepLink: '/records/r1',
-      blocks: [textBlock('b1', 'Objective: measure kinetics'), textBlock('b2', 'Result: 7.4')],
+      blocks: [
+        textBlock('b1', 'Objective: measure kinetics'),
+        textBlock('b2', 'Result: 7.4'),
+      ],
     })
     expect(summary.context.version).toBe(1)
     expect(summary.context.objects).toHaveLength(1)
@@ -292,7 +306,10 @@ describe('summariseNotebookBlocks', () => {
       'Objective: measure kinetics',
       'Result: 7.4',
     ])
-    expect(summary.keyPoints).toEqual(['Objective: measure kinetics', 'Result: 7.4'])
+    expect(summary.keyPoints).toEqual([
+      'Objective: measure kinetics',
+      'Result: 7.4',
+    ])
     // A local summary satisfies the minimal context input.
     const proposal = buildTextDraftProposal({
       recordTitle: 'EXP-1',
@@ -303,7 +320,10 @@ describe('summariseNotebookBlocks', () => {
     expect(proposal?.draftText).toContain('Objective: measure kinetics')
     expect(proposal?.groundedFrom).toContain('visible notebook blocks')
     expect(
-      validateBlock({ type: proposal!.block.type, payload: proposal!.block.payload }).ok,
+      validateBlock({
+        type: proposal!.block.type,
+        payload: proposal!.block.payload,
+      }).ok,
     ).toBe(true)
   })
 

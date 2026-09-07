@@ -51,16 +51,27 @@ import type {
   ChartSpec,
   FacetedChart,
   FrozenChart,
+  MaterialisedChart,
 } from './chart-spec'
 import {
   CHART_SPEC_VERSION,
   materialiseChart,
   validateChartSpec,
 } from './chart-spec'
-import type { MaterialisedChart } from './chart-spec'
 import { PLATE_MAP_SPEC_VERSION, validatePlateMapSpec } from './plate-map'
 import type { PlateMapSpec, PlateMapSpecError } from './plate-map'
 import { sampleSeriesForRender } from './visualisation-pipeline'
+
+// ---------------------------------------------------------------------------
+// VIEW-04 — stable embed config, metadata, compare hand-off, export stamps
+// ---------------------------------------------------------------------------
+
+import type { FigureProvenanceStamp } from './visualisation-export'
+import {
+  promoteToChartSpec,
+  validateComparativeViewConfig,
+} from './comparative-view'
+import type { ComparativeViewConfig } from './comparative-view'
 
 // ---------------------------------------------------------------------------
 // Kinds, sources, configs, handles
@@ -262,21 +273,23 @@ export type RepresentationMaterialised =
   | { kind: 'chart'; materialised: MaterialisedChart }
   | {
       kind: 'analysis'
-      outcome: { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError }
+      outcome:
+        | { ok: true; result: AnalysisResult }
+        | { ok: false; error: AnalysisError }
     }
   | { kind: 'plate_map'; errors: PlateMapSpecError[]; wellCount: number }
   | { kind: 'sheet'; instanceId: string }
 
-function requireConfigKind<K extends RepresentationConfig['kind']>(
+function requireConfigKind<TKind extends RepresentationConfig['kind']>(
   handle: RepresentationHandle,
-  kind: K,
-): Extract<RepresentationConfig, { kind: K }> {
+  kind: TKind,
+): Extract<RepresentationConfig, { kind: TKind }> {
   if (handle.config.kind !== kind) {
     throw new Error(
       `handle kind mismatch: expected ${kind} (got ${handle.config.kind})`,
     )
   }
-  return handle.config as Extract<RepresentationConfig, { kind: K }>
+  return handle.config as Extract<RepresentationConfig, { kind: TKind }>
 }
 
 /**
@@ -335,7 +348,9 @@ export type RepresentationFrozenResult =
     }
   | {
       kind: 'analysis'
-      outcome: { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError }
+      outcome:
+        | { ok: true; result: AnalysisResult }
+        | { ok: false; error: AnalysisError }
     }
   | { kind: 'plate_map'; errors: PlateMapSpecError[]; wellCount: number }
   | { kind: 'sheet'; instanceId: string }
@@ -394,10 +409,15 @@ export function reconstructFrozenRepresentation(
     case 'analysis': {
       requireConfigKind(handle, 'analysis')
       if (!isFrozenAnalysis(frozen)) {
-        throw new Error('analysis reconstruction requires a FrozenAnalysis payload')
+        throw new Error(
+          'analysis reconstruction requires a FrozenAnalysis payload',
+        )
       }
       if (!input) {
-        return { kind: 'analysis', outcome: { ok: false, error: { code: 'empty_dataset' } } }
+        return {
+          kind: 'analysis',
+          outcome: { ok: false, error: { code: 'empty_dataset' } },
+        }
       }
       return {
         kind: 'analysis',
@@ -452,12 +472,12 @@ export function chartToRepresentationHandle(input: {
 }): RepresentationHandle | null {
   if (!input.spec) return null
   const provenance = input.frozen?.datasetProvenance ?? []
-  const primary = provenance[0]
+  const primary = provenance.at(0)
   const datasetId =
     (typeof primary?.datasetId === 'string' && primary.datasetId.length > 0
       ? primary.datasetId
       : null) ??
-    input.spec.datasets[0]?.datasetId ??
+    input.spec.datasets.at(0)?.datasetId ??
     null
   const singlePin =
     provenance.length === 1 &&
@@ -508,21 +528,12 @@ export function plateMapToRepresentationHandle(input: {
   })
 }
 
-// ---------------------------------------------------------------------------
-// VIEW-04 — stable embed config, metadata, compare hand-off, export stamps
-// ---------------------------------------------------------------------------
-
-import type { FigureProvenanceStamp } from './visualisation-export'
-import {
-  promoteToChartSpec,
-  validateComparativeViewConfig,
-} from './comparative-view'
-import type { ComparativeViewConfig } from './comparative-view'
-
 function isUuidLike(value: unknown): value is string {
   return (
     typeof value === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    )
   )
 }
 
@@ -542,8 +553,16 @@ export function validateRepresentationEmbed(input: unknown): {
   }
   const candidate = input as Record<string, unknown>
   const kind = candidate.kind
-  if (kind !== 'chart' && kind !== 'plate_map' && kind !== 'analysis' && kind !== 'sheet') {
-    return { ok: false, errors: [`unknown representation kind: ${String(kind)}`] }
+  if (
+    kind !== 'chart' &&
+    kind !== 'plate_map' &&
+    kind !== 'analysis' &&
+    kind !== 'sheet'
+  ) {
+    return {
+      ok: false,
+      errors: [`unknown representation kind: ${String(kind)}`],
+    }
   }
   if (candidate.configVersion !== representationConfigVersion(kind)) {
     return {
@@ -578,7 +597,9 @@ export function validateRepresentationEmbed(input: unknown): {
     configErrors.push('plate_map config failed the PlateMapSpec validator')
   }
   if (kind === 'analysis' && validateAnalysisDefinition(config).length > 0) {
-    configErrors.push('analysis config failed the analysis definition validator')
+    configErrors.push(
+      'analysis config failed the analysis definition validator',
+    )
   }
   if (kind === 'sheet') {
     const instanceId = (config as Record<string, unknown> | null)?.instanceId
@@ -596,7 +617,11 @@ export function validateRepresentationEmbed(input: unknown): {
   }
   const handle = createRepresentationHandle({
     source: typedSource,
-    config: { kind, configVersion: representationConfigVersion(kind), config } as RepresentationConfig,
+    config: {
+      kind,
+      configVersion: representationConfigVersion(kind),
+      config,
+    } as RepresentationConfig,
     title: typeof candidate.title === 'string' ? candidate.title : undefined,
     frozen:
       typeof candidate.frozen === 'boolean' ? candidate.frozen : undefined,
@@ -721,7 +746,10 @@ export function comparativeViewToRepresentationHandle(
   }
   const spec = promoteToChartSpec(config, columns)
   return createRepresentationHandle({
-    source: { datasetId: config.datasetId, versionId: config.versionId ?? null },
+    source: {
+      datasetId: config.datasetId,
+      versionId: config.versionId ?? null,
+    },
     config: {
       kind: 'chart',
       configVersion: CHART_SPEC_VERSION,

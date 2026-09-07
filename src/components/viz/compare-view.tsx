@@ -24,7 +24,11 @@ import {
   TableRow,
 } from '#/components/ui'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
-import { CHART_SPEC_VERSION, materialiseChart } from '#/lib/chart-spec'
+import {
+  CHART_SPEC_VERSION,
+  materialiseChart,
+  formatScientific,
+} from '#/lib/chart-spec'
 import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
 import { createRepresentationHandle } from '#/lib/representations'
 import {
@@ -34,7 +38,6 @@ import {
   validateComparativeViewConfig,
 } from '#/lib/comparative-view'
 import type { ComparativeViewConfig } from '#/lib/comparative-view'
-import { formatScientific } from '#/lib/chart-spec'
 import { ChartRenderer } from './chart-renderer'
 import { RepresentationFrame } from './representation-frame'
 
@@ -81,7 +84,6 @@ export function CompareView({
             totalRows: rows.length,
             droppedNullValues: 0,
           },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows, config, errors.length],
   )
   const materialised = React.useMemo(
@@ -128,13 +130,16 @@ export function CompareView({
             onChange={(event) =>
               onConfigChange({
                 ...config,
-                viewType: event.target.value as ComparativeViewConfig['viewType'],
+                viewType: event.target
+                  .value as ComparativeViewConfig['viewType'],
               })
             }
           >
             {COMPARATIVE_VIEW_TYPES.map((type) => (
               <option key={type} value={type}>
-                {type === 'time_series' ? 'Grouped time series' : 'Distribution'}
+                {type === 'time_series'
+                  ? 'Grouped time series'
+                  : 'Distribution'}
               </option>
             ))}
           </Select>
@@ -233,11 +238,7 @@ export function CompareView({
           loading={loading}
           error={error}
           actions={
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => onPromote(draft)}
-            >
+            <Button type="button" size="sm" onClick={() => onPromote(draft)}>
               Promote to chart/analysis
             </Button>
           }

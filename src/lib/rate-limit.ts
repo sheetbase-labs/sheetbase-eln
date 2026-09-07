@@ -56,7 +56,8 @@ export function createRateLimiter(options: RateLimitOptions): RateLimiter {
       if (entry.count > maxRequests) {
         return {
           allowed: false,
-          retryAfterSeconds: windowSeconds - Math.floor((now / 1000) % windowSeconds),
+          retryAfterSeconds:
+            windowSeconds - Math.floor((now / 1000) % windowSeconds),
         }
       }
       return { allowed: true }

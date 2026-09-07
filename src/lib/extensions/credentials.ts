@@ -26,11 +26,13 @@ import { hasCapability } from '#/lib/capability'
 import type { WorkspaceRole } from '#/lib/workspace-admin'
 import { hasScope } from '#/lib/external-token'
 import * as schema from '#/db/schema'
-import { createCredential, type CreatedCredential } from '#/lib/api-credentials'
+import { createCredential } from '#/lib/api-credentials'
+import type { CreatedCredential } from '#/lib/api-credentials'
 import type { Scope } from '#/lib/api-credential-scopes'
 import { emitCredentialAuditEvent } from '#/lib/credential-audit'
 import { parseExtensionManifest } from './manifest'
-import { extensionAuditIdentity, type ExtensionAuditIdentity } from './contract'
+import { extensionAuditIdentity } from './contract'
+import type { ExtensionAuditIdentity } from './contract'
 
 export type ExtensionCredentialErrorCode =
   | 'not_found'
@@ -155,7 +157,10 @@ export async function resolveExtensionCall(
     where: eq(schema.apiCredentials.id, input.credentialId),
   })
   if (!credential || credential.revokedAt) {
-    throw new ExtensionCredentialError('revoked', 'Credential has been revoked.')
+    throw new ExtensionCredentialError(
+      'revoked',
+      'Credential has been revoked.',
+    )
   }
   if (credential.expiresAt && credential.expiresAt.getTime() <= Date.now()) {
     throw new ExtensionCredentialError('expired', 'Credential has expired.')

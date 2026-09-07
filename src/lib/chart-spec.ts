@@ -600,7 +600,8 @@ function validateReferenceOverlay(
         {
           code: 'invalid_value',
           field,
-          message: 'identity references may only include an optional string label',
+          message:
+            'identity references may only include an optional string label',
         },
       ]
     return []
@@ -961,9 +962,15 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     errors.push(
       ...validateFieldBinding(fields.facetCol ?? null, 'spec.fields.facetCol'),
     )
-    errors.push(...validateFieldBinding(fields.shape ?? null, 'spec.fields.shape'))
-    errors.push(...validateFieldBinding(fields.group ?? null, 'spec.fields.group'))
-    errors.push(...validateFieldBinding(fields.label ?? null, 'spec.fields.label'))
+    errors.push(
+      ...validateFieldBinding(fields.shape ?? null, 'spec.fields.shape'),
+    )
+    errors.push(
+      ...validateFieldBinding(fields.group ?? null, 'spec.fields.group'),
+    )
+    errors.push(
+      ...validateFieldBinding(fields.label ?? null, 'spec.fields.label'),
+    )
   }
 
   // filters
@@ -1147,7 +1154,11 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
             message:
               'field error bars require fieldId or lowerFieldId/upperFieldId',
           })
-        if (eb.fieldId !== undefined && eb.fieldId !== null && !isUuid(eb.fieldId))
+        if (
+          eb.fieldId !== undefined &&
+          eb.fieldId !== null &&
+          !isUuid(eb.fieldId)
+        )
           errors.push({
             code: 'invalid_value',
             field: 'spec.overlays.errorBars.fieldId',
@@ -1189,7 +1200,11 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
       }
     }
   }
-  if (isObject(overlays) && overlays.fit !== undefined && overlays.fit !== null) {
+  if (
+    isObject(overlays) &&
+    overlays.fit !== undefined &&
+    overlays.fit !== null
+  ) {
     const fit = overlays.fit
     if (
       !isObject(fit) ||
@@ -1618,11 +1633,7 @@ export function materialiseChart(
     }
 
   const filtered = applyFilters(rows, spec.filters)
-  const transformed = applyTransformations(
-    filtered,
-    spec.transformations,
-    spec,
-  )
+  const transformed = applyTransformations(filtered, spec.transformations, spec)
   const working = transformed.rows
   const transformInvalidCount = transformed.transformInvalid
   const transformInvalidReasons = transformed.reasons

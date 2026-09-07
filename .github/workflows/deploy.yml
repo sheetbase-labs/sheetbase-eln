@@ -32,15 +32,16 @@
 
 name: Deploy to production
 
-# on: # PAUSED — uncomment to re-enable
-#   push:
-#     branches: [main]
-#   workflow_dispatch:
-#     inputs:
-#       confirm:
-#         description: 'Type "deploy" to confirm'
-#         required: true
-#         default: ''
+# Push trigger stays off (PLAT-03): manual dispatch only, still gated by the
+# confirm input checked in the job. A valid trigger block also stops GitHub
+# emitting instant-failure runs for this file on every push.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm'
+        required: true
+        default: ''
 
 concurrency:
   group: production-deploy

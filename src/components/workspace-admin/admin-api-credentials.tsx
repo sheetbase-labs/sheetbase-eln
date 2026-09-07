@@ -73,7 +73,10 @@ export function AdminApiCredentials({
       <p className="max-w-3xl text-sm text-muted-foreground">
         Workspace service credentials for external automation. Each member's
         personal API tokens live in{' '}
-        <a href="/settings" className="font-medium text-primary hover:underline">
+        <a
+          href="/settings"
+          className="font-medium text-primary hover:underline"
+        >
           Settings
         </a>
         .

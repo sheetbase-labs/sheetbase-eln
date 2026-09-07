@@ -110,7 +110,7 @@ const INSPECTOR_COLLAPSE_KEY = 'sheetbase-inspector-collapsed'
 // NAV-03: `g`-then-letter keyboard navigation. The second key must land
 // within the window after `g`; anything else consumes the pending `g`.
 const G_SEQUENCE_WINDOW_MS = 800
-const G_SEQUENCE_DESTINATIONS: Record<string, string> = {
+const G_SEQUENCE_DESTINATIONS: Record<string, string | undefined> = {
   h: '/',
   p: '/projects',
   d: '/datasets',
@@ -589,7 +589,10 @@ export function AppShell({
         gPressedAt.current = now
         return
       }
-      if (gPressedAt.current !== 0 && now - gPressedAt.current <= G_SEQUENCE_WINDOW_MS) {
+      if (
+        gPressedAt.current !== 0 &&
+        now - gPressedAt.current <= G_SEQUENCE_WINDOW_MS
+      ) {
         gPressedAt.current = 0
         const to = G_SEQUENCE_DESTINATIONS[key]
         if (to !== undefined) {
@@ -1323,7 +1326,11 @@ const FAVOURITE_KIND_ICONS: Record<FavouriteItem['kind'], LucideIcon> = {
   notebook_template: LayoutTemplate,
 }
 
-function FavouritesCommandGroup({ onSelect }: { onSelect: (to: string) => void }) {
+function FavouritesCommandGroup({
+  onSelect,
+}: {
+  onSelect: (to: string) => void
+}) {
   const itemsQuery = useQuery({
     queryKey: favouritesQueryKeys.items(),
     queryFn: () => fetchFavouriteItems(notebookDataClient, FAVOURITES_LIMIT),

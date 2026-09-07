@@ -15,6 +15,7 @@ import type { Mock } from 'vitest'
 import { BlockPreview } from './block-preview'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { fetchRecordById } from '#/lib/scientific-records'
+import type * as ScientificRecords from '#/lib/scientific-records'
 import type { PlateMapSpec } from '#/lib/plate-map'
 import { PLATE_MAP_SPEC_VERSION } from '#/lib/plate-map'
 
@@ -35,8 +36,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('#/lib/scientific-records', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('#/lib/scientific-records')>()
+  const actual = await importOriginal<typeof ScientificRecords>()
   return { ...actual, fetchRecordById: vi.fn() }
 })
 

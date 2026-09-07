@@ -2,138 +2,138 @@
 name: Sheetbase ELN
 description: A precise, flexible electronic laboratory notebook for scientific work.
 colors:
-  laboratory-blue: "#006EDC"
-  signal-blue: "#3986E4"
-  active-blue-wash: "#E7EFFB"
-  canvas-white: "#FDFDFF"
-  surface-white: "#FFFFFF"
-  sidebar-mist: "#F7F9FC"
-  control-mist: "#F1F4F8"
-  border-slate: "#DEE1E7"
-  input-slate: "#D6DBE3"
-  scientific-ink: "#0F141C"
-  secondary-ink: "#5D646F"
-  success-green: "#00A659"
-  warning-amber: "#E8A200"
-  destructive-red: "#EA3130"
-  analysis-violet: "#9B61EA"
-  analysis-cyan: "#00A3BB"
-  dark-canvas: "#080B10"
-  dark-surface: "#0E1218"
-  dark-border: "#272C32"
-  dark-foreground: "#EFF2F6"
+  laboratory-blue: '#006EDC'
+  signal-blue: '#3986E4'
+  active-blue-wash: '#E7EFFB'
+  canvas-white: '#FDFDFF'
+  surface-white: '#FFFFFF'
+  sidebar-mist: '#F7F9FC'
+  control-mist: '#F1F4F8'
+  border-slate: '#DEE1E7'
+  input-slate: '#D6DBE3'
+  scientific-ink: '#0F141C'
+  secondary-ink: '#5D646F'
+  success-green: '#00A659'
+  warning-amber: '#E8A200'
+  destructive-red: '#EA3130'
+  analysis-violet: '#9B61EA'
+  analysis-cyan: '#00A3BB'
+  dark-canvas: '#080B10'
+  dark-surface: '#0E1218'
+  dark-border: '#272C32'
+  dark-foreground: '#EFF2F6'
 typography:
   display:
-    fontFamily: "Instrument Sans Variable, Inter Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "2rem"
+    fontFamily: 'Instrument Sans Variable, Inter Variable, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '2rem'
     fontWeight: 650
     lineHeight: 1.2
-    letterSpacing: "-0.025em"
+    letterSpacing: '-0.025em'
   headline:
-    fontFamily: "Instrument Sans Variable, Inter Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.5rem"
+    fontFamily: 'Instrument Sans Variable, Inter Variable, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '1.5rem'
     fontWeight: 650
     lineHeight: 1.3
-    letterSpacing: "-0.018em"
+    letterSpacing: '-0.018em'
   title:
-    fontFamily: "Instrument Sans Variable, Inter Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.875rem"
+    fontFamily: 'Instrument Sans Variable, Inter Variable, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '0.875rem'
     fontWeight: 600
     lineHeight: 1.4
-    letterSpacing: "-0.006em"
+    letterSpacing: '-0.006em'
   body:
-    fontFamily: "Inter Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.875rem"
+    fontFamily: 'Inter Variable, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '0.875rem'
     fontWeight: 400
     lineHeight: 1.5
-    letterSpacing: "normal"
+    letterSpacing: 'normal'
   label:
-    fontFamily: "Inter Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.75rem"
+    fontFamily: 'Inter Variable, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '0.75rem'
     fontWeight: 550
     lineHeight: 1.35
-    letterSpacing: "0.01em"
+    letterSpacing: '0.01em'
   data:
-    fontFamily: "Inter Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.8125rem"
+    fontFamily: 'Inter Variable, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '0.8125rem'
     fontWeight: 400
     lineHeight: 1.35
-    letterSpacing: "normal"
+    letterSpacing: 'normal'
 rounded:
-  xs: "4px"
-  sm: "5px"
-  md: "7px"
-  lg: "8px"
-  xl: "12px"
-  full: "9999px"
+  xs: '4px'
+  sm: '5px'
+  md: '7px'
+  lg: '8px'
+  xl: '12px'
+  full: '9999px'
 spacing:
-  1: "4px"
-  2: "8px"
-  3: "12px"
-  4: "16px"
-  5: "20px"
-  6: "24px"
-  8: "32px"
-  10: "40px"
-  12: "48px"
-  16: "64px"
+  1: '4px'
+  2: '8px'
+  3: '12px'
+  4: '16px'
+  5: '20px'
+  6: '24px'
+  8: '32px'
+  10: '40px'
+  12: '48px'
+  16: '64px'
 components:
   button-primary:
-    backgroundColor: "{colors.laboratory-blue}"
-    textColor: "{colors.surface-white}"
-    typography: "{typography.label}"
-    rounded: "{rounded.md}"
-    padding: "8px 14px"
-    height: "36px"
+    backgroundColor: '{colors.laboratory-blue}'
+    textColor: '{colors.surface-white}'
+    typography: '{typography.label}'
+    rounded: '{rounded.md}'
+    padding: '8px 14px'
+    height: '36px'
   button-secondary:
-    backgroundColor: "{colors.control-mist}"
-    textColor: "{colors.scientific-ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.md}"
-    padding: "8px 14px"
-    height: "36px"
+    backgroundColor: '{colors.control-mist}'
+    textColor: '{colors.scientific-ink}'
+    typography: '{typography.label}'
+    rounded: '{rounded.md}'
+    padding: '8px 14px'
+    height: '36px'
   button-outline:
-    backgroundColor: "{colors.canvas-white}"
-    textColor: "{colors.scientific-ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.md}"
-    padding: "8px 14px"
-    height: "36px"
+    backgroundColor: '{colors.canvas-white}'
+    textColor: '{colors.scientific-ink}'
+    typography: '{typography.label}'
+    rounded: '{rounded.md}'
+    padding: '8px 14px'
+    height: '36px'
   input-default:
-    backgroundColor: "{colors.canvas-white}"
-    textColor: "{colors.scientific-ink}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "8px 12px"
-    height: "36px"
+    backgroundColor: '{colors.canvas-white}'
+    textColor: '{colors.scientific-ink}'
+    typography: '{typography.body}'
+    rounded: '{rounded.md}'
+    padding: '8px 12px'
+    height: '36px'
   card-default:
-    backgroundColor: "{colors.surface-white}"
-    textColor: "{colors.scientific-ink}"
-    rounded: "{rounded.lg}"
-    padding: "20px"
+    backgroundColor: '{colors.surface-white}'
+    textColor: '{colors.scientific-ink}'
+    rounded: '{rounded.lg}'
+    padding: '20px'
   notebook-block:
-    backgroundColor: "{colors.surface-white}"
-    textColor: "{colors.scientific-ink}"
-    rounded: "{rounded.lg}"
-    padding: "16px"
+    backgroundColor: '{colors.surface-white}'
+    textColor: '{colors.scientific-ink}'
+    rounded: '{rounded.lg}'
+    padding: '16px'
   status-in-progress:
-    backgroundColor: "#ECFDF5"
-    textColor: "#047857"
-    typography: "{typography.label}"
-    rounded: "{rounded.full}"
-    padding: "2px 8px"
+    backgroundColor: '#ECFDF5'
+    textColor: '#047857'
+    typography: '{typography.label}'
+    rounded: '{rounded.full}'
+    padding: '2px 8px'
   status-review:
-    backgroundColor: "#F5F3FF"
-    textColor: "#6D28D9"
-    typography: "{typography.label}"
-    rounded: "{rounded.full}"
-    padding: "2px 8px"
+    backgroundColor: '#F5F3FF'
+    textColor: '#6D28D9'
+    typography: '{typography.label}'
+    rounded: '{rounded.full}'
+    padding: '2px 8px'
   sidebar-active:
-    backgroundColor: "{colors.active-blue-wash}"
-    textColor: "#0B2648"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "8px 10px"
+    backgroundColor: '{colors.active-blue-wash}'
+    textColor: '#0B2648'
+    typography: '{typography.body}'
+    rounded: '{rounded.md}'
+    padding: '8px 10px'
 ---
 
 # Design System: Sheetbase ELN

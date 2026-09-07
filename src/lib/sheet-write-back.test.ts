@@ -214,7 +214,10 @@ function twoWritableBindingConfiguration() {
     bindingId: configuration.bindings[1].id,
     mode: 'update',
     mappings: [
-      { columnId: unmappedColumn.id, targetFieldId: secondColumnSource.sourceFieldId },
+      {
+        columnId: unmappedColumn.id,
+        targetFieldId: secondColumnSource.sourceFieldId,
+      },
     ],
   })
   return parseSheetDefinitionConfiguration(configuration)
@@ -573,8 +576,11 @@ describe('composed Sheet write-back', () => {
         },
       ],
     })
-    expect(rpc).toHaveBeenNthCalledWith(2, 'commit_dataset_row_batch',
-      expect.anything())
+    expect(rpc).toHaveBeenNthCalledWith(
+      2,
+      'commit_dataset_row_batch',
+      expect.anything(),
+    )
   })
 
   it('groups record-bound cells per record and keeps single-record batches atomic', async () => {
@@ -730,10 +736,26 @@ describe('composed Sheet write-back', () => {
       {
         composition,
         cells: [
-          { rowKey: composition.rows[0].rowKey, columnId: mappedColumn.id, value: RECORD },
-          { rowKey: composition.rows[0].rowKey, columnId: SECOND_COLUMN, value: 'second-value' },
-          { rowKey: composition.rows[1].rowKey, columnId: mappedColumn.id, value: RECORD2 },
-          { rowKey: composition.rows[1].rowKey, columnId: SECOND_COLUMN, value: 'row2-second' },
+          {
+            rowKey: composition.rows[0].rowKey,
+            columnId: mappedColumn.id,
+            value: RECORD,
+          },
+          {
+            rowKey: composition.rows[0].rowKey,
+            columnId: SECOND_COLUMN,
+            value: 'second-value',
+          },
+          {
+            rowKey: composition.rows[1].rowKey,
+            columnId: mappedColumn.id,
+            value: RECORD2,
+          },
+          {
+            rowKey: composition.rows[1].rowKey,
+            columnId: SECOND_COLUMN,
+            value: 'row2-second',
+          },
         ],
         retryToken: TOKEN,
       },
@@ -791,7 +813,9 @@ describe('composed Sheet write-back', () => {
 
   it('still dispatches a pure-local batch as a single mutation (GRID-02)', async () => {
     const composition = await snapshot(datasetWire())
-    const rpc = vi.fn().mockRejectedValue(new Error('stop after local dispatch'))
+    const rpc = vi
+      .fn()
+      .mockRejectedValue(new Error('stop after local dispatch'))
     const rowKey = composition.rows[0].rowKey
     await expect(
       writeSheetCells(
@@ -876,7 +900,10 @@ describe('GRID-02 mixed-authority rejection', () => {
     const composition = await snapshot(datasetWire())
     const rpc = vi.fn().mockImplementation((name: string) => {
       if (name === 'validate_dataset_row_batch')
-        return Promise.resolve({ ok: false, errors: [{ code: 'invalid_value' }] })
+        return Promise.resolve({
+          ok: false,
+          errors: [{ code: 'invalid_value' }],
+        })
       return Promise.resolve({ ok: true })
     })
     const rowKey = composition.rows[0].rowKey

@@ -457,7 +457,6 @@ function createGanttStore<TData>(
       invalidate()
     }
     if (!controlled) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(internal as any)[key] = value
       invalidate()
     }
@@ -851,9 +850,7 @@ function useGanttState<TData = unknown>(
   return store.instance
 }
 
-const GanttContext =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createContext<GanttInstance<any> | null>(null)
+const GanttContext = createContext<GanttInstance<any> | null>(null)
 
 /** The stable calendar instance; throws outside <Gantt>. */
 function useGantt<TData = unknown>(): GanttInstance<TData> {
@@ -1453,10 +1450,8 @@ const DEFAULT_VIEW_CONFIG: GanttViewConfig = {
   rowAlign: 'start',
 }
 
-const GanttViewConfigContext = createContext<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  GanttViewConfig<any>
->(DEFAULT_VIEW_CONFIG)
+const GanttViewConfigContext =
+  createContext<GanttViewConfig<any>>(DEFAULT_VIEW_CONFIG)
 
 /** Root-level display props + render overrides, for view components. */
 function useGanttViewConfig<TData = unknown>(): GanttViewConfig<TData> {

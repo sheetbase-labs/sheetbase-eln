@@ -24,10 +24,12 @@ import {
   rotateWebhookSecretFn,
   setWebhookSubscriptionStatusFn,
   webhookAdminKeys,
-  type RotatedWebhookSecretWire,
-  type WebhookDeliveryStatus,
-  type WebhookEndpointHealthWire,
-  type WebhookSubscriptionWire,
+} from '#/lib/webhook-admin'
+import type {
+  RotatedWebhookSecretWire,
+  WebhookDeliveryStatus,
+  WebhookEndpointHealthWire,
+  WebhookSubscriptionWire,
 } from '#/lib/webhook-admin'
 import { formatRelativeTime } from '#/lib/workspace-admin'
 
@@ -60,9 +62,10 @@ const deliveryStatusClass: Record<string, string> = {
   dead_letter: 'bg-red-100 text-red-800',
 }
 
-function subscriptionState(
-  subscription: WebhookSubscriptionWire,
-): { label: string; autoDisabled: boolean } {
+function subscriptionState(subscription: WebhookSubscriptionWire): {
+  label: string
+  autoDisabled: boolean
+} {
   const autoDisabled =
     subscription.status === 'disabled' &&
     subscription.failureThreshold > 0 &&
@@ -244,10 +247,30 @@ export function AdminWebhooks({
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-4">
         {[
-          ['Active subscriptions', subscriptions.filter((s) => s.status === 'active').length],
-          ['Disabled / paused', subscriptions.filter((s) => s.status === 'disabled' || s.status === 'paused').length],
-          ['Dead letter 24h', (healthQuery.data?.data ?? []).reduce((sum, h) => sum + h.deadLetter24h, 0)],
-          ['Retry debt', (healthQuery.data?.data ?? []).reduce((sum, h) => sum + h.retrying24h + h.pending24h, 0)],
+          [
+            'Active subscriptions',
+            subscriptions.filter((s) => s.status === 'active').length,
+          ],
+          [
+            'Disabled / paused',
+            subscriptions.filter(
+              (s) => s.status === 'disabled' || s.status === 'paused',
+            ).length,
+          ],
+          [
+            'Dead letter 24h',
+            (healthQuery.data?.data ?? []).reduce(
+              (sum, h) => sum + h.deadLetter24h,
+              0,
+            ),
+          ],
+          [
+            'Retry debt',
+            (healthQuery.data?.data ?? []).reduce(
+              (sum, h) => sum + h.retrying24h + h.pending24h,
+              0,
+            ),
+          ],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border bg-background p-3">
             <div className="text-2xl font-semibold">{value}</div>
@@ -268,11 +291,7 @@ export function AdminWebhooks({
           <code className="block break-all rounded bg-background p-2">
             {rotated.signingSecret}
           </code>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setRotated(null)}
-          >
+          <Button size="sm" variant="outline" onClick={() => setRotated(null)}>
             Dismiss
           </Button>
         </div>
@@ -366,9 +385,7 @@ export function AdminWebhooks({
                           rotateMutation.isPending ||
                           subscription.status === 'archived'
                         }
-                        onClick={() =>
-                          rotateMutation.mutate(subscription.id)
-                        }
+                        onClick={() => rotateMutation.mutate(subscription.id)}
                       >
                         Rotate secret
                       </Button>
@@ -413,9 +430,7 @@ export function AdminWebhooks({
               aria-label="Subscription filter"
               className="rounded-md border bg-background px-2 py-1 text-sm text-foreground"
               value={subscriptionFilter}
-              onChange={(event) =>
-                setSubscriptionFilter(event.target.value)
-              }
+              onChange={(event) => setSubscriptionFilter(event.target.value)}
             >
               <option value="all">All</option>
               {subscriptions.map((subscription) => (
@@ -496,9 +511,7 @@ export function AdminWebhooks({
                         size="sm"
                         variant="outline"
                         disabled={replayMutation.isPending}
-                        onClick={() =>
-                          replayMutation.mutate(delivery.id)
-                        }
+                        onClick={() => replayMutation.mutate(delivery.id)}
                       >
                         Replay
                       </Button>
@@ -532,8 +545,8 @@ export function AdminWebhooks({
         <p className="text-xs text-muted-foreground">
           Operator-invoked bulk replay for the selected subscription scope and
           time window. Replays reuse the original idempotency key and skip
-          originals that already have a replay queued, so re-running a window
-          is safe. Each run is audited.
+          originals that already have a replay queued, so re-running a window is
+          safe. Each run is audited.
         </p>
         <div className="flex flex-wrap items-end gap-2">
           <label className="space-y-1 text-xs text-muted-foreground">
@@ -546,9 +559,7 @@ export function AdminWebhooks({
                 setReplayWindow((current) => ({
                   ...current,
                   status: event.target.value as
-                    | 'dead_letter'
-                    | 'failed'
-                    | 'delivered',
+                    'dead_letter' | 'failed' | 'delivered',
                 }))
               }
             >

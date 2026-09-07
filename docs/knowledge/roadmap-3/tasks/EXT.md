@@ -9,9 +9,11 @@ Provide a deliberate way to extend Sheetbase without allowing plugins/integratio
 ## EXT-01 — Extension Contract & Capability Boundaries
 
 ### Goal
+
 Define what an extension is allowed to contribute and which canonical contracts it may use.
 
 ### Scope
+
 - extension metadata/identity/lifecycle;
 - declared capabilities and permission checks;
 - allowed UI, command, automation and data-access contribution points;
@@ -19,14 +21,17 @@ Define what an extension is allowed to contribute and which canonical contracts 
 - installation/enable/disable semantics.
 
 ### Exit
+
 An extension contract exists that makes authority, permissions and lifecycle explicit before any general plugin ecosystem is built.
 
 ## EXT-02 — UI & Command Extension Points
 
 ### Goal
+
 Allow bounded product extensions without arbitrary application mutation.
 
 ### Scope
+
 - registered object/context actions;
 - panels/views where justified;
 - command palette/action integration;
@@ -34,14 +39,17 @@ Allow bounded product extensions without arbitrary application mutation.
 - no direct ownership of canonical scientific state.
 
 ### Exit
+
 A sample extension can add a useful contextual UI/action through supported extension points without importing private application internals.
 
 ## EXT-03 — Distribution, Trust & Compatibility
 
 ### Goal
+
 Make extension installation and upgrades governable.
 
 ### Scope
+
 - package/source identity and versioning;
 - compatibility declarations;
 - trusted/admin installation controls;
@@ -49,6 +57,7 @@ Make extension installation and upgrades governable.
 - audit/diagnostic information for extension actions.
 
 ### Exit
+
 Administrators can understand what an extension can do, install/update/remove it safely, and detect incompatible versions.
 
 ## Boundaries

@@ -166,7 +166,8 @@ export function PlateMap({
   // selection across windows; the window jumps to it when it changes to a
   // code outside the visible band.
   const windowing =
-    windowed === true || (windowed === 'auto' && rows * cols > LARGE_PLATE_CELL_THRESHOLD)
+    windowed === true ||
+    (windowed === 'auto' && rows * cols > LARGE_PLATE_CELL_THRESHOLD)
   const windowCount = Math.max(1, Math.ceil(rows / Math.max(1, rowsPerWindow)))
   const [windowIndex, setWindowIndex] = React.useState(0)
   const safeWindowIndex = Math.min(windowIndex, windowCount - 1)

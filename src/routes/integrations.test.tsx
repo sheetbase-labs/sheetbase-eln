@@ -90,7 +90,9 @@ describe('INT-01 integrations route', () => {
 
   it('offers connector registration to governed roles', () => {
     renderRoute()
-    const buttons = screen.getAllByRole('button', { name: /Register connector/i })
+    const buttons = screen.getAllByRole('button', {
+      name: /Register connector/i,
+    })
     expect(buttons.length).toBeGreaterThan(0)
   })
 })

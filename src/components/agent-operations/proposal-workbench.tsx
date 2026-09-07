@@ -284,9 +284,7 @@ export function ProposalWorkbench({
                       {marking.outputReferences.length > 0 && (
                         <ul className="text-muted-foreground space-y-1 font-mono text-[11px]">
                           {marking.outputReferences.map((reference) => (
-                            <li
-                              key={`${reference.kind}:${reference.id}`}
-                            >
+                            <li key={`${reference.kind}:${reference.id}`}>
                               {reference.kind}: {reference.id}
                             </li>
                           ))}

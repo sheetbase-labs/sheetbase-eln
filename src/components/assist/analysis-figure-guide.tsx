@@ -10,16 +10,11 @@
  * navigates to the notebook surface where the canonical embed lives.
  * The wrapper never mutates anything itself.
  */
-import {
-  GUIDED_ACCEPTS,
-  evaluateAnalysisToFigure,
-  type GuideAcceptKey,
-} from '#/lib/assist-guide'
+import { GUIDED_ACCEPTS, evaluateAnalysisToFigure } from '#/lib/assist-guide'
+import type { GuideAcceptKey } from '#/lib/assist-guide'
 import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
-import {
-  validateComparativeViewConfig,
-  type ComparativeViewConfig,
-} from '#/lib/comparative-view'
+import { validateComparativeViewConfig } from '#/lib/comparative-view'
+import type { ComparativeViewConfig } from '#/lib/comparative-view'
 
 import { GuidePanel } from './guide-panel'
 

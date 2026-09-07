@@ -567,7 +567,11 @@ describe('Handsontable filter ⇄ presentation.filters mapping (GRID-04)', () =>
             conditions: [{ name: 'eq', args: [1_200] }],
             operation: 'conjunction',
           },
-          { column: 1, conditions: [{ name: 'not_empty' }], operation: 'conjunction' },
+          {
+            column: 1,
+            conditions: [{ name: 'not_empty' }],
+            operation: 'conjunction',
+          },
           { column: 2, conditions: [{ name: 'neq', args: ['draft'] }] },
         ],
         columns,
@@ -695,20 +699,16 @@ describe('Handsontable filter ⇄ presentation.filters mapping (GRID-04)', () =>
   it('restores a saved filter on a hidden column through the canonical columns (#113)', () => {
     // Canonical [col-a, col-x, col-b]; the view hides col-x → display
     // [col-a, col-b]. col-x remains a restorable canonical column.
-    const canonicalColumns = [
-      { id: 'col-a' },
-      { id: 'col-x' },
-      { id: 'col-b' },
-    ]
+    const canonicalColumns = [{ id: 'col-a' }, { id: 'col-x' }, { id: 'col-b' }]
     const displayColumns = [{ id: 'col-a' }, { id: 'col-b' }]
     const savedFilters: SheetPresentation['filters'] = [
       { columnId: 'col-x', operator: 'equals', value: 5 },
     ]
 
     // Mapping through the DISPLAY subset would silently drop the filter.
-    expect(presentationFiltersToHotAdditions(savedFilters, displayColumns)).toEqual(
-      [],
-    )
+    expect(
+      presentationFiltersToHotAdditions(savedFilters, displayColumns),
+    ).toEqual([])
     // Through the canonical list the condition survives as a plugin
     // addition at the canonical index even though the column is hidden.
     const additions = presentationFiltersToHotAdditions(
@@ -722,10 +722,7 @@ describe('Handsontable filter ⇄ presentation.filters mapping (GRID-04)', () =>
     // at their display indexes.
     expect(
       filterAdditionsToDisplayColumns(
-        [
-          ...additions,
-          { column: 0, name: 'eq', args: ['visible'] },
-        ],
+        [...additions, { column: 0, name: 'eq', args: ['visible'] }],
         canonicalColumns,
         displayColumns,
       ),

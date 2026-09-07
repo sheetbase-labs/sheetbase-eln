@@ -32,10 +32,7 @@
  */
 import type { DataClient } from '../data-client'
 import { describeImportRpcCode } from '../import-commit'
-import {
-  createDataset,
-  commitDatasetRowBatchAtomic,
-} from '../dataset-product'
+import { createDataset, commitDatasetRowBatchAtomic } from '../dataset-product'
 import { mapImportSheet, suggestImportMappings } from '../import-mapping'
 import type { ImportColumnMapping, ImportTargetField } from '../import-mapping'
 import { ConnectorExecutionError } from './enterprise/errors'
@@ -298,7 +295,9 @@ async function mapValidateCommitStages(input: {
   }).catch((error) => {
     const message = error instanceof Error ? error.message : String(error)
     throw new ConnectorStepError(
-      /Dataset import rejected/i.test(message) ? 'validation_failed' : 'commit_failed',
+      /Dataset import rejected/i.test(message)
+        ? 'validation_failed'
+        : 'commit_failed',
       message,
     )
   })

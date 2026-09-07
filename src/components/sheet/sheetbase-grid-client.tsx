@@ -28,10 +28,7 @@ function includesReadOnlyCell(hot: Handsontable, ranges: RangeType[]) {
   })
 }
 
-function changesIncludeReadOnlyCell(
-  hot: Handsontable,
-  changes: CellChange[],
-) {
+function changesIncludeReadOnlyCell(hot: Handsontable, changes: CellChange[]) {
   return changes.some((change) => {
     const col = hot.propToCol(change[1] as string | number)
     if (col < 0) return false

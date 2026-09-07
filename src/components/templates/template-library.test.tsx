@@ -4,7 +4,11 @@
  * and keyboard accessibility.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render as testingLibraryRender, screen } from '@testing-library/react'
+import {
+  cleanup,
+  render as testingLibraryRender,
+  screen,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -958,16 +962,12 @@ describe('REUSE-01 TemplateFilters — purpose facet and archived lifecycle', ()
 
   it('offers the archived lifecycle alongside record statuses', () => {
     render(filters())
-    expect(
-      screen.getByRole('option', { name: 'Archived' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Archived' })).toBeTruthy()
   })
 
   it('lists purpose options from the tag vocabulary in use', () => {
     render(filters())
-    expect(
-      screen.getByRole('option', { name: 'stability (2)' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'stability (2)' })).toBeTruthy()
     expect(screen.getByRole('option', { name: 'assay (1)' })).toBeTruthy()
   })
 
@@ -1057,9 +1057,7 @@ describe('REUSE-01 TemplateInspector — purpose and requirements preview', () =
 
   it('previews blocks, uses and readiness before instantiation', () => {
     render(inspector({ blockCount: 3, usageCount: 2 }))
-    expect(
-      screen.getByText(/3 blocks · 2 uses · Ready/i),
-    ).toBeTruthy()
+    expect(screen.getByText(/3 blocks · 2 uses · Ready/i)).toBeTruthy()
   })
 
   it('previews archived unreadiness', () => {

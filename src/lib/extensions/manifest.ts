@@ -15,8 +15,10 @@
  * tests (`manifest.test.ts` + `tests/db/ext-01-extensions.test.ts`) keep the
  * two implementations in lockstep.
  */
-import { CAPABILITIES, type Capability } from '../capability'
-import { VALID_SCOPES, type Scope } from '../api-credential-scopes'
+import { CAPABILITIES } from '../capability'
+import type { Capability } from '../capability'
+import { VALID_SCOPES } from '../api-credential-scopes'
+import type { Scope } from '../api-credential-scopes'
 import { eventByName, resolveEventAlias } from '../event-catalogue'
 import { validateCompatRange } from './compat'
 
@@ -31,7 +33,9 @@ export const EXTENSION_CONTRIBUTION_POINTS = [
 export type ExtensionContributionPoint =
   (typeof EXTENSION_CONTRIBUTION_POINTS)[number]
 
-function isContributionPoint(value: unknown): value is ExtensionContributionPoint {
+function isContributionPoint(
+  value: unknown,
+): value is ExtensionContributionPoint {
   return (
     typeof value === 'string' &&
     (EXTENSION_CONTRIBUTION_POINTS as readonly string[]).includes(value)
@@ -117,7 +121,11 @@ function checkKey(value: unknown, errors: string[]): string | null {
 }
 
 function checkName(value: unknown, errors: string[]): string | null {
-  if (typeof value !== 'string' || value.trim().length < 1 || value.trim().length > 200) {
+  if (
+    typeof value !== 'string' ||
+    value.trim().length < 1 ||
+    value.trim().length > 200
+  ) {
     errors.push('name must be 1-200 non-blank characters')
     return null
   }
@@ -149,7 +157,9 @@ function checkSource(value: unknown, errors: string[]): string | null {
   }
   if (value.startsWith('https://')) return value
   if (SOURCE_PATTERN.test(value)) return value
-  errors.push('source must be an https: URL or a namespaced scheme:id reference')
+  errors.push(
+    'source must be an https: URL or a namespaced scheme:id reference',
+  )
   return null
 }
 function checkCompatibleWith(value: unknown, errors: string[]): string | null {
@@ -166,7 +176,10 @@ function checkCompatibleWith(value: unknown, errors: string[]): string | null {
   return errors.length > before ? null : trimmed
 }
 
-function checkCapabilities(value: unknown, errors: string[]): Capability[] | null {
+function checkCapabilities(
+  value: unknown,
+  errors: string[],
+): Capability[] | null {
   if (!Array.isArray(value)) {
     errors.push('capabilities must be an array')
     return null
@@ -225,7 +238,9 @@ function checkNamedList(
       entry.title.trim().length < 1 ||
       entry.title.trim().length > 120
     ) {
-      errors.push(`contributions.${point} entry titles must be 1-120 characters`)
+      errors.push(
+        `contributions.${point} entry titles must be 1-120 characters`,
+      )
       return null
     }
     if (seen.has(entry.id)) {

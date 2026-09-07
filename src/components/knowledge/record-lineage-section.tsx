@@ -39,9 +39,7 @@ export function RecordLineageList({
     const nodeForRow = (rowId: string): LineageNode | null => {
       const direct = graph.nodes.find((node) => rowId === node.id)
       if (direct) return direct
-      return (
-        graph.nodes.find((node) => rowId.startsWith(`${node.id}:`)) ?? null
-      )
+      return graph.nodes.find((node) => rowId.startsWith(`${node.id}:`)) ?? null
     }
     // The seed's own row (direction `seed`, no relationship) describes the
     // viewed object itself, not its lineage — exclude it from the miniature.

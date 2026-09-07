@@ -7,8 +7,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DataClient } from './data-client'
-import type { RecordWire } from './notebook-data'
-import type { RecordLinkWire } from './notebook-data'
+import type { RecordWire, RecordLinkWire } from './notebook-data'
 import {
   buildRelationshipRows,
   fetchIncomingLinksByIdentifier,
@@ -92,19 +91,19 @@ function fakeClient(
   }[],
   calls: string[] = [],
 ): DataClient {
-  const list = async <T,>(resource: string, query = ''): Promise<T[]> => {
+  const list = async <T>(resource: string, query = ''): Promise<T[]> => {
     calls.push(`${resource} ${query}`)
-    const route = routes.find((r) => r.match(resource, query ?? ''))
+    const route = routes.find((r) => r.match(resource, query))
     if (!route) throw new Error(`unexpected query: ${resource} ${query}`)
     return route.rows as T[]
   }
   return {
     list,
     count: async () => 0,
-    rpc: async <T,>(): Promise<T> => {
+    rpc: async <T>(): Promise<T> => {
       throw new Error('no rpc in relationships tests')
     },
-    insert: async <T,>(): Promise<T> => {
+    insert: async <T>(): Promise<T> => {
       throw new Error('no insert in relationships tests')
     },
     patch: async () => [],
@@ -149,7 +148,7 @@ describe('fetchIncomingLinksForRecord', () => {
         createdByUserId: null,
       },
     ])
-})
+  })
 })
 
 describe('fetchIncomingLinksByIdentifier', () => {
@@ -205,7 +204,9 @@ describe('fetchRelationshipLinks', () => {
           link_type: 'general',
         }),
       ]),
-      on('records', 'id=eq.rec-1', [recordWire('rec-1', { identifier: 'EXP-1' })]),
+      on('records', 'id=eq.rec-1', [
+        recordWire('rec-1', { identifier: 'EXP-1' }),
+      ]),
       on('record_links', 'target_identifier=eq.EXP-1', [
         linkWire('in-ident', {
           source_record_id: 'rec-7',
@@ -219,10 +220,7 @@ describe('fetchRelationshipLinks', () => {
 
   it('fans out outgoing, incoming and the by-identifier fallback with dedupe', async () => {
     const client = fakeClient(routes())
-    const { outgoing, incoming } = await fetchRelationshipLinks(
-      client,
-      'rec-1',
-    )
+    const { outgoing, incoming } = await fetchRelationshipLinks(client, 'rec-1')
     expect(outgoing.map((l) => l.id)).toEqual(['out-1', 'self'])
     expect(incoming.map((l) => l.id)).toEqual(['in-1', 'in-ident'])
   })
@@ -238,10 +236,7 @@ describe('fetchRelationshipLinks', () => {
       ],
       calls,
     )
-    const { outgoing, incoming } = await fetchRelationshipLinks(
-      client,
-      'rec-1',
-    )
+    const { outgoing, incoming } = await fetchRelationshipLinks(client, 'rec-1')
     expect(outgoing).toEqual([])
     expect(incoming).toEqual([])
     expect(calls.some((c) => c.includes('target_identifier=eq.'))).toBe(false)
@@ -302,10 +297,16 @@ describe('lifecycleToRowState', () => {
   it('maps endpoints and absence to the honest row states', () => {
     expect(lifecycleToRowState(endpoint('a'), true)).toBe('available')
     expect(
-      lifecycleToRowState(endpoint('a', { archivedAt: '2026-01-01T00:00:00Z' }), true),
+      lifecycleToRowState(
+        endpoint('a', { archivedAt: '2026-01-01T00:00:00Z' }),
+        true,
+      ),
     ).toBe('archived')
     expect(
-      lifecycleToRowState(endpoint('a', { deletedAt: '2026-01-01T00:00:00Z' }), true),
+      lifecycleToRowState(
+        endpoint('a', { deletedAt: '2026-01-01T00:00:00Z' }),
+        true,
+      ),
     ).toBe('deleted')
     expect(lifecycleToRowState(null, true)).toBe('permission-restricted')
     expect(lifecycleToRowState(null, false)).toBe('missing')
@@ -324,7 +325,14 @@ describe('lifecycleToRowState', () => {
 
 describe('buildRelationshipRows', () => {
   const endpoints = new Map<string, RelationshipEndpoint>([
-    ['rec-2', endpoint('rec-2', { kind: 'sample', identifier: 'SMP-2', title: 'Cell line' })],
+    [
+      'rec-2',
+      endpoint('rec-2', {
+        kind: 'sample',
+        identifier: 'SMP-2',
+        title: 'Cell line',
+      }),
+    ],
     [
       'rec-3',
       endpoint('rec-3', {

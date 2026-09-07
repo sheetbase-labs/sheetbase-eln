@@ -112,8 +112,14 @@ export function RepresentationFrame({
             Loading representation…
           </p>
         ) : error ? (
-          <p role="alert" className="flex items-start gap-2 text-sm text-destructive">
-            <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p
+            role="alert"
+            className="flex items-start gap-2 text-sm text-destructive"
+          >
+            <CircleAlert
+              className="mt-0.5 size-4 shrink-0"
+              aria-hidden="true"
+            />
             {error}
           </p>
         ) : (

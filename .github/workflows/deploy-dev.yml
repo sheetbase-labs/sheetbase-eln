@@ -11,17 +11,20 @@
 
 name: Deploy development environment
 
-# on: # PAUSED — uncomment to re-enable
-#   workflow_dispatch:
-#     inputs:
-#       ref:
-#         description: 'Branch or tag to build and deploy'
-#         required: true
-#         default: 'main'
-#       confirm:
-#         description: 'Type "deploy-dev" to confirm'
-#         required: true
-#         default: ''
+# Push trigger stays off (PLAT-03): manual dispatch only, still gated by the
+# confirm input on the job. A valid trigger block also stops GitHub emitting
+# instant-failure runs for this file on every push.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or tag to build and deploy'
+        required: true
+        default: 'main'
+      confirm:
+        description: 'Type "deploy-dev" to confirm'
+        required: true
+        default: ''
 
 concurrency:
   group: development-deploy

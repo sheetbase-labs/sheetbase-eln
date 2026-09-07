@@ -32,8 +32,8 @@ vi.mock('#/lib/auth-client', () => ({
 // palette tests are deterministic and never touch the network; tests that
 // need specific items override the returned fixtures. vi.hoisted keeps the
 // mock usable inside the hoisted vi.mock factory.
-const fetchFavouriteItemsMock = vi.hoisted(
-  () => vi.fn<() => Promise<FavouriteItem[]>>(() => Promise.resolve([])),
+const fetchFavouriteItemsMock = vi.hoisted(() =>
+  vi.fn<() => Promise<FavouriteItem[]>>(() => Promise.resolve([])),
 )
 vi.mock('#/lib/favourites', async () => {
   const actual = await vi.importActual<object>('#/lib/favourites')
@@ -430,20 +430,18 @@ describe('AppShell', () => {
   })
 
   it('lists projects in the palette and navigating closes it (NAV-03)', async () => {
-    const listSpy = vi
-      .spyOn(notebookDataClient, 'list')
-      .mockResolvedValue([
-        {
-          id: 'p-1',
-          workspace_id: 'w-1',
-          key: 'LV-1',
-          title: 'Stability study',
-          status: 'active',
-          created_at: '2026-08-01T00:00:00Z',
-          updated_at: '2026-08-01T00:00:00Z',
-          archived_at: null,
-        },
-      ])
+    const listSpy = vi.spyOn(notebookDataClient, 'list').mockResolvedValue([
+      {
+        id: 'p-1',
+        workspace_id: 'w-1',
+        key: 'LV-1',
+        title: 'Stability study',
+        status: 'active',
+        created_at: '2026-08-01T00:00:00Z',
+        updated_at: '2026-08-01T00:00:00Z',
+        archived_at: null,
+      },
+    ])
     try {
       const { user } = renderShell({
         context: baseContext,
@@ -527,9 +525,7 @@ describe('AppShell', () => {
       name: 'Search records and samples',
     })
     await user.click(trigger)
-    expect(
-      screen.getByRole('dialog', { name: 'Command palette' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeTruthy()
     await user.keyboard('{Escape}')
     await waitFor(() => {
       expect(

@@ -289,9 +289,7 @@ export function displayModelFieldValue(
   // MODEL-02: governed quantity display unit wins; legacy opaque unit
   // symbols remain the fallback until semantics are configured.
   const legacySymbol =
-    typeof definition.unit?.symbol === 'string'
-      ? definition.unit.symbol
-      : null
+    typeof definition.unit?.symbol === 'string' ? definition.unit.symbol : null
   const unit = fieldDisplayUnit(
     definitionOfModelField(definition),
     legacySymbol,
@@ -364,7 +362,7 @@ export async function createModelFieldWithSemantics(
   client: DataClient,
   input: CreateModelFieldWithSemanticsInput,
 ): Promise<unknown> {
-  const created = (await client.rpc('create_model_field', {
+  const created = await client.rpc<{ id: string }>('create_model_field', {
     p_workspace_id: input.workspaceId,
     p_model_key: input.modelKey,
     p_field_name: input.fieldName,
@@ -375,7 +373,7 @@ export async function createModelFieldWithSemantics(
     p_validation: modelFieldValidationForServer(input.validation),
     p_unit: input.unit,
     p_description: input.description,
-  })) as { id: string }
+  })
   await configureModelFieldSemantics(client, created.id, input.semantics)
   let position = 0
   for (const option of input.options) {
@@ -391,4 +389,3 @@ export async function createModelFieldWithSemantics(
     p_definition_id: created.id,
   })
 }
-

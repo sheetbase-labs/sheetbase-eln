@@ -234,8 +234,7 @@ export function ScientificRecordLinker({
           {restricted ? (
             <p className="px-2 text-[0.65rem] text-muted-foreground">
               This Model accepts{' '}
-              {allowedKinds.map((opt) => opt.label).join(', ') || 'no'}{' '}
-              links
+              {allowedKinds.map((opt) => opt.label).join(', ') || 'no'} links
               {KIND_OPTIONS.filter(
                 (opt) =>
                   !allowedKinds.some((allowed) => allowed.kind === opt.kind),
@@ -290,11 +289,11 @@ export function ScientificRecordLinker({
                 ? DUPLICATE_SCIENTIFIC_LINK_MESSAGE
                 : isRelationshipNotAllowedError(linkMutation.error)
                   ? (linkMutation.error instanceof DataClientError &&
-                    linkMutation.error.message) ||
+                      linkMutation.error.message) ||
                     RELATIONSHIP_NOT_ALLOWED_MESSAGE
                   : isRelationshipCardinalityError(linkMutation.error)
                     ? (linkMutation.error instanceof DataClientError &&
-                      linkMutation.error.message) ||
+                        linkMutation.error.message) ||
                       RELATIONSHIP_CARDINALITY_MESSAGE
                     : linkMutation.error instanceof DataClientError
                       ? linkMutation.error.message

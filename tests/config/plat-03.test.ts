@@ -10,14 +10,15 @@ describe('PLAT-03 security pipeline', () => {
     jobs: Record<string, Record<string, unknown>>
   }
 
-  it('runs CodeQL SAST on main pushes and a weekly schedule', () => {
-    // CodeQL deliberately does not run per-PR; the full toolchain runs once
-    // per merge on main.
+  it('does not run CodeQL; audit visibility stays on main pushes and schedule', () => {
+    // CodeQL was removed: it failed on token scope in this account and SAST
+    // is not part of the merge gate. The audit job is the remaining signal.
     expect(Object.keys(workflow.on)).toEqual(
       expect.arrayContaining(['push', 'schedule']),
     )
     expect(workflow.on.pull_request).toBeUndefined()
-    expect(workflow.jobs.codeql).toBeDefined()
+    expect(workflow.jobs.codeql).toBeUndefined()
+    expect(workflow.jobs['dependency-audit']).toBeDefined()
   })
 
   it('enforces the dependency audit as a release gate and defers pre-merge PR auditing', () => {
@@ -59,6 +60,7 @@ describe('PLAT-03 dependency policy', () => {
     const workspace = readFileSync('pnpm-workspace.yaml', 'utf8')
     expect(workspace).toContain("'js-yaml@>=4.0.0 <4.3.1': '>=4.3.1'")
     expect(workspace).toContain("'nanoid@>=3.0.0 <3.3.18': '>=3.3.18'")
+    expect(workspace).toContain("'browserslist@<=4.28.6': '>=4.28.7'")
   })
 })
 

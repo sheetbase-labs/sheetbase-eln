@@ -35,7 +35,10 @@ import {
   RecordReferenceCellError,
   resolveRecordReferenceState,
 } from './record-reference-cell'
-import { parseSheetCellInput, validateCanonicalCell } from './canonical-sheet-grid'
+import {
+  parseSheetCellInput,
+  validateCanonicalCell,
+} from './canonical-sheet-grid'
 
 const ACTIVE_OPTION_ID = '40000000-0000-4000-8000-000000000001'
 const RETIRED_OPTION_ID = '40000000-0000-4000-8000-000000000003'
@@ -132,12 +135,12 @@ describe('field semantics parity', () => {
     // Kernel accepts the quantity contract; the server stores it (0060)
     // and enforces the numeric range (0057).
     expect(validateFieldDefinition(sheet)).toEqual([])
-    expect(readMigration('0060_core_013_model_field_definition_kernel.sql')).toContain(
-      'storageUnit',
-    )
     expect(
-      readMigration('0057_model_fields_foundation.sql'),
-    ).toContain('numeric validation failed')
+      readMigration('0060_core_013_model_field_definition_kernel.sql'),
+    ).toContain('storageUnit')
+    expect(readMigration('0057_model_fields_foundation.sql')).toContain(
+      'numeric validation failed',
+    )
   })
 
   it('enforces category membership identically with honest retired states', () => {
@@ -187,9 +190,9 @@ describe('field semantics parity', () => {
       validateFieldDefinition(sheetField('category', { category: null })),
     ).not.toEqual([])
     expect(validateFieldDefinition(sheet)).toEqual([])
-    expect(
-      readMigration('0057_model_fields_foundation.sql'),
-    ).toContain('inactive category option')
+    expect(readMigration('0057_model_fields_foundation.sql')).toContain(
+      'inactive category option',
+    )
   })
 
   it('resolves references to stable UUIDs with honest missing states', () => {
@@ -215,9 +218,7 @@ describe('field semantics parity', () => {
     expect(
       parsePersistedRecordReference(RECORD_UUID, { nullable: false }),
     ).toBe(RECORD_UUID)
-    expect(validateCanonicalCell(sheet, 'SMP-2026-0001')).toBe(
-      'invalid_value',
-    )
+    expect(validateCanonicalCell(sheet, 'SMP-2026-0001')).toBe('invalid_value')
     expect(validateModelFieldValue(record, 'SMP-2026-0001')).toBe(
       'invalid_value',
     )
@@ -273,9 +274,9 @@ describe('field semantics parity', () => {
     expect(
       validateFieldDefinition(sheetField('reference', { relationship: null })),
     ).not.toEqual([])
-    expect(
-      readMigration('0057_model_fields_foundation.sql'),
-    ).toContain('invalid reference')
+    expect(readMigration('0057_model_fields_foundation.sql')).toContain(
+      'invalid reference',
+    )
   })
 
   it('enforces identifier patterns and text bounds on both paths', () => {
@@ -296,9 +297,9 @@ describe('field semantics parity', () => {
 
     // The kernel name `pattern` persists as the server `regex` key.
     expect(validateFieldDefinition(sheet)).toEqual([])
-    expect(
-      modelFieldValidationForServer({ pattern: '^SMP-', min: 1 }),
-    ).toEqual({ min: 1, regex: '^SMP-' })
+    expect(modelFieldValidationForServer({ pattern: '^SMP-', min: 1 })).toEqual(
+      { min: 1, regex: '^SMP-' },
+    )
     expect(
       fieldDefinitionFromModelField({
         id: 'field-1',
@@ -330,8 +331,8 @@ describe('field semantics parity', () => {
         null,
       ),
     ).toBeNull()
-    expect(
-      readMigration('0057_model_fields_foundation.sql'),
-    ).toContain('required field')
+    expect(readMigration('0057_model_fields_foundation.sql')).toContain(
+      'required field',
+    )
   })
 })

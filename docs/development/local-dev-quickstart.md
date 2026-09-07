@@ -97,7 +97,7 @@ amp orb service start dev --command 'pnpm dev'
 | PostgREST `permission denied for table`    | Normal for anon role without auth; the app proxies with its own client role                         |
 | `Port 3000 is in use`                      | A stale Vite process survived; kill it (`kill <pid>`) or just use the port Vite picked (check logs) |
 | No data on pages                           | Run `pnpm db:seed:demo` to populate fixture data                                                    |
-| `postgrest: command not found`             | Run `.agents/setup` or install manually per `docs/development/orb-setup.md`                                     |
+| `postgrest: command not found`             | Run `.agents/setup` or install manually per `docs/development/orb-setup.md`                         |
 | PostgREST `resource busy (Address in use)` | Another process holds port 3001/3002; stop it then restart the service                              |
 
 ## What NOT to do

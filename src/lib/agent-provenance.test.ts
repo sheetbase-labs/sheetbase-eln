@@ -183,11 +183,10 @@ describe('AUTO-PLUS-03 run provenance record', () => {
       proposal_id: 'proposal-0',
     })
     const second = step({ position: 1, proposal_id: 'proposal-1' })
-    const record = buildWorkflowProvenanceRecord(
-      workflow(),
-      [second, first],
-      { 'proposal-0': draft, 'proposal-1': proposal() },
-    )
+    const record = buildWorkflowProvenanceRecord(workflow(), [second, first], {
+      'proposal-0': draft,
+      'proposal-1': proposal(),
+    })
 
     expect(record.formatVersion).toBe(1)
     expect(record.agentProduced).toBe(true)
@@ -289,7 +288,11 @@ describe('AUTO-PLUS-03 output reference extraction', () => {
         },
       ),
     ).toEqual([
-      { kind: 'dataset_schema_definition', id: DEFINITION_ID, source: 'result' },
+      {
+        kind: 'dataset_schema_definition',
+        id: DEFINITION_ID,
+        source: 'result',
+      },
       { kind: 'dataset_schema_version', id: VERSION_ID, source: 'result' },
     ])
   })
@@ -348,15 +351,12 @@ describe('AUTO-PLUS-03 evidence boundaries', () => {
 
 describe('AUTO-PLUS-03 run cost/latency rollup', () => {
   it('rolls up budgets, cost, wall latency, and step states', () => {
-    const metrics = summarizeWorkflowRunMetrics(
-      workflow(),
-      [
-        { status: 'succeeded' },
-        { status: 'succeeded' },
-        { status: 'failed' },
-        { status: 'planned' },
-      ],
-    )
+    const metrics = summarizeWorkflowRunMetrics(workflow(), [
+      { status: 'succeeded' },
+      { status: 'succeeded' },
+      { status: 'failed' },
+      { status: 'planned' },
+    ])
     expect(metrics.operations).toEqual({ used: 3, max: 4, remaining: 1 })
     expect(metrics.costUsd).toEqual({ used: '0.0600', max: '0.5000' })
     expect(metrics.wallLatencyMs).toBe(300_000)

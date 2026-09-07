@@ -279,7 +279,9 @@ function DatasetExplorerRoute() {
   )
   const [samplePanelOpen, setSamplePanelOpen] = useState(false)
   const [extensionError, setExtensionError] = useState<string | null>(null)
-  const runExtensionContribution = (contribution: ResolvedExtensionContribution) => {
+  const runExtensionContribution = (
+    contribution: ResolvedExtensionContribution,
+  ) => {
     const workspaceId = context.workspace?.id
     if (!workspaceId) return
     setExtensionError(null)
@@ -290,7 +292,9 @@ function DatasetExplorerRoute() {
       async () => undefined,
     )
       .then(() => setSamplePanelOpen(true))
-      .catch((cause: unknown) => setExtensionError(describeExtensionInvocationError(cause)))
+      .catch((cause: unknown) =>
+        setExtensionError(describeExtensionInvocationError(cause)),
+      )
   }
   const [activeTab, setActiveTab] = useState<
     'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines'
@@ -329,26 +333,33 @@ function DatasetExplorerRoute() {
     summariesLoaded: summariesQuery.isSuccess,
   })
   const selectedTable = useMemo(
-    () => datasets.find((dataset) => dataset.id === selection.selectedDatasetId) ?? null,
+    () =>
+      datasets.find((dataset) => dataset.id === selection.selectedDatasetId) ??
+      null,
     [datasets, selection.selectedDatasetId],
   )
   const selectedTableId = selectedTable?.id ?? null
   // EXT-02 sample panel content: ordinary public reads already on this
   // route (explorer summaries + selection). The panel gets only this
   // loader — no data import of its own.
-  const loadSampleSummary = useCallback(async () => ({
-    heading: selectedTable?.name ?? 'No dataset selected',
-    subheading: selectedTable ? `Dataset · ${selectedTable.lifecycle}` : undefined,
-    rows: [
-      { label: 'Datasets in view', value: String(datasets.length) },
-      ...(selectedTable
-        ? [
-            { label: 'Status', value: selectedTable.lifecycle },
-            { label: 'ID', value: selectedTable.id },
-          ]
-        : []),
-    ],
-  }), [datasets.length, selectedTable])
+  const loadSampleSummary = useCallback(
+    async () => ({
+      heading: selectedTable?.name ?? 'No dataset selected',
+      subheading: selectedTable
+        ? `Dataset · ${selectedTable.lifecycle}`
+        : undefined,
+      rows: [
+        { label: 'Datasets in view', value: String(datasets.length) },
+        ...(selectedTable
+          ? [
+              { label: 'Status', value: selectedTable.lifecycle },
+              { label: 'ID', value: selectedTable.id },
+            ]
+          : []),
+      ],
+    }),
+    [datasets.length, selectedTable],
+  )
 
   function selectDataset(dataset: string) {
     void navigate({

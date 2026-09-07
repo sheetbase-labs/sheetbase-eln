@@ -26,12 +26,7 @@ export async function discoverModelImpact(
 }
 
 export type ModelImpactGroup =
-  | 'fields'
-  | 'records'
-  | 'rules'
-  | 'sheets'
-  | 'templates'
-  | 'other'
+  'fields' | 'records' | 'rules' | 'sheets' | 'templates' | 'other'
 
 export const MODEL_IMPACT_GROUP_TITLES: Record<ModelImpactGroup, string> = {
   fields: 'Fields',

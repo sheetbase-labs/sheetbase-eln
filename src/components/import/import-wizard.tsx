@@ -377,7 +377,9 @@ export function ImportWizard({
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    if (sheet) setMappingProposal(suggestMappingProposal(sheet.headers, fields))
+                    setMappingProposal(
+                      suggestMappingProposal(sheet.headers, fields),
+                    )
                   }}
                 >
                   Suggest mapping
@@ -391,7 +393,9 @@ export function ImportWizard({
                       Object.fromEntries(
                         applyMappingProposal(mappingProposal).map((mapping) => [
                           mapping.source,
-                          mapping.kind === 'field' ? mapping.field.id : 'ignore',
+                          mapping.kind === 'field'
+                            ? mapping.field.id
+                            : 'ignore',
                         ]),
                       ),
                     )

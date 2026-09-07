@@ -16,7 +16,8 @@
  *   flows through the external-token allowlist, which stays fail-closed
  *   (no extension tables or RPCs are added to it).
  */
-import { capabilitiesForRole, type Capability } from '../capability'
+import { capabilitiesForRole } from '../capability'
+import type { Capability } from '../capability'
 import type { WorkspaceRole } from '../workspace-admin'
 import type { ExtensionManifest } from './manifest'
 /**
@@ -29,7 +30,9 @@ export function effectiveExtensionCapabilities(
   role: WorkspaceRole | string | null | undefined,
 ): Capability[] {
   if (!role) return []
-  const granted = new Set<Capability>(capabilitiesForRole(role as WorkspaceRole))
+  const granted = new Set<Capability>(
+    capabilitiesForRole(role as WorkspaceRole),
+  )
   return manifest.capabilities.filter((capability) => granted.has(capability))
 }
 

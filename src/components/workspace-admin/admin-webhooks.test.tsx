@@ -167,11 +167,7 @@ function setup(role = 'owner') {
     offset: 0,
   })
   mocks.setStatus.mockImplementation(
-    async ({
-      data,
-    }: {
-      data: { subscriptionId: string; status: string }
-    }) => ({
+    async ({ data }: { data: { subscriptionId: string; status: string } }) => ({
       ...subscriptions.find((s) => s.id === data.subscriptionId)!,
       status: data.status,
     }),
@@ -197,9 +193,9 @@ afterEach(() => {
 describe('AdminWebhooks', () => {
   it('renders subscriptions with EVENT-02 health and auto-disable state', async () => {
     setup()
-    expect((await screen.findAllByText('orders')).length).toBeGreaterThanOrEqual(
-      2,
-    )
+    expect(
+      (await screen.findAllByText('orders')).length,
+    ).toBeGreaterThanOrEqual(2)
     expect(await screen.findByText('75.0% (15/20)')).toBeTruthy()
     expect(await screen.findByText('Auto-disabled')).toBeTruthy()
     expect(await screen.findByText('No traffic 24h')).toBeTruthy()
@@ -212,9 +208,7 @@ describe('AdminWebhooks', () => {
     expect(
       await screen.findByText('http_500 — attempt 5 failed with 500'),
     ).toBeTruthy()
-    expect(
-      screen.getAllByText('Dead letter').length,
-    ).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Dead letter').length).toBeGreaterThanOrEqual(1)
   })
 
   it('offers replay only for terminal deliveries', async () => {
@@ -258,15 +252,11 @@ describe('AdminWebhooks', () => {
   it('replays a single delivery and a window', async () => {
     const user = userEvent.setup()
     setup()
-    await user.click(
-      await screen.findByRole('button', { name: 'Replay' }),
-    )
+    await user.click(await screen.findByRole('button', { name: 'Replay' }))
     expect(mocks.replayOne).toHaveBeenCalledWith({
       data: { workspaceId: 'ws-1', deliveryId: 'del-dead' },
     })
-    await user.click(
-      screen.getByRole('button', { name: 'Replay window' }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Replay window' }))
     expect(mocks.replayMany).toHaveBeenCalledWith({
       data: {
         workspaceId: 'ws-1',
@@ -297,9 +287,7 @@ describe('AdminWebhooks', () => {
 
   it('fail-closes for roles without integrations.manage', async () => {
     setup('member')
-    expect(
-      await screen.findByText(/integrations\.manage/),
-    ).toBeTruthy()
+    expect(await screen.findByText(/integrations\.manage/)).toBeTruthy()
     expect(mocks.listSubs).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Disable' })).toBeNull()
   })

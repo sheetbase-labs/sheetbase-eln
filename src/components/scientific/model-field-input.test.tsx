@@ -128,12 +128,8 @@ describe('ModelFieldInput', () => {
       />,
     )
 
-    expect(
-      screen.queryByRole('textbox', { name: 'Source sample' }),
-    ).toBeNull()
-    expect(
-      screen.getByRole('button', { name: 'Select record' }),
-    ).toBeTruthy()
+    expect(screen.queryByRole('textbox', { name: 'Source sample' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Select record' })).toBeTruthy()
     expect(
       screen.getByText(
         'Selection persists the Record UUID. Record ID and Name are display only.',
@@ -183,7 +179,9 @@ describe('ModelFieldInput', () => {
         })}
       />,
     )
-    expect(await screen.findByText('SMP-2026-0042 · Liver section')).toBeTruthy()
+    expect(
+      await screen.findByText('SMP-2026-0042 · Liver section'),
+    ).toBeTruthy()
   })
 
   it('reports a missing Record honestly instead of inventing a label', async () => {
@@ -264,9 +262,7 @@ describe('ModelFieldInput with MODEL-03 rules', () => {
         relationshipRules={rules}
       />,
     )
-    expect(
-      screen.queryByRole('button', { name: 'Select record' }),
-    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Select record' })).toBeNull()
     expect(
       screen.getByText(/experiment does not accept reagent references/i),
     ).toBeTruthy()
@@ -286,9 +282,7 @@ describe('ModelFieldInput with MODEL-03 rules', () => {
         relationshipRules={rules}
       />,
     )
-    expect(
-      screen.getByRole('button', { name: 'Select record' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Select record' })).toBeTruthy()
   })
 
   it('stays unrestricted without rules', () => {
@@ -304,8 +298,6 @@ describe('ModelFieldInput with MODEL-03 rules', () => {
         onChange={vi.fn()}
       />,
     )
-    expect(
-      screen.getByRole('button', { name: 'Select record' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Select record' })).toBeTruthy()
   })
 })

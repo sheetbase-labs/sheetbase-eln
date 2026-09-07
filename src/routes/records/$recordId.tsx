@@ -279,14 +279,20 @@ function ExperimentNotebookRoute() {
   // points, never an error surface.
   const workspaceId = context.workspace?.id ?? null
   const workspaceRole = context.workspace?.role ?? null
-  const extensionPoints = useExtensionPoints(notebookDataClient, workspaceId, workspaceRole)
+  const extensionPoints = useExtensionPoints(
+    notebookDataClient,
+    workspaceId,
+    workspaceRole,
+  )
   const [samplePanelOpen, setSamplePanelOpen] = useState(false)
   const [extensionError, setExtensionError] = useState<string | null>(null)
   // EXT-02 invocation: the server-side assert gates execution (fail-closed);
   // the sample's read-only affordance then opens its data panel. The
   // returned audit fragment has no durable write to stamp here — writers
   // stamp it into their canonical payload channel.
-  const runExtensionContribution = (contribution: ResolvedExtensionContribution) => {
+  const runExtensionContribution = (
+    contribution: ResolvedExtensionContribution,
+  ) => {
     if (!workspaceId) return
     setExtensionError(null)
     void invokeExtensionContribution(
@@ -296,7 +302,9 @@ function ExperimentNotebookRoute() {
       async () => undefined,
     )
       .then(() => setSamplePanelOpen(true))
-      .catch((cause: unknown) => setExtensionError(describeExtensionInvocationError(cause)))
+      .catch((cause: unknown) =>
+        setExtensionError(describeExtensionInvocationError(cause)),
+      )
   }
 
   // NOTE-04: the document-level unsaved-work signal lives at the route so the
@@ -525,9 +533,9 @@ function ExperimentNotebookRoute() {
   const extensionPanelTabs: InspectorTab[] = historicalRevisionId
     ? []
     : toExtensionPanelTabs(extensionPoints.panels, (panel) =>
-        panel.extensionKey === SAMPLE_EXTENSION_KEY
-          ? <SampleExtensionPanel loadSummary={loadSampleSummary} />
-          : null,
+        panel.extensionKey === SAMPLE_EXTENSION_KEY ? (
+          <SampleExtensionPanel loadSummary={loadSampleSummary} />
+        ) : null,
       )
   return (
     // COLLAB-02: the whole page (canvas + inspector) lives inside the
@@ -602,7 +610,9 @@ function ExperimentNotebookRoute() {
             hasUnsavedWork={hasUnsavedWork}
             liveLockedAt={record.lockedAt}
             liveLockedByRevisionId={record.lockedByRevisionId}
-            extensionActions={historicalRevisionId ? [] : extensionPoints.objectActions}
+            extensionActions={
+              historicalRevisionId ? [] : extensionPoints.objectActions
+            }
             onExtensionAction={runExtensionContribution}
             extensionError={extensionError}
           />
@@ -854,7 +864,10 @@ export function StickyRecordHeader({
               the surrounding utility controls; nothing renders while empty
               (the slot hides contributions the caller could never invoke). */}
           {onExtensionAction ? (
-            <ExtensionObjectActions actions={extensionActions} onSelect={onExtensionAction} />
+            <ExtensionObjectActions
+              actions={extensionActions}
+              onSelect={onExtensionAction}
+            />
           ) : null}
         </div>
       </div>
@@ -2175,7 +2188,9 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
   // auto-applies, never an error style, silent unless a newer published
   // version exists.
   const availability = notebookTemplateUpgradeAvailability(
-    version.data ? { id: version.data.id, version: version.data.version } : null,
+    version.data
+      ? { id: version.data.id, version: version.data.version }
+      : null,
     versions.data ?? [],
   )
   if (version.isLoading || template.isLoading) {
@@ -2445,15 +2460,16 @@ export function NotebookInspector({
           {isHistorical ? (
             <PinnedRelationshipPanel links={evidenceLinks} />
           ) : (
-            <RelationshipPanel recordId={record.id} sourceModelKey={record.kind} />
+            <RelationshipPanel
+              recordId={record.id}
+              sourceModelKey={record.kind}
+            />
           )}
           {/* KNOW-02: per-object lineage — the existing traversal BFS seeded
               from this record at a bounded depth, with an `Open full lineage`
               deep-link to the explorer. Historical revisions show pinned
               evidence only, so the live traversal stays hidden there. */}
-          {isHistorical ? null : (
-            <RecordLineageSection recordId={record.id} />
-          )}
+          {isHistorical ? null : <RecordLineageSection recordId={record.id} />}
 
           <InspectorSection title="Files">
             <FileList items={fileItems} />

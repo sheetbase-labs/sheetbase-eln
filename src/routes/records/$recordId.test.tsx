@@ -166,9 +166,9 @@ describe('StickyRecordHeader', () => {
     // Scoped to the Readiness checklist group: the ASSIST-03 guide below
     // states the same warning in its own assistance voice.
     expect(
-      within(
-        await screen.findByRole('group', { name: 'Readiness' }),
-      ).getByText(/save or discard them before submitting/i),
+      within(await screen.findByRole('group', { name: 'Readiness' })).getByText(
+        /save or discard them before submitting/i,
+      ),
     ).toBeTruthy()
   })
 })
@@ -915,7 +915,10 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
   it('restores a deleted first block atomically via one insert_block with both anchors', async () => {
     const user = userEvent.setup()
     const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     })
     queryClient.setQueryData(notebookQueryKeys.record('r1'), record)
     queryClient.setQueryData(notebookQueryKeys.blocks('r1'), [
@@ -972,7 +975,9 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
       </QueryClientProvider>,
     )
 
-    await user.click(screen.getAllByRole('button', { name: /Block actions/ })[0])
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[0],
+    )
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Undo' }))
@@ -1000,7 +1005,10 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
   it('writes nothing to the cache when the atomic insert fails', async () => {
     const user = userEvent.setup()
     const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     })
     queryClient.setQueryData(notebookQueryKeys.record('r1'), record)
     queryClient.setQueryData(notebookQueryKeys.blocks('r1'), [
@@ -1051,7 +1059,9 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
       </QueryClientProvider>,
     )
 
-    await user.click(screen.getAllByRole('button', { name: /Block actions/ })[0])
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[0],
+    )
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(cachedIds()).toEqual(['b2'])

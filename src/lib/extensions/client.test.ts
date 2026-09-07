@@ -39,7 +39,12 @@ describe('extension client surface', () => {
       name: 'Retest Tracker',
       version: '1.0.0',
       source: 'https://extensions.example.com/x.tgz',
-      manifest: { ...manifest, capabilities: [...manifest.capabilities], scopes: [...manifest.scopes], contributions: {} },
+      manifest: {
+        ...manifest,
+        capabilities: [...manifest.capabilities],
+        scopes: [...manifest.scopes],
+        contributions: {},
+      },
     })
     expect(rpc).toHaveBeenCalledWith('install_extension', {
       p_workspace_id: 'ws',
@@ -69,7 +74,12 @@ describe('extension client surface', () => {
       name: 'Retest Tracker',
       version: '1.1.0',
       source: 'https://extensions.example.com/x.tgz',
-      manifest: { ...manifest, capabilities: [...manifest.capabilities], scopes: [...manifest.scopes], contributions: {} },
+      manifest: {
+        ...manifest,
+        capabilities: [...manifest.capabilities],
+        scopes: [...manifest.scopes],
+        contributions: {},
+      },
     })
     expect(rpc).toHaveBeenCalledWith('update_extension', {
       p_workspace_id: 'ws',
@@ -96,7 +106,12 @@ describe('extension client surface', () => {
       name: 'Retest Tracker',
       version: '1.0.0',
       source: 'dev:retest-panel',
-      manifest: { ...manifest, capabilities: [...manifest.capabilities], scopes: [...manifest.scopes], contributions: {} },
+      manifest: {
+        ...manifest,
+        capabilities: [...manifest.capabilities],
+        scopes: [...manifest.scopes],
+        contributions: {},
+      },
       acknowledgeUntrusted: true,
     })
     expect(rpc).toHaveBeenCalledWith(
@@ -106,14 +121,20 @@ describe('extension client surface', () => {
   })
 
   it('explains capability and manifest failures without leaking internals', () => {
-    expect(describeExtensionsError(new Error('capability required: extensions.manage'))).toMatch(
-      /permission/,
-    )
+    expect(
+      describeExtensionsError(
+        new Error('capability required: extensions.manage'),
+      ),
+    ).toMatch(/permission/)
     expect(
       describeExtensionsError(new Error('unknown contribution point: widgets')),
     ).toMatch(/manifest/)
     expect(
-      describeExtensionsError(new Error('untrusted extension source requires explicit acknowledgement')),
+      describeExtensionsError(
+        new Error(
+          'untrusted extension source requires explicit acknowledgement',
+        ),
+      ),
     ).toMatch(/untrusted/)
     expect(describeExtensionsError(new Error('extension not found'))).toMatch(
       /no longer installed/,

@@ -315,17 +315,17 @@ describe('parseLineageSeedParam', () => {
 })
 
 function capturingClient(queries: string[]): DataClient {
-  const list = async <T,>(resource: string, query = ''): Promise<T[]> => {
-    queries.push(`${resource}${query ?? ''}`)
+  const list = async <T>(resource: string, query = ''): Promise<T[]> => {
+    queries.push(`${resource}${query}`)
     return [] as T[]
   }
   return {
     list,
     count: async () => 0,
-    rpc: async <T,>(): Promise<T> => {
+    rpc: async <T>(): Promise<T> => {
       throw new Error('no rpc in filter-syntax tests')
     },
-    insert: async <T,>(): Promise<T> => {
+    insert: async <T>(): Promise<T> => {
       throw new Error('no insert in filter-syntax tests')
     },
     patch: async () => [],
@@ -367,11 +367,13 @@ describe('seeded fetch filter syntax', () => {
     ]
     const routed: DataClient = {
       ...client,
-      list: (<T,>(resource: string, query = ''): Promise<T[]> => {
-        queries.push(`${resource}${query ?? ''}`)
-        const route = routes.find((r) => `${resource}${query}`.startsWith(r.prefix))
+      list: <T>(resource: string, query = ''): Promise<T[]> => {
+        queries.push(`${resource}${query}`)
+        const route = routes.find((r) =>
+          `${resource}${query}`.startsWith(r.prefix),
+        )
         return Promise.resolve((route ? route.rows : []) as T[])
-      }) as DataClient['list'],
+      },
     }
     const graph = await fetchLineageGraph(routed, SEED, 2)
     const expansion = queries.find((q) => q.startsWith('records?id=in.'))

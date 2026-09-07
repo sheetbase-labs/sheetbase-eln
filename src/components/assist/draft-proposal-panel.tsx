@@ -71,12 +71,7 @@ export function DraftProposalPanel({
       </div>
       <p className="text-muted-foreground">{ASSISTANCE_NOTE}</p>
       <div className="flex gap-2">
-        <Button
-          type="button"
-          size="sm"
-          disabled={accepting}
-          onClick={onAccept}
-        >
+        <Button type="button" size="sm" disabled={accepting} onClick={onAccept}>
           {acceptLabel ?? defaultAcceptLabel(proposal)}
         </Button>
         <Button

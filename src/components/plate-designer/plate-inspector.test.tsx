@@ -7,10 +7,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type {
-  PlateDesignDoc,
-  PlateWellAssignment,
-} from '#/lib/plate-designer'
+import type { PlateDesignDoc, PlateWellAssignment } from '#/lib/plate-designer'
 
 import { PlateInspector } from './plate-inspector'
 
@@ -29,7 +26,9 @@ const design = {
   wells: [well],
 } as unknown as PlateDesignDoc
 
-function renderInspector(errors: React.ComponentProps<typeof PlateInspector>['validationErrors']) {
+function renderInspector(
+  errors: React.ComponentProps<typeof PlateInspector>['validationErrors'],
+) {
   return render(
     <PlateInspector
       well={well}

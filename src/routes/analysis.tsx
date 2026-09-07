@@ -448,8 +448,7 @@ function AnalysisStudioRoute() {
                   rowCount={datasetQuery.data?.rows.length ?? 0}
                   compareConfig={compareConfig}
                   columns={
-                    datasetQuery.data?.source.columns ??
-                    selectedSource.columns
+                    datasetQuery.data?.source.columns ?? selectedSource.columns
                   }
                   chartSpecReady={comparePromoted}
                   onPromoteGuide={promoteCompareToChart}
@@ -462,12 +461,12 @@ function AnalysisStudioRoute() {
             {selectedSource && compareConfig ? (
               <CompareView
                 source={selectedSource}
-                columns={datasetQuery.data?.source.columns ?? selectedSource.columns}
+                columns={
+                  datasetQuery.data?.source.columns ?? selectedSource.columns
+                }
                 rows={datasetQuery.data?.rows ?? []}
                 loading={datasetQuery.isLoading}
-                error={
-                  datasetQuery.error ? String(datasetQuery.error) : null
-                }
+                error={datasetQuery.error ? String(datasetQuery.error) : null}
                 config={compareConfig}
                 onConfigChange={setCompareConfig}
                 onPromote={promoteCompareToChart}
@@ -504,7 +503,9 @@ function AnalysisStudioRoute() {
                 views={views}
                 datasetQuery={datasetQuery}
                 materialised={analysisMaterialised}
-                facets={analysisFacets.panels.length > 0 ? analysisFacets : null}
+                facets={
+                  analysisFacets.panels.length > 0 ? analysisFacets : null
+                }
                 selection={chartSelection}
                 onSelectionChange={setChartSelection}
               />
@@ -1490,29 +1491,27 @@ export function DataTableAlternative({
               rows.map((row, i) => {
                 const selectedRowId = selection
                   ? materialised.series.find(
-                      (item) =>
-                        item.identifier === selection.seriesIdentifier,
+                      (item) => item.identifier === selection.seriesIdentifier,
                     )?.points[selection.index]?.rowId
                   : undefined
                 const isSelected =
-                  selectedRowId &&
-                  row[CHART_ROW_ID_KEY] === selectedRowId
+                  selectedRowId && row[CHART_ROW_ID_KEY] === selectedRowId
                 return (
-                <TableRow
-                  key={i}
-                  className={isSelected ? 'bg-muted' : undefined}
-                >
-                  {columns.map((column) => (
-                    <TableCell
-                      key={column.key}
-                      className="scientific-nums whitespace-nowrap font-mono tabular-nums"
-                    >
-                      {typeof row[column.key] === 'number'
-                        ? formatScientific(row[column.key] as number)
-                        : String(row[column.key] ?? '—')}
-                    </TableCell>
-                  ))}
-                </TableRow>
+                  <TableRow
+                    key={i}
+                    className={isSelected ? 'bg-muted' : undefined}
+                  >
+                    {columns.map((column) => (
+                      <TableCell
+                        key={column.key}
+                        className="scientific-nums whitespace-nowrap font-mono tabular-nums"
+                      >
+                        {typeof row[column.key] === 'number'
+                          ? formatScientific(row[column.key] as number)
+                          : String(row[column.key] ?? '—')}
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 )
               })
             )}

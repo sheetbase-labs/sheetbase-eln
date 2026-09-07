@@ -180,7 +180,9 @@ export function OverviewBlock({
       {/* Read-only hover controls (top-right). The overview is never an
           editor; these only open a larger view or jump to the notebook. */}
       <div className="absolute right-3 top-3 flex items-center gap-1">
-        {canLinkToNotebook ? <BlockExpandControl block={block} frozen={frozen} /> : null}
+        {canLinkToNotebook ? (
+          <BlockExpandControl block={block} frozen={frozen} />
+        ) : null}
         {canLinkToNotebook ? (
           <Link
             to="/records/$recordId"
@@ -230,7 +232,13 @@ export function OverviewBlock({
  * Expand control: opens a dialog rendering the block content at full size.
  * Read-only — the dialog never mounts editors or block pickers.
  */
-function BlockExpandControl({ block, frozen = false }: { block: NotebookBlock; frozen?: boolean }) {
+function BlockExpandControl({
+  block,
+  frozen = false,
+}: {
+  block: NotebookBlock
+  frozen?: boolean
+}) {
   const [open, setOpen] = React.useState(false)
   return (
     <Dialog open={open} onOpenChange={setOpen}>

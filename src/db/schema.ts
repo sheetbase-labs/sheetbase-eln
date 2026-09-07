@@ -1521,10 +1521,7 @@ export const modelRelationshipRules = api.table(
       table.linkType,
       table.targetModelKey,
     ),
-    check(
-      'chk_model_relationship_rules_min',
-      sql`${table.minLinks} >= 0`,
-    ),
+    check('chk_model_relationship_rules_min', sql`${table.minLinks} >= 0`),
     check(
       'chk_model_relationship_rules_max',
       sql`${table.maxLinks} IS NULL OR ${table.maxLinks} >= ${table.minLinks}`,
@@ -6278,7 +6275,9 @@ export const extensions = api.table(
      * contribution-point declarations). EXT-02 registers the points;
      * EXT-01 stores and validates them.
      */
-    manifest: jsonb('manifest').notNull().default(sql`'{}'::jsonb`),
+    manifest: jsonb('manifest')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     status: text('status').notNull().default('installed'),
     /** Per-extension scoped credential (minimal manifest-declared scopes). */
     credentialId: uuid('credential_id').references(() => apiCredentials.id, {

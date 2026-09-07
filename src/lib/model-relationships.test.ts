@@ -28,7 +28,9 @@ import {
 import type { ModelRelationshipRule } from './model-relationships'
 import type { DataClient } from './data-client'
 
-function rule(overrides: Partial<ModelRelationshipRule> = {}): ModelRelationshipRule {
+function rule(
+  overrides: Partial<ModelRelationshipRule> = {},
+): ModelRelationshipRule {
   return {
     id: 'rule-1',
     sourceModelKey: 'experiment',
@@ -41,7 +43,10 @@ function rule(overrides: Partial<ModelRelationshipRule> = {}): ModelRelationship
   }
 }
 
-function mockClient(): DataClient & { list: ReturnType<typeof vi.fn>; rpc: ReturnType<typeof vi.fn> } {
+function mockClient(): DataClient & {
+  list: ReturnType<typeof vi.fn>
+  rpc: ReturnType<typeof vi.fn>
+} {
   return {
     list: vi.fn().mockResolvedValue([]),
     rpc: vi.fn().mockResolvedValue({}),
@@ -49,7 +54,7 @@ function mockClient(): DataClient & { list: ReturnType<typeof vi.fn>; rpc: Retur
     patch: vi.fn(),
     count: vi.fn(),
     remove: vi.fn(),
-  } as unknown as DataClient & { list: ReturnType<typeof vi.fn>; rpc: ReturnType<typeof vi.fn> }
+  }
 }
 
 describe('toModelRelationshipRule', () => {
@@ -110,15 +115,18 @@ describe('stewardship RPCs', () => {
       maxLinks: 8,
       label: 'consumes',
     })
-    expect(client.rpc).toHaveBeenCalledWith('configure_model_relationship_rule', {
-      p_workspace_id: 'ws-1',
-      p_source_model_key: 'experiment',
-      p_link_type: 'sample',
-      p_target_model_key: 'sample',
-      p_min_links: 1,
-      p_max_links: 8,
-      p_label: 'consumes',
-    })
+    expect(client.rpc).toHaveBeenCalledWith(
+      'configure_model_relationship_rule',
+      {
+        p_workspace_id: 'ws-1',
+        p_source_model_key: 'experiment',
+        p_link_type: 'sample',
+        p_target_model_key: 'sample',
+        p_min_links: 1,
+        p_max_links: 8,
+        p_label: 'consumes',
+      },
+    )
   })
 
   it('removes a rule through remove_model_relationship_rule', async () => {
@@ -191,10 +199,19 @@ describe('allowedTargetModels / allowedLinkTypes', () => {
   it('lists declared targets and constrained types', () => {
     const rules = [
       rule({ linkType: 'sample', targetModelKey: 'sample' }),
-      rule({ id: 'rule-2', linkType: 'protocol', targetModelKey: 'protocol_template' }),
+      rule({
+        id: 'rule-2',
+        linkType: 'protocol',
+        targetModelKey: 'protocol_template',
+      }),
     ]
-    expect(allowedTargetModels(rules, 'experiment', 'sample')).toEqual(['sample'])
-    expect(allowedLinkTypes(rules, 'experiment')).toEqual(['sample', 'protocol'])
+    expect(allowedTargetModels(rules, 'experiment', 'sample')).toEqual([
+      'sample',
+    ])
+    expect(allowedLinkTypes(rules, 'experiment')).toEqual([
+      'sample',
+      'protocol',
+    ])
     expect(allowedTargetModels(rules, 'experiment', 'reagent')).toEqual([])
   })
 })
@@ -218,7 +235,10 @@ describe('counting and status', () => {
   it('counts only edges matching the rule type and target', () => {
     expect(countLinksForRule(links, rule())).toBe(2)
     expect(
-      countLinksForRule(links, rule({ linkType: 'protocol', targetModelKey: 'protocol_template' })),
+      countLinksForRule(
+        links,
+        rule({ linkType: 'protocol', targetModelKey: 'protocol_template' }),
+      ),
     ).toBe(1)
   })
 
@@ -231,13 +251,17 @@ describe('counting and status', () => {
   })
 
   it('reports min satisfaction and remaining capacity', () => {
-    expect(relationshipRuleStatus(rule({ minLinks: 1, maxLinks: 8 }), 0)).toEqual({
+    expect(
+      relationshipRuleStatus(rule({ minLinks: 1, maxLinks: 8 }), 0),
+    ).toEqual({
       count: 0,
       minSatisfied: false,
       remaining: 8,
       atMaximum: false,
     })
-    expect(relationshipRuleStatus(rule({ minLinks: 1, maxLinks: 2 }), 2)).toEqual({
+    expect(
+      relationshipRuleStatus(rule({ minLinks: 1, maxLinks: 2 }), 2),
+    ).toEqual({
       count: 2,
       minSatisfied: true,
       remaining: 0,
@@ -265,26 +289,38 @@ describe('KNOW label feed', () => {
 
 describe('server rejection matchers', () => {
   it('matches SB080 by code or message', () => {
-    expect(isRelationshipNotAllowedError({ code: 'SB080', message: 'x' })).toBe(true)
+    expect(isRelationshipNotAllowedError({ code: 'SB080', message: 'x' })).toBe(
+      true,
+    )
     expect(
       isRelationshipNotAllowedError({
         code: '400',
-        message: 'link type sample to model reagent is not allowed for model experiment',
+        message:
+          'link type sample to model reagent is not allowed for model experiment',
       }),
     ).toBe(true)
-    expect(isRelationshipNotAllowedError({ code: 'SB002', message: 'x' })).toBe(false)
-    expect(isRelationshipCardinalityError({ code: 'SB080', message: 'x' })).toBe(false)
+    expect(isRelationshipNotAllowedError({ code: 'SB002', message: 'x' })).toBe(
+      false,
+    )
+    expect(
+      isRelationshipCardinalityError({ code: 'SB080', message: 'x' }),
+    ).toBe(false)
   })
 
   it('matches SB081 by code or message', () => {
-    expect(isRelationshipCardinalityError({ code: 'SB081', message: 'x' })).toBe(true)
+    expect(
+      isRelationshipCardinalityError({ code: 'SB081', message: 'x' }),
+    ).toBe(true)
     expect(
       isRelationshipCardinalityError({
         code: '400',
-        message: 'link type sample to model sample exceeds the maximum of 2 for model experiment',
+        message:
+          'link type sample to model sample exceeds the maximum of 2 for model experiment',
       }),
     ).toBe(true)
-    expect(isRelationshipCardinalityError({ code: 'SB080', message: 'x' })).toBe(false)
+    expect(
+      isRelationshipCardinalityError({ code: 'SB080', message: 'x' }),
+    ).toBe(false)
   })
 })
 
@@ -292,7 +328,11 @@ describe('rulesForLinkType', () => {
   it('selects the declared pair grain', () => {
     const rules = [
       rule(),
-      rule({ id: 'rule-2', linkType: 'protocol', targetModelKey: 'protocol_template' }),
+      rule({
+        id: 'rule-2',
+        linkType: 'protocol',
+        targetModelKey: 'protocol_template',
+      }),
     ]
     expect(rulesForLinkType(rules, 'experiment', 'sample')).toHaveLength(1)
     expect(rulesForLinkType(rules, 'experiment', 'reagent')).toHaveLength(0)
@@ -333,25 +373,13 @@ describe('MODEL-04 migration guidance', () => {
 
   it('names re-opening when the last declarations are removed', () => {
     expect(
-      ruleRemovalGuidance(
-        rule({ linkType: 'sample' }),
-        0,
-        0,
-      ).join(' '),
+      ruleRemovalGuidance(rule({ linkType: 'sample' }), 0, 0).join(' '),
     ).toMatch(/unrestricted/)
     expect(
-      ruleRemovalGuidance(
-        rule({ linkType: 'sample' }),
-        0,
-        2,
-      ).join(' '),
+      ruleRemovalGuidance(rule({ linkType: 'sample' }), 0, 2).join(' '),
     ).toMatch(/re-opens “sample”/)
     expect(
-      ruleRemovalGuidance(
-        rule({ linkType: 'sample' }),
-        1,
-        2,
-      ).join(' '),
+      ruleRemovalGuidance(rule({ linkType: 'sample' }), 1, 2).join(' '),
     ).toMatch(/still constrain/)
   })
 })

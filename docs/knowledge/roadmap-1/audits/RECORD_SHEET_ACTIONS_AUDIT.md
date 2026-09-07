@@ -166,13 +166,13 @@ not a Record-create RPC.
 
 ### Scientific CSV (ADR 0024) — wrong domain, useful UX pattern
 
-| Layer     | Path                                                   | Symbols                                                                               |
-| --------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Layer     | Path                                                             | Symbols                                                                               |
+| --------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | ADR       | `docs/knowledge/decisions/0024-transactional-csv-interchange.md` | ≤10 MB / 5,000 rows; UTF-8 / UTF-16LE / Windows-1252; `,` / `;` / tab; all-or-nothing |
-| UI        | `src/components/sheet/scientific-transfer-panel.tsx`   | `ScientificTransferPanel`, `previewFile`, `runImport`                                 |
-| Parse/map | `src/lib/scientific-csv.ts`                            | `parseScientificCsv`, `prepareScientificImport`, `CSV_LIMITS`, `CsvMapping`           |
-| Coerce    | `src/lib/scientific-sheet-data.ts`                     | `decodeScientificValue` (throws before RPC)                                           |
-| RPC       | `importScientificRows` → `api.import_scientific_rows`  | `drizzle/0020_data_005_csv_interchange.sql`                                           |
+| UI        | `src/components/sheet/scientific-transfer-panel.tsx`             | `ScientificTransferPanel`, `previewFile`, `runImport`                                 |
+| Parse/map | `src/lib/scientific-csv.ts`                                      | `parseScientificCsv`, `prepareScientificImport`, `CSV_LIMITS`, `CsvMapping`           |
+| Coerce    | `src/lib/scientific-sheet-data.ts`                               | `decodeScientificValue` (throws before RPC)                                           |
+| RPC       | `importScientificRows` → `api.import_scientific_rows`            | `drizzle/0020_data_005_csv_interchange.sql`                                           |
 
 **Mapping:** source column → `ignore` | `existing` (column UUID) | `new`.
 UI auto-suggests when the header matches a column **label**. New-column picker

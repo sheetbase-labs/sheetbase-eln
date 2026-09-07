@@ -94,7 +94,9 @@ export function WorkflowWorkbench({
     [selected, steps],
   )
 
-  const gateByStepKey = useMemo<Record<string, (typeof dryRun)[number]['gate']>>(() => {
+  const gateByStepKey = useMemo<
+    Record<string, (typeof dryRun)[number]['gate']>
+  >(() => {
     const byKey: Record<string, (typeof dryRun)[number]['gate']> = {}
     for (const preview of dryRun) byKey[preview.stepKey] = preview.gate
     return byKey
@@ -263,10 +265,14 @@ export function WorkflowWorkbench({
                 never re-executed.
                 {recovery && (
                   <>
-                    {' '}Next resume is attempt{' '}
-                    {(steps.find((step) => step.position === selected.current_step)?.attempt ?? 0) + 1}
-                    {' '}with {recovery.retriesRemaining} operation
-                    {recovery.retriesRemaining === 1 ? '' : 's'} of retry budget left.
+                    {' '}
+                    Next resume is attempt{' '}
+                    {(steps.find(
+                      (step) => step.position === selected.current_step,
+                    )?.attempt ?? 0) + 1}{' '}
+                    with {recovery.retriesRemaining} operation
+                    {recovery.retriesRemaining === 1 ? '' : 's'} of retry budget
+                    left.
                   </>
                 )}{' '}
                 Change the plan by cancelling and submitting a new workflow.
@@ -280,10 +286,15 @@ export function WorkflowWorkbench({
             >
               <CircleStop className="mt-0.5 size-4 shrink-0" />
               <span>
-                Cancelled{selected.cancellation_reason ? `: ${selected.cancellation_reason}` : ''}.
-                Partial state is preserved: {recovery?.completed.length ?? 0}{' '}
-                completed step{(recovery?.completed.length ?? 0) === 1 ? '' : 's'} keep
-                {(recovery?.completed.length ?? 0) === 1 ? 's' : ''} {(recovery?.completed.length ?? 0) === 1 ? 'its' : 'their'}{' '}
+                Cancelled
+                {selected.cancellation_reason
+                  ? `: ${selected.cancellation_reason}`
+                  : ''}
+                . Partial state is preserved: {recovery?.completed.length ?? 0}{' '}
+                completed step
+                {(recovery?.completed.length ?? 0) === 1 ? '' : 's'} keep
+                {(recovery?.completed.length ?? 0) === 1 ? 's' : ''}{' '}
+                {(recovery?.completed.length ?? 0) === 1 ? 'its' : 'their'}{' '}
                 results below; unfinished steps are terminal. Continue with a
                 new workflow.
               </span>
@@ -301,8 +312,8 @@ export function WorkflowWorkbench({
                   Read-only preview of every step — no state advances. Proposed
                   steps show the stored PostgreSQL preview, impact, and risk;
                   planned steps show the catalogue prediction. Consequential
-                  (mutate) steps need explicit human approval through the
-                  decide path.
+                  (mutate) steps need explicit human approval through the decide
+                  path.
                 </p>
                 <ol className="border-border mt-2 overflow-hidden rounded-md border">
                   {dryRun.map((preview) => (
@@ -332,25 +343,43 @@ export function WorkflowWorkbench({
                           </>
                         )}
                         {preview.gate === 'pending-approval' && (
-                          <>Awaiting explicit human approval — approve the proposal, then execute.</>
+                          <>
+                            Awaiting explicit human approval — approve the
+                            proposal, then execute.
+                          </>
                         )}
                         {preview.gate === 'approved' && (
                           <>Approved by a human — awaiting execution.</>
                         )}
                         {preview.gate === 'rejected' && (
-                          <>Rejected by a human — resume retries the same pinned operation; it never revives this decision.</>
+                          <>
+                            Rejected by a human — resume retries the same pinned
+                            operation; it never revives this decision.
+                          </>
                         )}
                         {preview.gate === 'flowing' && (
-                          <>Moving under automatic or delegated policy — no human click needed.</>
+                          <>
+                            Moving under automatic or delegated policy — no
+                            human click needed.
+                          </>
                         )}
                         {preview.gate === 'succeeded' && (
-                          <>Completed — the canonical result is kept and never re-executed.</>
+                          <>
+                            Completed — the canonical result is kept and never
+                            re-executed.
+                          </>
                         )}
                         {preview.gate === 'failed' && (
-                          <>Failed validation or execution — retryable by human resume within budget.</>
+                          <>
+                            Failed validation or execution — retryable by human
+                            resume within budget.
+                          </>
                         )}
                         {preview.gate === 'cancelled' && (
-                          <>Cancelled — terminal and inspectable; continue with a new workflow.</>
+                          <>
+                            Cancelled — terminal and inspectable; continue with
+                            a new workflow.
+                          </>
                         )}
                       </p>
                       {preview.preview && (
@@ -359,7 +388,8 @@ export function WorkflowWorkbench({
                           {preview.preview.changes.length === 1 ? '' : 's'}
                           {preview.impact && (
                             <>
-                              {' '}· impact {preview.impact.mutationClass}
+                              {' '}
+                              · impact {preview.impact.mutationClass}
                               {preview.impact.affectedRows > 0 && (
                                 <> · {preview.impact.affectedRows} rows</>
                               )}
@@ -391,9 +421,11 @@ export function WorkflowWorkbench({
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <StepGateBadge gate={gateByStepKey[step.step_key] ?? 'planned'} />
+                          <StepGateBadge
+                            gate={gateByStepKey[step.step_key] ?? 'planned'}
+                          />
                           <Badge variant="outline">{step.status}</Badge>
-                          </div>
+                        </div>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <code>{step.tool_name}</code>
@@ -416,17 +448,13 @@ export function WorkflowWorkbench({
                         const linked = step.proposal_id
                           ? (proposalsById[step.proposal_id] ?? null)
                           : null
-                        const pins = step.input_references.map(
-                          (reference) => ({
-                            key: `in:${reference.kind}:${reference.id}`,
-                            text: `pin ${reference.kind}: ${reference.id}`,
-                          }),
-                        )
+                        const pins = step.input_references.map((reference) => ({
+                          key: `in:${reference.kind}:${reference.id}`,
+                          text: `pin ${reference.kind}: ${reference.id}`,
+                        }))
                         const outputs = extractAgentOutputReferences(
                           step.operation,
-                          linked?.status === 'succeeded'
-                            ? linked.result
-                            : null,
+                          linked?.status === 'succeeded' ? linked.result : null,
                         ).map((reference) => ({
                           key: `out:${reference.kind}:${reference.id}`,
                           text: `out ${reference.kind}: ${reference.id}`,

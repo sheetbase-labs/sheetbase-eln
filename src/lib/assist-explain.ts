@@ -104,7 +104,7 @@ export function explainBlockValidation(input: {
   if (input.errors.length === 0) return null
   const why: AssistClaim[] = input.errors.map((error) => ({
     text:
-      `${BLOCK_WHY[error.code] ?? error.message}` +
+      `${(BLOCK_WHY as Record<string, string | undefined>)[error.code] ?? error.message}` +
       (error.field ? ` Field: '${error.field}'.` : ''),
     citation: {
       label: `Block rule ${error.code}`,
@@ -115,7 +115,9 @@ export function explainBlockValidation(input: {
     },
   }))
   const howTo = input.errors.map(
-    (error) => BLOCK_HOW_TO[error.code] ?? 'Correct the flagged content and save again.',
+    (error) =>
+      (BLOCK_HOW_TO as Record<string, string | undefined>)[error.code] ??
+      'Correct the flagged content and save again.',
   )
   return {
     title: `Why this ${input.blockType} block cannot save`,
@@ -133,10 +135,13 @@ export function explainBlockValidation(input: {
 // ---------------------------------------------------------------------------
 
 function describeFieldRule(def: RecordFieldDefinition): string {
-  const parts = [`type ${def.logicalType}`, def.nullable ? 'optional' : 'required']
+  const parts = [
+    `type ${def.logicalType}`,
+    def.nullable ? 'optional' : 'required',
+  ]
   if (Array.isArray((def.validation as { enum?: unknown }).enum)) {
     parts.push(
-      `allowed: ${((def.validation as { enum: unknown[] }).enum).join(', ')}`,
+      `allowed: ${(def.validation as { enum: unknown[] }).enum.join(', ')}`,
     )
   }
   return parts.join(' · ')
@@ -218,7 +223,8 @@ export function explainSheetWriteBack(input: {
         'Pending values are kept — nothing needs re-typing, only re-scoping.',
       ],
       citations: [citation],
-      groundedFrom: 'sheet-write-back pre-commit guard (SheetMixedAuthorityWriteError)',
+      groundedFrom:
+        'sheet-write-back pre-commit guard (SheetMixedAuthorityWriteError)',
     }
   }
   if (input.errors.length === 0) return null
@@ -306,7 +312,10 @@ export function attachGrounding(
 ): AssistExplanation {
   const extra: AssistCitation[] = []
   const byId = new Map(
-    (grounding.citations ?? []).map((citation) => [citation.stableId, citation]),
+    (grounding.citations ?? []).map((citation) => [
+      citation.stableId,
+      citation,
+    ]),
   )
   for (const object of grounding.envelope?.objects ?? []) {
     const citation = byId.get(object.id)
@@ -322,7 +331,11 @@ export function attachGrounding(
     })
   }
   for (const citation of grounding.citations ?? []) {
-    if (grounding.envelope?.objects.some((object) => object.id === citation.stableId))
+    if (
+      grounding.envelope?.objects.some(
+        (object) => object.id === citation.stableId,
+      )
+    )
       continue
     extra.push({
       label: `[${citation.kind}:${citation.stableId}] ${citation.title}`,
@@ -361,7 +374,10 @@ export interface AssistPhrasing {
 export async function stubPhraseExplanation(
   explanation: AssistExplanation,
 ): Promise<AssistPhrasing> {
-  const provider = new StubModelProvider(ASSIST_STUB_MODEL, 'Explanation phrasing')
+  const provider = new StubModelProvider(
+    ASSIST_STUB_MODEL,
+    'Explanation phrasing',
+  )
   const response = await provider.complete({
     prompt: [explanation.title, explanation.whatFailed]
       .concat(explanation.why.map((claim) => claim.text))

@@ -560,9 +560,7 @@ describe('NotebookDocument — undo delete', () => {
     const onDeleteBlock = vi.fn().mockResolvedValue(undefined)
     // Undo restores the block in a single server-authoritative insert; a
     // resolved call means the block is back at its original position.
-    const onUndoDelete = vi
-      .fn()
-      .mockResolvedValue({ id: 'b1-restored' })
+    const onUndoDelete = vi.fn().mockResolvedValue({ id: 'b1-restored' })
     // blocks mirrors the route's cache after the undo insert upserts the
     // restored block: the original neighbour and the restored block itself.
     render(
@@ -1477,9 +1475,7 @@ describe('NOTE-02 sections and outline anchors', () => {
     expect(paras()[0].className).toContain('hidden')
     expect(paras()[1].className).toContain('hidden')
     expect(headings()).toHaveLength(2)
-    expect(
-      (headings()[1] as HTMLElement).className,
-    ).toContain('hidden')
+    expect((headings()[1] as HTMLElement).className).toContain('hidden')
     // Collapsing only the H3 hides just its own prose — independent of H2.
     rerender(
       <NotebookDocument
@@ -1495,14 +1491,14 @@ describe('NOTE-02 sections and outline anchors', () => {
     )
     expect(paras()[0].className).not.toContain('hidden')
     expect(paras()[1].className).toContain('hidden')
-    expect(
-      (headings()[1] as HTMLElement).className,
-    ).not.toContain('hidden')
+    expect((headings()[1] as HTMLElement).className).not.toContain('hidden')
   })
 })
 
 describe('NotebookDocument draft summary (ASSIST-02)', () => {
-  function renderDocument(onAcceptDraft?: (proposal: unknown) => Promise<void>) {
+  function renderDocument(
+    onAcceptDraft?: (proposal: unknown) => Promise<void>,
+  ) {
     return render(
       <NotebookDocument
         record={record}
@@ -1556,8 +1552,6 @@ describe('NotebookDocument draft summary (ASSIST-02)', () => {
 
   it('hides the affordance when the route does not wire draft acceptance', () => {
     renderDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Draft summary' }),
-    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Draft summary' })).toBeNull()
   })
 })

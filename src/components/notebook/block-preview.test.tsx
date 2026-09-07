@@ -295,7 +295,9 @@ const chartSpec = (datasetIds: string[]) => ({
   overlays: { errorBars: null },
 })
 
-const frozenChart = (entries: Array<{ datasetId: string; datasetVersionId: string }>) => ({
+const frozenChart = (
+  entries: Array<{ datasetId: string; datasetVersionId: string }>,
+) => ({
   revisionId: null,
   frozenAt: '2026-01-01T00:00:00Z',
   frozenByUserId: 'u1',

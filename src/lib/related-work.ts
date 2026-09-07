@@ -43,11 +43,7 @@ import { fetchTemplateUsage } from './templates'
 
 /** Canonical object classes related work can point at. */
 export type RelatedWorkKind =
-  | 'record'
-  | 'dataset'
-  | 'sheet'
-  | 'template'
-  | 'project'
+  'record' | 'dataset' | 'sheet' | 'template' | 'project'
 
 export interface RelatedWorkItem {
   kind: RelatedWorkKind
@@ -69,17 +65,14 @@ export const RELATED_WORK_LIMIT = 12
 export const RELATED_WORK_SOURCE_LIMIT = 25
 
 export const relatedWorkQueryKeys = {
-  related: (kind: string, id: string) =>
-    ['related-work', kind, id] as const,
+  related: (kind: string, id: string) => ['related-work', kind, id] as const,
 }
 
 /**
  * Map a global-search result class onto the related-work kind space. Files
  * are file records, so they resolve through the record surface.
  */
-export function searchResultToRelatedKind(
-  resultType: string,
-): RelatedWorkKind {
+export function searchResultToRelatedKind(resultType: string): RelatedWorkKind {
   switch (resultType) {
     case 'dataset':
       return 'dataset'
@@ -316,9 +309,7 @@ function inFilter(ids: readonly string[]): string {
 async function resolveRecordLabels(
   client: DataClient,
   ids: readonly string[],
-): Promise<
-  Map<string, { kind: string; identifier: string; title: string }>
-> {
+): Promise<Map<string, { kind: string; identifier: string; title: string }>> {
   const unique = [...new Set(ids)].filter(Boolean)
   if (unique.length === 0) return new Map()
   const rows = await quiet(
@@ -328,7 +319,10 @@ async function resolveRecordLabels(
     ),
     [],
   )
-  const byId = new Map<string, { kind: string; identifier: string; title: string }>()
+  const byId = new Map<
+    string,
+    { kind: string; identifier: string; title: string }
+  >()
   for (const row of rows) {
     if (row.archived_at !== null || row.deleted_at !== null) continue
     byId.set(row.id, {
@@ -353,7 +347,7 @@ async function resolveDatasetByName(
     ),
     [],
   )
-  const row = rows[0]
+  const row = rows.at(0)
   if (!row || row.lifecycle !== 'active') return null
   return { id: row.id, name: row.name }
 }
@@ -446,7 +440,11 @@ async function fetchRelatedForRecord(
     const reason = outgoingLinkReason(linkType, targetIdentifier)
     if (targetRecordId && targetRecordId !== recordId) {
       outRecords.push({ id: targetRecordId, recordKind: targetKind, reason })
-    } else if (!targetRecordId && targetKind === 'dataset' && targetIdentifier) {
+    } else if (
+      !targetRecordId &&
+      targetKind === 'dataset' &&
+      targetIdentifier
+    ) {
       outDatasets.push({ name: targetIdentifier, reason })
     }
   }
@@ -474,9 +472,11 @@ async function fetchRelatedForRecord(
   const incomingLinkType = new Map<string, string>()
   const noteIncoming = (sourceId: string, linkType: string) => {
     if (!sourceId || sourceId === recordId) return
-    if (!incomingLinkType.has(sourceId)) incomingLinkType.set(sourceId, linkType)
+    if (!incomingLinkType.has(sourceId))
+      incomingLinkType.set(sourceId, linkType)
   }
-  for (const link of incoming) noteIncoming(link.source_record_id, link.link_type)
+  for (const link of incoming)
+    noteIncoming(link.source_record_id, link.link_type)
   for (const link of lineageLinks) {
     if (link.target_record_id === recordId) {
       noteIncoming(link.source_record_id, link.link_type)
@@ -597,7 +597,7 @@ async function fetchRelatedForDataset(
       [],
     ),
   ])
-  const seed = seedRows[0]
+  const seed = seedRows.at(0)
   if (!seed || seed.lifecycle !== 'active') return []
 
   // Schema-mediated sibling datasets: dataset → schema version → schema →
@@ -643,7 +643,8 @@ async function fetchRelatedForDataset(
             [],
           )
           for (const sibling of siblings) {
-            if (sibling.id === datasetId || sibling.lifecycle !== 'active') continue
+            if (sibling.id === datasetId || sibling.lifecycle !== 'active')
+              continue
             siblingCandidates.push({
               kind: 'dataset',
               id: sibling.id,
@@ -773,7 +774,7 @@ async function fetchRelatedForTemplate(
       [],
     ),
   ])
-  const template = templateRows[0]
+  const template = templateRows.at(0)
   if (template && template.lifecycle !== 'active') return []
 
   const usageIds = new Set(
@@ -792,9 +793,7 @@ async function fetchRelatedForTemplate(
   ])
 
   const incomingLinkType = new Map(
-    incoming.map(
-      (link) => [link.source_record_id, link.link_type] as const,
-    ),
+    incoming.map((link) => [link.source_record_id, link.link_type] as const),
   )
   const candidates: RelatedWorkCandidate[] = []
   for (const recordId of usageIds) {

@@ -64,9 +64,7 @@ describe('SubmissionReadinessGuide', () => {
         onSubmitRevision={onSubmitRevision}
       />,
     )
-    expect(
-      screen.getByLabelText(/Step 4: Submitted \(Current\)/),
-    ).toBeTruthy()
+    expect(screen.getByLabelText(/Step 4: Submitted \(Current\)/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Submit revision' }))
     expect(onSubmitRevision).toHaveBeenCalledTimes(1)
   })
@@ -84,6 +82,8 @@ describe('SubmissionReadinessGuide', () => {
     expect(
       screen.getByLabelText(/Step 5: Review decided \(Blocked\)/),
     ).toBeTruthy()
-    expect(screen.getAllByText(/Waiting on 'Submitted'/).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/Waiting on 'Submitted'/).length,
+    ).toBeGreaterThan(0)
   })
 })

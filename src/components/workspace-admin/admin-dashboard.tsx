@@ -227,8 +227,11 @@ export function AdminDashboard({ workspaceId }: { workspaceId: string }) {
           ]}
         />
         <p className="mt-2 text-xs text-muted-foreground">
-          {usage.data?.limits?.fileBytes?.byteLimit != null ? (
-            <>Storage quota applies — see usage for the limit and at-limit behaviour.</>
+          {usage.data?.limits.fileBytes.byteLimit != null ? (
+            <>
+              Storage quota applies — see usage for the limit and at-limit
+              behaviour.
+            </>
           ) : (
             <>
               No workspace storage quota is configured — figures are observed

@@ -16,7 +16,13 @@ afterEach(cleanup)
 function explanation(): AssistExplanation {
   const built = explainBlockValidation({
     blockType: 'chart',
-    errors: [{ code: 'missing_required_field', field: 'spec', message: 'spec is required.' }],
+    errors: [
+      {
+        code: 'missing_required_field',
+        field: 'spec',
+        message: 'spec is required.',
+      },
+    ],
   })
   if (!built) throw new Error('fixture explanation must build')
   return built
@@ -26,7 +32,9 @@ describe('ExplainPanel', () => {
   it('renders what failed, why with citations, and how to resolve', () => {
     render(<ExplainPanel explanation={explanation()} />)
     expect(screen.getByText(/cannot save/)).toBeTruthy()
-    expect(screen.getAllByText(/\[Block rule missing_required_field\]/).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/\[Block rule missing_required_field\]/).length,
+    ).toBeGreaterThan(0)
     expect(screen.getByText(/Nothing was written/)).toBeTruthy()
     expect(screen.getByText(/How to resolve/)).toBeTruthy()
     expect(screen.getByText(/Cited sources/)).toBeTruthy()
@@ -47,7 +55,9 @@ describe('ExplainPanel', () => {
     expect(screen.getByText(/Assistance phrasing/)).toBeTruthy()
     expect(screen.getByText('Stub phrasing.')).toBeTruthy()
     // Grounded facts stay rendered alongside the phrasing.
-    expect(screen.getAllByText(/\[Block rule missing_required_field\]/).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/\[Block rule missing_required_field\]/).length,
+    ).toBeGreaterThan(0)
   })
 
   it('exposes no mutation affordance', () => {

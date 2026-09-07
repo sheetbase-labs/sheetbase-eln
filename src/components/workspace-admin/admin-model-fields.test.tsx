@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -202,7 +208,10 @@ describe('AdminModelFields', () => {
         name: 'Model',
       }),
     ).toHaveProperty('value', 'batch')
-    await within(screen.getByRole('combobox', { name: 'Model' })).findByRole('option', { name: 'Samples' })
+    await within(screen.getByRole('combobox', { name: 'Model' })).findByRole(
+      'option',
+      { name: 'Samples' },
+    )
     await user.selectOptions(
       screen.getByRole('combobox', { name: 'Model' }),
       'sample',
@@ -380,8 +389,14 @@ describe('AdminModelFields', () => {
     await user.type(screen.getByLabelText('Label'), 'Therapeutic area')
     await user.type(screen.getByLabelText('Stable key'), 'therapeutic_area')
     await user.selectOptions(screen.getByLabelText('Type'), 'category')
-    await user.selectOptions(screen.getByLabelText('Category source'), 'vocabulary')
-    await user.type(screen.getByLabelText('Vocabulary ID'), 'therapeutic-area-v1')
+    await user.selectOptions(
+      screen.getByLabelText('Category source'),
+      'vocabulary',
+    )
+    await user.type(
+      screen.getByLabelText('Vocabulary ID'),
+      'therapeutic-area-v1',
+    )
     await user.click(screen.getByRole('button', { name: 'Add and activate' }))
 
     await waitFor(() =>
@@ -523,15 +538,11 @@ describe('AdminModelFields', () => {
     expect(
       await screen.findByRole('dialog', { name: 'Retire Purity' }),
     ).toBeTruthy()
-    expect(
-      await screen.findByText(/carry a value for "Purity"/),
-    ).toBeTruthy()
+    expect(await screen.findByText(/carry a value for "Purity"/)).toBeTruthy()
     // Named consequences: the dialog counts the listed consumers and the
     // confirm stays explicit about them.
     expect(await screen.findByText(/for the 1 consumer/)).toBeTruthy()
-    expect(
-      screen.getByRole('button', { name: 'Confirm retire' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Confirm retire' })).toBeTruthy()
   })
 
   it('links field rows out to the Records preview', async () => {
@@ -581,9 +592,7 @@ describe('AdminModelFields relationships', () => {
 
   it('declares the closed world when no rules exist', async () => {
     mountWith(rulesClient([]))
-    expect(
-      await screen.findByText(/accept every link type/),
-    ).toBeTruthy()
+    expect(await screen.findByText(/accept every link type/)).toBeTruthy()
   })
 
   it('lists declared rules with bounds and labels', async () => {
@@ -601,25 +610,33 @@ describe('AdminModelFields relationships', () => {
       ]),
     )
     expect(await screen.findByText(/consumes/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Remove sample to sample' })).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Remove sample to sample' }),
+    ).toBeTruthy()
   })
 
   it('saves a relationship through the configure RPC', async () => {
     const user = userEvent.setup()
     const { client } = mountWith(rulesClient([]))
     await screen.findByText(/accept every link type/)
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Target model' }), 'batch')
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Target model' }),
+      'batch',
+    )
     await user.click(screen.getByRole('button', { name: 'Save relationship' }))
     await waitFor(() =>
-      expect(client.rpc).toHaveBeenCalledWith('configure_model_relationship_rule', {
-        p_workspace_id: 'workspace-1',
-        p_source_model_key: 'sample',
-        p_link_type: 'sample',
-        p_target_model_key: 'batch',
-        p_min_links: 0,
-        p_max_links: null,
-        p_label: null,
-      }),
+      expect(client.rpc).toHaveBeenCalledWith(
+        'configure_model_relationship_rule',
+        {
+          p_workspace_id: 'workspace-1',
+          p_source_model_key: 'sample',
+          p_link_type: 'sample',
+          p_target_model_key: 'batch',
+          p_min_links: 0,
+          p_max_links: null,
+          p_label: null,
+        },
+      ),
     )
   })
 
@@ -638,11 +655,16 @@ describe('AdminModelFields relationships', () => {
         },
       ]),
     )
-    await user.click(await screen.findByRole('button', { name: 'Remove sample to sample' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Remove sample to sample' }),
+    )
     await waitFor(() =>
-      expect(client.rpc).toHaveBeenCalledWith('remove_model_relationship_rule', {
-        p_rule_id: 'rule-1',
-      }),
+      expect(client.rpc).toHaveBeenCalledWith(
+        'remove_model_relationship_rule',
+        {
+          p_rule_id: 'rule-1',
+        },
+      ),
     )
   })
 })

@@ -90,4 +90,4 @@ Repeated design feedback favours:
 
 ## How to use this history
 
-Use these themes to understand *why* canonical rules exist. Do not treat historical phrasing as stronger than current ADRs or canonical product documents.
+Use these themes to understand _why_ canonical rules exist. Do not treat historical phrasing as stronger than current ADRs or canonical product documents.

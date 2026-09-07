@@ -54,8 +54,7 @@ export function isValidTimestamp(value: string): boolean {
     Number(match[4]) <= 23 &&
     Number(match[5]) <= 59 &&
     Number(match[6]) <= 59 &&
-    (value.endsWith('Z') ||
-      (Number(match[7]) <= 23 && Number(match[8]) <= 59))
+    (value.endsWith('Z') || (Number(match[7]) <= 23 && Number(match[8]) <= 59))
   )
 }
 

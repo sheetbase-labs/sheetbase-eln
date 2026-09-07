@@ -227,7 +227,9 @@ export function AdminExternalAccess({
 
   function describeError(cause: unknown): string {
     const message = cause instanceof Error ? cause.message : ''
-    if (/integrations\.manage|extensions\.manage|workspace\.admin/.test(message))
+    if (
+      /integrations\.manage|extensions\.manage|workspace\.admin/.test(message)
+    )
       return message
     try {
       return describeConnectorsError(cause)
@@ -270,8 +272,8 @@ export function AdminExternalAccess({
     <div className="space-y-6">
       <p className="max-w-3xl text-sm text-muted-foreground">
         Every identity and integration that can act on this workspace from the
-        outside. Lifecycle actions run through the same canonical operations
-        as their home sections; every change is written to the audit trail.
+        outside. Lifecycle actions run through the same canonical operations as
+        their home sections; every change is written to the audit trail.
       </p>
       {error ? (
         <p role="alert" className="text-sm text-destructive">
@@ -412,12 +414,8 @@ export function AdminExternalAccess({
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={
-                              retired || rotateCredential.isPending
-                            }
-                            onClick={() =>
-                              rotateCredential.mutate(row.id)
-                            }
+                            disabled={retired || rotateCredential.isPending}
+                            onClick={() => rotateCredential.mutate(row.id)}
                           >
                             Rotate
                           </Button>
@@ -428,9 +426,7 @@ export function AdminExternalAccess({
                               row.revokedAt != null ||
                               revokeCredential.isPending
                             }
-                            onClick={() =>
-                              revokeCredential.mutate(row.id)
-                            }
+                            onClick={() => revokeCredential.mutate(row.id)}
                           >
                             Revoke
                           </Button>
@@ -534,9 +530,7 @@ export function AdminExternalAccess({
                           })
                         }
                       >
-                        {connector.status === 'active'
-                          ? 'Disable'
-                          : 'Enable'}
+                        {connector.status === 'active' ? 'Disable' : 'Enable'}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -592,9 +586,7 @@ export function AdminExternalAccess({
                         </TableCell>
                         <TableCell>
                           <Badge
-                            className={
-                              statusClass[subscription.status] ?? ''
-                            }
+                            className={statusClass[subscription.status] ?? ''}
                           >
                             {autoDisabled
                               ? 'Auto-disabled'
@@ -610,10 +602,7 @@ export function AdminExternalAccess({
                         </TableCell>
                         <TableCell className="max-w-xs truncate text-xs">
                           {health?.lastError
-                            ? [
-                                health.lastError.code,
-                                health.lastError.message,
-                              ]
+                            ? [health.lastError.code, health.lastError.message]
                                 .filter(Boolean)
                                 .join(' — ')
                             : '—'}
@@ -709,9 +698,7 @@ export function AdminExternalAccess({
                           })
                         }
                       >
-                        {extension.status === 'enabled'
-                          ? 'Disable'
-                          : 'Enable'}
+                        {extension.status === 'enabled' ? 'Disable' : 'Enable'}
                       </Button>
                     </TableCell>
                   </TableRow>

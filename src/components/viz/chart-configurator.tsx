@@ -28,9 +28,7 @@ import {
 } from '#/lib/chart-spec'
 import type { ChartAnnotation, ChartSpec, FieldBinding } from '#/lib/chart-spec'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
-import {
-  proposeChartSpec,
-} from '#/lib/assist-drafts'
+import { proposeChartSpec } from '#/lib/assist-drafts'
 import type { AssistChartProposal } from '#/lib/assist-drafts'
 import { DraftProposalPanel } from '#/components/assist/draft-proposal-panel'
 
@@ -121,7 +119,12 @@ export function ChartConfigurator({
     const fields = { ...spec.fields }
     let overlays = spec.overlays
     let typeParams: ChartSpec['typeParams'] = {}
-    if (next === 'histogram' || next === 'box' || next === 'violin' || next === 'strip') {
+    if (
+      next === 'histogram' ||
+      next === 'box' ||
+      next === 'violin' ||
+      next === 'strip'
+    ) {
       fields.x = next === 'strip' || next === 'violin' ? spec.fields.x : null
       if (next === 'box') typeParams = { box: { showOutliers: true } }
       else if (next === 'histogram') typeParams = { histogram: { bins: 10 } }
@@ -512,7 +515,12 @@ export function ChartConfigurator({
                   ...spec.overlays,
                   fit:
                     event.target.value === 'ols'
-                      ? { method: 'ols', degree: 1, showBand: true, showEquation: true }
+                      ? {
+                          method: 'ols',
+                          degree: 1,
+                          showBand: true,
+                          showEquation: true,
+                        }
                       : null,
                 },
               })
@@ -524,9 +532,7 @@ export function ChartConfigurator({
           </Select>
         </Field>
         <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor={`${idPrefix}-error-source`}>
-            Interval
-          </FieldLabel>
+          <FieldLabel htmlFor={`${idPrefix}-error-source`}>Interval</FieldLabel>
           <Select
             id={`${idPrefix}-error-source`}
             aria-label="Error bar interval"
@@ -540,7 +546,9 @@ export function ChartConfigurator({
             onChange={(event) => {
               const value = event.target.value
               if (!value)
-                return update({ overlays: { ...spec.overlays, errorBars: null } })
+                return update({
+                  overlays: { ...spec.overlays, errorBars: null },
+                })
               if (value === 'field') return
               update({
                 overlays: {

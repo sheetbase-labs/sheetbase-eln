@@ -69,11 +69,7 @@ export interface AiContextActor {
 
 /** Object classes assembly can summarise, by stable ID. */
 export type AiObjectRefKind =
-  | 'record'
-  | 'notebook'
-  | 'sheet'
-  | 'dataset'
-  | 'analysis'
+  'record' | 'notebook' | 'sheet' | 'dataset' | 'analysis'
 
 export const AI_OBJECT_REF_KINDS: readonly AiObjectRefKind[] = [
   'record',
@@ -157,10 +153,7 @@ export interface AiContextObject {
 }
 
 export type AiOmissionReason =
-  | 'not_visible'
-  | 'wrong_workspace'
-  | 'unsupported_kind'
-  | 'budget_exceeded'
+  'not_visible' | 'wrong_workspace' | 'unsupported_kind' | 'budget_exceeded'
 
 export interface AiContextOmission {
   kind: string
@@ -195,7 +188,7 @@ export interface AiContextEnvelope {
 export interface AssembleAiContextInput {
   workspaceId: string
   projectId?: string | null
-  objectRefs: AiObjectRef[]
+  objectRefs: Array<AiObjectRef | null | undefined>
   budgets?: Partial<AiContextBudgets>
 }
 
@@ -203,9 +196,7 @@ export interface AssembleAiContextInput {
 // Budget helpers.
 // ---------------------------------------------------------------------------
 
-function resolveBudgets(
-  partial?: Partial<AiContextBudgets>,
-): AiContextBudgets {
+function resolveBudgets(partial?: Partial<AiContextBudgets>): AiContextBudgets {
   const pick = (value: unknown, fallback: number): number =>
     typeof value === 'number' && Number.isFinite(value) && value >= 0
       ? Math.floor(value)
@@ -244,7 +235,6 @@ function truncateSection(
   }
 }
 
-
 // ---------------------------------------------------------------------------
 // Small redacted formatters. Free-form payloads pass through the canonical
 // logger redact() so secret-shaped keys never reach model context.
@@ -260,7 +250,8 @@ function scalarSummary(value: unknown): string {
   )
     return String(value)
   try {
-    return JSON.stringify(value) ?? '—'
+    const serialized: unknown = JSON.stringify(value)
+    return typeof serialized === 'string' ? serialized : '—'
   } catch {
     return '[unserialisable value]'
   }
@@ -273,14 +264,11 @@ function summariseProperties(
   const clean = redact(properties)
   const keys = Object.keys(clean)
   const shown = keys.slice(0, maxEntries).map((key) => {
-    const value = scalarSummary((clean as Record<string, unknown>)[key])
+    const value = scalarSummary(clean[key])
     return `${key}: ${value}`
   })
   const dropped = keys.length - shown.length
-  const body =
-    shown.length > 0
-      ? shown.join('\n')
-      : '(no properties)'
+  const body = shown.length > 0 ? shown.join('\n') : '(no properties)'
   return {
     body:
       dropped > 0
@@ -308,7 +296,7 @@ function frozenProvenanceOf(block: NotebookBlock): FrozenProvenance[] {
       }>
     } | null
   }
-  const provenance = payload?.frozen?.datasetProvenance
+  const provenance = payload.frozen?.datasetProvenance
   if (!Array.isArray(provenance)) return []
   return provenance.flatMap((entry) => {
     if (
@@ -355,7 +343,7 @@ function blockSummary(block: NotebookBlock): {
     } else {
       const payload = block.payload as { definitionId?: unknown }
       evidence =
-        typeof payload?.definitionId === 'string'
+        typeof payload.definitionId === 'string'
           ? `live: draft analysis definition ${payload.definitionId} (unfrozen — results may change)`
           : 'live: draft analysis (unfrozen — results may change)'
     }
@@ -372,7 +360,13 @@ function blockSummary(block: NotebookBlock): {
 // ---------------------------------------------------------------------------
 
 type ResolvedObject =
-  | { ok: true; object: Omit<AiContextObject, 'sections'> & { sections: Array<{ heading: string; body: string }> }; rowsSampled?: number }
+  | {
+      ok: true
+      object: Omit<AiContextObject, 'sections'> & {
+        sections: Array<{ heading: string; body: string }>
+      }
+      rowsSampled?: number
+    }
   | { ok: false; omission: AiContextOmission }
 
 function notVisible(kind: string, id: string): AiContextOmission {
@@ -410,7 +404,7 @@ async function resolveRecord(
       },
     }
   }
-  const { body: propsBody } = summariseProperties(record.properties ?? {})
+  const { body: propsBody } = summariseProperties(record.properties)
   const sections = [
     {
       heading: 'identity',
@@ -757,14 +751,14 @@ async function resolveDataset(
         },
       ]
     : []
-  const columns = table.columns ?? []
+  const columns = table.columns
   const sections: Array<{ heading: string; body: string }> = [
     {
       heading: 'identity',
       body: [
         `name: ${table.resource_name || table.id}`,
         table.description ? `description: ${table.description}` : null,
-        `lifecycle: ${table.lifecycle ?? 'active'}`,
+        `lifecycle: ${table.lifecycle}`,
         `revision: ${table.revision ?? 'unknown'}`,
         table.schema_version_number != null
           ? `schema version: ${table.schema_version_number}`
@@ -783,14 +777,18 @@ async function resolveDataset(
           ? columns
               .map(
                 (column) =>
-                  `- ${column.label ?? column.field_name} (${column.logical_type}${column.nullable ? ', nullable' : ''})`,
+                  `- ${column.label} (${column.logical_type}${column.nullable ? ', nullable' : ''})`,
               )
               .join('\n')
           : '(no fields)',
     },
   ]
   let rowsSampled = 0
-  if (!pinned && ref.includeSampleRows === true && budgets.maxRowsPerDataset > 0) {
+  if (
+    !pinned &&
+    ref.includeSampleRows === true &&
+    budgets.maxRowsPerDataset > 0
+  ) {
     const page = await fetchDatasetRowPage(client, table, {
       pageIndex: 0,
       pageSize: budgets.maxRowsPerDataset,
@@ -799,10 +797,11 @@ async function resolveDataset(
     })
     rowsSampled = page.rows.length
     const lines = page.rows.map((row) => {
-      const { id: _id, version: _version, ...values } = row as Record<
-        string,
-        unknown
-      >
+      const {
+        id: _id,
+        version: _version,
+        ...values
+      } = row as Record<string, unknown>
       return `- row ${(row as { id?: unknown }).id ?? '?'}: ${scalarSummary(redact(values))}`
     })
     sections.push({
@@ -913,8 +912,8 @@ async function resolveAnalysis(
  */
 export async function assembleAiContext(
   client: DataClient,
-  actor: AiContextActor,
-  input: AssembleAiContextInput,
+  actor: AiContextActor | null | undefined,
+  input: AssembleAiContextInput | null | undefined,
 ): Promise<AiContextEnvelope> {
   if (!actor || typeof actor.id !== 'string' || actor.id === '') {
     throw new Error('assembleAiContext: actor with a non-empty id is required')
@@ -1005,7 +1004,11 @@ export async function assembleAiContext(
     }
     // Per-section budget with explicit truncation markers.
     const truncatedSections = resolved.object.sections.map((section) =>
-      truncateSection(section.heading, section.body, budgets.maxCharsPerSection),
+      truncateSection(
+        section.heading,
+        section.body,
+        budgets.maxCharsPerSection,
+      ),
     )
     // Per-object section budget: drop whole trailing sections, name the cut.
     let finalSections = truncatedSections
@@ -1043,7 +1046,7 @@ export async function assembleAiContext(
     objects.push(candidate)
     usage.chars += size
     usage.sections += candidate.sections.length
-    usage.rows += resolved.ok ? (resolved.rowsSampled ?? 0) : 0
+    usage.rows += resolved.rowsSampled ?? 0
     usage.objects += 1
   }
 

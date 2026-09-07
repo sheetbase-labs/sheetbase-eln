@@ -101,19 +101,19 @@ export function AdminConnectors({
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-4">
-        {canManage ? (
-          [
-            ['Active connectors', diagnostics?.activeConnectors ?? 0],
-            ['Paused', diagnostics?.pausedConnectors ?? 0],
-            ['Recent failures', diagnostics?.recentFailures ?? 0],
-            ['Missing secrets', diagnostics?.missingSecrets ?? 0],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-lg border bg-background p-3">
-              <div className="text-2xl font-semibold">{value}</div>
-              <div className="text-xs text-muted-foreground">{label}</div>
-            </div>
-          ))
-        ) : null}
+        {canManage
+          ? [
+              ['Active connectors', diagnostics?.activeConnectors ?? 0],
+              ['Paused', diagnostics?.pausedConnectors ?? 0],
+              ['Recent failures', diagnostics?.recentFailures ?? 0],
+              ['Missing secrets', diagnostics?.missingSecrets ?? 0],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border bg-background p-3">
+                <div className="text-2xl font-semibold">{value}</div>
+                <div className="text-xs text-muted-foreground">{label}</div>
+              </div>
+            ))
+          : null}
       </div>
       {error ? (
         <p role="alert" className="text-sm text-destructive">
@@ -138,8 +138,7 @@ export function AdminConnectors({
             {connectors.map((connector) => {
               const run = runsQuery.data?.get(connector.id)
               const diagnostic = diagnosticById.get(connector.id)
-              const canRetry =
-                canManage && run?.status === 'failed'
+              const canRetry = canManage && run?.status === 'failed'
               return (
                 <TableRow key={connector.id}>
                   <TableCell className="font-medium">

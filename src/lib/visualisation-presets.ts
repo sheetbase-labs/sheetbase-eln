@@ -6,7 +6,12 @@
  */
 
 import { CHART_PALETTE, CHART_SPEC_VERSION } from './chart-spec'
-import type { ChartColumn, ChartSpec, ChartType, FieldBinding } from './chart-spec'
+import type {
+  ChartColumn,
+  ChartSpec,
+  ChartType,
+  FieldBinding,
+} from './chart-spec'
 
 export const VISUALISATION_PRESET_IDS = [
   'dose_response',
@@ -92,11 +97,9 @@ export function recommendPlotType(input: {
   const x = input.x
   const y = input.y
   const yNumeric =
-    y !== null &&
-    (y.logicalType === 'decimal' || y.logicalType === 'integer')
+    y !== null && (y.logicalType === 'decimal' || y.logicalType === 'integer')
   const xNumeric =
-    x !== null &&
-    (x.logicalType === 'decimal' || x.logicalType === 'integer')
+    x !== null && (x.logicalType === 'decimal' || x.logicalType === 'integer')
   const xCategory =
     x !== null && ['category', 'text', 'boolean'].includes(x.logicalType)
   if (yNumeric && xNumeric) return 'scatter'
@@ -165,9 +168,10 @@ export function applyVisualisationPreset(input: {
     }
   }
 
-  const x = input.preset === 'correlation' || input.preset === 'dose_response'
-    ? xNumeric
-    : (xNumeric ?? xCat)
+  const x =
+    input.preset === 'correlation' || input.preset === 'dose_response'
+      ? xNumeric
+      : (xNumeric ?? xCat)
   const type: ChartType =
     input.preset === 'time_course'
       ? 'line'

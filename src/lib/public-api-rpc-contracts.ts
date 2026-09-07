@@ -1463,9 +1463,9 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       }),
     },
     result: pgrstRow(ref('AgentWorkflowsRow'), 'Cancelled workflow.'),
-    },
-    // -- API-06: Webhooks -------------------------------------------------------
-    create_webhook_subscription: {
+  },
+  // -- API-06: Webhooks -------------------------------------------------------
+  create_webhook_subscription: {
     summary: 'Create a webhook subscription',
     description:
       'Creates a subscription in the JWT workspace. Returns the subscription row and a generated signing secret (returned exactly once). rate_limit_per_minute caps delivery attempts per rolling minute (deferred, never dropped); null = unlimited.',
@@ -1474,16 +1474,29 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_workspace_id: uuid('Workspace UUID.'),
       p_key: text('Subscription key (lowercase, hyphenated, max 49 chars).'),
       p_url: text('HTTPS webhook endpoint URL.'),
-      p_event_types: jsonArray('JSON array of stable event type filters. Empty = all events.'),
+      p_event_types: jsonArray(
+        'JSON array of stable event type filters. Empty = all events.',
+      ),
       p_description: text('Human-readable description.'),
-      p_max_retries: int('Maximum delivery retries (0–25).', { minimum: 0, maximum: 25 }),
-      p_failure_threshold: int('Auto-disable after this many consecutive failures (0 = never).', { minimum: 0, maximum: 100 }),
-      p_signing_secret: text('Optional signing secret (auto-generated if omitted).'),
-      p_rate_limit_per_minute: int('Max delivery attempts per rolling minute (1–60000, null = unlimited).', { minimum: 1, maximum: 60000 }),
+      p_max_retries: int('Maximum delivery retries (0–25).', {
+        minimum: 0,
+        maximum: 25,
+      }),
+      p_failure_threshold: int(
+        'Auto-disable after this many consecutive failures (0 = never).',
+        { minimum: 0, maximum: 100 },
+      ),
+      p_signing_secret: text(
+        'Optional signing secret (auto-generated if omitted).',
+      ),
+      p_rate_limit_per_minute: int(
+        'Max delivery attempts per rolling minute (1–60000, null = unlimited).',
+        { minimum: 1, maximum: 60000 },
+      ),
     },
     result: ref('WebhookSubscriptionResult'),
-    },
-    update_webhook_subscription: {
+  },
+  update_webhook_subscription: {
     summary: 'Update a webhook subscription',
     description:
       'Updates URL, event types, description, status, retry config, or rate limit (null leaves the rate limit unchanged). Re-enabling a disabled/paused subscription resets consecutive_failures.',
@@ -1494,14 +1507,25 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_url: text('New HTTPS webhook endpoint URL.'),
       p_event_types: jsonArray('JSON array of stable event type filters.'),
       p_description: text('Human-readable description.'),
-      p_status: text('Subscription status (active, paused, disabled, archived).'),
-      p_max_retries: int('Maximum delivery retries (0–25).', { minimum: 0, maximum: 25 }),
-      p_failure_threshold: int('Auto-disable after this many consecutive failures.', { minimum: 0, maximum: 100 }),
-      p_rate_limit_per_minute: int('Max delivery attempts per rolling minute (1–60000). Null leaves unchanged.', { minimum: 1, maximum: 60000 }),
+      p_status: text(
+        'Subscription status (active, paused, disabled, archived).',
+      ),
+      p_max_retries: int('Maximum delivery retries (0–25).', {
+        minimum: 0,
+        maximum: 25,
+      }),
+      p_failure_threshold: int(
+        'Auto-disable after this many consecutive failures.',
+        { minimum: 0, maximum: 100 },
+      ),
+      p_rate_limit_per_minute: int(
+        'Max delivery attempts per rolling minute (1–60000). Null leaves unchanged.',
+        { minimum: 1, maximum: 60000 },
+      ),
     },
     result: pgrstRow(webhookSubscriptionRow, 'Updated subscription.'),
-    },
-    delete_webhook_subscription: {
+  },
+  delete_webhook_subscription: {
     summary: 'Archive a webhook subscription',
     description: 'Soft-archives the subscription (status → archived).',
     required: ['p_workspace_id', 'p_subscription_id'],
@@ -1510,8 +1534,8 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_subscription_id: uuid('Subscription UUID.'),
     },
     result: pgrstRow(webhookSubscriptionRow, 'Archived subscription.'),
-    },
-    rotate_webhook_secret: {
+  },
+  rotate_webhook_secret: {
     summary: 'Rotate the webhook signing secret',
     description:
       'Generates a new signing secret and stores it. The new secret is returned exactly once.',
@@ -1522,57 +1546,89 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_new_secret: text('Optional new secret (auto-generated if omitted).'),
     },
     result: ref('WebhookSecretRotationResult'),
-    },
-    list_webhook_deliveries: {
+  },
+  list_webhook_deliveries: {
     summary: 'List webhook delivery history',
-    description: 'Returns paginated delivery history for the workspace, optionally filtered by subscription, status (including dead_letter), event type, or time window.',
+    description:
+      'Returns paginated delivery history for the workspace, optionally filtered by subscription, status (including dead_letter), event type, or time window.',
     required: ['p_workspace_id'],
     properties: {
       p_workspace_id: uuid('Workspace UUID.'),
       p_subscription_id: uuid('Optional subscription UUID filter.'),
-      p_limit: int('Page size (1–200, default 50).', { minimum: 1, maximum: 200 }),
+      p_limit: int('Page size (1–200, default 50).', {
+        minimum: 1,
+        maximum: 200,
+      }),
       p_offset: int('Page offset (default 0).', { minimum: 0 }),
-      p_status: text('Optional status filter (pending, delivered, failed, retrying, dead_letter).'),
-      p_event_type: text('Optional stable event type filter (e.g. record.created).'),
-      p_since: { ...TIMESTAMPTZ, description: 'Optional lower bound on delivery creation time.' },
-      p_until: { ...TIMESTAMPTZ, description: 'Optional upper bound on delivery creation time.' },
+      p_status: text(
+        'Optional status filter (pending, delivered, failed, retrying, dead_letter).',
+      ),
+      p_event_type: text(
+        'Optional stable event type filter (e.g. record.created).',
+      ),
+      p_since: {
+        ...TIMESTAMPTZ,
+        description: 'Optional lower bound on delivery creation time.',
+      },
+      p_until: {
+        ...TIMESTAMPTZ,
+        description: 'Optional upper bound on delivery creation time.',
+      },
     },
     result: ref('WebhookDeliveryListResult'),
-    },
-    replay_webhook_delivery: {
+  },
+  replay_webhook_delivery: {
     summary: 'Replay a webhook delivery',
-    description: 'Creates a new pending delivery from an existing terminal one (delivered, failed, dead_letter), reusing the original payload, body, and signature — the same idempotency key, so receivers that deduplicate never see a duplicate effect. Audited via replay lineage plus a change event.',
+    description:
+      'Creates a new pending delivery from an existing terminal one (delivered, failed, dead_letter), reusing the original payload, body, and signature — the same idempotency key, so receivers that deduplicate never see a duplicate effect. Audited via replay lineage plus a change event.',
     required: ['p_workspace_id', 'p_delivery_id'],
     properties: {
       p_workspace_id: uuid('Workspace UUID.'),
       p_delivery_id: uuid('Terminal delivery UUID to replay.'),
     },
     result: pgrstRow(webhookDeliveryRow, 'New pending delivery row.'),
-    },
-    replay_webhook_deliveries: {
+  },
+  replay_webhook_deliveries: {
     summary: 'Replay webhook deliveries by subscription and/or time window',
-    description: 'Operator-invoked bulk replay of terminal deliveries (default dead_letter) for a subscription and/or creation window. Each replay reuses the original idempotency key. Originals with a pending/retrying replay already queued are skipped, so re-running a window is safe. One summary change event audits the action; never automatic.',
+    description:
+      'Operator-invoked bulk replay of terminal deliveries (default dead_letter) for a subscription and/or creation window. Each replay reuses the original idempotency key. Originals with a pending/retrying replay already queued are skipped, so re-running a window is safe. One summary change event audits the action; never automatic.',
     required: ['p_workspace_id'],
     properties: {
       p_workspace_id: uuid('Workspace UUID.'),
-      p_subscription_id: uuid('Optional subscription UUID filter (null = all subscriptions).'),
-      p_since: { ...TIMESTAMPTZ, description: 'Optional lower bound on original delivery creation time.' },
-      p_until: { ...TIMESTAMPTZ, description: 'Optional upper bound on original delivery creation time.' },
-      p_status: text('Which terminal status to replay (dead_letter, failed, delivered; default dead_letter).'),
-      p_limit: int('Max deliveries to replay (1–500, default 50).', { minimum: 1, maximum: 500 }),
+      p_subscription_id: uuid(
+        'Optional subscription UUID filter (null = all subscriptions).',
+      ),
+      p_since: {
+        ...TIMESTAMPTZ,
+        description: 'Optional lower bound on original delivery creation time.',
+      },
+      p_until: {
+        ...TIMESTAMPTZ,
+        description: 'Optional upper bound on original delivery creation time.',
+      },
+      p_status: text(
+        'Which terminal status to replay (dead_letter, failed, delivered; default dead_letter).',
+      ),
+      p_limit: int('Max deliveries to replay (1–500, default 50).', {
+        minimum: 1,
+        maximum: 500,
+      }),
     },
     result: ref('WebhookBulkReplayResult'),
-    },
-    get_webhook_endpoint_health: {
+  },
+  get_webhook_endpoint_health: {
     summary: 'Get webhook endpoint health',
-    description: 'Per-endpoint delivery health: 24h success-rate window, last error, consecutive failures, auto-disable state, retry debt, and rate limit. Re-enable a disabled endpoint via update_webhook_subscription (status active resets consecutive_failures).',
+    description:
+      'Per-endpoint delivery health: 24h success-rate window, last error, consecutive failures, auto-disable state, retry debt, and rate limit. Re-enable a disabled endpoint via update_webhook_subscription (status active resets consecutive_failures).',
     required: ['p_workspace_id'],
     properties: {
       p_workspace_id: uuid('Workspace UUID.'),
-      p_subscription_id: uuid('Optional subscription UUID (null = all subscriptions).'),
+      p_subscription_id: uuid(
+        'Optional subscription UUID (null = all subscriptions).',
+      ),
     },
     result: ref('WebhookEndpointHealthResult'),
-    },
+  },
 }
 
 const missing = Object.keys(EXTERNAL_RPC_SCOPES).filter(

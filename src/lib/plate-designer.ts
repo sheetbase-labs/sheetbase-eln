@@ -768,7 +768,9 @@ export interface PlateDesignerViewState {
   selectedWellCode: string | null
 }
 
-export function emptyDesignerViewState(doc: PlateDesignDoc): PlateDesignerViewState {
+export function emptyDesignerViewState(
+  doc: PlateDesignDoc,
+): PlateDesignerViewState {
   return { doc, annotations: [], selectedWellCode: null }
 }
 

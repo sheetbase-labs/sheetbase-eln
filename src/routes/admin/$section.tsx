@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-export const adminSectionKeys: Record<string, true> = {
+export const adminSectionKeys: Record<string, true | undefined> = {
   dashboard: true,
   'external-access': true,
   users: true,

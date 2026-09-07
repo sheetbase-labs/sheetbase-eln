@@ -320,7 +320,8 @@ export function relationshipRuleStatus(
   return {
     count,
     minSatisfied: count >= rule.minLinks,
-    remaining: rule.maxLinks === null ? null : Math.max(0, rule.maxLinks - count),
+    remaining:
+      rule.maxLinks === null ? null : Math.max(0, rule.maxLinks - count),
     atMaximum: rule.maxLinks !== null && count >= rule.maxLinks,
   }
 }
@@ -370,9 +371,7 @@ export function resolveRelationshipLabel(
 
 function errorCode(error: unknown): string | null {
   if (!error || typeof error !== 'object') return null
-  return 'code' in error && typeof error.code === 'string'
-    ? error.code
-    : null
+  return 'code' in error && typeof error.code === 'string' ? error.code : null
 }
 
 function errorMessage(error: unknown): string {

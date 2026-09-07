@@ -49,11 +49,7 @@ export type RelationshipDirection = 'outgoing' | 'incoming'
  * states plus `archived` — FIND-03 drops these rows, this panel shows them.
  */
 export type RelationshipRowState =
-  | 'available'
-  | 'archived'
-  | 'deleted'
-  | 'missing'
-  | 'permission-restricted'
+  'available' | 'archived' | 'deleted' | 'missing' | 'permission-restricted'
 
 /** RLS-filtered counterparty record: lifecycle fields kept, never dropped. */
 export interface RelationshipEndpoint {
@@ -144,9 +140,7 @@ export function fetchIncomingLinksByIdentifier(
       `?target_identifier=eq.${encodeURIComponent(identifier)}&order=created_at.asc&limit=${limit}`,
     )
     .then((rows) =>
-      rows
-        .filter((row) => row.target_record_id === null)
-        .map(toLink),
+      rows.filter((row) => row.target_record_id === null).map(toLink),
     )
 }
 
@@ -313,8 +307,20 @@ export function buildRelationshipRows(
   typeLabels?: Record<string, string>,
 ): AggregatedRelationships {
   return {
-    outgoing: collectRows('outgoing', recordId, links.outgoing, endpoints, typeLabels),
-    incoming: collectRows('incoming', recordId, links.incoming, endpoints, typeLabels),
+    outgoing: collectRows(
+      'outgoing',
+      recordId,
+      links.outgoing,
+      endpoints,
+      typeLabels,
+    ),
+    incoming: collectRows(
+      'incoming',
+      recordId,
+      links.incoming,
+      endpoints,
+      typeLabels,
+    ),
   }
 }
 
@@ -349,7 +355,13 @@ function collectRows(
   const rows: RelationshipRow[] = []
   const seen = new Map<string, RelationshipRow>()
   for (const link of links) {
-    const row = toRelationshipRow(link, direction, recordId, endpoints, typeLabels)
+    const row = toRelationshipRow(
+      link,
+      direction,
+      recordId,
+      endpoints,
+      typeLabels,
+    )
     if (!row) continue
     const key = collapseKey(direction, link)
     const existing = seen.get(key)

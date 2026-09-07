@@ -54,16 +54,16 @@ sole scientific data authority after freeze. Legacy snapshots without
 
 ## Plot types
 
-| Type | Encoding |
-| --- | --- |
-| `scatter` | numeric x/y; optional series/colour/size |
-| `line` | ordered x, connected |
-| `scatter_line` / `connected_scatter` | points plus connecting lines |
-| `histogram` | y only; shared bin edges |
-| `box` / `violin` / `strip` | distribution of y, grouped by series |
-| `bar` / `grouped_bar` / `stacked_bar` | categorical or numeric x, y height |
-| `summary` | grouped mean or median with explicit interval |
-| `heatmap` | x×y grid; count or aggregate of `valueField` |
+| Type                                  | Encoding                                      |
+| ------------------------------------- | --------------------------------------------- |
+| `scatter`                             | numeric x/y; optional series/colour/size      |
+| `line`                                | ordered x, connected                          |
+| `scatter_line` / `connected_scatter`  | points plus connecting lines                  |
+| `histogram`                           | y only; shared bin edges                      |
+| `box` / `violin` / `strip`            | distribution of y, grouped by series          |
+| `bar` / `grouped_bar` / `stacked_bar` | categorical or numeric x, y height            |
+| `summary`                             | grouped mean or median with explicit interval |
+| `heatmap`                             | x×y grid; count or aggregate of `valueField`  |
 
 Plot-type recommendation in the builder is deterministic (numeric+numeric →
 scatter, category+numeric → box, y-only → histogram). The user stays in

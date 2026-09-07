@@ -6,10 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import {
-  ANALYSIS_DEFINITION_VERSION,
-  runAnalysis,
-} from './analysis-definition'
+import { ANALYSIS_DEFINITION_VERSION, runAnalysis } from './analysis-definition'
 import type { AnalysisDefinition } from './analysis-definition'
 import type { FrozenAnalysis } from './analysis-block'
 import {
@@ -184,7 +181,11 @@ describe('representation read-only boundary', () => {
   it('carries the derived flag on every handle', () => {
     const chart = createRepresentationHandle({
       source: { datasetId: DATASET_ID, versionId: null },
-      config: { kind: 'chart', configVersion: CHART_SPEC_VERSION, config: chartSpec() },
+      config: {
+        kind: 'chart',
+        configVersion: CHART_SPEC_VERSION,
+        config: chartSpec(),
+      },
     })
     const sheet = createRepresentationHandle({
       source: { datasetId: null, versionId: null },
@@ -286,11 +287,19 @@ describe('chart representation', () => {
   })
 
   it('materialises live rows with parity to materialiseChart', () => {
-    const handle = chartToRepresentationHandle({ spec: chartSpec(), frozen: null })!
-    const out = materialiseRepresentation(handle, { columns: COLUMNS, rows: ROWS })
+    const handle = chartToRepresentationHandle({
+      spec: chartSpec(),
+      frozen: null,
+    })!
+    const out = materialiseRepresentation(handle, {
+      columns: COLUMNS,
+      rows: ROWS,
+    })
     expect(out.kind).toBe('chart')
     if (out.kind !== 'chart') throw new Error('unreachable')
-    expect(out.materialised).toEqual(materialiseChart(chartSpec(), COLUMNS, ROWS))
+    expect(out.materialised).toEqual(
+      materialiseChart(chartSpec(), COLUMNS, ROWS),
+    )
     expect(out.materialised.state.kind).toBe('ok')
   })
 
@@ -303,7 +312,11 @@ describe('chart representation', () => {
     })
     expect(out.kind).toBe('chart')
     if (out.kind !== 'chart') throw new Error('unreachable')
-    const direct = reconstructFrozenVisualisation({ spec: chartSpec(), frozen, rows: ROWS })
+    const direct = reconstructFrozenVisualisation({
+      spec: chartSpec(),
+      frozen,
+      rows: ROWS,
+    })
     expect(out.materialised).toEqual(direct.chart)
     expect(out.facets).toEqual(direct.facets)
   })
@@ -337,7 +350,10 @@ describe('analysis representation', () => {
   })
 
   it('materialises with parity to runAnalysis', () => {
-    const out = materialiseRepresentation(handle(), { columns: COLUMNS, rows: ROWS })
+    const out = materialiseRepresentation(handle(), {
+      columns: COLUMNS,
+      rows: ROWS,
+    })
     expect(out).toEqual({
       kind: 'analysis',
       outcome: runAnalysis(descriptiveDefinition(), COLUMNS, ROWS),
@@ -369,9 +385,13 @@ describe('analysis representation', () => {
       kind: 'analysis',
       outcome: runAnalysis(frozen.definition, COLUMNS, ROWS),
     })
-    if (out.kind !== 'analysis' || !out.outcome.ok) throw new Error('unreachable')
+    if (out.kind !== 'analysis' || !out.outcome.ok)
+      throw new Error('unreachable')
     // Grouped snapshot yields one row per condition.
-    expect(out.outcome.result.rows.map((r) => r.group).sort()).toEqual(['a', 'b'])
+    expect(out.outcome.result.rows.map((r) => r.group).sort()).toEqual([
+      'a',
+      'b',
+    ])
   })
 
   it('reports empty_dataset honestly when pinned rows are absent', () => {
@@ -418,7 +438,11 @@ describe('plate_map representation', () => {
     const bad = { ...plateSpec(), rows: 6 }
     const h = createRepresentationHandle({
       source: { datasetId: null, versionId: null },
-      config: { kind: 'plate_map', configVersion: PLATE_MAP_SPEC_VERSION, config: bad },
+      config: {
+        kind: 'plate_map',
+        configVersion: PLATE_MAP_SPEC_VERSION,
+        config: bad,
+      },
     })
     const out = materialiseRepresentation(h, { columns: [], rows: [] })
     expect(out).toEqual({
@@ -504,7 +528,9 @@ describe('sheet representation', () => {
   })
 
   it('passes instance identity through, ignoring rows', () => {
-    expect(materialiseRepresentation(handle(), { columns: [], rows: [] })).toEqual({
+    expect(
+      materialiseRepresentation(handle(), { columns: [], rows: [] }),
+    ).toEqual({
       kind: 'sheet',
       instanceId: INSTANCE_ID,
     })

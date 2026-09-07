@@ -9,9 +9,11 @@ Create a trustworthy context/retrieval substrate for AI features that respects c
 ## AI-01 — Context Assembly Contract
 
 ### Goal
+
 Define how canonical Sheetbase context is assembled for intelligent features.
 
 ### Scope
+
 - workspace/project/object context from stable IDs;
 - Notebook/Sheet/Dataset/Record/analysis/provenance summaries;
 - explicit version/evidence context;
@@ -19,14 +21,17 @@ Define how canonical Sheetbase context is assembled for intelligent features.
 - permission checks before material reaches the model.
 
 ### Exit
+
 A documented/tested context service can assemble relevant permitted scientific context without scraping UI state or bypassing server permissions.
 
 ## AI-02 — Knowledge Retrieval & Citation
 
 ### Goal
+
 Enable grounded retrieval across permitted Sheetbase knowledge/scientific objects.
 
 ### Scope
+
 - search/retrieval over canonical text/metadata/content where appropriate;
 - citations/links back to source objects and versions;
 - freshness/lifecycle handling;
@@ -34,14 +39,17 @@ Enable grounded retrieval across permitted Sheetbase knowledge/scientific object
 - no cross-workspace leakage.
 
 ### Exit
+
 AI features can retrieve and cite relevant Sheetbase sources with measurable quality and permission isolation.
 
 ## AI-03 — Model Gateway, Policy & Observability
 
 ### Goal
+
 Provide one governed model-call boundary for product AI features.
 
 ### Scope
+
 - provider/model abstraction only where useful;
 - prompt/context logging policy with sensitive-data controls;
 - cost/latency/error telemetry;
@@ -49,6 +57,7 @@ Provide one governed model-call boundary for product AI features.
 - reproducible evaluation fixtures for consequential features.
 
 ### Exit
+
 AI calls run through a visible, testable policy/observability boundary rather than ad-hoc feature-specific provider calls.
 
 ## Boundaries

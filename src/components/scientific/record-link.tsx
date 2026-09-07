@@ -1,6 +1,13 @@
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
-import { Archive, ArrowUpRight, FileWarning, Link2, Lock, Trash2 } from 'lucide-react'
+import {
+  Archive,
+  ArrowUpRight,
+  FileWarning,
+  Link2,
+  Lock,
+  Trash2,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'

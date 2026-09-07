@@ -73,7 +73,9 @@ export function ExtensionCommandGroup({
         >
           <Puzzle className="size-4" aria-hidden />
           {command.title}
-          <span className="ml-auto text-xs text-muted-foreground">{command.extensionKey}</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {command.extensionKey}
+          </span>
         </CommandItem>
       ))}
     </CommandGroup>

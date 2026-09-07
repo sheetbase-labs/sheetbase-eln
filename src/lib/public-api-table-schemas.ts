@@ -929,7 +929,10 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       consecutive_failures: INT,
       failure_threshold: INT,
       rate_limit_per_minute: { ...INT, nullable: true },
-      status: { type: 'string', enum: ['active', 'paused', 'disabled', 'archived'] },
+      status: {
+        type: 'string',
+        enum: ['active', 'paused', 'disabled', 'archived'],
+      },
       created_at: TS,
       updated_at: TS,
       created_by_user_id: { ...TEXT, nullable: true },
@@ -964,7 +967,10 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       body: TEXT,
       signature: TEXT,
       attempt: INT,
-      status: { type: 'string', enum: ['pending', 'delivered', 'failed', 'retrying', 'dead_letter'] },
+      status: {
+        type: 'string',
+        enum: ['pending', 'delivered', 'failed', 'retrying', 'dead_letter'],
+      },
       response_status: { ...INT, nullable: true },
       response_body: { ...TEXT, nullable: true },
       error_code: { ...TEXT, nullable: true },

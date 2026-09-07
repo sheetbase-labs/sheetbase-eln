@@ -27,7 +27,8 @@ import {
 import type { AiCitation } from './ai-retrieval'
 import type { AiContextActor } from './ai-context'
 import type { DataClient } from './data-client'
-import { toSearchResult, type SearchResultWire } from './search'
+import { toSearchResult } from './search'
+import type { SearchResultWire } from './search'
 
 // ---------------------------------------------------------------------------
 // Fixture corpus. `visible` is what the actor may see through RLS; `hidden`
@@ -56,7 +57,13 @@ interface FixtureDoc {
   createdBy: string
   createdAt: string
   updatedAt: string
-  fields: { title: string; identifier: string; tags: string; blockText: string; description: string }
+  fields: {
+    title: string
+    identifier: string
+    tags: string
+    blockText: string
+    description: string
+  }
 }
 
 const VISIBLE_DOCS: FixtureDoc[] = [
@@ -76,7 +83,8 @@ const VISIBLE_DOCS: FixtureDoc[] = [
       title: 'Lentivector stability at 4 C',
       identifier: 'EXP-2026-0101',
       tags: 'lentivector cold-chain',
-      blockText: 'Evaluated lentiviral vector stability over 21 days at 4 degrees.',
+      blockText:
+        'Evaluated lentiviral vector stability over 21 days at 4 degrees.',
       description: '',
     },
   },
@@ -157,7 +165,8 @@ const VISIBLE_DOCS: FixtureDoc[] = [
       identifier: SHEET_ID,
       tags: '',
       blockText: '',
-      description: 'Working sheet normalising plate reader output across batches.',
+      description:
+        'Working sheet normalising plate reader output across batches.',
     },
   },
   {
@@ -192,10 +201,17 @@ const DELETED_TOKEN = 'pilotzz'
 // ---------------------------------------------------------------------------
 
 function tokens(text: string): string[] {
-  return text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
 }
 
-const FIELD_WEIGHTS: Array<{ field: keyof FixtureDoc['fields']; weight: number; matchedField: string }> = [
+const FIELD_WEIGHTS: Array<{
+  field: keyof FixtureDoc['fields']
+  weight: number
+  matchedField: string
+}> = [
   { field: 'title', weight: 3, matchedField: 'title' },
   { field: 'identifier', weight: 3, matchedField: 'identifier' },
   { field: 'tags', weight: 2, matchedField: 'tags' },
@@ -207,20 +223,31 @@ function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
   const query = String(args.p_query ?? '')
   const recordOnly =
     args.p_kind != null || args.p_status != null || args.p_owner_id != null
-  const scored: Array<{ doc: FixtureDoc; rank: number; matchedField: string; context: string }> = []
+  const scored: Array<{
+    doc: FixtureDoc
+    rank: number
+    matchedField: string
+    context: string
+  }> = []
   for (const doc of VISIBLE_DOCS) {
     if (args.p_result_type != null) {
       const facet = String(args.p_result_type)
       if (facet === 'file' || facet === 'record') {
         if (doc.resultType !== 'record' && doc.resultType !== 'file') continue
-        if (facet === 'file' !== (doc.kind === 'file')) continue
+        if ((facet === 'file') !== (doc.kind === 'file')) continue
       } else if (doc.resultType !== facet) continue
     }
-    if (recordOnly && doc.resultType !== 'record' && doc.resultType !== 'file') continue
-    if (args.p_project_id != null && doc.projectId !== String(args.p_project_id)) continue
+    if (recordOnly && doc.resultType !== 'record' && doc.resultType !== 'file')
+      continue
+    if (
+      args.p_project_id != null &&
+      doc.projectId !== String(args.p_project_id)
+    )
+      continue
     if (args.p_kind != null && doc.kind !== String(args.p_kind)) continue
     if (args.p_status != null && doc.status !== String(args.p_status)) continue
-    if (args.p_owner_id != null && doc.createdBy !== String(args.p_owner_id)) continue
+    if (args.p_owner_id != null && doc.createdBy !== String(args.p_owner_id))
+      continue
     const words = tokens(query)
     let score = 0
     let bestWeight = 0
@@ -260,39 +287,57 @@ function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
     if (firstWord) {
       const match = new RegExp(`(\\b${firstWord}\\b)`, 'i').exec(source)
       if (match) {
-        const start = Math.max(0, (match.index ?? 0) - 30)
-        context = `${start > 0 ? '… ' : ''}${source.slice(start, (match.index ?? 0) + match[0].length + 30).trim()} …`
+        const start = Math.max(0, match.index - 30)
+        context = `${start > 0 ? '… ' : ''}${source.slice(start, match.index + match[0].length + 30).trim()} …`
         context = context.replace(match[0], `<b>${match[0]}</b>`)
       }
     }
-    scored.push({ doc, rank: score / 10, matchedField: bestField.matchedField, context })
+    scored.push({
+      doc,
+      rank: score / 10,
+      matchedField: bestField.matchedField,
+      context,
+    })
   }
-  scored.sort((a, b) => b.rank - a.rank || (a.doc.updatedAt < b.doc.updatedAt ? 1 : -1))
+  scored.sort(
+    (a, b) => b.rank - a.rank || (a.doc.updatedAt < b.doc.updatedAt ? 1 : -1),
+  )
   const total = scored.length
   const offset = Number(args.p_offset ?? 0)
   const limit = Number(args.p_limit ?? 20)
-  return scored.slice(offset, offset + limit).map(({ doc, rank, matchedField, context }) => ({
-    result_type: doc.resultType,
-    record_id: doc.recordId,
-    kind: doc.kind,
-    identifier: doc.identifier,
-    title: doc.title,
-    status: doc.status,
-    project_id: doc.projectId,
-    archived: doc.archived,
-    created_by_user_id: doc.createdBy,
-    created_at: doc.createdAt,
-    updated_at: doc.updatedAt,
-    matched_context: context,
-    matched_field: matchedField,
-    rank: String(rank),
-    deep_link: `/records/${doc.recordId}`,
-    total_count: String(total),
-  }))
+  return scored
+    .slice(offset, offset + limit)
+    .map(({ doc, rank, matchedField, context }) => ({
+      result_type: doc.resultType,
+      record_id: doc.recordId,
+      kind: doc.kind,
+      identifier: doc.identifier,
+      title: doc.title,
+      status: doc.status,
+      project_id: doc.projectId,
+      archived: doc.archived,
+      created_by_user_id: doc.createdBy,
+      created_at: doc.createdAt,
+      updated_at: doc.updatedAt,
+      matched_context: context,
+      matched_field: matchedField,
+      rank: String(rank),
+      deep_link: `/records/${doc.recordId}`,
+      total_count: String(total),
+    }))
 }
 
 function recordWire(id: string, overrides: Record<string, unknown> = {}) {
-  const titles: Record<string, { title: string; identifier: string; kind: string; status: string; archived_at: string | null }> = {
+  const titles: Record<
+    string,
+    {
+      title: string
+      identifier: string
+      kind: string
+      status: string
+      archived_at: string | null
+    }
+  > = {
     [STABILITY_ID]: {
       title: 'Lentivector stability at 4 C',
       identifier: 'EXP-2026-0101',
@@ -344,7 +389,11 @@ function recordWire(id: string, overrides: Record<string, unknown> = {}) {
 
 /** Actor-scoped mock: RLS-filtered tables plus the contract-level search. */
 function mockClient() {
-  const records = [recordWire(STABILITY_ID), recordWire(FREEZETHAW_ID), recordWire(PROTOCOL_ID)]
+  const records = [
+    recordWire(STABILITY_ID),
+    recordWire(FREEZETHAW_ID),
+    recordWire(PROTOCOL_ID),
+  ]
   const rpcMock = vi.fn(async (name: string, args: Record<string, unknown>) => {
     if (name === 'search') return mockSearchRpc(args)
     throw new Error(`unexpected rpc ${name}`)
@@ -374,7 +423,11 @@ function mockClient() {
   return client
 }
 
-function retrieve(client: DataClient, query: string, scope: Record<string, unknown> = {}) {
+function retrieve(
+  client: DataClient,
+  query: string,
+  scope: Record<string, unknown> = {},
+) {
   return retrieveForAi(client, ACTOR, query, { workspaceId: WS, ...scope })
 }
 
@@ -459,7 +512,9 @@ describe('ai-retrieval lifecycle and permission boundaries', () => {
   it('marks archived records explicitly without pinning them', async () => {
     const client = mockClient()
     const { citations } = await retrieve(client, 'transduction protocol')
-    const archived = citations.find((citation) => citation.stableId === PROTOCOL_ID)
+    const archived = citations.find(
+      (citation) => citation.stableId === PROTOCOL_ID,
+    )
     expect(archived).toBeDefined()
     expect(archived?.archived).toBe(true)
     expect(archived?.freshness).toBe('live')
@@ -481,7 +536,10 @@ describe('ai-retrieval lifecycle and permission boundaries', () => {
 
   it('never cites RLS-invisible objects', async () => {
     const client = mockClient()
-    const { citations, totalCount } = await retrieve(client, 'competitor collaboration')
+    const { citations, totalCount } = await retrieve(
+      client,
+      'competitor collaboration',
+    )
     expect(citations).toEqual([])
     // Totals derive from the permission-filtered set, so nothing leaks.
     expect(totalCount).toBe(0)

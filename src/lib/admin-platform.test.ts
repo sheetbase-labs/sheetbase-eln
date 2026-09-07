@@ -6,8 +6,8 @@ import {
   WORKSPACE_QUOTA,
   buildAttentionItems,
   findIncompatibleExtensionKeys,
-  type AttentionCounts,
 } from './admin-platform'
+import type { AttentionCounts } from './admin-platform'
 
 const zeroCounts: AttentionCounts = {
   failedPipelineRuns: 0,

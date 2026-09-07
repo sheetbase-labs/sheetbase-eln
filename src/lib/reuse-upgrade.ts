@@ -72,8 +72,7 @@ function newestVersion(
 ): { id: string; version: number } | null {
   let latest: { id: string; version: number } | null = null
   for (const candidate of versions) {
-    if (!Number.isInteger(candidate.version) || candidate.version <= 0)
-      continue
+    if (!Number.isInteger(candidate.version) || candidate.version <= 0) continue
     if (!latest || candidate.version > latest.version)
       latest = { id: candidate.id, version: candidate.version }
   }
@@ -158,7 +157,6 @@ function familyLine(label: string, counts: FamilyCounts): string | null {
   return `${label}: ${parts.join(', ')}`
 }
 
-
 const SHEET_AUTOMATIC_FAMILY: Record<string, string> = {
   'column-added': 'Columns',
   'column-label-renamed': 'Columns',
@@ -171,7 +169,9 @@ const SHEET_AUTOMATIC_FAMILY: Record<string, string> = {
   'action-added': 'Actions',
 }
 
-function sheetConflictFamily(kind: string): { label: string; delta: 'removed' | 'changed' } | null {
+function sheetConflictFamily(
+  kind: string,
+): { label: string; delta: 'removed' | 'changed' } | null {
   if (kind === 'parameter-required')
     return { label: 'Parameters', delta: 'changed' }
   if (kind === 'column-incompatible')
@@ -233,7 +233,9 @@ export function summarizeSheetDefinitionUpgradeImpact(
   const renamed: string[] = []
   for (const change of parsed.automaticChanges) {
     if (change.kind.endsWith('-label-renamed')) {
-      renamed.push(change.kind.startsWith('parameter-') ? 'parameter' : 'column')
+      renamed.push(
+        change.kind.startsWith('parameter-') ? 'parameter' : 'column',
+      )
       continue
     }
     const label = SHEET_AUTOMATIC_FAMILY[change.kind]
@@ -260,7 +262,11 @@ export function summarizeSheetDefinitionUpgradeImpact(
     const family = sheetConflictFamily(conflict.kind)
     if (!family)
       throw new Error(`Unresolvable upgrade conflict "${conflict.kind}".`)
-    const counts = (families[family.label] ??= { added: 0, removed: 0, changed: 0 })
+    const counts = (families[family.label] ??= {
+      added: 0,
+      removed: 0,
+      changed: 0,
+    })
     counts[family.delta] += 1
   }
 
@@ -275,7 +281,7 @@ export function summarizeSheetDefinitionUpgradeImpact(
   ]
   const lines: string[] = []
   for (const label of order) {
-    const counts = families[label]
+    const counts = families[label] as FamilyCounts | undefined
     const line = counts ? familyLine(label, counts) : null
     if (line) lines.push(line)
   }
@@ -291,10 +297,16 @@ export function summarizeSheetDefinitionUpgradeImpact(
     if (kind === 'row-identity-changed')
       lines.push('Row identity changed: needs an explicit decision')
     else if (kind === 'local-identity-collision')
-      lines.push('Local field collides with a target object: needs an explicit decision')
-    else lines.push('Instance calculation collides with a target object: needs an explicit decision')
+      lines.push(
+        'Local field collides with a target object: needs an explicit decision',
+      )
+    else
+      lines.push(
+        'Instance calculation collides with a target object: needs an explicit decision',
+      )
   }
-  if (lines.length === 0) lines.push('No changes between pinned and latest versions.')
+  if (lines.length === 0)
+    lines.push('No changes between pinned and latest versions.')
 
   const localEffects: string[] = []
   if (parsed.preserved.localFieldIds.length > 0)
@@ -352,9 +364,7 @@ export function summarizeNotebookTemplateUpgradeImpact(
   for (const change of parsed.automatic) {
     if (change.kind === 'placement-added') added += 1
     else if (change.kind === 'placement-removed') removed += 1
-    else if (change.kind === 'sheet-definition-compatible') repinned += 1
-    else
-      throw new Error(`Unresolvable upgrade change "${change.kind}".`)
+    else repinned += 1
   }
   if (added > 0 || removed > 0) {
     const parts: string[] = []
@@ -376,7 +386,7 @@ export function summarizeNotebookTemplateUpgradeImpact(
       )
       continue
     }
-    if (conflict.kind !== 'sheet-definition-conflict' || !conflict.instancePreview)
+    if (!conflict.instancePreview)
       throw new Error(`Unresolvable upgrade conflict "${conflict.kind}".`)
     const nested = summarizeSheetDefinitionUpgradeImpact(
       conflict.instancePreview,
@@ -389,10 +399,15 @@ export function summarizeNotebookTemplateUpgradeImpact(
     }
   }
   if (unresolved === 0 && parsed.conflicts.length > 0 && lines.length === 0)
-    lines.push(`${pluralise(parsed.conflicts.length, 'part')} need an explicit decision`)
-  if (lines.length === 0) lines.push('No changes between pinned and latest versions.')
+    lines.push(
+      `${pluralise(parsed.conflicts.length, 'part')} need an explicit decision`,
+    )
+  if (lines.length === 0)
+    lines.push('No changes between pinned and latest versions.')
   if (localEffects.length === 0)
-    localEffects.push('Local values and overrides stay untouched; only governed pins move.')
+    localEffects.push(
+      'Local values and overrides stay untouched; only governed pins move.',
+    )
 
   return {
     title: 'Template upgrade impact',

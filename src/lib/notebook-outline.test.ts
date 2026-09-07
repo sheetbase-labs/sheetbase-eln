@@ -253,9 +253,9 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
       from: 1,
       to: 4,
     })
-    expect(collapsedSectionNodeIndexes(spans, new Set([`section-b1-h0`]))).toEqual(
-      new Map([['b1', new Set([1, 2, 3])]]),
-    )
+    expect(
+      collapsedSectionNodeIndexes(spans, new Set([`section-b1-h0`])),
+    ).toEqual(new Map([['b1', new Set([1, 2, 3])]]))
   })
 
   it('a nested H3 stays independently collapsible inside an H2 section', () => {
@@ -274,9 +274,9 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
       from: 3,
       to: 4,
     })
-    expect(collapsedSectionNodeIndexes(spans, new Set([`section-b1-h2`]))).toEqual(
-      new Map([['b1', new Set([3])]]),
-    )
+    expect(
+      collapsedSectionNodeIndexes(spans, new Set([`section-b1-h2`])),
+    ).toEqual(new Map([['b1', new Set([3])]]))
     // Collapsing both H2 and H3 unions to the same hidden set as the H2
     // alone — the H3 collapse adds nothing extra but stays independent.
     const both = collapsedSectionNodeIndexes(
@@ -313,9 +313,9 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
       from: 5,
       to: 6,
     })
-    expect(collapsedSectionNodeIndexes(spans, new Set([`section-b1-h0`]))).toEqual(
-      new Map([['b1', new Set([1, 2, 3])]]),
-    )
+    expect(
+      collapsedSectionNodeIndexes(spans, new Set([`section-b1-h0`])),
+    ).toEqual(new Map([['b1', new Set([1, 2, 3])]]))
   })
 
   it('a section closed by a heading in a later block still owns the rest of its own block', () => {

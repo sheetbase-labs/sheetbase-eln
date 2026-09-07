@@ -22,7 +22,7 @@ Before substantial work:
 6. Read the relevant roadmap task and accepted ADRs in full.
 7. Inspect the current implementation and tests. Do not infer present behaviour from roadmap prose alone.
 
-Historical documents can explain *why*, but they do not override later canonical decisions, accepted ADRs, executable contracts, or the current priority recorded in `NEXT.md`.
+Historical documents can explain _why_, but they do not override later canonical decisions, accepted ADRs, executable contracts, or the current priority recorded in `NEXT.md`.
 
 # Reviewing a PR
 

@@ -16,6 +16,7 @@ import type { NotebookLink } from '#/lib/notebook-data'
 
 // jsdom polyfills for cmdk.
 import type { ModelRelationshipRule } from '#/lib/model-relationships'
+
 globalThis.ResizeObserver = class {
   observe() {}
   unobserve() {}
@@ -228,7 +229,9 @@ describe('ScientificRecordLinker', () => {
 })
 
 describe('ScientificRecordLinker with MODEL-03 rules', () => {
-  function sampleRule(overrides: Partial<ModelRelationshipRule> = {}): ModelRelationshipRule {
+  function sampleRule(
+    overrides: Partial<ModelRelationshipRule> = {},
+  ): ModelRelationshipRule {
     return {
       id: 'rule-1',
       sourceModelKey: 'experiment',
@@ -261,7 +264,11 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
       sourceModelKey: 'experiment',
       rules: [
         sampleRule(),
-        sampleRule({ id: 'rule-2', linkType: 'protocol', targetModelKey: 'protocol_template' }),
+        sampleRule({
+          id: 'rule-2',
+          linkType: 'protocol',
+          targetModelKey: 'protocol_template',
+        }),
       ],
     })
     await user.click(screen.getByRole('button', { name: /link record/i }))
@@ -274,7 +281,13 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
     const user = userEvent.setup()
     mount({
       sourceModelKey: 'experiment',
-      rules: [sampleRule({ id: 'rule-2', linkType: 'protocol', targetModelKey: 'protocol_template' })],
+      rules: [
+        sampleRule({
+          id: 'rule-2',
+          linkType: 'protocol',
+          targetModelKey: 'protocol_template',
+        }),
+      ],
     })
     await user.click(screen.getByRole('button', { name: /link record/i }))
     expect(screen.queryByRole('tab', { name: 'Sample' })).toBeNull()
@@ -287,7 +300,13 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
     const list = vi.fn().mockResolvedValue([sampleWire()])
     const rpc = vi
       .fn()
-      .mockRejectedValue(new DataClientError('SB080', 'link type sample to model reagent is not allowed', 400))
+      .mockRejectedValue(
+        new DataClientError(
+          'SB080',
+          'link type sample to model reagent is not allowed',
+          400,
+        ),
+      )
     mount({ client: mockClient({ list, rpc }) })
     await user.click(screen.getByRole('button', { name: /link record/i }))
     await screen.findByText('Virus stock A')
@@ -301,7 +320,13 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
     const list = vi.fn().mockResolvedValue([sampleWire()])
     const rpc = vi
       .fn()
-      .mockRejectedValue(new DataClientError('SB081', 'link type sample exceeds the maximum of 2', 400))
+      .mockRejectedValue(
+        new DataClientError(
+          'SB081',
+          'link type sample exceeds the maximum of 2',
+          400,
+        ),
+      )
     mount({ client: mockClient({ list, rpc }) })
     await user.click(screen.getByRole('button', { name: /link record/i }))
     await screen.findByText('Virus stock A')

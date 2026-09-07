@@ -192,7 +192,7 @@ export function AdminDiagnostics({
           <p className="text-sm text-muted-foreground">
             Loading webhook delivery diagnostics…
           </p>
-        ) : runHealth.isError || !runHealth.data ? (
+        ) : runHealth.isError ? (
           <p className="text-sm text-destructive">
             Webhook delivery diagnostics could not be loaded.
           </p>
@@ -315,7 +315,9 @@ export function AdminDiagnostics({
                     <TableHead>Last run</TableHead>
                     <TableHead>Last result</TableHead>
                     <TableHead>Secrets</TableHead>
-                    <TableHead className="text-right">Recent failures</TableHead>
+                    <TableHead className="text-right">
+                      Recent failures
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -389,8 +391,7 @@ export function AdminDiagnostics({
           ]}
         />
         <p className="text-xs text-muted-foreground">
-          A behind or unknown state means the app and database are out of
-          sync —{' '}
+          A behind or unknown state means the app and database are out of sync —{' '}
           <Link
             to="/docs/$name"
             params={{ name: 'deployment' }}

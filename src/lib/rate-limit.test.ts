@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  createRateLimiter,
-  defaultRateLimitOptions,
-} from './rate-limit'
+import { createRateLimiter, defaultRateLimitOptions } from './rate-limit'
 
 describe('fixed-window rate limiter', () => {
   it('allows up to the cap inside one window', () => {

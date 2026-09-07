@@ -1265,9 +1265,7 @@ function NotebookDocumentContent({
           role="status"
           className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2 text-xs"
         >
-          <span>
-            {'Block deleted.'}
-          </span>
+          <span>{'Block deleted.'}</span>
           {onUndoDelete ? (
             <button
               type="button"

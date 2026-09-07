@@ -36,7 +36,9 @@ function fakeClient(
     name: string,
     args: Record<string, unknown>,
   ): Promise<T> {
-    return (rpcImpl ? await rpcImpl(name, args) : await rpcMock(name, args)) as T
+    return (
+      rpcImpl ? await rpcImpl(name, args) : await rpcMock(name, args)
+    ) as T
   }
   async function insert<T>(): Promise<T> {
     return {} as T
@@ -251,7 +253,10 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
     rpcMock.mockResolvedValue(twoDatasetWire())
 
     renderWorkspace(
-      <CanonicalSheetEditor instance={instance} projectId={instance.projectId} />,
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
     )
 
     // The composed Sheet carries both a local column and the two
@@ -309,7 +314,10 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
 describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
   const RECORD_B = '21000000-0000-4000-8000-00000000000c'
 
-  function pageWire(offset: number, options: { revision: number; hasMore: boolean }) {
+  function pageWire(
+    offset: number,
+    options: { revision: number; hasMore: boolean },
+  ) {
     const wire = twoDatasetWire()
     return {
       ...wire,
@@ -327,15 +335,19 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
   it('loads the next window with a single fetch — never pages 1..N again', async () => {
     const user = userEvent.setup()
     const instance = await composedInstance()
-    rpcMock.mockImplementation(async (_name: string, args: Record<string, unknown>) =>
-      pageWire(Number(args.p_offset ?? 0), {
-        revision: 6,
-        hasMore: Number(args.p_offset ?? 0) === 0,
-      }),
+    rpcMock.mockImplementation(
+      async (_name: string, args: Record<string, unknown>) =>
+        pageWire(Number(args.p_offset ?? 0), {
+          revision: 6,
+          hasMore: Number(args.p_offset ?? 0) === 0,
+        }),
     )
 
     renderWorkspace(
-      <CanonicalSheetEditor instance={instance} projectId={instance.projectId} />,
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
     )
 
     const loadMore = await screen.findByRole('button', { name: 'Load more' })
@@ -360,19 +372,24 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
     const user = userEvent.setup()
     const instance = await composedInstance()
     let zeroCalls = 0
-    rpcMock.mockImplementation(async (_name: string, args: Record<string, unknown>) => {
-      const offset = Number(args.p_offset ?? 0)
-      if (offset === 0 && zeroCalls++ === 0) {
-        return pageWire(0, { revision: 6, hasMore: true })
-      }
-      return pageWire(offset, {
-        revision: 7,
-        hasMore: offset === 0,
-      })
-    })
+    rpcMock.mockImplementation(
+      async (_name: string, args: Record<string, unknown>) => {
+        const offset = Number(args.p_offset ?? 0)
+        if (offset === 0 && zeroCalls++ === 0) {
+          return pageWire(0, { revision: 6, hasMore: true })
+        }
+        return pageWire(offset, {
+          revision: 7,
+          hasMore: offset === 0,
+        })
+      },
+    )
 
     renderWorkspace(
-      <CanonicalSheetEditor instance={instance} projectId={instance.projectId} />,
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
     )
 
     await user.click(await screen.findByRole('button', { name: 'Load more' }))
@@ -386,7 +403,9 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
       expect(screen.getByText('Showing all 2 rows.')).toBeTruthy(),
     )
     expect(
-      rpcMock.mock.calls.map((call) => (call[1] as Record<string, unknown>).p_offset),
+      rpcMock.mock.calls.map(
+        (call) => (call[1] as Record<string, unknown>).p_offset,
+      ),
     ).toEqual([0, 200, 0, 200])
   })
 })
@@ -397,7 +416,10 @@ describe('CanonicalSheetWorkspace — explain surface (ASSIST-01)', () => {
     rpcMock.mockResolvedValue(twoDatasetWire())
 
     renderWorkspace(
-      <CanonicalSheetEditor instance={instance} projectId={instance.projectId} />,
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
     )
 
     await waitFor(() => expect(gridRender).toHaveBeenCalled())

@@ -18,10 +18,7 @@ import {
 } from './webhook-events'
 import type { ChangeEventInput } from './webhook-events'
 
-function baseInput(
-  entityType: string,
-  operation: string,
-): ChangeEventInput {
+function baseInput(entityType: string, operation: string): ChangeEventInput {
   return {
     id: '00000000-0000-4000-8000-000000000001',
     workspaceId: '00000000-0000-4000-8000-0000000000aa',
@@ -48,8 +45,7 @@ describe('catalogue integrity', () => {
   it('wire aliases never collide with a canonical name', () => {
     const canonical = EVENT_CATALOGUE.map((entry) => entry.name)
     const aliases = EVENT_CATALOGUE.map((entry) => entry.wireName).filter(
-      (name): name is string =>
-        name !== null && !canonical.includes(name),
+      (name): name is string => name !== null && !canonical.includes(name),
     )
     for (const alias of aliases) {
       expect(canonical.includes(alias)).toBe(false)
@@ -76,9 +72,7 @@ describe('catalogue integrity', () => {
       'record.created',
     )
     expect(envelope.id).toBe(baseInput('record', 'create').id)
-    expect(envelope.workspaceId).toBe(
-      baseInput('record', 'create').workspaceId,
-    )
+    expect(envelope.workspaceId).toBe(baseInput('record', 'create').workspaceId)
     expect(envelope.actor).toEqual({
       userId: 'user-1',
       credentialId: null,
@@ -139,9 +133,7 @@ describe('catalogue == webhook map drift pin', () => {
   it('excluded producers are intentionally not webhook-surfaced', () => {
     for (const excluded of INTENTIONALLY_EXCLUDED) {
       if (excluded.operation === '*') continue
-      expect(
-        mapEventType(excluded.entityType, excluded.operation),
-      ).toBeNull()
+      expect(mapEventType(excluded.entityType, excluded.operation)).toBeNull()
     }
   })
 })
@@ -237,9 +229,7 @@ describe('canonical envelope per family', () => {
       expect(envelope.schemaVersion).toBe(CATALOGUE_SCHEMA_VERSION)
       expect(envelope.id).toBe('00000000-0000-4000-8000-000000000001')
       expect(envelope.occurredAt).toBe('2026-01-15T10:30:00.000Z')
-      expect(envelope.workspaceId).toBe(
-        '00000000-0000-4000-8000-0000000000aa',
-      )
+      expect(envelope.workspaceId).toBe('00000000-0000-4000-8000-0000000000aa')
       expect(envelope.actor.userId).toBe('user-1')
       expect(envelope.provenance).toMatchObject({
         entityType,

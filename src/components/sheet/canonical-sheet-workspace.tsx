@@ -1,5 +1,10 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type Handsontable from 'handsontable/base'
 import type { BaseEditor } from 'handsontable/editors/baseEditor'
@@ -34,9 +39,7 @@ import type {
   CanonicalSheetGridColumn,
   HotFilterConditionStack,
 } from '#/lib/canonical-sheet-grid'
-import {
-  fetchComposedSheetPaged,
-} from '#/lib/sheet-composition-data'
+import { fetchComposedSheetPaged } from '#/lib/sheet-composition-data'
 import type {
   ComposedSheetPagedSnapshot,
   ComposedSheetSnapshot,
@@ -399,8 +402,7 @@ export function CanonicalSheetEditor({
   const composedSnapshot = composition.data?.snapshot ?? null
 
   const rowKeysForCalc = useMemo(() => {
-    if (composedSnapshot)
-      return composedSnapshot.rows.map((row) => row.rowKey)
+    if (composedSnapshot) return composedSnapshot.rows.map((row) => row.rowKey)
     return Object.keys(instance.state.localValues)
   }, [composedSnapshot, instance.state.localValues])
 
@@ -463,9 +465,7 @@ export function CanonicalSheetEditor({
   // hidden column survives.
   const canonicalMatrixRef = useRef(canonicalMatrix)
   canonicalMatrixRef.current = canonicalMatrix
-  const compositionRef = useRef<ComposedSheetSnapshot | null>(
-    composedSnapshot,
-  )
+  const compositionRef = useRef<ComposedSheetSnapshot | null>(composedSnapshot)
   compositionRef.current = composedSnapshot
 
   const modelKey = sheetRecordTargetModelKey(
@@ -931,8 +931,7 @@ export function CanonicalSheetEditor({
     [openPickerForCell],
   )
 
-  const settings = useMemo(
-    () => {
+  const settings = useMemo(() => {
     // GRID-04: persisted sorts restore as the columnSorting initial config.
     // Handsontable sorts rows client-side over the composed matrix; the
     // physical data order (and therefore rowKey attribution) is untouched.
@@ -1330,16 +1329,14 @@ export function CanonicalSheetEditor({
         void persistPresentation({ filters })
       },
     }
-    },
-    [
-      matrix,
-      canWrite,
-      presentation,
-      physicalRow,
-      physicalColumn,
-      recordPicker,
-    ],
-  )
+  }, [
+    matrix,
+    canWrite,
+    presentation,
+    physicalRow,
+    physicalColumn,
+    recordPicker,
+  ])
 
   // GRID-04: whenever the display column set changes (reorder persisted,
   // hide/show, column added/retired), the grid is rebuilt from the canonical
@@ -1663,14 +1660,14 @@ export function CanonicalSheetEditor({
             <span>Loading composed rows…</span>
           ) : (
             <>
-            <span>
-              {composedSnapshot?.hasMore
-                ? `Showing ${matrix.rowKeys.length} rows — more rows available. Filters and sorts apply to the loaded rows only.`
-                : `Showing all ${matrix.rowKeys.length} rows.`}
-            </span>
-            {composition.data?.notice ? (
-              <span>{composition.data.notice}</span>
-            ) : null}
+              <span>
+                {composedSnapshot?.hasMore
+                  ? `Showing ${matrix.rowKeys.length} rows — more rows available. Filters and sorts apply to the loaded rows only.`
+                  : `Showing all ${matrix.rowKeys.length} rows.`}
+              </span>
+              {composition.data?.notice ? (
+                <span>{composition.data.notice}</span>
+              ) : null}
             </>
           )}
           {composedSnapshot?.hasMore ? (

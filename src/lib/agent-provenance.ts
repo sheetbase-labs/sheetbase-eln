@@ -167,8 +167,7 @@ export interface AgentWorkflowProvenanceRecord {
 }
 
 type ProposalMap =
-  | Map<string, AgentOperationProposal>
-  | Record<string, AgentOperationProposal>
+  Map<string, AgentOperationProposal> | Record<string, AgentOperationProposal>
 
 function lookupProposals(
   proposalsById: ProposalMap,
@@ -256,7 +255,7 @@ export function buildWorkflowProvenanceRecord(
           : null,
         outputReferences: extractAgentOutputReferences(
           step.operation,
-          succeeded ? proposal?.result : null,
+          succeeded ? proposal.result : null,
         ),
         completedAt: step.completed_at,
       }
@@ -368,7 +367,12 @@ export function markWorkflowStepEvidence(
     }
   }
   const proposalMarking = markProposalEvidence(resolved)
-  return { ...base, outputReferences, qualifiesForSubmission: false, qualification: proposalMarking.qualification }
+  return {
+    ...base,
+    outputReferences,
+    qualifiesForSubmission: false,
+    qualification: proposalMarking.qualification,
+  }
 }
 
 export const AGENT_EVIDENCE_HUMAN_ATTESTATION_NOTE =

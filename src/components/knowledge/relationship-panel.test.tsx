@@ -158,7 +158,9 @@ describe('RelationshipPanel', () => {
     mockedHook.mockReturnValue({ outgoing, incoming, isLoading: false })
     render(<RelationshipPanel recordId="rec-1" sourceModelKey="experiment" />)
     expect(useRelationshipTypeLabels).toHaveBeenCalledWith('experiment')
-    expect(mockedHook).toHaveBeenCalledWith('rec-1', true, { sample: 'consumes' })
+    expect(mockedHook).toHaveBeenCalledWith('rec-1', true, {
+      sample: 'consumes',
+    })
   })
 })
 
@@ -213,9 +215,7 @@ describe('RelationshipList windowing and metadata', () => {
   it('windows heavy directions but keeps exact counts', () => {
     render(<RelationshipList outgoing={manyRows(30)} incoming={[]} />)
     expect(screen.getByText('Outgoing (30)')).toBeTruthy()
-    expect(
-      screen.getByRole('button', { name: 'Show all 30' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Show all 30' })).toBeTruthy()
     expect(screen.getByText('Record 0')).toBeTruthy()
     expect(screen.getByText('Record 24')).toBeTruthy()
     expect(screen.queryByText('Record 25')).toBeNull()

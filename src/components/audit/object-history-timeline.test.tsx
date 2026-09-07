@@ -67,7 +67,12 @@ describe('ObjectHistoryTimeline', () => {
   })
 
   it('surfaces permission failures as a distinct error state', () => {
-    render(<ObjectHistoryTimeline events={[]} error="History is not available for this dataset." />)
+    render(
+      <ObjectHistoryTimeline
+        events={[]}
+        error="History is not available for this dataset."
+      />,
+    )
     expect(
       screen.getByText('History is not available for this dataset.'),
     ).toBeTruthy()

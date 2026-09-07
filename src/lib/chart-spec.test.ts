@@ -189,7 +189,9 @@ describe('validateChartSpec', () => {
   it('rejects SCI-04 overlay and typeParam violations', () => {
     expect(
       validateChartSpec(
-        baseSpec({ overlays: { errorBars: null, fit: { method: 'ols', degree: 5 } } }),
+        baseSpec({
+          overlays: { errorBars: null, fit: { method: 'ols', degree: 5 } },
+        }),
       ).some((e) => e.field === 'spec.overlays.fit'),
     ).toBe(true)
     expect(
@@ -243,7 +245,9 @@ describe('validateChartSpec', () => {
     ).toBe(true)
     expect(
       validateChartSpec(
-        baseSpec({ overlays: { errorBars: null, fit: { method: 'ols', degree: 4 } } }),
+        baseSpec({
+          overlays: { errorBars: null, fit: { method: 'ols', degree: 4 } },
+        }),
       ),
     ).toEqual([])
   })

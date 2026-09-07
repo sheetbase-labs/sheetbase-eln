@@ -60,9 +60,7 @@ export const collaborationClientOptions = {
     const data = (await response.json()) as {
       rooms: Array<{ id: string; name: string; url: string }>
     }
-    return roomIds.map(
-      (id) => data.rooms.find((r) => r.id === id) ?? undefined,
-    )
+    return roomIds.map((id) => data.rooms.find((r) => r.id === id) ?? undefined)
   },
   resolveMentionSuggestions: async ({
     text,

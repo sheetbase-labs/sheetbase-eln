@@ -185,7 +185,10 @@ describe('ImportWizard suggested mapping (ASSIST-02)', () => {
     await user.click(screen.getByRole('tab', { name: 'Paste' }))
     // 'sampleid' has no exact target: the kernel leaves it ignored, while
     // the suggester offers a close match with a reason.
-    await user.type(screen.getByLabelText('Import paste'), 'sampleid,pH{enter}A,7.4')
+    await user.type(
+      screen.getByLabelText('Import paste'),
+      'sampleid,pH{enter}A,7.4',
+    )
     await user.click(screen.getByRole('button', { name: 'Preview paste' }))
     expect(await screen.findByText('A')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Suggest mapping' }))
@@ -198,9 +201,12 @@ describe('ImportWizard suggested mapping (ASSIST-02)', () => {
   it('previews confidence per column and applies the suggestion on Accept', async () => {
     const user = await previewCloseMatchPaste()
     expect(screen.getByText(/\[close\]/)).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Accept and apply mapping' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Accept and apply mapping' }),
+    )
     // The suggestion flows through the ordinary mapping selects …
     expect(
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- tsc resolves getByLabelText to HTMLElement (no .value); the assertion is load-bearing despite the rule
       (screen.getByLabelText('Map sampleid') as HTMLSelectElement).value,
     ).toBe('11111111-1111-4111-8111-111111111111')
     // … and the proposal clears.
@@ -211,6 +217,7 @@ describe('ImportWizard suggested mapping (ASSIST-02)', () => {
     const user = await previewCloseMatchPaste()
     await user.click(screen.getByRole('button', { name: 'Discard' }))
     expect(
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- see above
       (screen.getByLabelText('Map sampleid') as HTMLSelectElement).value,
     ).toBe('ignore')
     expect(screen.queryByRole('note', { name: 'Generated draft' })).toBeNull()

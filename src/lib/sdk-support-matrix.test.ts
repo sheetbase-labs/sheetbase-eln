@@ -296,4 +296,3 @@ describe('SDK-01 public-contract support matrix', () => {
     expect(entry?.methods).toContain('HEAD')
   })
 })
-

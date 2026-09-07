@@ -8,7 +8,10 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { evaluateAnalysisToFigure, evaluateSubmissionReadiness } from '#/lib/assist-guide'
+import {
+  evaluateAnalysisToFigure,
+  evaluateSubmissionReadiness,
+} from '#/lib/assist-guide'
 
 import { GuidePanel } from './guide-panel'
 
@@ -26,8 +29,12 @@ describe('GuidePanel', () => {
     })
     render(<GuidePanel workflow={workflow} onAccept={() => {}} />)
     expect(screen.getByLabelText('Guide: Analysis to figure')).toBeTruthy()
-    expect(screen.getAllByText(/Waiting on 'Dataset ready'/).length).toBeGreaterThan(0)
-    expect(screen.getByLabelText(/Step 2: Compare configured \(Blocked\)/)).toBeTruthy()
+    expect(
+      screen.getAllByText(/Waiting on 'Dataset ready'/).length,
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getByLabelText(/Step 2: Compare configured \(Blocked\)/),
+    ).toBeTruthy()
     expect(screen.getByText(/Guided workflow — assistance/)).toBeTruthy()
   })
 
@@ -42,7 +49,9 @@ describe('GuidePanel', () => {
     })
     const onAccept = vi.fn()
     render(<GuidePanel workflow={workflow} onAccept={onAccept} />)
-    const propose = screen.getByRole('button', { name: 'Propose chart from compare config' })
+    const propose = screen.getByRole('button', {
+      name: 'Propose chart from compare config',
+    })
     fireEvent.click(propose)
     expect(onAccept).toHaveBeenCalledTimes(1)
     expect(onAccept).toHaveBeenCalledWith('promoteToChartSpec')
@@ -60,7 +69,13 @@ describe('GuidePanel', () => {
       embeddedBlockId: null,
       recordId: 'r1',
       blockType: 'chart',
-      blockErrors: [{ code: 'missing_required_field', field: 'y', message: 'y is required' }],
+      blockErrors: [
+        {
+          code: 'missing_required_field',
+          field: 'y',
+          message: 'y is required',
+        },
+      ],
     })
     render(<GuidePanel workflow={workflow} onAccept={() => {}} />)
     expect(screen.getByText(/Why this chart block cannot save/)).toBeTruthy()
@@ -83,12 +98,16 @@ describe('GuidePanel', () => {
     })
     const onAccept = vi.fn()
     render(<GuidePanel workflow={workflow} onAccept={onAccept} />)
-    expect(screen.getByLabelText(/Step 5: Review decided \(Current\)/)).toBeTruthy()
+    expect(
+      screen.getByLabelText(/Step 5: Review decided \(Current\)/),
+    ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Approve review' }))
     expect(onAccept).toHaveBeenCalledWith('approveReview')
-    expect(screen.getByRole('link', { name: 'Open review workspace' }).getAttribute('href')).toBe(
-      '/reviews/rev-1',
-    )
+    expect(
+      screen
+        .getByRole('link', { name: 'Open review workspace' })
+        .getAttribute('href'),
+    ).toBe('/reviews/rev-1')
   })
 
   it('announces completion when every step is done', () => {

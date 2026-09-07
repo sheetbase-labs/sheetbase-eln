@@ -131,7 +131,9 @@ function escapeXmlComment(text: string): string {
  * Live exports (no version pin) say `live` explicitly so a reader never
  * mistakes them for frozen evidence.
  */
-export function buildFigureProvenanceLine(stamp: FigureProvenanceStamp): string {
+export function buildFigureProvenanceLine(
+  stamp: FigureProvenanceStamp,
+): string {
   const parts: string[] = ['Sheetbase']
   if (stamp.datasetId) parts.push(`Dataset ${stamp.datasetId.slice(0, 8)}`)
   if (stamp.versionId) parts.push(`Version ${stamp.versionId.slice(0, 8)}`)
@@ -181,7 +183,9 @@ export function stampFigureSvg(
 }
 
 /** `#`-prefixed header block for data (CSV) exports. */
-export function buildDataExportHeaderLines(stamp: FigureProvenanceStamp): string[] {
+export function buildDataExportHeaderLines(
+  stamp: FigureProvenanceStamp,
+): string[] {
   return [
     `# ${buildFigureProvenanceLine(stamp)}`,
     `# kind: ${stamp.kind}`,

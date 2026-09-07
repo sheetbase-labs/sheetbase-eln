@@ -241,7 +241,9 @@ describe('AdminRoute', () => {
       </ShellProvider>,
     )
     expect(
-      screen.getByRole('link', { name: 'Dashboard' }).getAttribute('aria-current'),
+      screen
+        .getByRole('link', { name: 'Dashboard' })
+        .getAttribute('aria-current'),
     ).toBe('page')
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy()
   })
@@ -293,9 +295,7 @@ describe('AdminRoute', () => {
       </ShellProvider>,
     )
     expect(screen.queryByText(/Administer workspace access/)).toBeNull()
-    expect(
-      screen.getByText(/Security and platform operations/),
-    ).toBeTruthy()
+    expect(screen.getByText(/Security and platform operations/)).toBeTruthy()
     expect(screen.queryByText(/scientific models/i)).toBeNull()
   })
 

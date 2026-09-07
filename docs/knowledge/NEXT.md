@@ -17,6 +17,11 @@ This is local branch work, not a merged or production deployment claim. The
 local Python runner is configured; deployment requires reviewed immutable
 runner/runtime images and private runner configuration.
 
+The work is published in [PR #176](https://github.com/sheetbase-labs/sheetbase-eln/pull/176).
+See the [Python/SQL pipeline handoff and proposed follow-on roadmap](handoffs/python-sql-pipelines.md)
+for setup, implementation details, validation limits and the next bounded tasks.
+PR publication does not establish merge or production acceptance.
+
 ## Reconciled baseline
 
 Reconciled against `main` at `832d9d6f3baaf0e42853d8fa71224f157b541c46`

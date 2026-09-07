@@ -1,7 +1,7 @@
 ---
 title: Sheetbase Development Knowledge Base
 status: canonical
-last_reviewed: 2026-08-30
+last_reviewed: 2026-09-07
 ---
 
 # Sheetbase Development Knowledge Base
@@ -39,24 +39,29 @@ docs/knowledge/
 ├── architecture/
 ├── design/
 ├── decisions/
-│   ├── 0001-....md          # ADRs
+│   ├── 0001-....md          # ADRs; inspect each decision's status
 │   └── context/
-├── roadmap-1/               # complete
-├── roadmap-2/               # complete
-├── roadmap-3/               # planned and implementation-ready, not active
+├── roadmap-1/               # recorded complete; local NEXT is historical
+├── roadmap-2/               # active scope closed; GOV-02 deferred
+├── roadmap-3/               # A–C merged; Wave D proposed/deferred
 │   ├── PRODUCT_DIRECTION.md
 │   ├── PROGRAMME_MAP.md
-│   ├── tasks/               # 18 capability files / 60 numbered tasks
-│   └── prompts/             # one prompt per capability stream
+│   ├── tasks/               # 18 streams / 60 tasks; qualified status index
+│   └── prompts/             # historical execution prompts, not assignments
 ├── mockups/
 ├── references/
-├── history/
+├── history/                 # includes dated reconciliation evidence
 └── agent/
 ```
 
 ## Current work
 
-[`NEXT.md`](NEXT.md) is the only current hand-off file. Programme folders contain scope, task definitions, prompts, audits and historical completion evidence, but they do not own competing `NEXT.md` files.
+[`NEXT.md`](NEXT.md) is the only current hand-off file. Programme folders contain scope, task definitions, prompts, audits and historical completion evidence, but they do not own competing current work queues. Roadmap 1's retained local `NEXT.md` is historical.
+
+The [7 September 2026 reconciliation](history/2026-09-07-roadmap-reconciliation.md)
+records the checked baseline, implementation dispositions, outstanding work and
+verification limits. It is supporting historical evidence, not another current
+hand-off. A Roadmap 4 proposal is not activated by this reconciliation.
 
 When merged reality changes what is active or next, update the root `NEXT.md`.
 
@@ -80,30 +85,41 @@ When merged reality changes what is active or next, update the root `NEXT.md`.
 - [`architecture/permissions-api-automation.md`](architecture/permissions-api-automation.md)
 - [`architecture/scientific-analysis.md`](architecture/scientific-analysis.md)
 
-Accepted ADRs live directly under [`decisions/`](decisions/). Cross-cutting summaries and retired/open decision context live under [`decisions/context/`](decisions/context/).
+ADRs live directly under [`decisions/`](decisions/). Read each decision's status:
+ADR-0044 and ADR-0045 are proposed, not accepted. Cross-cutting summaries and
+retired/open decision context live under [`decisions/context/`](decisions/context/).
 
 ## Roadmaps
 
 ### Roadmap 1 — Core Data Workspace
 
-[`roadmap-1/`](roadmap-1/) is the complete Roadmap 1 corpus: CORE-01–06, Core Hardening, tasks, audits, architecture, migration and implementation review.
+[`roadmap-1/`](roadmap-1/) is the completed Roadmap 1 corpus: CORE-01–06, Core Hardening, tasks, audits, architecture, migration and implementation review. Its recorded closure is retained, not independently re-certified by the reconciliation.
 
 ### Roadmap 2 — Product & Platform Consolidation
 
-[`roadmap-2/`](roadmap-2/) is the completed Roadmap 2 programme corpus.
-Programme-specific task definitions remain under `roadmap-2/tasks/`.
+[`roadmap-2/`](roadmap-2/) retains the Roadmap 2 programme corpus. Active scope is
+recorded closed; GOV-02 remains deferred and documented implementation limits
+remain. [Task status](roadmap-2/tasks/README.md) supersedes the old early-programme
+queue. Programme-specific task contracts remain under `roadmap-2/tasks/`.
 
 ### Roadmap 3 — Product & Scientific Maturity
 
-[`roadmap-3/`](roadmap-3/) is implementation-ready but deliberately inactive until [`NEXT.md`](NEXT.md) promotes it after Roadmap 2 closes.
+[`roadmap-3/`](roadmap-3/) is no longer planned/unstarted. Of its **18 streams and
+60 tasks**, 50 have merged implementation, two have proposed decisions and eight
+are deferred. Merged implementation includes limited/stub-backed capabilities
+and does not establish independent acceptance of every exit. REUSE-02 also has
+an unresolved baseline test failure.
 
-Roadmap 3 now mirrors Roadmap 2's execution model: **18 capability streams containing 60 numbered tasks**, each independently assignable/reviewable with explicit goals, boundaries and exits. Each capability has a matching agent prompt. Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md), [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md).
+Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md),
+[`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and
+[`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md). Original task goals and
+exits remain intact. Read current status before reusing an old agent prompt.
 
 ## Mockups, references and history
 
 - [`mockups/`](mockups/) contains historical visual product/design artefacts.
 - [`references/eln-competitors/`](references/eln-competitors/) contains dated competitor research; [`references/competitor-learnings.md`](references/competitor-learnings.md) records durable lessons.
-- [`history/`](history/) contains product evolution, conversation synthesis and superseded planning/evidence.
+- [`history/`](history/) contains product evolution, conversation synthesis, superseded planning/evidence and dated reconciliations.
 
 ## Agent workflow and search
 
@@ -131,7 +147,8 @@ When documents disagree:
 3. cross-cutting knowledge-base synthesis;
 4. historical conversation, concept, competitor, mockup or superseded planning material.
 
-For current priority/status, `NEXT.md` wins over programme-local status text.
+For current priority/status, `NEXT.md` wins over programme-local historical
+notes. A merge flag does not override an unmet task exit or a failing check.
 
 ## Maintenance
 

@@ -1,6 +1,6 @@
 # ADMIN — Mature Platform Administration
 
-**Status:** planned; not active until promoted by `docs/knowledge/NEXT.md`.
+**Status (2026-09-07):** ADMIN-01..03 implementation merged on `main` (#150..152). See the [reconciled status index](README.md); merged is not independent acceptance of every exit. Current assignment is owned by [`../../NEXT.md`](../../NEXT.md).
 
 ## Programme goal
 

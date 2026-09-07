@@ -2,13 +2,15 @@
 
 This directory is the completed **Roadmap 1 / Core Data Workspace** programme and should be read before changing settled Core product/domain architecture.
 
+**Current work is owned by [`../NEXT.md`](../NEXT.md).** The local `NEXT.md` and implementation reviews below are historical evidence, not a competing current queue. Recorded Core closure is retained by the [2026-09-07 reconciliation](../history/2026-09-07-roadmap-reconciliation.md), not independently re-certified by it.
+
 ## Canonical reading order
 
-1. [`NEXT.md`](./NEXT.md) — detailed task completion history and hand-offs.
-2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md) — canonical Core product model.
-3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md) — target technical contracts and constraints.
-4. [`CORE_MIGRATION.md`](./CORE_MIGRATION.md) — migration/implementation sequence.
-5. [`tasks/README.md`](./tasks/README.md) and relevant epic task file.
+1. [`../NEXT.md`](../NEXT.md) — the single current cross-roadmap hand-off; [`NEXT.md`](NEXT.md) retains detailed historical Core completion evidence.
+2. [`PRODUCT_CORE.md`](PRODUCT_CORE.md) — canonical Core product model.
+3. [`CORE_ARCHITECTURE.md`](CORE_ARCHITECTURE.md) — target technical contracts and constraints.
+4. [`CORE_MIGRATION.md`](CORE_MIGRATION.md) — migration/implementation sequence.
+5. [`tasks/README.md`](tasks/README.md) and relevant epic task file.
 6. [`../PRODUCT.md`](../PRODUCT.md) — broader canonical product intent.
 7. [`../DESIGN.md`](../DESIGN.md) — canonical visual/product design system.
 8. [`../ROADMAP.md`](../ROADMAP.md) — roadmap-level orientation.
@@ -19,7 +21,7 @@ Competitor material is reference evidence, not normative specification. If it co
 
 ## Programme status
 
-CORE-01–06 and Core Hardening are complete:
+CORE-01–06 and Core Hardening are recorded complete:
 
 1. **CORE-01 — Common Schema Kernel**
 2. **CORE-02 — Dataset Primitive**
@@ -28,7 +30,7 @@ CORE-01–06 and Core Hardening are complete:
 5. **CORE-05 — Schema Evolution and Role-aware Configuration**
 6. **CORE-06 — Notebook Integration and Frozen Evidence**
 
-The next programme is Roadmap 2 under [`../roadmap-2/`](../roadmap-2/).
+Roadmap 2 followed Core and its active scope is now recorded closed. Roadmap 3 has merged implementation and explicit outstanding/deferred work. Read [`../NEXT.md`](../NEXT.md) rather than restarting either programme from this historical index.
 
 ## One-sentence architecture
 

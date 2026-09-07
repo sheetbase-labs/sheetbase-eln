@@ -1,6 +1,6 @@
 # AI — Contextual Scientific Intelligence Substrate
 
-**Status:** planned; depends on stable product context, permissions, provenance and Roadmap 2 agent/API foundations.
+**Status (2026-09-07):** AI-01..03 substrate implementation merged on `main` (#153..155). AI-03 implements a policy/observability boundary with `StubModelProvider`; real vendor integration and real-provider evaluation are **not implemented by this work**. See [`src/lib/ai-gateway.ts`](../../../../src/lib/ai-gateway.ts), the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md). Merged is not unqualified product acceptance.
 
 ## Programme goal
 

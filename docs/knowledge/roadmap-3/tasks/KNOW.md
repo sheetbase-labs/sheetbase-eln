@@ -1,6 +1,6 @@
 # KNOW — Scientific Knowledge & Relationship Context
 
-**Status:** planned; not active until promoted by `docs/knowledge/NEXT.md`.
+**Status (2026-09-07):** KNOW-01..03 implementation merged on `main` (#130..132). See the [reconciled status index](README.md); merged is not independent acceptance of every exit. Current assignment is owned by [`../../NEXT.md`](../../NEXT.md).
 
 ## Programme goal
 

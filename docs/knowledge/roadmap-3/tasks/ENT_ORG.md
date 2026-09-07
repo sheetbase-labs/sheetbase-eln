@@ -1,6 +1,6 @@
 # ENT-ORG — Organisation & Team Model
 
-**Status:** planned and adoption-gated. This does not automatically reactivate deferred GOV-02; an accepted ADR is required before changing ownership/RLS topology.
+**Status (2026-09-07):** ENT-ORG-01 has proposed ADR-0044 from merged #162; its accepted-ADR exit is **not met**. ENT-ORG-02/03 are explicitly deferred. This does not reactivate GOV-02 or authorise ownership/RLS changes. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md).
 
 ## Programme goal
 

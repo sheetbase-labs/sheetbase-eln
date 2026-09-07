@@ -1,6 +1,6 @@
 # REUSE — Reusable Scientific Structures & Workflows
 
-**Status:** planned; not active until promoted by `docs/knowledge/NEXT.md`.
+**Status (2026-09-07):** REUSE-01..03 implementation merged on `main` (#141..143), with **open REUSE-02 verification**. Baseline CI run `34094029808` fails `pre-fills declared defaults visibly on open` in `versioned-notebook-templates.test.tsx`; the cause is not established by the log. Do not claim unqualified acceptance or hide it as flakiness. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md).
 
 ## Programme goal
 

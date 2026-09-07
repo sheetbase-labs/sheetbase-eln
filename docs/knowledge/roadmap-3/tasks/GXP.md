@@ -1,6 +1,6 @@
 # GXP — Configurable Regulated Controls & Evidence
 
-**Status:** planned and adoption-gated; implement only against concrete intended-use/regulatory requirements.
+**Status (2026-09-07):** GXP-01 has proposed ADR-0045 from merged #162, not an accepted concrete intended-use/control decision. GXP-02..04 are explicitly deferred. Existing review/signing functionality is not regulated-use validation. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md); no gate is removed by this reconciliation.
 
 ## Programme goal
 

@@ -6939,7 +6939,7 @@ export const pipelineRuns = api.table(
     ),
     check(
       'chk_pipeline_runs_occurrence_trigger',
-      sql`(${table.triggerOccurrenceId} IS NULL) = (${table.triggerKind} = 'manual')`,
+      sql`(${table.triggerKind} = 'manual' AND (${table.triggerOccurrenceId} IS NULL OR ${table.triggerOccurrenceId} LIKE 'manual:%')) OR (${table.triggerKind} <> 'manual' AND ${table.triggerOccurrenceId} IS NOT NULL)`,
     ),
     check(
       'chk_pipeline_runs_digest',
@@ -6947,7 +6947,7 @@ export const pipelineRuns = api.table(
     ),
     check(
       'chk_pipeline_runs_schedule',
-      sql`(${table.scheduleId} IS NULL) = (${table.triggerOccurrenceId} IS NULL)`,
+      sql`(${table.triggerKind} = 'manual' AND ${table.scheduleId} IS NULL) OR (${table.triggerKind} = 'event' AND ${table.triggerOccurrenceId} LIKE 'webhook:%' AND ${table.scheduleId} IS NULL) OR (${table.triggerKind} IN ('scheduled', 'event') AND ${table.triggerOccurrenceId} IS NOT NULL AND ${table.scheduleId} IS NOT NULL)`,
     ),
     check(
       'chk_pipeline_runs_actor_xor',

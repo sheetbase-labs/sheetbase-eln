@@ -4,7 +4,7 @@
  * state and presentation.
  *
  * Designed to match the Samples Registry mockup: a single scrollable panel
- * with identity, visual barcode, chain-of-custody timeline, linked
+ * with identity, barcode, chain-of-custody timeline, linked
  * experiments, files, notes, and compact custody actions — not a tabbed
  * repeater of table columns.
  */
@@ -24,6 +24,7 @@ import {
   EmptyHint,
   FileList,
   InspectorSection,
+  InspectorSectionStack,
   LinkedRecordList,
 } from '#/components/record'
 import { ModelProperties } from '#/components/scientific/model-properties'
@@ -54,7 +55,6 @@ import type {
   SampleEvent,
   SampleRecord,
 } from '#/lib/samples'
-import { cn } from '#/lib/utils'
 
 export type SampleCustodyAction =
   | {
@@ -120,42 +120,6 @@ function fileSize(bytes: number | null): string | undefined {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-// --------------------------------------------------------------------------- //
-// Visual barcode — CSS-based 1D barcode bars derived from the barcode string. //
-// --------------------------------------------------------------------------- //
-
-function VisualBarcode({ value }: { value: string }) {
-  const bars = React.useMemo(() => {
-    // Deterministic bar widths from char codes
-    const widths: number[] = []
-    for (const char of value) {
-      const code = char.charCodeAt(0)
-      widths.push((code % 3) + 1) // 1-3px black bar
-      widths.push(((code >> 2) % 2) + 1) // 1-2px gap
-    }
-    return widths
-  }, [value])
-
-  return (
-    <div className="flex flex-col items-start gap-1">
-      <div className="flex h-10 items-center overflow-hidden rounded border bg-white px-2">
-        <div className="flex h-full items-stretch gap-0">
-          {bars.map((w, i) => (
-            <div
-              key={i}
-              className={cn(i % 2 === 0 ? 'bg-black' : 'bg-white')}
-              style={{ width: `${w}px` }}
-            />
-          ))}
-        </div>
-      </div>
-      <span className="font-mono text-[0.65rem] tracking-wide text-muted-foreground">
-        {value}
-      </span>
-    </div>
-  )
 }
 
 // --------------------------------------------------------------------------- //
@@ -262,6 +226,9 @@ export function SampleInspector({
     )
     setEditUnit(sample.quantityUnit ?? '')
     setShowActions(false)
+    setQuantity('')
+    setNotes('')
+    setEditing(false)
   }, [sample])
 
   if (!sample) {
@@ -277,12 +244,6 @@ export function SampleInspector({
 
   const archived = sample.archivedAt != null
 
-  function resetTransient() {
-    setQuantity('')
-    setNotes('')
-    setToLocation('')
-  }
-
   function submitReceive() {
     const value = Number(quantity)
     if (!Number.isFinite(value) || value <= 0) return
@@ -293,14 +254,12 @@ export function SampleInspector({
       location: location || undefined,
       notes: notes || undefined,
     })
-    resetTransient()
   }
 
   function submitConsume() {
     const value = Number(quantity)
     if (!Number.isFinite(value) || value <= 0) return
     onAction({ kind: 'consume', quantity: value, notes: notes || undefined })
-    resetTransient()
   }
 
   function submitTransfer() {
@@ -310,7 +269,6 @@ export function SampleInspector({
       toLocation: toLocation.trim(),
       notes: notes || undefined,
     })
-    resetTransient()
   }
 
   function submitEdit() {
@@ -325,8 +283,6 @@ export function SampleInspector({
       quantityUnit: editUnit || undefined,
       notes: notes || undefined,
     })
-    setEditing(false)
-    setNotes('')
   }
 
   const experimentItems = linkedExperiments.map((experiment) => ({
@@ -348,9 +304,10 @@ export function SampleInspector({
 
   // Single-panel content matching the mockup layout
   const panelContent = (
-    <div className="space-y-0">
-      <InspectorSection title="Properties">
+    <InspectorSectionStack>
+      <section>
         <ModelProperties
+          title="Properties"
           lockedProperties={[
             {
               key: 'identifier',
@@ -360,7 +317,7 @@ export function SampleInspector({
             {
               key: 'status',
               label: 'Status',
-              value: <StatusBadge status={sample.status} />,
+              value: <StatusBadge domain="sample" status={sample.status} />,
             },
             { key: 'type', label: 'Type', value: orDash(sample.sampleType) },
             {
@@ -370,12 +327,13 @@ export function SampleInspector({
             },
             {
               key: 'storage',
+              stacked: (sample.storageLocation?.length ?? 0) > 60,
               label: 'Storage',
               value: orDash(sample.storageLocation),
             },
             {
               key: 'low-stock',
-              label: 'Low-stock at',
+              label: 'Low-stock threshold',
               value:
                 sample.lowStockThreshold == null
                   ? '—'
@@ -397,12 +355,12 @@ export function SampleInspector({
               : (customFields) => onAction({ kind: 'edit', customFields })
           }
         />
-      </InspectorSection>
+      </section>
 
-      {/* Visual barcode */}
+      {/* Exact barcode identifier */}
       {sample.barcode ? (
         <InspectorSection title="Barcode">
-          <VisualBarcode value={sample.barcode} />
+          <p className="break-all font-mono text-sm">{sample.barcode}</p>
         </InspectorSection>
       ) : null}
 
@@ -734,7 +692,7 @@ export function SampleInspector({
           </p>
         ) : null}
       </InspectorSection>
-    </div>
+    </InspectorSectionStack>
   )
 
   return (

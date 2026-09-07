@@ -55,6 +55,7 @@ import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
+import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
 import { Route as RecordsRecordIdOverviewRouteImport } from './routes/records/$recordId/overview'
@@ -66,6 +67,7 @@ import { Route as ApiExportRecordIdRouteImport } from './routes/api/export/recor
 import { Route as ApiExportSheetInstanceIdRouteImport } from './routes/api/export/sheet-instance/$id'
 import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$fileId/download'
 import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
+import { Route as ApiPipelinesWebhookDefinitionIdRouteImport } from './routes/api/pipelines/webhook.$definitionId'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 
 const IndexRoute = IndexRouteImport.update({
@@ -299,6 +301,11 @@ const ApiPipelinesExecuteRoute = ApiPipelinesExecuteRouteImport.update({
   path: '/api/pipelines/execute',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPipelinesRuntimeRoute = ApiPipelinesRuntimeRouteImport.update({
+  id: '/api/pipelines/runtime',
+  path: '/api/pipelines/runtime',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   id: '/api/token/',
   path: '/api/token/',
@@ -358,6 +365,12 @@ const ApiFilesFileIdUploadRoute = ApiFilesFileIdUploadRouteImport.update({
   path: '/api/files/$fileId/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPipelinesWebhookDefinitionIdRoute =
+  ApiPipelinesWebhookDefinitionIdRouteImport.update({
+    id: '/api/pipelines/webhook/$definitionId',
+    path: '/api/pipelines/webhook/$definitionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiExportRevisionIdPackageRoute =
   ApiExportRevisionIdPackageRouteImport.update({
     id: '/api/export/revision/$id/package',
@@ -412,6 +425,7 @@ export interface FileRoutesByFullPath {
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
+  '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
   '/api/token/': typeof ApiTokenIndexRoute
@@ -423,6 +437,7 @@ export interface FileRoutesByFullPath {
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
+  '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRoutesByTo {
@@ -472,6 +487,7 @@ export interface FileRoutesByTo {
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
+  '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
   '/api/token': typeof ApiTokenIndexRoute
@@ -483,6 +499,7 @@ export interface FileRoutesByTo {
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
+  '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRoutesById {
@@ -533,6 +550,7 @@ export interface FileRoutesById {
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
+  '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
   '/api/token/': typeof ApiTokenIndexRoute
@@ -544,6 +562,7 @@ export interface FileRoutesById {
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
+  '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRouteTypes {
@@ -595,6 +614,7 @@ export interface FileRouteTypes {
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/pipelines/execute'
+    | '/api/pipelines/runtime'
     | '/pipelines/runs/$runId'
     | '/records/$recordId/overview'
     | '/api/token/'
@@ -606,6 +626,7 @@ export interface FileRouteTypes {
     | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
+    | '/api/pipelines/webhook/$definitionId'
     | '/api/export/revision/$id/package'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -655,6 +676,7 @@ export interface FileRouteTypes {
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/pipelines/execute'
+    | '/api/pipelines/runtime'
     | '/pipelines/runs/$runId'
     | '/records/$recordId/overview'
     | '/api/token'
@@ -666,6 +688,7 @@ export interface FileRouteTypes {
     | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
+    | '/api/pipelines/webhook/$definitionId'
     | '/api/export/revision/$id/package'
   id:
     | '__root__'
@@ -715,6 +738,7 @@ export interface FileRouteTypes {
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/pipelines/execute'
+    | '/api/pipelines/runtime'
     | '/pipelines/runs/$runId'
     | '/records/$recordId/overview'
     | '/api/token/'
@@ -726,6 +750,7 @@ export interface FileRouteTypes {
     | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
+    | '/api/pipelines/webhook/$definitionId'
     | '/api/export/revision/$id/package'
   fileRoutesById: FileRoutesById
 }
@@ -771,6 +796,7 @@ export interface RootRouteChildren {
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
   ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
+  ApiPipelinesRuntimeRoute: typeof ApiPipelinesRuntimeRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
   ApiCollaborationResolveRoomsRoute: typeof ApiCollaborationResolveRoomsRoute
   ApiCollaborationResolveUsersRoute: typeof ApiCollaborationResolveUsersRoute
@@ -780,6 +806,7 @@ export interface RootRouteChildren {
   ApiExportSheetInstanceIdRoute: typeof ApiExportSheetInstanceIdRoute
   ApiFilesFileIdDownloadRoute: typeof ApiFilesFileIdDownloadRoute
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
+  ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
 }
 
@@ -1107,6 +1134,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPipelinesExecuteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pipelines/runtime': {
+      id: '/api/pipelines/runtime'
+      path: '/api/pipelines/runtime'
+      fullPath: '/api/pipelines/runtime'
+      preLoaderRoute: typeof ApiPipelinesRuntimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/token/': {
       id: '/api/token/'
       path: '/api/token'
@@ -1182,6 +1216,13 @@ declare module '@tanstack/react-router' {
       path: '/api/files/$fileId/upload'
       fullPath: '/api/files/$fileId/upload'
       preLoaderRoute: typeof ApiFilesFileIdUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pipelines/webhook/$definitionId': {
+      id: '/api/pipelines/webhook/$definitionId'
+      path: '/api/pipelines/webhook/$definitionId'
+      fullPath: '/api/pipelines/webhook/$definitionId'
+      preLoaderRoute: typeof ApiPipelinesWebhookDefinitionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/export/revision/$id/package': {
@@ -1307,6 +1348,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
   ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
+  ApiPipelinesRuntimeRoute: ApiPipelinesRuntimeRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
   ApiCollaborationResolveRoomsRoute: ApiCollaborationResolveRoomsRoute,
   ApiCollaborationResolveUsersRoute: ApiCollaborationResolveUsersRoute,
@@ -1316,6 +1358,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExportSheetInstanceIdRoute: ApiExportSheetInstanceIdRoute,
   ApiFilesFileIdDownloadRoute: ApiFilesFileIdDownloadRoute,
   ApiFilesFileIdUploadRoute: ApiFilesFileIdUploadRoute,
+  ApiPipelinesWebhookDefinitionIdRoute: ApiPipelinesWebhookDefinitionIdRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
 }
 export const routeTree = rootRouteImport

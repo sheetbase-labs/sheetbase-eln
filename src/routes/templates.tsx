@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
-import { LayoutTemplate } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
@@ -539,19 +538,16 @@ function TemplateLibraryRoute() {
 
   return (
     <>
-      <div className="space-y-6 p-4 md:p-6">
+      <div className="space-y-5 p-4">
         <header className="space-y-1">
           <div className="flex items-center gap-2">
-            <LayoutTemplate className="size-6 text-muted-foreground" />
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-base font-semibold tracking-tight">
               Template Library
             </h1>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Create Notebooks from published CORE-06 templates. Protocol
-            templates remain a separate pin-into-Notebook catalogue. Historical
-            notebook template records stay readable but are not used for new
-            work.
+          <p className="text-xs leading-5 text-muted-foreground">
+            Start a notebook from a published template, or add a reusable
+            protocol.
           </p>
         </header>
 
@@ -576,7 +572,7 @@ function TemplateLibraryRoute() {
           <div className="space-y-1">
             <h2 className="text-sm font-semibold">Protocol templates</h2>
             <p className="text-xs text-muted-foreground">
-              Pin a protocol version into a Notebook from this catalogue.
+              Add a specific protocol version to a notebook.
             </p>
           </div>
           <TemplateFilters

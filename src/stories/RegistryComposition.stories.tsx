@@ -297,3 +297,32 @@ export const RegistryError: Story = {
 export const PermissionDenied: Story = {
   args: { ...baseArgs, permissionDenied: true },
 }
+
+export const SearchableRegistry: Story = {
+  args: {
+    ...baseArgs,
+    selectedId: null,
+    fields: [
+      ...baseArgs.fields,
+      {
+        id: 'q',
+        label: 'Search',
+        column: false,
+        groupable: false,
+        filter: {
+          type: 'text',
+          placeholder: 'Search samples…',
+          operators: [{ value: 'contains', label: 'contains' }],
+        },
+      },
+    ],
+    actions: (
+      <>
+        <Button variant="outline" size="sm">
+          Import
+        </Button>
+        <Button size="sm">New sample</Button>
+      </>
+    ),
+  },
+}

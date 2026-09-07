@@ -8,6 +8,8 @@ import {
   Link,
   redirect,
   useNavigate,
+  useRouterState,
+  Outlet,
 } from '@tanstack/react-router'
 import { Plus, Workflow } from 'lucide-react'
 
@@ -16,10 +18,14 @@ import { CreatePipelineDefinitionDialog } from '#/components/pipelines/create-pi
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+  Input,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
   Empty,
   EmptyActions,
   EmptyDescription,
@@ -47,10 +53,22 @@ export const Route = createFileRoute('/pipelines')({
 const dataClient = createDataClient()
 
 function PipelinesRoute() {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
+  return pathname.replace(/\/$/, '') === '/pipelines' ? (
+    <PipelinesIndexRoute />
+  ) : (
+    <Outlet />
+  )
+}
+
+function PipelinesIndexRoute() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
+  const [filter, setFilter] = useState('')
 
   const definitionsQuery = useQuery({
     queryKey: pipelineQueryKeys.definitions,
@@ -59,6 +77,11 @@ function PipelinesRoute() {
   })
 
   const definitions = definitionsQuery.data ?? []
+  const filtered = definitions.filter((definition) =>
+    `${definition.name} ${definition.key} ${definition.description ?? ''}`
+      .toLowerCase()
+      .includes(filter.trim().toLowerCase()),
+  )
   const canManage = hasCapability(context.workspace?.role, 'pipelines.manage')
 
   useShell({
@@ -71,32 +94,27 @@ function PipelinesRoute() {
       },
     },
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Pipelines' }],
-    primaryAction:
-      canManage && definitions.length > 0 ? (
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4" /> Create Pipeline
-        </Button>
-      ) : undefined,
+    fullBleed: true,
   })
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="px-4 pt-4 md:px-6 md:pt-6">
         <PageHeader
-          eyebrow={context.workspace?.name ?? undefined}
+          compact
           title="Pipelines"
-          description="Deterministic, versioned transformations over canonical Datasets — every run pins its definition version, inputs and parameters."
+          description="Automate analysis and repeatable lab workflows."
           className="border-0 pb-4"
         >
           {canManage && (
             <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" /> Create Pipeline
+              <Plus className="size-4" /> Create pipeline
             </Button>
           )}
         </PageHeader>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
+      <div className="min-h-0 flex-1 overflow-auto px-4 pb-6 md:px-6">
         {!canManage && (
           <p className="text-muted-foreground mb-4 text-sm">
             You can view Pipelines and their runs; only owners, admins and
@@ -108,30 +126,75 @@ function PipelinesRoute() {
             {definitionsQuery.error.message}
           </p>
         )}
-        {definitions.length === 0 ? (
+        {definitionsQuery.isLoading ? (
+          <Skeleton className="h-32" />
+        ) : definitionsQuery.isError && definitions.length === 0 ? (
+          <Button variant="outline" onClick={() => definitionsQuery.refetch()}>
+            Try again
+          </Button>
+        ) : definitions.length === 0 ? (
           <Empty>
             <EmptyIcon>
               <Workflow className="size-8" />
             </EmptyIcon>
-            <EmptyTitle>No Pipelines yet</EmptyTitle>
+            <EmptyTitle>No pipelines yet</EmptyTitle>
             <EmptyDescription>
-              Create a versioned Pipeline Definition, publish a configuration
-              that names its inputs, parameters and output Dataset, then run it
-              manually or on a schedule.
+              Build repeatable analysis or ELN actions. Publish a version, then
+              run it manually, on a schedule or from a webhook.
             </EmptyDescription>
             {canManage && (
               <EmptyActions>
                 <Button onClick={() => setCreateOpen(true)}>
-                  <Plus className="size-4" /> Create Pipeline
+                  <Plus className="size-4" /> Create pipeline
                 </Button>
               </EmptyActions>
             )}
           </Empty>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {definitions.map((definition) => (
-              <PipelineCard key={definition.id} definition={definition} />
-            ))}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                aria-label="Find pipelines"
+                placeholder="Find pipelines…"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                className="w-full sm:max-w-xs"
+              />
+              <span role="status" className="text-sm text-muted-foreground">
+                {filtered.length} of {definitions.length} pipelines
+              </span>
+              {filter && (
+                <Button size="sm" variant="ghost" onClick={() => setFilter('')}>
+                  Clear filter
+                </Button>
+              )}
+            </div>
+            <div className="overflow-x-auto border-y">
+              <Table variant="quiet" className="min-w-[36rem]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pipeline</TableHead>
+                    <TableHead className="w-44">Key</TableHead>
+                    <TableHead className="w-28">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((definition) => (
+                    <PipelineRow key={definition.id} definition={definition} />
+                  ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={3}
+                        className="py-8 text-center text-muted-foreground"
+                      >
+                        No pipelines match your search.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </div>
@@ -149,32 +212,29 @@ function PipelinesRoute() {
   )
 }
 
-function PipelineCard({ definition }: { definition: PipelineDefinitionWire }) {
+function PipelineRow({ definition }: { definition: PipelineDefinitionWire }) {
   return (
-    <Link
-      to="/pipelines/$definitionId"
-      params={{ definitionId: definition.id }}
-    >
-      <Card className="h-full transition-colors hover:border-primary">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between gap-2">
-            {definition.name}
-            <Badge
-              variant={
-                definition.lifecycle === 'active' ? 'default' : 'secondary'
-              }
-            >
-              {definition.lifecycle}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground space-y-1 text-sm">
-          <p className="font-mono text-xs">{definition.key}</p>
-          {definition.description && (
-            <p className="line-clamp-2">{definition.description}</p>
-          )}
-        </CardContent>
-      </Card>
-    </Link>
+    <TableRow>
+      <TableCell>
+        <Link
+          className="font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+          to="/pipelines/$definitionId"
+          params={{ definitionId: definition.id }}
+        >
+          {definition.name}
+        </Link>
+        {definition.description && (
+          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
+            {definition.description}
+          </p>
+        )}
+      </TableCell>
+      <TableCell className="font-mono text-xs text-muted-foreground">
+        {definition.key}
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary">{definition.lifecycle}</Badge>
+      </TableCell>
+    </TableRow>
   )
 }

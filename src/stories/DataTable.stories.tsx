@@ -87,7 +87,7 @@ const columns: ColumnDef<SampleRow>[] = [
 ]
 const meta = {
   title: 'Scientific/DataTable',
-  component: DataTable,
+  component: DataTable<SampleRow, unknown>,
   tags: ['autodocs'],
   args: { columns, data },
 } satisfies Meta<typeof DataTable<SampleRow, unknown>>
@@ -99,4 +99,16 @@ export const Sortable: Story = { args: { enableSorting: true } }
 export const Empty: Story = { args: { data: [] } }
 export const WithRowClick: Story = {
   args: { onRowClick: (row) => console.log('Selected sample', row) },
+}
+export const RegistryControls: Story = {
+  args: {
+    variant: 'quiet',
+    enablePagination: true,
+    enableColumnVisibility: true,
+    getRowId: (row) => row.id,
+    data: Array.from({ length: 45 }, (_, i) => ({
+      ...data[i % data.length],
+      id: `SMP-${String(i + 1).padStart(4, '0')}`,
+    })),
+  },
 }

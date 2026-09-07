@@ -77,9 +77,8 @@ export function CreatePipelineDefinitionDialog({
         <DialogHeader>
           <DialogTitle>Create Pipeline</DialogTitle>
           <DialogDescription>
-            A Pipeline Definition is versioned identity: every published version
-            carries an immutable configuration, and every run pins the exact
-            version that produced it.
+            Name the work you want to automate. Next, add steps, choose an
+            output and publish a version to run.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

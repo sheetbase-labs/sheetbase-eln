@@ -613,58 +613,66 @@ function ModelImpactPanel({
   const groups = groupModelImpact(dependencies)
   const actionable = countActionableModelImpact(dependencies)
   return (
-    <section
-      aria-label="Model impact"
-      className="space-y-2 rounded-md border p-4"
-    >
-      <div>
-        <h3 className="text-sm font-semibold">Model impact</h3>
-        <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground">
-          Consumers of this model across records, sheets, templates and
-          relationship rules. Review before retiring or updating fields —
-          retiring a carried field always needs explicit confirmation and local
-          working state is never auto-migrated.
-        </p>
-      </div>
-      {impactQuery.isLoading ? (
-        <p className="text-xs text-muted-foreground">Loading model impact…</p>
-      ) : impactQuery.isError || !impactQuery.data ? (
-        <p className="text-xs text-muted-foreground">
-          Model impact unavailable — retire and update actions still run the
-          server gate before changing anything.
-        </p>
-      ) : dependencies.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          No dependants outside this field list.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            {dependencies.length}{' '}
-            {dependencies.length === 1 ? 'consumer' : 'consumers'} ·{' '}
-            {actionable} {actionable === 1 ? 'needs' : 'need'} steward handling
-            on retire.
+    <section aria-label="Model impact" className="rounded-md border px-3 py-2">
+      <details>
+        <summary className="cursor-pointer text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+          Model impact
+          {impactQuery.data && (
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {dependencies.length} consumers · {actionable} need review before
+              retiring
+            </span>
+          )}
+        </summary>
+        <div className="mt-3 space-y-2">
+          <p className="max-w-2xl text-xs text-muted-foreground">
+            Review affected records, sheets, templates and relationships before
+            changing fields. Retiring fields requires confirmation; existing
+            work is not automatically migrated.
           </p>
-          {groups.map((group) => (
-            <div key={group.group}>
-              <h4 className="text-xs font-semibold">{group.title}</h4>
-              <ul className="mt-1 space-y-1 text-xs">
-                {group.items.map((item) => (
-                  <li key={`${item.kind}:${item.id}:${item.relation}`}>
-                    {item.label} · {item.liveness} · {item.effect}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-          {impactQuery.data.truncated ? (
+          {impactQuery.isLoading ? (
             <p className="text-xs text-muted-foreground">
-              Showing the first entries per consumer class — the server caps
-              each class. Narrow the model before retiring when capped.
+              Loading model impact…
             </p>
-          ) : null}
+          ) : impactQuery.isError || !impactQuery.data ? (
+            <p className="text-xs text-muted-foreground">
+              Model impact unavailable — retire and update actions still run the
+              server gate before changing anything.
+            </p>
+          ) : dependencies.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No dependants outside this field list.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                {dependencies.length}{' '}
+                {dependencies.length === 1 ? 'consumer' : 'consumers'} ·{' '}
+                {actionable} {actionable === 1 ? 'needs' : 'need'} steward
+                handling on retire.
+              </p>
+              {groups.map((group) => (
+                <div key={group.group}>
+                  <h4 className="text-xs font-semibold">{group.title}</h4>
+                  <ul className="mt-1 space-y-1 text-xs">
+                    {group.items.map((item) => (
+                      <li key={`${item.kind}:${item.id}:${item.relation}`}>
+                        {item.label} · {item.liveness} · {item.effect}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              {impactQuery.data.truncated ? (
+                <p className="text-xs text-muted-foreground">
+                  Showing the first entries per consumer class — the server caps
+                  each class. Narrow the model before retiring when capped.
+                </p>
+              ) : null}
+            </div>
+          )}
         </div>
-      )}
+      </details>
     </section>
   )
 }
@@ -1251,10 +1259,6 @@ export function AdminModelFields({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <p className="hidden max-w-md text-right text-xs text-muted-foreground lg:block">
-            Locked fields preserve the model contract. Workspace fields can be
-            edited or retired without deleting stored values.
-          </p>
           <Button
             size="sm"
             onClick={() => setDialogOpen(true)}

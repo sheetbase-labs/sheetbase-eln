@@ -1,30 +1,28 @@
 # Pipelines
 
-Deterministic, versioned transformations over canonical Datasets. A Pipeline
-is a workspace-scoped identity with immutable published versions; every run
-pins the exact definition version, parameters and input Dataset Version ids,
-executes a single deterministic SQL transform inside a low-privilege sandbox,
-and lands its output only through the canonical governed Dataset operations
-(`commit_dataset_row_batch` / `snapshot_dataset`).
+Versioned automation across the ELN. A Pipeline has a workspace identity and
+immutable published versions. A run pins its definition, parameters, Dataset
+Version inputs (when used), and Python runtime. Analysis, Dataset output and ELN
+actions are optional; an action-only workflow needs no Dataset.
 
 ```text
-Pipeline Definition
-        │
-        ▼
-Versioned configuration (draft → published → retired)
-        │
-        ▼
-Inputs (pinned Dataset Versions) + typed parameters
-        │
-        ▼
-Deterministic SQL transform (sandboxed, bounded)
-        │
-        ▼
-Canonical Dataset / Dataset Version output
-        │
-        ▼
-Provenance: pipeline_run_outputs + append-only run history
+Manual / scheduled / ELN event / authenticated webhook
+                         │
+                  Published version
+                         │
+           Optional SQL / Python analysis steps
+                         │
+               Optional Dataset output
+                         │
+                 Governed ELN actions
+                         │
+          Commit results + signed webhook outbox
+                         │
+               Delivery with retry/replay
 ```
+
+This extends [ADR-0042](../knowledge/decisions/0042-deterministic-pipelines.md)
+under [ADR-0046](../knowledge/decisions/0046-python-and-eln-pipeline-actions.md).
 
 ## Concepts
 
@@ -53,7 +51,7 @@ Provenance: pipeline_run_outputs + append-only run history
     "statement": "SELECT batch, value, value * {{factor}} AS scaled FROM measurements",
   },
   "output": {
-    "mode": "create", // or "append"
+    "mode": "create", // or "append" / "none"
     "schemaVersionId": "<uuid>", // required for create
     "datasetId": "<uuid>", // required for append
     "datasetName": "Scaled measurements", // required for create
@@ -71,7 +69,7 @@ Rules:
 - **Inputs** name the temp tables the transform reads. Each input is pinned
   to an immutable Dataset Version at run start (not a live Dataset), so the
   run is reproducible.
-- **The transform is exactly one deterministic `SELECT`** (optionally with a
+- **Each SQL step is one `SELECT`** (optionally with a
   leading `WITH`). Comments, semicolons, dollar-quoting, schema-qualified
   names, `pg_*`/`lo_*` functions and DDL/DML keywords are rejected.
 - **Output columns** must match the output Schema's field slugs (stable,
@@ -80,9 +78,56 @@ Rules:
   are rejected rather than silently dropped. Multi-valued fields expose
   their first value in v1 transforms.
 
+## Python, action and webhook configuration
+
+`transform.language` is `sql`, `python` or `none`. An optional `steps` array
+contains up to nine further `{ name, language, statement }` SQL/Python steps.
+Each step receives the preceding result as `previous`: a table in SQL, or
+`inputs["previous"]` in Python. Original input aliases remain available.
+Names must be lowercase identifiers; `previous` is reserved for the preceding
+result. Zero Dataset inputs are valid.
+
+Python defines `transform(inputs, parameters)` and returns row dictionaries or a
+pandas DataFrame. Any Python step requires `pythonRuntime` to contain the exact
+`repository@sha256:...` runtime image. The editor discovers availability from
+`GET /api/pipelines/runtime`; an unavailable or mismatched pin fails closed.
+See the [Python runtime runbook](../operations/pipeline-python.md).
+
+`output.mode: "none"` skips Dataset creation and snapshotting. The `actions`
+array contains up to twenty `{ name, operation, arguments }` ELN actions. The
+catalogue in `src/lib/pipelines/actions.ts` supplies labels, argument contracts
+and fixed canonical RPC names. For example:
+
+```json
+{
+  "name": "project",
+  "operation": "create_project",
+  "arguments": { "p_title": { "$ref": "parameters.study_name" } }
+}
+```
+
+Explicit references preserve value types: `parameters.name`, `previous.0.value`,
+`output.datasetId` and `actions.project.id`. Ordinary strings remain literal.
+Unknown operations, editable server-owned arguments, unresolved references and
+invalid values fail closed. Revision-bearing operations require the expected
+revision rather than silently overwriting current state. The catalogue covers
+project creation, model records, record properties/lifecycle/links, sample
+custody, reagent movement and Dataset commit/snapshot/lifecycle. Review
+confirmation, signatures and attestation are not autonomous actions.
+
+`notifications` contains up to ten `{ subscriptionId, payload? }` entries. The
+existing active webhook subscription owns its destination and signing secret.
+The optional JSON payload supports the same references and is delivered as
+`data`; omitting it sends only run/output metadata. Payloads are limited to
+64 KiB. The envelope has `schemaVersion: "1"`, `eventType:
+"pipeline.run.completed"`, stable `eventId`, workspace/run/version ids and
+`result` metadata. It is inserted in the existing delivery outbox in the same
+transaction as the ELN changes. The delivery engine supplies signing, retries,
+rate limits and replay. Receivers must deduplicate by `X-Sheetbase-Event-Id`.
+
 ## Execution boundary (AUTO-02)
 
-Transforms run server-side (`src/lib/pipeline-execute.server.ts`) inside a
+SQL steps run server-side (`src/lib/pipeline-execute.server.ts`) inside a
 dedicated **`pipeline_worker`** session role with:
 
 - zero table grants (the transform can only read its own temp tables),
@@ -103,7 +148,7 @@ those tables. Outputs are written with the run actor's JWT claims through the
    sha-256 over (definition version, canonical parameters, canonical input
    Dataset Versions) — never supplied by the caller, so replay, concurrency
    and retry decisions are authoritative. Manual runs dedupe by this digest:
-   a prior success replays, a concurrent duplicate conflicts (`SB044`), a
+   a prior success replays for data-only requests. Deliberate UI invocations with ELN actions or webhooks carry a fresh `manual:<uuid>` identity, retained for network retries within that invocation. A concurrent duplicate conflicts (`SB044`), a
    failed attempt requires an explicit `retry_of_run_id` (`SB045`), and
    abandoned running attempts are reconciled after a fixed staleness
    threshold. Scheduled/event runs instead carry a **stable trigger
@@ -120,7 +165,8 @@ those tables. Outputs are written with the run actor's JWT claims through the
    RLS-gated writer path** (`authenticated` role, `datasets_insert_writer`
    policy) — never a privileged second writer. A driver-level query timeout
    backs up the statement timeout.
-3. **Record** — succeeded runs carry `rowCount`, output Dataset/Version ids
+3. **Record** — succeeded runs carry named action results, queued webhook delivery
+   ids, `rowCount`, optional output Dataset/Version ids
    and the output label in `result`; outputs are also normalized in
    `pipeline_run_outputs` for reverse lookup from Dataset pages.
 
@@ -172,6 +218,23 @@ those tables. Outputs are written with the run actor's JWT claims through the
   configured inputs. See the [event catalogue](../api/event-catalogue.md)
   for the full vocabulary.
 
+## Incoming webhook triggers
+
+The Triggers tab creates, rotates or disables a Definition-scoped bearer token.
+Only its SHA-256 hash is stored in `internal.pipeline_webhook_triggers`; the new
+secret is shown once and never stored in a published configuration.
+
+Send `POST /api/pipelines/webhook/<definition-id>` with `Authorization: Bearer
+<token>`, an `Idempotency-Key`, and JSON `{ "parameters": {}, "inputVersions": {} }`.
+Requests are bounded to 64 KiB and rate-limited. The configuring user's current
+pipeline-management and workspace-write permissions are checked on every call.
+The first delivery pins the latest published version. The same key replays that
+run, including after a new version is published; changed inputs with the same
+key return a conflict. A failed run can be retried explicitly from Run history.
+
+Session-authenticated GET reads settings; same-origin PUT rotates or disables
+the token. No external API credential scopes are widened by this endpoint.
+
 ## Product integration
 
 - **Dataset → Pipeline**: the `/datasets` Pipelines tab lists every published
@@ -200,9 +263,9 @@ those tables. Outputs are written with the run actor's JWT claims through the
 
 ## Reproducibility
 
-Same definition version + same parameters + same pinned input Dataset
-Versions = same logical output, with idempotent replay for identical manual
-requests. Row order in the result is preserved from the transform's `ORDER
+Identical manual requests replay the prior successful run. Definitions, inputs
+and Python runtime identities are pinned; Python clock/randomness, current-state
+ELN actions and external systems can still introduce non-determinism. Row order in the result is preserved from the transform's `ORDER
 BY`; where no order is specified, row order is not part of the contract.
 
 ## Limits (v1, fixed)
@@ -215,3 +278,10 @@ BY`; where no order is specified, row order is not part of the contract.
 | Input rows per input version | 100,000 |
 | Input schema fields          | 256     |
 | Parameters / inputs          | 50 / 10 |
+
+The executor uses a per-run advisory lock to prevent duplicate execution.
+Database writes and outgoing deliveries roll back together on failure. Log
+sequence values are monotonic allocation values and may contain gaps.
+Cancellation records the terminal state immediately; in-flight analysis may
+finish, but the next safe point rejects its output. A ten-minute database work
+budget is checked between queries; the driver bounds an in-flight query.

@@ -20,14 +20,13 @@
 import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { CompareView } from '#/components/viz/compare-view'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
   Database,
   Download,
-  LineChart as LineChartIcon,
   Loader2,
   PanelLeft,
   PanelLeftClose,
@@ -545,10 +544,9 @@ export function AnalysisStudioHeader({
       aria-labelledby="analysis-title"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <LineChartIcon className="size-4 text-violet-500" aria-hidden="true" />
         <h1
           id="analysis-title"
-          className="text-sm font-semibold tracking-tight"
+          className="text-base font-semibold tracking-tight"
         >
           Analysis Studio
         </h1>
@@ -1564,10 +1562,14 @@ export function EmptyAnalysisState({
             aria-hidden="true"
           />
           <p className="max-w-md text-sm text-muted-foreground">
-            No datasets yet. Create a notebook with a sheet block, or bind a
-            dataset schema on the Schemas page, to start building analysis
-            views.
+            Create a dataset first, then return here to build charts and compare
+            results.
           </p>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/datasets" search={{ dataset: '' }}>
+              Open datasets
+            </Link>
+          </Button>
         </>
       )}
     </div>

@@ -250,6 +250,7 @@ export function ShellProvider({
       inspectorLabel={config.inspectorLabel}
       inspectorCollapsible={config.inspectorCollapsible}
       fullBleed={config.fullBleed}
+      primaryAction={config.primaryAction}
       projectTree={config.projectTree}
       navExtra={config.navExtra}
       extensionCommands={config.extensionCommands}
@@ -1019,13 +1020,18 @@ export function AppShell({
                 fullBleed && 'flex flex-col overflow-hidden',
               )}
             >
-              {fullBleed ? (
-                children
-              ) : (
-                <div className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8">
-                  {children}
-                </div>
-              )}
+              {/* Keep the route at the same React depth when its layout changes.
+                  Remounting it runs useShell cleanup, which changes the layout
+                  again and can repeatedly tear down the active route. */}
+              <div
+                className={
+                  fullBleed
+                    ? 'contents'
+                    : 'mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8'
+                }
+              >
+                {children}
+              </div>
             </main>
 
             {context && inspector && (

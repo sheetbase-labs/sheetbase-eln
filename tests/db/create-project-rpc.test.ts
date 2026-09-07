@@ -124,3 +124,39 @@ describe('api.create_project', () => {
     expect(rows).toHaveLength(0)
   })
 })
+
+describe('project registry summaries', () => {
+  it('counts active records and experiments and uses the event timestamp', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const {
+      rows: [project],
+    } = await owner.query("SELECT * FROM api.create_project('Summary proof')")
+    await migrator.query(
+      `INSERT INTO api.records (workspace_id,project_id,kind,identifier,title,created_by_user_id) VALUES ($1,$2,'experiment','SUMMARY-1','Experiment',$3),($1,$2,'report','SUMMARY-2','Report',$3)`,
+      [WS, project.id, OWNER],
+    )
+    const {
+      rows: [summary],
+    } = await owner.query(
+      'SELECT * FROM api.project_list_summary() WHERE id=$1',
+      [project.id],
+    )
+    expect(Number(summary.record_count)).toBe(2)
+    expect(Number(summary.experiment_count)).toBe(1)
+    const {
+      rows: [activity],
+    } = await owner.query(
+      'SELECT max(created_at) AS latest FROM api.change_events WHERE project_id=$1',
+      [project.id],
+    )
+    expect(summary.last_activity_at).toEqual(activity.latest)
+    expect(summary.last_activity_at).not.toBeNull()
+  })
+  it('does not expose summaries to a nonmember', async () => {
+    const outsider = await asAuthenticated(OUTSIDER, WS)
+    const { rows } = await outsider.query(
+      'SELECT * FROM api.project_list_summary()',
+    )
+    expect(rows).toEqual([])
+  })
+})

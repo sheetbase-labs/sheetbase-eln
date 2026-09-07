@@ -79,7 +79,7 @@ describe('validatePipelineConfig', () => {
 
   it('rejects an unsupported transform language', () => {
     const config = validConfig()
-    config.transform.language = 'python' as never
+    config.transform.language = 'javascript' as never
     const errors = validatePipelineConfig(config)
     expect(errors.some((e) => e.code === 'unsupported_language')).toBe(true)
   })
@@ -175,5 +175,56 @@ describe('validatePipelineRunRequest', () => {
       },
     )
     expect(errors.some((e) => e.message.includes('unknown input'))).toBe(true)
+  })
+})
+
+describe('Python and workflow configuration', () => {
+  const runtime = 'sheetbase/python@sha256:' + 'a'.repeat(64)
+  it('accepts pinned Python, a following SQL step and webhook output', () => {
+    const config = validConfig()
+    config.transform = {
+      language: 'python',
+      statement:
+        'def transform(inputs, parameters): return inputs["measurements"]',
+    }
+    config.pythonRuntime = runtime
+    config.steps = [
+      {
+        name: 'scale',
+        language: 'sql',
+        statement: 'SELECT value FROM previous',
+      },
+    ]
+    config.notifications = [
+      { subscriptionId: '11111111-1111-4111-8111-111111111111' },
+    ]
+    expect(validatePipelineConfig(config)).toEqual([])
+  })
+  it('rejects Python without an immutable runtime pin', () => {
+    const config = validConfig()
+    config.transform.language = 'python'
+    expect(
+      validatePipelineConfig(config).some(
+        (error) => error.field === 'pythonRuntime',
+      ),
+    ).toBe(true)
+  })
+  it('accepts actions without datasets or analysis', () => {
+    const config = validConfig()
+    config.inputs = []
+    config.transform = { language: 'none', statement: '' }
+    config.output = { mode: 'none', datasetLabel: '' }
+    expect(validatePipelineConfig(config)).toEqual([])
+  })
+  it('rejects duplicate steps and the reserved previous input name', () => {
+    const config = validConfig()
+    config.inputs[0].name = 'previous'
+    config.steps = [
+      { name: 'a', language: 'sql', statement: 'SELECT 1' },
+      { name: 'a', language: 'sql', statement: 'SELECT 2' },
+    ]
+    const errors = validatePipelineConfig(config)
+    expect(errors.some((error) => error.field === 'inputs[0].name')).toBe(true)
+    expect(errors.some((error) => error.code === 'duplicate_name')).toBe(true)
   })
 })

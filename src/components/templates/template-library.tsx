@@ -422,10 +422,10 @@ function TemplateListHeader() {
     >
       <span className="w-28 shrink-0">Identifier</span>
       <span className="min-w-0 flex-1">Title</span>
-      <span className="shrink-0">Status</span>
+      <span className="w-24 shrink-0">Status</span>
       <span className="hidden w-24 shrink-0 text-right md:inline">Updated</span>
       <span className="hidden w-20 shrink-0 text-right md:inline">Blocks</span>
-      <span className="w-16 shrink-0 text-right">State</span>
+      <span className="w-32 shrink-0 text-right">State</span>
     </div>
   )
 }
@@ -602,16 +602,16 @@ export function TemplateList({
                 }}
                 aria-pressed={isSelected}
                 className={cn(
-                  'flex w-full items-center gap-4 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                  'flex w-full flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5 text-left sm:flex-nowrap transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                   isSelected && 'bg-muted/60',
                 )}
               >
-                <span className="w-28 shrink-0 truncate font-mono text-xs text-muted-foreground">
+                <span className="w-full shrink-0 font-mono text-xs text-muted-foreground sm:w-28">
                   {template.identifier}
                 </span>
-                <span className="min-w-0 flex-1">
+                <span className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
                   <span className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-medium text-foreground">
+                    <span className="break-words text-sm font-medium text-foreground sm:truncate">
                       {template.title}
                     </span>
                     {featured ? (
@@ -640,7 +640,7 @@ export function TemplateList({
                       : ''}
                   </span>
                 </span>
-                <span className="flex shrink-0 items-center gap-2">
+                <span className="flex w-24 shrink-0 items-center gap-2">
                   <StatusBadge
                     status={template.status}
                     domain={
@@ -658,7 +658,7 @@ export function TemplateList({
                     ? `${blockCounts[template.id]} blocks`
                     : '—'}
                 </span>
-                <span className="flex w-16 shrink-0 items-center justify-end gap-1">
+                <span className="ml-auto flex w-32 shrink-0 items-center justify-end gap-1 sm:ml-0">
                   <StateIndicator
                     template={template}
                     instantiable={instantiable}

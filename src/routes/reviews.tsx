@@ -20,6 +20,8 @@ import type { ColumnDef } from '@tanstack/react-table'
 import {
   createFileRoute,
   Link,
+  Outlet,
+  useRouterState,
   redirect,
   useNavigate,
   useSearch,
@@ -35,7 +37,6 @@ import {
   ExternalLink,
   GitCompare,
   Undo2,
-  UserCog,
   XCircle,
 } from 'lucide-react'
 
@@ -373,7 +374,15 @@ function buildColumns(
 // Route component.
 // ---------------------------------------------------------------------------
 
-function ReviewsRoute() {
+export function ReviewsRoute() {
+  const isIndex = useRouterState({
+    select: (state) =>
+      state.location.pathname.replace(/\/$/, '') === '/reviews',
+  })
+  return isIndex ? <ReviewsInboxRoute /> : <Outlet />
+}
+
+function ReviewsInboxRoute() {
   const { context } = Route.useRouteContext()
   const navigate = useNavigate()
   const search = useSearch({ from: '/reviews' })
@@ -473,8 +482,8 @@ function ReviewsRoute() {
   )
 
   const filteredItems = useMemo(
-    () => filterReviews(allItems, filters, currentUserId),
-    [allItems, filters, currentUserId],
+    () => filterReviews(allItems, filters, currentUserId, userLabel),
+    [allItems, filters, currentUserId, userLabel],
   )
 
   const sortedItems = useMemo(
@@ -483,8 +492,9 @@ function ReviewsRoute() {
         filteredItems,
         query.sorting[0]?.id,
         query.sorting[0]?.desc ?? false,
+        userLabel,
       ),
-    [filteredItems, query.sorting],
+    [filteredItems, query.sorting, userLabel],
   )
 
   const totalCount = sortedItems.length
@@ -503,8 +513,8 @@ function ReviewsRoute() {
   // stays populated when the selection is filtered or on another page.
   const selectedRecord = useMemo<ReviewItem | null>(() => {
     if (!selectedId) return null
-    return sortedItems.find((item) => item.id === selectedId) ?? null
-  }, [selectedId, sortedItems])
+    return allItems.find((item) => item.id === selectedId) ?? null
+  }, [selectedId, allItems])
 
   // --- Error / permission state -------------------------------------------
 
@@ -694,15 +704,15 @@ function ReviewsRoute() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-6">
         <RegistryComposition<ReviewItem>
           registryId="reviews"
           title="Review inbox"
-          description="Central queue for items requiring scientific or QA review."
+          description="Review submitted work and follow up on outstanding decisions."
           rows={rows}
           totalCount={totalCount}
           fields={fields}
-          query={query}
+          query={{ ...query, pageIndex }}
           onQueryChange={handleQueryChange}
           getRowId={(row) => row.id}
           selectedId={selectedId}
@@ -711,18 +721,27 @@ function ReviewsRoute() {
           summaries={summaries}
           renderInspector={renderInspector}
           loading={loading}
-          error={submissionsQuery.error ?? recordsQuery.error}
+          error={
+            submissionsQuery.error ?? recordsQuery.error ?? projectsQuery.error
+          }
           permissionDenied={permissionDenied}
           onRetry={() => {
             void submissionsQuery.refetch()
             void recordsQuery.refetch()
+            void projectsQuery.refetch()
           }}
           emptyTitle="No reviews yet"
+          emptyDescription="Submit an experiment or record for review from its notebook. It will appear here for the assigned reviewers."
           noResultsTitle="No matching reviews"
           actions={
             <Button
               variant="outline"
               size="sm"
+              disabled={
+                submissionsQuery.isFetching ||
+                recordsQuery.isFetching ||
+                projectsQuery.isFetching
+              }
               onClick={() => {
                 void submissionsQuery.refetch()
                 void recordsQuery.refetch()
@@ -836,7 +855,7 @@ export function ReviewInspector({
               {row.priority}
             </span>
           </InspectorProp>
-          <InspectorProp label="Due heuristic">
+          <InspectorProp label="Review age">
             <span
               className={cn(
                 'text-xs',
@@ -922,7 +941,7 @@ export function ReviewInspector({
             className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md bg-primary text-xs font-medium text-primary-foreground no-underline hover:bg-primary/90"
           >
             <ExternalLink className="size-3.5" aria-hidden />
-            Open workspace
+            Open review
           </Link>
           {openDiffEnabled ? (
             <Link
@@ -938,20 +957,6 @@ export function ReviewInspector({
               Open record
             </Button>
           )}
-        </div>
-        <div className="grid grid-cols-3 gap-1.5">
-          <Button variant="outline" size="sm" disabled className="h-7 text-xs">
-            <CheckCircle2 className="size-3" aria-hidden />
-            Approve
-          </Button>
-          <Button variant="outline" size="sm" disabled className="h-7 text-xs">
-            <Undo2 className="size-3" aria-hidden />
-            Changes
-          </Button>
-          <Button variant="outline" size="sm" disabled className="h-7 text-xs">
-            <UserCog className="size-3" aria-hidden />
-            Reassign
-          </Button>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
+import { ModelProperties } from '#/components/scientific/model-properties'
 import { Inspector } from '#/components/record/inspector'
 import {
   InspectorSection,
@@ -85,3 +86,46 @@ export const NoSelection: Story = {
 }
 export const Unavailable: Story = { args: { state: 'unavailable' } }
 export const PermissionDenied: Story = { args: { state: 'permission-denied' } }
+
+export const SampleDetails: Story = {
+  args: {
+    recordType: 'Sample',
+    title: 'LVV-CAR-T retention aliquot — stability study reference material',
+    status: <Badge variant="success">Available</Badge>,
+    className: 'h-[800px] w-full max-w-[480px] border',
+    tabs: [
+      {
+        id: 'details',
+        label: 'Details',
+        content: (
+          <InspectorSectionStack>
+            <ModelProperties
+              title="Properties"
+              lockedProperties={[
+                { key: 'id', label: 'Sample ID', value: 'SMP-2025-0020' },
+                { key: 'quantity', label: 'Quantity', value: '4 mL' },
+                {
+                  key: 'storage',
+                  label: 'Storage',
+                  stacked: true,
+                  value:
+                    'Cambridge site / Cold room 1 / Freezer FZ-80-01 / Shelf 2 / Rack 3 / BX-LVV-07 / A1',
+                },
+              ]}
+              definitions={[]}
+              values={{}}
+            />
+            <InspectorSection title="Chain of custody">
+              <p className="text-sm leading-5">
+                Transferred to retention storage on 7 September 2026.
+              </p>
+            </InspectorSection>
+            <InspectorSection title="Linked experiments">
+              <p className="text-xs text-muted-foreground">No linked records</p>
+            </InspectorSection>
+          </InspectorSectionStack>
+        ),
+      },
+    ],
+  },
+}

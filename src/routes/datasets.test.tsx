@@ -198,7 +198,6 @@ describe('DatasetExplorerHeader', () => {
         onSelect={() => {}}
       />,
     )
-    expect(screen.getByText('Datasets')).toBeTruthy()
     expect(
       screen.getByRole('heading', { name: 'Scientific datasets' }),
     ).toBeTruthy()

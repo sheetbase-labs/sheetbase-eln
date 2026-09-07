@@ -75,9 +75,16 @@ export function ReagentInspector({
                     {reagent.expiry ? formatDate(reagent.expiry) : '—'}
                   </Property>
                   <Property label="Stock attention">
-                    {attention.kind === 'ok'
-                      ? 'None'
-                      : attention.kind.replace('_', ' ')}
+                    {[
+                      attention.lowStock ? 'Low stock' : '',
+                      attention.expired
+                        ? 'Expired'
+                        : attention.nearExpiry
+                          ? 'Expiring soon'
+                          : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'None'}
                   </Property>
                   <Property label="Last updated">
                     {formatDate(reagent.updatedAt)}
@@ -90,7 +97,7 @@ export function ReagentInspector({
                   <Property label="Supplier">
                     {reagent.supplier ?? '—'}
                   </Property>
-                  <Property label="Catalog No." mono>
+                  <Property label="Catalogue number" mono>
                     {reagent.catalogNo ?? '—'}
                   </Property>
                   <Property label="Lot" mono>
@@ -115,7 +122,7 @@ export function ReagentInspector({
                 />
               </InspectorSection>
 
-              <InspectorSection title="Recent orders">
+              <InspectorSection title="Recent receipts">
                 {recentOrders.length === 0 ? (
                   <EmptyHint>No recent stock receipts</EmptyHint>
                 ) : (

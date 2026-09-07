@@ -359,7 +359,7 @@ function CalendarRoute() {
         {/* Header: title, new-booking action, filters */}
         <div className="border-b border-border/60 px-4 pt-4">
           <PageHeader
-            eyebrow={context.workspace?.name ?? undefined}
+            compact
             title="Lab Calendar"
             description="Bookings for instruments, rooms, and shared resources."
           >

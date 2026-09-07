@@ -1,22 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
-import {
   createFileRoute,
-  Link,
   Outlet,
   redirect,
   useRouterState,
+  useNavigate,
 } from '@tanstack/react-router'
-import { FolderPlus, Search, SlidersHorizontal } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { FolderPlus } from 'lucide-react'
+import { useState } from 'react'
 
 import { useShell } from '#/components/app-shell'
-import { StatusBadge } from '#/components/scientific'
+import { ProjectList } from '#/components/projects/project-list'
 import {
   Button,
   Dialog,
@@ -27,34 +21,11 @@ import {
   DialogTitle,
   DialogTrigger,
   Input,
-  Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
 } from '#/components/ui'
 import { createDataClient, DataClientError } from '#/lib/data-client'
-import { formatDate, formatRelativeTime } from '#/lib/notebook-data'
 
-// Column width/alignment hints consumed by the TableHead/TableCell renderers
-// so the dense grid stays aligned without per-cell className repetition.
-declare module '@tanstack/react-table' {
-  interface ColumnMeta<TData, TValue> {
-    className?: string
-  }
-}
-
-/**
- * Projects dashboard. The workspace's projects rendered as a dense, full-width
- * data grid (TanStack Table) with key, status, live record counts and last
- * activity — replacing the original sparse `<ul>`. Project creation is a
- * proper dialog form rather than a bare text input.
- *
- * Reads through the same-origin /api/db boundary; creates through the
- * create_project RPC (server-side key generation). Loading, empty, error,
- * validation and permission states are all handled.
+/** Project registry backed by the caller-scoped summary RPC. Creation opens
+ * the canonical project route so its empty state can guide the first experiment.
  */
 
 // Wire shape from PostgREST (snake_case). Mapped at the call site.
@@ -67,6 +38,9 @@ interface ProjectWire {
   created_at: string
   updated_at: string
   archived_at: string | null
+  record_count?: number
+  experiment_count?: number
+  last_activity_at?: string | null
 }
 
 interface Project {
@@ -76,6 +50,9 @@ interface Project {
   status: string
   createdAt: string
   updatedAt: string | null
+  recordCount?: number
+  experimentCount?: number
+  lastActivityAt?: string | null
 }
 
 function toProject(row: ProjectWire): Project {
@@ -86,6 +63,13 @@ function toProject(row: ProjectWire): Project {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    recordCount:
+      row.record_count === undefined ? undefined : Number(row.record_count),
+    experimentCount:
+      row.experiment_count === undefined
+        ? undefined
+        : Number(row.experiment_count),
+    lastActivityAt: row.last_activity_at,
   }
 }
 
@@ -105,54 +89,32 @@ const dataClient = createDataClient()
 const PROJECTS_KEY = ['projects'] as const
 
 function ProjectsRoute() {
+  const isIndex = useRouterState({
+    select: (state) => state.location.pathname === '/projects',
+  })
+  return isIndex ? <ProjectsIndexRoute /> : <Outlet />
+}
+
+function ProjectsIndexRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
-  })
-  const isProjectsIndex = pathname === '/projects'
+  const navigate = useNavigate()
 
   const query = useQuery({
-    queryKey: PROJECTS_KEY,
+    queryKey: [...PROJECTS_KEY, context.workspace?.id],
     queryFn: async () => {
-      const rows = await dataClient.list<ProjectWire>(
-        'projects',
-        '?order=created_at.desc',
-      )
+      const rows: ProjectWire[] = []
+      // Explicit pages avoid silently truncating workspaces at PostgREST's cap.
+      for (;;) {
+        const page = await dataClient.list<ProjectWire>(
+          'rpc/project_list_summary',
+          `?order=created_at.desc,id.asc&limit=200&offset=${rows.length}`,
+        )
+        rows.push(...page)
+        if (page.length < 200) break
+      }
       return rows.map(toProject)
     },
-    enabled: isProjectsIndex,
-  })
-
-  // Live record counts per project. Fetched only after the projects list
-  // resolves, in parallel, using PostgREST's cheap count header so at most
-  // one row is transferred per project. Counts are best-effort: a failed
-  // count resolves to `undefined` and the cell renders an em dash.
-  const countsQuery = useQuery({
-    queryKey: [...PROJECTS_KEY, 'record-counts'],
-    queryFn: async () => {
-      const projects = query.data ?? []
-      if (projects.length === 0) return {}
-      const entries = await Promise.all(
-        projects.map(async (p) => {
-          try {
-            const total = await dataClient.count(
-              'records',
-              `?project_id=eq.${p.id}&archived_at=is.null`,
-            )
-            return [p.id, total] as const
-          } catch {
-            return [p.id, undefined] as const
-          }
-        }),
-      )
-      const counts: Record<string, number> = {}
-      for (const [id, total] of entries) {
-        if (typeof total === 'number') counts[id] = total
-      }
-      return counts
-    },
-    enabled: isProjectsIndex && !!query.data && query.data.length > 0,
   })
 
   const [title, setTitle] = useState('')
@@ -175,13 +137,10 @@ function ProjectsRoute() {
       await queryClient.cancelQueries({ queryKey: PROJECTS_KEY })
     },
     onSuccess: (created) => {
-      queryClient.setQueryData<Project[]>(PROJECTS_KEY, (prev) =>
-        prev ? [created, ...prev] : [created],
-      )
-      // Invalidate counts so the new project's zero count resolves rather
-      // than staying blank until the next refetch.
-      void queryClient.invalidateQueries({
-        queryKey: [...PROJECTS_KEY, 'record-counts'],
+      void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
+      void navigate({
+        to: '/projects/$projectId',
+        params: { projectId: created.id },
       })
       setTitle('')
       setValidationError(null)
@@ -230,7 +189,15 @@ function ProjectsRoute() {
     },
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Projects' }],
     primaryAction: (
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!isPendingCreate) {
+            setCreateOpen(open)
+            setValidationError(null)
+          }
+        }}
+      >
         <DialogTrigger asChild>
           <Button size="sm">
             <FolderPlus className="size-4" />
@@ -241,13 +208,17 @@ function ProjectsRoute() {
           <DialogHeader>
             <DialogTitle>New project</DialogTitle>
             <DialogDescription>
-              Give the project a clear title. Sheetbase generates the project
-              key and workspace binding on the server.
+              Create a project in {context.workspace?.name ?? 'your workspace'},
+              then add your first experiment. We’ll open the project when it’s
+              ready.
             </DialogDescription>
           </DialogHeader>
           <CreateProjectForm
             title={title}
-            onTitleChange={setTitle}
+            onTitleChange={(value) => {
+              setTitle(value)
+              setValidationError(null)
+            }}
             onSubmit={handleSubmit}
             isPending={isPendingCreate}
             validationError={validationError}
@@ -257,16 +228,11 @@ function ProjectsRoute() {
     ),
   })
 
-  if (!isProjectsIndex) return <Outlet />
-
   return (
     <>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
+      <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto p-4 md:p-6">
         <header className="flex flex-wrap items-end justify-between gap-3">
-          <div className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              {context.workspace?.name ?? 'Sheetbase'}
-            </p>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h1 className="font-display text-2xl font-semibold tracking-tight">
               Projects
             </h1>
@@ -283,10 +249,11 @@ function ProjectsRoute() {
           isLoading={isLoading}
           error={query.error}
           onRetry={() => query.refetch()}
-          recordCounts={countsQuery.data}
-          countsLoading={
-            countsQuery.isLoading && countsQuery.fetchStatus !== 'idle'
-          }
+          recordCounts={Object.fromEntries(
+            projects
+              .filter((p) => p.recordCount !== undefined)
+              .map((p) => [p.id, p.recordCount!]),
+          )}
         />
       </div>
     </>
@@ -308,7 +275,7 @@ export function CreateProjectForm({
 }) {
   return (
     <form onSubmit={onSubmit} className="space-y-3" noValidate>
-      <label htmlFor="project-title" className="sr-only">
+      <label htmlFor="project-title" className="block text-sm font-medium">
         Project title
       </label>
       <Input
@@ -316,12 +283,19 @@ export function CreateProjectForm({
         type="text"
         value={title}
         onChange={(event) => onTitleChange(event.target.value)}
-        placeholder="New project title"
+        placeholder="e.g. Lentivector stability study"
         autoFocus
         aria-invalid={validationError ? true : undefined}
-        aria-describedby={validationError ? 'project-title-error' : undefined}
+        aria-describedby={
+          validationError
+            ? 'project-title-hint project-title-error'
+            : 'project-title-hint'
+        }
         disabled={isPending}
       />
+      <p id="project-title-hint" className="text-sm text-muted-foreground">
+        Choose a name your team will recognise.
+      </p>
       {validationError ? (
         <p
           id="project-title-error"
@@ -341,285 +315,5 @@ export function CreateProjectForm({
         </Button>
       </DialogFooter>
     </form>
-  )
-}
-
-interface ProjectListProject {
-  id: string
-  key: string
-  title: string
-  status: string
-  createdAt: string
-  updatedAt?: string | null
-}
-
-const columnHelper = createColumnHelper<ProjectListProject>()
-
-export function ProjectList({
-  projects,
-  isLoading,
-  error,
-  onRetry,
-  recordCounts,
-  countsLoading = false,
-}: {
-  projects: ProjectListProject[]
-  isLoading: boolean
-  error: unknown
-  onRetry: () => void
-  /** Map of project id → record count, from the best-effort counts query. */
-  recordCounts?: Record<string, number>
-  /** Whether counts are still loading for the currently rendered rows. */
-  countsLoading?: boolean
-}) {
-  const [filter, setFilter] = useState('')
-
-  const filtered = useMemo(() => {
-    const q = filter.trim().toLowerCase()
-    if (!q) return projects
-    return projects.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) || p.key.toLowerCase().includes(q),
-    )
-  }, [projects, filter])
-
-  const columns = useMemo(() => {
-    return [
-      columnHelper.display({
-        id: 'title',
-        header: 'Project',
-        cell: ({ row }) => {
-          const p = row.original
-          return (
-            <Link
-              to="/projects/$projectId"
-              params={{ projectId: p.id }}
-              className="flex min-w-0 flex-col gap-0.5 no-underline"
-            >
-              <span className="truncate text-sm font-medium text-foreground group-hover:text-primary">
-                {p.title}
-              </span>
-              <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
-                {p.key}
-              </span>
-            </Link>
-          )
-        },
-        meta: { className: 'min-w-[16rem]' },
-      }),
-      columnHelper.accessor('status', {
-        header: 'Status',
-        cell: ({ getValue }) => (
-          <StatusBadge domain="project" status={getValue()} />
-        ),
-        meta: { className: 'w-[8rem]' },
-      }),
-      columnHelper.display({
-        id: 'records',
-        header: 'Records',
-        cell: ({ row }) => {
-          const total = recordCounts?.[row.original.id]
-          if (total === undefined) {
-            return countsLoading ? (
-              <Skeleton className="h-4 w-8" />
-            ) : (
-              <span className="text-sm tabular-nums text-muted-foreground">
-                —
-              </span>
-            )
-          }
-          return (
-            <span className="text-sm tabular-nums text-foreground">
-              {total}
-            </span>
-          )
-        },
-        meta: { className: 'w-[5.5rem] text-right' },
-      }),
-      columnHelper.accessor('createdAt', {
-        header: 'Created',
-        cell: ({ row }) => (
-          <time
-            dateTime={row.original.createdAt}
-            title={row.original.createdAt}
-            className="whitespace-nowrap text-sm tabular-nums text-muted-foreground"
-          >
-            {formatDate(row.original.createdAt)}
-          </time>
-        ),
-        meta: { className: 'w-[8rem]' },
-      }),
-      columnHelper.display({
-        id: 'activity',
-        header: 'Last activity',
-        cell: ({ row }) => (
-          <time
-            dateTime={row.original.updatedAt ?? row.original.createdAt}
-            title={row.original.updatedAt ?? row.original.createdAt}
-            className="whitespace-nowrap text-sm tabular-nums text-muted-foreground"
-          >
-            {formatRelativeTime(
-              row.original.updatedAt ?? row.original.createdAt,
-            )}
-          </time>
-        ),
-        meta: { className: 'w-[8rem]' },
-      }),
-    ]
-  }, [recordCounts, countsLoading])
-
-  const table = useReactTable({
-    data: filtered,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  })
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        <p className="sr-only" aria-busy="true">
-          Loading projects…
-        </p>
-        <ProjectsTableShell />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-2 rounded-lg border border-border bg-surface p-4">
-        <p role="alert" className="text-sm text-destructive">
-          Could not load projects.
-        </p>
-        <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-          Try again
-        </Button>
-      </div>
-    )
-  }
-
-  if (projects.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-border bg-muted/20 p-10 text-center">
-        <p className="text-sm font-medium text-foreground">
-          No projects yet. Create your first one above.
-        </p>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-          Projects group experiments, samples, reagents and protocols into one
-          addressable workspace.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder="Filter projects by title or key"
-            aria-label="Filter projects"
-            className="h-8 pl-8 text-sm"
-          />
-        </div>
-        <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
-          <SlidersHorizontal className="size-3.5" />
-          {filtered.length} shown
-        </span>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-          No projects match “{filter}”.
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                {table.getHeaderGroups().map((headerGroup) =>
-                  headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className={header.column.columnDef.meta?.className}
-                    >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                    </TableHead>
-                  )),
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="group cursor-pointer transition-colors hover:bg-muted/40"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cell.column.columnDef.meta?.className}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** Loading skeleton shaped like the projects table so the layout is stable. */
-function ProjectsTableShell() {
-  return (
-    <div className="overflow-hidden rounded-lg border border-border bg-surface">
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="min-w-[16rem]">Project</TableHead>
-            <TableHead className="w-[8rem]">Status</TableHead>
-            <TableHead className="w-[5.5rem] text-right">Records</TableHead>
-            <TableHead className="w-[8rem]">Created</TableHead>
-            <TableHead className="w-[8rem]">Last activity</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <TableRow key={i} className="hover:bg-transparent">
-              <TableCell>
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="mt-1 h-3 w-24" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-5 w-16 rounded-full" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="ml-auto h-4 w-8" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-4 w-20" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-4 w-20" />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
   )
 }

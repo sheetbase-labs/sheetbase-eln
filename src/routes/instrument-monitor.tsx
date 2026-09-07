@@ -315,7 +315,7 @@ function InstrumentMonitorRoute() {
         {/* Header */}
         <div className="px-4 pt-4">
           <PageHeader
-            eyebrow={context.workspace?.name ?? undefined}
+            compact
             title="Instrument Run Monitor"
             description="Real-time tracking of qPCR runs, plate reads, and telemetry."
             className="border-0 pb-4"

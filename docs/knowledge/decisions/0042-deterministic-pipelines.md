@@ -3,6 +3,7 @@
 - **Status:** accepted
 - **Date:** 2026-08-28
 - **Tickets:** AUTO-01, AUTO-02, AUTO-03
+- **Update:** SQL-only analysis and mandatory Dataset output are superseded by [ADR-0046](0046-python-and-eln-pipeline-actions.md).
 
 ## Context
 

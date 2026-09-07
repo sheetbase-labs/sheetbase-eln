@@ -3,6 +3,7 @@ import * as React from 'react'
 import { cn } from '#/lib/utils'
 
 interface PageHeaderProps {
+  compact?: boolean
   eyebrow?: string
   title: string
   description: string
@@ -11,6 +12,7 @@ interface PageHeaderProps {
 }
 
 function PageHeader({
+  compact = false,
   eyebrow,
   title,
   description,
@@ -22,6 +24,7 @@ function PageHeader({
       data-slot="page-header"
       className={cn(
         'flex flex-col gap-4 border-b pb-6 md:flex-row md:items-end md:justify-between',
+        compact && 'gap-2 pb-3 md:items-center',
         className,
       )}
     >
@@ -31,10 +34,20 @@ function PageHeader({
             {eyebrow}
           </p>
         )}
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
+        <h1
+          className={cn(
+            'font-display font-semibold tracking-tight',
+            compact ? 'text-base' : 'text-2xl',
+          )}
+        >
           {title}
         </h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        <p
+          className={cn(
+            'text-muted-foreground',
+            compact ? 'mt-0.5 text-xs leading-5' : 'mt-2 text-sm leading-6',
+          )}
+        >
           {description}
         </p>
       </div>

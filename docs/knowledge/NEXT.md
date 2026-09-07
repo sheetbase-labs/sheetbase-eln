@@ -9,6 +9,14 @@ last_reviewed: 2026-09-07
 This is the single current hand-off for Sheetbase development across roadmaps.
 Start here when deciding what work is active or next.
 
+## Current branch work
+
+`GWP/design-overhaul` contains the requested interface improvements and the
+Python/ELN Pipeline extension described in [ADR-0046](decisions/0046-python-and-eln-pipeline-actions.md).
+This is local branch work, not a merged or production deployment claim. The
+local Python runner is configured; deployment requires reviewed immutable
+runner/runtime images and private runner configuration.
+
 ## Reconciled baseline
 
 Reconciled against `main` at `832d9d6f3baaf0e42853d8fa71224f157b541c46`

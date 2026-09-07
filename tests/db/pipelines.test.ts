@@ -14,6 +14,8 @@
  *  - schedule/event triggers fire runs from the platform sweep;
  *  - permissions fail closed for viewer/member authoring.
  */
+import { createHash } from 'node:crypto'
+import { handlePipelineWebhook } from '#/lib/pipeline-webhook.server'
 import type { Client } from 'pg'
 import { Client as PgClient } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -349,7 +351,7 @@ describe('Pipeline Definition lifecycle', () => {
         p_configuration: {
           configVersion: 1,
           inputs: [{ name: 'measurements', required: true }],
-          transform: { language: 'python', statement: 'x' },
+          transform: { language: 'javascript', statement: 'x' },
           output: {
             mode: 'create',
             schemaVersionId,
@@ -744,7 +746,7 @@ describe('Pipeline execution (AUTO-02)', () => {
     const report = await runPipelineExecution(OWNER, run.id, deps)
     await close()
     expect(report.ok).toBe(true)
-    expect(report.run).toBeNull()
+    expect(report.run).toMatchObject({ id: run.id, status: 'cancelled' })
     const { rows } = await migrator.query(
       `select status from api.pipeline_runs where id = $1`,
       [run.id],
@@ -1139,9 +1141,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
 
   it('create path still rejects invalid event specs', async () => {
     const owner = await actor(OWNER, WS)
-    const create = (
-      spec: Record<string, unknown>,
-    ): Promise<{ id: string }> =>
+    const create = (spec: Record<string, unknown>): Promise<{ id: string }> =>
       rpc(owner, 'create_pipeline_schedule', {
         p_workspace_id: WS,
         p_definition_id: pipelineDefinitionId,
@@ -1152,9 +1152,9 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     await expect(
       create({ eventType: 'dataset.versioned', datasetId: 'not-a-uuid' }),
     ).rejects.toMatchObject({ code: 'SB034' })
-    await expect(
-      create({ eventType: 'nope.notreal' }),
-    ).rejects.toMatchObject({ code: 'SB034' })
+    await expect(create({ eventType: 'nope.notreal' })).rejects.toMatchObject({
+      code: 'SB034',
+    })
   })
 
   it('records run outputs and stage logs for provenance', async () => {
@@ -1630,5 +1630,315 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     )
     expect(fresh).toHaveLength(1)
     expect(fresh[0].definition_version_id).toBe(v2.id)
+  })
+})
+
+describe('Pipeline workflow extensions', () => {
+  async function workflow(config: Record<string, unknown>) {
+    const owner = await actor(OWNER, WS)
+    const definition = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition',
+      {
+        p_workspace_id: WS,
+        p_key: `workflow_${crypto.randomUUID().replaceAll('-', '')}`,
+        p_name: 'Workflow proof',
+      },
+    )
+    const version = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: definition.id,
+        p_configuration: config,
+      },
+    )
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: version.id,
+    })
+    return rpc<{ id: string }>(owner, 'start_pipeline_run', {
+      p_workspace_id: WS,
+      p_definition_version_id: version.id,
+      p_trigger_kind: 'manual',
+      p_parameters: {},
+      p_input_versions: {},
+    })
+  }
+
+  it('chains Python and SQL with no input datasets and records step provenance', async () => {
+    const runtime = 'sheetbase/python@sha256:' + 'a'.repeat(64)
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      pythonRuntime: runtime,
+      transform: {
+        language: 'python',
+        statement: 'def transform(inputs, parameters): return [{"value": 3}]',
+      },
+      steps: [
+        {
+          name: 'double_value',
+          language: 'sql',
+          statement: 'SELECT value * 2 AS scaled FROM previous',
+        },
+      ],
+      output: { mode: 'none' },
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    deps.executePython = async (input) => {
+      expect(input.inputs).toEqual({})
+      expect(input.runtime).toBe(runtime)
+      return { rows: [{ value: 3 }], logs: ['analysis complete'], runtime }
+    }
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    await close()
+    expect(report).toMatchObject({
+      ok: true,
+      run: { status: 'succeeded', result: { rowCount: 1 } },
+    })
+    const logs = await migrator.query(
+      "SELECT detail FROM api.pipeline_run_logs WHERE run_id=$1 AND stage='step' ORDER BY sequence",
+      [run.id],
+    )
+    expect(logs.rows.map((row) => row.detail.language)).toEqual([
+      'python',
+      'sql',
+    ])
+    const outputs = await migrator.query(
+      'SELECT count(*)::int AS count FROM api.pipeline_run_outputs WHERE run_id=$1',
+      [run.id],
+    )
+    expect(outputs.rows[0].count).toBe(0)
+  })
+
+  it('rolls back a new dataset if a later webhook target is unavailable', async () => {
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      transform: {
+        language: 'sql',
+        statement: "SELECT 'x'::text AS batch, 2 AS value, 4 AS scaled",
+      },
+      output: {
+        mode: 'create',
+        schemaVersionId,
+        datasetName: 'Must roll back',
+        datasetLabel: 'result',
+      },
+      notifications: [
+        { subscriptionId: '00000000-0000-4000-8000-000000000099' },
+      ],
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    await close()
+    expect(report.ok).toBe(false)
+    const datasets = await migrator.query(
+      "SELECT count(*)::int AS count FROM api.datasets WHERE workspace_id=$1 AND name='Must roll back'",
+      [WS],
+    )
+    expect(datasets.rows[0].count).toBe(0)
+    const status = await migrator.query(
+      'SELECT status FROM api.pipeline_runs WHERE id=$1',
+      [run.id],
+    )
+    expect(status.rows[0].status).toBe('failed')
+  })
+
+  it('creates a project and experiment through named ELN actions without any dataset', async () => {
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      transform: { language: 'none', statement: '' },
+      output: { mode: 'none' },
+      actions: [
+        {
+          name: 'project',
+          operation: 'create_project',
+          arguments: { p_title: 'Action-created project' },
+        },
+        {
+          name: 'experiment',
+          operation: 'create_model_record',
+          arguments: {
+            p_project_id: { $ref: 'actions.project.id' },
+            p_kind: 'experiment',
+            p_title: 'Action-created experiment',
+          },
+        },
+      ],
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    await close()
+    expect(report.ok).toBe(true)
+    const actions = report.run?.result.actions as Record<
+      string,
+      { id: string; created_by_user_id: string }
+    >
+    expect(actions.experiment.created_by_user_id).toBe(OWNER)
+    const created = await migrator.query(
+      'SELECT project_id, workspace_id FROM api.records WHERE id=$1',
+      [actions.experiment.id],
+    )
+    expect(created.rows[0]).toEqual({
+      project_id: actions.project.id,
+      workspace_id: WS,
+    })
+  })
+
+  it("does not let a viewer fail another user's running pipeline", async () => {
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      transform: { language: 'none', statement: '' },
+      output: { mode: 'none' },
+    })
+    const { deps, close } = await makeExecDeps(VIEWER)
+    const report = await runPipelineExecution(VIEWER, run.id, deps)
+    await close()
+    expect(report.errorCode).toBe('workspace_membership_required')
+    const status = await migrator.query(
+      'SELECT status FROM api.pipeline_runs WHERE id=$1',
+      [run.id],
+    )
+    expect(status.rows[0].status).toBe('running')
+  })
+
+  it('cancels while Python is working and commits no output', async () => {
+    const runtime = 'sheetbase/python@sha256:' + 'a'.repeat(64)
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      pythonRuntime: runtime,
+      transform: {
+        language: 'python',
+        statement: 'def transform(inputs, parameters): return []',
+      },
+      output: { mode: 'none' },
+    })
+    let release!: () => void
+    let entered!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const ready = new Promise<void>((resolve) => {
+      entered = resolve
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    deps.executePython = async () => {
+      entered()
+      await gate
+      return { rows: [], logs: [], runtime }
+    }
+    const execution = runPipelineExecution(OWNER, run.id, deps)
+    await ready
+    const owner = await actor(OWNER, WS)
+    try {
+      await owner.query("SET statement_timeout = '1500ms'")
+      const cancelled = await rpc<{ status: string }>(
+        owner,
+        'cancel_pipeline_run',
+        { p_workspace_id: WS, p_run_id: run.id },
+      )
+      expect(cancelled.status).toBe('cancelled')
+    } finally {
+      release()
+    }
+    const report = await execution
+    await close()
+    expect(report.errorCode).toBe('run_cancelled')
+    const status = await migrator.query(
+      'SELECT status FROM api.pipeline_runs WHERE id=$1',
+      [run.id],
+    )
+    expect(status.rows[0].status).toBe('cancelled')
+  })
+  it('executes and replays an authenticated incoming webhook against the real database', async () => {
+    const token = 'a'.repeat(43)
+    const admin = new PgClient({ connectionString: superuserTestUrl() })
+    await admin.connect()
+    await admin.query(
+      'INSERT INTO internal.pipeline_webhook_triggers(definition_id,workspace_id,created_by_user_id,secret_hash) VALUES($1,$2,$3,$4)',
+      [
+        pipelineDefinitionId,
+        WS,
+        OWNER,
+        createHash('sha256').update(token).digest('hex'),
+      ],
+    )
+    await admin.end()
+    const webhookDeps = {
+      getSession: async () => null,
+      connect: async () => {
+        const conn = new PgClient({ connectionString: superuserTestUrl() })
+        await conn.connect()
+        clients.push(conn)
+        return execConnection(conn)()
+      },
+      execute: async (user: string, id: string) => {
+        const { deps, close } = await makeExecDeps(user)
+        try {
+          return await runPipelineExecution(user, id, deps)
+        } finally {
+          await close()
+        }
+      },
+    }
+    const request = () =>
+      new Request(
+        `http://localhost/api/pipelines/webhook/${pipelineDefinitionId}`,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${token}`,
+            'idempotency-key': 'webhook-db-proof',
+          },
+          body: JSON.stringify({
+            parameters: { factor: 3 },
+            inputVersions: { measurements: inputDatasetVersionId },
+          }),
+        },
+      )
+    const first = await handlePipelineWebhook(
+      request(),
+      pipelineDefinitionId,
+      webhookDeps,
+    )
+    expect(first.status).toBe(200)
+    const result = await first.json()
+    expect(result.status).toBe('succeeded')
+    const repeated = await handlePipelineWebhook(
+      request(),
+      pipelineDefinitionId,
+      webhookDeps,
+    )
+    expect(await repeated.json()).toEqual(result)
+  })
+
+  it('separates deliberate manual invocations while rejecting changed inputs for the same invocation', async () => {
+    const owner = await actor(OWNER, WS)
+    const invoke = (occurrence: string, factor = 2) =>
+      rpc<{ id: string }>(owner, 'start_pipeline_run', {
+        p_workspace_id: WS,
+        p_definition_version_id: pipelineVersionId,
+        p_trigger_kind: 'manual',
+        p_parameters: { factor },
+        p_input_versions: { measurements: inputDatasetVersionId },
+        p_retry_of_run_id: null,
+        p_trigger_occurrence_id: occurrence,
+      })
+    const key = `manual:${crypto.randomUUID()}`
+    const one = await invoke(key)
+    const two = await invoke(`manual:${crypto.randomUUID()}`)
+    expect(one.id).not.toBe(two.id)
+    await expect(invoke(key, 4)).rejects.toMatchObject({ code: 'SB034' })
   })
 })

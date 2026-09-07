@@ -46,11 +46,11 @@ export function InspectorSection({
   return (
     <section
       className={cn(
-        'border-t border-border pt-2 first:border-t-0 first:pt-0',
+        'border-t border-border pt-4 first:border-t-0 first:pt-0',
         className,
       )}
     >
-      <div className="mb-1.5 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <h3 className="text-xs font-semibold text-foreground">{title}</h3>
         {action ? <div>{action}</div> : null}
       </div>

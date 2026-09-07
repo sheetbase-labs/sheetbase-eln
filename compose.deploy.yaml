@@ -79,6 +79,8 @@ services:
       # then fails closed (404) in this deployed environment. Supply a token
       # from the secret manager to enable scraping over the private network.
       SHEETBASE_METRICS_TOKEN: ${SHEETBASE_METRICS_TOKEN:-}
+      PIPELINE_PYTHON_RUNNER_URL: ${PIPELINE_PYTHON_RUNNER_URL:-}
+      PIPELINE_PYTHON_RUNNER_TOKEN: ${PIPELINE_PYTHON_RUNNER_TOKEN:-}
     volumes:
       - object-storage:/app/.storage/objects
     # The public service is reached only through cloudflared on this host.

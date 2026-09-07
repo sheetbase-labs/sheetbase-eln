@@ -56,7 +56,7 @@ export function ProposalWorkbench({
 
   if (!selected) {
     return (
-      <Empty className="border-border m-4 border">
+      <Empty className="mx-4 my-8">
         <EmptyIcon>
           <Bot className="size-8" />
         </EmptyIcon>
@@ -70,8 +70,8 @@ export function ProposalWorkbench({
   }
 
   return (
-    <div className="border-border grid min-h-0 flex-1 border-t lg:grid-cols-[320px_minmax(0,1fr)]">
-      <ScrollArea className="bg-sidebar border-border min-h-[260px] border-b lg:border-r lg:border-b-0">
+    <div className="border-border grid min-h-0 flex-1 overflow-auto border-t lg:grid-cols-[280px_minmax(0,1fr)]">
+      <ScrollArea className="border-border max-h-64 border-b lg:max-h-none lg:border-r lg:border-b-0">
         <div className="p-2">
           {proposals.map((proposal) => (
             <button
@@ -94,7 +94,7 @@ export function ProposalWorkbench({
               <p className="text-muted-foreground mt-1 text-xs">
                 {agentOperationLabel(proposal.operation_kind)}
               </p>
-              <p className="text-muted-foreground mt-1 font-mono text-[11px]">
+              <p className="text-muted-foreground mt-1 break-all font-mono text-xs">
                 {proposal.created_at.slice(0, 16).replace('T', ' ')} · r
                 {proposalRevision(proposal)}
               </p>
@@ -103,7 +103,7 @@ export function ProposalWorkbench({
         </div>
       </ScrollArea>
 
-      <ScrollArea className="min-h-0">
+      <div className="min-h-0 min-w-0 overflow-auto">
         <article className="mx-auto max-w-5xl p-4 lg:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -120,7 +120,9 @@ export function ProposalWorkbench({
                   {selected.impact.mutationClass}
                 </Badge>
               </div>
-              <h2 className="text-lg font-semibold">{selected.title}</h2>
+              <h2 className="break-words text-base font-semibold">
+                {selected.title}
+              </h2>
               <p className="text-muted-foreground mt-1 text-sm">
                 {selected.summary}
               </p>
@@ -151,7 +153,7 @@ export function ProposalWorkbench({
 
           <Separator className="my-5" />
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="space-y-5">
+            <div className="min-w-0 space-y-5">
               <section aria-labelledby="proposal-impact">
                 <h3 id="proposal-impact" className="text-sm font-semibold">
                   Policy decision and impact
@@ -225,7 +227,7 @@ export function ProposalWorkbench({
               </section>
             </div>
 
-            <aside className="space-y-5">
+            <aside className="min-w-0 space-y-5">
               <section aria-labelledby="proposal-provenance">
                 <h3 id="proposal-provenance" className="text-sm font-semibold">
                   Agent provenance
@@ -282,7 +284,7 @@ export function ProposalWorkbench({
                         {marking.qualification}
                       </p>
                       {marking.outputReferences.length > 0 && (
-                        <ul className="text-muted-foreground space-y-1 font-mono text-[11px]">
+                        <ul className="text-muted-foreground space-y-1 break-all font-mono text-xs">
                           {marking.outputReferences.map((reference) => (
                             <li key={`${reference.kind}:${reference.id}`}>
                               {reference.kind}: {reference.id}
@@ -319,7 +321,7 @@ export function ProposalWorkbench({
             </aside>
           </div>
         </article>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

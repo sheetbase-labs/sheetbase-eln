@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { BoxGrid } from './box-grid'
@@ -92,11 +92,24 @@ describe('storage box summary', () => {
     render(<StorageMetrics box={box} positions={positions} />)
 
     const summary = screen.getByLabelText('Box capacity summary')
-    expect(summary.textContent).toContain('Total capacity12')
-    expect(summary.textContent).toContain('Occupied2')
-    expect(summary.textContent).toContain('Available8')
-    expect(summary.textContent).toContain('Quarantined1')
-    expect(summary.textContent).toContain('Missing1')
+    expect(
+      within(summary).getByText('Total capacity').previousElementSibling
+        ?.textContent,
+    ).toBe('12')
+    expect(
+      within(summary).getByText('Occupied').previousElementSibling?.textContent,
+    ).toBe('2')
+    expect(
+      within(summary).getByText('Available').previousElementSibling
+        ?.textContent,
+    ).toBe('8')
+    expect(
+      within(summary).getByText('Quarantined').previousElementSibling
+        ?.textContent,
+    ).toBe('1')
+    expect(
+      within(summary).getByText('Missing').previousElementSibling?.textContent,
+    ).toBe('1')
     expect(summary.getAttribute('aria-description')).toMatch(
       /mutually exclusive and reconcile to total capacity/i,
     )
@@ -110,15 +123,28 @@ describe('storage box summary', () => {
       <StorageMetrics box={box} positions={incompletePositions} />,
     )
 
-    const summary = container.querySelector(
+    const summary = container.querySelector<HTMLElement>(
       '[aria-label="Box capacity summary"]',
     )
     if (!summary) throw new Error('Expected box capacity summary')
-    expect(summary.textContent).toContain('Total capacity12')
-    expect(summary.textContent).toContain('Occupied2')
-    expect(summary.textContent).toContain('Available8')
-    expect(summary.textContent).toContain('Quarantined1')
-    expect(summary.textContent).toContain('Missing1')
+    expect(
+      within(summary).getByText('Total capacity').previousElementSibling
+        ?.textContent,
+    ).toBe('12')
+    expect(
+      within(summary).getByText('Occupied').previousElementSibling?.textContent,
+    ).toBe('2')
+    expect(
+      within(summary).getByText('Available').previousElementSibling
+        ?.textContent,
+    ).toBe('8')
+    expect(
+      within(summary).getByText('Quarantined').previousElementSibling
+        ?.textContent,
+    ).toBe('1')
+    expect(
+      within(summary).getByText('Missing').previousElementSibling?.textContent,
+    ).toBe('1')
     expect(summary.querySelector('.h-0\\.5')).toBeNull()
   })
 })

@@ -26,6 +26,9 @@
  * attempt to the failed run.
  */
 import { Client } from 'pg'
+import { executePythonTransform } from './pipeline-python.server'
+import { queuePipelineNotifications } from './pipeline-notifications.server'
+import { executePipelineActions } from './pipeline-actions.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
@@ -107,6 +110,7 @@ export interface ExecConnection {
 export interface PipelineExecuteDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
   connect: () => Promise<ExecConnection>
+  executePython?: typeof executePythonTransform
 }
 
 interface RunRow {
@@ -148,6 +152,21 @@ export async function runPipelineExecution(
   const conn = await deps.connect()
   await conn.begin()
   const startedAt = Date.now()
+  let workStarted = false
+  let enforceDeadline = false
+  const query = conn.query.bind(conn)
+  conn.query = async <T extends QueryResultRow>(
+    statement: string,
+    values?: unknown[],
+  ) => {
+    if (enforceDeadline && Date.now() - startedAt > 600_000) {
+      throw new PipelineStepError(
+        'transform_timed_out',
+        'The pipeline exceeded its ten-minute execution budget.',
+      )
+    }
+    return query<T>(statement, values)
+  }
   metrics.pipelineActiveRuns.inc()
   const observeStage = (stage: PipelineStage, ms: number) => {
     metrics.pipelineStageDuration.observe({ stage }, ms / 1000)
@@ -162,16 +181,35 @@ export async function runPipelineExecution(
         errorMessage: 'Pipeline run not found.',
       }
     }
+    await assertMember(conn, run.workspace_id, actor)
     if (run.status !== 'running') {
       // Idempotent replay of an already-finished run: nothing to execute.
+      const finished = await conn.query<PipelineRunWire>(
+        'SELECT * FROM api.pipeline_runs WHERE id = $1',
+        [run.id],
+      )
       await conn.rollback()
-      return { ok: true, run: null }
+      return { ok: true, run: finished.rows[0] ?? null }
     }
-    await assertMember(conn, run.workspace_id, actor)
 
     // Stamp the run actor's identity for every governed RPC in this
     // transaction (SECURITY DEFINER functions read request.jwt.claims).
     await setRunActorClaims(conn, run)
+    const { rows: executionLock } = await conn.query<{ acquired: boolean }>(
+      'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+      [runId],
+    )
+    if (executionLock[0]?.acquired === false) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'run_not_running',
+        errorMessage: 'This run is already executing.',
+      }
+    }
+    await conn.query('SAVEPOINT sb_pipeline_work')
+    workStarted = true
+    enforceDeadline = true
 
     const config = parseConfig(run.configuration)
     const requestErrors = validateRunRequest(config, run)
@@ -205,15 +243,15 @@ export async function runPipelineExecution(
 
     // Run the transform as the low-privilege role against the temp schema.
     const transformStarted = Date.now()
-    const transform = await executeTransform(conn, run, config)
+    const transform = await executeSteps(
+      conn,
+      run,
+      config,
+      deps.executePython ?? executePythonTransform,
+    )
     const transformMs = Date.now() - transformStarted
     if (transform.kind === 'cancelled') {
-      await failRun(
-        conn,
-        run,
-        'run_cancelled',
-        'Run was cancelled before execution.',
-      )
+      await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
       await conn.commit()
       metrics.pipelineRuns.inc({
         trigger_kind: run.trigger_kind,
@@ -227,6 +265,7 @@ export async function runPipelineExecution(
     }
     if (transform.kind === 'error') {
       observeStage('transform', transformMs)
+      await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
       await failRun(conn, run, transform.code, transform.message)
       await conn.commit()
       metrics.pipelineRuns.inc({
@@ -247,10 +286,23 @@ export async function runPipelineExecution(
 
     // Write the output through canonical Dataset operations.
     const outputStarted = Date.now()
-    const output = await writeOutput(conn, run, config, transform.rows)
+    if (!(await isRunRunning(conn, run.id)))
+      throw new PipelineStepError('run_cancelled', 'Run was cancelled.')
+    const output =
+      config.output.mode === 'none'
+        ? {
+            ok: true as const,
+            datasetId: null,
+            datasetVersionId: null,
+            label: null,
+            commitMs: 0,
+            snapshotMs: 0,
+          }
+        : await writeOutput(conn, run, config, transform.rows)
     const outputMs = Date.now() - outputStarted
     observeStage('output_commit', outputMs)
     if (!output.ok) {
+      await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
       await failRun(conn, run, output.code, output.message)
       await conn.commit()
       metrics.pipelineRuns.inc({
@@ -259,14 +311,45 @@ export async function runPipelineExecution(
       })
       return { ok: false, errorCode: output.code, errorMessage: output.message }
     }
-    await log(conn, run, 'info', 'output', 'Output Dataset Version recorded.', {
-      datasetId: output.datasetId,
-      datasetVersionId: output.datasetVersionId,
-      rows: transform.rows.length,
-      durationMs: outputMs,
-    })
+    await log(
+      conn,
+      run,
+      'info',
+      'output',
+      config.output.mode === 'none'
+        ? 'Analysis completed without a Dataset output.'
+        : 'Output Dataset Version recorded.',
+      {
+        datasetId: output.datasetId,
+        datasetVersionId: output.datasetVersionId,
+        rows: transform.rows.length,
+        durationMs: outputMs,
+      },
+    )
 
-    const finished = await completeRun(conn, run, {
+    await setRunActorClaims(conn, run)
+    const actionResults = await executePipelineActions(
+      conn,
+      { workspaceId: run.workspace_id, runId: run.id },
+      config.actions ?? [],
+      {
+        parameters: run.parameters,
+        previous: transform.rows,
+        output: {
+          datasetId: output.datasetId,
+          datasetVersionId: output.datasetVersionId,
+          label: output.label,
+        },
+      },
+    )
+    for (const action of config.actions ?? []) {
+      await log(conn, run, 'info', 'action', `${action.name} completed.`, {
+        name: action.name,
+        operation: action.operation,
+      })
+    }
+    const completion = {
+      actions: actionResults,
       rowCount: transform.rows.length,
       outputDatasetId: output.datasetId,
       outputDatasetVersionId: output.datasetVersionId,
@@ -286,7 +369,19 @@ export async function runPipelineExecution(
         ),
         total: Date.now() - startedAt,
       },
+    }
+    await setRunActorClaims(conn, run)
+    await queuePipelineNotifications(conn, run, config, completion, {
+      parameters: run.parameters,
+      previous: transform.rows,
+      actions: actionResults,
+      output: {
+        datasetId: output.datasetId,
+        datasetVersionId: output.datasetVersionId,
+        label: output.label,
+      },
     })
+    const finished = await completeRun(conn, run, completion)
     await conn.commit()
     observeStage('total', Date.now() - startedAt)
     metrics.pipelineRuns.inc({
@@ -295,11 +390,21 @@ export async function runPipelineExecution(
     })
     return { ok: true, run: finished }
   } catch (error) {
-    const code =
+    enforceDeadline = false
+    let code: PipelineErrorCode =
       error instanceof PipelineStepError ? error.code : 'pipeline_internal'
-    const message = error instanceof Error ? error.message : String(error)
+    let message = error instanceof Error ? error.message : String(error)
+    if (!workStarted) {
+      await conn.rollback()
+      return { ok: false, errorCode: code, errorMessage: message }
+    }
     try {
-      await failRunIfRunning(conn, runId, code, message)
+      await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+      const latest = await loadRun(conn, runId)
+      if (latest?.status === 'cancelled') {
+        code = 'run_cancelled'
+        message = 'Run was cancelled.'
+      } else await failRunIfRunning(conn, runId, code, message)
       await conn.commit()
     } catch {
       await conn.rollback()
@@ -657,6 +762,142 @@ type TransformOutcome =
   | { kind: 'rows'; rows: Array<Record<string, unknown>>; durationMs: number }
   | { kind: 'cancelled' }
   | { kind: 'error'; code: PipelineErrorCode; message: string }
+
+/** Run ordered analysis steps without exposing the orchestration connection to Python. */
+async function executeSteps(
+  conn: ExecConnection,
+  run: RunRow,
+  config: PipelineConfig,
+  python: typeof executePythonTransform,
+): Promise<TransformOutcome> {
+  const started = Date.now()
+  let previous: Array<Record<string, unknown>> | undefined
+  const steps = [
+    ...(config.transform.language === 'none'
+      ? []
+      : [{ name: 'analysis', ...config.transform }]),
+    ...(config.steps ?? []),
+  ]
+  for (const [index, step] of steps.entries()) {
+    if (!(await isRunRunning(conn, run.id))) return { kind: 'cancelled' }
+    let outcome: TransformOutcome
+    if (step.language === 'python') {
+      const inputs: Record<string, Array<Record<string, unknown>>> = {}
+      for (const input of config.inputs) {
+        const { rows } = await conn.query<{ row: Record<string, unknown> }>(
+          `SELECT row_to_json(t) AS row FROM pg_temp.${quoteIdentifier(input.name)} t ORDER BY "_sb_row_id"`,
+        )
+        inputs[input.name] = rows.map((entry) => entry.row)
+      }
+      if (previous) inputs.previous = previous
+      try {
+        const result = await python({
+          statement: step.statement,
+          inputs,
+          parameters: run.parameters,
+          runtime: config.pythonRuntime,
+        })
+        outcome = {
+          kind: 'rows',
+          rows: result.rows,
+          durationMs: Date.now() - started,
+        }
+        await log(
+          conn,
+          run,
+          'info',
+          'python',
+          `Python step ${index + 1} completed.`,
+          { runtime: result.runtime, logs: result.logs },
+        )
+      } catch (error) {
+        return {
+          kind: 'error',
+          code: 'transform_failed',
+          message:
+            error instanceof Error ? error.message : 'Python execution failed.',
+        }
+      }
+    } else {
+      if (previous) await materializePrevious(conn, previous)
+      outcome = await executeTransform(conn, run, {
+        ...config,
+        transform: step,
+      })
+    }
+    if (outcome.kind !== 'rows') return outcome
+    let cells = 0
+    for (const row of outcome.rows) cells += Object.keys(row).length
+    if (outcome.rows.length > INPUT_ROW_LIMIT || cells > RESULT_CELL_LIMIT) {
+      return {
+        kind: 'error',
+        code: 'row_limit_exceeded',
+        message: 'Step result exceeds the row or cell limit.',
+      }
+    }
+    previous = outcome.rows
+    await log(
+      conn,
+      run,
+      'info',
+      'step',
+      `${index + 1}. ${step.name} completed.`,
+      {
+        step: index + 1,
+        name: step.name,
+        language: step.language,
+        rowCount: previous.length,
+      },
+    )
+  }
+  return {
+    kind: 'rows',
+    rows: previous ?? [],
+    durationMs: Date.now() - started,
+  }
+}
+
+function quoteIdentifier(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`
+}
+
+/** Infer a bounded primitive table for a SQL step reading the preceding result. */
+async function materializePrevious(
+  conn: ExecConnection,
+  rows: Array<Record<string, unknown>>,
+): Promise<void> {
+  const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))]
+  if (
+    columns.length > INPUT_FIELD_LIMIT ||
+    columns.some((name) => !name || Buffer.byteLength(name) > 63)
+  ) {
+    throw new PipelineStepError(
+      'input_too_large',
+      'Previous step has too many columns or an invalid column name.',
+    )
+  }
+  const fields = columns.map((name) => {
+    const values = rows
+      .map((row) => row[name])
+      .filter((value) => value !== null && value !== undefined)
+    const type = values.every((value) => typeof value === 'number')
+      ? 'numeric'
+      : values.every((value) => typeof value === 'boolean')
+        ? 'boolean'
+        : 'text'
+    return `${quoteIdentifier(name)} ${type}`
+  })
+  await conn.query('DROP TABLE IF EXISTS pg_temp.previous')
+  // A zero-column result still has a useful SQL relation (SELECT count(*)).
+  await conn.query(`CREATE TEMP TABLE previous (${fields.join(', ')})`)
+  if (columns.length && rows.length) {
+    await conn.query(
+      `INSERT INTO pg_temp.previous SELECT * FROM jsonb_populate_recordset(NULL::pg_temp.previous, $1::jsonb)`,
+      [JSON.stringify(rows)],
+    )
+  }
+  await conn.query('GRANT SELECT ON pg_temp.previous TO pipeline_worker')
+}
 
 async function executeTransform(
   conn: ExecConnection,

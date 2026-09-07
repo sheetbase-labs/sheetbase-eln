@@ -1,3 +1,5 @@
+import { validatePipelineActions } from './actions'
+
 /**
  * AUTO-01 — Pipeline configuration contract (format version 1).
  *
@@ -45,7 +47,7 @@ export interface PipelineInput {
 
 export interface PipelineOutput {
   /** create = new Dataset from schemaVersionId; append = extend datasetId. */
-  mode: 'create' | 'append'
+  mode: 'create' | 'append' | 'none'
   /** Required when mode = 'create'. */
   schemaVersionId?: string
   /** Required when mode = 'append'. */
@@ -61,13 +63,26 @@ export interface PipelineOutput {
 export interface PipelineConfig {
   configVersion: typeof PIPELINE_CONFIG_VERSION
   description?: string
+  pythonRuntime?: string
+  actions?: Array<{
+    name: string
+    operation: string
+    arguments: Record<string, unknown>
+  }>
   parameters: PipelineParameter[]
   inputs: PipelineInput[]
   transform: {
-    language: 'sql'
+    language: 'sql' | 'python' | 'none'
     statement: string
   }
   output: PipelineOutput
+  /** Ordered analysis steps; each receives the preceding result as previous. */
+  steps?: Array<{ name: string; language: 'sql' | 'python'; statement: string }>
+  /** Signed HTTP POST destinations, delivered durably after successful output. */
+  notifications?: Array<{
+    subscriptionId: string
+    payload?: Record<string, unknown>
+  }>
 }
 
 export type ConfigError = {
@@ -136,9 +151,6 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
   }
 
   // parameters
-  if (v.parameters === undefined || v.parameters === null) {
-    v.parameters = []
-  }
   if (!Array.isArray(v.parameters)) {
     push(errors, 'invalid_shape', 'parameters', 'parameters must be an array')
   } else {
@@ -158,7 +170,11 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         return
       }
       const name = raw.name
-      if (typeof name !== 'string' || !INPUT_NAME_RE.test(name)) {
+      if (
+        typeof name !== 'string' ||
+        !INPUT_NAME_RE.test(name) ||
+        name === 'previous'
+      ) {
         push(
           errors,
           'invalid_value',
@@ -201,7 +217,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         )
       }
       const required = raw.required === true
-      if (raw.default !== undefined && required) {
+      if (raw.default !== undefined && raw.default !== null && required) {
         push(
           errors,
           'invalid_value',
@@ -240,12 +256,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
   if (!Array.isArray(v.inputs)) {
     push(errors, 'invalid_shape', 'inputs', 'inputs must be an array')
   } else {
-    if (v.inputs.length === 0 || v.inputs.length > MAX_INPUTS) {
+    if (v.inputs.length > MAX_INPUTS) {
       push(
         errors,
         'invalid_shape',
         'inputs',
-        `inputs must contain between 1 and ${MAX_INPUTS} entries`,
+        `inputs must contain between 0 and ${MAX_INPUTS} entries`,
       )
     }
     const names = new Set<string>()
@@ -256,7 +272,11 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         return
       }
       const name = raw.name
-      if (typeof name !== 'string' || !INPUT_NAME_RE.test(name)) {
+      if (
+        typeof name !== 'string' ||
+        !INPUT_NAME_RE.test(name) ||
+        name === 'previous'
+      ) {
         push(
           errors,
           'invalid_value',
@@ -294,18 +314,23 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
   if (!isObject(v.transform)) {
     push(errors, 'invalid_shape', 'transform', 'transform must be an object')
   } else {
-    if (v.transform.language !== 'sql') {
+    if (
+      v.transform.language !== 'sql' &&
+      v.transform.language !== 'python' &&
+      v.transform.language !== 'none'
+    ) {
       push(
         errors,
         'unsupported_language',
         'transform.language',
-        'transform language must be sql',
+        'transform language must be SQL or Python',
       )
     }
     if (
-      typeof v.transform.statement !== 'string' ||
-      v.transform.statement.trim().length < 1 ||
-      v.transform.statement.length > MAX_STATEMENT_LENGTH
+      v.transform.language !== 'none' &&
+      (typeof v.transform.statement !== 'string' ||
+        v.transform.statement.trim().length < 1 ||
+        v.transform.statement.length > MAX_STATEMENT_LENGTH)
     ) {
       push(
         errors,
@@ -316,16 +341,134 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     }
   }
 
+  if (v.steps !== undefined) {
+    if (!Array.isArray(v.steps) || v.steps.length > 9) {
+      push(
+        errors,
+        'invalid_shape',
+        'steps',
+        'At most nine additional steps are allowed.',
+      )
+    } else {
+      const names = new Set<string>()
+      for (const [index, step] of v.steps.entries()) {
+        if (
+          !isObject(step) ||
+          typeof step.name !== 'string' ||
+          !INPUT_NAME_RE.test(step.name) ||
+          step.name === 'previous'
+        ) {
+          push(
+            errors,
+            'invalid_value',
+            `steps[${index}]`,
+            'Each step needs a lowercase identifier.',
+          )
+          continue
+        }
+        if (names.has(step.name))
+          push(
+            errors,
+            'duplicate_name',
+            `steps[${index}].name`,
+            'Step names must be unique.',
+          )
+        names.add(step.name)
+        if (step.language !== 'sql' && step.language !== 'python')
+          push(
+            errors,
+            'unsupported_language',
+            `steps[${index}].language`,
+            'Choose SQL or Python.',
+          )
+        if (
+          typeof step.statement !== 'string' ||
+          !step.statement.trim() ||
+          step.statement.length > MAX_STATEMENT_LENGTH
+        )
+          push(
+            errors,
+            'invalid_value',
+            `steps[${index}].statement`,
+            'Step code must contain 1–20000 characters.',
+          )
+      }
+    }
+  }
+  if (v.notifications !== undefined) {
+    if (!Array.isArray(v.notifications) || v.notifications.length > 10) {
+      push(
+        errors,
+        'invalid_shape',
+        'notifications',
+        'Choose at most ten webhook destinations.',
+      )
+    } else {
+      const ids = new Set<string>()
+      for (const item of v.notifications) {
+        if (!isObject(item) || !isUuid(item.subscriptionId))
+          push(
+            errors,
+            'invalid_value',
+            'notifications',
+            'Choose a webhook destination.',
+          )
+        else if (ids.has(item.subscriptionId))
+          push(
+            errors,
+            'duplicate_name',
+            'notifications',
+            'Webhook destinations must be unique.',
+          )
+        else {
+          ids.add(item.subscriptionId)
+          if (item.payload !== undefined && !isObject(item.payload))
+            push(
+              errors,
+              'invalid_shape',
+              'notifications',
+              'Webhook payload must be a JSON object.',
+            )
+        }
+      }
+    }
+  }
+
+  const usesPython =
+    (isObject(v.transform) && v.transform.language === 'python') ||
+    (Array.isArray(v.steps) &&
+      v.steps.some((step) => isObject(step) && step.language === 'python'))
+  if (
+    usesPython &&
+    (typeof v.pythonRuntime !== 'string' ||
+      !/^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/.test(v.pythonRuntime))
+  ) {
+    push(
+      errors,
+      'missing_required',
+      'pythonRuntime',
+      'Choose an available Python runtime before saving.',
+    )
+  }
+  if (v.actions !== undefined) {
+    for (const message of validatePipelineActions(v.actions))
+      push(errors, 'invalid_value', 'actions', message)
+  }
+
   // output
   if (!isObject(v.output)) {
     push(errors, 'invalid_shape', 'output', 'output must be an object')
   } else {
-    if (v.output.mode !== 'create' && v.output.mode !== 'append') {
+    if (
+      v.output.mode !== 'create' &&
+      v.output.mode !== 'append' &&
+      v.output.mode !== 'none'
+    ) {
       push(
         errors,
         'invalid_value',
         'output.mode',
-        'output mode must be create or append',
+        'output mode must be create, append or none',
       )
     }
     if (v.output.mode === 'create') {
@@ -361,9 +504,10 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       }
     }
     if (
-      typeof v.output.datasetLabel !== 'string' ||
-      v.output.datasetLabel.trim().length < 1 ||
-      v.output.datasetLabel.length > 200
+      v.output.mode !== 'none' &&
+      (typeof v.output.datasetLabel !== 'string' ||
+        v.output.datasetLabel.trim().length < 1 ||
+        v.output.datasetLabel.length > 200)
     ) {
       push(
         errors,

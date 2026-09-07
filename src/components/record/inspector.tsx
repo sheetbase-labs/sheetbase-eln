@@ -89,26 +89,24 @@ export function Inspector({
 
   return (
     <div
-      className={cn('flex h-full flex-col bg-background', className)}
+      className={cn('flex h-full min-w-0 flex-col bg-background', className)}
       aria-label="Inspector"
     >
       {/* Identity header — omitted when hideHeader is set (e.g. notebook
           inspector where the title is already in the sticky record header) */}
       {!hideHeader ? (
-        <div className="shrink-0 border-b border-border px-4 py-2.5">
+        <div className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              {recordType ? (
-                <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {recordType}
-                </p>
+              <h2 className="break-words text-base font-semibold leading-snug text-foreground">
+                {title}
+              </h2>
+              {recordType || status ? (
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+                  {recordType ? <span>{recordType}</span> : null}
+                  {status}
+                </div>
               ) : null}
-              <div className="flex min-w-0 items-center gap-2">
-                <h2 className="truncate text-sm font-semibold leading-tight text-foreground">
-                  {title}
-                </h2>
-                {status ? <div className="shrink-0">{status}</div> : null}
-              </div>
             </div>
             {onClose ? (
               <Button
@@ -150,7 +148,7 @@ export function Inspector({
           />
         ) : showTabs ? (
           <Tabs defaultValue={initial} className="flex flex-col gap-0">
-            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-background px-4">
+            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-background px-5">
               <TabsList className="flex h-auto w-full justify-start gap-3 rounded-none bg-transparent p-0">
                 {tabs.map((tab) => (
                   <TabsTrigger
@@ -183,7 +181,7 @@ export function Inspector({
               <TabsContent
                 key={tab.id}
                 value={tab.id}
-                className="mt-0 px-4 pb-6 pt-2"
+                className="mt-0 px-5 pb-6 pt-4"
               >
                 {tab.content}
               </TabsContent>

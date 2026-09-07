@@ -11,17 +11,17 @@ recorded closure from known limits and unverified acceptance.
 
 ## Programmes
 
-| Programme | Objective | Disposition |
-| --- | --- | --- |
-| PC | One coherent scientist-facing product | Active scope recorded closed |
-| API | Public API, credentials, SDKs, webhooks and developer experience | Active scope recorded closed |
-| DATA | Import, export, files, search and portability | Active scope recorded closed; limits remain |
-| GOV | Roles, audit, review/signatures and policy | GOV-01/03/04 recorded closed; GOV-02 deferred |
-| COLLAB | Presence, comments, notifications and review coordination | Recorded closed within supported anchors; Sheet-cell/range follow-up outstanding |
-| SCI | Charts, analysis and scientific exploration | Recorded closed within bounded scientific source/analysis contracts |
-| INT | Generic connectors, instruments and external data sources | Recorded closed for representative implemented adapters |
-| PLAT | Deployment, observability, security and administration | Recorded closed within documented operating limits |
-| AUTO | Deterministic Pipelines and bounded agent operations | Active scope recorded closed; no live-provider claim |
+| Programme | Objective                                                        | Disposition                                                                      |
+| --------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| PC        | One coherent scientist-facing product                            | Active scope recorded closed                                                     |
+| API       | Public API, credentials, SDKs, webhooks and developer experience | Active scope recorded closed                                                     |
+| DATA      | Import, export, files, search and portability                    | Active scope recorded closed; limits remain                                      |
+| GOV       | Roles, audit, review/signatures and policy                       | GOV-01/03/04 recorded closed; GOV-02 deferred                                    |
+| COLLAB    | Presence, comments, notifications and review coordination        | Recorded closed within supported anchors; Sheet-cell/range follow-up outstanding |
+| SCI       | Charts, analysis and scientific exploration                      | Recorded closed within bounded scientific source/analysis contracts              |
+| INT       | Generic connectors, instruments and external data sources        | Recorded closed for representative implemented adapters                          |
+| PLAT      | Deployment, observability, security and administration           | Recorded closed within documented operating limits                               |
+| AUTO      | Deterministic Pipelines and bounded agent operations             | Active scope recorded closed; no live-provider claim                             |
 
 ## Dependency shape
 

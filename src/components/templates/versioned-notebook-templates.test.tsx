@@ -594,9 +594,10 @@ describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => 
         screen.getAllByRole('button', { name: 'Create notebook' })[0],
       )
       // Generous timeout: under parallel CI workers the dialog's async version
-      // load can exceed the default 1s findBy budget (flake, see #165).
+      // load can burst well past the default 1s findBy budget (flake, #165),
+      // and even 5s has proven marginal on loaded machines.
       expect(
-        await screen.findByDisplayValue('5', undefined, { timeout: 5000 }),
+        await screen.findByDisplayValue('5', undefined, { timeout: 15000 }),
       ).toBeTruthy()
       expect(screen.getByPlaceholderText('Default: 5')).toBeTruthy()
     },

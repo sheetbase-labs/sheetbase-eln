@@ -54,26 +54,26 @@ assignment are satisfied.
 
 ## Capability streams
 
-| Programme | Stream | Tasks | Principal prerequisite |
-| --- | --- | --- | --- |
-| Product Depth | NAV | NAV-01..03 | Roadmap 2 active scope closed |
-| Product Depth | GRID | GRID-01..05 | Roadmap 2 active scope closed |
-| Product Depth | NOTE | NOTE-01..04 | Roadmap 2 active scope closed |
-| Product Depth | FIND | FIND-01..03 | NAV-01 recommended |
-| Scientific Depth | KNOW | KNOW-01..03 | Canonical identities; NAV-02 useful |
-| Scientific Depth | VIEW | VIEW-01..04 | SCI-04; GRID maturity useful |
-| Scientific Depth | MODEL | MODEL-01..04 | Roadmap 1 Model/Field contracts |
-| Scientific Depth | REUSE | REUSE-01..03 | NOTE/MODEL foundations |
-| Open Platform | SDK | SDK-01..03 | Roadmap 2 API-04/05 |
-| Open Platform | EVENT | EVENT-01..03 | Roadmap 2 API-06 |
-| Open Platform | EXT | EXT-01..03 | SDK/EVENT maturity |
-| Open Platform | ADMIN | ADMIN-01..03 | Roadmap 2 GOV/PLAT foundations |
-| Intelligent Workspace | AI | AI-01..03 | Canonical context/permissions; KNOW useful |
-| Intelligent Workspace | ASSIST | ASSIST-01..03 | AI-01..03; mature GRID/NOTE |
-| Intelligent Workspace | AUTO+ | AUTO-PLUS-01..03 | Roadmap 2 AUTO-04/05; EVENT/AI |
-| Institutionalise | ENT-ORG | ENT-ORG-01..03 | Concrete adoption need + accepted ADR |
-| Institutionalise | GXP | GXP-01..04 | Concrete regulated intended use |
-| Institutionalise | OPS | OPS-01..03 | Institutional scale/adoption evidence |
+| Programme             | Stream  | Tasks            | Principal prerequisite                     |
+| --------------------- | ------- | ---------------- | ------------------------------------------ |
+| Product Depth         | NAV     | NAV-01..03       | Roadmap 2 active scope closed              |
+| Product Depth         | GRID    | GRID-01..05      | Roadmap 2 active scope closed              |
+| Product Depth         | NOTE    | NOTE-01..04      | Roadmap 2 active scope closed              |
+| Product Depth         | FIND    | FIND-01..03      | NAV-01 recommended                         |
+| Scientific Depth      | KNOW    | KNOW-01..03      | Canonical identities; NAV-02 useful        |
+| Scientific Depth      | VIEW    | VIEW-01..04      | SCI-04; GRID maturity useful               |
+| Scientific Depth      | MODEL   | MODEL-01..04     | Roadmap 1 Model/Field contracts            |
+| Scientific Depth      | REUSE   | REUSE-01..03     | NOTE/MODEL foundations                     |
+| Open Platform         | SDK     | SDK-01..03       | Roadmap 2 API-04/05                        |
+| Open Platform         | EVENT   | EVENT-01..03     | Roadmap 2 API-06                           |
+| Open Platform         | EXT     | EXT-01..03       | SDK/EVENT maturity                         |
+| Open Platform         | ADMIN   | ADMIN-01..03     | Roadmap 2 GOV/PLAT foundations             |
+| Intelligent Workspace | AI      | AI-01..03        | Canonical context/permissions; KNOW useful |
+| Intelligent Workspace | ASSIST  | ASSIST-01..03    | AI-01..03; mature GRID/NOTE                |
+| Intelligent Workspace | AUTO+   | AUTO-PLUS-01..03 | Roadmap 2 AUTO-04/05; EVENT/AI             |
+| Institutionalise      | ENT-ORG | ENT-ORG-01..03   | Concrete adoption need + accepted ADR      |
+| Institutionalise      | GXP     | GXP-01..04       | Concrete regulated intended use            |
+| Institutionalise      | OPS     | OPS-01..03       | Institutional scale/adoption evidence      |
 
 ## Within-stream sequencing
 

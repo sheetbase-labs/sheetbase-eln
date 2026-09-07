@@ -294,6 +294,11 @@ export function VersionedNotebookTemplatePanel({
 
   useEffect(() => {
     if (!selectedVersion) return
+    // The instantiate dialog owns the parameter drafts while open: the
+    // shared versions query routinely resolves after "Create notebook" is
+    // clicked, and resetting on that late selectedVersion transition would
+    // wipe the REUSE-02 default pre-fill (flake #165).
+    if (createOpen) return
     setBuilderConfigurationText(
       JSON.stringify(selectedVersion.configuration, null, 2),
     )
@@ -301,7 +306,7 @@ export function VersionedNotebookTemplatePanel({
     setRetargetPlacementId('')
     setRetargetDefinitionId('')
     setRetargetDefinitionVersionId('')
-  }, [selectedVersion?.id])
+  }, [createOpen, selectedVersion?.id])
 
   const definitionCatalogue = useQuery({
     queryKey: ['sheet-definitions', 'catalogue'],

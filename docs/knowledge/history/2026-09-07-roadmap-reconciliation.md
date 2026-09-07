@@ -22,14 +22,14 @@ recovery drill, or an audit of production deployments/users. Do not interpret
 
 ## Status vocabulary
 
-| Term | Meaning |
-| --- | --- |
-| Recorded complete / active scope closed | The existing programme closure is retained. It is not independently re-certified by this reconciliation. |
-| Merged implementation | Relevant implementation is present on the pinned `main`; task-level acceptance may still have limits or open verification. |
-| Merged / limited | The implemented boundary is narrower than a broader product claim; the remaining capability is named explicitly. |
-| Proposed | A decision document exists but acceptance and/or concrete intended-use evidence is outstanding. |
-| Deferred | Work deliberately not implemented under the programme's stated adoption/decision gates. |
-| Open verification | An observed failing check or missing acceptance evidence prevents an unqualified completion claim. |
+| Term                                    | Meaning                                                                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Recorded complete / active scope closed | The existing programme closure is retained. It is not independently re-certified by this reconciliation.                   |
+| Merged implementation                   | Relevant implementation is present on the pinned `main`; task-level acceptance may still have limits or open verification. |
+| Merged / limited                        | The implemented boundary is narrower than a broader product claim; the remaining capability is named explicitly.           |
+| Proposed                                | A decision document exists but acceptance and/or concrete intended-use evidence is outstanding.                            |
+| Deferred                                | Work deliberately not implemented under the programme's stated adoption/decision gates.                                    |
+| Open verification                       | An observed failing check or missing acceptance evidence prevents an unqualified completion claim.                         |
 
 Original task goals/exits remain unchanged. No ADR is accepted, no deferred task
 is activated and no Roadmap 4 implementation is assigned by this change.
@@ -69,14 +69,14 @@ comment anchors, import/analysis ceilings, provider integration and recovery.
 The [task index](../roadmap-3/tasks/README.md) gives every numbered task a
 status, including the ten institutional tasks. Its counts are:
 
-| Programme | Task IDs | Merged implementation | Proposed | Deferred |
-| --- | --- | ---: | ---: | ---: |
-| Product Depth | NAV-01..03; GRID-01..05; NOTE-01..04; FIND-01..03 | 15 | 0 | 0 |
-| Scientific Depth | KNOW-01..03; VIEW-01..04; MODEL-01..04; REUSE-01..03 | 14 | 0 | 0 |
-| Open Platform | SDK-01..03; EVENT-01..03; EXT-01..03; ADMIN-01..03 | 12 | 0 | 0 |
-| Intelligent Workspace | AI-01..03; ASSIST-01..03; AUTO-PLUS-01..03 | 9 | 0 | 0 |
-| Institutionalise | ENT-ORG-01..03; GXP-01..04; OPS-01..03 | 0 | 2 | 8 |
-| Total | 60 numbered tasks | 50 | 2 | 8 |
+| Programme             | Task IDs                                             | Merged implementation | Proposed | Deferred |
+| --------------------- | ---------------------------------------------------- | --------------------: | -------: | -------: |
+| Product Depth         | NAV-01..03; GRID-01..05; NOTE-01..04; FIND-01..03    |                    15 |        0 |        0 |
+| Scientific Depth      | KNOW-01..03; VIEW-01..04; MODEL-01..04; REUSE-01..03 |                    14 |        0 |        0 |
+| Open Platform         | SDK-01..03; EVENT-01..03; EXT-01..03; ADMIN-01..03   |                    12 |        0 |        0 |
+| Intelligent Workspace | AI-01..03; ASSIST-01..03; AUTO-PLUS-01..03           |                     9 |        0 |        0 |
+| Institutionalise      | ENT-ORG-01..03; GXP-01..04; OPS-01..03               |                     0 |        2 |        8 |
+| Total                 | 60 numbered tasks                                    |                    50 |        2 |        8 |
 
 These are implementation dispositions, **not 50 independent acceptance
 sign-offs**. REUSE-02 has an observed failing check; AI/ASSIST remain

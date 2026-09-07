@@ -46,15 +46,15 @@ not the remaining institutional capabilities. See [Roadmap 3 task status](roadma
 
 ## Outstanding implementation and verification
 
-| Area | Actual boundary / outstanding work |
-| --- | --- |
-| CI / REUSE-02 | Baseline CI run `34094029808` failed: `versioned-notebook-templates.test.tsx` could not find the declared default value `5`. Diagnose and fix; do not assume flakiness. Static checks, database integration and production build passed in that run. |
-| Whole-workflow acceptance | The CI workflow leaves browser and live API suites manual. Their presence is not evidence of a passing integrated release gate. Revalidate selected end-to-end exits against real services. |
-| AI / ASSIST | Context, retrieval, policy and assistive interfaces are implemented; the gateway's only provider is a deterministic stub. Real model calls and real-provider quality/cost evaluation remain outstanding. |
-| Collaboration | Record, Notebook-block and Dataset anchors exist. Canonical Sheet-cell/range comment anchors are not implemented; do not equate Dataset-cell comments with Sheet-cell comments. |
+| Area                         | Actual boundary / outstanding work                                                                                                                                                                                                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CI / REUSE-02                | Baseline CI run `34094029808` failed: `versioned-notebook-templates.test.tsx` could not find the declared default value `5`. Diagnose and fix; do not assume flakiness. Static checks, database integration and production build passed in that run.                                                                     |
+| Whole-workflow acceptance    | The CI workflow leaves browser and live API suites manual. Their presence is not evidence of a passing integrated release gate. Revalidate selected end-to-end exits against real services.                                                                                                                              |
+| AI / ASSIST                  | Context, retrieval, policy and assistive interfaces are implemented; the gateway's only provider is a deterministic stub. Real model calls and real-provider quality/cost evaluation remain outstanding.                                                                                                                 |
+| Collaboration                | Record, Notebook-block and Dataset anchors exist. Canonical Sheet-cell/range comment anchors are not implemented; do not equate Dataset-cell comments with Sheet-cell comments.                                                                                                                                          |
 | Scientific analysis / intake | The import parser caps files at 10 MiB and tables at 1,000 rows; the scientific data layer caps analysis at 10,000 rows. The visualisation contract is single-Dataset and does not automatically include local Sheet columns. Broader workload/composed-source support is not delivered by declaring GRID/VIEW complete. |
-| SDK release | Manual release-candidate workflow dispatch is enabled again. Publishing remains a maintainer operation; no successful registry publication or live-service SDK acceptance was established by this reconciliation. |
-| Recovery | Backup/restore tooling exists. The documented baseline retains backups on the VPS and cites an empty-workspace drill. Off-host protection and populated scientific-workspace recovery proof remain outstanding. |
+| SDK release                  | Manual release-candidate workflow dispatch is enabled again. Publishing remains a maintainer operation; no successful registry publication or live-service SDK acceptance was established by this reconciliation.                                                                                                        |
+| Recovery                     | Backup/restore tooling exists. The documented baseline retains backups on the VPS and cites an empty-workspace drill. Off-host protection and populated scientific-workspace recovery proof remain outstanding.                                                                                                          |
 
 These are a mix of observed failing checks, intentional limits and missing
 capabilities. They are not all regressions, and this table is not an exhaustive
@@ -62,14 +62,14 @@ code audit. Source references and qualification are in the reconciliation record
 
 ## Deferred decisions and work
 
-| Task | Status and activation condition |
-| --- | --- |
-| GOV-02 | Deferred. Revisited through ENT-ORG; do not implement a second organisation model. |
-| ENT-ORG-01 | ADR-0044 is **proposed**, not accepted. The task's accepted-ADR exit is not met. |
-| ENT-ORG-02/03 | Deferred until an accepted organisation ADR and a concrete multi-workspace/team adoption need exist. |
-| GXP-01 | ADR-0045 is **proposed**. A concrete regulated intended use and accepted control decision remain outstanding. |
-| GXP-02..04 | Deferred until the intended-use/control gates are met and work is explicitly assigned. Existing review/signing controls do not establish regulated-use validation. |
-| OPS-01..03 | Deferred institutional work; requires an explicit deployment/adoption decision. Existing PLAT implementation is not proof that these later exits are met. |
+| Task          | Status and activation condition                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GOV-02        | Deferred. Revisited through ENT-ORG; do not implement a second organisation model.                                                                                 |
+| ENT-ORG-01    | ADR-0044 is **proposed**, not accepted. The task's accepted-ADR exit is not met.                                                                                   |
+| ENT-ORG-02/03 | Deferred until an accepted organisation ADR and a concrete multi-workspace/team adoption need exist.                                                               |
+| GXP-01        | ADR-0045 is **proposed**. A concrete regulated intended use and accepted control decision remain outstanding.                                                      |
+| GXP-02..04    | Deferred until the intended-use/control gates are met and work is explicitly assigned. Existing review/signing controls do not establish regulated-use validation. |
+| OPS-01..03    | Deferred institutional work; requires an explicit deployment/adoption decision. Existing PLAT implementation is not proof that these later exits are met.          |
 
 Do not silently accept ADRs, relax their exits, or relabel deferred work as
 complete. The previously recorded absence of production adoption is the rationale

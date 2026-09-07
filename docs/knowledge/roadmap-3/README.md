@@ -42,13 +42,13 @@ There are **18 capability streams and 60 discrete tasks**.
 
 ## Programme structure and disposition
 
-| Programme | Streams | Tasks | Disposition |
-| --- | --- | ---: | --- |
-| Product Depth | NAV, GRID, NOTE, FIND | 15 | Implementation merged |
-| Scientific Depth | KNOW, VIEW, MODEL, REUSE | 14 | Implementation merged; REUSE-02 verification failing |
-| Open Platform | SDK, EVENT, EXT, ADMIN | 12 | Implementation merged; deployment/release evidence is a separate claim |
-| Intelligent Workspace | AI, ASSIST, AUTO+ | 9 | Bounded implementation merged; real model-provider integration outstanding |
-| Institutionalise | ENT-ORG, GXP, OPS | 10 | 2 proposed decisions, 8 deferred tasks |
+| Programme             | Streams                  | Tasks | Disposition                                                                |
+| --------------------- | ------------------------ | ----: | -------------------------------------------------------------------------- |
+| Product Depth         | NAV, GRID, NOTE, FIND    |    15 | Implementation merged                                                      |
+| Scientific Depth      | KNOW, VIEW, MODEL, REUSE |    14 | Implementation merged; REUSE-02 verification failing                       |
+| Open Platform         | SDK, EVENT, EXT, ADMIN   |    12 | Implementation merged; deployment/release evidence is a separate claim     |
+| Intelligent Workspace | AI, ASSIST, AUTO+        |     9 | Bounded implementation merged; real model-provider integration outstanding |
+| Institutionalise      | ENT-ORG, GXP, OPS        |    10 | 2 proposed decisions, 8 deferred tasks                                     |
 
 ## Dependency shape
 

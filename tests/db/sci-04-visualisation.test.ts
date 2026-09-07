@@ -111,13 +111,21 @@ function signature(chart: {
   return [...chart.series]
     .map((item) => ({
       identifier: item.identifier,
+      // Freeze round-trips values through Postgres numeric/jsonb, which can
+      // shift re-materialised floats by a ULP or two depending on row order;
+      // round like the violin densities below so CI environments with a
+      // different row ordering still compare equal.
       ys: item.points
-        .map((point) => Number(point.y))
+        .map((point) => Number(Number(point.y).toFixed(8)))
         .sort((a, b) => a - b),
       errors: item.points
         .map((point) => [
-          point.yErrorLo ?? null,
-          point.yErrorHi ?? null,
+          point.yErrorLo == null
+            ? null
+            : Number(Number(point.yErrorLo).toFixed(8)),
+          point.yErrorHi == null
+            ? null
+            : Number(Number(point.yErrorHi).toFixed(8)),
         ])
         .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
       violin: item.violin
@@ -509,7 +517,13 @@ describe('SCI-04 visualisation freeze', () => {
       expect(rematerialised.state).toEqual(live.state)
       expect(signature(rematerialised)).toEqual(signature(live))
       expect(rematerialised.fit?.equation).toEqual(live.fit?.equation)
-      expect(rematerialised.fit?.r2).toEqual(live.fit?.r2)
+      // R² accumulates ULP-level drift through the freeze round-trip; compare
+      // to 8dp instead of exact float equality.
+      if (live.fit?.r2 == null || rematerialised.fit?.r2 == null) {
+        expect(rematerialised.fit?.r2 ?? null).toEqual(live.fit?.r2 ?? null)
+      } else {
+        expect(rematerialised.fit.r2).toBeCloseTo(live.fit.r2, 8)
+      }
     }
   })
 

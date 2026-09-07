@@ -17,17 +17,17 @@ closed” preserves the programme closure; it is not a fresh independent
 acceptance test of every epic. Dated task-local implementation notes retain
 historical evidence and must not be read as a current assignment.
 
-| Programme | Task file | Reconciled status |
-| --- | --- | --- |
-| Product Consolidation | [`PC.md`](PC.md) | PC-00..06 recorded closed; #55 is no longer an outstanding merge instruction. |
-| API & Developer Platform | [`API.md`](API.md) | API-01..07 recorded closed, including the initial SDKs and webhooks. |
-| Data Interoperability | [`DATA.md`](DATA.md) | DATA-01..04 recorded closed; import/export/file limits remain explicit. |
-| Governance | [`GOV.md`](GOV.md) | GOV-01/03/04 recorded closed; GOV-02 deferred pending an accepted organisation decision and adoption need. |
-| Collaboration | [`COLLAB.md`](COLLAB.md) | COLLAB-01..04 recorded closed within the implemented anchor contract; Sheet-cell/range anchors remain unimplemented. |
-| Scientific Analysis | [`SCI.md`](SCI.md) | SCI-01..04 recorded closed within the single-Dataset/bounded-analysis contract. |
-| Integrations | [`INT.md`](INT.md) | INT-01..03 recorded closed; generic instrument, S3 and read-only PostgreSQL flows exist, not a universal vendor catalogue. |
-| Platform & Operations | [`PLAT.md`](PLAT.md) | PLAT-01..05 recorded closed within documented deployment/security/performance limits; later institutional OPS work is deferred. |
-| Automation | [`AUTO.md`](AUTO.md) | AUTO-01..05 recorded closed; canonical deterministic and bounded proposal/workflow execution, not a live model provider. |
+| Programme                | Task file                | Reconciled status                                                                                                               |
+| ------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Product Consolidation    | [`PC.md`](PC.md)         | PC-00..06 recorded closed; #55 is no longer an outstanding merge instruction.                                                   |
+| API & Developer Platform | [`API.md`](API.md)       | API-01..07 recorded closed, including the initial SDKs and webhooks.                                                            |
+| Data Interoperability    | [`DATA.md`](DATA.md)     | DATA-01..04 recorded closed; import/export/file limits remain explicit.                                                         |
+| Governance               | [`GOV.md`](GOV.md)       | GOV-01/03/04 recorded closed; GOV-02 deferred pending an accepted organisation decision and adoption need.                      |
+| Collaboration            | [`COLLAB.md`](COLLAB.md) | COLLAB-01..04 recorded closed within the implemented anchor contract; Sheet-cell/range anchors remain unimplemented.            |
+| Scientific Analysis      | [`SCI.md`](SCI.md)       | SCI-01..04 recorded closed within the single-Dataset/bounded-analysis contract.                                                 |
+| Integrations             | [`INT.md`](INT.md)       | INT-01..03 recorded closed; generic instrument, S3 and read-only PostgreSQL flows exist, not a universal vendor catalogue.      |
+| Platform & Operations    | [`PLAT.md`](PLAT.md)     | PLAT-01..05 recorded closed within documented deployment/security/performance limits; later institutional OPS work is deferred. |
+| Automation               | [`AUTO.md`](AUTO.md)     | AUTO-01..05 recorded closed; canonical deterministic and bounded proposal/workflow execution, not a live model provider.        |
 
 The [reconciliation record](../../history/2026-09-07-roadmap-reconciliation.md)
 links implementation evidence and separates observed failures from intentional

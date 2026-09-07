@@ -18,17 +18,17 @@ Roadmap 1/Core is preserved under [`../roadmap-1/`](../roadmap-1/). Roadmap 3 im
 
 ## Programmes
 
-| Prefix | Programme |
-| --- | --- |
-| `PC` | Product Consolidation |
-| `API` | API & Developer Platform |
-| `DATA` | Data Interoperability |
-| `GOV` | Identity, Administration & Governance |
-| `COLLAB` | Collaboration |
-| `SCI` | Scientific Analysis & Visualisation |
-| `INT` | Integrations |
-| `PLAT` | Platform, Operations & Security |
-| `AUTO` | Automation |
+| Prefix   | Programme                             |
+| -------- | ------------------------------------- |
+| `PC`     | Product Consolidation                 |
+| `API`    | API & Developer Platform              |
+| `DATA`   | Data Interoperability                 |
+| `GOV`    | Identity, Administration & Governance |
+| `COLLAB` | Collaboration                         |
+| `SCI`    | Scientific Analysis & Visualisation   |
+| `INT`    | Integrations                          |
+| `PLAT`   | Platform, Operations & Security       |
+| `AUTO`   | Automation                            |
 
 ## Current state
 

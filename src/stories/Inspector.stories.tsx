@@ -4,9 +4,8 @@ import { Inspector } from '#/components/record/inspector'
 import {
   InspectorSection,
   InspectorSectionStack,
-  Property,
-  PropertyList,
 } from '#/components/record/inspector-sections'
+import { Property, PropertyList } from '#/components/scientific/property-list'
 import { Badge } from '#/components/ui/badge'
 
 const tabs = [

@@ -1,12 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Copy, Thermometer, X } from 'lucide-react'
-import {
-  EmptyHint,
-  InspectorSection,
-  Property,
-  PropertyList,
-} from '#/components/record'
-import { StatusBadge } from '#/components/scientific'
+import { EmptyHint, InspectorSection } from '#/components/record'
+import { Property, PropertyList, StatusBadge } from '#/components/scientific'
 import { Badge, Button } from '#/components/ui'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import type { NotebookRecord } from '#/lib/notebook-data'

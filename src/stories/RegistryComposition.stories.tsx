@@ -9,9 +9,8 @@ import {
   InspectorSection,
   InspectorSectionStack,
   LinkedRecordList,
-  Property,
-  PropertyList,
 } from '#/components/record/inspector-sections'
+import { Property, PropertyList } from '#/components/scientific/property-list'
 import {
   Badge,
   Button,

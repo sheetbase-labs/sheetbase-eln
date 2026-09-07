@@ -26,6 +26,26 @@ When qmd is installed, use the committed [`.qmd/index.yml`](.qmd/index.yml) and 
 
 Implementation/runbook documentation remains directly under `docs/`.
 
+## Product design workflow
+
+For user-facing design, implementation, review, copy or hardening, read
+the [Sheetbase product-design skill](.agent/design/skills/product-design/SKILL.md)
+and [design guidance](.agent/design/design.md). Use these together with Impeccable:
+Sheetbase guidance supplies product-specific judgement; Impeccable supplies the
+design workflow and bounded visual verification. Canonical documents under
+`docs/knowledge/`, accepted ADRs and verified domain contracts remain authoritative
+when guidance differs. Shared components and tokens own implementation mechanics.
+
+The guidance is a version-pinned Git submodule. After cloning, initialise it with
+`git submodule update --init .agent/design`. Validate its integrity with
+`python3 .agent/design/scripts/check-design.py`. Review upstream changes before
+updating the pin; do not automatically follow the latest upstream revision.
+
+Root `PRODUCT.md` and `DESIGN.md` are symlinks for tool discovery, pointing to
+the canonical files under `docs/knowledge/`. Preserve these links; never create
+independent copies. The notebook design/QA pilot is defined in
+[`docs/development/notebook-design-qa.md`](docs/development/notebook-design-qa.md).
+
 ## Build & run
 
 | Command                          | Purpose                                                 |

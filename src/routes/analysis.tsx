@@ -60,12 +60,8 @@ import {
   TableRow,
 } from '#/components/ui'
 import { Inspector } from '#/components/record/inspector'
-import {
-  InspectorSection,
-  InspectorSectionStack,
-  Property,
-  PropertyList,
-} from '#/components/record'
+import { InspectorSection, InspectorSectionStack } from '#/components/record'
+import { Property, PropertyList } from '#/components/scientific'
 import {
   materialiseLiveChart,
   toCanonicalDatasetSource,

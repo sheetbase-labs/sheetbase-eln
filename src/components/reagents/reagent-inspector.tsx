@@ -7,10 +7,8 @@ import {
   InspectorSection,
   InspectorSectionStack,
   LinkedRecordList,
-  Property,
-  PropertyList,
 } from '#/components/record'
-import { StatusBadge } from '#/components/scientific'
+import { Property, PropertyList, StatusBadge } from '#/components/scientific'
 import { Badge } from '#/components/ui'
 import { formatDate } from '#/lib/notebook-data'
 import { MOVEMENT_LABELS, reagentAttention } from '#/lib/reagent-data'

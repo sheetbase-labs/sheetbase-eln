@@ -1,0 +1,3 @@
+[submodule ".agent/design"]
+	path = .agent/design
+	url = https://github.com/sheetbase-labs/sheetbase-design.git

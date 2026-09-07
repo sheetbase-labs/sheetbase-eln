@@ -58,3 +58,22 @@ export const Compact: Story = {
     </div>
   ),
 }
+
+export const MonoStackedLongValue: Story = {
+  render: () => (
+    <div className="w-80 rounded-md border p-3">
+      <PropertyList>
+        <Property label="Record ID" mono>
+          EXP-2025-0014
+        </Property>
+        <Property label="Formula" mono stacked>
+          concentration:sample_id=EXP-2025-0014/replicate:A
+        </Property>
+        <Property label="Notes" stacked>
+          Preserve the full scientific value and allow it to wrap beneath the
+          label when the inspector is narrow.
+        </Property>
+      </PropertyList>
+    </div>
+  ),
+}

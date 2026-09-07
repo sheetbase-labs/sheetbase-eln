@@ -65,9 +65,8 @@ import {
   Inspector,
   InspectorSection,
   LinkedRecordList,
-  Property,
-  PropertyList,
 } from '#/components/record'
+import { Property, PropertyList } from '#/components/scientific'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {

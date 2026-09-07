@@ -1308,15 +1308,15 @@ export function SearchResults({
         {onSortChange ? (
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             Sort by
-            <select
+            <Select
               value={sort}
               onChange={(e) => onSortChange(e.target.value as SortKey)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="h-8 w-auto px-2"
               aria-label="Sort results"
             >
               <option value="relevance">Relevance</option>
               <option value="updated">Recently updated</option>
-            </select>
+            </Select>
           </label>
         ) : null}
       </div>

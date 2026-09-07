@@ -1700,10 +1700,10 @@ function BootstrapRecovery({ userName }: { userName: string }) {
           {error}
         </p>
       ) : null}
-      <button
+      <Button
         type="button"
         disabled={pending}
-        className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        className="px-4"
         onClick={async () => {
           setPending(true)
           setError(null)
@@ -1717,7 +1717,7 @@ function BootstrapRecovery({ userName }: { userName: string }) {
         }}
       >
         {pending ? 'Creating workspace…' : 'Create my workspace'}
-      </button>
+      </Button>
     </div>
   )
 }

@@ -32,6 +32,7 @@ import type {
   SectionId,
 } from '#/lib/overview'
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -195,8 +196,10 @@ export function OverviewBlock({
           </Link>
         ) : null}
         {showToggle ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100"
             aria-label={excluded ? 'Show in overview' : 'Hide from overview'}
             aria-pressed={excluded}
@@ -208,7 +211,7 @@ export function OverviewBlock({
             ) : (
               <Eye className="size-4" aria-hidden="true" />
             )}
-          </button>
+          </Button>
         ) : null}
       </div>
       <BlockPreview block={block} frozen={frozen} />
@@ -243,14 +246,16 @@ function BlockExpandControl({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100"
           aria-label="Expand block"
           title="Expand"
         >
           <Maximize className="size-4" aria-hidden="true" />
-        </button>
+        </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl">
         <DialogTitle className="sr-only">

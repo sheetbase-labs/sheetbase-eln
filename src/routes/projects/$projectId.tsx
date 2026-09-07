@@ -32,13 +32,8 @@ import type { ReactNode } from 'react'
 import { useShell } from '#/components/app-shell'
 import { CreateBlankExperimentDialog } from '#/components/notebook/create-blank-experiment-dialog'
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
-import {
-  CheckList,
-  InspectorSection,
-  Property,
-  PropertyList,
-} from '#/components/record'
-import { StatusBadge } from '#/components/scientific'
+import { CheckList, InspectorSection } from '#/components/record'
+import { Property, PropertyList, StatusBadge } from '#/components/scientific'
 import {
   Button,
   Skeleton,

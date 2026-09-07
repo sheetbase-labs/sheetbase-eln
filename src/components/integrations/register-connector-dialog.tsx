@@ -12,6 +12,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  Select,
 } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import {
@@ -109,8 +110,7 @@ export function RegisterConnectorDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Type</Label>
-              <select
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              <Select
                 value={connectorType}
                 onChange={(event) =>
                   setConnectorType(event.target.value as ConnectorType)
@@ -121,12 +121,11 @@ export function RegisterConnectorDialog({
                     {type}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label>Direction</Label>
-              <select
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              <Select
                 value={direction}
                 onChange={(event) =>
                   setDirection(event.target.value as ConnectorDirection)
@@ -137,14 +136,13 @@ export function RegisterConnectorDialog({
                     {item}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
           {connectorType === 'instrument' && (
             <div className="grid gap-2">
               <Label>Ingestion parser</Label>
-              <select
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              <Select
                 value={parserId}
                 onChange={(event) => setParserId(event.target.value)}
               >
@@ -153,14 +151,13 @@ export function RegisterConnectorDialog({
                     {parser.label} ({getParser(parser.parserId)?.version})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
           {(connectorType === 'storage' || connectorType === 'database') && (
             <div className="grid gap-2">
               <Label>Source adapter</Label>
-              <select
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              <Select
                 value={adapter}
                 onChange={(event) => setAdapter(event.target.value)}
               >
@@ -173,7 +170,7 @@ export function RegisterConnectorDialog({
                   </option>
                 )}
                 <option value="">None (custom)</option>
-              </select>
+              </Select>
               <p className="text-muted-foreground text-xs">
                 Enterprise source adapters run server-side; non-secret settings
                 (bucket/prefix or host/port/database) are configured on the

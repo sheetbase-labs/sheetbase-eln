@@ -1,6 +1,8 @@
 # FIND — Contextual Discovery, Recents & Favourites
 
-**Status:** active; FIND-01 completed 2026-08-31; FIND-02 completed 2026-08-31.
+**Status (2026-09-07):** FIND-01..03 implementation merged on `main`; FIND-01/02 were recorded complete on 2026-08-31 and FIND-03 landed in #129. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md); merged is not independent acceptance of every exit.
+
+The task-local implementation notes below retain historical design and test context. They are not a current task queue or a new claim about deployed migrations.
 
 ## Programme goal
 
@@ -71,8 +73,8 @@ object_id, viewed_at)`, unique per user/kind/object. It is written
   destinations are untouched.
 - **Boundaries honoured:** PostgreSQL/RLS stays authoritative (views are
   server-persisted per user; edit/review signals come from the audited trail);
-  stable IDs only — no label-based identity; no shadow model for discovery;
-  FIND-02 favourites and FIND-03 discovery are not started.
+  stable IDs only — no label-based identity; no shadow model for discovery.
+  FIND-02/03 were outside this original slice and have since landed.
 
 ## FIND-02 — Favourites & Saved Context
 
@@ -118,9 +120,10 @@ p_object_kind, p_object_id, p_favourite)` has two paths. Removal
   allowlists (`src/lib/external-token.ts` untouched — fail-closed by
   default). Migration generated with `pnpm db:generate` (clean delta over
   the 0154 checkpoint — no earlier hand-authored DDL re-emitted), with the
-  RPC/grants/RLS hand-authored per the 0154 pattern. **Not yet executed
-  against a database** — this environment has no PostgreSQL; run
-  `pnpm db:migrate` before deploy.
+  RPC/grants/RLS hand-authored per the 0154 pattern. **Historical validation
+  note:** the original implementing environment had no PostgreSQL and did not
+  execute the migration there. The reconciled baseline database CI job passes;
+  deployment migration state was not inspected by this documentation review.
 - **RLS requires continued workspace visibility.** The
   `user_favourites_select` policy is
   `user_id = api.current_user_id() AND api.is_workspace_member(workspace_id)`:
@@ -167,7 +170,8 @@ p_object_kind, p_object_id, p_favourite)` has two paths. Removal
 - **Boundaries honoured:** PostgreSQL/RLS stays authoritative (server-side
   per-user persistence through the RPC, RLS-scoped reads); no saved
   searches/views (GRID-04 owns Sheet presentation state); no recents
-  changes beyond reading the same kind vocabulary; `NEXT.md` untouched.
+  changes beyond reading the same kind vocabulary. The original slice did
+  not update `NEXT.md`; current priority now comes from the reconciled hand-off.
 
 ## FIND-03 — Contextual Discovery & Related Work
 

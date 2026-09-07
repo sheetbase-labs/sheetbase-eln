@@ -1,6 +1,6 @@
 # OPS — Institutional Operational Maturity
 
-**Status:** planned and adoption-gated.
+**Status (2026-09-07):** OPS-01..03 explicitly deferred in #162. Institutional deployment/adoption evidence and assignment in [`../../NEXT.md`](../../NEXT.md) are required before implementation. Existing PLAT tooling is not proof of these later exits; off-host backup protection and populated scientific-workspace recovery proof remain outstanding. See the [reconciled status index](README.md).
 
 ## Programme goal
 

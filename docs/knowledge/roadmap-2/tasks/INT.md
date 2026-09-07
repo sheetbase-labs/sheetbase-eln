@@ -1,6 +1,6 @@
 # INT — Integrations
 
-**Status:** planned.
+**Status (2026-09-07):** INT-01..03 active scope recorded closed on `main`, within the representative instrument/S3/read-only PostgreSQL contracts. The candidate vendor list below is not a delivered connector catalogue. See the [reconciled task index](README.md) and [`../../NEXT.md`](../../NEXT.md); this reconciliation does not independently re-certify every exit.
 
 ## Programme goal
 

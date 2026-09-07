@@ -1,13 +1,22 @@
 # Roadmap 3 — Programme Map
 
-## Entry condition
+## Reconciled state
 
-Roadmap 3 becomes active only after Roadmap 2's active remainder is complete or explicitly closed. Repository-wide [`../NEXT.md`](../NEXT.md) remains the single current hand-off.
+At `main` `832d9d6` on 7 September 2026, Waves A–C have merged implementation.
+Wave D has two proposed decisions and eight deferred tasks. The
+[task index](tasks/README.md) accounts for all 60 tasks; the
+[reconciliation record](../history/2026-09-07-roadmap-reconciliation.md) records
+evidence and limits. Merged implementation is not a blanket acceptance or
+production-readiness sign-off.
+
+Repository-wide [`../NEXT.md`](../NEXT.md) remains the single current hand-off.
+The original Roadmap 2 entry condition has been passed; do not restart Roadmap 3
+or the completed stack from this historical dependency map.
 
 ## Programme shape
 
 ```text
-                         ROADMAP 2 COMPLETE
+                         ROADMAP 2 ACTIVE SCOPE CLOSED
                                 |
                                 v
                      +---------------------+
@@ -34,39 +43,41 @@ Roadmap 3 becomes active only after Roadmap 2's active remainder is complete or 
                                 |
                                 v
                     +-----------------------+
-                    |   INSTITUTIONALISE    |
+                    |   INSTITUTIONALISE   |
                     | ENT-ORG GXP OPS       |
                     +-----------------------+
 ```
 
-This is a dependency shape, not a forced serial queue. Independent numbered tasks may proceed in parallel once explicit dependencies and assignment are satisfied.
+This is a dependency shape, not a forced serial queue. Independent numbered
+tasks may proceed only when dependencies, decision gates and explicit
+assignment are satisfied.
 
 ## Capability streams
 
-| Programme             | Stream  |            Tasks | Principal prerequisite                     |
-| --------------------- | ------- | ---------------: | ------------------------------------------ |
-| Product Depth         | NAV     |       NAV-01..03 | Roadmap 2 complete                         |
-| Product Depth         | GRID    |      GRID-01..05 | Roadmap 2 complete                         |
-| Product Depth         | NOTE    |      NOTE-01..04 | Roadmap 2 complete                         |
-| Product Depth         | FIND    |      FIND-01..03 | NAV-01 recommended                         |
-| Scientific Depth      | KNOW    |      KNOW-01..03 | canonical identities; NAV-02 useful        |
-| Scientific Depth      | VIEW    |      VIEW-01..04 | SCI-04; GRID maturity useful               |
-| Scientific Depth      | MODEL   |     MODEL-01..04 | Roadmap 1 Model/Field contracts            |
-| Scientific Depth      | REUSE   |     REUSE-01..03 | NOTE/MODEL foundations                     |
-| Open Platform         | SDK     |       SDK-01..03 | Roadmap 2 API-04/05                        |
-| Open Platform         | EVENT   |     EVENT-01..03 | Roadmap 2 API-06                           |
-| Open Platform         | EXT     |       EXT-01..03 | SDK/EVENT maturity                         |
-| Open Platform         | ADMIN   |     ADMIN-01..03 | Roadmap 2 GOV/PLAT foundations             |
-| Intelligent Workspace | AI      |        AI-01..03 | canonical context/permissions; KNOW useful |
-| Intelligent Workspace | ASSIST  |    ASSIST-01..03 | AI-01..03; mature GRID/NOTE                |
+| Programme             | Stream  | Tasks            | Principal prerequisite                     |
+| --------------------- | ------- | ---------------- | ------------------------------------------ |
+| Product Depth         | NAV     | NAV-01..03       | Roadmap 2 active scope closed              |
+| Product Depth         | GRID    | GRID-01..05      | Roadmap 2 active scope closed              |
+| Product Depth         | NOTE    | NOTE-01..04      | Roadmap 2 active scope closed              |
+| Product Depth         | FIND    | FIND-01..03      | NAV-01 recommended                         |
+| Scientific Depth      | KNOW    | KNOW-01..03      | Canonical identities; NAV-02 useful        |
+| Scientific Depth      | VIEW    | VIEW-01..04      | SCI-04; GRID maturity useful               |
+| Scientific Depth      | MODEL   | MODEL-01..04     | Roadmap 1 Model/Field contracts            |
+| Scientific Depth      | REUSE   | REUSE-01..03     | NOTE/MODEL foundations                     |
+| Open Platform         | SDK     | SDK-01..03       | Roadmap 2 API-04/05                        |
+| Open Platform         | EVENT   | EVENT-01..03     | Roadmap 2 API-06                           |
+| Open Platform         | EXT     | EXT-01..03       | SDK/EVENT maturity                         |
+| Open Platform         | ADMIN   | ADMIN-01..03     | Roadmap 2 GOV/PLAT foundations             |
+| Intelligent Workspace | AI      | AI-01..03        | Canonical context/permissions; KNOW useful |
+| Intelligent Workspace | ASSIST  | ASSIST-01..03    | AI-01..03; mature GRID/NOTE                |
 | Intelligent Workspace | AUTO+   | AUTO-PLUS-01..03 | Roadmap 2 AUTO-04/05; EVENT/AI             |
-| Institutionalise      | ENT-ORG |   ENT-ORG-01..03 | concrete adoption need + accepted ADR      |
-| Institutionalise      | GXP     |       GXP-01..04 | concrete regulated intended use            |
-| Institutionalise      | OPS     |       OPS-01..03 | institutional scale/adoption evidence      |
+| Institutionalise      | ENT-ORG | ENT-ORG-01..03   | Concrete adoption need + accepted ADR      |
+| Institutionalise      | GXP     | GXP-01..04       | Concrete regulated intended use            |
+| Institutionalise      | OPS     | OPS-01..03       | Institutional scale/adoption evidence      |
 
 ## Within-stream sequencing
 
-Tasks within a capability are ordered deliberately and should normally be completed in sequence unless the task file explicitly permits parallelism.
+The task files retain their original sequential contracts:
 
 ```text
 NAV:      01 model -> 02 context -> 03 productivity
@@ -93,23 +104,35 @@ GXP:      01 intended-use model -> 02 controlled change -> 03 review/sign -> 04 
 OPS:      01 SLO/scale -> 02 resilience/DR -> 03 security/observability
 ```
 
-## Recommended waves
+## Wave disposition
 
-### Wave A — Product Depth
+### Wave A — Product Depth and early SDK work
 
-Begin with NAV-01, GRID-01 and NOTE-01 after Roadmap 2 closes. Progress each stream through its numbered tasks based on real workflow evidence; FIND follows navigation foundations.
+Implementation merged: NAV-01..03, GRID-01..05, NOTE-01..04, FIND-01..03 and
+SDK-01..03. The final Product Depth remainder landed through #127..129.
+These are no longer “in review” or unstarted tasks. Interaction/performance
+acceptance remains limited to the evidence actually demonstrated.
 
-### Wave B — Scientific Depth + Open Platform
+### Wave B — Scientific Depth + remaining Open Platform
 
-Scientific and platform streams can progress in parallel according to dependencies and product need. Roadmap 2 SDK/webhook completion is required before SDK/EVENT maturity work.
+Implementation merged: KNOW, VIEW, MODEL, REUSE, EVENT, EXT and ADMIN through
+#130..152. REUSE-02's template-default test is failing in the baseline CI run;
+merged implementation does not erase that open verification item.
 
 ### Wave C — Intelligent Workspace
 
-AI context/retrieval/policy precedes embedded assistance. AUTO+ builds on Roadmap 2 AUTO-04/05 and mature event/AI foundations.
+Bounded implementation merged through #153..161. AI context/retrieval/policy,
+ASSIST interfaces and AUTO+ tools/plans/provenance exist. The gateway's only
+model provider is a deterministic stub; live model integration and real-provider
+scientific evaluation are not established by this wave's merged status.
 
 ### Wave D — Institutionalise
 
-ENT-ORG, GXP and OPS are adoption-gated. Earlier waves completing does not itself make them Ready.
+PR #162 merged **proposals and deferrals**, not the institutional implementation.
+ENT-ORG-01 has proposed ADR-0044; GXP-01 has proposed ADR-0045. Neither is an
+accepted decision or completed concrete-use implementation. ENT-ORG-02/03,
+GXP-02..04 and OPS-01..03 remain deferred. Earlier waves completing does not
+make them Ready.
 
 ## Cross-cutting invariants
 
@@ -133,4 +156,5 @@ A numbered task becomes Ready only when:
 3. any required ADR is accepted;
 4. root [`../NEXT.md`](../NEXT.md) or an explicit assignment identifies it as current work.
 
-Roadmap order alone does not assign work.
+Roadmap order alone does not assign work. No Roadmap 4 implementation is
+activated by this reconciliation.

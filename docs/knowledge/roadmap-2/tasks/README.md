@@ -1,28 +1,38 @@
 # Post-Core Roadmap Tasks
 
-These files are the detailed planning contracts for the post-Core programmes.
+These files retain the detailed delivery contracts for Roadmap 2.
 
 ## Authority
 
-- [`../../NEXT.md`](../../NEXT.md) identifies **active work per stream**. Agents take one assigned stream/task, not every Ready row.
-- This folder defines epic goals, scope and exit criteria.
+- [`../../NEXT.md`](../../NEXT.md) identifies current work across all roadmaps.
+- This folder defines epic goals, scope and exit criteria, not a competing work queue.
 - [`../PRODUCT_DIRECTION.md`](../PRODUCT_DIRECTION.md) defines cross-programme product principles.
 - Accepted ADRs remain authoritative for durable architecture.
 - PC-00 accepted decisions: [`../audits/PC-00.md`](../audits/PC-00.md).
 
-## Status
+## Reconciled status — 7 September 2026
 
-| Programme                | Task file                  | Status                                                        |
-| ------------------------ | -------------------------- | ------------------------------------------------------------- |
-| Product Consolidation    | [`PC.md`](./PC.md)         | PC-00–05 complete; PC-06 ready to merge (`#55`)               |
-| API & Developer Platform | [`API.md`](./API.md)       | API-01, API-02, API-07 and API-03 complete                    |
-| Data Interoperability    | [`DATA.md`](./DATA.md)     | DATA-01 complete; DATA-02/03/04 remain                        |
-| Governance               | [`GOV.md`](./GOV.md)       | GOV-01 complete (`viewer` read-only); GOV-02 needs ADR        |
-| Collaboration            | [`COLLAB.md`](./COLLAB.md) | planned                                                       |
-| Scientific Analysis      | [`SCI.md`](./SCI.md)       | SCI-01–03 implemented (stacked branches); SCI-04 usage-driven |
-| Integrations             | [`INT.md`](./INT.md)       | planned                                                       |
-| Platform & Operations    | [`PLAT.md`](./PLAT.md)     | PLAT-03 headers complete; remainder queued                    |
-| Automation               | [`AUTO.md`](./AUTO.md)     | planned later                                                 |
+Roadmap 2's active scope is recorded closed at `main` `832d9d6`. “Recorded
+closed” preserves the programme closure; it is not a fresh independent
+acceptance test of every epic. Dated task-local implementation notes retain
+historical evidence and must not be read as a current assignment.
+
+| Programme                | Task file                | Reconciled status                                                                                                               |
+| ------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Product Consolidation    | [`PC.md`](PC.md)         | PC-00..06 recorded closed; #55 is no longer an outstanding merge instruction.                                                   |
+| API & Developer Platform | [`API.md`](API.md)       | API-01..07 recorded closed, including the initial SDKs and webhooks.                                                            |
+| Data Interoperability    | [`DATA.md`](DATA.md)     | DATA-01..04 recorded closed; import/export/file limits remain explicit.                                                         |
+| Governance               | [`GOV.md`](GOV.md)       | GOV-01/03/04 recorded closed; GOV-02 deferred pending an accepted organisation decision and adoption need.                      |
+| Collaboration            | [`COLLAB.md`](COLLAB.md) | COLLAB-01..04 recorded closed within the implemented anchor contract; Sheet-cell/range anchors remain unimplemented.            |
+| Scientific Analysis      | [`SCI.md`](SCI.md)       | SCI-01..04 recorded closed within the single-Dataset/bounded-analysis contract.                                                 |
+| Integrations             | [`INT.md`](INT.md)       | INT-01..03 recorded closed; generic instrument, S3 and read-only PostgreSQL flows exist, not a universal vendor catalogue.      |
+| Platform & Operations    | [`PLAT.md`](PLAT.md)     | PLAT-01..05 recorded closed within documented deployment/security/performance limits; later institutional OPS work is deferred. |
+| Automation               | [`AUTO.md`](AUTO.md)     | AUTO-01..05 recorded closed; canonical deterministic and bounded proposal/workflow execution, not a live model provider.        |
+
+The [reconciliation record](../../history/2026-09-07-roadmap-reconciliation.md)
+links implementation evidence and separates observed failures from intentional
+limits. In particular, neither programme closure nor a merged PR establishes
+passing current browser/API acceptance or production readiness.
 
 ## Task-file convention
 
@@ -37,4 +47,7 @@ Each epic should state:
 - acceptance/exit criteria;
 - implementation risks or decisions that require an ADR.
 
-Before implementation, refine the relevant epic into granular numbered tasks if the current file is not detailed enough to hand to an agent safely. Do not treat a broad planning bullet as permission to invent architecture.
+Before assigning follow-up work, identify the specific unmet outcome and inspect
+the existing implementation. Do not restart a completed foundation because an
+old task note says “planned”, or count an intentionally deferred capability as
+implemented. Refine the assigned task sufficiently for an agent to work safely.

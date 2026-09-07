@@ -1,5 +1,7 @@
 # Roadmap 3 — Product Direction
 
+> **Status note, 2026-09-07:** this document states intended product outcomes, not acceptance evidence. Waves A–C have merged implementation; Wave D remains proposed/deferred. See [task status](tasks/README.md) and [current work](../NEXT.md).
+
 ## Purpose
 
 Roadmap 3 deepens Sheetbase as a scientific workspace after Roadmap 2 establishes the canonical product, analysis, API, integration and automation foundations.
@@ -61,13 +63,14 @@ Roadmap 3 is not primarily:
 
 ## Relationship to Roadmap 2
 
-Roadmap 2 must finish before Roadmap 3 becomes the active execution programme.
-
-In particular:
+Roadmap 2's active scope has closed and the Roadmap 3 entry condition has been
+passed. The dependencies remain:
 
 - Roadmap 2 **API-04/05** establish initial Python/TypeScript SDKs; Roadmap 3 `SDK-01` matures them.
 - Roadmap 2 **API-06** establishes webhooks; Roadmap 3 `EVENT-01` matures the event platform.
 - Roadmap 2 **AUTO-04/05** establish agent-authored operations and agentic scientific workflows; Roadmap 3 `AUTO-PLUS-01` matures those capabilities.
-- GOV-02 remains deferred and becomes `ENT-ORG-01` only when organisation modelling is justified and the required ADR is accepted.
+- GOV-02 remains deferred. ENT-ORG-01 has a proposed organisation ADR; its accepted-decision exit and downstream adoption gates remain outstanding.
 
-Until Roadmap 2 closes, current execution priority remains defined by `../NEXT.md`.
+Current execution priority is always defined by [`../NEXT.md`](../NEXT.md).
+The intended outcomes above must not be read as proof of live model integration,
+regulated-use validation or institutional deployment acceptance.

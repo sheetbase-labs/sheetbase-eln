@@ -1,6 +1,6 @@
 # ASSIST — Embedded Scientific Assistance
 
-**Status:** planned; depends on AI substrate plus mature NAV/GRID/NOTE context.
+**Status (2026-09-07):** ASSIST-01..03 bounded implementation merged on `main` (#156..158). Deterministic explanations, draft/proposal interfaces and guided actions must not be presented as live model-backed assistance; AI-03 remains stub-backed. Real-provider usefulness/grounding and workflow-speed acceptance remain to be demonstrated. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md).
 
 ## Programme goal
 

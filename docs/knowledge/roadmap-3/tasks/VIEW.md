@@ -1,6 +1,6 @@
 # VIEW — Rich Scientific Representations
 
-**Status:** planned; not active until promoted by `docs/knowledge/NEXT.md`.
+**Status (2026-09-07):** VIEW-01..04 implementation merged on `main` (#133..136). The existing single-Dataset ChartSpec and bounded analysis limits remain; general composed-Sheet analysis is not implied. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md). Merged is not independent acceptance of every exit.
 
 ## Programme goal
 

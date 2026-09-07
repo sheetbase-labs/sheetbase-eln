@@ -1,6 +1,6 @@
 # NOTE — Notebook Authoring & Composition Depth
 
-**Status:** active; NOTE-01 in review (#100), NOTE-02 implemented on the same stack, NOTE-03..04 planned.
+**Status (2026-09-07):** NOTE-01..04 implementation merged on `main`; the earlier #100/Wave A work is no longer in review or planned. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md). Merged is not independent acceptance of every authoring/review/evidence exit.
 
 ## Programme goal
 

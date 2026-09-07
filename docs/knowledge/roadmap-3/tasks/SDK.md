@@ -1,6 +1,6 @@
 # SDK — SDK Product Maturity
 
-**Status:** active; SDK-01 (contract coverage & parity) and SDK-02 (developer ergonomics) implemented on #101/#102, in review; SDK-03 (lifecycle, compatibility & release quality) implemented on #110, in review.
+**Status (2026-09-07):** SDK-01..03 implementation merged on `main` (#101/#102/#110). Manual release-candidate workflow dispatch is re-enabled; publishing remains manual. No registry publication or live-service SDK acceptance is certified by this reconciliation. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md).
 
 ## Programme goal
 
@@ -58,24 +58,21 @@ Operate SDKs as maintained products.
 
 SDK releases are reproducible, documented, compatibility-tested and usable independently of the Sheetbase application source tree.
 
-### Implemented contract (on #110, pending review/merge)
+### Implemented contract (#110 merged; workflow state reconciled 2026-09-07)
 
-- **Release automation — encoded but currently paused.**
+- **Release-candidate automation — manual dispatch enabled.**
   `.github/workflows/sdk-release.yml` encodes the release gate: the root
   support-matrix contract test, a version match between the dispatched
   version and both package manifests, then per-SDK build/test/pack with
   artifact upload (`npm-pack` / `python-dist`). It never publishes and reads
   no secrets beyond `GITHUB_TOKEN`; publishing is a manual maintainer step.
-  **Its `workflow_dispatch` trigger is deliberately commented out** (PLAT-03:
-  this GitHub account cannot currently run hosted-runner jobs — dispatching
-  would only produce a failed run). Until runners are restored, the documented
-  local procedure in `sdks/RELEASE.md` is the operative release process; the
-  trigger is uncommented as part of re-enabling hosted automation. The
-  procedure — versioning rules, local validation commands, tagging — is
-  documented in `sdks/RELEASE.md`, including the
-  change/deprecation policy (taxonomy additions go through the support
-  matrix in both SDKs; removals are breaking; no compatibility shims, per the
-  pre-release rule).
+  The old hosted-runner/billing-block note is superseded: `workflow_dispatch`
+  is enabled in the reconciled baseline. This proves the workflow is wired,
+  not that a candidate was successfully published to an external registry.
+  The local procedure — versioning rules, validation commands, tagging —
+  remains documented in `sdks/RELEASE.md`, including the change/deprecation
+  policy (taxonomy additions go through the support matrix in both SDKs;
+  removals are breaking; no compatibility shims, per the pre-release rule).
 - **Machine-checked compatibility.** `sdks/SUPPORT_MATRIX.md` gains a
   package-compatibility table (package version → supported contract
   version). Each SDK's own suite now asserts its exported `API_VERSION` /
@@ -94,13 +91,15 @@ SDK releases are reproducible, documented, compatibility-tested and usable indep
   mock transport — token exchange once, bearer-authorised dataset row
   query, commit with an explicit idempotency key, stale-version retry
   re-reading the authoritative revision with a fresh key — asserting the
-  `p_` wire envelope at every step (sync and async on Python).
+  `p_` wire envelope at every step (sync and async on Python). These are not
+  live-service acceptance tests.
 - **Standalone usability.** `sdks/typescript/tsconfig.json` pins
   `rootDir: "src"`, so the package builds under the repo's TypeScript 6.0.3
   as well as the package's 5.9 toolchain (TS5011 fixed); the workflow imports
   the built `dist/` as a standalone consumer. The Python wheel installs and
   imports in an isolated environment (`uv run --isolated --no-project --with
-dist/*.whl`), verified locally today and by the workflow once hosted runners are restored.
+dist/*.whl`). The original implementation reported local proof; this
+  reconciliation did not rerun packaging or inspect a registry release.
 
 ## Boundaries
 

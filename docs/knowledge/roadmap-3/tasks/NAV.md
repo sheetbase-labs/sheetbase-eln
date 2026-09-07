@@ -1,6 +1,6 @@
 # NAV — Workspace Navigation & Information Architecture
 
-**Status:** active; NAV-01 completed, NAV-02 implemented on #104 (in review), NAV-03 planned.
+**Status (2026-09-07):** NAV-01..03 implementation merged on `main`, including NAV-02 #104 and NAV-03 #127. See the [reconciled status index](README.md); merged is not independent acceptance of every exit. Current assignment is owned by [`../../NEXT.md`](../../NEXT.md).
 
 ## Programme goal
 
@@ -8,7 +8,7 @@ Make Sheetbase easy to orient, traverse and resume without flattening Notebook, 
 
 ## NAV-01 — Canonical Navigation Model
 
-**Status:** completed 2026-08-30.
+**Status:** recorded completed 2026-08-30; implementation retained on the reconciled baseline.
 
 ### Goal
 
@@ -49,7 +49,7 @@ A user can predict where canonical object types live and move among workspace, p
 
 ## NAV-02 — Context-Preserving Object Navigation
 
-**Status:** implemented on #104, in review (merge-gated on the Wave A stack).
+**Status:** implementation merged (#104); no longer in review or waiting for the Wave A stack.
 
 ### Goal
 

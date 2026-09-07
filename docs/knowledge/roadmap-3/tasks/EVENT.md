@@ -1,6 +1,6 @@
 # EVENT — Event & Webhook Platform Maturity
 
-**Status:** planned; begins only after Roadmap 2 API-06 establishes initial webhook delivery.
+**Status (2026-09-07):** EVENT-01..03 implementation merged on `main` (#144..146), building on Roadmap 2 API-06. See the [reconciled status index](README.md); merged is not independent acceptance of every exit. Current assignment is owned by [`../../NEXT.md`](../../NEXT.md).
 
 ## Programme goal
 

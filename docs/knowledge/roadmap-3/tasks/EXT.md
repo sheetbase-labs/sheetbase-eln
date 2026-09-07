@@ -1,6 +1,6 @@
 # EXT — Extension Model
 
-**Status:** planned; depends on mature SDK/event/permission contracts.
+**Status (2026-09-07):** EXT-01..03 bounded implementation merged on `main` (#147..149). This is not a claim of an external plugin marketplace or independently verified deployment trust. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md); original exits remain unchanged.
 
 ## Programme goal
 

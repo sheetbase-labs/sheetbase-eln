@@ -1,6 +1,6 @@
 # GRID — Spreadsheet Interaction Depth
 
-**Status:** active; GRID-01 in review (#99), GRID-02 implemented on the same stack, GRID-03..05 planned.
+**Status (2026-09-07):** GRID-01..05 implementation merged on `main`, including the earlier #99 stack and GRID-05 #128. Existing performance/source limits and mixed-authority write restrictions remain. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md); merged is not independent acceptance of every exit.
 
 ## Programme goal
 

@@ -1,6 +1,6 @@
 # AUTO+ — Mature Agentic Operations & Scientific Workflows
 
-**Status:** planned; depends on Roadmap 2 AUTO-04/05 plus EVENT and AI substrate.
+**Status (2026-09-07):** AUTO-PLUS-01..03 bounded implementation merged on `main` (#159..161): typed canonical tools, plans/approval, provenance and evaluation fixtures. This is not a live-provider or unrestricted-autonomy claim. See the [reconciled status index](README.md) and [`../../NEXT.md`](../../NEXT.md); merged is not independent acceptance of every exit.
 
 ## Programme goal
 

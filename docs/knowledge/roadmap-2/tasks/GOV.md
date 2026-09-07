@@ -1,6 +1,6 @@
 # GOV — Identity, Administration & Governance
 
-**Status:** GOV-01 complete (`#45` / `1256258`). `viewer` is read-only. GOV-02 requires an ADR.
+**Status (2026-09-07):** GOV-01/03/04 active scope recorded closed; `viewer` remains read-only. GOV-02 is deliberately deferred, revisited through ENT-ORG and proposed ADR-0044. The ADR is not accepted and organisation implementation is not complete. See the [reconciled task index](README.md) and [`../../NEXT.md`](../../NEXT.md); this is not a fresh acceptance or regulatory-validation sign-off.
 
 ## Programme goal
 
@@ -8,7 +8,7 @@ Make Sheetbase governable at organisational scale while keeping normal scientifi
 
 ## GOV-01 — Role & Capability Productisation
 
-**Priority:** medium (RLS/migration). **Status:** Complete (`#45` / `1256258` on `main`).
+**Historical priority:** medium (RLS/migration). **Status:** recorded complete (`#45` / `1256258` on `main`).
 
 ### Accepted PC-00 decision
 
@@ -33,6 +33,8 @@ Do not jump directly to arbitrary custom RBAC policy languages.
 **Evidence:** `0111`/`0112`, `api.is_workspace_writer`, leftover-inventory abort, `tests/db/gov-01-viewer-readonly.test.ts`, full DB suite, migrate+seed proof (`#45`).
 
 ## GOV-02 — Organisation Model
+
+**Disposition:** deferred, not complete. Proposed ADR-0044 and Roadmap 3 ENT-ORG retain the decision/adoption gates; no organisation work is activated here.
 
 Organisation identity; workspace membership; organisation membership; organisation-owned configuration where justified; workspace boundaries; shared Models/vocabularies/policies; invitation/admin flows; migration from current workspace ownership; RLS model.
 

@@ -5,17 +5,20 @@ PostgreSQL, PostgREST, and a TanStack Start SSR frontend.
 
 ## Development knowledge
 
-Before substantial product, domain or roadmap work, read [`docs/knowledge/README.md`](docs/knowledge/README.md). Canonical product/design/roadmap knowledge and ADRs now live under `docs/knowledge/`:
+Before substantial product, domain or roadmap work, read [`docs/knowledge/NEXT.md`](docs/knowledge/NEXT.md) and [`docs/knowledge/README.md`](docs/knowledge/README.md). Canonical product/design/roadmap knowledge and ADRs live under `docs/knowledge/`:
 
+- `docs/knowledge/NEXT.md` — the single current cross-roadmap hand-off
 - `docs/knowledge/PRODUCT.md`
 - `docs/knowledge/DESIGN.md`
 - `docs/knowledge/ROADMAP.md`
-- `docs/knowledge/roadmap-1/` — completed Roadmap 1 / Core Data Workspace
-- `docs/knowledge/roadmap-2/` — active Roadmap 2
-- `docs/knowledge/roadmap-3/` — Roadmap 3 direction
-- `docs/knowledge/decisions/` — ADRs and decision context
+- `docs/knowledge/roadmap-1/` — recorded complete; local NEXT is historical
+- `docs/knowledge/roadmap-2/` — active scope recorded closed; GOV-02 deferred
+- `docs/knowledge/roadmap-3/` — Waves A–C implementation merged; Wave D proposed/deferred
+- `docs/knowledge/decisions/` — ADRs; check proposed versus accepted status
 - `docs/knowledge/concepts/` — historical runnable concepts/prototypes
 - `docs/knowledge/mockups/` — historical visual design/product artefacts
+
+The [7 September 2026 reconciliation](docs/knowledge/history/2026-09-07-roadmap-reconciliation.md) records evidence and limits: merged implementation is not independent acceptance or production readiness. Roadmap 4 remains a proposal, not an assignment. Read root `NEXT.md` before reusing any historical task prompt.
 
 For **reviewing a PR, proposing work, or implementing a roadmap/product change**, follow [`docs/knowledge/agent/workflows.md`](docs/knowledge/agent/workflows.md). Do not substitute PR summaries or historical planning for inspection of the current code and canonical contracts.
 

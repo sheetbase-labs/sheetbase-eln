@@ -716,40 +716,25 @@ function DatasetTabs({
       }
       className="relative min-h-0 flex-1 overflow-hidden"
     >
-      <TabsList className="h-8 w-full justify-start gap-5 rounded-none border-b bg-transparent p-0">
-        <TabsTrigger
-          value="data"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+      <TabsList className="h-8">
+        <TabsTrigger value="data" className="h-8 gap-1.5 px-0 py-0 text-xs">
           <TableIcon className="size-3.5" aria-hidden="true" /> Live data
         </TabsTrigger>
-        <TabsTrigger
-          value="versions"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+        <TabsTrigger value="versions" className="h-8 gap-1.5 px-0 py-0 text-xs">
           <Layers className="size-3.5" aria-hidden="true" /> Versions
         </TabsTrigger>
-        <TabsTrigger
-          value="schema"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+        <TabsTrigger value="schema" className="h-8 gap-1.5 px-0 py-0 text-xs">
           <Layers className="size-3.5" aria-hidden="true" /> Schema
         </TabsTrigger>
-        <TabsTrigger
-          value="chart"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+        <TabsTrigger value="chart" className="h-8 gap-1.5 px-0 py-0 text-xs">
           <BarChart3 className="size-3.5" aria-hidden="true" /> Chart
         </TabsTrigger>
-        <TabsTrigger
-          value="history"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+        <TabsTrigger value="history" className="h-8 gap-1.5 px-0 py-0 text-xs">
           <History className="size-3.5" aria-hidden="true" /> History
         </TabsTrigger>
         <TabsTrigger
           value="pipelines"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          className="h-8 gap-1.5 px-0 py-0 text-xs"
         >
           <Workflow className="size-3.5" aria-hidden="true" /> Pipelines
         </TabsTrigger>

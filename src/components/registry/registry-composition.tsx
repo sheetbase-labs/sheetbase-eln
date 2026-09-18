@@ -28,8 +28,8 @@ import {
   SheetContent,
   SheetTitle,
   Skeleton,
+  StatStrip,
 } from '#/components/ui'
-import { MetricSummary } from '#/components/scientific/metric-summary'
 import { formatCount } from '#/lib/format-numbers'
 import { DEFAULT_REGISTRY_QUERY } from '#/lib/registry'
 import type { RegistryQuery, RegistryScalar } from '#/lib/registry'
@@ -384,12 +384,12 @@ export function RegistryComposition<TData>({
           <div className="min-w-0">
             <h1
               id={`${registryId}-title`}
-              className="text-xl font-semibold tracking-tight"
+              className="font-display text-headline font-heading tracking-tight"
             >
               {title}
             </h1>
             {description ? (
-              <p className="mt-0.5 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {description}
               </p>
             ) : null}
@@ -401,19 +401,15 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {!permissionDenied && summaries.length > 0 ? (
-        <div
-          className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]"
+        <StatStrip
           aria-label="Summary"
-        >
-          {summaries.map((summary) => (
-            <MetricSummary
-              key={summary.label}
-              label={summary.label}
-              value={loading ? '—' : summary.value}
-              hint={summary.hint}
-            />
-          ))}
-        </div>
+          items={summaries.map((summary) => ({
+            label: summary.label,
+            value: loading ? '—' : summary.value,
+            hint: summary.hint,
+            tone: summary.tone,
+          }))}
+        />
       ) : null}
 
       {!permissionDenied ? (
@@ -497,7 +493,7 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {/* Table + pinned inspector layout */}
-      <div className="flex min-h-0 flex-1 min-w-0 gap-4">
+      <div className="flex min-h-0 min-w-0 flex-1">
         {/* Table — always takes full width. Inspector slides over or pins. */}
         <DataGrid
           table={table}
@@ -524,7 +520,7 @@ export function RegistryComposition<TData>({
         isXl ? (
           <aside
             aria-label={inspectorLabel}
-            className="flex w-96 shrink-0 flex-col overflow-hidden rounded-lg border bg-background"
+            className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-border bg-background"
           >
             {inspectorContent}
           </aside>
@@ -540,7 +536,7 @@ export function RegistryComposition<TData>({
         >
           <SheetContent
             side="right"
-            className="w-[min(30rem,100vw)] border-l p-0 sm:max-w-none"
+            className="w-[min(20rem,100vw)] border-l p-0 sm:max-w-none"
             showClose={false}
           >
             <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>

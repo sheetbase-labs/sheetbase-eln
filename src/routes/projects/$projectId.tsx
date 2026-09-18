@@ -748,7 +748,7 @@ export function RecordListSection({
         className="space-y-3"
       >
         <div className="overflow-x-auto">
-          <TabsList className="h-8 w-auto p-0.5">
+          <TabsList variant="boxed" className="h-8 w-auto p-0.5">
             {KIND_FILTERS.filter(
               (f) => f.value === 'all' || kindCounts[f.value],
             ).map((f) => (

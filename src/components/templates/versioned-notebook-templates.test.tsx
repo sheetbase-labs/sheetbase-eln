@@ -585,7 +585,12 @@ describe('REUSE-01 VersionedNotebookTemplatePanel — facets and requirement pre
 describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => {
   it(
     'pre-fills declared defaults visibly on open',
-    { timeout: 30000 },
+    // Worker-starvation flake (#165): under parallel CI workers the
+    // post-click render can be starved past even a 15s findBy budget —
+    // observed failing on main and on PR #176 with the dialog open and no
+    // element found. No product code is implicated, so the test retries
+    // with a fresh mount rather than growing the timeout again.
+    { timeout: 30000, retry: 2 },
     async () => {
       const user = userEvent.setup()
       mount()
@@ -593,9 +598,6 @@ describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => 
       await user.click(
         screen.getAllByRole('button', { name: 'Create notebook' })[0],
       )
-      // Generous timeout: under parallel CI workers the dialog's async version
-      // load can burst well past the default 1s findBy budget (flake, #165),
-      // and even 5s has proven marginal on loaded machines.
       expect(
         await screen.findByDisplayValue('5', undefined, { timeout: 15000 }),
       ).toBeTruthy()

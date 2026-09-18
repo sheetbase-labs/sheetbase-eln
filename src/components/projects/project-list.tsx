@@ -152,7 +152,7 @@ export function ProjectList({
         },
         meta: { className: 'w-[9rem]' },
       }),
-    ]
+    ] as ColumnDef<ProjectListProject, unknown>[]
   }, [recordCounts, countsLoading])
 
   if (isLoading) {
@@ -242,7 +242,7 @@ export function ProjectList({
           </>
         }
         data={filtered}
-        columns={columns as ColumnDef<ProjectListProject>[]}
+        columns={columns}
         label="Projects"
         variant="quiet"
         tableClassName="min-w-[54rem] table-fixed"

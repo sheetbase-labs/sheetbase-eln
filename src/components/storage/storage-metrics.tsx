@@ -1,4 +1,3 @@
-import { MetricSummary } from '#/components/scientific/metric-summary'
 import { boxOccupancy } from '#/lib/storage'
 import type { BoxPositionWithSample, StorageBox } from '#/lib/storage'
 
@@ -33,27 +32,26 @@ export function StorageMetrics({
   const total = box?.capacity ?? 0
   const occupancy = boxOccupancy(positions, total)
   const values = [
-    ['Total capacity', total],
-    ['Occupied', occupancy.occupied],
-    ['Available', occupancy.available],
-    ['Low volume', positions.filter(isLowVolume).length],
-    ['Expiring soon', positions.filter(isExpiringSoon).length],
-    ['Quarantined', occupancy.quarantined],
-    ['Missing', occupancy.missing],
+    ['Total capacity', total, 'bg-primary'],
+    ['Occupied', occupancy.occupied, 'bg-success'],
+    ['Available', occupancy.available, 'bg-muted-foreground'],
+    ['Low volume', positions.filter(isLowVolume).length, 'bg-warning'],
+    ['Expiring soon', positions.filter(isExpiringSoon).length, 'bg-warning'],
+    ['Quarantined', occupancy.quarantined, 'bg-destructive'],
+    ['Missing', occupancy.missing, 'bg-violet'],
   ] as const
   return (
     <section
       aria-label="Box capacity summary"
       aria-description="Occupied, available, quarantined, and missing positions are mutually exclusive and reconcile to total capacity. Low-volume and expiring-soon values are attention flags within occupied positions."
-      className="grid grid-cols-2 gap-x-3 gap-y-2 py-2 sm:grid-cols-3 xl:grid-cols-7"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1"
     >
-      {values.map(([label, value]) => (
-        <MetricSummary
-          key={label}
-          label={label}
-          value={value}
-          hint={total ? `${Math.round((value / total) * 100)}%` : undefined}
-        />
+      {values.map(([label, value, dot]) => (
+        <span key={label} className="flex items-center gap-1.5 text-xs">
+          <span aria-hidden="true" className={`size-1.5 rounded-full ${dot}`} />
+          <span className="font-medium tabular-nums">{value}</span>
+          <span className="text-muted-foreground">{label}</span>
+        </span>
       ))}
     </section>
   )

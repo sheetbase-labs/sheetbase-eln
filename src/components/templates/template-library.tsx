@@ -185,7 +185,7 @@ export function TemplateFilters({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search by title or identifier"
-          className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
@@ -196,7 +196,7 @@ export function TemplateFilters({
         id="template-status"
         value={statusFilter}
         onChange={(e) => onStatusChange(e.target.value)}
-        className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-8 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <option value="all">All statuses</option>
         <option value="draft">Draft</option>
@@ -214,7 +214,7 @@ export function TemplateFilters({
             id="template-purpose"
             value={purposeFilter}
             onChange={(e) => onPurposeChange(e.target.value)}
-            className="h-9 max-w-48 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-8 max-w-48 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="all">All purposes</option>
             {purposeOptions.map((option) => (
@@ -238,7 +238,7 @@ export function TemplateFilters({
           onChange={(e) =>
             onOwnershipChange(e.target.value as TemplateOwnershipFilter)
           }
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-8 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <option value="all">All owners</option>
           <option value="mine">My templates</option>
@@ -246,7 +246,7 @@ export function TemplateFilters({
       ) : null}
 
       {onFavouritesOnlyChange ? (
-        <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm">
+        <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm">
           <Star
             className={cn(
               'size-4',
@@ -270,14 +270,14 @@ export function TemplateFilters({
         <div
           role="group"
           aria-label="Template view"
-          className="inline-flex h-9 items-center rounded-md border border-input bg-background p-0.5"
+          className="inline-flex h-8 items-center rounded-md border border-input bg-background p-0.5"
         >
           <button
             type="button"
             aria-pressed={view === 'list'}
             onClick={() => onViewChange('list')}
             className={cn(
-              'inline-flex size-8 items-center justify-center rounded-sm',
+              'inline-flex size-7 items-center justify-center rounded-sm',
               view === 'list'
                 ? 'bg-accent text-accent-foreground'
                 : 'text-muted-foreground',
@@ -291,7 +291,7 @@ export function TemplateFilters({
             aria-pressed={view === 'grid'}
             onClick={() => onViewChange('grid')}
             className={cn(
-              'inline-flex size-8 items-center justify-center rounded-sm',
+              'inline-flex size-7 items-center justify-center rounded-sm',
               view === 'grid'
                 ? 'bg-accent text-accent-foreground'
                 : 'text-muted-foreground',

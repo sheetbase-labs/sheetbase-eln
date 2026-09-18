@@ -112,7 +112,7 @@ export const Route = createFileRoute('/samples')({
           ? size
           : undefined,
       sort: typeof search.sort === 'string' ? search.sort : undefined,
-      group: typeof search.group === 'string' ? search.group : 'sampleType',
+      group: typeof search.group === 'string' ? search.group : undefined,
       filters: typeof search.filters === 'string' ? search.filters : undefined,
       selected:
         typeof search.selected === 'string' ? search.selected : undefined,
@@ -499,7 +499,7 @@ function SamplesRegistryRoute() {
           summaries={summaries}
           renderInspector={inspector}
           inspectorLabel="Sample details"
-          initialColumnVisibility={{ barcode: false, sampleType: false }}
+          initialColumnVisibility={{ barcode: false }}
           searchDebounceMs={250}
           loading={pageQuery.isLoading}
           error={pageQuery.error}

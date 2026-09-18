@@ -86,7 +86,7 @@ export const Route = createFileRoute('/reagents')({
   validateSearch: (search: Record<string, unknown>) => ({
     rq: typeof search.rq === 'string' ? search.rq : '',
     sort: typeof search.sort === 'string' ? search.sort : '',
-    group: typeof search.group === 'string' ? search.group : 'category',
+    group: typeof search.group === 'string' ? search.group : undefined,
     status: typeof search.status === 'string' ? search.status : '',
     storage: typeof search.storage === 'string' ? search.storage : '',
     q: typeof search.q === 'string' ? search.q : '',
@@ -116,7 +116,7 @@ const columnHelper = createColumnHelper<Reagent>()
 function queryFromSearch(search: {
   rq: string
   sort: string
-  group: string
+  group?: string
   status: string
   storage: string
   q: string
@@ -464,7 +464,7 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       size: 112,
       minSize: 96,
       cell: (info) => (
-        <span className="font-mono text-xs font-medium tabular-nums text-primary hover:underline">
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
           {info.getValue()}
         </span>
       ),
@@ -650,24 +650,27 @@ function buildFields(
 
 function buildSummaries(attention: ReagentAttentionSummary): RegistrySummary[] {
   return [
-    { label: 'Active reagents', value: attention.total, hint: 'In inventory' },
+    { label: 'reagents', value: attention.total, hint: 'In inventory' },
     {
-      label: 'Low stock',
-      value: attention.lowStock,
-      hint: attention.lowStock > 0 ? 'needs reorder' : undefined,
-    },
-    {
-      label: 'Expiring soon',
+      label: 'near expiry',
       value: attention.nearExpiry,
       hint: attention.nearExpiry > 0 ? 'within warning period' : undefined,
+      tone: attention.nearExpiry > 0 ? 'warning' : 'neutral',
     },
     {
-      label: 'Expired',
+      label: 'low stock',
+      value: attention.lowStock,
+      hint: attention.lowStock > 0 ? 'needs reorder' : undefined,
+      tone: attention.lowStock > 0 ? 'warning' : 'neutral',
+    },
+    {
+      label: 'expired',
       value: attention.expired,
       hint: attention.expired > 0 ? 'review required' : undefined,
+      tone: attention.expired > 0 ? 'danger' : 'neutral',
     },
     {
-      label: 'Quarantined',
+      label: 'quarantined',
       value: attention.quarantined,
       hint: attention.quarantined > 0 ? 'isolated' : undefined,
     },

@@ -550,11 +550,11 @@ export function DatasetExplorerHeader({
         <div className="min-w-0">
           <h1
             id="datasets-title"
-            className="break-words text-base font-semibold leading-5 tracking-tight"
+            className="break-words font-display text-headline font-heading tracking-tight"
           >
             {selected?.name ?? 'Scientific datasets'}
           </h1>
-          <p className="text-xs leading-4 text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {selected
               ? `${formatCount(fieldCount)} ${fieldCount === 1 ? 'field' : 'fields'}${selected.dataset_schema ? ` · ${selected.dataset_schema.name} v${selected.schema_version}` : ''}${selected.lifecycle === 'archived' ? ' · archived' : ' · live'}`
               : 'Create datasets, explore rows and save versions'}
@@ -716,7 +716,7 @@ function DatasetTabs({
       }
       className="relative min-h-0 flex-1 overflow-hidden"
     >
-      <TabsList className="h-8">
+      <TabsList variant="boxed" className="h-8 w-auto">
         <TabsTrigger value="data" className="h-8 gap-1.5 px-0 py-0 text-xs">
           <TableIcon className="size-3.5" aria-hidden="true" /> Live data
         </TabsTrigger>

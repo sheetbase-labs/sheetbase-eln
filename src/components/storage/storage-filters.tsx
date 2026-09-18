@@ -38,52 +38,65 @@ export function StorageFilters({
   boxes: StorageBox[]
 }) {
   const fields = [
-    ['siteId', 'Site', 'sites', sites],
-    ['roomId', 'Room', 'rooms', rooms],
-    ['unitId', 'Freezer', 'freezers', units],
-    ['shelfId', 'Shelf', 'shelves', shelves],
-    ['rackId', 'Rack', 'racks', racks],
-    ['boxId', 'Box', 'boxes', boxes],
+    ['siteId', 'Site', 'all', sites],
+    ['roomId', 'Room', 'all', rooms],
+    ['unitId', 'Freezer', 'all', units],
+    ['shelfId', 'Shelf', 'all', shelves],
+    ['rackId', 'Rack', 'all', racks],
+    ['boxId', 'Box', 'all', boxes],
   ] as const
   const keys = fields.map(([key]) => key)
   return (
     <div
-      className="flex flex-wrap gap-2 rounded-lg border bg-card p-2"
+      className="flex flex-wrap items-center gap-2"
       aria-label="Storage filters"
     >
-      {fields.map(([key, label, plural, options], index) => (
-        <Select
+      <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+        Scope
+      </span>
+      {fields.map(([key, label, empty, options], index) => (
+        <span
           key={key}
-          aria-label={label}
-          className="h-8 min-w-28"
-          value={value[key]}
-          onChange={(event) => {
-            const next = { ...value, [key]: event.target.value }
-            keys.slice(index + 1).forEach((child) => (next[child] = ''))
-            onChange(next)
-          }}
+          className="flex h-7 items-center gap-1 rounded-md border bg-card pl-2 text-xs shadow-xs"
         >
-          <option value="">All {plural}</option>
-          {options.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
+          <span className="text-muted-foreground">{label}</span>
+          <Select
+            aria-label={label}
+            className="h-7 w-auto border-0 bg-transparent px-0 pr-5 text-xs shadow-none"
+            style={{ backgroundPosition: 'right 0.25rem center' }}
+            value={value[key]}
+            onChange={(event) => {
+              const next = { ...value, [key]: event.target.value }
+              keys.slice(index + 1).forEach((child) => (next[child] = ''))
+              onChange(next)
+            }}
+          >
+            <option value="">{empty}</option>
+            {options.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+        </span>
+      ))}
+      <span className="flex h-7 items-center gap-1 rounded-md border bg-card pl-2 text-xs shadow-xs">
+        <span className="text-muted-foreground">Status</span>
+        <Select
+          aria-label="Status"
+          className="h-7 w-auto border-0 bg-transparent px-0 pr-5 text-xs shadow-none"
+          style={{ backgroundPosition: 'right 0.25rem center' }}
+          value={value.status}
+          onChange={(e) => onChange({ ...value, status: e.target.value })}
+        >
+          <option value="">all</option>
+          {['available', 'occupied', 'quarantined', 'missing'].map((status) => (
+            <option key={status} value={status}>
+              {status}
             </option>
           ))}
         </Select>
-      ))}
-      <Select
-        aria-label="Status"
-        className="h-8 min-w-32"
-        value={value.status}
-        onChange={(e) => onChange({ ...value, status: e.target.value })}
-      >
-        <option value="">All statuses</option>
-        {['available', 'occupied', 'quarantined', 'missing'].map((status) => (
-          <option key={status} value={status}>
-            {status[0].toUpperCase() + status.slice(1)}
-          </option>
-        ))}
-      </Select>
+      </span>
     </div>
   )
 }

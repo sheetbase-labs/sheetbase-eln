@@ -158,29 +158,36 @@ export function computeSampleSummaries(
 ): SampleSummary[] {
   const available = rows.filter((r) => r.status === 'available').length
   const lowStock = rows.filter((r) => isLowStock(r)).length
+  const expired = rows.filter((r) => r.status === 'expired').length
   const consumed = rows.filter((r) => r.status === 'consumed').length
   const pct = totalCount > 0 ? Math.round((available / totalCount) * 100) : 0
   return [
     {
-      label: 'Total samples',
+      label: 'samples',
       value: totalCount,
       hint: `${rows.length} on this page`,
       tone: 'neutral',
     },
     {
-      label: 'Available',
+      label: 'available',
       value: available,
       hint: `${pct}% of total`,
       tone: 'positive',
     },
     {
-      label: 'Low stock',
+      label: 'low stock',
       value: lowStock,
       hint: lowStock > 0 ? 'Needs attention' : 'All healthy',
       tone: lowStock > 0 ? 'warning' : 'positive',
     },
     {
-      label: 'Consumed',
+      label: 'expired',
+      value: expired,
+      hint: 'On this page',
+      tone: expired > 0 ? 'danger' : 'neutral',
+    },
+    {
+      label: 'consumed',
       value: consumed,
       hint: 'On this page',
       tone: 'neutral',
@@ -807,21 +814,27 @@ export function sampleColumns<T extends SampleRecord>(
       header: 'Sample ID',
       enableHiding: false,
       cell: ({ row }) => (
-        <span className="font-medium text-primary">
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
           {row.original.identifier}
         </span>
       ),
     },
-    { accessorKey: 'title', header: 'Title' },
+    {
+      accessorKey: 'title',
+      header: 'Title',
+      cell: ({ row }) => (
+        <span className="font-medium text-foreground">
+          {row.original.title}
+        </span>
+      ),
+    },
     {
       id: 'sampleType',
       header: 'Type',
       accessorFn: (row) => row.sampleType,
       cell: ({ row }) =>
         row.original.sampleType ? (
-          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium leading-tight text-primary">
-            {row.original.sampleType}
-          </span>
+          <span className="text-foreground">{row.original.sampleType}</span>
         ) : (
           <span className="text-muted-foreground">—</span>
         ),

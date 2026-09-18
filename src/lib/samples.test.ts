@@ -136,19 +136,20 @@ describe('computeSampleSummaries', () => {
     const summaries = computeSampleSummaries(rows, 1234)
     expect(summaries).toEqual([
       {
-        label: 'Total samples',
+        label: 'samples',
         value: 1234,
         hint: '3 on this page',
         tone: 'neutral',
       },
-      { label: 'Available', value: 2, hint: '0% of total', tone: 'positive' },
+      { label: 'available', value: 2, hint: '0% of total', tone: 'positive' },
       {
-        label: 'Low stock',
+        label: 'low stock',
         value: 1,
         hint: 'Needs attention',
         tone: 'warning',
       },
-      { label: 'Consumed', value: 1, hint: 'On this page', tone: 'neutral' },
+      { label: 'expired', value: 0, hint: 'On this page', tone: 'neutral' },
+      { label: 'consumed', value: 1, hint: 'On this page', tone: 'neutral' },
     ])
   })
 })

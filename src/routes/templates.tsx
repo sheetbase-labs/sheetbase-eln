@@ -541,11 +541,11 @@ function TemplateLibraryRoute() {
       <div className="space-y-5 p-4">
         <header className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold tracking-tight">
+            <h1 className="font-display text-headline font-heading tracking-tight">
               Template Library
             </h1>
           </div>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Start a notebook from a published template, or add a reusable
             protocol.
           </p>

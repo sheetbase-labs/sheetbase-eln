@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { cva } from 'class-variance-authority'
 import type { VariantProps } from 'class-variance-authority'
+import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
 
@@ -10,13 +11,14 @@ import { cn } from '#/lib/utils'
  * figures; labels stay muted; optional tone colours an item for attention
  * (low stock, expired, overdue).
  */
-const statStripItemVariants = cva('inline-flex items-baseline gap-1 text-sm', {
+const statStripItemVariants = cva('inline-flex items-center gap-1.5 text-sm', {
   variants: {
     tone: {
       neutral: '',
       positive: 'text-success',
       warning: 'text-warning-foreground dark:text-warning',
       danger: 'text-destructive',
+      violet: 'text-violet',
     },
   },
   defaultVariants: { tone: 'neutral' },
@@ -28,6 +30,8 @@ export interface StatStripItem {
   tone?: VariantProps<typeof statStripItemVariants>['tone']
   /** Extra context shown on hover and to assistive tech. */
   hint?: string
+  /** Leading icon — the V2ALT stat band marks each item by object kind. */
+  icon?: LucideIcon
 }
 
 interface StatStripProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -57,6 +61,12 @@ function StatStrip({ items, meta, className, ...props }: StatStripProps) {
             className={cn(statStripItemVariants({ tone: item.tone }))}
             title={item.hint}
           >
+            {item.icon ? (
+              <item.icon
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+            ) : null}
             <span className="font-semibold tabular-nums">{item.value}</span>
             <span
               className={cn(

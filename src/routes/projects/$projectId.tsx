@@ -16,16 +16,15 @@ import {
   Activity as ActivityIcon,
   FlaskConical,
   Beaker,
+  Eye,
   TestTube,
   FileText,
   ClipboardList,
-  Inbox,
   PanelRight,
   Pin,
   ShieldCheck,
   Upload,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -37,6 +36,7 @@ import { Property, PropertyList, StatusBadge } from '#/components/scientific'
 import {
   Button,
   Skeleton,
+  StatStrip,
   Table,
   TableBody,
   TableCell,
@@ -47,6 +47,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '#/components/ui'
+import type { StatStripItem } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
 import {
   fetchFoldersForProject,
@@ -429,15 +430,6 @@ function computeRecordStats(records: NotebookRecord[]): RecordStats {
   return stats
 }
 
-interface StatCardDef {
-  key: string
-  label: string
-  value: number
-  hint: string
-  icon: LucideIcon
-  tone: 'info' | 'success' | 'warning' | 'violet' | 'danger' | 'neutral'
-}
-
 function ProjectStatCards({
   stats,
   metrics,
@@ -445,116 +437,42 @@ function ProjectStatCards({
   stats: RecordStats
   metrics: DashboardMetric[]
 }) {
-  const cards: StatCardDef[] = [
+  const items: StatStripItem[] = [
     {
-      key: 'experiments',
-      label: 'Active experiments',
-      value: stats.experiments,
-      hint: 'Active notebooks',
       icon: FlaskConical,
-      tone: 'info',
+      label: 'active experiments',
+      value: stats.experiments,
+      hint: metrics[0]?.hint ?? metrics[0]?.timeBoundary,
     },
     {
-      key: 'samples',
-      label: 'Linked samples',
-      value: stats.samples,
-      hint: 'Linked samples',
       icon: TestTube,
-      tone: 'success',
+      label: 'linked samples',
+      value: stats.samples,
+      hint: metrics[1]?.hint ?? metrics[1]?.timeBoundary,
     },
     {
-      key: 'datasets',
-      label: 'Datasets',
-      value: stats.files,
-      hint: 'File records',
       icon: FileText,
-      tone: 'neutral',
+      label: 'datasets',
+      value: stats.files,
+      hint: metrics[2]?.hint ?? metrics[2]?.timeBoundary,
     },
     {
-      key: 'protocols',
-      label: 'Protocols',
-      value: stats.protocols,
-      hint: 'Protocol templates',
-      icon: ClipboardList,
-      tone: 'violet',
-    },
-    {
-      key: 'reviews',
-      label: 'Pending reviews',
+      icon: Eye,
+      label:
+        stats.pendingReviews === 1 ? 'review awaiting' : 'reviews awaiting',
       value: stats.pendingReviews,
-      hint: 'Awaiting approval',
-      icon: Inbox,
-      tone: stats.pendingReviews > 0 ? 'danger' : 'neutral',
+      tone: stats.pendingReviews > 0 ? 'violet' : 'neutral',
+      hint: metrics[4]?.hint ?? metrics[4]?.timeBoundary,
+    },
+    {
+      icon: ClipboardList,
+      label: 'protocols',
+      value: stats.protocols,
+      hint: metrics[3]?.hint ?? metrics[3]?.timeBoundary,
     },
   ]
 
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      {cards.map((card, i) => {
-        const metric = metrics[i]
-        return (
-          <StatCard
-            key={card.key}
-            card={card}
-            timeBoundary={metric.timeBoundary}
-            linkTo={metric.linkTo}
-            linkParams={metric.linkParams}
-          />
-        )
-      })}
-    </div>
-  )
-}
-
-const toneClasses: Record<StatCardDef['tone'], string> = {
-  info: 'text-blue-600 dark:text-blue-400',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  warning: 'text-amber-600 dark:text-amber-400',
-  violet: 'text-violet-600 dark:text-violet-400',
-  danger: 'text-red-600 dark:text-red-400',
-  neutral: 'text-muted-foreground',
-}
-
-function StatCard({
-  card,
-  timeBoundary,
-  linkTo,
-  linkParams,
-}: {
-  card: StatCardDef
-  timeBoundary?: string
-  linkTo?: string
-  linkParams?: Record<string, string>
-}) {
-  const Icon = card.icon
-  const card_el = (
-    <div className="rounded-lg border border-border bg-surface p-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {card.label}
-        </span>
-        <Icon
-          className={`size-4 ${toneClasses[card.tone]}`}
-          aria-hidden="true"
-        />
-      </div>
-      <p
-        className="mt-1.5 font-display text-2xl font-semibold tabular-nums leading-none"
-        title={timeBoundary}
-      >
-        {card.value}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">{card.hint}</p>
-    </div>
-  )
-  if (linkTo) {
-    return (
-      <Link to={linkTo} params={linkParams} className="no-underline contents">
-        {card_el}
-      </Link>
-    )
-  }
-  return card_el
+  return <StatStrip items={items} />
 }
 
 // ---------------------------------------------------------------------------

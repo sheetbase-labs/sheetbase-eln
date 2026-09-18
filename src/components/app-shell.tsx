@@ -424,6 +424,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
       { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
+      { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
       { to: '/report-builder', label: 'Report Builder', icon: BookOpen },
       {
         to: '/reviews',
@@ -437,7 +438,6 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/pipelines', label: 'Pipelines', icon: Workflow },
       { to: '/agent-operations', label: 'Agent operations', icon: Bot },
       { to: '/integrations', label: 'Integrations', icon: PlugZap },
-      { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
       { to: '/settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -867,11 +867,12 @@ export function AppShell({
               </span>
             </nav>
 
+            <ConnectionStatus
+              status={liveStatus.status}
+              lastAppliedSeq={liveStatus.lastAppliedSeq}
+            />
+
             <div className="ml-auto flex items-center gap-2">
-              <ConnectionStatus
-                status={liveStatus.status}
-                lastAppliedSeq={liveStatus.lastAppliedSeq}
-              />
               <NotificationInbox />
               <Button
                 type="button"

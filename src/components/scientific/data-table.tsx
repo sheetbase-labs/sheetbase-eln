@@ -9,6 +9,7 @@ import {
 import type {
   ColumnDef,
   SortingState,
+  Table as TanstackTable,
   VisibilityState,
 } from '@tanstack/react-table'
 import { ArrowUpDown, ArrowUp, ArrowDown, Columns3 } from 'lucide-react'
@@ -46,6 +47,7 @@ interface DataTableProps<TData, TValue> {
   enableRowSelection?: boolean
   onRowClick?: (row: TData) => void
   toolbar?: React.ReactNode
+  toolbarClassName?: string
   className?: string
   tableClassName?: string
   label?: string
@@ -55,6 +57,10 @@ interface DataTableProps<TData, TValue> {
   variant?: 'default' | 'quiet'
   emptyMessage?: React.ReactNode
   getRowId?: (row: TData) => string
+  /** Custom footer row beneath the table. Receives the table instance so
+   * callers can render counts, sort state and pagination controls. When
+   * provided it replaces the default pagination block. */
+  footer?: (table: TanstackTable<TData>) => React.ReactNode
 }
 
 function DataTable<TData, TValue>({
@@ -64,6 +70,7 @@ function DataTable<TData, TValue>({
   enableRowSelection = false,
   onRowClick,
   toolbar,
+  toolbarClassName,
   className,
   tableClassName,
   label,
@@ -73,6 +80,7 @@ function DataTable<TData, TValue>({
   variant = 'default',
   emptyMessage = 'No results.',
   getRowId,
+  footer,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [rowSelection, setRowSelection] = React.useState({})
@@ -104,7 +112,9 @@ function DataTable<TData, TValue>({
   return (
     <div className={cn('min-w-0 space-y-2', className)}>
       {(toolbar || enableColumnVisibility) && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          className={cn('flex flex-wrap items-center gap-2', toolbarClassName)}
+        >
           {toolbar}
           {enableColumnVisibility && (
             <div className="ml-auto">
@@ -166,7 +176,10 @@ function DataTable<TData, TValue>({
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={header.column.columnDef.meta?.className}
+                    className={cn(
+                      'group/th',
+                      header.column.columnDef.meta?.className,
+                    )}
                     aria-sort={
                       header.column.getIsSorted() === 'asc'
                         ? 'ascending'
@@ -191,7 +204,7 @@ function DataTable<TData, TValue>({
                         ) : header.column.getIsSorted() === 'desc' ? (
                           <ArrowDown className="size-3.5" />
                         ) : (
-                          <ArrowUpDown className="size-3.5" />
+                          <ArrowUpDown className="size-3.5 opacity-0 transition-opacity group-hover/th:opacity-60" />
                         )}
                       </Button>
                     ) : (
@@ -257,7 +270,11 @@ function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      {enablePagination && (
+      {footer ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+          {footer(table)}
+        </div>
+      ) : enablePagination ? (
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
           <label className="flex items-center gap-2">
             Rows per page
@@ -298,7 +315,7 @@ function DataTable<TData, TValue>({
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

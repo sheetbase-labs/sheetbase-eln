@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CreateProjectForm } from './projects'
@@ -256,6 +257,7 @@ describe('Project table controls', () => {
     createdAt: '2026-09-01T00:00:00Z',
   }))
   it('paginates and resets to the first page when the status changes', async () => {
+    const user = userEvent.setup()
     render(
       <ProjectList
         projects={projects}
@@ -267,9 +269,7 @@ describe('Project table controls', () => {
     expect(screen.queryByText('Study 20')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(screen.getByText('Study 20')).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Project status'), {
-      target: { value: 'archived' },
-    })
+    await user.click(screen.getByRole('tab', { name: 'Archived' }))
     expect(await screen.findByText('Study 24')).toBeTruthy()
     expect(screen.queryByText('Study 20')).toBeNull()
   })
@@ -285,7 +285,7 @@ describe('Project table controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Project' }))
     fireEvent.click(screen.getByRole('button', { name: 'Project' }))
     const links = screen.getAllByRole('link')
-    expect(links[0].textContent).toContain('Study 23')
+    expect(links[0].textContent).toContain('Study 24')
     expect(screen.queryByText('Study 00')).toBeNull()
     expect(
       screen

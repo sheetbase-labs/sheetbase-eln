@@ -23,21 +23,21 @@ function PageHeader({
     <div
       data-slot="page-header"
       className={cn(
-        'flex flex-col gap-4 border-b pb-6 md:flex-row md:items-end md:justify-between',
-        compact && 'gap-2 pb-3 md:items-center',
+        'flex flex-col gap-4 md:flex-row md:items-end md:justify-between',
+        compact && 'gap-2 md:items-center',
         className,
       )}
     >
       <div data-slot="page-header-content" className="max-w-2xl">
         {eyebrow && (
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {eyebrow}
           </p>
         )}
         <h1
           className={cn(
-            'font-display font-semibold tracking-tight',
-            compact ? 'text-base' : 'text-2xl',
+            'font-display font-heading tracking-tight',
+            compact ? 'text-base' : 'text-headline',
           )}
         >
           {title}

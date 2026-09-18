@@ -21,8 +21,10 @@ import {
   DialogTitle,
   DialogTrigger,
   Input,
+  PageHeader,
 } from '#/components/ui'
 import { createDataClient, DataClientError } from '#/lib/data-client'
+import { fetchMyPendingReviews } from '#/lib/dashboard-data'
 
 /** Project registry backed by the caller-scoped summary RPC. Creation opens
  * the canonical project route so its empty state can guide the first experiment.
@@ -171,6 +173,37 @@ function ProjectsIndexRoute() {
   const isLoading = query.isLoading
   const isPendingCreate = createMutation.isPending
 
+  // Pending reviews assigned to the current user, counted per project — feeds
+  // the "N awaiting you" column and the header stat line.
+  const myReviewsQuery = useQuery({
+    queryKey: ['projects', 'my-pending-reviews', context.user.id],
+    queryFn: () => fetchMyPendingReviews(dataClient, context.user.id),
+  })
+  const pendingReviews = myReviewsQuery.data ?? []
+  const reviewsByProject = new Map<string, number>()
+  for (const review of pendingReviews) {
+    if (!review.projectId) continue
+    reviewsByProject.set(
+      review.projectId,
+      (reviewsByProject.get(review.projectId) ?? 0) + 1,
+    )
+  }
+
+  const activeCount = projects.filter((p) => p.status === 'active').length
+  const archivedCount = projects.filter((p) => p.status === 'archived').length
+  const headerMeta = isLoading
+    ? 'Loading workspace projects…'
+    : [
+        `${projects.length} project${projects.length === 1 ? '' : 's'}`,
+        `${activeCount} active`,
+        pendingReviews.length > 0
+          ? `${pendingReviews.length} awaiting review`
+          : null,
+        archivedCount > 0 ? `${archivedCount} archived` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const trimmed = title.trim()
@@ -231,18 +264,11 @@ function ProjectsIndexRoute() {
   return (
     <>
       <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto p-4 md:p-6">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 className="font-display text-2xl font-semibold tracking-tight">
-              Projects
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {isLoading
-                ? 'Loading workspace projects…'
-                : `${projects.length} project${projects.length === 1 ? '' : 's'}`}
-            </p>
-          </div>
-        </header>
+        <PageHeader
+          eyebrow={context.workspace?.name ?? undefined}
+          title="Projects"
+          description={headerMeta}
+        />
 
         <ProjectList
           projects={projects}
@@ -254,6 +280,7 @@ function ProjectsIndexRoute() {
               .filter((p) => p.recordCount !== undefined)
               .map((p) => [p.id, p.recordCount!]),
           )}
+          reviewsByProject={reviewsByProject}
         />
       </div>
     </>

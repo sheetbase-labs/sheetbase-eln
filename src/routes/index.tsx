@@ -1,4 +1,3 @@
-import { MetricSummary } from '#/components/scientific/metric-summary'
 import { useQuery } from '@tanstack/react-query'
 import {
   createFileRoute,
@@ -11,26 +10,26 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Activity as ActivityIcon,
+  AlertTriangle,
   ArrowRight,
   AtSign,
+  CalendarDays,
+  ChevronRight,
+  CircleCheck,
   ClipboardList,
   Database,
+  Eye,
   FlaskConical,
   Folder,
   GanttChart,
   Inbox,
-  Layers,
   LayoutTemplate,
   Pin,
   Plus,
-  Search,
   Star,
-  TestTube,
-  Upload,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { CreateBlankExperimentDialog } from '#/components/notebook/create-blank-experiment-dialog'
 import { useShell } from '#/components/app-shell'
 import {
   Button,
@@ -41,6 +40,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '#/components/ui'
 import { StatusBadge } from '#/components/scientific'
 import {
@@ -59,7 +62,6 @@ import {
 import type { FavouriteItem } from '#/lib/favourites'
 import {
   activitySentence,
-  computeMyWorkMetrics,
   dashboardQueryKeys,
   fetchMyMentions,
   fetchMyPendingReviews,
@@ -67,16 +69,17 @@ import {
   fetchPinnedRecords,
   fetchRecentActivity,
   isReviewOverdue,
-  nextDeadlineHint,
   OVERDUE_DAYS,
-  SOON_DAYS,
 } from '#/lib/dashboard-data'
 import type {
   DashboardActivityItem,
-  DashboardMetric,
   DashboardMentionItem,
   DashboardPinnedItem,
 } from '#/lib/dashboard-data'
+import { createDataClient } from '#/lib/data-client'
+import { fetchCalendarBookings, toCalendarBooking } from '#/lib/calendar'
+import type { CalendarBooking } from '#/lib/calendar'
+import { fetchInstrumentRuns, fetchInstruments } from '#/lib/instrument-monitor'
 import type { ReviewItem } from '#/lib/reviews'
 import {
   fetchRecentItems,
@@ -87,6 +90,8 @@ import type { RecentItem } from '#/lib/recents'
 import { recordDestination, recordPath } from '#/lib/navigation'
 import { cn } from '#/lib/utils'
 import { useUserNames } from '#/lib/user-names'
+
+const dataClient = createDataClient()
 
 function RouteShell({
   children,
@@ -173,6 +178,7 @@ function Home() {
           userId: context.user.id,
           user: { name: context.user.name, email: context.user.email },
           workspace: {
+            id: context.workspace.id,
             name: context.workspace.name,
             slug: context.workspace.slug,
             role: context.workspace.role,
@@ -196,7 +202,7 @@ function greetingFor(hour: number): string {
 interface DashboardContext {
   userId: string
   user: { name: string; email: string }
-  workspace: { name: string; slug: string; role: string }
+  workspace: { id?: string; name: string; slug: string; role: string }
 }
 
 /**
@@ -309,6 +315,38 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
     }
   }
 
+  const workspaceId = context.workspace.id ?? ''
+
+  // Today's calendar bookings — drives the "Today" schedule rail.
+  const todayStart = useMemo(() => {
+    const day = new Date()
+    day.setHours(0, 0, 0, 0)
+    return day
+  }, [])
+  const todayBookingsQuery = useQuery({
+    queryKey: ['home', 'today-bookings', workspaceId, todayStart.getTime()],
+    queryFn: () =>
+      fetchCalendarBookings(
+        dataClient,
+        workspaceId,
+        todayStart.toISOString(),
+        new Date(todayStart.getTime() + 86_400_000).toISOString(),
+      ),
+    enabled: Boolean(workspaceId),
+  })
+
+  // Instrument + run queries — failed runs feed the attention queue.
+  const instrumentsQuery = useQuery({
+    queryKey: ['home', 'instruments', workspaceId],
+    queryFn: () => fetchInstruments(dataClient, workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+  const instrumentRunsQuery = useQuery({
+    queryKey: ['home', 'instrument-runs', workspaceId],
+    queryFn: () => fetchInstrumentRuns(dataClient, workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+
   // --- Derived data ------------------------------------------------------
 
   const myRecords = myRecordsQuery.data ?? []
@@ -317,144 +355,190 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   const recentActivity = activityQuery.data ?? []
   const projects = projectsQuery.data ?? []
   const pinnedRecords = pinnedQuery.data ?? []
+  const favourites = favouritesQuery.data ?? []
+  const recents = recentsQuery.data ?? []
   const projectById = new Map(projects.map((p) => [p.id, p]))
 
-  // Resolve user IDs → names for mentions and activity feed
+  // Resolve user IDs → names for mentions, reviews and the activity feed.
   const allUserIds = useMemo(() => {
     const ids = new Set<string>()
     for (const m of myMentions) if (m.authorUserId) ids.add(m.authorUserId)
     for (const a of recentActivity) if (a.actorUserId) ids.add(a.actorUserId)
+    for (const r of pendingReviews)
+      if (r.submittedByUserId) ids.add(r.submittedByUserId)
     return Array.from(ids)
-  }, [myMentions, recentActivity])
+  }, [myMentions, recentActivity, pendingReviews])
   const { userLabel } = useUserNames(allUserIds, {
     id: userId,
     name: context.user.name,
   })
-
-  const metrics = computeMyWorkMetrics({
-    myRecords,
-    pendingReviews,
-    myMentions,
-    recentActivity,
-    overdueDays: OVERDUE_DAYS,
-    soonDays: SOON_DAYS,
-  })
-
-  const deadlineHint = nextDeadlineHint(pendingReviews)
 
   // My priorities — top 3 pending reviews sorted by age (oldest first).
   const myPriorities = [...pendingReviews]
     .sort((a, b) => Date.parse(a.submittedAt) - Date.parse(b.submittedAt))
     .slice(0, 3)
 
+  const failedRuns = useMemo(
+    () =>
+      (instrumentRunsQuery.data ?? [])
+        .filter((run) => run.status === 'failed')
+        .slice(0, 3),
+    [instrumentRunsQuery.data],
+  )
+  const instrumentNameById = useMemo(
+    () => new Map((instrumentsQuery.data ?? []).map((i) => [i.id, i.name])),
+    [instrumentsQuery.data],
+  )
+  const todayBookings = useMemo<CalendarBooking[]>(
+    () =>
+      (todayBookingsQuery.data ?? []).map((b) => toCalendarBooking(b, [], [])),
+    [todayBookingsQuery.data],
+  )
+
+  const recordTitleById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of myRecords) map.set(r.id, r.title)
+    for (const p of pinnedRecords) map.set(p.record.id, p.record.title)
+    return map
+  }, [myRecords, pinnedRecords])
+
+  const attentionItems = useMemo<AttentionItem[]>(() => {
+    const items: AttentionItem[] = []
+    for (const run of failedRuns) {
+      items.push({
+        id: `run:${run.id}`,
+        tone: 'danger',
+        icon: AlertTriangle,
+        title: `${instrumentNameById.get(run.instrumentId) ?? 'Instrument'} run failed`,
+        meta:
+          [run.runIdentifier, run.errorMessage].filter(Boolean).join(' · ') ||
+          'Queued run reported a failure',
+        actionLabel: 'Retry queue',
+        to: '/instrument-monitor',
+      })
+    }
+    for (const review of pendingReviews.slice(0, 3)) {
+      items.push({
+        id: `review:${review.id}`,
+        tone: 'violet',
+        icon: Eye,
+        title: `Review requested: ${review.recordTitle}`,
+        meta: `${userLabel(review.submittedByUserId)} submitted for your sign-off · ${
+          review.isOverdue
+            ? 'overdue'
+            : `submitted ${formatRelativeTime(review.submittedAt)}`
+        }`,
+        actionLabel: 'Open review',
+        to: '/reviews',
+        primaryAction: true,
+      })
+    }
+    for (const mention of myMentions.slice(0, 2)) {
+      items.push({
+        id: `mention:${mention.id}`,
+        tone: 'info',
+        icon: AtSign,
+        title: `Mentioned in ${recordTitleById.get(mention.recordId) ?? 'a record'}`,
+        meta: `${mention.authorUserId === userId ? 'You' : mention.authorUserId ? userLabel(mention.authorUserId) : 'Someone'} · ${formatRelativeTime(mention.createdAt)}`,
+        actionLabel: 'Reply',
+        to: recordPath(mention.recordId),
+      })
+    }
+    return items.slice(0, 6)
+  }, [
+    failedRuns,
+    instrumentNameById,
+    pendingReviews,
+    myMentions,
+    recordTitleById,
+    userLabel,
+    userId,
+  ])
+
+  const attentionLoading =
+    myReviewsQuery.isLoading ||
+    myMentionsQuery.isLoading ||
+    (Boolean(workspaceId) && instrumentRunsQuery.isLoading)
+
   return (
-    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 md:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
+    <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+        <div>
+          <p className="text-sm text-muted-foreground">{todayLabel}</p>
+          <h1 className="mt-0.5 font-display text-headline font-heading tracking-tight text-foreground">
             {greeting}, {context.user.name.split(/\s+/)[0]}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Here&apos;s what&apos;s on your plate today.
-          </p>
         </div>
-        <p className="text-sm text-muted-foreground">{todayLabel}</p>
+        <div className="flex items-center gap-4 pb-0.5 text-sm text-muted-foreground">
+          {pendingReviews.length > 0 ? (
+            <span className="flex items-center gap-1.5">
+              <span
+                className="size-2 rounded-full bg-violet"
+                aria-hidden="true"
+              />
+              {pendingReviews.length}{' '}
+              {pendingReviews.length === 1 ? 'review due' : 'reviews due'}
+            </span>
+          ) : null}
+          {failedRuns.length > 0 ? (
+            <span className="flex items-center gap-1.5">
+              <span
+                className="size-2 rounded-full bg-destructive"
+                aria-hidden="true"
+              />
+              {failedRuns.length}{' '}
+              {failedRuns.length === 1 ? 'run failed' : 'runs failed'}
+            </span>
+          ) : null}
+          {myMentions.length > 0 ? (
+            <span className="flex items-center gap-1.5">
+              <span
+                className="size-2 rounded-full bg-info"
+                aria-hidden="true"
+              />
+              {myMentions.length}{' '}
+              {myMentions.length === 1 ? 'mention' : 'mentions'}
+            </span>
+          ) : null}
+        </div>
       </header>
 
-      <QuickActionsGrid />
-
-      <section
-        aria-label="Summary"
-        className="grid grid-cols-1 gap-x-5 gap-y-3 border-y border-border py-3 sm:grid-cols-2 xl:grid-cols-5"
-      >
-        {metrics.map((metric, i) => {
-          const isLoading =
-            i === 0
-              ? myRecordsQuery.isLoading
-              : i === 1
-                ? myReviewsQuery.isLoading
-                : i === 2
-                  ? myRecordsQuery.isLoading
-                  : i === 3
-                    ? activityQuery.isLoading
-                    : myMentionsQuery.isLoading
-          return (
-            <MetricCard
-              key={metric.label}
-              metric={metric}
-              loading={isLoading}
-              deadlineHint={i === 1 ? deadlineHint : undefined}
-            />
-          )
-        })}
-      </section>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <RecentSection
-          items={recentsQuery.data ?? []}
-          isLoading={recentsQuery.isLoading}
-          error={recentsQuery.error}
-          onRetry={() => recentsQuery.refetch()}
-        />
-
-        <MyPrioritiesPanel
-          priorities={myPriorities}
-          isLoading={myReviewsQuery.isLoading}
-        />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-5">
-          <RecentWorkTable
-            records={myRecords.slice(0, 6)}
+      <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 space-y-6">
+          <NeedsAttention items={attentionItems} isLoading={attentionLoading} />
+          <ContinueWorking
+            recents={recents}
+            pinnedRecords={pinnedRecords}
+            favourites={favourites}
             projectById={projectById}
-            isLoading={myRecordsQuery.isLoading}
-            error={myRecordsQuery.error}
-            onRetry={() => myRecordsQuery.refetch()}
+            isLoading={recentsQuery.isLoading || myRecordsQuery.isLoading}
+            error={recentsQuery.error ?? myRecordsQuery.error}
+            onRetry={() => {
+              recentsQuery.refetch()
+              myRecordsQuery.refetch()
+            }}
             pinnedIds={pinnedIds}
             onTogglePin={togglePin}
-            title="Recently edited"
-            emptyTitle="No records yet"
-            emptyBody="Experiments, samples, protocols and reports you create or edit will show up here. Start by opening a project."
-          />
-          <MentionsPanel
-            mentions={myMentions}
-            isLoading={myMentionsQuery.isLoading}
-            error={myMentionsQuery.error}
-            onRetry={() => myMentionsQuery.refetch()}
-            currentUserId={userId}
-            userLabel={userLabel}
-          />
-          <ProjectQuickAccess
-            projects={projects}
-            isLoading={projectsQuery.isLoading}
-            error={projectsQuery.error}
-            onRetry={() => projectsQuery.refetch()}
-          />
-        </div>
-
-        <div className="space-y-6">
-          <FavouritesSection
-            items={favouritesQuery.data ?? []}
-            isLoading={favouritesQuery.isLoading}
-            error={favouritesQuery.error}
-            onRetry={() => favouritesQuery.refetch()}
-            onRemove={(item) =>
+            onUnfavourite={(item) =>
               favouriteMutation.mutate({
                 kind: item.kind,
                 objectId: item.id,
                 favourite: false,
               })
             }
+            pinnedLoading={pinnedQuery.isLoading || favouritesQuery.isLoading}
           />
+        </div>
 
-          <PinnedRecordsPanel
-            pinnedRecords={pinnedRecords}
-            isLoading={pinnedQuery.isLoading}
-            onUnpin={togglePin}
+        <div className="min-w-0 space-y-6">
+          <TodayPanel
+            bookings={todayBookings}
+            isLoading={todayBookingsQuery.isLoading}
+            error={todayBookingsQuery.error}
+            onRetry={() => todayBookingsQuery.refetch()}
           />
-          <UpcomingApprovalsPanel
-            pendingReviews={pendingReviews}
+          <MyPrioritiesPanel
+            priorities={myPriorities}
             isLoading={myReviewsQuery.isLoading}
           />
           <ActivityFeed
@@ -464,6 +548,7 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
             onRetry={() => activityQuery.refetch()}
             currentUserId={userId}
             userLabel={userLabel}
+            currentUserName={context.user.name}
           />
         </div>
       </div>
@@ -471,163 +556,496 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   )
 }
 
-const hintToneClasses: Record<
-  NonNullable<DashboardMetric['hintTone']>,
-  string
-> = {
-  default: 'text-muted-foreground',
-  urgent: 'text-red-600 dark:text-red-400',
-  warning: 'text-amber-600 dark:text-amber-400',
-  info: 'text-blue-600 dark:text-blue-400',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  violet: 'text-violet-600 dark:text-violet-400',
-}
-
-/**
- * Metric card rendered from a DashboardMetric. When the metric has a
- * `linkTo`, the card is wrapped in a Link so the user can navigate to the
- * records that produce the count. The `timeBoundary` is shown as a tooltip
- * on the value so the user can verify the window.
- */
-function MetricCard({
-  metric,
-  loading,
-  deadlineHint,
-}: {
-  metric: DashboardMetric
-  loading?: boolean
-  deadlineHint?: string
-}) {
-  const card = (
-    <MetricSummary
-      label={metric.label}
-      value={loading ? <Skeleton className="h-6 w-6" /> : metric.value}
-      valueDescription={metric.timeBoundary}
-      hint={metric.hint}
-      hintClassName={
-        metric.hintTone ? hintToneClasses[metric.hintTone] : undefined
-      }
-      detail={deadlineHint}
-    />
-  )
-
-  if (metric.linkTo && !loading) {
-    return (
-      <Link
-        to={metric.linkTo}
-        params={metric.linkParams}
-        className="block min-w-0 rounded-md no-underline hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {card}
-      </Link>
-    )
-  }
-  return card
-}
-
 // ---------------------------------------------------------------------------
-// Quick actions
+// Needs attention — failed runs, pending reviews and mentions, each with an
+// inline action. Accent bar + tonal icon mark severity without colour alone.
 // ---------------------------------------------------------------------------
 
-interface QuickAction {
-  label: string
-  to?: string
-  action?: 'create-experiment'
+interface AttentionItem {
+  id: string
+  tone: 'danger' | 'violet' | 'info'
   icon: LucideIcon
-  hint: string
+  title: string
+  meta: string
+  actionLabel: string
+  to: string
+  primaryAction?: boolean
 }
 
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    label: 'Create experiment',
-    action: 'create-experiment',
-    icon: FlaskConical,
-    hint: 'Start a blank Notebook',
+const ATTENTION_TONES: Record<
+  AttentionItem['tone'],
+  { bar: string; chip: string }
+> = {
+  danger: {
+    bar: 'bg-destructive',
+    chip: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   },
-  {
-    label: 'Add sample',
-    to: '/samples',
-    icon: TestTube,
-    hint: 'Register a new sample',
+  violet: {
+    bar: 'bg-violet',
+    chip: 'bg-violet/10 text-violet',
   },
-  {
-    label: 'Upload file',
-    to: '/projects',
-    icon: Upload,
-    hint: 'Open a project, then attach files in a Notebook',
+  info: {
+    bar: 'bg-info',
+    chip: 'bg-info/10 text-info',
   },
-  {
-    label: 'Browse templates',
-    to: '/templates',
-    icon: LayoutTemplate,
-    hint: 'Explore the template library',
-  },
-  {
-    label: 'Search',
-    to: '/search',
-    icon: Search,
-    hint: 'Find records across the workspace',
-  },
-  {
-    label: 'Review inbox',
-    to: '/reviews',
-    icon: Inbox,
-    hint: 'Open the review and approvals queue',
-  },
-  {
-    label: 'Configure',
-    to: '/configure',
-    icon: Layers,
-    hint: 'Govern Models and Dataset Schema versions',
-  },
-  {
-    label: 'Datasets',
-    to: '/datasets',
-    icon: Database,
-    hint: 'Browse datasets, schemas and lineage',
-  },
-]
+}
 
-function QuickActionsGrid() {
-  const [createOpen, setCreateOpen] = useState(false)
+export function NeedsAttention({
+  items,
+  isLoading,
+}: {
+  items: AttentionItem[]
+  isLoading: boolean
+}) {
   return (
-    <section aria-label="Quick actions">
-      <h2 className="sr-only">Quick actions</h2>
-      <ul className="flex flex-wrap items-center gap-2">
-        {QUICK_ACTIONS.map((action) => {
-          const Icon = action.icon
-          return (
-            <li key={action.label}>
-              {action.action === 'create-experiment' ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  title={action.hint}
-                  onClick={() => setCreateOpen(true)}
+    <section aria-label="Needs attention" className="min-w-0">
+      <SectionHeader
+        title="Needs attention"
+        action={
+          <Link
+            to="/reviews"
+            className="text-xs font-medium text-primary no-underline hover:underline"
+          >
+            View all
+          </Link>
+        }
+      />
+      <div className="rounded-md border border-border bg-surface">
+        {isLoading ? (
+          <div className="space-y-2 p-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={CircleCheck}
+            title="All clear"
+            body="Failed runs, review requests and mentions that need you will land here."
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {items.map((item) => {
+              const Icon = item.icon
+              const tone = ATTENTION_TONES[item.tone]
+              return (
+                <li
+                  key={item.id}
+                  className="flex items-center gap-3 px-3 py-2.5"
                 >
-                  <Icon className="size-4" aria-hidden="true" />
-                  {action.label}
-                </Button>
-              ) : (
-                <Button asChild variant="ghost" size="sm">
-                  <Link
-                    to={action.to}
-                    title={action.hint}
-                    className="no-underline"
+                  <span
+                    className={cn('w-1 self-stretch rounded-full', tone.bar)}
+                    aria-hidden="true"
+                  />
+                  <span
+                    className={cn(
+                      'flex size-7 shrink-0 items-center justify-center rounded-md',
+                      tone.chip,
+                    )}
                   >
+                    <Icon className="size-3.5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {item.title}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {item.meta}
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    variant={item.primaryAction ? 'default' : 'outline'}
+                    size="sm"
+                    className="shrink-0"
+                  >
+                    <Link to={item.to} className="no-underline">
+                      {item.actionLabel}
+                    </Link>
+                  </Button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Continue working — Recent | Pinned segmented switch over a dense work table.
+// ---------------------------------------------------------------------------
+
+interface WorkRow {
+  key: string
+  to: string
+  icon: LucideIcon
+  title: string
+  identifier: string | null
+  projectTitle: string | null
+  status: ReactNode
+  editedAt: string
+  pin?: { recordId: string; pinned: boolean }
+  favourite?: FavouriteItem
+}
+
+function SignalPill({ signal }: { signal: RecentItem['signal'] }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        RECENT_SIGNAL_CLASSES[signal],
+      )}
+    >
+      {RECENT_SIGNAL_LABELS[signal]}
+    </span>
+  )
+}
+
+export function ContinueWorking({
+  recents,
+  pinnedRecords,
+  favourites,
+  projectById,
+  isLoading,
+  error,
+  onRetry,
+  pinnedIds,
+  onTogglePin,
+  onUnfavourite,
+  pinnedLoading,
+}: {
+  recents: RecentItem[]
+  pinnedRecords: DashboardPinnedItem[]
+  favourites: FavouriteItem[]
+  projectById: Map<string, Project>
+  isLoading: boolean
+  error: unknown
+  onRetry: () => void
+  pinnedIds: string[]
+  onTogglePin: (recordId: string) => void
+  onUnfavourite: (item: FavouriteItem) => void
+  pinnedLoading: boolean
+}) {
+  const recentRows: WorkRow[] = recents.slice(0, 8).map((item) => ({
+    key: `recent:${item.kind}:${item.id}`,
+    to: item.destination,
+    icon: RECENT_KIND_ICONS[item.kind],
+    title: item.label,
+    identifier: item.identifier,
+    projectTitle: null,
+    status: <SignalPill signal={item.signal} />,
+    editedAt: item.lastActivityAt,
+    pin:
+      item.kind === 'record'
+        ? { recordId: item.id, pinned: pinnedIds.includes(item.id) }
+        : undefined,
+  }))
+
+  const pinnedRows: WorkRow[] = [
+    ...pinnedRecords.map(({ record, project }) => ({
+      key: `pin:${record.id}`,
+      to: recordDestination(record.kind, record.id),
+      icon: record.kind === 'protocol_template' ? Folder : FlaskConical,
+      title: record.title,
+      identifier: record.identifier,
+      projectTitle:
+        project?.title ??
+        (record.projectId
+          ? (projectById.get(record.projectId)?.title ?? null)
+          : null),
+      status: <StatusBadge domain="experiment" status={record.status} />,
+      editedAt: record.updatedAt,
+      pin: { recordId: record.id, pinned: true },
+    })),
+    ...favourites.map((item) => ({
+      key: `fav:${item.kind}:${item.id}`,
+      to: item.destination,
+      icon: RECENT_KIND_ICONS[item.kind],
+      title: item.label,
+      identifier: item.identifier,
+      projectTitle: null,
+      status: null,
+      editedAt: item.createdAt,
+      favourite: item,
+    })),
+  ]
+
+  return (
+    <section aria-label="Continue working" className="min-w-0">
+      <Tabs defaultValue="recent">
+        <div className="flex items-center justify-between gap-2 pb-2">
+          <h2 className="text-sm font-heading font-semibold text-foreground">
+            Continue working
+          </h2>
+          <TabsList variant="boxed" className="h-7">
+            <TabsTrigger value="recent" className="px-2.5 text-xs">
+              Recent
+            </TabsTrigger>
+            <TabsTrigger value="pinned" className="px-2.5 text-xs">
+              Pinned
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        <div className="rounded-md border border-border bg-surface">
+          <TabsContent value="recent" className="mt-0">
+            {isLoading ? (
+              <div className="space-y-2 p-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : error ? (
+              <ErrorState
+                message="Could not load recent work."
+                onRetry={onRetry}
+              />
+            ) : recentRows.length === 0 ? (
+              <EmptyState
+                icon={FlaskConical}
+                title="No recent work yet"
+                body="Notebooks, datasets, samples and projects you open will appear here so you can pick up where you left off."
+                action={
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/projects" className="no-underline">
+                      Open projects
+                    </Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <WorkTable
+                rows={recentRows}
+                onTogglePin={onTogglePin}
+                onUnfavourite={onUnfavourite}
+              />
+            )}
+          </TabsContent>
+          <TabsContent value="pinned" className="mt-0">
+            {pinnedLoading ? (
+              <div className="space-y-2 p-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : pinnedRows.length === 0 ? (
+              <EmptyState
+                icon={Pin}
+                title="No pinned items"
+                body="Pin records from the Recent tab, or star a favourite on any object page, to keep work here."
+              />
+            ) : (
+              <WorkTable
+                rows={pinnedRows}
+                onTogglePin={onTogglePin}
+                onUnfavourite={onUnfavourite}
+              />
+            )}
+          </TabsContent>
+        </div>
+      </Tabs>
+    </section>
+  )
+}
+
+function WorkTable({
+  rows,
+  onTogglePin,
+  onUnfavourite,
+}: {
+  rows: WorkRow[]
+  onTogglePin: (recordId: string) => void
+  onUnfavourite: (item: FavouriteItem) => void
+}) {
+  return (
+    <Table variant="quiet" className="table-fixed">
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[42%]">Record</TableHead>
+          <TableHead className="hidden md:table-cell">Project</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead className="hidden text-right sm:table-cell">
+            Edited
+          </TableHead>
+          <TableHead className="w-14" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => {
+          const Icon = row.icon
+          return (
+            <TableRow key={row.key} className="group">
+              <TableCell>
+                <Link
+                  to={row.to}
+                  className="flex items-center gap-3 no-underline"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <Icon className="size-4" aria-hidden="true" />
-                    {action.label}
-                  </Link>
-                </Button>
-              )}
-            </li>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {row.title}
+                    </span>
+                    <span className="block truncate font-mono text-xs tabular-nums text-muted-foreground">
+                      {row.identifier ?? '—'}
+                    </span>
+                  </span>
+                </Link>
+              </TableCell>
+              <TableCell className="hidden truncate text-sm text-muted-foreground md:table-cell">
+                {row.projectTitle ?? '—'}
+              </TableCell>
+              <TableCell>{row.status ?? '—'}</TableCell>
+              <TableCell className="hidden text-right text-xs tabular-nums text-muted-foreground sm:table-cell">
+                {formatRelativeTime(row.editedAt)}
+              </TableCell>
+              <TableCell className="w-14">
+                <div className="flex items-center justify-end gap-0.5">
+                  {row.pin ? (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={
+                        row.pin.pinned ? 'Unpin record' : 'Pin record'
+                      }
+                      className={cn(
+                        !row.pin.pinned &&
+                          'opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
+                      )}
+                      onClick={() => onTogglePin(row.pin!.recordId)}
+                    >
+                      <Pin
+                        className={cn(
+                          'size-3.5',
+                          row.pin.pinned
+                            ? 'fill-foreground text-foreground'
+                            : 'text-muted-foreground',
+                        )}
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  ) : null}
+                  {row.favourite ? (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Remove ${row.title} from favourites`}
+                      onClick={() => onUnfavourite(row.favourite!)}
+                    >
+                      <Star
+                        className="size-3.5 fill-amber-400 text-amber-500"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  ) : null}
+                  <ChevronRight
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </div>
+              </TableCell>
+            </TableRow>
           )
         })}
-      </ul>
-      <CreateBlankExperimentDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
+      </TableBody>
+    </Table>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Today — the day's calendar bookings in the right rail.
+// ---------------------------------------------------------------------------
+
+function formatClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+export function TodayPanel({
+  bookings,
+  isLoading,
+  error,
+  onRetry,
+}: {
+  bookings: CalendarBooking[]
+  isLoading: boolean
+  error: unknown
+  onRetry: () => void
+}) {
+  return (
+    <section aria-label="Today" className="min-w-0">
+      <SectionHeader
+        title="Today"
+        action={
+          <Link
+            to="/calendar"
+            className="text-xs font-medium text-primary no-underline hover:underline"
+          >
+            Calendar
+          </Link>
+        }
       />
+      <div className="rounded-md border border-border bg-surface">
+        {isLoading ? (
+          <div className="space-y-2 p-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : error ? (
+          <ErrorState
+            message="Could not load today's schedule."
+            onRetry={onRetry}
+          />
+        ) : bookings.length === 0 ? (
+          <EmptyState
+            icon={CalendarDays}
+            title="Nothing scheduled today"
+            body="Instrument bookings and bay reservations will show up here."
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {bookings.map((booking) => (
+              <li
+                key={booking.id}
+                className="flex items-center gap-3 px-3 py-2.5"
+              >
+                <span
+                  className="w-1 self-stretch rounded-full bg-primary"
+                  style={
+                    booking.color
+                      ? { backgroundColor: booking.color }
+                      : undefined
+                  }
+                  aria-hidden="true"
+                />
+                <div className="w-12 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                  <span className="block">
+                    {booking.allDay ? 'All' : formatClock(booking.startsAt)}
+                  </span>
+                  <span className="block">
+                    {booking.allDay ? 'day' : formatClock(booking.endsAt)}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {booking.title}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[booking.location, booking.status]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }
@@ -1116,6 +1534,13 @@ export function MentionsPanel({
 // Activity feed — real change events from the workspace audit trail.
 // ---------------------------------------------------------------------------
 
+function initialsFor(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 export function ActivityFeed({
   items,
   isLoading,
@@ -1123,6 +1548,7 @@ export function ActivityFeed({
   onRetry,
   currentUserId,
   userLabel,
+  currentUserName,
 }: {
   items: DashboardActivityItem[]
   isLoading: boolean
@@ -1130,15 +1556,13 @@ export function ActivityFeed({
   onRetry: () => void
   currentUserId: string
   userLabel: (userId: string) => string
+  currentUserName?: string
 }) {
   if (isLoading) {
     return (
-      <section
-        aria-label="Recent activity"
-        className="min-w-0 border-t border-border"
-      >
-        <SectionHeader title="Recent activity" />
-        <div className="space-y-2 p-3">
+      <section aria-label="Recent activity" className="min-w-0">
+        <SectionHeader title="Workspace activity" />
+        <div className="space-y-2 rounded-md border border-border bg-surface p-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-8 w-full" />
           ))}
@@ -1149,71 +1573,75 @@ export function ActivityFeed({
 
   if (error) {
     return (
-      <section
-        aria-label="Recent activity"
-        className="min-w-0 border-t border-border"
-      >
-        <SectionHeader title="Recent activity" />
-        <ErrorState message="Could not load activity." onRetry={onRetry} />
+      <section aria-label="Recent activity" className="min-w-0">
+        <SectionHeader title="Workspace activity" />
+        <div className="rounded-md border border-border bg-surface">
+          <ErrorState message="Could not load activity." onRetry={onRetry} />
+        </div>
       </section>
     )
   }
 
   if (items.length === 0) {
     return (
-      <section
-        aria-label="Recent activity"
-        className="min-w-0 border-t border-border"
-      >
-        <SectionHeader title="Recent activity" />
-        <EmptyState
-          icon={ActivityIcon}
-          title="No recent activity"
-          body="Edits, comments, reviews and status changes from your workspace will show up here once you start creating records."
-        />
+      <section aria-label="Recent activity" className="min-w-0">
+        <SectionHeader title="Workspace activity" />
+        <div className="rounded-md border border-border bg-surface">
+          <EmptyState
+            icon={ActivityIcon}
+            title="No recent activity"
+            body="Edits, comments, reviews and status changes from your workspace will show up here once you start creating records."
+          />
+        </div>
       </section>
     )
   }
 
   return (
-    <section
-      aria-label="Recent activity"
-      className="min-w-0 border-t border-border"
-    >
+    <section aria-label="Recent activity" className="min-w-0">
       <SectionHeader
-        title="Recent activity"
+        title="Workspace activity"
         action={
           <span className="text-xs text-muted-foreground">
             Latest {Math.min(items.length, 5)}
           </span>
         }
       />
-      <ul className="divide-y divide-border">
-        {items.slice(0, 5).map((item) => {
-          const isMe = item.actorUserId === currentUserId
-          const actor = isMe
-            ? 'You'
-            : item.actorUserId
-              ? userLabel(item.actorUserId)
-              : 'System'
-          return (
-            <li key={item.id} className="flex items-start gap-3 px-4 py-2.5">
-              <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <ActivityIcon className="size-3" aria-hidden="true" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-foreground">
+      <div className="rounded-md border border-border bg-surface">
+        <ul className="divide-y divide-border">
+          {items.slice(0, 5).map((item) => {
+            const isMe = item.actorUserId === currentUserId
+            const actor = isMe
+              ? 'You'
+              : item.actorUserId
+                ? userLabel(item.actorUserId)
+                : 'System'
+            const initials = initialsFor(
+              isMe && currentUserName ? currentUserName : actor,
+            )
+            return (
+              <li
+                key={item.id}
+                className="flex items-center gap-2.5 px-3 py-2.5"
+              >
+                <span
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  {initials}
+                </span>
+                <p className="min-w-0 flex-1 truncate text-sm text-foreground">
                   <span className="font-medium">{actor}</span>{' '}
                   {activitySentence(item)}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                   {formatRelativeTime(item.createdAt)}
-                </p>
-              </div>
-            </li>
-          )
-        })}
-      </ul>
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
     </section>
   )
 }
@@ -1230,59 +1658,72 @@ export function MyPrioritiesPanel({
   isLoading: boolean
 }) {
   return (
-    <section
-      aria-label="My priorities"
-      className="min-w-0 border-t border-border"
-    >
-      <SectionHeader title="My priorities" />
-      {isLoading ? (
-        <div className="space-y-2 p-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </div>
-      ) : priorities.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="No priorities"
-          body="Pending reviews assigned to you will appear here as priorities."
-        />
-      ) : (
-        <ol className="divide-y divide-border">
-          {priorities.map((review, i) => {
-            const overdue = isReviewOverdue(
-              review.state,
-              review.submittedAt,
-              OVERDUE_DAYS,
-            )
-            return (
-              <li key={review.id} className="flex items-center gap-3 px-4 py-3">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                  {i + 1}
-                </span>
-                <Link to="/reviews" className="min-w-0 flex-1 no-underline">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    Review {review.recordIdentifier}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {review.recordTitle}
-                  </p>
-                </Link>
-                <span
-                  className={cn(
-                    'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
-                    overdue
-                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                      : 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
-                  )}
+    <section aria-label="My priorities" className="min-w-0">
+      <SectionHeader
+        title="My priorities"
+        action={
+          <Link
+            to="/reviews"
+            className="text-xs font-medium text-primary no-underline hover:underline"
+          >
+            Edit
+          </Link>
+        }
+      />
+      <div className="rounded-md border border-border bg-surface">
+        {isLoading ? (
+          <div className="space-y-2 p-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : priorities.length === 0 ? (
+          <EmptyState
+            icon={ClipboardList}
+            title="No priorities"
+            body="Pending reviews assigned to you will appear here as priorities."
+          />
+        ) : (
+          <ol className="divide-y divide-border">
+            {priorities.map((review) => {
+              const overdue = isReviewOverdue(
+                review.state,
+                review.submittedAt,
+                OVERDUE_DAYS,
+              )
+              return (
+                <li
+                  key={review.id}
+                  className="flex items-center gap-3 px-3 py-2.5"
                 >
-                  {overdue ? 'Overdue' : 'Under review'}
-                </span>
-              </li>
-            )
-          })}
-        </ol>
-      )}
+                  <span
+                    className="size-4 shrink-0 rounded-xs border-[1.5px] border-muted-foreground/40"
+                    aria-hidden="true"
+                  />
+                  <Link to="/reviews" className="min-w-0 flex-1 no-underline">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      Review {review.recordIdentifier}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {review.recordTitle}
+                    </p>
+                  </Link>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
+                      overdue
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        : 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+                    )}
+                  >
+                    {overdue ? 'Overdue' : 'Under review'}
+                  </span>
+                </li>
+              )
+            })}
+          </ol>
+        )}
+      </div>
     </section>
   )
 }
@@ -1521,9 +1962,11 @@ function SectionHeader({
   action?: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-9 items-center justify-between gap-2 border-b border-border px-4 py-1">
+    <div className="flex items-center justify-between gap-2 pb-2">
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        <h2 className="text-sm font-heading font-semibold text-foreground">
+          {title}
+        </h2>
         {count !== undefined ? (
           <span className="text-xs tabular-nums text-muted-foreground">
             {count}

@@ -113,150 +113,152 @@ export function SettingsApiTokens({
         </div>
       ) : null}
 
-      <form
-        onSubmit={submit}
-        className="space-y-4 rounded-lg border bg-background p-4"
-      >
-        <h3 className="font-semibold">Create personal token</h3>
-        <div className="max-w-md space-y-2">
-          <Label htmlFor="personal-token-name">Name</Label>
-          <Input
-            id="personal-token-name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Local Jupyter"
-            required
-          />
-        </div>
-        <div className="max-w-md space-y-2">
-          <Label htmlFor="personal-token-expiry">Expires (optional)</Label>
-          <Input
-            id="personal-token-expiry"
-            type="datetime-local"
-            value={expiresAt}
-            onChange={(event) => setExpiresAt(event.target.value)}
-          />
-        </div>
-        <fieldset className="space-y-4">
-          <legend className="text-sm font-medium">Scopes</legend>
-          {SCOPE_GROUPS.map((group) => (
-            <div key={group.title} className="space-y-2">
-              <p className="text-sm font-medium">
-                {group.title}
-                {group.effective ? (
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    Enforced today
-                  </span>
-                ) : (
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    Mintable; not on the external allowlist
-                  </span>
-                )}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {group.description}
-              </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {group.scopes.map((scope) => (
-                  <label
-                    key={scope}
-                    htmlFor={`personal-token-scope-${scope.replaceAll(':', '-')}`}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <Checkbox
-                      id={`personal-token-scope-${scope.replaceAll(':', '-')}`}
-                      checked={selected.has(scope)}
-                      onCheckedChange={() => toggle(scope)}
-                    />
-                    <code>{scope}</code>
-                  </label>
-                ))}
+      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start">
+        <form
+          onSubmit={submit}
+          className="space-y-4 rounded-lg border bg-background p-4"
+        >
+          <h3 className="font-semibold">Create personal token</h3>
+          <div className="max-w-md space-y-2">
+            <Label htmlFor="personal-token-name">Name</Label>
+            <Input
+              id="personal-token-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Local Jupyter"
+              required
+            />
+          </div>
+          <div className="max-w-md space-y-2">
+            <Label htmlFor="personal-token-expiry">Expires (optional)</Label>
+            <Input
+              id="personal-token-expiry"
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(event) => setExpiresAt(event.target.value)}
+            />
+          </div>
+          <fieldset className="space-y-4">
+            <legend className="text-sm font-medium">Scopes</legend>
+            {SCOPE_GROUPS.map((group) => (
+              <div key={group.title} className="space-y-2">
+                <p className="text-sm font-medium">
+                  {group.title}
+                  {group.effective ? (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      Enforced today
+                    </span>
+                  ) : (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      Mintable; not on the external allowlist
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {group.description}
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  {group.scopes.map((scope) => (
+                    <label
+                      key={scope}
+                      htmlFor={`personal-token-scope-${scope.replaceAll(':', '-')}`}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        id={`personal-token-scope-${scope.replaceAll(':', '-')}`}
+                        checked={selected.has(scope)}
+                        onCheckedChange={() => toggle(scope)}
+                      />
+                      <code>{scope}</code>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </fieldset>
-        <Button type="submit" disabled={!name.trim() || selected.size === 0}>
-          Create token
-        </Button>
-      </form>
+            ))}
+          </fieldset>
+          <Button type="submit" disabled={!name.trim() || selected.size === 0}>
+            Create token
+          </Button>
+        </form>
 
-      <div className="rounded-lg border bg-background">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Prefix</TableHead>
-              <TableHead>Scopes</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Last used</TableHead>
-              <TableHead>Expires</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tokens.map((row) => {
-              const isRevoked = Boolean(row.revokedAt)
-              const isExpired =
-                Boolean(row.expiresAt) &&
-                new Date(row.expiresAt!).getTime() <= Date.now()
-              const status = isRevoked
-                ? 'Revoked'
-                : isExpired
-                  ? 'Expired'
-                  : 'Active'
-              return (
-                <TableRow key={row.id}>
-                  <TableCell>{row.name}</TableCell>
-                  <TableCell>
-                    <code>{row.displayPrefix}</code>
-                  </TableCell>
-                  <TableCell className="max-w-xs text-xs">
-                    {row.scopes.join(', ')}
-                  </TableCell>
-                  <TableCell>{formatDate(row.createdAt)}</TableCell>
-                  <TableCell>
-                    {row.lastUsedAt ? formatDate(row.lastUsedAt) : 'Never'}
-                  </TableCell>
-                  <TableCell>
-                    {row.expiresAt ? formatDate(row.expiresAt) : 'Never'}
-                  </TableCell>
-                  <TableCell>{status}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isRevoked || isExpired}
-                        onClick={() => onRotate(row.id)}
-                      >
-                        Rotate
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isRevoked}
-                        onClick={() => onRevoke(row.id)}
-                      >
-                        Revoke
-                      </Button>
-                    </div>
+        <div className="rounded-lg border bg-background">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Prefix</TableHead>
+                <TableHead>Scopes</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Last used</TableHead>
+                <TableHead>Expires</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tokens.map((row) => {
+                const isRevoked = Boolean(row.revokedAt)
+                const isExpired =
+                  Boolean(row.expiresAt) &&
+                  new Date(row.expiresAt!).getTime() <= Date.now()
+                const status = isRevoked
+                  ? 'Revoked'
+                  : isExpired
+                    ? 'Expired'
+                    : 'Active'
+                return (
+                  <TableRow key={row.id}>
+                    <TableCell>{row.name}</TableCell>
+                    <TableCell>
+                      <code>{row.displayPrefix}</code>
+                    </TableCell>
+                    <TableCell className="max-w-xs text-xs">
+                      {row.scopes.join(', ')}
+                    </TableCell>
+                    <TableCell>{formatDate(row.createdAt)}</TableCell>
+                    <TableCell>
+                      {row.lastUsedAt ? formatDate(row.lastUsedAt) : 'Never'}
+                    </TableCell>
+                    <TableCell>
+                      {row.expiresAt ? formatDate(row.expiresAt) : 'Never'}
+                    </TableCell>
+                    <TableCell>{status}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRevoked || isExpired}
+                          onClick={() => onRotate(row.id)}
+                        >
+                          Rotate
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRevoked}
+                          onClick={() => onRevoke(row.id)}
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+              {!tokens.length && (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="py-8 text-center text-muted-foreground"
+                  >
+                    You have no personal tokens.
                   </TableCell>
                 </TableRow>
-              )
-            })}
-            {!tokens.length && (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="py-8 text-center text-muted-foreground"
-                >
-                  You have no personal tokens.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   )

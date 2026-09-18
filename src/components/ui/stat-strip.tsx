@@ -38,9 +38,63 @@ interface StatStripProps extends React.HTMLAttributes<HTMLDivElement> {
   items: StatStripItem[]
   /** Right-aligned muted context (e.g. "Across all projects"). */
   meta?: React.ReactNode
+  /**
+   * `strip` renders the bordered inline band (V2ALT registries);
+   * `cards` renders one bordered card per stat with the caps label above
+   * the value and the hint as a subtitle (V2ALT overview pages such as
+   * Review inbox).
+   */
+  variant?: 'strip' | 'cards'
 }
 
-function StatStrip({ items, meta, className, ...props }: StatStripProps) {
+function StatStrip({
+  items,
+  meta,
+  variant = 'strip',
+  className,
+  ...props
+}: StatStripProps) {
+  if (variant === 'cards') {
+    return (
+      <div
+        data-slot="stat-strip"
+        className={cn(
+          'grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4',
+          className,
+        )}
+        {...props}
+      >
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-lg border border-border bg-card px-4 py-3"
+          >
+            <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+              {item.label}
+            </p>
+            <p
+              className={cn(
+                'mt-1 font-display text-title font-heading tabular-nums',
+                statStripItemVariants({ tone: item.tone }),
+              )}
+            >
+              {item.value}
+            </p>
+            {item.hint ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {item.hint}
+              </p>
+            ) : null}
+          </div>
+        ))}
+        {meta ? (
+          <span className="col-span-full text-xs text-muted-foreground">
+            {meta}
+          </span>
+        ) : null}
+      </div>
+    )
+  }
   return (
     <div
       data-slot="stat-strip"

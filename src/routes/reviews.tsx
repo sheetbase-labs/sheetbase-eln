@@ -719,6 +719,7 @@ function ReviewsInboxRoute() {
           selectedRecord={selectedRecord}
           onSelectedIdChange={handleSelectedIdChange}
           summaries={summaries}
+          summaryVariant="cards"
           renderInspector={renderInspector}
           loading={loading}
           error={

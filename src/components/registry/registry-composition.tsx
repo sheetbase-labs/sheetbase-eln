@@ -65,6 +65,8 @@ export interface RegistryCompositionProps<TData> {
   selectedRecord?: TData | null
   onSelectedIdChange: (id: string | null) => void
   summaries?: RegistrySummary[]
+  /** `strip` (default) renders the inline stat band; `cards` renders one bordered card per stat (V2ALT overview pages). */
+  summaryVariant?: 'strip' | 'cards'
   renderInspector?: (row: TData | null) => React.ReactNode
   /** Generic accessible label for the responsive inspector trigger and plane. */
   inspectorLabel?: string
@@ -132,6 +134,7 @@ export function RegistryComposition<TData>({
   selectedRecord,
   onSelectedIdChange,
   summaries = [],
+  summaryVariant = 'strip',
   renderInspector,
   inspectorLabel = 'Inspector',
   inspectorOpen: controlledInspectorOpen,
@@ -403,6 +406,7 @@ export function RegistryComposition<TData>({
       {!permissionDenied && summaries.length > 0 ? (
         <StatStrip
           aria-label="Summary"
+          variant={summaryVariant}
           items={summaries.map((summary) => ({
             label: summary.label,
             value: loading ? '—' : summary.value,

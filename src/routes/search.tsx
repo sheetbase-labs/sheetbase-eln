@@ -789,52 +789,47 @@ function SearchRoute() {
         </div>
 
         {/* Filter bar + results / facets split */}
-        <div className="flex flex-col gap-4">
-          {/* Left facets column: suggestions, saved queries, recent searches */}
-          <details className="min-w-0">
-            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
-              Saved and recent searches
-            </summary>
-            <aside className="mt-3 grid gap-4 md:grid-cols-3">
-              <SemanticSuggestions
-                suggestions={suggestions}
-                onPick={(s) => {
-                  void navigate({
-                    to: '/search',
-                    search: serializeSearchUrl({
-                      ...urlSearch,
-                      q: s.applyQuery,
-                      kind: s.applyKind ?? urlSearch.kind,
-                      selected: '',
-                    }),
-                    replace: false,
-                  })
-                  if (s.applyQuery.trim()) addRecentSearch(s.applyQuery)
-                }}
-              />
-              <SavedQueries
-                queries={savedQueries}
-                onApply={handleApplySavedQuery}
-                onDelete={handleDeleteSavedQuery}
-              />
-              <RecentSearches
-                recent={recent}
-                onPick={(q) => {
-                  void navigate({
-                    to: '/search',
-                    search: serializeSearchUrl({
-                      ...urlSearch,
-                      q,
-                      selected: '',
-                    }),
-                    replace: false,
-                  })
-                  if (q.trim()) addRecentSearch(q)
-                }}
-                onClear={clearRecentSearches}
-              />
-            </aside>
-          </details>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          {/* Left facets rail: recent searches, saved queries, suggestions */}
+          <aside className="w-full shrink-0 space-y-4 lg:w-56">
+            <RecentSearches
+              recent={recent}
+              onPick={(q) => {
+                void navigate({
+                  to: '/search',
+                  search: serializeSearchUrl({
+                    ...urlSearch,
+                    q,
+                    selected: '',
+                  }),
+                  replace: false,
+                })
+                if (q.trim()) addRecentSearch(q)
+              }}
+              onClear={clearRecentSearches}
+            />
+            <SavedQueries
+              queries={savedQueries}
+              onApply={handleApplySavedQuery}
+              onDelete={handleDeleteSavedQuery}
+            />
+            <SemanticSuggestions
+              suggestions={suggestions}
+              onPick={(s) => {
+                void navigate({
+                  to: '/search',
+                  search: serializeSearchUrl({
+                    ...urlSearch,
+                    q: s.applyQuery,
+                    kind: s.applyKind ?? urlSearch.kind,
+                    selected: '',
+                  }),
+                  replace: false,
+                })
+                if (s.applyQuery.trim()) addRecentSearch(s.applyQuery)
+              }}
+            />
+          </aside>
 
           {/* Results column */}
           <div className="min-w-0 flex-1">
@@ -1024,7 +1019,7 @@ function RecentSearches({
 }) {
   if (recent.length === 0) {
     return (
-      <div className="border-t border-border pt-3">
+      <div className="rounded-lg border bg-card p-3">
         <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           <History className="size-3.5" aria-hidden /> Recent searches
         </div>
@@ -1036,7 +1031,7 @@ function RecentSearches({
     )
   }
   return (
-    <div className="border-t border-border pt-3">
+    <div className="rounded-lg border bg-card p-3">
       <div className="mb-1.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           <History className="size-3.5" aria-hidden /> Recent searches
@@ -1092,7 +1087,7 @@ function SemanticSuggestions({
 }) {
   if (suggestions.length === 0) return null
   return (
-    <div className="border-t border-border pt-3">
+    <div className="rounded-lg border bg-card p-3">
       <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
         <Lightbulb className="size-3.5" aria-hidden /> Suggestions
       </div>
@@ -1141,7 +1136,7 @@ function SavedQueries({
 }) {
   if (queries.length === 0) return null
   return (
-    <div className="border-t border-border pt-3">
+    <div className="rounded-lg border bg-card p-3">
       <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
         <Bookmark className="size-3.5" aria-hidden /> Saved searches
       </div>

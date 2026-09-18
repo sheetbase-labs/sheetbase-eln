@@ -10,7 +10,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { AlertCircle, Plus } from 'lucide-react'
+import {
+  AlertCircle,
+  CalendarDays,
+  CircleCheck,
+  Clock,
+  Plus,
+  TriangleAlert,
+} from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
@@ -32,6 +39,7 @@ import {
   AlertDescription,
   AlertTitle,
   Button,
+  Calendar,
   PageHeader,
 } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
@@ -122,6 +130,7 @@ function CalendarRoute() {
   }>({})
 
   // Visible range driven by the reui EventCalendar's onRangeChange callback.
+  const [calendarDate, setCalendarDate] = useState(() => new Date())
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null)
   const rangeKey = range
     ? `${range.start.toISOString()}_${range.end.toISOString()}`
@@ -167,6 +176,58 @@ function CalendarRoute() {
       return true
     })
   }, [bookings, filters, resourcesQuery.data])
+
+  // Left-rail derivations (V2ALT): upcoming bookings, resource conflicts and
+  // currently-free resources, all from the already-loaded week range.
+  const railData = useMemo(() => {
+    const now = Date.now()
+    const live = bookings.filter((b) => b.status !== 'cancelled')
+    const upcoming = live
+      .filter((b) => new Date(b.endsAt).getTime() > now)
+      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+      .slice(0, 4)
+    const conflicts: Array<{ a: CalendarBooking; b: CalendarBooking }> = []
+    const byResource = new Map<string, CalendarBooking[]>()
+    for (const b of live) {
+      byResource.set(b.resourceId, [...(byResource.get(b.resourceId) ?? []), b])
+    }
+    for (const list of byResource.values()) {
+      const sorted = [...list].sort(
+        (a, b) => +new Date(a.startsAt) - +new Date(b.startsAt),
+      )
+      for (let i = 0; i < sorted.length; i++) {
+        for (let j = i + 1; j < sorted.length; j++) {
+          const a = sorted[i]
+          const b = sorted[j]
+          if (new Date(b.startsAt) < new Date(a.endsAt)) {
+            conflicts.push({ a, b })
+          } else break
+        }
+      }
+    }
+    const availableNow = (resourcesQuery.data ?? [])
+      .filter(
+        (resource) =>
+          !live.some(
+            (b) =>
+              b.resourceId === resource.id &&
+              new Date(b.startsAt).getTime() <= now &&
+              new Date(b.endsAt).getTime() > now,
+          ),
+      )
+      .map((resource) => ({
+        resource,
+        freeUntil: live
+          .filter(
+            (b) =>
+              b.resourceId === resource.id &&
+              new Date(b.startsAt).getTime() > now,
+          )
+          .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))[0]
+          ?.startsAt,
+      }))
+    return { upcoming, conflicts, availableNow }
+  }, [bookings, resourcesQuery.data])
 
   // Map domain bookings → reui CalendarEvent for the calendar.
   const queryEvents = useMemo(
@@ -407,53 +468,66 @@ function CalendarRoute() {
             </AlertDescription>
           </Alert>
         ) : (
-          <EventCalendar
-            events={events}
-            onEventsChange={setEvents}
-            defaultView="week"
-            timeZone={VIEW_TIMEZONE}
-            resources={eventResources}
-            loading={resourcesQuery.isLoading || bookingsQuery.isLoading}
-            onEventClick={(occurrence) =>
-              setSelectedBookingId(occurrence.eventId)
-            }
-            onSlotClick={(slot) => {
-              const end = slot.end ?? new Date(slot.date.getTime() + 3_600_000)
-              openCreateFromSlot(slot.date, end, slot.resourceId)
-            }}
-            onSelectSlot={(slot) => {
-              openCreateFromSlot(slot.start, slot.end, slot.resourceId)
-            }}
-            onEventUpdate={(update) => {
-              const booking = update.event.data
-              if (!booking || booking.status === 'cancelled') return false
-              editMutation.mutate({
-                bookingId: booking.id,
-                patch: {
-                  resourceId: update.resourceId ?? booking.resourceId,
-                  title: booking.title,
-                  startsAt: update.start.toISOString(),
-                  endsAt: update.end.toISOString(),
-                  timezone: booking.timezone,
-                  status: booking.status,
-                  allDay: update.allDay,
-                  location: booking.location,
-                  color: booking.color,
-                  notes: booking.notes,
-                  projectId: booking.projectId,
-                },
-                expectedMetadataVersion: booking.metadataVersion,
-              })
-              return true
-            }}
-            onRangeChange={(info) =>
-              setRange({ start: info.range.start, end: info.range.end })
-            }
-            className="flex-1 min-h-0"
-          >
-            <EventCalendarNav />
-            <EventCalendarContent />
-          </EventCalendar>
+          <div className="flex min-h-0 flex-1">
+            <CalendarRail
+              date={calendarDate}
+              onPick={setCalendarDate}
+              upcoming={railData.upcoming}
+              conflicts={railData.conflicts}
+              availableNow={railData.availableNow}
+              onSelectBooking={setSelectedBookingId}
+            />
+            <EventCalendar
+              events={events}
+              onEventsChange={setEvents}
+              defaultView="week"
+              date={calendarDate}
+              onDateChange={setCalendarDate}
+              timeZone={VIEW_TIMEZONE}
+              resources={eventResources}
+              loading={resourcesQuery.isLoading || bookingsQuery.isLoading}
+              onEventClick={(occurrence) =>
+                setSelectedBookingId(occurrence.eventId)
+              }
+              onSlotClick={(slot) => {
+                const end =
+                  slot.end ?? new Date(slot.date.getTime() + 3_600_000)
+                openCreateFromSlot(slot.date, end, slot.resourceId)
+              }}
+              onSelectSlot={(slot) => {
+                openCreateFromSlot(slot.start, slot.end, slot.resourceId)
+              }}
+              onEventUpdate={(update) => {
+                const booking = update.event.data
+                if (!booking || booking.status === 'cancelled') return false
+                editMutation.mutate({
+                  bookingId: booking.id,
+                  patch: {
+                    resourceId: update.resourceId ?? booking.resourceId,
+                    title: booking.title,
+                    startsAt: update.start.toISOString(),
+                    endsAt: update.end.toISOString(),
+                    timezone: booking.timezone,
+                    status: booking.status,
+                    allDay: update.allDay,
+                    location: booking.location,
+                    color: booking.color,
+                    notes: booking.notes,
+                    projectId: booking.projectId,
+                  },
+                  expectedMetadataVersion: booking.metadataVersion,
+                })
+                return true
+              }}
+              onRangeChange={(info) =>
+                setRange({ start: info.range.start, end: info.range.end })
+              }
+              className="min-w-0 flex-1 min-h-0"
+            >
+              <EventCalendarNav />
+              <EventCalendarContent />
+            </EventCalendar>
+          </div>
         )}
       </div>
 
@@ -483,5 +557,129 @@ function CalendarRoute() {
         error={dialogError}
       />
     </>
+  )
+}
+
+function RailSection({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      <h3 className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+        <Icon className="size-3.5" aria-hidden="true" /> {title}
+      </h3>
+      {children}
+    </section>
+  )
+}
+
+function shortDayTime(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function shortTime(iso: string) {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/** V2ALT left rail: mini week picker, upcoming bookings, conflicts, availability. */
+function CalendarRail({
+  date,
+  onPick,
+  upcoming,
+  conflicts,
+  availableNow,
+  onSelectBooking,
+}: {
+  date: Date
+  onPick: (date: Date) => void
+  upcoming: CalendarBooking[]
+  conflicts: Array<{ a: CalendarBooking; b: CalendarBooking }>
+  availableNow: Array<{
+    resource: CalendarResource
+    freeUntil: string | undefined
+  }>
+  onSelectBooking: (id: string) => void
+}) {
+  return (
+    <aside
+      aria-label="Calendar overview"
+      className="hidden w-56 shrink-0 flex-col gap-4 overflow-y-auto border-r p-3 lg:flex"
+    >
+      <RailSection icon={CalendarDays} title="Pick a week">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={(day) => day && onPick(day)}
+          className="p-0"
+          classNames={{
+            weekday: 'w-7 text-[11px] font-normal text-muted-foreground',
+            day: 'size-7 p-0 text-center text-xs',
+            day_button: 'size-7',
+          }}
+        />
+      </RailSection>
+      <RailSection icon={Clock} title="Upcoming bookings">
+        {upcoming.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nothing scheduled.</p>
+        ) : (
+          <ul className="space-y-1">
+            {upcoming.map((b) => (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectBooking(b.id)}
+                  className="w-full rounded px-1 py-0.5 text-left text-xs hover:bg-accent"
+                >
+                  <span className="block truncate">{b.title}</span>
+                  <span className="text-muted-foreground">
+                    {shortDayTime(b.startsAt)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </RailSection>
+      <RailSection icon={TriangleAlert} title="Booking conflicts">
+        {conflicts.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No conflicts.</p>
+        ) : (
+          <ul className="space-y-1 text-xs">
+            {conflicts.slice(0, 3).map(({ a, b }) => (
+              <li key={`${a.id}-${b.id}`} className="text-warning-foreground">
+                {a.title} overlaps {b.title} — {shortDayTime(b.startsAt)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </RailSection>
+      <RailSection icon={CircleCheck} title="Available now">
+        {availableNow.length === 0 ? (
+          <p className="text-xs text-muted-foreground">All resources booked.</p>
+        ) : (
+          <ul className="space-y-1 text-xs">
+            {availableNow.slice(0, 4).map(({ resource, freeUntil }) => (
+              <li key={resource.id} className="text-muted-foreground">
+                <span className="text-foreground">{resource.name}</span> — free
+                {freeUntil ? ` until ${shortTime(freeUntil)}` : ' all week'}
+              </li>
+            ))}
+          </ul>
+        )}
+      </RailSection>
+    </aside>
   )
 }

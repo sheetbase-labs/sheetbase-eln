@@ -532,7 +532,9 @@ function AdminRoute() {
       <div className="w-full px-4 pt-4 pb-3">
         <header>
           <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold">Administration</h1>
+            <h1 className="font-display text-headline font-heading tracking-tight">
+              Administration
+            </h1>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage workspace access and activity. Edit models in{' '}
@@ -569,7 +571,7 @@ function AdminRoute() {
                 params={{ section: item.key }}
                 search={{ model: undefined }}
                 aria-current={active ? 'page' : undefined}
-                className={`flex shrink-0 items-center px-3 py-1 text-sm no-underline transition-colors ${active ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`flex shrink-0 items-center rounded-md px-3 py-1 text-sm no-underline transition-colors ${active ? 'bg-background font-medium text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <span className="whitespace-nowrap">{item.label}</span>
               </Link>

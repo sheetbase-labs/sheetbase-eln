@@ -325,7 +325,7 @@ function LineageHeader({
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <Network className="size-4 text-primary" aria-hidden="true" />
-          <h1 className="text-base font-semibold tracking-tight">
+          <h1 className="font-display text-headline font-heading tracking-tight">
             Lineage Explorer
           </h1>
         </div>

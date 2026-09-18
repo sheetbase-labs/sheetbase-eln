@@ -253,9 +253,10 @@ describe('RegistryComposition server contracts', () => {
       />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Add filter' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Search' }))
-    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'Anti')
+    await user.type(
+      screen.getByRole('searchbox', { name: 'Search test records' }),
+      'Anti',
+    )
     expect(onQueryChange).not.toHaveBeenCalled()
     await waitFor(() => expect(onQueryChange).toHaveBeenCalledOnce(), {
       timeout: 600,
@@ -290,9 +291,10 @@ describe('RegistryComposition server contracts', () => {
       />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Add filter' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Search' }))
-    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'A')
+    await user.type(
+      screen.getByRole('searchbox', { name: 'Search test records' }),
+      'A',
+    )
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
       filters: [{ fieldId: 'q', operator: 'contains', values: ['A'] }],
@@ -545,4 +547,48 @@ describe('RegistryComposition interaction and states', () => {
 
     expect(screen.getByText('Custom 1.2')).toBeTruthy()
   })
+})
+
+it('offers direct text search while preserving other filters and resetting pagination', () => {
+  const onQueryChange = vi.fn()
+  render(
+    <RegistryComposition
+      {...props({
+        fields: [
+          ...props().fields,
+          {
+            id: 'q',
+            label: 'Search',
+            column: false,
+            groupable: false,
+            filter: {
+              type: 'text',
+              operators: [{ value: 'contains', label: 'contains' }],
+            },
+          },
+        ],
+        query: {
+          ...query,
+          pageIndex: 2,
+          filters: [
+            { fieldId: 'status', operator: 'eq', values: ['available'] },
+          ],
+        },
+        onQueryChange,
+      })}
+    />,
+  )
+  fireEvent.change(
+    screen.getByRole('searchbox', { name: 'Search test records' }),
+    { target: { value: 'plasma' } },
+  )
+  expect(onQueryChange).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      pageIndex: 0,
+      filters: [
+        { fieldId: 'status', operator: 'eq', values: ['available'] },
+        { fieldId: 'q', operator: 'contains', values: ['plasma'] },
+      ],
+    }),
+  )
 })

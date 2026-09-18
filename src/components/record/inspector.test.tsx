@@ -12,9 +12,8 @@ import {
   InspectorSection,
   InspectorSectionStack,
   LinkedRecordList,
-  Property,
-  PropertyList,
 } from './inspector-sections'
+import { Property, PropertyList } from '#/components/scientific/property-list'
 import type {
   ActivityItem,
   CheckItem,

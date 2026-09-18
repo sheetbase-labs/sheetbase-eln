@@ -22,16 +22,17 @@ import {
 
 import {
   Button,
+  Input,
   Select,
   Sheet,
   SheetContent,
   SheetTitle,
   Skeleton,
 } from '#/components/ui'
+import { MetricSummary } from '#/components/scientific/metric-summary'
 import { formatCount } from '#/lib/format-numbers'
 import { DEFAULT_REGISTRY_QUERY } from '#/lib/registry'
 import type { RegistryQuery, RegistryScalar } from '#/lib/registry'
-import { cn } from '#/lib/utils'
 import type {
   DataGridField,
   DataGridIncrementalRows,
@@ -76,6 +77,7 @@ export interface RegistryCompositionProps<TData> {
   partialData?: boolean
   onRetry?: () => void
   emptyTitle?: string
+  emptyDescription?: string
   noResultsTitle?: string
   initialColumnVisibility?: VisibilityState
   actions?: React.ReactNode
@@ -141,6 +143,7 @@ export function RegistryComposition<TData>({
   onRetry,
   emptyTitle = 'No records yet',
   noResultsTitle = 'No matching records',
+  emptyDescription = 'Records will appear here when they are available.',
   initialColumnVisibility = {},
   actions,
   hideHeader = false,
@@ -156,6 +159,10 @@ export function RegistryComposition<TData>({
     [fields],
   )
   const filterDefinitions = fields.filter((field) => field.filter)
+  const searchField = filterDefinitions.find(
+    (field) =>
+      field.filter?.type === 'text' && ['q', 'search'].includes(field.id),
+  )
   const groupingOptions = fields.filter((field) => field.groupable)
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(initialColumnVisibility)
@@ -361,8 +368,8 @@ export function RegistryComposition<TData>({
       title={hasFilters ? noResultsTitle : emptyTitle}
       detail={
         hasFilters
-          ? 'Change or clear the filters to broaden the server query.'
-          : 'Records will appear here when they are available.'
+          ? 'Change or clear the filters to find more records.'
+          : emptyDescription
       }
     />
   ) : undefined
@@ -370,7 +377,7 @@ export function RegistryComposition<TData>({
   return (
     <section
       aria-labelledby={`${registryId}-title`}
-      className="flex min-h-0 flex-1 flex-col gap-3"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-3"
     >
       {!hideHeader ? (
         <header className="flex flex-wrap items-start justify-between gap-3">
@@ -387,47 +394,85 @@ export function RegistryComposition<TData>({
               </p>
             ) : null}
           </div>
-          {permissionDenied ? null : actions}
+          {permissionDenied ? null : (
+            <div className="flex shrink-0 items-center gap-2">{actions}</div>
+          )}
         </header>
       ) : null}
 
       {!permissionDenied && summaries.length > 0 ? (
-        <dl className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] divide-x overflow-hidden rounded-md border bg-card">
+        <div
+          className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]"
+          aria-label="Summary"
+        >
           {summaries.map((summary) => (
-            <div key={summary.label} className="min-w-0 px-3 py-2">
-              <dt className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                {summary.label}
-              </dt>
-              <dd className="mt-0.5 text-xl font-semibold tabular-nums leading-tight">
-                {summary.value}
-              </dd>
-              {summary.hint ? (
-                <dd
-                  className={cn(
-                    'mt-0.5 text-xs font-medium',
-                    summary.tone === 'positive' && 'text-emerald-600',
-                    summary.tone === 'warning' && 'text-amber-600',
-                    summary.tone === 'danger' && 'text-red-600',
-                    (!summary.tone || summary.tone === 'neutral') &&
-                      'text-muted-foreground',
-                  )}
-                >
-                  {summary.hint}
-                </dd>
-              ) : null}
-            </div>
+            <MetricSummary
+              key={summary.label}
+              label={summary.label}
+              value={loading ? '—' : summary.value}
+              hint={summary.hint}
+            />
           ))}
-        </dl>
+        </div>
       ) : null}
 
       {!permissionDenied ? (
         <div className="flex flex-wrap items-center gap-2">
+          {searchField ? (
+            <RegistrySearch
+              key={searchField.id}
+              value={String(
+                query.filters.find(
+                  (filter) => filter.fieldId === searchField.id,
+                )?.values[0] ?? '',
+              )}
+              label={`Search ${title.toLowerCase()}`}
+              placeholder={
+                searchField.filter?.placeholder ??
+                `Search ${title.toLowerCase()}…`
+              }
+              delay={searchDebounceMs}
+              onChange={(value) =>
+                onQueryChange({
+                  ...query,
+                  pageIndex: 0,
+                  filters: [
+                    ...query.filters.filter(
+                      (filter) => filter.fieldId !== searchField.id,
+                    ),
+                    ...(value
+                      ? [
+                          {
+                            fieldId: searchField.id,
+                            operator: 'contains' as const,
+                            values: [value],
+                          },
+                        ]
+                      : []),
+                  ],
+                })
+              }
+            />
+          ) : null}
           {filterDefinitions.length > 0 ? (
             <DataGridFilters
-              fields={filterDefinitions}
-              filters={query.filters}
+              fields={filterDefinitions.filter(
+                (field) => field.id !== searchField?.id,
+              )}
+              filters={query.filters.filter(
+                (filter) => filter.fieldId !== searchField?.id,
+              )}
               onFiltersChange={(filters) =>
-                onQueryChange({ ...query, pageIndex: 0, filters })
+                onQueryChange({
+                  ...query,
+                  pageIndex: 0,
+                  filters: [
+                    ...query.filters.filter(
+                      (filter) => filter.fieldId === searchField?.id,
+                    ),
+                    ...filters,
+                  ],
+                })
               }
               debounceMs={searchDebounceMs}
             />
@@ -479,7 +524,7 @@ export function RegistryComposition<TData>({
         isXl ? (
           <aside
             aria-label={inspectorLabel}
-            className="flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-background"
+            className="flex w-96 shrink-0 flex-col overflow-hidden rounded-lg border bg-background"
           >
             {inspectorContent}
           </aside>
@@ -495,7 +540,7 @@ export function RegistryComposition<TData>({
         >
           <SheetContent
             side="right"
-            className="w-[min(24rem,92vw)] border-l p-0"
+            className="w-[min(30rem,100vw)] border-l p-0 sm:max-w-none"
             showClose={false}
           >
             <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
@@ -637,3 +682,43 @@ function RegistryLoading({
 }
 
 export { DEFAULT_REGISTRY_QUERY }
+
+function RegistrySearch({
+  value,
+  label,
+  placeholder,
+  delay,
+  onChange,
+}: {
+  value: string
+  label: string
+  placeholder: string
+  delay: number
+  onChange: (value: string) => void
+}) {
+  const [draft, setDraft] = React.useState(value)
+  const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  )
+  React.useEffect(() => {
+    clearTimeout(timer.current)
+    setDraft(value)
+  }, [value])
+  React.useEffect(() => () => clearTimeout(timer.current), [])
+  return (
+    <Input
+      type="search"
+      aria-label={label}
+      placeholder={placeholder}
+      className="h-8 w-full sm:w-64"
+      value={draft}
+      onChange={(event) => {
+        const next = event.target.value
+        setDraft(next)
+        clearTimeout(timer.current)
+        if (delay > 0) timer.current = setTimeout(() => onChange(next), delay)
+        else onChange(next)
+      }}
+    />
+  )
+}

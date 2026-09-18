@@ -1,10 +1,14 @@
 # Product
 
-## Register
+<!-- impeccable:product-schema 1 -->
 
-product
+## Platform
 
-Sheetbase is primarily an application surface. Design serves scientific work: recording, structuring, analysing, reviewing and retrieving experimental information. Marketing pages may use the brand register separately, but the default for this repository is product.
+web
+
+## Application context
+
+Sheetbase is primarily an application surface. Design serves scientific work: recording, structuring, analysing, reviewing and retrieving experimental information. Marketing pages have a separate purpose; choose the interaction mode for each surface in its design brief.
 
 ## Users
 
@@ -23,11 +27,13 @@ Users often work for long periods on desktop screens, move between dense records
 
 ## Product Purpose
 
-Sheetbase is a flexible electronic laboratory notebook and scientific data workspace. It combines a document-first notebook with linked structured records, tables, advanced graphing, files, review workflows and traceable scientific context.
+Sheetbase is a scientific workspace combining spreadsheet immediacy with scientific structure, context, provenance, reuse, analysis and evidence. Notebooks assemble scientific context; Sheets provide the primary structured-data interaction surface; Datasets and Models/Records hold durable scientific meaning. Scientists can explore freely and introduce reusable or governed structure deliberately, without first becoming database administrators.
 
-The core hierarchy is:
+The navigation hierarchy is:
 
 Workspace → Project → Folder → Notebook or Record → Section or Block
+
+Navigation placement does not define scientific identity. Notebooks, Sheets and Datasets are distinct product concepts; a Sheet is not automatically a Dataset. See [Core Concepts](product/core-concepts.md) for the canonical definitions.
 
 Experiments are deliberately lightweight records. Their content is assembled from free-form notebook blocks rather than forced into one rigid experiment schema. Structured objects such as samples, protocols, datasets, analyses, figures, reports, instruments and reagents can be linked into the notebook without turning the notebook into a database form.
 
@@ -41,6 +47,96 @@ The product succeeds when a scientist can:
 6. return months later and reconstruct what happened without relying on personal memory.
 
 Sheetbase must support regulated workflows, including revision history, audit trails, review, electronic signatures and record locking. The interface must never claim that a record or workspace is compliant merely because a feature is present; compliance depends on configuration, process and validated use.
+
+## Positioning
+
+Sheetbase's mechanism combines direct spreadsheet interaction with stable scientific
+identity, progressive structure and reconstructable evidence. A scientist can type
+or paste exploratory data, link Records or Datasets when useful, analyse results,
+reuse successful structures, and explicitly submit or freeze meaningful evidence.
+
+Local work does not automatically become organisational schema. Reuse does not
+create hidden shared mutable state. Scientific identity comes from stable IDs,
+not labels or grid coordinates. This is the product position established in the
+[Product Thesis](product/product-thesis.md), not a claim of demonstrated market
+uniqueness. Integrations and automation extend the scientist's workspace; they do
+not define its purpose.
+
+## Operating Context
+
+Scientists work between narrative, methods, tabular observations, instrument files,
+linked scientific entities and figures. Their working sequence is to open a
+Notebook, add a Sheet, type/paste/import, link durable sources where useful,
+calculate/analyse/visualise, deliberately promote reusable structure, and submit
+work when it becomes evidence.
+
+Desktop work often involves long sessions and dense information. Shared laboratory
+computers, gloves, time pressure and tablet access make continuity, clear state,
+keyboard fluency and usable targets consequential. Stewards configure reusable
+Models, schemas and Templates; scientist-facing flows expose the scientific job
+rather than database administration.
+
+Reviewers need to inspect source data, ownership, validation and the distinction
+between evolving live work and submitted evidence. Developers and automation use
+the same canonical domain operations and permission boundaries as the browser.
+
+## Capabilities and Constraints
+
+The durable product model is defined in [Core Concepts](product/core-concepts.md):
+
+- A Notebook assembles scientific context and evidence.
+- A Sheet can compose Dataset sources, Records, local exploratory fields and
+  calculated values. A permitted write has one authoritative target.
+- A Dataset owns durable rows, fields and immutable meaningful Dataset Versions.
+- Models define scientific entity types; Records have stable identity independent
+  of their display name or navigation location.
+- Definitions and Templates are reusable configuration, separate from working
+  Instances. Reuse does not silently upgrade existing work.
+- Binding connects existing structure; promotion deliberately makes exploratory
+  structure reusable or governed. They are different actions.
+- Submitted evidence preserves historical meaning while live sources can evolve.
+  Audit history alone is not frozen evidence.
+
+These are product contracts, not blanket acceptance claims. Current implementation
+limits and verification gaps live in [NEXT.md](NEXT.md); consult it before promising
+capabilities. Its 7 September 2026 reconciliation records stub-backed AI, bounded
+import/analysis workloads, incomplete Sheet-cell comment anchors and outstanding
+integrated acceptance/recovery evidence. Later organisation and regulated-use
+controls remain decision- and evidence-gated. No automatic compliance, production
+readiness, live-provider quality or SDK publication claim follows from a merged PR.
+
+See [Non-Goals](product/non-goals.md) for durable boundaries. Product status and
+adoption decisions must be checked in current evidence rather than inferred from
+historical pre-release statements.
+
+## Evidence on Hand
+
+- [Product Thesis](product/product-thesis.md), [Core Concepts](product/core-concepts.md)
+  and [UX Principles](product/ux-principles.md) establish the product rationale.
+- [DESIGN.md](DESIGN.md) holds the canonical visual/interaction system;
+  [mockups](mockups/) are historical visual references, not proof of shipped behaviour.
+- [Demo seeding](../development/seeds.md) provides Virus Stability narrative,
+  scientific objects and a local Sheet fixture. Synthetic demonstration data must
+  not be presented as customer evidence or validation of scientific conclusions.
+- [The notebook QA pilot](../development/notebook-design-qa.md) defines assessment
+  scenarios and proposed measurement targets. Untested rows remain unverified;
+  setup success and HTTP readiness do not establish workflow acceptance.
+- [Current work](NEXT.md) separates merged implementation, known limits and missing
+  evidence. This record does not establish customer testimonials, regulatory
+  validation, production adoption or performance guarantees; do not invent them.
+
+## Product Principles
+
+1. **Scientific work first.** Notebook context and direct Sheet interaction form
+   one scientist workspace; platform breadth serves those workflows.
+2. **Structure is progressive.** Exploration is legitimate; promotion and reuse
+   are explicit, without hidden inheritance or shared mutable experiments.
+3. **Identity and meaning endure.** Stable identities, units, provenance and
+   immutable evidence preserve interpretation beyond the current view.
+4. **One domain contract.** Human, browser, API and automation clients share
+   authoritative permissions, validation and mutation semantics.
+5. **Claims require evidence.** Capability, scientific correctness and operational
+   readiness must be demonstrated; assistance stays attributable and reviewable.
 
 ## Brand Personality
 

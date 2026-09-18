@@ -32,6 +32,40 @@ const applicationImage = assertImmutableImageReference(
 const postgrestImage = assertImmutableImageReference(
   required('SHEETBASE_POSTGREST_IMAGE'),
 )
+const pythonEnabled = Boolean(
+  process.env.SHEETBASE_PYTHON_RUNNER_IMAGE ||
+  process.env.SHEETBASE_PYTHON_IMAGE,
+)
+const pythonImages = pythonEnabled
+  ? {
+      runner: assertImmutableImageReference(
+        required('SHEETBASE_PYTHON_RUNNER_IMAGE'),
+      ),
+      runtime: assertImmutableImageReference(
+        required('SHEETBASE_PYTHON_IMAGE'),
+      ),
+    }
+  : undefined
+if (pythonImages) {
+  if (required('PIPELINE_PYTHON_RUNNER_TOKEN').length < 32)
+    throw new Error('Python runner token must contain at least 32 characters')
+  if (!/^\d+$/.test(required('PIPELINE_DOCKER_SOCKET_GID')))
+    throw new Error('Python Docker socket group must be numeric')
+  // Plan mode remains read-only. Images must be installed through the reviewed delivery flow.
+  capture('docker', [
+    'image',
+    'inspect',
+    '--format',
+    '{{.Id}}',
+    pythonImages.runner,
+    pythonImages.runtime,
+  ])
+}
+const composeFiles = [
+  '-f',
+  'compose.deploy.yaml',
+  ...(pythonImages ? ['-f', 'compose.pipeline-python.yaml'] : []),
+]
 const imageDigest = applicationImage.split('@').at(-1)
 if (!imageDigest) throw new Error('application image has no digest')
 
@@ -90,6 +124,7 @@ const plan = buildDeploymentPlan({
   environment: deployment.environment,
   applicationImage,
   postgrestImage,
+  pythonImages,
   expectedMigration: deployment.expectedMigration,
   // The documented public HTTPS endpoint remains part of the deployment
   // contract. The controller can optionally prove readiness through the
@@ -107,14 +142,10 @@ process.stdout.write(`${JSON.stringify({ mode, plan }, null, 2)}\n`)
 if (mode === '--plan') process.exit(0)
 
 function compose(args: string[]) {
-  const result = spawnSync(
-    'docker',
-    ['compose', '-f', 'compose.deploy.yaml', ...args],
-    {
-      stdio: 'inherit',
-      env: process.env,
-    },
-  )
+  const result = spawnSync('docker', ['compose', ...composeFiles, ...args], {
+    stdio: 'inherit',
+    env: process.env,
+  })
   if (result.status !== 0) {
     throw new Error(`docker compose ${args.join(' ')} failed`)
   }
@@ -123,7 +154,7 @@ function compose(args: string[]) {
 function isolateFailedRollout() {
   const result = spawnSync(
     'docker',
-    ['compose', '-f', 'compose.deploy.yaml', 'rm', '-sf', 'app'],
+    ['compose', ...composeFiles, 'rm', '-sf', 'app'],
     { stdio: 'inherit', env: process.env },
   )
   if (result.status !== 0) {
@@ -135,7 +166,29 @@ function isolateFailedRollout() {
 
 compose(['run', '--rm', 'migrate'])
 try {
-  compose(['up', '-d', '--wait', 'app'])
+  compose([
+    'up',
+    '-d',
+    '--wait',
+    ...(pythonImages ? ['pipeline-python-runner'] : []),
+    'app',
+  ])
+  if (pythonImages) {
+    const runtime = capture('docker', [
+      'compose',
+      ...composeFiles,
+      'exec',
+      '-T',
+      'app',
+      'node',
+      '-e',
+      "fetch(process.env.PIPELINE_PYTHON_RUNNER_URL + '/runtime', {headers: {authorization: 'Bearer ' + process.env.PIPELINE_PYTHON_RUNNER_TOKEN}, signal: AbortSignal.timeout(10000)}).then(async r => {if (!r.ok) process.exit(1); process.stdout.write((await r.json()).runtime)}).catch(() => process.exit(1))",
+    ])
+    if (runtime !== pythonImages.runtime)
+      throw new Error(
+        'Python runtime identity did not match the deployment plan',
+      )
+  }
 } catch (error) {
   isolateFailedRollout()
   throw error

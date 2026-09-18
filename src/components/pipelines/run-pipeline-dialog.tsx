@@ -4,7 +4,7 @@
  * governed RPC (digest idempotency) and then executed server-side.
  */
 import { useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
 import {
@@ -17,6 +17,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  Select,
 } from '#/components/ui'
 import type { DataClient } from '#/lib/data-client'
 import { DataClientError } from '#/lib/data-client'
@@ -29,7 +30,13 @@ import {
   startPipelineRun,
 } from '#/lib/pipelines/data'
 
-export function RunPipelineDialog({
+export function RunPipelineDialog(
+  props: React.ComponentProps<typeof RunPipelineDialogSession>,
+) {
+  return props.open ? <RunPipelineDialogSession {...props} /> : null
+}
+
+function RunPipelineDialogSession({
   dataClient,
   workspaceId,
   definitionVersionId,
@@ -37,7 +44,7 @@ export function RunPipelineDialog({
   open,
   onOpenChange,
   onRunStarted,
-  retryOfRunId = null,
+  retryRun = null,
   initialInputVersions,
 }: {
   dataClient: DataClient
@@ -47,26 +54,39 @@ export function RunPipelineDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   onRunStarted: (run: PipelineRunWire) => void
-  retryOfRunId?: string | null
+  retryRun?: PipelineRunWire | null
   /** Pre-fill input Dataset Version ids (e.g. Dataset → Pipeline integration). */
   initialInputVersions?: Record<string, string>
 }) {
   const queryClient = useQueryClient()
   const [inputs, setInputs] = useState<Record<string, string>>(() => ({
-    ...(initialInputVersions ?? {}),
+    ...(retryRun?.input_versions ?? initialInputVersions ?? {}),
   }))
-  const [params, setParams] = useState<Record<string, string>>({})
+  const [params, setParams] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      Object.entries(retryRun?.parameters ?? {}).map(([name, value]) => [
+        name,
+        typeof value === 'string' ? value : JSON.stringify(value),
+      ]),
+    ),
+  )
+  const [invocationId] = useState(() => `manual:${crypto.randomUUID()}`)
+  const isWorkflow = Boolean(
+    config.actions?.length || config.notifications?.length,
+  )
   const [error, setError] = useState('')
 
   const resolvedParams = useMemo(() => {
+    if (retryRun) return retryRun.parameters
     const result: Record<string, unknown> = {}
     for (const parameter of config.parameters) {
+      if (!Object.hasOwn(params, parameter.name)) continue
       const raw = params[parameter.name]
       if (raw === '') continue
       result[parameter.name] = coerceParameterValue(parameter.type, raw)
     }
     return result
-  }, [params, config.parameters])
+  }, [params, config.parameters, retryRun])
 
   const requestErrors = useMemo(() => {
     const resolvedInputs: Record<string, string> = {}
@@ -74,8 +94,12 @@ export function RunPipelineDialog({
       const value = (inputs[input.name] ?? '').trim()
       if (value) resolvedInputs[input.name] = value
     }
-    return validatePipelineRunRequest(config, resolvedParams, resolvedInputs)
-  }, [config, inputs, params, resolvedParams])
+    return validatePipelineRunRequest(
+      config,
+      resolvedParams,
+      retryRun?.input_versions ?? resolvedInputs,
+    )
+  }, [config, inputs, resolvedParams, retryRun])
 
   const runMutation = useMutation({
     mutationFn: async () => {
@@ -86,11 +110,18 @@ export function RunPipelineDialog({
       }
       const started = await startPipelineRun(dataClient, {
         workspaceId,
-        definitionVersionId,
-        triggerKind: 'manual',
+        definitionVersionId:
+          retryRun?.definition_version_id ?? definitionVersionId,
+        triggerKind: retryRun?.trigger_kind ?? 'manual',
         parameters: resolvedParams,
-        inputVersions: resolvedInputs,
-        retryOfRunId,
+        inputVersions: retryRun?.input_versions ?? resolvedInputs,
+        retryOfRunId: retryRun?.id ?? null,
+        triggerOccurrenceId: retryRun
+          ? retryRun.trigger_occurrence_id
+          : isWorkflow
+            ? invocationId
+            : null,
+        scheduleId: retryRun?.schedule_id ?? null,
       })
       if (started.status === 'running') {
         return executePipelineRun(started.id)
@@ -101,7 +132,9 @@ export function RunPipelineDialog({
     onSuccess: (run) => {
       setError('')
       queryClient.invalidateQueries({
-        queryKey: pipelineQueryKeys.runs(definitionVersionId),
+        queryKey: pipelineQueryKeys.runs(
+          retryRun?.definition_version_id ?? definitionVersionId,
+        ),
       })
       onOpenChange(false)
       onRunStarted(run)
@@ -120,34 +153,45 @@ export function RunPipelineDialog({
       <DialogContent className="max-h-[85vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>
-            {retryOfRunId ? 'Retry Pipeline run' : 'Run Pipeline'}
+            {retryRun ? 'Retry Pipeline run' : 'Run Pipeline'}
           </DialogTitle>
           <DialogDescription>
-            Explicit inputs and parameters. Identical inputs against the same
-            published version replay the prior success.
+            {retryRun
+              ? 'Retry the original version with the same inputs, parameters and trigger. These values cannot be changed for a retry.'
+              : isWorkflow
+                ? 'Choose any inputs and parameters. Each new invocation can perform the configured actions and send notifications.'
+                : 'Choose saved dataset versions and any parameters. Repeating the same request returns the previous successful result.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Inputs (Dataset Version ids)</Label>
-            {config.inputs.map((input) => (
-              <div key={input.name} className="space-y-1">
-                <Label className="font-mono text-xs">{input.name}</Label>
-                <Input
-                  className="font-mono text-sm"
+        <fieldset
+          className="min-w-0 space-y-4"
+          disabled={Boolean(retryRun) || runMutation.isPending}
+        >
+          {config.inputs.length > 0 ? (
+            <div className="space-y-3">
+              <Label>Dataset inputs</Label>
+              {config.inputs.map((input) => (
+                <DatasetVersionPicker
+                  key={input.name}
+                  dataClient={dataClient}
+                  name={input.name}
+                  required={input.required}
                   value={inputs[input.name] ?? ''}
-                  onChange={(event) =>
-                    setInputs((prev) => ({
-                      ...prev,
-                      [input.name]: event.target.value,
+                  onChange={(value) =>
+                    setInputs((previous) => ({
+                      ...previous,
+                      [input.name]: value,
                     }))
                   }
-                  placeholder="00000000-0000-4000-8000-000000000000"
                 />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This pipeline runs without dataset inputs.
+            </p>
+          )}
 
           {config.parameters.length > 0 && (
             <div className="space-y-2">
@@ -191,7 +235,7 @@ export function RunPipelineDialog({
               {error}
             </p>
           )}
-        </div>
+        </fieldset>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -204,7 +248,7 @@ export function RunPipelineDialog({
             {runMutation.isPending && (
               <Loader2 className="size-4 animate-spin" />
             )}
-            {retryOfRunId ? 'Retry' : 'Run'}
+            {retryRun ? 'Retry' : 'Run'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -229,4 +273,88 @@ function coerceParameterValue(type: string, raw: string): unknown {
     default:
       return raw
   }
+}
+
+function DatasetVersionPicker({
+  dataClient,
+  name,
+  required,
+  value,
+  onChange,
+}: {
+  dataClient: DataClient
+  name: string
+  required: boolean
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [datasetId, setDatasetId] = useState('')
+  const datasets = useQuery({
+    queryKey: ['pipelines', 'run-datasets'],
+    queryFn: () =>
+      dataClient.list<{ id: string; name: string }>(
+        'datasets',
+        '?select=id,name&lifecycle=eq.active&order=name.asc',
+      ),
+  })
+  const versions = useQuery({
+    queryKey: ['pipelines', 'run-versions', datasetId],
+    queryFn: () =>
+      dataClient.list<{ id: string; label: string; created_at: string }>(
+        'dataset_versions',
+        `?dataset_id=eq.${encodeURIComponent(datasetId)}&order=created_at.desc`,
+      ),
+    enabled: Boolean(datasetId),
+  })
+  return (
+    <div className="space-y-2">
+      <Label>
+        {name}
+        {required ? ' (required)' : ' (optional)'}
+      </Label>
+      <Select
+        aria-label={`${name} dataset`}
+        value={datasetId}
+        onChange={(event) => {
+          setDatasetId(event.target.value)
+          onChange('')
+        }}
+      >
+        <option value="">Choose a dataset…</option>
+        {datasets.data?.map((dataset) => (
+          <option key={dataset.id} value={dataset.id}>
+            {dataset.name}
+          </option>
+        ))}
+      </Select>
+      {datasetId ? (
+        <Select
+          aria-label={`${name} version`}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          <option value="">Choose a saved version…</option>
+          {versions.data?.map((version) => (
+            <option key={version.id} value={version.id}>
+              {version.label} · {version.created_at.slice(0, 10)}
+            </option>
+          ))}
+        </Select>
+      ) : value ? (
+        <p className="break-all text-xs text-muted-foreground">
+          Selected version: {value}
+        </p>
+      ) : null}
+      {datasetId && versions.data?.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          Save a version of this dataset before running the pipeline.
+        </p>
+      )}
+      {(datasets.isError || versions.isError) && (
+        <p role="alert" className="text-xs text-destructive">
+          Could not load dataset choices. Close and reopen to try again.
+        </p>
+      )}
+    </div>
+  )
 }

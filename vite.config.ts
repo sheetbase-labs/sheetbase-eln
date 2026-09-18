@@ -8,7 +8,14 @@ import tailwindcss from '@tailwindcss/vite'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
-  plugins: [devtools(), tailwindcss(), tanstackStart(), viteReact()],
+  plugins: [
+    // Vite already forwards browser logs. Replaying them through TanStack's
+    // server-to-browser pipe creates a feedback loop and exhausts Node's heap.
+    devtools({ consolePiping: { enabled: false } }),
+    tailwindcss(),
+    tanstackStart(),
+    viteReact(),
+  ],
   server: {
     // The Amp orb exposes the dev server through portal hostnames
     // (*.onamp.dev and the e2b.app sandbox host). Allow them so the

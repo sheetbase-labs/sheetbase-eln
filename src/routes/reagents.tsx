@@ -32,13 +32,13 @@ import { useMemo, useState } from 'react'
 import { Archive, FlaskConical } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import { CreateReagentDialog } from '#/components/reagents/create-reagent-dialog'
 import { ReagentInspector } from '#/components/reagents/reagent-inspector'
 import { RegistryComposition } from '#/components/registry'
 import type { DataGridField } from '#/components/data-grid'
 import type { RegistrySummary } from '#/components/registry'
 import { StatusBadge } from '#/components/scientific'
 import {
-  Badge,
   Button,
   ButtonGroup,
   Dialog,
@@ -52,13 +52,10 @@ import {
   FieldLabel,
   Input,
   Label,
-  Select,
 } from '#/components/ui'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
-import { fetchModelFields, modelFieldValuesFromInput } from '#/lib/model-fields'
-import type { ModelFieldDefinition } from '#/lib/model-fields'
-import { ModelFieldInput } from '#/components/scientific/model-field-input'
+import { fetchModelFields } from '#/lib/model-fields'
 import {
   archiveReagent,
   createReagent,
@@ -74,6 +71,7 @@ import {
   REAGENT_STORAGE_OPTIONS,
   recordReagentMovement,
   reagentQueryKeys,
+  reagentAttention,
 } from '#/lib/reagent-data'
 import type { Reagent, ReagentAttentionSummary } from '#/lib/reagent-data'
 import { decodeRegistryQuery, encodeRegistryQuery } from '#/lib/registry'
@@ -346,8 +344,8 @@ function ReagentsRegistryRoute() {
       <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
         <RegistryComposition
           registryId="reagents"
-          title="Reagents Registry"
-          description="Central inventory of reagents, consumables and chemicals."
+          title="Reagents"
+          description="Find stock by name, supplier or lot, and check quantity, storage and expiry."
           rows={rows}
           totalCount={totalCount}
           fields={fields}
@@ -359,7 +357,11 @@ function ReagentsRegistryRoute() {
           onSelectedIdChange={setSelected}
           inspectorLabel="Reagent details"
           summaries={summaries}
-          initialColumnVisibility={{ updatedAt: false }}
+          initialColumnVisibility={{
+            updatedAt: false,
+            catalogNo: false,
+            category: false,
+          }}
           loading={rowsQuery.isLoading || countQuery.isLoading}
           error={initialError}
           permissionDenied={permissionDenied}
@@ -379,7 +381,13 @@ function ReagentsRegistryRoute() {
           emptyTitle="No reagents yet"
           noResultsTitle="No matching reagents"
           actions={
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setCreateError(null)
+                setCreateOpen(true)
+              }}
+            >
               <FlaskConical className="size-3.5" /> New reagent
             </Button>
           }
@@ -416,10 +424,24 @@ function ReagentsRegistryRoute() {
           }
         />
         <CreateReagentDialog
+          key={createOpen ? 'open' : 'closed'}
           open={createOpen}
           onOpenChange={setCreateOpen}
           projects={projectsQuery.data ?? []}
-          projectsLoading={projectsQuery.isLoading}
+          projectsLoading={
+            projectsQuery.isLoading || modelFieldsQuery.isLoading
+          }
+          loadError={
+            projectsQuery.isError || modelFieldsQuery.isError
+              ? 'Could not load the reagent form. Try again.'
+              : null
+          }
+          onRetry={() => {
+            void Promise.all([
+              projectsQuery.refetch(),
+              modelFieldsQuery.refetch(),
+            ])
+          }}
           pending={createMutation.isPending}
           error={createError}
           modelFields={modelFields}
@@ -458,7 +480,9 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       header: 'Category',
       size: 128,
       minSize: 104,
-      cell: (info) => <CategoryBadge category={info.getValue()} />,
+      cell: (info) => (
+        <span className="text-muted-foreground">{info.getValue()}</span>
+      ),
     }),
     columnHelper.accessor('supplier', {
       id: 'supplier',
@@ -486,8 +510,26 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       header: 'Expiry',
       size: 104,
       minSize: 92,
-      meta: { dataGridFormat: { kind: 'date', dateStyle: 'short' } },
-      cell: (info) => (info.getValue() ? formatDate(info.getValue()) : '—'),
+      cell: (info) => {
+        if (!info.getValue()) return '—'
+        const attention = reagentAttention(info.row.original)
+        return (
+          <div>
+            <span>{formatDate(info.getValue())}</span>
+            {attention.expired || attention.nearExpiry ? (
+              <span
+                className={
+                  attention.expired
+                    ? 'block text-xs text-destructive'
+                    : 'block text-xs text-warning-foreground'
+                }
+              >
+                {attention.expired ? 'Expired' : 'Expiring soon'}
+              </span>
+            ) : null}
+          </div>
+        )
+      },
     }),
     columnHelper.accessor((row) => row.quantity, {
       id: 'quantity',
@@ -498,7 +540,19 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       cell: (info) => {
         const row = info.row.original
         if (row.quantity === null) return '—'
-        return `${row.quantity}${row.unit ? ` ${row.unit}` : ''}`
+        return (
+          <div className="tabular-nums">
+            <span>
+              {row.quantity}
+              {row.unit ? ` ${row.unit}` : ''}
+            </span>
+            {reagentAttention(row).lowStock ? (
+              <span className="block text-xs text-warning-foreground">
+                Low stock
+              </span>
+            ) : null}
+          </div>
+        )
       },
     }),
     columnHelper.accessor('storage', {
@@ -590,19 +644,6 @@ function buildFields(
   return fields
 }
 
-function CategoryBadge({ category }: { category: string }) {
-  const normalised = category.toLowerCase()
-  const variant = normalised.includes('enzyme')
-    ? 'violet'
-    : normalised.includes('buffer') || normalised.includes('solution')
-      ? 'info'
-      : normalised.includes('chemical')
-        ? 'warning'
-        : 'outline'
-
-  return <Badge variant={variant}>{category}</Badge>
-}
-
 // ---------------------------------------------------------------------------
 // Summaries.
 // ---------------------------------------------------------------------------
@@ -618,7 +659,7 @@ function buildSummaries(attention: ReagentAttentionSummary): RegistrySummary[] {
     {
       label: 'Expiring soon',
       value: attention.nearExpiry,
-      hint: attention.nearExpiry > 0 ? 'within 30 days' : undefined,
+      hint: attention.nearExpiry > 0 ? 'within warning period' : undefined,
     },
     {
       label: 'Expired',
@@ -976,239 +1017,6 @@ function describeMovementError(error: DataClientError): string {
     default:
       return error.message || 'Could not record the movement. Try again.'
   }
-}
-
-function CreateReagentDialog({
-  open,
-  onOpenChange,
-  projects,
-  projectsLoading,
-  pending,
-  error,
-  modelFields,
-  onCreate,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  projects: { id: string; key: string; title: string }[]
-  projectsLoading: boolean
-  pending: boolean
-  error: string | null
-  modelFields: ModelFieldDefinition[]
-  onCreate: (input: {
-    projectId: string
-    title: string
-    category: string
-    properties: {
-      supplier: string
-      catalogNo: string
-      lot: string
-      expiry: string
-      quantity: string
-      unit: string
-      storage: string
-    }
-    customFields: Record<string, unknown>
-  }) => void
-}) {
-  const [projectId, setProjectId] = useState('')
-  const [title, setTitle] = useState('')
-  const [category, setCategory] = useState('')
-  const [supplier, setSupplier] = useState('')
-  const [catalogNo, setCatalogNo] = useState('')
-  const [lot, setLot] = useState('')
-  const [expiry, setExpiry] = useState('')
-  const [quantity, setQuantity] = useState('')
-  const [unit, setUnit] = useState('')
-  const [storage, setStorage] = useState('')
-  const [customFields, setCustomFields] = useState<
-    Record<string, string | boolean>
-  >({})
-
-  function submit() {
-    if (!projectId || !title.trim()) return
-    onCreate({
-      projectId,
-      title: title.trim(),
-      category: category.trim(),
-      properties: {
-        supplier,
-        catalogNo,
-        lot,
-        expiry,
-        quantity,
-        unit,
-        storage,
-      },
-      customFields: modelFieldValuesFromInput(modelFields, customFields, true),
-    })
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New reagent</DialogTitle>
-          <DialogDescription>
-            Register a reagent. The identifier is assigned by
-            create_model_record. Quantity changes after create go through
-            receive/consume.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-3">
-          <Label className="text-xs text-muted-foreground">
-            Project
-            <Select
-              className="mt-1 h-9"
-              aria-label="Project"
-              value={projectId}
-              onChange={(event) => setProjectId(event.target.value)}
-            >
-              <option value="">
-                {projectsLoading ? 'Loading…' : 'Select a project'}
-              </option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.key} — {project.title}
-                </option>
-              ))}
-            </Select>
-          </Label>
-          <Label className="text-xs text-muted-foreground">
-            Name
-            <Input
-              className="mt-1 h-9"
-              aria-label="Reagent name"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </Label>
-          <Label className="text-xs text-muted-foreground">
-            Category
-            <Input
-              className="mt-1 h-9"
-              aria-label="Category"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              placeholder="solvent"
-            />
-          </Label>
-          <div className="grid grid-cols-2 gap-3">
-            <Label className="text-xs text-muted-foreground">
-              Supplier
-              <Input
-                className="mt-1 h-9"
-                aria-label="Supplier"
-                value={supplier}
-                onChange={(event) => setSupplier(event.target.value)}
-              />
-            </Label>
-            <Label className="text-xs text-muted-foreground">
-              Catalog No.
-              <Input
-                className="mt-1 h-9"
-                aria-label="Catalog number"
-                value={catalogNo}
-                onChange={(event) => setCatalogNo(event.target.value)}
-              />
-            </Label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Label className="text-xs text-muted-foreground">
-              Lot
-              <Input
-                className="mt-1 h-9"
-                aria-label="Lot"
-                value={lot}
-                onChange={(event) => setLot(event.target.value)}
-              />
-            </Label>
-            <Label className="text-xs text-muted-foreground">
-              Expiry
-              <Input
-                className="mt-1 h-9"
-                type="date"
-                aria-label="Expiry"
-                value={expiry}
-                onChange={(event) => setExpiry(event.target.value)}
-              />
-            </Label>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Label className="text-xs text-muted-foreground">
-              Quantity
-              <Input
-                className="mt-1 h-9"
-                type="number"
-                aria-label="Quantity"
-                value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-              />
-            </Label>
-            <Label className="text-xs text-muted-foreground">
-              Unit
-              <Input
-                className="mt-1 h-9"
-                aria-label="Unit"
-                value={unit}
-                onChange={(event) => setUnit(event.target.value)}
-              />
-            </Label>
-            <Label className="text-xs text-muted-foreground">
-              Storage
-              <Input
-                className="mt-1 h-9"
-                aria-label="Storage"
-                value={storage}
-                onChange={(event) => setStorage(event.target.value)}
-              />
-            </Label>
-          </div>
-          {modelFields.length > 0 ? (
-            <div className="grid gap-3 border-t pt-3">
-              <p className="text-xs font-medium">Workspace fields</p>
-              {modelFields.map((definition) => (
-                <ModelFieldInput
-                  key={definition.id}
-                  definition={definition}
-                  value={
-                    customFields[definition.fieldName] ??
-                    (typeof definition.defaultValue === 'boolean'
-                      ? definition.defaultValue
-                      : definition.defaultValue == null
-                        ? ''
-                        : String(definition.defaultValue))
-                  }
-                  onChange={(value) =>
-                    setCustomFields((current) => ({
-                      ...current,
-                      [definition.fieldName]: value,
-                    }))
-                  }
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
-        {error ? (
-          <p role="alert" className="text-xs text-destructive">
-            {error}
-          </p>
-        ) : null}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={submit}
-            disabled={pending || !projectId || !title.trim()}
-          >
-            {pending ? 'Creating…' : 'Create reagent'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
 }
 
 function EditReagentDialog({

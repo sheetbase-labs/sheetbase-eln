@@ -320,7 +320,7 @@ function PlannerRoute() {
         {/* Header */}
         <div className="px-4 pt-4">
           <PageHeader
-            eyebrow={context.workspace?.name ?? undefined}
+            compact
             title="Study Planner"
             description="Tasks, milestones, and dependencies across the workspace."
             className="border-0 pb-4"

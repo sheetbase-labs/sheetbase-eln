@@ -8,7 +8,13 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { UseQueryResult } from '@tanstack/react-query'
 
-import { SearchResults, SearchResultRow } from './search'
+import {
+  SearchResults,
+  SearchResultRow,
+  savedSearchParams,
+  searchYearStart,
+  relativeTime,
+} from './search'
 import type { SearchResultsProps } from './search'
 import type { SearchResult } from '#/lib/search'
 
@@ -272,5 +278,40 @@ describe('SearchResultRow', () => {
     )
     const link = screen.getByRole('option')
     expect(link.querySelector('a')?.getAttribute('href')).toBe('/records/rec-1')
+  })
+})
+
+describe('search filter restoration', () => {
+  it('restores the saved project, owner, status and date scope', () => {
+    expect(
+      savedSearchParams({
+        id: 'saved-1',
+        name: 'Stability',
+        query: 'stability',
+        type: 'record',
+        kind: 'experiment',
+        projectId: 'project-1',
+        status: 'draft',
+        ownerId: 'user-1',
+        dateRange: 'year',
+        ts: 0,
+      }),
+    ).toMatchObject({
+      q: 'stability',
+      type: 'record',
+      kind: 'experiment',
+      project: 'project-1',
+      status: 'draft',
+      owner: 'user-1',
+      date: 'year',
+    })
+  })
+  it('uses January 1 of the current calendar year for This year', () => {
+    expect(searchYearStart(new Date(2026, 8, 7).getTime())).toBe(
+      new Date(2026, 0, 1).getTime(),
+    )
+  })
+  it('does not label a ten-day-old result Yesterday', () => {
+    expect(relativeTime(Date.now() - 10 * 86400000)).not.toBe('Yesterday')
   })
 })

@@ -1,0 +1,24 @@
+# Optional overlay for compose.deploy.yaml or compose.dev.yaml.
+# The app has no Docker socket; only this private, single-purpose broker does.
+services:
+  app:
+    environment:
+      PIPELINE_PYTHON_RUNNER_URL: http://pipeline-python-runner:8080
+      PIPELINE_PYTHON_RUNNER_TOKEN: ${PIPELINE_PYTHON_RUNNER_TOKEN:?Set a separate Python runner bearer token}
+  pipeline-python-runner:
+    image: ${SHEETBASE_PYTHON_RUNNER_IMAGE:?Set a digest-pinned Python runner image}
+    environment:
+      PIPELINE_PYTHON_RUNNER_TOKEN: ${PIPELINE_PYTHON_RUNNER_TOKEN:?Set a separate Python runner bearer token}
+      PIPELINE_PYTHON_IMAGE: ${SHEETBASE_PYTHON_IMAGE:?Set the installed digest-pinned Python worker image}
+      PIPELINE_PYTHON_RUNNER_PORT: '8080'
+    user: '65532:65532'
+    group_add:
+      - '${PIPELINE_DOCKER_SOCKET_GID:?Set the trusted Docker socket group ID}'
+    volumes:
+      - '${PIPELINE_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 512m
+    restart: unless-stopped

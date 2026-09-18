@@ -156,6 +156,8 @@ export function ConfigurationWorkspace({
   search: ConfigurationSearch
   onSearchChange: (search: ConfigurationSearch) => void
 }) {
+  const [catalogueOpen, setCatalogueOpen] = useState(false)
+  const [contextOpen, setContextOpen] = useState(false)
   const canEdit = hasCapability(role, 'schema.edit')
   const canPublish = hasCapability(role, 'schema.publish')
   const canRetire = hasCapability(role, 'schema.retire')
@@ -239,230 +241,247 @@ export function ConfigurationWorkspace({
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
-      <nav
-        aria-label="Configuration catalogue"
-        className="border-b border-border p-3 lg:border-r lg:border-b-0"
-      >
-        <p className="px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          Models
-        </p>
-        <CatalogueButton
-          current={search.kind === 'model'}
-          onClick={() =>
-            onSearchChange({
-              kind: 'model',
-              id: undefined,
-              model: search.model,
-            })
-          }
+      <div className="min-h-0 overflow-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="m-2 lg:hidden"
+          aria-expanded={catalogueOpen}
+          aria-controls="configuration-catalogue"
+          onClick={() => setCatalogueOpen(!catalogueOpen)}
         >
-          Model fields
-        </CatalogueButton>
-        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          Dataset Schema
-        </p>
-        {schemas.map((schema) => (
-          <CatalogueButton
-            key={schema.id}
-            current={
-              search.kind === 'schema' && selectedSchema?.id === schema.id
-            }
-            onClick={() =>
-              onSearchChange({
-                kind: 'schema',
-                id: schema.id,
-                model: undefined,
-              })
-            }
-          >
-            <span className="truncate">{schema.name}</span>
-            <Badge variant="outline" className="ml-auto capitalize">
-              {schema.lifecycle}
-            </Badge>
-          </CatalogueButton>
-        ))}
-        {schemas.length === 0 ? (
-          <p className="px-2 py-2 text-xs text-muted-foreground">
-            No canonical Dataset Schema Definitions yet.
-          </p>
-        ) : null}
-        <div className="mt-4 space-y-2 px-2">
-          <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-            Reusable catalogue
-          </p>
-          <label htmlFor="configure-catalogue-search" className="sr-only">
-            Filter Sheet Definitions and Notebook Templates
-          </label>
-          <Input
-            id="configure-catalogue-search"
-            value={catalogueSearch}
-            onChange={(event) => setCatalogueSearch(event.target.value)}
-            placeholder="Filter definitions and templates"
-            className="h-8 text-xs"
-          />
-          <label htmlFor="configure-catalogue-lifecycle" className="sr-only">
-            Filter by lifecycle
-          </label>
-          <Select
-            id="configure-catalogue-lifecycle"
-            value={catalogueLifecycle}
-            onChange={(event) =>
-              setCatalogueLifecycle(
-                event.target.value as typeof catalogueLifecycle,
-              )
-            }
-            className="h-8 text-xs"
-          >
-            <option value="all">All lifecycles</option>
-            <option value="active">Active</option>
-            <option value="retired">Retired</option>
-          </Select>
-        </div>
-        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          Sheet Definitions
-        </p>
-        {definitions.map((definition) => (
-          <CatalogueButton
-            key={definition.id}
-            current={
-              search.kind === 'definition' &&
-              selectedDefinition?.id === definition.id
-            }
-            onClick={() =>
-              onSearchChange({
-                kind: 'definition',
-                id: definition.id,
-                model: undefined,
-              })
-            }
-          >
-            <span className="truncate">{definition.name}</span>
-            <Badge
-              variant={parentLifecycleBadgeVariant(definition.lifecycle)}
-              className="ml-auto capitalize"
-            >
-              {definition.lifecycle}
-            </Badge>
-          </CatalogueButton>
-        ))}
-        {definitions.length === 0 ? (
-          <p className="px-2 py-2 text-xs text-muted-foreground">
-            No Sheet Definitions yet.
-          </p>
-        ) : null}
-        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          Notebook Templates
-        </p>
-        {notebookTemplates.map((template) => (
-          <CatalogueButton
-            key={template.id}
-            current={
-              search.kind === 'template' && selectedTemplate?.id === template.id
-            }
-            onClick={() =>
-              onSearchChange({
-                kind: 'template',
-                id: template.id,
-                model: undefined,
-              })
-            }
-          >
-            <span className="truncate">{template.name}</span>
-            <Badge
-              variant={parentLifecycleBadgeVariant(template.lifecycle)}
-              className="ml-auto capitalize"
-            >
-              {template.lifecycle}
-            </Badge>
-          </CatalogueButton>
-        ))}
-        {notebookTemplates.length === 0 ? (
-          <p className="px-2 py-2 text-xs text-muted-foreground">
-            No Notebook Templates yet.
-          </p>
-        ) : null}
-        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          Vocabularies
-        </p>
-        <CatalogueButton
-          current={search.kind === 'vocabulary' && !search.id}
-          onClick={() =>
-            onSearchChange({
-              kind: 'vocabulary',
-              id: undefined,
-              model: undefined,
-            })
-          }
+          {catalogueOpen ? 'Hide catalogue' : 'Browse models & schemas'}
+        </Button>
+        <nav
+          id="configuration-catalogue"
+          aria-label="Configuration catalogue"
+          className={cn(
+            'border-b border-border p-3 lg:block lg:border-r lg:border-b-0',
+            !catalogueOpen && 'hidden',
+          )}
         >
-          Vocabularies
-        </CatalogueButton>
-        {search.kind === 'vocabulary'
-          ? vocabularies.map((vocabulary) => (
-              <CatalogueButton
-                key={vocabulary.id}
-                current={
-                  search.kind === 'vocabulary' &&
-                  selectedVocabulary?.id === vocabulary.id
-                }
-                onClick={() =>
-                  onSearchChange({
-                    kind: 'vocabulary',
-                    id: vocabulary.id,
-                    model: undefined,
-                  })
-                }
+          <p className="px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Models
+          </p>
+          <CatalogueButton
+            current={search.kind === 'model'}
+            onClick={() =>
+              onSearchChange({
+                kind: 'model',
+                id: undefined,
+                model: search.model,
+              })
+            }
+          >
+            Model fields
+          </CatalogueButton>
+          <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Dataset Schema
+          </p>
+          {schemas.map((schema) => (
+            <CatalogueButton
+              key={schema.id}
+              current={
+                search.kind === 'schema' && selectedSchema?.id === schema.id
+              }
+              onClick={() =>
+                onSearchChange({
+                  kind: 'schema',
+                  id: schema.id,
+                  model: undefined,
+                })
+              }
+            >
+              <span className="truncate">{schema.name}</span>
+              <Badge variant="outline" className="ml-auto capitalize">
+                {schema.lifecycle}
+              </Badge>
+            </CatalogueButton>
+          ))}
+          {schemas.length === 0 ? (
+            <p className="px-2 py-2 text-xs text-muted-foreground">
+              No canonical Dataset Schema Definitions yet.
+            </p>
+          ) : null}
+          <div className="mt-4 space-y-2 px-2">
+            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              Reusable catalogue
+            </p>
+            <label htmlFor="configure-catalogue-search" className="sr-only">
+              Filter Sheet Definitions and Notebook Templates
+            </label>
+            <Input
+              id="configure-catalogue-search"
+              value={catalogueSearch}
+              onChange={(event) => setCatalogueSearch(event.target.value)}
+              placeholder="Filter definitions and templates"
+              className="h-8 text-xs"
+            />
+            <label htmlFor="configure-catalogue-lifecycle" className="sr-only">
+              Filter by lifecycle
+            </label>
+            <Select
+              id="configure-catalogue-lifecycle"
+              value={catalogueLifecycle}
+              onChange={(event) =>
+                setCatalogueLifecycle(
+                  event.target.value as typeof catalogueLifecycle,
+                )
+              }
+              className="h-8 text-xs"
+            >
+              <option value="all">All lifecycles</option>
+              <option value="active">Active</option>
+              <option value="retired">Retired</option>
+            </Select>
+          </div>
+          <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Sheet Definitions
+          </p>
+          {definitions.map((definition) => (
+            <CatalogueButton
+              key={definition.id}
+              current={
+                search.kind === 'definition' &&
+                selectedDefinition?.id === definition.id
+              }
+              onClick={() =>
+                onSearchChange({
+                  kind: 'definition',
+                  id: definition.id,
+                  model: undefined,
+                })
+              }
+            >
+              <span className="truncate">{definition.name}</span>
+              <Badge
+                variant={parentLifecycleBadgeVariant(definition.lifecycle)}
+                className="ml-auto capitalize"
               >
-                <span className="truncate">{vocabulary.label}</span>
-              </CatalogueButton>
-            ))
-          : null}
-        {search.kind === 'vocabulary' && vocabulariesQuery.isLoading ? (
-          <p className="px-2 py-2 text-xs text-muted-foreground">
-            Loading category sources…
+                {definition.lifecycle}
+              </Badge>
+            </CatalogueButton>
+          ))}
+          {definitions.length === 0 ? (
+            <p className="px-2 py-2 text-xs text-muted-foreground">
+              No Sheet Definitions yet.
+            </p>
+          ) : null}
+          <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Notebook Templates
           </p>
-        ) : null}
-        {search.kind === 'vocabulary' && vocabulariesQuery.isError ? (
-          <p className="px-2 py-2 text-xs text-destructive" role="alert">
-            Could not load category sources.
+          {notebookTemplates.map((template) => (
+            <CatalogueButton
+              key={template.id}
+              current={
+                search.kind === 'template' &&
+                selectedTemplate?.id === template.id
+              }
+              onClick={() =>
+                onSearchChange({
+                  kind: 'template',
+                  id: template.id,
+                  model: undefined,
+                })
+              }
+            >
+              <span className="truncate">{template.name}</span>
+              <Badge
+                variant={parentLifecycleBadgeVariant(template.lifecycle)}
+                className="ml-auto capitalize"
+              >
+                {template.lifecycle}
+              </Badge>
+            </CatalogueButton>
+          ))}
+          {notebookTemplates.length === 0 ? (
+            <p className="px-2 py-2 text-xs text-muted-foreground">
+              No Notebook Templates yet.
+            </p>
+          ) : null}
+          <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Vocabularies
           </p>
-        ) : null}
-        {search.kind === 'vocabulary' && vocabulariesQuery.hasNextPage ? (
-          <Button
-            className="mx-2 mt-2"
-            size="sm"
-            variant="outline"
-            disabled={vocabulariesQuery.isFetchingNextPage}
-            onClick={() => vocabulariesQuery.fetchNextPage()}
+          <CatalogueButton
+            current={search.kind === 'vocabulary' && !search.id}
+            onClick={() =>
+              onSearchChange({
+                kind: 'vocabulary',
+                id: undefined,
+                model: undefined,
+              })
+            }
           >
-            {vocabulariesQuery.isFetchingNextPage
-              ? 'Loading more…'
-              : 'Load more category sources'}
-          </Button>
-        ) : null}
-        {search.kind === 'vocabulary' &&
-        !vocabulariesQuery.isLoading &&
-        !vocabulariesQuery.isError &&
-        vocabularies.length === 0 ? (
-          <p className="px-2 py-2 text-xs text-muted-foreground">
-            No category vocabularies collected yet.
+            Vocabularies
+          </CatalogueButton>
+          {search.kind === 'vocabulary'
+            ? vocabularies.map((vocabulary) => (
+                <CatalogueButton
+                  key={vocabulary.id}
+                  current={
+                    search.kind === 'vocabulary' &&
+                    selectedVocabulary?.id === vocabulary.id
+                  }
+                  onClick={() =>
+                    onSearchChange({
+                      kind: 'vocabulary',
+                      id: vocabulary.id,
+                      model: undefined,
+                    })
+                  }
+                >
+                  <span className="truncate">{vocabulary.label}</span>
+                </CatalogueButton>
+              ))
+            : null}
+          {search.kind === 'vocabulary' && vocabulariesQuery.isLoading ? (
+            <p className="px-2 py-2 text-xs text-muted-foreground">
+              Loading category sources…
+            </p>
+          ) : null}
+          {search.kind === 'vocabulary' && vocabulariesQuery.isError ? (
+            <p className="px-2 py-2 text-xs text-destructive" role="alert">
+              Could not load category sources.
+            </p>
+          ) : null}
+          {search.kind === 'vocabulary' && vocabulariesQuery.hasNextPage ? (
+            <Button
+              className="mx-2 mt-2"
+              size="sm"
+              variant="outline"
+              disabled={vocabulariesQuery.isFetchingNextPage}
+              onClick={() => vocabulariesQuery.fetchNextPage()}
+            >
+              {vocabulariesQuery.isFetchingNextPage
+                ? 'Loading more…'
+                : 'Load more category sources'}
+            </Button>
+          ) : null}
+          {search.kind === 'vocabulary' &&
+          !vocabulariesQuery.isLoading &&
+          !vocabulariesQuery.isError &&
+          vocabularies.length === 0 ? (
+            <p className="px-2 py-2 text-xs text-muted-foreground">
+              No category vocabularies collected yet.
+            </p>
+          ) : null}
+          <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Promotion
           </p>
-        ) : null}
-        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          Promotion
-        </p>
-        <CatalogueButton
-          current={search.kind === 'promotion'}
-          onClick={() =>
-            onSearchChange({
-              kind: 'promotion',
-              id: undefined,
-              model: undefined,
-            })
-          }
-        >
-          Field and calculation promotion
-        </CatalogueButton>
-      </nav>
+          <CatalogueButton
+            current={search.kind === 'promotion'}
+            onClick={() =>
+              onSearchChange({
+                kind: 'promotion',
+                id: undefined,
+                model: undefined,
+              })
+            }
+          >
+            Field and calculation promotion
+          </CatalogueButton>
+        </nav>
+      </div>
       <section
         className="min-w-0 overflow-y-auto p-4"
         aria-label="Configuration plane"
@@ -529,55 +548,70 @@ export function ConfigurationWorkspace({
         aria-label="Configuration inspector"
         className="border-t border-border p-4 lg:border-t-0 lg:border-l"
       >
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <Shield className="size-4" aria-hidden="true" />
-          Capability state
-        </h2>
-        <ul className="mt-2 space-y-1">
-          {(
-            [
-              'schema.edit',
-              'schema.publish',
-              'schema.retire',
-              'workspace.admin',
-            ] as const
-          ).map((capability) => (
-            <li
-              key={capability}
-              className="flex items-center justify-between text-xs"
-            >
-              <span>{CAPABILITY_LABELS[capability]}</span>
-              <Badge
-                variant={
-                  hasCapability(role, capability) ? 'default' : 'outline'
-                }
+        <Button
+          variant="ghost"
+          size="sm"
+          className="lg:hidden"
+          aria-expanded={contextOpen}
+          aria-controls="configuration-context"
+          onClick={() => setContextOpen(!contextOpen)}
+        >
+          {contextOpen ? 'Hide permissions & impact' : 'Permissions & impact'}
+        </Button>
+        <div
+          id="configuration-context"
+          className={cn('lg:block', !contextOpen && 'hidden')}
+        >
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <Shield className="size-4" aria-hidden="true" />
+            Capability state
+          </h2>
+          <ul className="mt-2 space-y-1">
+            {(
+              [
+                'schema.edit',
+                'schema.publish',
+                'schema.retire',
+                'workspace.admin',
+              ] as const
+            ).map((capability) => (
+              <li
+                key={capability}
+                className="flex items-center justify-between text-xs"
               >
-                {hasCapability(role, capability) ? 'allowed' : 'denied'}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-4 text-xs text-muted-foreground">
-          {configurationRoleCopy(role)}
-        </p>
-        {search.kind === 'schema' && selectedSchema ? (
-          <SchemaImpact client={client} schemaId={selectedSchema.id} />
-        ) : null}
-        {search.kind === 'definition' && selectedDefinition ? (
-          <DefinitionImpact
-            client={client}
-            definitionId={selectedDefinition.id}
-          />
-        ) : null}
-        {search.kind === 'template' && (search.id ?? selectedTemplate?.id) ? (
-          <TemplateImpact
-            client={client}
-            templateId={search.id ?? selectedTemplate!.id}
-          />
-        ) : null}
-        {search.kind === 'vocabulary' && selectedVocabulary ? (
-          <VocabularyInspector vocabulary={selectedVocabulary} />
-        ) : null}
+                <span>{CAPABILITY_LABELS[capability]}</span>
+                <Badge
+                  variant={
+                    hasCapability(role, capability) ? 'default' : 'outline'
+                  }
+                >
+                  {hasCapability(role, capability) ? 'allowed' : 'denied'}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 text-xs text-muted-foreground">
+            {configurationRoleCopy(role)}
+          </p>
+          {search.kind === 'schema' && selectedSchema ? (
+            <SchemaImpact client={client} schemaId={selectedSchema.id} />
+          ) : null}
+          {search.kind === 'definition' && selectedDefinition ? (
+            <DefinitionImpact
+              client={client}
+              definitionId={selectedDefinition.id}
+            />
+          ) : null}
+          {search.kind === 'template' && (search.id ?? selectedTemplate?.id) ? (
+            <TemplateImpact
+              client={client}
+              templateId={search.id ?? selectedTemplate!.id}
+            />
+          ) : null}
+          {search.kind === 'vocabulary' && selectedVocabulary ? (
+            <VocabularyInspector vocabulary={selectedVocabulary} />
+          ) : null}
+        </div>
       </aside>
     </div>
   )

@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import {
   Button,
+  Checkbox,
   Input,
   Label,
   Table,
@@ -159,12 +160,13 @@ export function SettingsApiTokens({
                 {group.scopes.map((scope) => (
                   <label
                     key={scope}
+                    htmlFor={`personal-token-scope-${scope.replaceAll(':', '-')}`}
                     className="flex items-center gap-2 text-sm"
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
+                      id={`personal-token-scope-${scope.replaceAll(':', '-')}`}
                       checked={selected.has(scope)}
-                      onChange={() => toggle(scope)}
+                      onCheckedChange={() => toggle(scope)}
                     />
                     <code>{scope}</code>
                   </label>

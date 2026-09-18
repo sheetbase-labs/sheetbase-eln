@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 
-import { Button, Input, Label, Select, Textarea } from '#/components/ui'
+import {
+  Button,
+  Checkbox,
+  Input,
+  Label,
+  Select,
+  Textarea,
+} from '#/components/ui'
 import type {
   JsonObject,
   RegistrationMode,
@@ -74,15 +81,15 @@ export function AdminSettings({
       </section>
       <section className="space-y-2">
         <h2 className="font-semibold">Review workflow</h2>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2 text-sm">
+          <Checkbox
+            id="review-enabled"
             checked={reviewEnabled}
             disabled={!isOwner}
-            onChange={(e) => setReviewEnabled(e.target.checked)}
-          />{' '}
-          Enabled
-        </label>
+            onCheckedChange={(checked) => setReviewEnabled(checked === true)}
+          />
+          <Label htmlFor="review-enabled">Enabled</Label>
+        </div>
         <Label htmlFor="review-config">Configuration (JSON)</Label>
         <Textarea
           id="review-config"

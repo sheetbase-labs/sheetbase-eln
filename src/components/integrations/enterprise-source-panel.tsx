@@ -23,7 +23,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Input,
   Label,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -125,8 +127,7 @@ function TargetControls({
     <div className="grid gap-3">
       <div className="grid gap-2">
         <Label>Target Schema Version</Label>
-        <select
-          className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+        <Select
           value={state.schemaVersionId}
           onChange={(event) =>
             onChange({
@@ -142,14 +143,13 @@ function TargetControls({
               {option.name} v{option.version}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       {state.schemaVersionId && (
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-2">
             <Label>Existing Dataset</Label>
-            <select
-              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+            <Select
               value={state.datasetId}
               onChange={(event) =>
                 onChange({ ...state, datasetId: event.target.value })
@@ -161,13 +161,12 @@ function TargetControls({
                   {dataset.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           {!state.datasetId && (
             <div className="grid gap-2">
               <Label>New Dataset name</Label>
-              <input
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              <Input
                 value={state.newDatasetName}
                 onChange={(event) =>
                   onChange({ ...state, newDatasetName: event.target.value })
@@ -519,8 +518,7 @@ function S3SourcePanel({
             )}
             <div className="grid gap-2">
               <Label>Retain raw object in project</Label>
-              <select
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              <Select
                 value={projectId}
                 onChange={(event) => setProjectId(event.target.value)}
               >
@@ -530,7 +528,7 @@ function S3SourcePanel({
                     {project.title}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <TargetControls state={target} onChange={setTarget} />
             <ImportButton
@@ -649,8 +647,7 @@ function PostgresSourcePanel({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Schema</Label>
-              <select
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              <Select
                 value={schema}
                 onChange={(event) => {
                   setSchema(event.target.value)
@@ -664,13 +661,12 @@ function PostgresSourcePanel({
                     {name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             {schema && (
               <div className="grid gap-2">
                 <Label>Table / view</Label>
-                <select
-                  className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                <Select
                   value={selectedTable}
                   onChange={(event) => setSelectedTable(event.target.value)}
                 >
@@ -680,7 +676,7 @@ function PostgresSourcePanel({
                       {table.name} ({table.kind})
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
           </div>

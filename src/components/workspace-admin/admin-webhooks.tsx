@@ -11,6 +11,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Select,
 } from '#/components/ui'
 import { hasCapability } from '#/lib/capability'
 import {
@@ -426,9 +427,9 @@ export function AdminWebhooks({
         <div className="flex flex-wrap gap-2">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             Subscription
-            <select
+            <Select
               aria-label="Subscription filter"
-              className="rounded-md border bg-background px-2 py-1 text-sm text-foreground"
+              className="h-8 w-auto"
               value={subscriptionFilter}
               onChange={(event) => setSubscriptionFilter(event.target.value)}
             >
@@ -438,13 +439,13 @@ export function AdminWebhooks({
                   {subscription.key}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             Status
-            <select
+            <Select
               aria-label="Delivery status filter"
-              className="rounded-md border bg-background px-2 py-1 text-sm text-foreground"
+              className="h-8 w-auto"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
@@ -454,7 +455,7 @@ export function AdminWebhooks({
                   {status === 'dead_letter' ? 'Dead letter' : status}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <Input
             aria-label="Event type filter"
@@ -551,9 +552,9 @@ export function AdminWebhooks({
         <div className="flex flex-wrap items-end gap-2">
           <label className="space-y-1 text-xs text-muted-foreground">
             Status
-            <select
+            <Select
               aria-label="Bulk replay status"
-              className="block rounded-md border bg-background px-2 py-1 text-sm text-foreground"
+              className="h-8 w-auto"
               value={replayWindow.status}
               onChange={(event) =>
                 setReplayWindow((current) => ({
@@ -566,7 +567,7 @@ export function AdminWebhooks({
               <option value="dead_letter">Dead letter</option>
               <option value="failed">Failed</option>
               <option value="delivered">Delivered</option>
-            </select>
+            </Select>
           </label>
           <label className="space-y-1 text-xs text-muted-foreground">
             Since

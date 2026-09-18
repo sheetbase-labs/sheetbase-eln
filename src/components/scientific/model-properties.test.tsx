@@ -39,7 +39,6 @@ describe('ModelProperties', () => {
     expect(screen.getByText('RPT-2026-0001')).toBeTruthy()
     expect(screen.getByText('Programme')).toBeTruthy()
     expect(screen.getByText('Oncology')).toBeTruthy()
-    expect(screen.getByText(/System properties are locked/)).toBeTruthy()
     expect(screen.getByLabelText('Locked system property')).toBeTruthy()
   })
 

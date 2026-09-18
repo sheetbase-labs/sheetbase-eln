@@ -17,6 +17,8 @@ import {
 import { useTheme } from '#/components/theme-provider'
 import {
   RecordLink,
+  Property,
+  PropertyList,
   StatusBadge,
   statusVocabularies,
 } from '#/components/scientific'
@@ -29,8 +31,6 @@ import type { AuditEvent, ApprovalStepDef } from '#/components/audit'
 import {
   RecordHeader,
   Inspector,
-  PropertyList,
-  Property,
   LinkedRecordList,
   FileList,
   CheckList,

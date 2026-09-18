@@ -17,15 +17,13 @@ import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import {
   Inspector,
   InspectorSection,
-  PropertyList,
-  Property,
   LinkedRecordList,
   FileList,
   CheckList,
   CommentList,
   EmptyHint,
 } from '#/components/record'
-import { StatusBadge } from '#/components/scientific'
+import { Property, PropertyList, StatusBadge } from '#/components/scientific'
 import { DataClientError } from '#/lib/data-client'
 import {
   fetchBlocksForRecord,

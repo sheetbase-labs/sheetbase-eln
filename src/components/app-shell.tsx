@@ -250,6 +250,7 @@ export function ShellProvider({
       inspectorLabel={config.inspectorLabel}
       inspectorCollapsible={config.inspectorCollapsible}
       fullBleed={config.fullBleed}
+      primaryAction={config.primaryAction}
       projectTree={config.projectTree}
       navExtra={config.navExtra}
       extensionCommands={config.extensionCommands}
@@ -647,8 +648,9 @@ export function AppShell({
         <div className={cn('px-2 py-3', sidebarCollapsed && 'hidden')}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 className="flex h-9 w-full items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-2 text-left text-sm shadow-xs hover:bg-sidebar-accent/60"
               >
                 <span className="flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
@@ -660,7 +662,7 @@ export function AppShell({
                   {context.workspace ? context.workspace.name : 'No workspace'}
                 </span>
                 <ChevronsUpDown className="size-4 text-muted-foreground" />
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
@@ -739,10 +741,11 @@ export function AppShell({
         <div className="border-t border-sidebar-border p-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sidebar-accent/60',
+                  'flex h-auto w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sidebar-accent/60',
                   sidebarCollapsed && 'justify-center',
                 )}
                 aria-label={`Account: ${context.user.name}`}
@@ -765,7 +768,7 @@ export function AppShell({
                 {!sidebarCollapsed && (
                   <ChevronsUpDown className="size-4 text-muted-foreground" />
                 )}
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="top">
               <DropdownMenuLabel>{context.user.email}</DropdownMenuLabel>
@@ -939,8 +942,9 @@ export function AppShell({
                   lastAppliedSeq={liveStatus.lastAppliedSeq}
                 />
                 <NotificationInbox />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={openPalette}
                   className="hidden h-8 w-56 items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-muted/50 sm:flex"
                   aria-label="Search records and samples"
@@ -950,7 +954,7 @@ export function AppShell({
                     Search records, samples…
                   </span>
                   <Kbd>⌘K</Kbd>
-                </button>
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -1016,13 +1020,18 @@ export function AppShell({
                 fullBleed && 'flex flex-col overflow-hidden',
               )}
             >
-              {fullBleed ? (
-                children
-              ) : (
-                <div className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8">
-                  {children}
-                </div>
-              )}
+              {/* Keep the route at the same React depth when its layout changes.
+                  Remounting it runs useShell cleanup, which changes the layout
+                  again and can repeatedly tear down the active route. */}
+              <div
+                className={
+                  fullBleed
+                    ? 'contents'
+                    : 'mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8'
+                }
+              >
+                {children}
+              </div>
             </main>
 
             {context && inspector && (

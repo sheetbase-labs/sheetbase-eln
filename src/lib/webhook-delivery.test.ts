@@ -9,6 +9,10 @@ vi.mock('#/env.server', () => ({
   env: { DATABASE_URL: 'postgresql://localhost:5432/test' },
 }))
 
+vi.mock('./webhook-http.server', () => ({
+  safeWebhookFetch: (...args: Parameters<typeof fetch>) => fetch(...args),
+}))
+
 describe('computeBackoff', () => {
   it('returns a positive number for attempt 0', () => {
     const delay = computeBackoff(0, 1000, 300_000, 0)

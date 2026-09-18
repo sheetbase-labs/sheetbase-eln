@@ -1,6 +1,6 @@
 import type { DeploymentEnvironment } from './deployment-config'
 
-const immutableImagePattern = /@sha256:[a-f0-9]{64}$/
+const immutableImagePattern = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/
 
 export function assertCleanBuildSource(status: string): void {
   if (status.trim().length > 0) {
@@ -38,6 +38,7 @@ export interface DeploymentPlanInput {
   environment: Extract<DeploymentEnvironment, 'staging' | 'production'>
   applicationImage: string
   postgrestImage: string
+  pythonImages?: { runner: string; runtime: string }
   expectedMigration: string
   readinessUrl: string
   publicOrigin: string
@@ -101,10 +102,19 @@ export function buildDeploymentPlan(
     throw new Error('readiness URL must target /api/health/ready')
   }
 
-  const compose = 'docker compose -f compose.deploy.yaml'
+  if (input.pythonImages) {
+    assertImmutableImageReference(input.pythonImages.runner)
+    assertImmutableImageReference(input.pythonImages.runtime)
+  }
+  const compose =
+    'docker compose -f compose.deploy.yaml' +
+    (input.pythonImages ? ' -f compose.pipeline-python.yaml' : '')
   return [
     { name: 'migrate', command: `${compose} run --rm migrate` },
-    { name: 'rollout', command: `${compose} up -d --wait app` },
+    {
+      name: 'rollout',
+      command: `${compose} up -d --wait ${input.pythonImages ? 'pipeline-python-runner ' : ''}app`,
+    },
     {
       name: 'readiness',
       command: `GET ${readinessUrl.toString()}`,

@@ -323,6 +323,7 @@ export function filterReviews(
   items: ReviewItem[],
   filters: ReviewFilterInput,
   currentUserId: string,
+  userLabel: (id: string) => string = (id) => id,
 ): ReviewItem[] {
   const query = filters.search.trim().toLowerCase()
   return items.filter((item) => {
@@ -337,7 +338,7 @@ export function filterReviews(
         item.recordIdentifier,
         item.recordTitle,
         item.projectTitle ?? '',
-        item.submittedByUserId,
+        userLabel(item.submittedByUserId),
         item.currentStep.label,
       ]
         .join(' ')
@@ -352,6 +353,7 @@ export function sortReviews(
   items: ReviewItem[],
   sortId: string | undefined,
   desc: boolean,
+  userLabel: (id: string) => string = (id) => id,
 ): ReviewItem[] {
   if (!sortId) return items
   const dir = desc ? -1 : 1
@@ -368,7 +370,11 @@ export function sortReviews(
       case 'project':
         return (a.projectTitle ?? '').localeCompare(b.projectTitle ?? '') * dir
       case 'submitter':
-        return a.submittedByUserId.localeCompare(b.submittedByUserId) * dir
+        return (
+          userLabel(a.submittedByUserId).localeCompare(
+            userLabel(b.submittedByUserId),
+          ) * dir
+        )
       case 'step':
         return a.currentStep.label.localeCompare(b.currentStep.label) * dir
       case 'submitted':

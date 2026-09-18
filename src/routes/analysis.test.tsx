@@ -35,6 +35,9 @@ globalThis.ResizeObserver = class {
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
+  Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
+    <a href={to}>{children}</a>
+  ),
 }))
 
 vi.mock('@tanstack/react-query', () => {
@@ -501,6 +504,6 @@ describe('EmptyAnalysisState', () => {
 
   it('renders a friendly empty message when idle', () => {
     render(<EmptyAnalysisState loading={false} error={null} />)
-    expect(screen.getByText(/No datasets yet/i)).toBeTruthy()
+    expect(screen.getByText(/Create a dataset first/i)).toBeTruthy()
   })
 })

@@ -55,13 +55,15 @@ export function PipelineRunHistory({
 }) {
   const queryClient = useQueryClient()
   const [runOpen, setRunOpen] = useState(false)
-  const [retryOfRunId, setRetryOfRunId] = useState<string | null>(null)
+  const [retryRun, setRetryRun] = useState<PipelineRunWire | null>(null)
   const [justStarted, setJustStarted] = useState<PipelineRunWire | null>(null)
 
   const runsQuery = useQuery({
     queryKey: pipelineQueryKeys.runs(version.id),
     queryFn: () => listPipelineRuns(dataClient, version.id, 50),
     enabled: Boolean(workspaceId),
+    refetchInterval: (query) =>
+      query.state.data?.some((run) => run.status === 'running') ? 3000 : false,
   })
 
   const cancelMutation = useMutation({
@@ -76,8 +78,8 @@ export function PipelineRunHistory({
 
   const runs = runsQuery.data ?? []
 
-  const openRun = (retryOf: string | null) => {
-    setRetryOfRunId(retryOf)
+  const openRun = (retryOf: PipelineRunWire | null) => {
+    setRetryRun(retryOf)
     setRunOpen(true)
   }
 
@@ -87,17 +89,27 @@ export function PipelineRunHistory({
         <h3 className="text-sm font-medium">
           Run history — v{version.version}
         </h3>
-        <Button size="sm" onClick={() => openRun(null)}>
-          <Play className="size-4" /> Run
-        </Button>
+        {version.lifecycle === 'published' && (
+          <Button size="sm" onClick={() => openRun(null)}>
+            <Play className="size-4" /> Run
+          </Button>
+        )}
       </div>
 
       {runsQuery.isLoading ? (
         <Skeleton className="h-24" />
+      ) : runsQuery.isError ? (
+        <p role="alert" className="text-sm text-destructive">
+          Could not load runs.{' '}
+          <Button variant="link" size="sm" onClick={() => runsQuery.refetch()}>
+            Retry
+          </Button>
+        </p>
       ) : runs.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          No runs yet for this version. Published versions run against explicit
-          Dataset Version inputs with full provenance.
+          {version.lifecycle === 'published'
+            ? 'No runs yet. Choose Run to supply any inputs and parameters, then start this version.'
+            : 'No runs were recorded for this retired version.'}
         </p>
       ) : (
         <Table>
@@ -156,6 +168,7 @@ export function PipelineRunHistory({
                         size="sm"
                         onClick={() => cancelMutation.mutate(run.id)}
                         disabled={cancelMutation.isPending}
+                        aria-label="Cancel run"
                       >
                         {cancelMutation.isPending ? (
                           <Loader2 className="size-4 animate-spin" />
@@ -168,7 +181,7 @@ export function PipelineRunHistory({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openRun(run.id)}
+                        onClick={() => openRun(run)}
                       >
                         <RotateCcw className="size-4" /> Retry
                       </Button>
@@ -181,6 +194,11 @@ export function PipelineRunHistory({
         </Table>
       )}
 
+      {cancelMutation.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          Could not cancel the run. Try again.
+        </p>
+      )}
       {justStarted && (
         <p className="text-muted-foreground text-xs">
           Run {shortId(justStarted.id)} {justStarted.status}.{' '}
@@ -203,7 +221,7 @@ export function PipelineRunHistory({
         open={runOpen}
         onOpenChange={setRunOpen}
         onRunStarted={setJustStarted}
-        retryOfRunId={retryOfRunId}
+        retryRun={retryRun}
       />
     </div>
   )

@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { describeSignInError } from '#/lib/auth-errors'
+import { Button } from '#/components/ui'
 
 const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
   // Server-only: tells the page whether GitHub OAuth is configured without
@@ -68,9 +69,9 @@ function SignIn() {
 
 function SignInWithGitHub() {
   return (
-    <button
+    <Button
       type="button"
-      className="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+      className="w-full px-4"
       onClick={async () => {
         try {
           const res = await fetch('/api/auth/sign-in/social', {
@@ -92,6 +93,6 @@ function SignInWithGitHub() {
       }}
     >
       Continue with GitHub
-    </button>
+    </Button>
   )
 }

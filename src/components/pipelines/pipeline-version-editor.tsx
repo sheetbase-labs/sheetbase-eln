@@ -1,3 +1,4 @@
+import { FormSection as Section } from '#/components/ui/form-section'
 /**
  * AUTO-03 — Pipeline version configuration editor.
  *
@@ -5,9 +6,16 @@
  * live validation from the shared config contract. Published versions are
  * read-only here — reproducibility pins exactly what ran.
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, Loader2, Plus, Trash2 } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  Loader2,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 
 import {
   Badge,
@@ -28,6 +36,8 @@ import {
   pipelineQueryKeys,
   updatePipelineDefinitionVersionDraft,
 } from '#/lib/pipelines/data'
+import { PipelineNotificationsEditor } from './pipeline-notifications-editor'
+import { PipelineActionsEditor } from './pipeline-actions-editor'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 
 export function emptyConfig(): PipelineConfig {
@@ -53,18 +63,59 @@ export function PipelineVersionEditor({
   definitionId,
   draft,
   canManage,
+  initialConfiguration,
+  onDirtyChange,
 }: {
   dataClient: DataClient
   workspaceId: string
   definitionId: string
   draft: PipelineDefinitionVersionWire | null
   canManage: boolean
+  initialConfiguration?: Record<string, unknown>
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const queryClient = useQueryClient()
   const [config, setConfig] = useState<PipelineConfig>(() =>
-    draft ? normalizeConfig(draft.configuration) : emptyConfig(),
+    normalizeConfig(draft?.configuration ?? initialConfiguration ?? {}),
   )
   const [saveError, setSaveError] = useState('')
+  const [saved, setSaved] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [mappingText, setMappingText] = useState(() =>
+    config.output.fieldMapping
+      ? JSON.stringify(config.output.fieldMapping, null, 2)
+      : '',
+  )
+  const [mappingError, setMappingError] = useState('')
+  const [notificationsValid, setNotificationsValid] = useState(true)
+  const handleNotificationsValidity = useCallback((valid: boolean) => {
+    setNotificationsValid(valid)
+    if (!valid) setDirty(true)
+  }, [])
+  const [actionsValid, setActionsValid] = useState(true)
+  const handleActionsValidity = useCallback((valid: boolean) => {
+    setActionsValid(valid)
+    if (!valid) setDirty(true)
+  }, [])
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
+  const datasetsQuery = useQuery({
+    queryKey: ['pipelines', 'output-datasets', workspaceId],
+    queryFn: () =>
+      dataClient.list<{ id: string; name: string }>(
+        'datasets',
+        '?select=id,name&lifecycle=eq.active&order=name.asc',
+      ),
+    enabled: canManage,
+  })
+  const subscriptionsQuery = useQuery({
+    queryKey: ['pipelines', 'notification-subscriptions', workspaceId],
+    queryFn: () =>
+      dataClient.list<{ id: string; key: string }>(
+        'webhook_subscriptions',
+        '?select=id,key&status=eq.active&order=key.asc',
+      ),
+    enabled: canManage,
+  })
 
   const schemasQuery = useQuery({
     queryKey: ['pipelines', 'schemas'],
@@ -72,6 +123,36 @@ export function PipelineVersionEditor({
     enabled: canManage,
   })
 
+  const runtimeQuery = useQuery({
+    queryKey: ['pipelines', 'python-runtime'],
+    queryFn: async (): Promise<{
+      available: boolean
+      runtime?: string
+      message?: string
+    }> => {
+      const response = await fetch('/api/pipelines/runtime')
+      if (!response.ok) throw new Error('Python runtime could not be checked.')
+      return response.json()
+    },
+    enabled: canManage,
+  })
+  const usesPython =
+    config.transform.language === 'python' ||
+    config.steps?.some((step) => step.language === 'python')
+  useEffect(() => {
+    if (
+      usesPython &&
+      !config.pythonRuntime &&
+      runtimeQuery.data?.available &&
+      runtimeQuery.data.runtime
+    ) {
+      setConfig((previous) => ({
+        ...previous,
+        pythonRuntime: runtimeQuery.data.runtime,
+      }))
+      setDirty(true)
+    }
+  }, [usesPython, config.pythonRuntime, runtimeQuery.data])
   const errors = useMemo(() => validatePipelineConfig(config), [config])
 
   const saveMutation = useMutation({
@@ -93,6 +174,8 @@ export function PipelineVersionEditor({
     },
     onSuccess: () => {
       setSaveError('')
+      setSaved(true)
+      setDirty(false)
       queryClient.invalidateQueries({
         queryKey: pipelineQueryKeys.versions(definitionId),
       })
@@ -109,8 +192,12 @@ export function PipelineVersionEditor({
     },
   })
 
-  const update = (patch: Partial<PipelineConfig>) =>
+  const update = (patch: Partial<PipelineConfig>) => {
     setConfig((prev) => ({ ...prev, ...patch }))
+    setSaveError('')
+    setSaved(false)
+    setDirty(true)
+  }
 
   if (!canManage) {
     return (
@@ -121,10 +208,30 @@ export function PipelineVersionEditor({
   }
 
   return (
-    <div className="space-y-6">
+    <fieldset disabled={saveMutation.isPending} className="min-w-0 space-y-6">
+      {!draft && !initialConfiguration && !dirty && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            Automate work on ELN records.
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              update({
+                inputs: [],
+                transform: { language: 'none', statement: '' },
+                output: { mode: 'none', datasetLabel: 'Pipeline result' },
+              })
+            }
+          >
+            Start with ELN actions
+          </Button>
+        </div>
+      )}
       <Section
         title="Inputs"
-        hint="Explicit Dataset Version inputs. Each input becomes a temp table of the same name inside the transform."
+        hint="Name the datasets this pipeline uses. Choose their saved versions when you run it. Remove all inputs for a standalone automation."
       >
         <div className="space-y-2">
           {config.inputs.map((input, index) => (
@@ -188,7 +295,7 @@ export function PipelineVersionEditor({
 
       <Section
         title="Parameters"
-        hint="Typed parameters referenced in the transform as {{name}} placeholders. Required parameters have no default."
+        hint="Values supplied at run time. Use {{name}} in SQL or parameters['name'] in Python."
       >
         <div className="space-y-3">
           {config.parameters.map((parameter, index) => (
@@ -232,7 +339,11 @@ export function PipelineVersionEditor({
                   checked={parameter.required}
                   onCheckedChange={(checked) => {
                     const parameters = [...config.parameters]
-                    parameters[index] = { ...parameter, required: checked }
+                    parameters[index] = {
+                      ...parameter,
+                      required: checked,
+                      default: checked ? undefined : parameter.default,
+                    }
                     update({ parameters })
                   }}
                 />
@@ -301,37 +412,176 @@ export function PipelineVersionEditor({
         </div>
       </Section>
 
+      {usesPython && (
+        <div className="space-y-2 text-xs text-muted-foreground">
+          {runtimeQuery.isLoading ? (
+            'Checking Python runtime…'
+          ) : runtimeQuery.data?.available ? (
+            <>
+              <p className="break-all">
+                Python runtime:{' '}
+                {config.pythonRuntime ?? runtimeQuery.data.runtime}
+              </p>
+              {config.pythonRuntime &&
+                config.pythonRuntime !== runtimeQuery.data.runtime && (
+                  <>
+                    <p>
+                      This version uses a different Python runtime from the one
+                      currently available.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        update({ pythonRuntime: runtimeQuery.data.runtime })
+                      }
+                    >
+                      Use current Python runtime
+                    </Button>
+                  </>
+                )}
+            </>
+          ) : (
+            <p role="alert">
+              {runtimeQuery.data?.message ??
+                'Python is unavailable. Check the runtime before publishing a Python pipeline.'}
+            </p>
+          )}
+        </div>
+      )}
       <Section
-        title="Transform"
-        hint="Exactly one deterministic SELECT over the input temp tables. {{param}} placeholders are replaced with typed literals. Runs inside a sandboxed role with a fixed 60s timeout and a 100,000-row result cap."
+        title="Steps"
+        hint="Steps run in order. Each returns the rows used by the next step or saved as the output."
       >
-        <Textarea
-          className="font-mono min-h-40 text-xs"
-          value={config.transform.statement}
-          onChange={(event) =>
-            update({
-              transform: { ...config.transform, statement: event.target.value },
-            })
-          }
-          aria-label="transform SQL"
+        <TransformEditor
+          title="Analysis step"
+          allowNone
+          value={config.transform}
+          inputName={config.inputs[0]?.name}
+          onChange={(transform) => update({ transform })}
         />
+        {(config.steps ?? []).map((step, index) => (
+          <div key={index} className="space-y-3 border-t pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                aria-label={`Step ${index + 2} name`}
+                className="min-w-0 flex-1"
+                value={step.name}
+                onChange={(e) =>
+                  update({
+                    steps: config.steps!.map((item, i) =>
+                      i === index ? { ...item, name: e.target.value } : item,
+                    ),
+                  })
+                }
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`Move step ${index + 2} up`}
+                disabled={index === 0}
+                onClick={() => {
+                  const steps = [...config.steps!]
+                  ;[steps[index - 1], steps[index]] = [
+                    steps[index],
+                    steps[index - 1],
+                  ]
+                  update({ steps })
+                }}
+              >
+                <ArrowUp className="size-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`Move step ${index + 2} down`}
+                disabled={index === config.steps!.length - 1}
+                onClick={() => {
+                  const steps = [...config.steps!]
+                  ;[steps[index + 1], steps[index]] = [
+                    steps[index],
+                    steps[index + 1],
+                  ]
+                  update({ steps })
+                }}
+              >
+                <ArrowDown className="size-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`Remove step ${index + 2}`}
+                onClick={() =>
+                  update({ steps: config.steps!.filter((_, i) => i !== index) })
+                }
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+            <TransformEditor
+              title={`Step ${index + 2}`}
+              value={step}
+              inputName="previous"
+              onChange={(transform) => {
+                const { language, statement } = transform
+                if (language === 'none') return
+                update({
+                  steps: config.steps!.map((item, i) =>
+                    i === index ? { ...item, language, statement } : item,
+                  ),
+                })
+              }}
+            />
+          </div>
+        ))}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={(config.steps?.length ?? 0) >= 9}
+          onClick={() => {
+            let n = (config.steps?.length ?? 0) + 2
+            while (
+              [...config.inputs, ...(config.steps ?? [])].some(
+                (item) => item.name === `step_${n}`,
+              )
+            )
+              n++
+            update({
+              steps: [
+                ...(config.steps ?? []),
+                {
+                  name: `step_${n}`,
+                  language: 'sql',
+                  statement: 'SELECT * FROM previous',
+                },
+              ],
+            })
+          }}
+        >
+          <Plus className="size-4" /> Add step
+        </Button>
       </Section>
 
+      <PipelineActionsEditor
+        actions={config.actions ?? []}
+        onChange={(actions) => update({ actions })}
+        onValidityChange={handleActionsValidity}
+      />
       <Section
         title="Output"
-        hint="The result column names must match the output Schema field slugs, or map them with fieldMapping."
+        hint="Choose where the final rows are saved, or complete without changing a dataset."
       >
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Label>Mode</Label>
             <Select
-              className="w-40"
+              className="w-56 max-w-full"
               value={config.output.mode}
               onChange={(event) =>
                 update({
                   output: {
                     ...config.output,
-                    mode: event.target.value as 'create' | 'append',
+                    mode: event.target.value as 'create' | 'append' | 'none',
                   },
                 })
               }
@@ -339,6 +589,7 @@ export function PipelineVersionEditor({
             >
               <option value="create">Create Dataset</option>
               <option value="append">Append to Dataset</option>
+              <option value="none">No dataset output</option>
             </Select>
           </div>
 
@@ -387,10 +638,11 @@ export function PipelineVersionEditor({
                 />
               </div>
             </>
-          ) : (
+          ) : config.output.mode === 'append' ? (
             <div className="space-y-1">
-              <Label>Existing Dataset id</Label>
-              <Input
+              <Label>Existing dataset</Label>
+              <Select
+                aria-label="Output dataset"
                 className="font-mono text-sm"
                 value={config.output.datasetId ?? ''}
                 onChange={(event) =>
@@ -398,58 +650,95 @@ export function PipelineVersionEditor({
                     output: { ...config.output, datasetId: event.target.value },
                   })
                 }
-              />
+              >
+                <option value="">Choose a dataset…</option>
+                {datasetsQuery.data?.map((dataset) => (
+                  <option key={dataset.id} value={dataset.id}>
+                    {dataset.name}
+                  </option>
+                ))}
+              </Select>
+              {datasetsQuery.isError && (
+                <p role="alert" className="text-xs text-destructive">
+                  Could not load datasets. Reload to try again.
+                </p>
+              )}
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Complete the steps without creating or changing a dataset.
+            </p>
           )}
 
-          <div className="space-y-1">
-            <Label>Dataset Version label</Label>
-            <Input
-              value={config.output.datasetLabel}
-              onChange={(event) =>
-                update({
-                  output: {
-                    ...config.output,
-                    datasetLabel: event.target.value,
-                  },
-                })
-              }
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Field mapping (optional JSON)</Label>
-            <Textarea
-              className="font-mono min-h-16 text-xs"
-              value={
-                config.output.fieldMapping
-                  ? JSON.stringify(config.output.fieldMapping, null, 2)
-                  : ''
-              }
-              onChange={(event) => {
-                const raw = event.target.value.trim()
-                let mapping: Record<string, string> | null = null
-                if (raw) {
-                  try {
-                    const parsed = JSON.parse(raw)
-                    if (
-                      parsed &&
-                      typeof parsed === 'object' &&
-                      !Array.isArray(parsed)
-                    ) {
-                      mapping = parsed as Record<string, string>
-                    }
-                  } catch {
-                    // keep previous value; validation surfaces the error
+          {config.output.mode !== 'none' && (
+            <>
+              <div className="space-y-1">
+                <Label>Dataset Version label</Label>
+                <Input
+                  value={config.output.datasetLabel}
+                  onChange={(event) =>
+                    update({
+                      output: {
+                        ...config.output,
+                        datasetLabel: event.target.value,
+                      },
+                    })
                   }
-                }
-                update({ output: { ...config.output, fieldMapping: mapping } })
-              }}
-              placeholder='{ "value": "concentration" }'
-            />
-          </div>
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label>Field mapping (optional JSON)</Label>
+                <Textarea
+                  className="font-mono min-h-16 text-xs"
+                  value={mappingText}
+                  aria-label="Field mapping"
+                  aria-invalid={Boolean(mappingError)}
+                  onChange={(event) => {
+                    const raw = event.target.value
+                    setMappingText(raw)
+                    setDirty(true)
+                    setSaved(false)
+                    try {
+                      const parsed = raw.trim() ? JSON.parse(raw) : null
+                      if (
+                        parsed !== null &&
+                        (!isRecord(parsed) ||
+                          Object.values(parsed).some(
+                            (value) => typeof value !== 'string',
+                          ))
+                      )
+                        throw new Error('Use a JSON object with text values.')
+                      setMappingError('')
+                      update({
+                        output: { ...config.output, fieldMapping: parsed },
+                      })
+                    } catch {
+                      setMappingError(
+                        'Enter a JSON object mapping result columns to schema fields, or leave this blank.',
+                      )
+                    }
+                  }}
+                  placeholder='{ "value": "concentration" }'
+                />
+                {mappingError && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {mappingError}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </Section>
+      <PipelineNotificationsEditor
+        notifications={config.notifications ?? []}
+        subscriptions={subscriptionsQuery.data ?? []}
+        loading={subscriptionsQuery.isLoading}
+        error={subscriptionsQuery.isError}
+        onChange={(notifications) => update({ notifications })}
+        onValidityChange={handleNotificationsValidity}
+      />
 
       {errors.length > 0 && (
         <div
@@ -477,41 +766,35 @@ export function PipelineVersionEditor({
 
       <div className="flex items-center gap-2">
         <Button
-          disabled={errors.length > 0 || saveMutation.isPending}
+          disabled={
+            errors.length > 0 ||
+            !actionsValid ||
+            !notificationsValid ||
+            (config.output.mode !== 'none' && Boolean(mappingError)) ||
+            saveMutation.isPending
+          }
           onClick={() => saveMutation.mutate()}
         >
           {saveMutation.isPending && (
             <Loader2 className="size-4 animate-spin" />
           )}
-          {draft ? 'Save draft' : 'Create draft version'}
+          {draft ? 'Save draft' : 'Save first draft'}
         </Button>
+        {saved && (
+          <span role="status" className="text-xs text-muted-foreground">
+            Draft saved. Publish it when ready to run.
+          </span>
+        )}
+        {dirty && (
+          <span className="text-xs text-muted-foreground">Unsaved changes</span>
+        )}
         {draft && (
           <Badge variant="secondary">
             draft v{draft.version} · revision {String(draft.revision)}
           </Badge>
         )}
       </div>
-    </div>
-  )
-}
-
-function Section({
-  title,
-  hint,
-  children,
-}: {
-  title: string
-  hint: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="space-y-2">
-      <div>
-        <h3 className="text-sm font-medium">{title}</h3>
-        <p className="text-muted-foreground text-xs">{hint}</p>
-      </div>
-      {children}
-    </section>
+    </fieldset>
   )
 }
 
@@ -519,6 +802,8 @@ function normalizeConfig(raw: Record<string, unknown>): PipelineConfig {
   const config = emptyConfig()
   if (!isRecord(raw)) return config
   const record = raw
+  if (typeof record.pythonRuntime === 'string')
+    config.pythonRuntime = record.pythonRuntime
   if (typeof record.description === 'string') {
     config.description = record.description
   }
@@ -554,11 +839,25 @@ function normalizeConfig(raw: Record<string, unknown>): PipelineConfig {
     })
   }
   const transform = (record.transform ?? {}) as Record<string, unknown>
+  if (transform.language === 'python' || transform.language === 'none')
+    config.transform.language = transform.language
+  if (Array.isArray(record.actions))
+    config.actions = record.actions as NonNullable<PipelineConfig['actions']>
+  if (Array.isArray(record.steps))
+    config.steps = record.steps as NonNullable<PipelineConfig['steps']>
+  if (Array.isArray(record.notifications))
+    config.notifications = record.notifications as NonNullable<
+      PipelineConfig['notifications']
+    >
   if (typeof transform.statement === 'string') {
     config.transform.statement = transform.statement
   }
   const output = (record.output ?? {}) as Record<string, unknown>
-  if (output.mode === 'append' || output.mode === 'create') {
+  if (
+    output.mode === 'append' ||
+    output.mode === 'create' ||
+    output.mode === 'none'
+  ) {
     config.output.mode = output.mode
   }
   if (typeof output.schemaVersionId === 'string') {
@@ -599,4 +898,84 @@ function coerceDefault(type: string, raw: string): unknown {
     default:
       return raw
   }
+}
+
+function TransformEditor({
+  title,
+  value,
+  inputName,
+  allowNone = false,
+  onChange,
+}: {
+  title: string
+  value: PipelineConfig['transform']
+  inputName?: string
+  allowNone?: boolean
+  onChange: (value: PipelineConfig['transform']) => void
+}) {
+  const [savedCode, setSavedCode] = useState(value.statement)
+  const example =
+    value.language === 'sql'
+      ? inputName
+        ? `SELECT * FROM ${inputName}`
+        : 'SELECT 1 AS value'
+      : `def transform(inputs, parameters):\n    return ${inputName ? `[{k: v for k, v in row.items() if not k.startswith('_sb_')} for row in inputs['${inputName}']]` : "[{'value': 1}]"}`
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label>{title}</Label>
+        <Select
+          aria-label={`${title} language`}
+          className="w-32"
+          value={value.language}
+          onChange={(event) => {
+            const language = event.target.value as 'sql' | 'python' | 'none'
+            if (language === 'none') {
+              setSavedCode(value.statement)
+              onChange({ language, statement: '' })
+            } else
+              onChange({
+                language,
+                statement:
+                  value.language === 'none' ? savedCode : value.statement,
+              })
+          }}
+        >
+          {allowNone && <option value="none">No analysis</option>}
+          <option value="sql">SQL</option>
+          <option value="python">Python</option>
+        </Select>
+      </div>
+      {value.language !== 'none' ? (
+        <>
+          <Textarea
+            aria-label={`${title} code`}
+            className="min-h-44 font-mono text-xs leading-5"
+            spellCheck={false}
+            value={value.statement}
+            onChange={(event) =>
+              onChange({ ...value, statement: event.target.value })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            {value.language === 'sql'
+              ? 'Write a SELECT query. Input names are tables; use {{parameter}} for run values.'
+              : 'Define transform(inputs, parameters). Return a list of dictionaries or a pandas DataFrame.'}
+          </p>
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground">
+              Example
+            </summary>
+            <pre className="mt-2 overflow-auto rounded-md bg-muted/40 p-3">
+              {example}
+            </pre>
+          </details>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Run ELN actions directly, without a SQL or Python analysis.
+        </p>
+      )}
+    </div>
+  )
 }

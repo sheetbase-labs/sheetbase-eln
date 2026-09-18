@@ -1,5 +1,4 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { Layers } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import { ConfigurationWorkspace } from '#/components/configuration/configuration-workspace'
@@ -46,7 +45,7 @@ function ConfigureRoute() {
         role: context.workspace?.role,
       },
     },
-    breadcrumbs: [{ label: 'Configuration' }, { label: 'Steward workspace' }],
+    breadcrumbs: [{ label: 'Models & schemas' }],
     inspector: null,
   })
 
@@ -54,11 +53,10 @@ function ConfigureRoute() {
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <Layers className="size-5 text-primary" aria-hidden="true" />
-          <h1 className="text-xl font-semibold">Configuration</h1>
+          <h1 className="text-base font-semibold">Models &amp; schemas</h1>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Steward data-language workspace.
+        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+          Define record fields, dataset schemas and reusable structures.
         </p>
       </header>
       <ConfigurationWorkspace

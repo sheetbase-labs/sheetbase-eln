@@ -276,6 +276,27 @@ describe('review inbox filter/sort/paginate', () => {
     expect(byPriority[0].priority).toBe('high')
   })
 
+  it('searches and sorts the displayed submitter names', () => {
+    const names = new Map(
+      items.map((item, index) => [
+        item.submittedByUserId,
+        ['Zoe', 'Alice', 'Ben'][index],
+      ]),
+    )
+    const label = (id: string) => names.get(id) ?? id
+    const match = filterReviews(
+      items,
+      { ...DEFAULT_REVIEW_FILTERS, search: label(items[0].submittedByUserId) },
+      'me',
+      label,
+    )
+    expect(match).toContain(items[0])
+    const sorted = sortReviews(items, 'submitter', false, label)
+    expect(sorted.map((item) => label(item.submittedByUserId))).toEqual(
+      items.map((item) => label(item.submittedByUserId)).sort(),
+    )
+  })
+
   it('paginates the filtered set', () => {
     expect(paginateReviews(items, 0, 2)).toHaveLength(2)
     expect(paginateReviews(items, 1, 2)).toHaveLength(1)

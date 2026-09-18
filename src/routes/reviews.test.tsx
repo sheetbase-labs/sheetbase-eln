@@ -22,15 +22,24 @@ import type { ReviewItem, ReviewSubmissionWire } from '#/lib/reviews'
 import type { RecordWire } from '#/lib/notebook-data'
 
 import {
+  ReviewsRoute,
   buildReviewSummaries,
   ReviewInspector,
   buildReviewColumns,
 } from './reviews'
 
+const routeState = vi.hoisted(() => ({ pathname: '/reviews/rev-1' }))
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
   useNavigate: () => vi.fn(),
+  useRouterState: ({
+    select,
+  }: {
+    select: (state: { location: { pathname: string } }) => unknown
+  }) => select({ location: routeState }),
+  Outlet: () => <div>Review workspace outlet</div>,
   useSearch: () => ({}),
   Link: ({
     to,
@@ -210,12 +219,10 @@ describe('ReviewInspector states', () => {
     expect(
       screen.getAllByText('Scientific review').length,
     ).toBeGreaterThanOrEqual(1)
-    // Transition actions are present but disabled (not yet supported).
-    for (const name of ['Approve', 'Changes', 'Reassign']) {
-      expect(
-        screen.getByRole('button', { name }).hasAttribute('disabled'),
-      ).toBe(true)
-    }
+    expect(
+      screen.getByRole('link', { name: 'Open review' }).getAttribute('href'),
+    ).toBe('/reviews/rev-1')
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
   })
 
   it('surfaces an overdue notice for aging submissions', () => {
@@ -346,5 +353,13 @@ describe('review inbox registry integration', () => {
     expect(byLabel.get('Overdue')).toBe(1)
     expect(byLabel.get('My queue')).toBe(1)
     expect(byLabel.get('Withdrawn')).toBe(1)
+  })
+})
+
+describe('Review route nesting', () => {
+  it('renders the review workspace outlet without mounting the inbox', () => {
+    render(<ReviewsRoute />)
+    expect(screen.getByText('Review workspace outlet')).toBeTruthy()
+    expect(screen.queryByText('Review inbox')).toBeNull()
   })
 })

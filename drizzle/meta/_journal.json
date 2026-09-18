@@ -1140,6 +1140,41 @@
       "when": 1788734661447,
       "tag": "0164_security_baseline_find_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 165,
+      "version": "7",
+      "when": 1788815202065,
+      "tag": "0165_project_list_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1788819206420,
+      "tag": "0166_pipeline_python_workflows",
+      "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "7",
+      "when": 1788820060641,
+      "tag": "0167_pipeline_actions_and_cancellation",
+      "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1788820928490,
+      "tag": "0168_pipeline_webhook_occurrences",
+      "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1788820958875,
+      "tag": "0169_pipeline_manual_invocations",
+      "breakpoints": true
     }
   ]
 }

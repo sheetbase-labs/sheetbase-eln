@@ -15,6 +15,7 @@
  */
 import { Client } from 'pg'
 import { isIP } from 'node:net'
+import { safeWebhookFetch } from './webhook-http.server'
 
 import { env } from '#/env.server'
 import { logger } from '#/lib/logger'
@@ -249,7 +250,7 @@ export async function attemptDelivery(
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const response = await fetch(currentUrl, {
+      const response = await safeWebhookFetch(currentUrl, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',

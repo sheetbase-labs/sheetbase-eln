@@ -1,12 +1,8 @@
 import * as React from 'react'
 import { X } from 'lucide-react'
 
-import {
-  EmptyHint,
-  InspectorSection,
-  Property,
-  PropertyList,
-} from '#/components/record'
+import { EmptyHint, InspectorSection } from '#/components/record'
+import { Property, PropertyList } from '#/components/scientific'
 import { Badge, Button, Input, Label, Select, Textarea } from '#/components/ui'
 import type {
   PlateDesignDoc,

@@ -485,8 +485,8 @@ function SamplesRegistryRoute() {
       <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
         <RegistryComposition
           registryId="samples"
-          title="Samples Registry"
-          description="Track sample identity, quantity, storage and chain of custody."
+          title="Samples"
+          description="Find samples, check stock and record use or transfers."
           rows={rows}
           totalCount={totalCount}
           fields={fields}
@@ -500,6 +500,7 @@ function SamplesRegistryRoute() {
           renderInspector={inspector}
           inspectorLabel="Sample details"
           initialColumnVisibility={{ barcode: false, sampleType: false }}
+          searchDebounceMs={250}
           loading={pageQuery.isLoading}
           error={pageQuery.error}
           onRetry={() => pageQuery.refetch()}
@@ -515,7 +516,13 @@ function SamplesRegistryRoute() {
               >
                 <Upload className="size-3.5" /> Import
               </Button>
-              <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setCreateError(null)
+                  setCreateOpen(true)
+                }}
+              >
                 <PackagePlus className="size-3.5" /> New sample
               </Button>
             </>
@@ -526,6 +533,8 @@ function SamplesRegistryRoute() {
           onOpenChange={setCreateOpen}
           projects={projectsQuery.data ?? []}
           projectsLoading={projectsQuery.isLoading}
+          projectsError={projectsQuery.isError}
+          onRetryProjects={() => void projectsQuery.refetch()}
           pending={createMutation.isPending}
           error={createError}
           onCreate={(input) => createMutation.mutate(input)}
@@ -580,11 +589,13 @@ const EMPTY_FORM: CreateSampleForm = {
   notes: '',
 }
 
-function CreateSampleDialog({
+export function CreateSampleDialog({
   open,
   onOpenChange,
   projects,
   projectsLoading,
+  projectsError = false,
+  onRetryProjects,
   pending,
   error,
   onCreate,
@@ -594,6 +605,8 @@ function CreateSampleDialog({
   onOpenChange: (open: boolean) => void
   projects: { id: string; key: string; title: string }[]
   projectsLoading: boolean
+  projectsError?: boolean
+  onRetryProjects?: () => void
   pending: boolean
   error: string | null
   onCreate: (input: {
@@ -613,15 +626,35 @@ function CreateSampleDialog({
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
+  useEffect(() => {
+    if (!open) {
+      setForm(EMPTY_FORM)
+      setCustomFields({})
+    }
+  }, [open])
+
+  const projectId =
+    form.projectId || (projects.length === 1 ? projects[0].id : '')
+  const invalidQuantity = [form.quantity, form.lowStockThreshold].some(
+    (value) =>
+      value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0),
+  )
+
   function submit() {
-    if (!form.projectId || !form.title.trim()) return
+    if (
+      pending ||
+      !projectId ||
+      !form.title.trim() ||
+      invalidQuantity ||
+      missingRequiredModelField
+    )
+      return
     onCreate({
-      projectId: form.projectId,
+      projectId,
       title: form.title.trim(),
       properties: form,
       customFields: modelFieldValuesFromInput(modelFields, customFields, true),
     })
-    setForm(EMPTY_FORM)
   }
 
   const missingRequiredModelField = modelFields.some(
@@ -632,67 +665,74 @@ function CreateSampleDialog({
   )
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!pending) onOpenChange(next)
+      }}
+    >
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New sample</DialogTitle>
           <DialogDescription>
-            Create a sample record. Quantity, storage and barcode can be
-            adjusted later through custody actions.
+            Name the sample and choose its project. Add stock and storage
+            details now, or fill them in later.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3">
+        <form
+          id="create-sample-form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            submit()
+          }}
+          className="grid gap-3"
+        >
           <Label className="text-xs text-muted-foreground">
-            Project
+            Project (required)
             <Select
-              value={form.projectId}
+              value={projectId}
               onChange={(e) => update('projectId', e.target.value)}
               className="mt-1 h-9"
               aria-label="Project"
+              required
+              disabled={projectsLoading || projectsError || pending}
             >
               <option value="">
                 {projectsLoading ? 'Loading…' : 'Select a project'}
               </option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.key} — {p.title}
+                  {p.title}
                 </option>
               ))}
             </Select>
           </Label>
-          {modelFields.length > 0 ? (
-            <div className="grid gap-3 border-t pt-3">
-              <p className="text-xs font-medium">Workspace fields</p>
-              {modelFields.map((definition) => (
-                <ModelFieldInput
-                  key={definition.id}
-                  definition={definition}
-                  value={
-                    customFields[definition.fieldName] ??
-                    (typeof definition.defaultValue === 'boolean'
-                      ? definition.defaultValue
-                      : definition.defaultValue == null
-                        ? ''
-                        : String(definition.defaultValue))
-                  }
-                  onChange={(value) =>
-                    setCustomFields((current) => ({
-                      ...current,
-                      [definition.fieldName]: value,
-                    }))
-                  }
-                />
-              ))}
+          {projectsError ? (
+            <div role="alert" className="text-sm text-danger">
+              Could not load projects.
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={onRetryProjects}
+              >
+                Try again
+              </Button>
             </div>
+          ) : !projectsLoading && projects.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Create a project before adding samples.
+            </p>
           ) : null}
           <Label className="text-xs text-muted-foreground">
-            Title
+            Sample name (required)
             <Input
               value={form.title}
               onChange={(e) => update('title', e.target.value)}
               className="mt-1 h-9"
-              aria-label="Sample title"
+              aria-label="Sample name"
+              required
               placeholder="Plasma pool batch 14"
             />
           </Label>
@@ -723,6 +763,7 @@ function CreateSampleDialog({
               <Input
                 type="number"
                 step="any"
+                min="0"
                 value={form.quantity}
                 onChange={(e) => update('quantity', e.target.value)}
                 className="mt-1 h-9"
@@ -740,10 +781,11 @@ function CreateSampleDialog({
               />
             </Label>
             <Label className="text-xs text-muted-foreground">
-              Low-stock at
+              Low-stock at{form.quantityUnit ? ` (${form.quantityUnit})` : ''}
               <Input
                 type="number"
                 step="any"
+                min="0"
                 value={form.lowStockThreshold}
                 onChange={(e) => update('lowStockThreshold', e.target.value)}
                 className="mt-1 h-9"
@@ -770,7 +812,37 @@ function CreateSampleDialog({
               aria-label="Notes"
             />
           </Label>
-        </div>
+          {modelFields.length > 0 ? (
+            <div className="grid gap-3 border-t pt-3">
+              <p className="text-xs font-medium">Workspace fields</p>
+              {modelFields.map((definition) => (
+                <ModelFieldInput
+                  key={definition.id}
+                  definition={definition}
+                  value={
+                    customFields[definition.fieldName] ??
+                    (typeof definition.defaultValue === 'boolean'
+                      ? definition.defaultValue
+                      : definition.defaultValue == null
+                        ? ''
+                        : String(definition.defaultValue))
+                  }
+                  onChange={(value) =>
+                    setCustomFields((current) => ({
+                      ...current,
+                      [definition.fieldName]: value,
+                    }))
+                  }
+                />
+              ))}
+            </div>
+          ) : null}
+          {invalidQuantity ? (
+            <p role="alert" className="text-sm text-danger">
+              Quantity and low-stock threshold must be zero or greater.
+            </p>
+          ) : null}
+        </form>
 
         {error ? (
           <p role="alert" className="text-xs text-danger">
@@ -779,19 +851,27 @@ function CreateSampleDialog({
         ) : null}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            disabled={pending}
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
-            onClick={submit}
+            type="submit"
+            form="create-sample-form"
             disabled={
               pending ||
-              !form.projectId ||
+              !projectId ||
+              projectsLoading ||
+              projectsError ||
+              invalidQuantity ||
               !form.title.trim() ||
               missingRequiredModelField
             }
           >
-            Create sample
+            {pending ? 'Creating sample…' : 'Create sample'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -53,13 +53,16 @@ import {
   Inspector,
   InspectorSection,
   LinkToPills,
-  PropertyList,
-  Property,
   TagPills,
   EmptyHint,
 } from '#/components/record'
+import {
+  Property,
+  PropertyList,
+  ScientificRecordLinker,
+  StatusBadge,
+} from '#/components/scientific'
 import type { InspectorTab } from '#/components/record'
-import { ScientificRecordLinker, StatusBadge } from '#/components/scientific'
 import {
   Badge,
   Button,

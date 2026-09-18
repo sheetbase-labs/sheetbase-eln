@@ -135,7 +135,7 @@ export function DataGrid<TData>({
   return (
     <div
       ref={rootRef}
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md border bg-card"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-y border-border"
     >
       <div
         ref={viewportRef}
@@ -157,18 +157,23 @@ export function DataGrid<TData>({
               </div>
             ) : null}
             <Table
+              variant="quiet"
               aria-label={title}
               data-density="compact"
               containerClassName={
                 incrementalRows ? 'overflow-visible' : undefined
               }
               style={
-                resizableColumns ? { width: table.getTotalSize() } : undefined
+                resizableColumns
+                  ? { width: table.getTotalSize(), minWidth: '100%' }
+                  : undefined
               }
             >
               <TableHeader
                 className={
-                  incrementalRows ? 'sticky top-0 z-10 bg-card' : undefined
+                  incrementalRows
+                    ? 'sticky top-0 z-10 bg-background'
+                    : undefined
                 }
               >
                 {table.getHeaderGroups().map((headerGroup) => (
@@ -308,15 +313,15 @@ export function DataGrid<TData>({
                     return (
                       <TableRow
                         key={row.id}
-                        className="border-b border-border bg-muted/40 hover:bg-muted/60"
+                        className="border-b border-border bg-muted/20 hover:bg-muted/40"
                       >
                         <TableCell
                           colSpan={row.getVisibleCells().length}
-                          className="p-0"
+                          className="p-0 !py-0"
                         >
                           <button
                             type="button"
-                            className="flex h-8 w-full items-center gap-1.5 px-2.5 text-xs font-semibold"
+                            className="flex h-7 w-full items-center gap-1.5 px-2.5 text-xs font-medium"
                             onClick={() => row.getToggleExpandedHandler()()}
                             aria-label="Toggle group"
                           >

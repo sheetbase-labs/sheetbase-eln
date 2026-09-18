@@ -65,9 +65,8 @@ import {
   Inspector,
   InspectorSection,
   LinkedRecordList,
-  Property,
-  PropertyList,
 } from '#/components/record'
+import { Property, PropertyList } from '#/components/scientific'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
@@ -548,24 +547,17 @@ export function DatasetExplorerHeader({
       aria-labelledby="datasets-title"
     >
       <div className="flex min-w-0 items-start gap-2.5">
-        <Database
-          className="mt-0.5 size-4 shrink-0 text-violet-500"
-          aria-hidden="true"
-        />
         <div className="min-w-0">
-          <p className="text-[0.65rem] font-semibold uppercase leading-4 tracking-wide text-muted-foreground">
-            Datasets
-          </p>
           <h1
             id="datasets-title"
-            className="truncate text-base font-semibold leading-5 tracking-tight"
+            className="break-words text-base font-semibold leading-5 tracking-tight"
           >
             {selected?.name ?? 'Scientific datasets'}
           </h1>
           <p className="text-xs leading-4 text-muted-foreground">
             {selected
               ? `${formatCount(fieldCount)} ${fieldCount === 1 ? 'field' : 'fields'}${selected.dataset_schema ? ` · ${selected.dataset_schema.name} v${selected.schema_version}` : ''}${selected.lifecycle === 'archived' ? ' · archived' : ' · live'}`
-              : 'Create, query and snapshot governed Datasets'}
+              : 'Create datasets, explore rows and save versions'}
           </p>
         </div>
       </div>
@@ -576,7 +568,7 @@ export function DatasetExplorerHeader({
           variant={includeArchived ? 'secondary' : 'outline'}
           onClick={() => onToggleArchived(!includeArchived)}
         >
-          {includeArchived ? 'Hiding archived' : 'Show archived'}
+          {includeArchived ? 'Hide archived' : 'Show archived'}
         </Button>
         {error ? (
           <Badge variant="danger">Could not load datasets</Badge>
@@ -1987,8 +1979,8 @@ function EmptyDatasetState({
             aria-hidden="true"
           />
           <p className="max-w-md text-sm text-muted-foreground">
-            No datasets yet. Create a notebook with a sheet block, or bind a
-            dataset schema on the Schemas page, to see datasets here.
+            No datasets yet. Choose New Dataset to create one from a published
+            schema.
           </p>
         </>
       )}

@@ -46,73 +46,16 @@ export function InspectorSection({
   return (
     <section
       className={cn(
-        'border-t border-border pt-2 first:border-t-0 first:pt-0',
+        'border-t border-border pt-4 first:border-t-0 first:pt-0',
         className,
       )}
     >
-      <div className="mb-1.5 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <h3 className="text-xs font-semibold text-foreground">{title}</h3>
         {action ? <div>{action}</div> : null}
       </div>
       {children}
     </section>
-  )
-}
-
-/** Key/value property list (UI-004 contract; UI-005 hardens status within). */
-export function PropertyList({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  return <dl className={cn('space-y-2', className)}>{children}</dl>
-}
-
-function CodeValue({ children }: { children: React.ReactNode }) {
-  if (typeof children !== 'string') return children
-
-  return children.split(/([,;/:=])/).map((part, index) => (
-    <React.Fragment key={`${part}-${index}`}>
-      {part}
-      {/^[,;/:=]$/.test(part) ? <wbr /> : null}
-    </React.Fragment>
-  ))
-}
-
-export function Property({
-  label,
-  children,
-  mono,
-  stacked = false,
-}: {
-  label: string
-  children: React.ReactNode
-  /** Render the value in the mono/scientific font (identifiers, numbers). */
-  mono?: boolean
-  /** Preserve long meaningful values by placing the value beneath its label. */
-  stacked?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        'gap-2',
-        stacked ? 'grid' : 'flex items-center justify-between',
-      )}
-    >
-      <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
-      <dd
-        className={cn(
-          'min-w-0 text-xs font-medium text-foreground',
-          stacked ? 'break-words text-left' : 'truncate text-right',
-          mono && 'font-mono tabular-nums',
-          stacked && mono && 'text-[0.6875rem] leading-4 tracking-[-0.015em]',
-        )}
-      >
-        {stacked && mono ? <CodeValue>{children}</CodeValue> : children}
-      </dd>
-    </div>
   )
 }
 

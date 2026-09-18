@@ -36,6 +36,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Select,
 } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
@@ -269,8 +270,7 @@ export function IngestPanel({
 
         <div className="grid gap-2">
           <Label>Retain raw file in project</Label>
-          <select
-            className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+          <Select
             value={projectId}
             onChange={(event) => setProjectId(event.target.value)}
           >
@@ -280,7 +280,7 @@ export function IngestPanel({
                 {project.title}
               </option>
             ))}
-          </select>
+          </Select>
           <p className="text-muted-foreground text-xs">
             The original bytes are retained as a file record; the run provenance
             carries its canonical fileRecordId and sha256 checksum.
@@ -289,8 +289,7 @@ export function IngestPanel({
 
         <div className="grid gap-2">
           <Label>Target Schema Version</Label>
-          <select
-            className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+          <Select
             value={schemaVersionId}
             onChange={(event) => {
               setSchemaVersionId(event.target.value)
@@ -306,7 +305,7 @@ export function IngestPanel({
                 {option.name} v{option.version}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {targetFields.length > 0 && file && parser && (
@@ -322,8 +321,7 @@ export function IngestPanel({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Existing Dataset</Label>
-              <select
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              <Select
                 value={datasetId}
                 onChange={(event) => setDatasetId(event.target.value)}
               >
@@ -333,7 +331,7 @@ export function IngestPanel({
                     {dataset.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             {!datasetId && (
               <div className="grid gap-2">

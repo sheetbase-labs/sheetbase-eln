@@ -244,7 +244,7 @@ function useRecentSearches() {
 // Time formatting + owner label helpers.
 // ---------------------------------------------------------------------------
 
-function relativeTime(ts: number): string {
+export function relativeTime(ts: number): string {
   const diff = Date.now() - ts
   const sec = Math.floor(diff / 1000)
   if (sec < 60) return 'Just now'
@@ -254,7 +254,6 @@ function relativeTime(ts: number): string {
   if (hr < 24) return `${hr}h ago`
   const day = Math.floor(hr / 24)
   if (day < 7) return `${day}d ago`
-  if (day < 14) return 'Yesterday'
   return new Date(ts).toLocaleDateString()
 }
 
@@ -287,6 +286,25 @@ function ownerInitials(userId: string, name?: string): string {
   if (!userId) return '?'
   const clean = userId.replace(/[^a-zA-Z0-9]/g, '')
   return clean.slice(0, 2).toUpperCase() || 'U'
+}
+
+/** Restore every filter the scientist saved, including project and date scope. */
+export function savedSearchParams(sq: SavedQuery) {
+  return serializeSearchUrl({
+    q: sq.query,
+    type: sq.type ?? '',
+    kind: sq.kind,
+    project: sq.projectId,
+    status: sq.status,
+    owner: sq.ownerId,
+    date: sq.dateRange,
+    sort: 'relevance',
+    selected: '',
+  })
+}
+
+export function searchYearStart(now: number) {
+  return new Date(new Date(now).getFullYear(), 0, 1).getTime()
 }
 
 // ---------------------------------------------------------------------------
@@ -358,7 +376,7 @@ function SearchRoute() {
     clear: clearRecentSearches,
   } = useRecentSearches()
 
-  // ---- Saved queries (localStorage, per workspace) -----------------------
+  // ---- Saved searches (localStorage, per workspace) -----------------------
   const workspaceId = context.workspace?.id ?? 'default'
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([])
 
@@ -402,13 +420,7 @@ function SearchRoute() {
     (sq: SavedQuery) => {
       void navigate({
         to: '/search',
-        search: serializeSearchUrl({
-          q: sq.query,
-          type: sq.type ?? '',
-          kind: sq.kind,
-          sort: 'relevance',
-          selected: '',
-        }),
+        search: savedSearchParams(sq),
         replace: false,
       })
     },
@@ -533,7 +545,7 @@ function SearchRoute() {
   // Apply every facet client-side.
   const filteredResults = useMemo(() => {
     const now = Date.now()
-    const yearStart = new Date(now, 0, 1).getTime()
+    const yearStart = searchYearStart(now)
     const rangeMs: Record<Exclude<DateRangeKey, 'all'>, number> = {
       '7d': 7 * 86_400_000,
       '30d': 30 * 86_400_000,
@@ -561,7 +573,7 @@ function SearchRoute() {
   // variations. Falls back to updated_at sort when sorting by "updated".
   const sortedResults = useMemo(
     () =>
-      sort === 'updated'
+      sort === 'updated' || !hasQuery
         ? sortResults(filteredResults, 'updated', hasQuery)
         : rankByTier(filteredResults, debouncedQuery),
     [filteredResults, sort, hasQuery, debouncedQuery],
@@ -680,8 +692,8 @@ function SearchRoute() {
         {/* Page heading — compact, per DESIGN.md (no marketing-scale type). */}
         <header className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">
-              Knowledge search
+            <h1 className="font-display text-lg font-medium tracking-tight text-foreground">
+              Search
             </h1>
             <p className="text-sm text-muted-foreground">
               Find records, files and notebook content across your workspace.
@@ -699,7 +711,7 @@ function SearchRoute() {
         >
           <div className="relative flex-1">
             <SearchIcon
-              className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden
             />
             <Input
@@ -719,7 +731,7 @@ function SearchRoute() {
               }}
               placeholder="Search by title, identifier, notebook text, file name…"
               aria-label="Search query"
-              className="h-12 pl-11 pr-9 text-base shadow-xs"
+              className="h-9 pl-10 pr-9"
             />
             {inputValue ? (
               <button
@@ -735,7 +747,7 @@ function SearchRoute() {
               </button>
             ) : null}
           </div>
-          <Button type="submit" className="h-12 px-5">
+          <Button type="submit" className="h-9 px-3">
             <SearchIcon className="size-4" />
             Search
           </Button>
@@ -744,7 +756,7 @@ function SearchRoute() {
             <Button
               type="button"
               variant="outline"
-              className="h-12 px-3"
+              className="h-9 px-3"
               onClick={handleSaveQuery}
               aria-label="Save current search query"
               title="Save query"
@@ -755,7 +767,7 @@ function SearchRoute() {
         </form>
         {/* Object-class tabs with per-class counts (DATA-04). */}
         <div
-          role="tablist"
+          role="group"
           aria-label="Filter by object class"
           className="flex flex-wrap items-center gap-1 border-b border-border"
         >
@@ -765,9 +777,7 @@ function SearchRoute() {
             active={objectClass === ''}
             onClick={() => updateFilter('type', '')}
           />
-          {SEARCH_RESULT_TYPES.filter(
-            (t) => t !== 'record' && t !== 'file',
-          ).map((t) => (
+          {SEARCH_RESULT_TYPES.map((t) => (
             <TypeTab
               key={t}
               label={CLASS_LABELS[t]}
@@ -776,86 +786,70 @@ function SearchRoute() {
               onClick={() => updateFilter('type', t)}
             />
           ))}
-          <TypeTab
-            label="Records"
-            count={
-              (classCounts.get('record') ?? 0) + (classCounts.get('file') ?? 0)
-            }
-            active={objectClass === 'record'}
-            onClick={() => updateFilter('type', 'record')}
-          />
-        </div>
-
-        {/* Type tabs with per-type counts */}
-        <div
-          role="tablist"
-          aria-label="Filter by type"
-          className="flex flex-wrap items-center gap-1 border-b border-border"
-        >
-          <TypeTab
-            label="All"
-            count={allResults.length}
-            active={kind === ''}
-            onClick={() => updateFilter('kind', '')}
-          />
-          {SEARCHABLE_KINDS.filter((k) => kindCounts.has(k)).map((k) => (
-            <TypeTab
-              key={k}
-              label={KIND_FILTER_LABELS[k] ?? k}
-              count={kindCounts.get(k) ?? 0}
-              active={kind === k}
-              onClick={() => updateFilter('kind', k)}
-            />
-          ))}
         </div>
 
         {/* Filter bar + results / facets split */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="flex flex-col gap-4">
           {/* Left facets column: suggestions, saved queries, recent searches */}
-          <aside className="hidden w-56 shrink-0 space-y-3 lg:block">
-            <SemanticSuggestions
-              suggestions={suggestions}
-              onPick={(s) => {
-                void navigate({
-                  to: '/search',
-                  search: serializeSearchUrl({
-                    ...urlSearch,
-                    q: s.applyQuery,
-                    kind: s.applyKind ?? urlSearch.kind,
-                    selected: '',
-                  }),
-                  replace: false,
-                })
-                if (s.applyQuery.trim()) addRecentSearch(s.applyQuery)
-              }}
-            />
-            <SavedQueries
-              queries={savedQueries}
-              onApply={handleApplySavedQuery}
-              onDelete={handleDeleteSavedQuery}
-            />
-            <RecentSearches
-              recent={recent}
-              onPick={(q) => {
-                void navigate({
-                  to: '/search',
-                  search: serializeSearchUrl({
-                    ...urlSearch,
-                    q,
-                    selected: '',
-                  }),
-                  replace: false,
-                })
-                if (q.trim()) addRecentSearch(q)
-              }}
-              onClear={clearRecentSearches}
-            />
-          </aside>
+          <details className="min-w-0">
+            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+              Saved and recent searches
+            </summary>
+            <aside className="mt-3 grid gap-4 md:grid-cols-3">
+              <SemanticSuggestions
+                suggestions={suggestions}
+                onPick={(s) => {
+                  void navigate({
+                    to: '/search',
+                    search: serializeSearchUrl({
+                      ...urlSearch,
+                      q: s.applyQuery,
+                      kind: s.applyKind ?? urlSearch.kind,
+                      selected: '',
+                    }),
+                    replace: false,
+                  })
+                  if (s.applyQuery.trim()) addRecentSearch(s.applyQuery)
+                }}
+              />
+              <SavedQueries
+                queries={savedQueries}
+                onApply={handleApplySavedQuery}
+                onDelete={handleDeleteSavedQuery}
+              />
+              <RecentSearches
+                recent={recent}
+                onPick={(q) => {
+                  void navigate({
+                    to: '/search',
+                    search: serializeSearchUrl({
+                      ...urlSearch,
+                      q,
+                      selected: '',
+                    }),
+                    replace: false,
+                  })
+                  if (q.trim()) addRecentSearch(q)
+                }}
+                onClear={clearRecentSearches}
+              />
+            </aside>
+          </details>
 
           {/* Results column */}
           <div className="min-w-0 flex-1">
             {/* Facet filter bar */}
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="mb-3 grid grid-cols-2 items-center gap-2 md:flex md:flex-wrap">
+              <FilterSelect
+                id="filter-kind"
+                label="Filter by record type"
+                value={kind}
+                onChange={(v) => updateFilter('kind', v)}
+                placeholder="All record types"
+                options={SEARCHABLE_KINDS.filter(
+                  (k) => kindCounts.has(k) || k === kind,
+                ).map((k) => ({ value: k, label: KIND_FILTER_LABELS[k] ?? k }))}
+              />
               <FilterSelect
                 id="filter-project"
                 label="Filter by project"
@@ -919,7 +913,7 @@ function SearchRoute() {
               onKeyDown={handleListKeyDown}
               projectNames={projectNames}
               ownerNames={ownerNames}
-              sort={sort}
+              sort={hasQuery ? sort : 'updated'}
               onSortChange={(s) => updateFilter('sort', s)}
               page={page}
               pageSize={PAGE_SIZE}
@@ -951,11 +945,10 @@ function TypeTab({
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
-        '-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+        '-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active
           ? 'border-primary text-primary'
           : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -964,10 +957,8 @@ function TypeTab({
       {label}
       <span
         className={cn(
-          'rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums',
-          active
-            ? 'bg-primary/10 text-primary'
-            : 'bg-muted text-muted-foreground',
+          'text-xs tabular-nums',
+          active ? 'text-primary' : 'text-muted-foreground',
         )}
       >
         {count}
@@ -1004,7 +995,7 @@ function FilterSelect({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 w-auto min-w-[9rem]"
+        className="h-9 w-full min-w-0 md:w-auto md:min-w-[9rem]"
         aria-label={label}
       >
         <option value="">{placeholder}</option>
@@ -1033,8 +1024,8 @@ function RecentSearches({
 }) {
   if (recent.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-sidebar p-3">
-        <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+      <div className="border-t border-border pt-3">
+        <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           <History className="size-3.5" aria-hidden /> Recent searches
         </div>
         <p className="text-xs text-muted-foreground">
@@ -1045,9 +1036,9 @@ function RecentSearches({
     )
   }
   return (
-    <div className="rounded-lg border border-border bg-sidebar p-3">
+    <div className="border-t border-border pt-3">
       <div className="mb-1.5 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           <History className="size-3.5" aria-hidden /> Recent searches
         </div>
         <button
@@ -1101,8 +1092,8 @@ function SemanticSuggestions({
 }) {
   if (suggestions.length === 0) return null
   return (
-    <div className="rounded-lg border border-border bg-sidebar p-3">
-      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+    <div className="border-t border-border pt-3">
+      <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
         <Lightbulb className="size-3.5" aria-hidden /> Suggestions
       </div>
       <ul className="space-y-0.5">
@@ -1136,7 +1127,7 @@ function SemanticSuggestions({
 }
 
 // ---------------------------------------------------------------------------
-// SEARCH-001 — Saved queries (localStorage, per workspace).
+// SEARCH-001 — Saved searches (localStorage, per workspace).
 // ---------------------------------------------------------------------------
 
 function SavedQueries({
@@ -1150,9 +1141,9 @@ function SavedQueries({
 }) {
   if (queries.length === 0) return null
   return (
-    <div className="rounded-lg border border-border bg-sidebar p-3">
-      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-        <Bookmark className="size-3.5" aria-hidden /> Saved queries
+    <div className="border-t border-border pt-3">
+      <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+        <Bookmark className="size-3.5" aria-hidden /> Saved searches
       </div>
       <ul className="space-y-0.5">
         {queries.map((sq) => (
@@ -1172,7 +1163,7 @@ function SavedQueries({
             <button
               type="button"
               onClick={() => onDelete(sq.id)}
-              className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+              className="shrink-0 rounded-md p-1 text-muted-foreground opacity-70 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
               aria-label={`Delete saved query "${sq.name}"`}
             >
               <Trash2 className="size-3" />
@@ -1268,14 +1259,21 @@ export function SearchResults({
         role="alert"
       >
         <AlertCircle className="size-5 shrink-0" />
-        <span>{message}</span>
+        <span className="flex-1">{message}</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void searchQuery.refetch()}
+        >
+          Try again
+        </Button>
       </div>
     )
   }
 
   if (results.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+      <div className="flex flex-col items-center justify-center gap-2 border-y border-border py-10 text-center">
         <SearchIcon className="size-8 text-muted-foreground" aria-hidden />
         <p className="text-sm font-medium">
           {hasQuery ? 'No results found' : 'Start typing to search'}
@@ -1308,25 +1306,37 @@ export function SearchResults({
         {onSortChange ? (
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             Sort by
-            <select
+            <Select
               value={sort}
               onChange={(e) => onSortChange(e.target.value as SortKey)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="h-8 w-auto px-2"
               aria-label="Sort results"
             >
               <option value="relevance">Relevance</option>
               <option value="updated">Recently updated</option>
-            </select>
+            </Select>
           </label>
         ) : null}
       </div>
+      {(searchQuery.data?.[0]?.totalCount ?? 0) >
+      (searchQuery.data?.length ?? 0) ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          Showing the first {searchQuery.data?.length} matches. Use more
+          specific search terms to narrow your results.
+        </p>
+      ) : null}
       <ul
         ref={listRef}
         tabIndex={0}
         role="listbox"
         aria-label="Search results"
+        aria-activedescendant={
+          results[activeIndex]
+            ? `search-result-${results[activeIndex].recordId}`
+            : undefined
+        }
         onKeyDown={onKeyDown}
-        className="divide-y divide-border rounded-lg border border-border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="divide-y divide-border border-y border-border outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
       >
         {results.map((result, index) => (
           <SearchResultRow
@@ -1451,7 +1461,11 @@ export function SearchResultRow({
   const updated = relativeUpdatedAt(result.updatedAt)
 
   return (
-    <li role="option" aria-selected={selected}>
+    <li
+      id={`search-result-${result.recordId}`}
+      role="option"
+      aria-selected={selected}
+    >
       <Link
         to={result.deepLink}
         onClick={(e) => {
@@ -1485,8 +1499,8 @@ export function SearchResultRow({
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           {/* Title + status / type badges */}
-          <div className="flex items-start justify-between gap-2">
-            <p className="truncate font-medium text-foreground">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <p className="min-w-0 break-words font-medium text-foreground">
               {result.title}
             </p>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -1610,7 +1624,7 @@ function SearchResultInspector({
       {/* Description / first text excerpt from the matched context. */}
       {segments.length > 0 ? (
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          <p className="mb-1 text-sm font-medium text-muted-foreground">
             Excerpt
           </p>
           <p className="text-sm text-foreground">
@@ -1692,7 +1706,7 @@ function SearchResultInspector({
           RLS-filtered links the caller can already see). */}
       {links.length > 0 ? (
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          <p className="mb-1 text-sm font-medium text-muted-foreground">
             Linked records
           </p>
           <div className="flex flex-wrap gap-2">
@@ -1723,7 +1737,7 @@ function SearchResultInspector({
           the record or common operations — no restricted payloads or
           privileged mutations. */}
       <div>
-        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <p className="mb-1.5 text-sm font-medium text-muted-foreground">
           Quick actions
         </p>
         <div className="flex flex-wrap gap-2">

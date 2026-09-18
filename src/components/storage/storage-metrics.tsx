@@ -1,3 +1,4 @@
+import { MetricSummary } from '#/components/scientific/metric-summary'
 import { boxOccupancy } from '#/lib/storage'
 import type { BoxPositionWithSample, StorageBox } from '#/lib/storage'
 
@@ -44,18 +45,15 @@ export function StorageMetrics({
     <section
       aria-label="Box capacity summary"
       aria-description="Occupied, available, quarantined, and missing positions are mutually exclusive and reconcile to total capacity. Low-volume and expiring-soon values are attention flags within occupied positions."
-      className="grid divide-y overflow-hidden rounded-lg border bg-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3 xl:grid-cols-7"
+      className="grid grid-cols-2 gap-x-3 gap-y-2 py-2 sm:grid-cols-3 xl:grid-cols-7"
     >
       {values.map(([label, value]) => (
-        <div key={label} className="px-3 py-3">
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <div className="mt-1 flex items-end justify-between gap-2">
-            <strong className="text-xl tabular-nums">{value}</strong>
-            <span className="text-xs text-muted-foreground">
-              {total ? `${Math.round((value / total) * 100)}%` : '—'}
-            </span>
-          </div>
-        </div>
+        <MetricSummary
+          key={label}
+          label={label}
+          value={value}
+          hint={total ? `${Math.round((value / total) * 100)}%` : undefined}
+        />
       ))}
     </section>
   )

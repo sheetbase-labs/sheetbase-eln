@@ -10,15 +10,24 @@ import { cn } from '#/lib/utils'
 function Table({
   className,
   containerClassName,
+  variant = 'default',
   ...props
 }: React.TableHTMLAttributes<HTMLTableElement> & {
   containerClassName?: string
+  /** Quiet headings and dividers for work lists with secondary record metadata. */
+  variant?: 'default' | 'quiet'
 }) {
   return (
     <div className={cn('relative w-full overflow-auto', containerClassName)}>
       <table
         data-slot="table"
-        className={cn('w-full caption-bottom text-sm', className)}
+        data-variant={variant}
+        className={cn(
+          'w-full caption-bottom text-sm',
+          variant === 'quiet' &&
+            '[&_th]:h-8 [&_th]:font-medium [&_th]:normal-case [&_th]:tracking-normal [&_td]:py-2.5 [&_tr]:border-border/40',
+          className,
+        )}
         {...props}
       />
     </div>

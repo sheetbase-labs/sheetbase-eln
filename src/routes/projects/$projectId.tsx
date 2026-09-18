@@ -32,13 +32,8 @@ import type { ReactNode } from 'react'
 import { useShell } from '#/components/app-shell'
 import { CreateBlankExperimentDialog } from '#/components/notebook/create-blank-experiment-dialog'
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
-import {
-  CheckList,
-  InspectorSection,
-  Property,
-  PropertyList,
-} from '#/components/record'
-import { StatusBadge } from '#/components/scientific'
+import { CheckList, InspectorSection } from '#/components/record'
+import { Property, PropertyList, StatusBadge } from '#/components/scientific'
 import {
   Button,
   Skeleton,
@@ -264,7 +259,7 @@ function ProjectRoute() {
         )
       }
     >
-      <div className="flex gap-5 p-4 md:p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto flex gap-5 p-4 md:p-6">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
           <ProjectHeader
             project={project}
@@ -274,7 +269,9 @@ function ProjectRoute() {
             onCreateExperiment={() => setCreateOpen(true)}
           />
 
-          <ProjectStatCards stats={stats} metrics={projectMetrics} />
+          {records.length > 0 && (
+            <ProjectStatCards stats={stats} metrics={projectMetrics} />
+          )}
 
           <RecordListSection
             records={records}
@@ -282,6 +279,9 @@ function ProjectRoute() {
             error={recordsQuery.error}
             onRetry={() => recordsQuery.refetch()}
             userLabel={userLabel}
+            onCreateExperiment={
+              isArchived ? undefined : () => setCreateOpen(true)
+            }
           />
 
           <ProjectActivityFeed
@@ -293,11 +293,13 @@ function ProjectRoute() {
           />
         </div>
 
-        <ProjectSidebar
-          project={project}
-          ownerName={context.user.name}
-          onCreateExperiment={() => setCreateOpen(true)}
-        />
+        {records.length > 0 && (
+          <ProjectSidebar
+            project={project}
+            ownerName={context.user.name}
+            onCreateExperiment={() => setCreateOpen(true)}
+          />
+        )}
       </div>
       <CreateBlankExperimentDialog
         open={createOpen}
@@ -578,14 +580,22 @@ export function RecordListSection({
   error,
   onRetry,
   userLabel,
+  onCreateExperiment,
 }: {
   records: NotebookRecord[]
   isLoading: boolean
   error: unknown
   onRetry: () => void
   userLabel: (userId: string) => string
+  onCreateExperiment?: () => void
 }) {
   const [kindFilter, setKindFilter] = useState('all')
+  // TanStack compares filter state by identity. Recreating this array on every
+  // render repeatedly queues pagination resets and can starve navigation.
+  const columnFilters = useMemo(
+    () => (kindFilter === 'all' ? [] : [{ id: 'kind', value: kindFilter }]),
+    [kindFilter],
+  )
 
   const columns = useMemo(
     () => [
@@ -664,10 +674,7 @@ export function RecordListSection({
   const table = useReactTable({
     data: records,
     columns,
-    state: {
-      columnFilters:
-        kindFilter === 'all' ? [] : [{ id: 'kind', value: kindFilter }],
-    },
+    state: { columnFilters },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   })
@@ -703,10 +710,25 @@ export function RecordListSection({
           No notebook records yet
         </p>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-          Experiments, protocol templates and reports created in this project
-          will appear here. The first notebook comes with a useful starting
-          canvas — not a blank page.
+          Start an experiment to capture your objective, methods and results.
+          You can also browse reusable templates before starting.
         </p>
+        {onCreateExperiment && (
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Button size="sm" onClick={onCreateExperiment}>
+              <FlaskConical className="size-4" />
+              Create your first experiment
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link
+                to="/templates"
+                search={{ template: undefined, protocol: undefined }}
+              >
+                Browse templates
+              </Link>
+            </Button>
+          </div>
+        )}
       </section>
     )
   }

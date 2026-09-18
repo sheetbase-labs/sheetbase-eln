@@ -103,7 +103,7 @@ export function WorkflowWorkbench({
   }, [dryRun])
   if (!selected) {
     return (
-      <Empty className="border-border m-4 border">
+      <Empty className="mx-4 my-8">
         <EmptyIcon>
           <Bot className="size-8" />
         </EmptyIcon>
@@ -138,8 +138,8 @@ export function WorkflowWorkbench({
         100
 
   return (
-    <div className="border-border grid min-h-0 flex-1 border-t lg:grid-cols-[320px_minmax(0,1fr)]">
-      <ScrollArea className="bg-sidebar border-border min-h-[260px] border-b lg:border-r lg:border-b-0">
+    <div className="border-border grid min-h-0 flex-1 overflow-auto border-t lg:grid-cols-[280px_minmax(0,1fr)]">
+      <ScrollArea className="border-border max-h-64 border-b lg:max-h-none lg:border-r lg:border-b-0">
         <div className="p-2">
           {workflows.map((workflow) => (
             <button
@@ -167,7 +167,7 @@ export function WorkflowWorkbench({
                 )}{' '}
                 of {workflow.plan.steps.length}
               </p>
-              <p className="text-muted-foreground mt-1 font-mono text-[11px]">
+              <p className="text-muted-foreground mt-1 break-all font-mono text-xs">
                 {workflow.created_at.slice(0, 16).replace('T', ' ')} · r
                 {workflow.revision}
               </p>
@@ -176,7 +176,7 @@ export function WorkflowWorkbench({
         </div>
       </ScrollArea>
 
-      <ScrollArea className="min-h-0">
+      <div className="min-h-0 min-w-0 overflow-auto">
         <article className="mx-auto max-w-5xl p-4 lg:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -203,8 +203,10 @@ export function WorkflowWorkbench({
                   </Badge>
                 )}
               </div>
-              <h2 className="text-lg font-semibold">{selected.goal}</h2>
-              <p className="text-muted-foreground mt-1 font-mono text-xs">
+              <h2 className="break-words text-base font-semibold">
+                {selected.goal}
+              </h2>
+              <p className="text-muted-foreground mt-1 break-all font-mono text-xs">
                 Plan {selected.plan_digest}
               </p>
             </div>
@@ -303,7 +305,7 @@ export function WorkflowWorkbench({
 
           <Separator className="my-5" />
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-            <div className="space-y-5">
+            <div className="min-w-0 space-y-5">
               <section aria-labelledby="workflow-dry-run">
                 <h3 id="workflow-dry-run" className="text-sm font-semibold">
                   Dry-run preview
@@ -326,7 +328,7 @@ export function WorkflowWorkbench({
                           <p className="text-sm font-medium">
                             {preview.position + 1}. {preview.title}
                           </p>
-                          <p className="text-muted-foreground mt-0.5 font-mono text-[11px]">
+                          <p className="text-muted-foreground mt-0.5 break-all font-mono text-xs">
                             {preview.tool} · {preview.mode} ·{' '}
                             {preview.operationKind} · {preview.riskClass}
                           </p>
@@ -462,7 +464,7 @@ export function WorkflowWorkbench({
                         const rows = [...pins, ...outputs]
                         if (rows.length === 0) return null
                         return (
-                          <ul className="text-muted-foreground mt-2 space-y-1 font-mono text-[11px]">
+                          <ul className="text-muted-foreground mt-2 space-y-1 break-all font-mono text-xs">
                             {rows.map((row) => (
                               <li key={row.key}>{row.text}</li>
                             ))}
@@ -491,7 +493,7 @@ export function WorkflowWorkbench({
               </section>
             </div>
 
-            <aside className="space-y-5">
+            <aside className="min-w-0 space-y-5">
               <section aria-labelledby="workflow-budget">
                 <h3 id="workflow-budget" className="text-sm font-semibold">
                   Budget and usage
@@ -580,7 +582,7 @@ export function WorkflowWorkbench({
             </aside>
           </div>
         </article>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

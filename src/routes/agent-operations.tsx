@@ -54,7 +54,9 @@ const dataClient = createDataClient()
 function AgentOperationsRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<'workflows' | 'proposals'>('workflows')
+  const [tab, setTab] = useState<'workflows' | 'proposals' | 'policies'>(
+    'workflows',
+  )
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(
     null,
@@ -307,12 +309,12 @@ function AgentOperationsRoute() {
   })
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="px-4 pt-4 md:px-6 md:pt-6">
         <PageHeader
-          eyebrow={context.workspace?.name ?? undefined}
+          compact
           title="Agent operations"
-          description="Inspect pinned plans and policy evidence. Safe drafts and delegated create/append writes can run automatically; other Dataset writes wait for a human."
+          description="Monitor agent workflows, review proposed changes and manage execution policies."
           className="border-0 pb-4"
         />
       </div>
@@ -324,13 +326,20 @@ function AgentOperationsRoute() {
       <Tabs
         value={tab}
         onValueChange={(value) =>
-          setTab(value === 'proposals' ? 'proposals' : 'workflows')
+          setTab(
+            value === 'policies'
+              ? 'policies'
+              : value === 'proposals'
+                ? 'proposals'
+                : 'workflows',
+          )
         }
         className="flex min-h-0 flex-1 flex-col"
       >
-        <TabsList className="mx-4 mb-3 w-fit">
+        <TabsList className="mx-4 mb-3 w-fit max-w-[calc(100%-2rem)] md:mx-6">
           <TabsTrigger value="workflows">Workflows</TabsTrigger>
-          <TabsTrigger value="proposals">Operation proposals</TabsTrigger>
+          <TabsTrigger value="proposals">Proposals</TabsTrigger>
+          <TabsTrigger value="policies">Policies</TabsTrigger>
         </TabsList>
         <TabsContent
           value="workflows"
@@ -361,19 +370,8 @@ function AgentOperationsRoute() {
         </TabsContent>
         <TabsContent
           value="proposals"
-          className="mt-0 flex min-h-0 flex-col overflow-auto"
+          className="mt-0 flex min-h-0 flex-1 flex-col overflow-auto"
         >
-          <AgentOperationPolicyPanel
-            policies={policiesQuery.data ?? []}
-            credentials={(credentialsQuery.data ?? []).map((credential) => ({
-              id: credential.id,
-              name: credential.name,
-              displayPrefix: credential.displayPrefix,
-            }))}
-            canManage={canManagePolicies}
-            onCreate={(input) => policyMutation.mutate(input)}
-            onDisable={(policy) => disablePolicyMutation.mutate(policy.id)}
-          />
           {proposalsQuery.isLoading ? (
             <Skeleton className="m-4 h-72" />
           ) : (
@@ -391,6 +389,22 @@ function AgentOperationsRoute() {
               pendingAction={pendingAction}
             />
           )}
+        </TabsContent>
+        <TabsContent
+          value="policies"
+          className="mt-0 min-h-0 flex-1 overflow-auto"
+        >
+          <AgentOperationPolicyPanel
+            policies={policiesQuery.data ?? []}
+            credentials={(credentialsQuery.data ?? []).map((credential) => ({
+              id: credential.id,
+              name: credential.name,
+              displayPrefix: credential.displayPrefix,
+            }))}
+            canManage={canManagePolicies}
+            onCreate={(input) => policyMutation.mutate(input)}
+            onDisable={(policy) => disablePolicyMutation.mutate(policy.id)}
+          />
         </TabsContent>
       </Tabs>
     </div>

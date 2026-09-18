@@ -43,9 +43,9 @@ function PipelineRunRoute() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="px-4 pt-4">
         <PageHeader
-          eyebrow="Pipeline run"
+          compact
           title={`Run ${runId.slice(0, 8)}`}
-          description="Deterministic execution record: pinned inputs, produced outputs and the append-only stage log."
+          description="Inputs, ELN action results, outputs and execution log."
           className="border-0 pb-4"
         />
       </div>

@@ -66,6 +66,8 @@ services:
       PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:?Set PGRST_JWT_SECRET in the development env file}
       POSTGREST_URL: http://postgrest:3000
       POSTGREST_ADMIN_URL: http://postgrest:3001
+      PIPELINE_PYTHON_RUNNER_URL: ${PIPELINE_PYTHON_RUNNER_URL:-}
+      PIPELINE_PYTHON_RUNNER_TOKEN: ${PIPELINE_PYTHON_RUNNER_TOKEN:-}
       FILE_STORAGE_BACKEND: local
       FILE_STORAGE_DIR: /app/.storage/objects
     volumes:

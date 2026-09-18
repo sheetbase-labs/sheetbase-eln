@@ -670,4 +670,73 @@ describe('ShellProvider + useShell', () => {
     // Inspector from the previous route should be gone
     expect(screen.queryByText('Inspector A')).toBeNull()
   })
+
+  it('renders and updates the route action, then removes it when the route unmounts', async () => {
+    const onAction = vi.fn()
+    function ActionRoute({ pending = false }: { pending?: boolean }) {
+      useShell({
+        context: baseContext,
+        primaryAction: (
+          <button type="button" disabled={pending} onClick={onAction}>
+            {pending ? 'Creating…' : 'New project'}
+          </button>
+        ),
+      })
+      return <p>Projects route</p>
+    }
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <ShellProvider>
+        <ActionRoute />
+      </ShellProvider>,
+    )
+
+    await user.click(await screen.findByRole('button', { name: 'New project' }))
+    expect(onAction).toHaveBeenCalledOnce()
+
+    rerender(
+      <ShellProvider>
+        <ActionRoute pending />
+      </ShellProvider>,
+    )
+    expect(screen.queryByRole('button', { name: 'New project' })).toBeNull()
+    expect(
+      (await screen.findByRole('button', { name: 'Creating…' })).hasAttribute(
+        'disabled',
+      ),
+    ).toBe(true)
+
+    // A different route omits primaryAction entirely; cleanup must remove it.
+    rerender(
+      <ShellProvider>
+        <FakeRoute label="Next route" />
+      </ShellProvider>,
+    )
+    expect(screen.getByTestId('route-content').textContent).toBe('Next route')
+    expect(screen.queryByRole('button', { name: 'Creating…' })).toBeNull()
+  })
+})
+
+describe('Shell layout transitions', () => {
+  it('preserves the mounted route when its fullBleed layout changes', async () => {
+    const user = userEvent.setup()
+    const client = new QueryClient()
+    const layout = (fullBleed: boolean) => (
+      <QueryClientProvider client={client}>
+        <AppShell context={baseContext} breadcrumbs={[]} fullBleed={fullBleed}>
+          <input aria-label="Route draft" defaultValue="" />
+        </AppShell>
+      </QueryClientProvider>
+    )
+    const { rerender } = render(layout(false))
+    await user.type(
+      screen.getByRole<HTMLInputElement>('textbox', { name: 'Route draft' }),
+      'Keep this draft',
+    )
+    rerender(layout(true))
+    expect(
+      screen.getByRole<HTMLInputElement>('textbox', { name: 'Route draft' })
+        .value,
+    ).toBe('Keep this draft')
+  })
 })

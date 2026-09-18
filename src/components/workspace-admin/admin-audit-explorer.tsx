@@ -10,6 +10,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Select,
 } from '#/components/ui'
 import {
   ACTION_LABELS,
@@ -127,11 +128,11 @@ export function AdminAuditExplorer({
       >
         <label className="space-y-1 text-xs">
           <span className="text-muted-foreground">Object type</span>
-          <select
+          <Select
             value={entityType}
             onChange={(event) => setEntityType(event.target.value)}
             aria-label="Object type filter"
-            className="block h-8 w-40 rounded-md border bg-background px-2 py-1 text-sm"
+            className="h-8 w-40"
           >
             <option value="">All types</option>
             {ENTITY_OPTIONS.map((value) => (
@@ -139,15 +140,15 @@ export function AdminAuditExplorer({
                 {ENTITY_LABELS[value] ?? humanize(value)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="space-y-1 text-xs">
           <span className="text-muted-foreground">Action</span>
-          <select
+          <Select
             value={operation}
             onChange={(event) => setOperation(event.target.value)}
             aria-label="Action filter"
-            className="block h-8 w-36 rounded-md border bg-background px-2 py-1 text-sm"
+            className="h-8 w-36"
           >
             <option value="">All actions</option>
             {OPERATION_OPTIONS.map((value) => (
@@ -155,15 +156,15 @@ export function AdminAuditExplorer({
                 {ACTION_LABELS[value] ?? humanize(value)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="space-y-1 text-xs">
           <span className="text-muted-foreground">Actor</span>
-          <select
+          <Select
             value={actorUserId}
             onChange={(event) => setActorUserId(event.target.value)}
             aria-label="Actor filter"
-            className="block h-8 w-44 rounded-md border bg-background px-2 py-1 text-sm"
+            className="h-8 w-44"
           >
             <option value="">All actors</option>
             {actors.map((actor) => (
@@ -171,7 +172,7 @@ export function AdminAuditExplorer({
                 {actor.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="space-y-1 text-xs">
           <span className="text-muted-foreground">From</span>

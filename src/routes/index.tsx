@@ -1,3 +1,4 @@
+import { MetricSummary } from '#/components/scientific/metric-summary'
 import { useQuery } from '@tanstack/react-query'
 import {
   createFileRoute,
@@ -347,12 +348,9 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
     .slice(0, 3)
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
+    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 md:p-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            {todayLabel}
-          </p>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
             {greeting}, {context.user.name.split(/\s+/)[0]}
           </h1>
@@ -360,11 +358,14 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
             Here&apos;s what&apos;s on your plate today.
           </p>
         </div>
+        <p className="text-sm text-muted-foreground">{todayLabel}</p>
       </header>
+
+      <QuickActionsGrid />
 
       <section
         aria-label="Summary"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+        className="grid grid-cols-1 gap-x-5 gap-y-3 border-y border-border py-3 sm:grid-cols-2 xl:grid-cols-5"
       >
         {metrics.map((metric, i) => {
           const isLoading =
@@ -377,64 +378,33 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
                   : i === 3
                     ? activityQuery.isLoading
                     : myMentionsQuery.isLoading
-          const icon =
-            i === 0
-              ? FlaskConical
-              : i === 1
-                ? Inbox
-                : i === 2
-                  ? ClipboardList
-                  : i === 3
-                    ? ActivityIcon
-                    : AtSign
-          const tone: CardTone =
-            i === 0
-              ? 'info'
-              : i === 1
-                ? 'violet'
-                : i === 2
-                  ? 'warning'
-                  : i === 3
-                    ? 'neutral'
-                    : 'info'
           return (
             <MetricCard
               key={metric.label}
               metric={metric}
               loading={isLoading}
-              icon={icon}
-              tone={tone}
               deadlineHint={i === 1 ? deadlineHint : undefined}
             />
           )
         })}
       </section>
 
-      <QuickActionsGrid />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <RecentSection
+          items={recentsQuery.data ?? []}
+          isLoading={recentsQuery.isLoading}
+          error={recentsQuery.error}
+          onRetry={() => recentsQuery.refetch()}
+        />
 
-      <FavouritesSection
-        items={favouritesQuery.data ?? []}
-        isLoading={favouritesQuery.isLoading}
-        error={favouritesQuery.error}
-        onRetry={() => favouritesQuery.refetch()}
-        onRemove={(item) =>
-          favouriteMutation.mutate({
-            kind: item.kind,
-            objectId: item.id,
-            favourite: false,
-          })
-        }
-      />
+        <MyPrioritiesPanel
+          priorities={myPriorities}
+          isLoading={myReviewsQuery.isLoading}
+        />
+      </div>
 
-      <RecentSection
-        items={recentsQuery.data ?? []}
-        isLoading={recentsQuery.isLoading}
-        error={recentsQuery.error}
-        onRetry={() => recentsQuery.refetch()}
-      />
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-5">
           <RecentWorkTable
             records={myRecords.slice(0, 6)}
             projectById={projectById}
@@ -455,21 +425,29 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
             currentUserId={userId}
             userLabel={userLabel}
           />
-          <ActivityFeed
-            items={recentActivity}
-            isLoading={activityQuery.isLoading}
-            error={activityQuery.error}
-            onRetry={() => activityQuery.refetch()}
-            currentUserId={userId}
-            userLabel={userLabel}
+          <ProjectQuickAccess
+            projects={projects}
+            isLoading={projectsQuery.isLoading}
+            error={projectsQuery.error}
+            onRetry={() => projectsQuery.refetch()}
           />
         </div>
 
         <div className="space-y-6">
-          <MyPrioritiesPanel
-            priorities={myPriorities}
-            isLoading={myReviewsQuery.isLoading}
+          <FavouritesSection
+            items={favouritesQuery.data ?? []}
+            isLoading={favouritesQuery.isLoading}
+            error={favouritesQuery.error}
+            onRetry={() => favouritesQuery.refetch()}
+            onRemove={(item) =>
+              favouriteMutation.mutate({
+                kind: item.kind,
+                objectId: item.id,
+                favourite: false,
+              })
+            }
           />
+
           <PinnedRecordsPanel
             pinnedRecords={pinnedRecords}
             isLoading={pinnedQuery.isLoading}
@@ -479,27 +457,18 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
             pendingReviews={pendingReviews}
             isLoading={myReviewsQuery.isLoading}
           />
+          <ActivityFeed
+            items={recentActivity}
+            isLoading={activityQuery.isLoading}
+            error={activityQuery.error}
+            onRetry={() => activityQuery.refetch()}
+            currentUserId={userId}
+            userLabel={userLabel}
+          />
         </div>
       </div>
-
-      <ProjectQuickAccess
-        projects={projects}
-        isLoading={projectsQuery.isLoading}
-        error={projectsQuery.error}
-        onRetry={() => projectsQuery.refetch()}
-      />
     </div>
   )
-}
-
-type CardTone = 'info' | 'success' | 'warning' | 'violet' | 'neutral'
-
-const summaryToneClasses: Record<CardTone, string> = {
-  info: 'text-blue-600 dark:text-blue-400',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  warning: 'text-amber-600 dark:text-amber-400',
-  violet: 'text-violet-600 dark:text-violet-400',
-  neutral: 'text-muted-foreground',
 }
 
 const hintToneClasses: Record<
@@ -523,55 +492,23 @@ const hintToneClasses: Record<
 function MetricCard({
   metric,
   loading,
-  icon: Icon,
-  tone,
   deadlineHint,
 }: {
   metric: DashboardMetric
   loading?: boolean
-  icon: LucideIcon
-  tone: CardTone
   deadlineHint?: string
 }) {
   const card = (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {metric.label}
-        </span>
-        <Icon
-          className={`size-4 ${summaryToneClasses[tone]}`}
-          aria-hidden="true"
-        />
-      </div>
-      {loading ? (
-        <Skeleton className="mt-2 h-7 w-10" />
-      ) : (
-        <p
-          className="mt-1.5 font-display text-2xl font-semibold tabular-nums leading-none text-foreground"
-          title={metric.timeBoundary}
-        >
-          {metric.value}
-        </p>
-      )}
-      {metric.hint ? (
-        <p
-          className={cn(
-            'mt-1 text-xs',
-            metric.hintTone
-              ? hintToneClasses[metric.hintTone]
-              : 'text-muted-foreground',
-          )}
-        >
-          {metric.hint}
-        </p>
-      ) : null}
-      {deadlineHint ? (
-        <p className="mt-0.5 text-xs text-blue-600 dark:text-blue-400">
-          {deadlineHint}
-        </p>
-      ) : null}
-    </div>
+    <MetricSummary
+      label={metric.label}
+      value={loading ? <Skeleton className="h-6 w-6" /> : metric.value}
+      valueDescription={metric.timeBoundary}
+      hint={metric.hint}
+      hintClassName={
+        metric.hintTone ? hintToneClasses[metric.hintTone] : undefined
+      }
+      detail={deadlineHint}
+    />
   )
 
   if (metric.linkTo && !loading) {
@@ -579,7 +516,7 @@ function MetricCard({
       <Link
         to={metric.linkTo}
         params={metric.linkParams}
-        className="no-underline contents"
+        className="block min-w-0 rounded-md no-underline hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {card}
       </Link>
@@ -655,42 +592,33 @@ function QuickActionsGrid() {
   const [createOpen, setCreateOpen] = useState(false)
   return (
     <section aria-label="Quick actions">
-      <h2 className="mb-3 text-sm font-semibold text-foreground">
-        Quick actions
-      </h2>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <h2 className="sr-only">Quick actions</h2>
+      <ul className="flex flex-wrap items-center gap-2">
         {QUICK_ACTIONS.map((action) => {
           const Icon = action.icon
-          const body = (
-            <>
-              <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <Icon className="size-4" aria-hidden="true" />
-              </span>
-              <span className="text-sm font-medium text-foreground">
-                {action.label}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {action.hint}
-              </span>
-            </>
-          )
           return (
             <li key={action.label}>
               {action.action === 'create-experiment' ? (
-                <button
+                <Button
                   type="button"
-                  className="flex h-full w-full flex-col gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted/40"
+                  size="sm"
+                  title={action.hint}
                   onClick={() => setCreateOpen(true)}
                 >
-                  {body}
-                </button>
+                  <Icon className="size-4" aria-hidden="true" />
+                  {action.label}
+                </Button>
               ) : (
-                <Link
-                  to={action.to}
-                  className="flex h-full flex-col gap-2 rounded-lg border border-border bg-card p-3 no-underline transition-colors hover:bg-muted/40"
-                >
-                  {body}
-                </Link>
+                <Button asChild variant="ghost" size="sm">
+                  <Link
+                    to={action.to}
+                    title={action.hint}
+                    className="no-underline"
+                  >
+                    <Icon className="size-4" aria-hidden="true" />
+                    {action.label}
+                  </Link>
+                </Button>
               )}
             </li>
           )
@@ -728,16 +656,13 @@ export function FavouritesSection({
   onRemove: (item: FavouriteItem) => void
 }) {
   return (
-    <section
-      aria-label="Favourites"
-      className="rounded-lg border border-border bg-card"
-    >
+    <section aria-label="Favourites" className="min-w-0 border-t border-border">
       <SectionHeader
         title="Favourites"
         count={isLoading ? undefined : items.length}
       />
       {isLoading ? (
-        <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-1">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
@@ -751,7 +676,7 @@ export function FavouritesSection({
           body="Use the star on any Notebook, Sheet, Dataset, project or template to pin the work you return to most."
         />
       ) : (
-        <ul className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-1">
           {items.map((item) => {
             const Icon = RECENT_KIND_ICONS[item.kind]
             return (
@@ -847,16 +772,13 @@ export function RecentSection({
   onRetry: () => void
 }) {
   return (
-    <section
-      aria-label="Recent"
-      className="rounded-lg border border-border bg-card"
-    >
+    <section aria-label="Recent" className="min-w-0 border-t border-border">
       <SectionHeader
         title="Recent"
         count={isLoading ? undefined : items.length}
       />
       {isLoading ? (
-        <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 p-3 sm:grid-cols-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
@@ -877,11 +799,11 @@ export function RecentSection({
           }
         />
       ) : (
-        <ul className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-px bg-border sm:grid-cols-2">
           {items.map((item) => {
             const Icon = RECENT_KIND_ICONS[item.kind]
             return (
-              <li key={`${item.kind}:${item.id}`} className="bg-card">
+              <li key={`${item.kind}:${item.id}`} className="bg-background">
                 <Link
                   to={item.destination}
                   className="flex h-full items-center gap-3 px-4 py-3 no-underline transition-colors hover:bg-muted/40"
@@ -946,10 +868,7 @@ export function RecentWorkTable({
 }) {
   if (isLoading) {
     return (
-      <section
-        aria-label={title}
-        className="rounded-lg border border-border bg-card"
-      >
+      <section aria-label={title} className="min-w-0 border-t border-border">
         <SectionHeader title={title} />
         <div className="space-y-2 p-3">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -962,10 +881,7 @@ export function RecentWorkTable({
 
   if (error) {
     return (
-      <section
-        aria-label={title}
-        className="rounded-lg border border-border bg-card"
-      >
+      <section aria-label={title} className="min-w-0 border-t border-border">
         <SectionHeader title={title} />
         <ErrorState
           message={`Could not load ${title.toLowerCase()}.`}
@@ -977,10 +893,7 @@ export function RecentWorkTable({
 
   if (records.length === 0) {
     return (
-      <section
-        aria-label={title}
-        className="rounded-lg border border-border bg-card"
-      >
+      <section aria-label={title} className="min-w-0 border-t border-border">
         <SectionHeader title={title} />
         <EmptyState
           icon={FlaskConical}
@@ -999,21 +912,16 @@ export function RecentWorkTable({
   }
 
   return (
-    <section
-      aria-label={title}
-      className="rounded-lg border border-border bg-card"
-    >
+    <section aria-label={title} className="min-w-0 border-t border-border">
       <SectionHeader title={title} count={records.length} />
-      <Table>
+      <Table variant="quiet" className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead className="hidden sm:table-cell">Project</TableHead>
+            <TableHead className="w-1/2">Title</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="hidden text-right sm:table-cell">
               Updated
             </TableHead>
-            <TableHead className="hidden md:table-cell">Owner</TableHead>
             {onTogglePin ? <TableHead className="w-8" /> : null}
           </TableRow>
         </TableHeader>
@@ -1040,28 +948,21 @@ export function RecentWorkTable({
                       </span>
                     </span>
                   </Link>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
                   {project ? (
                     <Link
                       to="/projects/$projectId"
                       params={{ projectId: project.id }}
-                      className="truncate text-sm text-muted-foreground no-underline hover:text-foreground"
+                      className="mt-1 block truncate text-xs text-muted-foreground no-underline hover:text-foreground"
                     >
                       {project.title}
                     </Link>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">—</span>
-                  )}
+                  ) : null}
                 </TableCell>
                 <TableCell>
                   <StatusBadge domain="experiment" status={record.status} />
                 </TableCell>
                 <TableCell className="hidden text-right text-xs tabular-nums text-muted-foreground sm:table-cell">
                   {formatRelativeTime(record.updatedAt)}
-                </TableCell>
-                <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                  <span aria-label="Owner not available">—</span>
                 </TableCell>
                 {onTogglePin ? (
                   <TableCell className="w-8">
@@ -1130,7 +1031,7 @@ export function MentionsPanel({
     return (
       <section
         aria-label="Mentions and comments"
-        className="rounded-lg border border-border bg-card"
+        className="min-w-0 border-t border-border"
       >
         <SectionHeader title="Mentions & comments" />
         <div className="space-y-2 p-3">
@@ -1146,7 +1047,7 @@ export function MentionsPanel({
     return (
       <section
         aria-label="Mentions and comments"
-        className="rounded-lg border border-border bg-card"
+        className="min-w-0 border-t border-border"
       >
         <SectionHeader title="Mentions & comments" />
         <ErrorState message="Could not load mentions." onRetry={onRetry} />
@@ -1158,7 +1059,7 @@ export function MentionsPanel({
     return (
       <section
         aria-label="Mentions and comments"
-        className="rounded-lg border border-border bg-card"
+        className="min-w-0 border-t border-border"
       >
         <SectionHeader title="Mentions & comments" />
         <EmptyState
@@ -1173,7 +1074,7 @@ export function MentionsPanel({
   return (
     <section
       aria-label="Mentions and comments"
-      className="rounded-lg border border-border bg-card"
+      className="min-w-0 border-t border-border"
     >
       <SectionHeader
         title="Mentions & comments"
@@ -1234,7 +1135,7 @@ export function ActivityFeed({
     return (
       <section
         aria-label="Recent activity"
-        className="rounded-lg border border-border bg-card"
+        className="min-w-0 border-t border-border"
       >
         <SectionHeader title="Recent activity" />
         <div className="space-y-2 p-3">
@@ -1250,7 +1151,7 @@ export function ActivityFeed({
     return (
       <section
         aria-label="Recent activity"
-        className="rounded-lg border border-border bg-card"
+        className="min-w-0 border-t border-border"
       >
         <SectionHeader title="Recent activity" />
         <ErrorState message="Could not load activity." onRetry={onRetry} />
@@ -1262,7 +1163,7 @@ export function ActivityFeed({
     return (
       <section
         aria-label="Recent activity"
-        className="rounded-lg border border-border bg-card"
+        className="min-w-0 border-t border-border"
       >
         <SectionHeader title="Recent activity" />
         <EmptyState
@@ -1277,11 +1178,18 @@ export function ActivityFeed({
   return (
     <section
       aria-label="Recent activity"
-      className="rounded-lg border border-border bg-card"
+      className="min-w-0 border-t border-border"
     >
-      <SectionHeader title="Recent activity" count={items.length} />
+      <SectionHeader
+        title="Recent activity"
+        action={
+          <span className="text-xs text-muted-foreground">
+            Latest {Math.min(items.length, 5)}
+          </span>
+        }
+      />
       <ul className="divide-y divide-border">
-        {items.slice(0, 15).map((item) => {
+        {items.slice(0, 5).map((item) => {
           const isMe = item.actorUserId === currentUserId
           const actor = isMe
             ? 'You'
@@ -1324,7 +1232,7 @@ export function MyPrioritiesPanel({
   return (
     <section
       aria-label="My priorities"
-      className="rounded-lg border border-border bg-card"
+      className="min-w-0 border-t border-border"
     >
       <SectionHeader title="My priorities" />
       {isLoading ? (
@@ -1395,7 +1303,7 @@ export function PinnedRecordsPanel({
   return (
     <section
       aria-label="Pinned items"
-      className="rounded-lg border border-border bg-card"
+      className="min-w-0 border-t border-border"
     >
       <SectionHeader title="Pinned items" />
       {isLoading ? (
@@ -1463,7 +1371,7 @@ export function UpcomingApprovalsPanel({
   return (
     <section
       aria-label="Upcoming approvals"
-      className="rounded-lg border border-border bg-card"
+      className="min-w-0 border-t border-border"
     >
       <SectionHeader title="Upcoming approvals" />
       {isLoading ? (
@@ -1536,10 +1444,7 @@ export function ProjectQuickAccess({
   onRetry: () => void
 }) {
   return (
-    <section
-      aria-label="Projects"
-      className="rounded-lg border border-border bg-card"
-    >
+    <section aria-label="Projects" className="min-w-0 border-t border-border">
       <SectionHeader
         title="Projects"
         count={projects.length}
@@ -1553,7 +1458,7 @@ export function ProjectQuickAccess({
         }
       />
       {isLoading ? (
-        <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2 p-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
@@ -1574,13 +1479,13 @@ export function ProjectQuickAccess({
           }
         />
       ) : (
-        <ul className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-2 p-3">
           {projects.slice(0, 6).map((project) => (
             <li key={project.id}>
               <Link
                 to="/projects/$projectId"
                 params={{ projectId: project.id }}
-                className="flex h-full flex-col gap-2 rounded-md border border-border p-3 no-underline transition-colors hover:bg-muted/40"
+                className="flex h-full flex-col gap-1 rounded-md p-2 no-underline transition-colors hover:bg-muted/40"
               >
                 <div className="flex items-center gap-2">
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -1616,7 +1521,7 @@ function SectionHeader({
   action?: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+    <div className="flex min-h-9 items-center justify-between gap-2 border-b border-border px-4 py-1">
       <div className="flex items-center gap-2">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         {count !== undefined ? (
@@ -1642,15 +1547,18 @@ function EmptyState({
   action?: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-      <span className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Icon className="size-4" />
-      </span>
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="mx-auto max-w-xs text-xs leading-5 text-muted-foreground">
-        {body}
-      </p>
-      {action ? <div className="mt-1">{action}</div> : null}
+    <div className="flex items-start gap-3 px-4 py-3">
+      <Icon
+        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="max-w-prose text-xs leading-5 text-muted-foreground">
+          {body}
+        </p>
+        {action ? <div className="pt-1">{action}</div> : null}
+      </div>
     </div>
   )
 }
@@ -1700,10 +1608,10 @@ function BootstrapRecovery({ userName }: { userName: string }) {
           {error}
         </p>
       ) : null}
-      <button
+      <Button
         type="button"
         disabled={pending}
-        className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        className="px-4"
         onClick={async () => {
           setPending(true)
           setError(null)
@@ -1717,7 +1625,7 @@ function BootstrapRecovery({ userName }: { userName: string }) {
         }}
       >
         {pending ? 'Creating workspace…' : 'Create my workspace'}
-      </button>
+      </Button>
     </div>
   )
 }

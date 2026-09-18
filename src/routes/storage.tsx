@@ -254,7 +254,7 @@ function StorageRoute() {
       <div className="h-full overflow-auto bg-muted/20">
         <div className="space-y-3 p-3 lg:p-4 xl:space-y-4 xl:p-6">
           <PageHeader
-            eyebrow={context.workspace?.name ?? undefined}
+            compact
             title="Freezer & Storage Map"
             description="Navigate storage locations, review capacity, and manage sample positions."
             className="gap-2 pb-2 lg:[&_[data-slot=page-header-content]>p]:hidden xl:gap-4 xl:pb-4 xl:[&_[data-slot=page-header-content]>p]:block"

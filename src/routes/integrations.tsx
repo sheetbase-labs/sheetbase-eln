@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { Plus, Plug } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import { RegisterConnectorDialog } from '#/components/integrations/register-connector-dialog'
@@ -82,9 +82,9 @@ function IntegrationsRoute() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="px-4 pt-4">
         <PageHeader
-          eyebrow={context.workspace?.name ?? undefined}
+          compact
           title="Integrations"
-          description="One governed framework for every connector: identity, credentials, runs, retries, errors and provenance."
+          description="Connect instruments and storage, check recent runs and resolve failures."
           className="border-0 pb-4"
         >
           {canManage && (
@@ -107,13 +107,19 @@ function IntegrationsRoute() {
             {describeConnectorsError(connectorsQuery.error)}
           </p>
         )}
-        {connectors.length === 0 ? (
+        {connectorsQuery.isLoading ? (
+          <p role="status" className="py-8 text-sm text-muted-foreground">
+            Loading integrations…
+          </p>
+        ) : connectorsQuery.error ? null : connectors.length === 0 ? (
           <Empty>
-            <EmptyIcon>🔌</EmptyIcon>
+            <EmptyIcon>
+              <Plug aria-hidden="true" />
+            </EmptyIcon>
             <EmptyTitle>No connectors yet</EmptyTitle>
             <EmptyDescription>
-              Register an instrument or storage integration. Every execution is
-              recorded as a governed run with full provenance.
+              Register an instrument or storage connection to start importing
+              data.
             </EmptyDescription>
             {canManage && (
               <EmptyActions>

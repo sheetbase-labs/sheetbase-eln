@@ -228,9 +228,7 @@ describe('AdminRoute', () => {
         <AdminRoute />
       </ShellProvider>,
     )
-    expect(
-      screen.getByRole('heading', { name: 'Platform Administration' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Administration' })).toBeTruthy()
     expect(screen.getByLabelText('Administration sections')).toBeTruthy()
   })
 
@@ -295,7 +293,9 @@ describe('AdminRoute', () => {
       </ShellProvider>,
     )
     expect(screen.queryByText(/Administer workspace access/)).toBeNull()
-    expect(screen.getByText(/Security and platform operations/)).toBeTruthy()
+    expect(
+      screen.getByText(/Manage workspace access and activity/),
+    ).toBeTruthy()
     expect(screen.queryByText(/scientific models/i)).toBeNull()
   })
 

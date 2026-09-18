@@ -124,7 +124,7 @@ export function AgentOperationPolicyPanel({
       {canManage && (
         <form
           onSubmit={submit}
-          className="mt-3 grid gap-2 md:grid-cols-[minmax(140px,1fr)_minmax(160px,1fr)_150px_minmax(160px,1fr)_90px_auto]"
+          className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(140px,1fr)_minmax(160px,1fr)_150px_minmax(160px,1fr)_90px_auto]"
         >
           <div>
             <Label htmlFor="agent-policy-name">Policy name</Label>
@@ -173,7 +173,11 @@ export function AgentOperationPolicyPanel({
           </div>
           <div>
             <Label htmlFor="agent-policy-target-id">
-              {targetType === 'workspace' ? 'Target id' : `${targetType} id`}
+              {targetType === 'workspace'
+                ? 'Target ID'
+                : targetType === 'project'
+                  ? 'Project ID'
+                  : 'Dataset ID'}
             </Label>
             <Input
               id="agent-policy-target-id"
@@ -206,8 +210,8 @@ export function AgentOperationPolicyPanel({
         </form>
       )}
 
-      <div className="border-border mt-4 overflow-x-auto rounded-md border">
-        <Table>
+      <div className="border-border mt-4 overflow-x-auto border-y">
+        <Table variant="quiet">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>

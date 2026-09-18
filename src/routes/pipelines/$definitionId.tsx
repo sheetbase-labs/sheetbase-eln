@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react'
 import { useShell } from '#/components/app-shell'
 import { PipelineVersionEditor } from '#/components/pipelines/pipeline-version-editor'
 import { PipelineRunHistory } from '#/components/pipelines/pipeline-run-history'
+import { PipelineWebhookTrigger } from '#/components/pipelines/pipeline-webhook-trigger'
 import { PipelineSchedules } from '#/components/pipelines/pipeline-schedules'
 import {
   Badge,
@@ -48,6 +49,8 @@ function PipelineDefinitionRoute() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const [tab, setTab] = useState('editor')
+  const [editorDirty, setEditorDirty] = useState(false)
+  const [runVersionId, setRunVersionId] = useState('')
   const queryClient = useQueryClient()
 
   const definitionQuery = useQuery({
@@ -81,6 +84,13 @@ function PipelineDefinitionRoute() {
       ? (version.configuration as unknown as PipelineConfig)
       : null
   }
+  const runVersion =
+    versions.find(
+      (version) => version.id === runVersionId && version.lifecycle !== 'draft',
+    ) ??
+    latestPublished ??
+    versions.find((version) => version.lifecycle === 'retired') ??
+    null
   const latestConfig = latestPublished
     ? configForVersion(latestPublished.id)
     : null
@@ -125,6 +135,7 @@ function PipelineDefinitionRoute() {
       { label: 'Pipelines', to: '/pipelines' },
       { label: definition?.name ?? 'Pipeline' },
     ],
+    fullBleed: true,
   })
 
   if (definitionQuery.isLoading || versionsQuery.isLoading) {
@@ -139,35 +150,43 @@ function PipelineDefinitionRoute() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="px-4 pt-4 md:px-6 md:pt-6">
         <PageHeader
-          eyebrow={definition.key}
+          compact
           title={definition.name}
           description={definition.description ?? ''}
           className="border-0 pb-4"
         >
-          <Badge
-            variant={
-              definition.lifecycle === 'active' ? 'default' : 'secondary'
-            }
-          >
+          <Badge className="self-start" variant={'secondary'}>
             {definition.lifecycle}
           </Badge>
         </PageHeader>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-4 pb-8">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 pb-6 md:px-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="editor">Configuration</TabsTrigger>
+            <TabsTrigger value="editor">Build</TabsTrigger>
             <TabsTrigger value="runs">Run history</TabsTrigger>
-            <TabsTrigger value="schedules">Schedules</TabsTrigger>
+            <TabsTrigger value="schedules">Triggers</TabsTrigger>
             <TabsTrigger value="versions">Versions</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="editor" className="max-w-3xl">
+          <TabsContent
+            forceMount
+            value="editor"
+            className={tab === 'editor' ? 'max-w-6xl' : 'hidden'}
+          >
+            <p className="mb-4 text-sm text-muted-foreground">
+              {latestPublished
+                ? `Published v${latestPublished.version} is available to run. Save a new draft to change what happens next.`
+                : 'Set up the steps and output, save a draft, then publish it to enable runs and triggers.'}
+            </p>
             <PipelineVersionEditor
+              key={`${draft?.id ?? 'new'}:${draft?.revision ?? latestPublished?.id ?? 'first'}`}
+              initialConfiguration={latestPublished?.configuration}
+              onDirtyChange={setEditorDirty}
               dataClient={dataClient}
               workspaceId={workspaceId}
               definitionId={definitionId}
@@ -175,53 +194,101 @@ function PipelineDefinitionRoute() {
               canManage={canManage}
             />
             {draft && canManage && (
-              <div className="mt-4 flex items-center gap-2 border-t pt-4">
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
                 <Button
-                  disabled={publishMutation.isPending}
+                  disabled={publishMutation.isPending || editorDirty}
                   onClick={() => publishMutation.mutate()}
                 >
                   Publish v{draft.version}
                 </Button>
                 <span className="text-muted-foreground text-xs">
-                  Publishing freezes this version as the reproducible contract
-                  runs pin.
+                  {editorDirty
+                    ? 'Save your changes before publishing.'
+                    : 'Publish this saved draft to make it available for runs.'}
                 </span>
               </div>
             )}
-            {!draft && canManage && (
-              <p className="text-muted-foreground mt-4 text-xs">
-                No draft yet — edit above to create the first draft version.
+            {publishMutation.isError && (
+              <p role="alert" className="mt-2 text-sm text-destructive">
+                Could not publish this draft. Check its configuration and try
+                again.
+              </p>
+            )}
+            {publishMutation.isSuccess && !draft && (
+              <p role="status" className="mt-3 text-sm">
+                Version published.{' '}
+                <Button variant="link" onClick={() => setTab('runs')}>
+                  Run this pipeline
+                </Button>
               </p>
             )}
           </TabsContent>
 
           <TabsContent value="runs" className="max-w-5xl">
-            {latestPublished ? (
-              <PipelineRunHistory
-                dataClient={dataClient}
-                workspaceId={workspaceId}
-                version={latestPublished}
-                config={latestConfig ?? emptyConfig()}
-              />
+            {runVersion ? (
+              <>
+                <label className="mb-3 flex items-center gap-2 text-xs">
+                  Version
+                  <select
+                    className="h-8 rounded-md border bg-background px-2"
+                    aria-label="Run history version"
+                    value={runVersion.id}
+                    onChange={(e) => setRunVersionId(e.target.value)}
+                  >
+                    {versions
+                      .filter((version) => version.lifecycle !== 'draft')
+                      .map((version) => (
+                        <option key={version.id} value={version.id}>
+                          v{version.version}
+                          {version.lifecycle === 'retired' ? ' · retired' : ''}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <PipelineRunHistory
+                  key={runVersion.id}
+                  dataClient={dataClient}
+                  workspaceId={workspaceId}
+                  version={runVersion}
+                  config={configForVersion(runVersion.id) ?? emptyConfig()}
+                />
+              </>
             ) : (
               <p className="text-muted-foreground text-sm">
-                Publish a version before running. Runs pin the exact published
-                configuration that produced them.
+                Publish your first version in Build, then choose Run to supply
+                inputs and start it.
               </p>
             )}
           </TabsContent>
 
-          <TabsContent value="schedules" className="max-w-3xl">
-            <PipelineSchedules
-              dataClient={dataClient}
-              workspaceId={workspaceId}
-              definitionId={definitionId}
-              config={latestConfig ?? emptyConfig()}
-              canManage={canManage}
-            />
+          <TabsContent value="schedules" className="max-w-5xl">
+            {latestPublished ? (
+              <div className="space-y-6">
+                <PipelineSchedules
+                  dataClient={dataClient}
+                  workspaceId={workspaceId}
+                  definitionId={definitionId}
+                  config={latestConfig ?? emptyConfig()}
+                  canManage={canManage}
+                />
+                <PipelineWebhookTrigger
+                  definitionId={definitionId}
+                  canManage={canManage}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Publish a version in Build before adding triggers.
+              </p>
+            )}
           </TabsContent>
 
-          <TabsContent value="versions" className="max-w-3xl">
+          <TabsContent value="versions" className="max-w-5xl">
+            {retireMutation.isError && (
+              <p role="alert" className="mb-3 text-sm text-destructive">
+                Could not retire this version. Try again.
+              </p>
+            )}
             <div className="space-y-2">
               {versions.map((version) => (
                 <div

@@ -16,3 +16,7 @@ purpose:
 
 The generated external API specification is
 [`api/openapi/external-api-v0.json`](api/openapi/external-api-v0.json).
+
+The first UI/UX and QA assessment uses the
+[`notebook design and QA pilot`](development/notebook-design-qa.md), which defines
+the workflow brief, acceptance matrix and performance measurement protocol.

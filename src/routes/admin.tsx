@@ -529,15 +529,13 @@ function AdminRoute() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-4 md:px-8">
+      <div className="w-full px-4 pt-4 pb-3">
         <header>
           <div className="flex items-center gap-2">
-            <Shield className="size-5 text-primary" />
-            <h1 className="text-2xl font-semibold">Platform Administration</h1>
+            <h1 className="text-base font-semibold">Administration</h1>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Security and platform operations for this workspace. Steward
-            data-language configuration lives in{' '}
+            Manage workspace access and activity. Edit models in{' '}
             <Link
               to="/configure"
               search={{ kind: 'model', id: undefined, model: undefined }}
@@ -545,7 +543,7 @@ function AdminRoute() {
             >
               Configuration
             </Link>{' '}
-            and personal API tokens live in{' '}
+            and personal API tokens in{' '}
             <Link
               to="/settings"
               className="font-medium text-primary hover:underline"
@@ -561,7 +559,7 @@ function AdminRoute() {
         aria-label="Administration sections"
         className="border-y bg-muted/30"
       >
-        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-0 overflow-x-auto px-4 py-2 md:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-full items-center gap-0 overflow-x-auto px-4 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map((item) => {
             const active = item.key === activeSection
             return (
@@ -580,7 +578,7 @@ function AdminRoute() {
         </div>
       </nav>
 
-      <div className="mx-auto w-full max-w-[1600px] px-4 py-5 md:px-8">
+      <div className="w-full px-4 py-4">
         {sectionDenied ? (
           <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <p>
@@ -595,7 +593,7 @@ function AdminRoute() {
               >
                 Configuration
               </Link>
-              , and personal API tokens live in{' '}
+              , and personal API tokens in{' '}
               <Link to="/settings" className="font-medium underline">
                 Settings
               </Link>
@@ -606,7 +604,7 @@ function AdminRoute() {
           <section className="min-w-0 space-y-5">
             <header className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 className="text-xl font-semibold">{section.label}</h2>
+                <h2 className="text-sm font-semibold">{section.label}</h2>
                 <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
                   {section.description}
                 </p>

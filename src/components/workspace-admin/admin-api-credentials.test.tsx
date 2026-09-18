@@ -5,6 +5,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AdminApiCredentials } from './admin-api-credentials'
 import type { CredentialWire } from '#/lib/api-credential-admin'
 
+// jsdom does not implement ResizeObserver; Radix Checkbox reads it on mount.
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({
     names: { 'cred-owner': 'Cred Owner' },

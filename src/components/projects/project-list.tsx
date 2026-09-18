@@ -259,7 +259,7 @@ export function ProjectList({
             </TabsTrigger>
           </TabsList>
         </div>
-        <div className="flex items-end justify-between gap-x-3 border-b border-border">
+        <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-b border-border">
           <Tabs value={status} onValueChange={(value) => setStatus(value)}>
             <TabsList className="w-auto border-b-0">
               <TabsTrigger value="all">

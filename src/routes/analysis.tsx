@@ -543,13 +543,17 @@ export function AnalysisStudioHeader({
       className="flex shrink-0 flex-wrap items-center justify-between gap-3"
       aria-labelledby="analysis-title"
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="min-w-0">
         <h1
           id="analysis-title"
-          className="text-base font-semibold tracking-tight"
+          className="font-display text-headline font-heading tracking-tight"
         >
           Analysis Studio
         </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Build reproducible charts from typed specifications. Preview without
+          mutating sources; save, share and export with provenance.
+        </p>
       </div>
       <div className="flex items-center gap-2">
         {error ? (
@@ -560,7 +564,10 @@ export function AnalysisStudioHeader({
           <Badge variant="outline">No datasets</Badge>
         ) : (
           <Field className="flex items-center gap-2">
-            <FieldLabel htmlFor="analysis-data-source" className="sr-only">
+            <FieldLabel
+              htmlFor="analysis-data-source"
+              className="text-xs text-muted-foreground"
+            >
               Data source
             </FieldLabel>
             <Select

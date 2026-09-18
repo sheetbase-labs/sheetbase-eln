@@ -241,8 +241,10 @@ function PlateDesignerRoute() {
         <div className="space-y-4">
           <header className="flex flex-wrap items-center gap-2">
             <div className="mr-auto">
-              <h1 className="text-base font-semibold">Plate Designer</h1>
-              <p className="text-xs text-muted-foreground">
+              <h1 className="font-display text-headline font-heading tracking-tight">
+                Plate Designer
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Design, validate, and save microplate layouts.
               </p>
             </div>

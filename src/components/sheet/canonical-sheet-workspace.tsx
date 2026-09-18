@@ -1427,6 +1427,15 @@ export function CanonicalSheetEditor({
 
   return (
     <div className="flex h-full min-h-[24rem] flex-col">
+      <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-2 border-b px-3 py-2">
+        <h1 className="font-display text-headline font-heading tracking-tight">
+          {instance.name}
+        </h1>
+        <p className="text-xs text-muted-foreground">
+          {matrix.rowKeys.length} {matrix.rowKeys.length === 1 ? 'row' : 'rows'}{' '}
+          · {composed ? 'dataset-bound' : 'local'}
+        </p>
+      </div>
       <div className="flex shrink-0 items-center justify-end gap-2 border-b px-2 py-1">
         {visualiseDatasetId ? (
           <Button asChild size="sm" variant="outline">

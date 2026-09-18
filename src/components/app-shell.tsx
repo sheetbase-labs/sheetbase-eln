@@ -37,6 +37,11 @@ import {
   Star,
   Sun,
   Snowflake,
+  TestTube,
+  TestTubes,
+  Users,
+  BookOpen,
+  Waypoints,
   Workflow,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -391,7 +396,6 @@ export const SPECIALIST_NAV_HREFS = [
   '/calendar',
   '/planner',
   '/instrument-monitor',
-  '/storage',
 ] as const
 
 export const defaultNavSections: AppShellNavSection[] = [
@@ -404,49 +408,37 @@ export const defaultNavSections: AppShellNavSection[] = [
     ],
   },
   {
-    label: 'Scientific work',
+    label: 'Registries',
     items: [
-      { to: '/samples', label: 'Samples', icon: FlaskConical },
-      { to: '/reagents', label: 'Reagents', icon: FlaskConical },
+      { to: '/templates', label: 'Templates', icon: LayoutTemplate },
+      { to: '/reagents', label: 'Reagents', icon: TestTubes },
+      { to: '/samples', label: 'Samples', icon: TestTube },
       { to: '/datasets', label: 'Datasets', icon: Database },
+      { to: '/configure', label: 'Schemas', icon: Layers },
+      { to: '/storage', label: 'Storage', icon: Snowflake },
+    ],
+  },
+  {
+    label: 'Tools',
+    items: [
       { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
+      { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
+      { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
+      { to: '/report-builder', label: 'Report Builder', icon: BookOpen },
       {
         to: '/reviews',
         label: 'Reviews',
         icon: CheckCircle2,
         badge: 0,
       },
-    ],
-  },
-  {
-    label: 'Configuration',
-    items: [
-      { to: '/templates', label: 'Templates', icon: LayoutTemplate },
-      { to: '/configure', label: 'Models & schemas', icon: Layers },
-    ],
-  },
-  {
-    label: 'Automation',
-    items: [
+      { to: '/admin', label: 'Administration', icon: Users },
+      { to: '/planner', label: 'Study Planner', icon: GanttChart },
+      { to: '/lineage', label: 'Lineage', icon: Waypoints },
       { to: '/pipelines', label: 'Pipelines', icon: Workflow },
       { to: '/agent-operations', label: 'Agent operations', icon: Bot },
-    ],
-  },
-  {
-    label: 'Platform',
-    items: [
       { to: '/integrations', label: 'Integrations', icon: PlugZap },
-      { to: '/admin', label: 'Administration', icon: Settings },
-    ],
-  },
-  {
-    label: 'More',
-    items: [
-      { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
-      { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
-      { to: '/planner', label: 'Planner', icon: GanttChart },
       { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
-      { to: '/storage', label: 'Storage', icon: Snowflake },
+      { to: '/settings', label: 'Settings', icon: Settings },
     ],
   },
 ]
@@ -615,45 +607,15 @@ export function AppShell({
   const renderSidebarBody = (sidebarCollapsed: boolean) =>
     context ? (
       <div className="flex h-full flex-col">
-        <div className="flex h-14 items-center border-b border-sidebar-border px-3">
-          <Link
-            to="/"
-            aria-label="Sheetbase ELN home"
-            className="flex items-center gap-2 no-underline"
-            onClick={() => setMobileOpen(false)}
-          >
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-              <span className="font-display text-sm font-semibold">S</span>
-            </span>
-            {!sidebarCollapsed && (
-              <span className="font-display text-sm font-semibold leading-none text-sidebar-foreground">
-                Sheetbase ELN
-              </span>
-            )}
-          </Link>
-          {!sidebarCollapsed ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="ml-auto hidden md:inline-flex"
-              aria-label="Collapse sidebar"
-              aria-pressed="false"
-              onClick={toggleCollapsed}
-            >
-              <PanelLeftClose />
-            </Button>
-          ) : null}
-        </div>
-
         <div className={cn('px-2 py-3', sidebarCollapsed && 'hidden')}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
-                className="flex h-9 w-full items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-2 text-left text-sm shadow-xs hover:bg-sidebar-accent/60"
+                className="flex h-9 w-full items-center gap-2 rounded-md border border-sidebar-border bg-surface px-2 text-left text-sm shadow-xs hover:bg-sidebar-accent/60"
               >
-                <span className="flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                <span className="flex size-6 items-center justify-center rounded bg-primary/15 text-xs font-semibold text-primary">
                   {context.workspace
                     ? context.workspace.name.slice(0, 2).toUpperCase()
                     : 'WS'}
@@ -674,26 +636,6 @@ export function AppShell({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
-        {sidebarCollapsed ? (
-          <div className="px-2 py-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="w-full"
-                  aria-label="Expand sidebar"
-                  aria-pressed="true"
-                  onClick={toggleCollapsed}
-                >
-                  <PanelLeftOpen />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Expand sidebar</TooltipContent>
-            </Tooltip>
-          </div>
-        ) : null}
 
         <nav
           id={APP_SHELL_NAV_ID}
@@ -745,12 +687,13 @@ export function AppShell({
                 type="button"
                 variant="ghost"
                 className={cn(
-                  'flex h-auto w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sidebar-accent/60',
-                  sidebarCollapsed && 'justify-center',
+                  'flex h-auto w-full items-center gap-2 rounded-md border border-sidebar-border bg-surface p-2 text-left shadow-xs hover:bg-sidebar-accent/60',
+                  sidebarCollapsed &&
+                    'justify-center border-transparent bg-transparent shadow-none',
                 )}
                 aria-label={`Account: ${context.user.name}`}
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-xs font-semibold text-primary">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded bg-primary/15 text-xs font-semibold text-primary">
                   {initials(context.user.name) || 'U'}
                 </span>
                 {!sidebarCollapsed && (
@@ -818,11 +761,191 @@ export function AppShell({
         )}
 
         {context && (
+          <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6">
+            <Link
+              to="/"
+              aria-label="Sheetbase ELN home"
+              className="flex shrink-0 items-center gap-2 no-underline"
+            >
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                <span className="font-display text-sm font-semibold">S</span>
+              </span>
+              <span className="hidden font-display text-sm font-semibold leading-none text-foreground sm:block">
+                Sheetbase ELN
+              </span>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden md:inline-flex"
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-pressed={collapsed}
+              onClick={toggleCollapsed}
+            >
+              {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="md:hidden"
+              aria-label="Open navigation"
+              onClick={() => {
+                captureMobileFocus()
+                setMobileOpen(true)
+              }}
+            >
+              <Menu />
+            </Button>
+
+            <nav
+              aria-label="Breadcrumb"
+              className="flex min-w-0 items-center gap-2 text-sm"
+            >
+              {/* Narrow screens keep the canonical parent and current
+                    location visible. Desktop shows the complete hierarchy. */}
+              {breadcrumbs.length > 0 ? (
+                <span
+                  className="flex min-w-0 items-center gap-2 sm:hidden"
+                  data-slot="mobile-breadcrumb"
+                >
+                  {breadcrumbs.length > 1 &&
+                  breadcrumbs[breadcrumbs.length - 2]?.to ? (
+                    <Link
+                      to={breadcrumbs[breadcrumbs.length - 2].to ?? ''}
+                      className="inline-flex items-center gap-1 text-muted-foreground no-underline hover:text-foreground"
+                    >
+                      <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
+                      <span className="truncate">
+                        {breadcrumbs[breadcrumbs.length - 2].label}
+                      </span>
+                    </Link>
+                  ) : breadcrumbs.length > 1 ? (
+                    <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
+                  ) : null}
+                  {breadcrumbs.length > 1 ? (
+                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                  ) : null}
+                  <span
+                    className="truncate font-medium text-foreground"
+                    aria-current="page"
+                  >
+                    {breadcrumbs[breadcrumbs.length - 1].label}
+                  </span>
+                </span>
+              ) : null}
+              <span className="hidden min-w-0 items-center gap-2 sm:flex">
+                {breadcrumbs.map((crumb, i) => {
+                  const last = i === breadcrumbs.length - 1
+                  return (
+                    <React.Fragment key={`${crumb.label}-${i}`}>
+                      {i > 0 ? (
+                        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                      ) : null}
+                      {crumb.to && !last ? (
+                        <Link
+                          to={crumb.to}
+                          aria-label={i === 0 ? 'Sheetbase home' : undefined}
+                          className="truncate text-muted-foreground no-underline hover:text-foreground"
+                        >
+                          {i === 0 && crumb.to === '/' ? (
+                            <HomeIcon className="size-3.5 shrink-0" />
+                          ) : (
+                            crumb.label
+                          )}
+                        </Link>
+                      ) : (
+                        <span
+                          className="truncate font-medium text-foreground"
+                          aria-current={last ? 'page' : undefined}
+                        >
+                          {crumb.label}
+                        </span>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+              </span>
+            </nav>
+
+            <div className="ml-auto flex items-center gap-2">
+              <ConnectionStatus
+                status={liveStatus.status}
+                lastAppliedSeq={liveStatus.lastAppliedSeq}
+              />
+              <NotificationInbox />
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={openPalette}
+                className="hidden h-8 w-56 items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-muted/50 sm:flex"
+                aria-label="Search records and samples"
+              >
+                <Search className="size-4 shrink-0" />
+                <span className="flex-1 truncate">
+                  Search records, samples…
+                </span>
+                <Kbd>⌘K</Kbd>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="sm:hidden"
+                aria-label="Search"
+                onClick={openPalette}
+              >
+                <Search />
+              </Button>
+
+              {primaryAction}
+
+              {inspector && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="xl:hidden"
+                  aria-label={`Open ${inspectorLabel}`}
+                  aria-expanded={inspectorOpen}
+                  onClick={() => setInspectorOpen(true)}
+                >
+                  <PanelRight /> {inspectorLabel}
+                </Button>
+              )}
+              {inspector && inspectorCollapsible && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="hidden xl:inline-flex"
+                      aria-label={
+                        inspectorCollapsed ? 'Show inspector' : 'Hide inspector'
+                      }
+                      aria-expanded={!inspectorCollapsed}
+                      onClick={toggleInspectorCollapsed}
+                    >
+                      <PanelRight
+                        className={cn(
+                          'size-4',
+                          !inspectorCollapsed && 'text-foreground',
+                        )}
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </header>
+        )}
+
+        {context && (
           <aside
             aria-label="Application navigation"
             data-slot="sidebar"
             className={cn(
-              'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
+              'fixed bottom-0 left-0 top-14 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
               collapsed ? 'md:w-14' : 'md:w-60',
             )}
             data-collapsed={collapsed ? 'true' : 'false'}
@@ -848,169 +971,10 @@ export function AppShell({
             fullBleed
               ? 'flex h-svh flex-col overflow-hidden'
               : 'flex min-h-svh flex-col',
+            context && 'pt-14',
             context && (collapsed ? 'md:pl-14' : 'md:pl-60'),
           )}
         >
-          {context && (
-            <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="md:hidden"
-                aria-label="Open navigation"
-                onClick={() => {
-                  captureMobileFocus()
-                  setMobileOpen(true)
-                }}
-              >
-                <Menu />
-              </Button>
-
-              <nav
-                aria-label="Breadcrumb"
-                className="flex min-w-0 items-center gap-2 text-sm"
-              >
-                {/* Narrow screens keep the canonical parent and current
-                    location visible. Desktop shows the complete hierarchy. */}
-                {breadcrumbs.length > 0 ? (
-                  <span
-                    className="flex min-w-0 items-center gap-2 sm:hidden"
-                    data-slot="mobile-breadcrumb"
-                  >
-                    {breadcrumbs.length > 1 &&
-                    breadcrumbs[breadcrumbs.length - 2]?.to ? (
-                      <Link
-                        to={breadcrumbs[breadcrumbs.length - 2].to ?? ''}
-                        className="inline-flex items-center gap-1 text-muted-foreground no-underline hover:text-foreground"
-                      >
-                        <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
-                        <span className="truncate">
-                          {breadcrumbs[breadcrumbs.length - 2].label}
-                        </span>
-                      </Link>
-                    ) : breadcrumbs.length > 1 ? (
-                      <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
-                    ) : null}
-                    {breadcrumbs.length > 1 ? (
-                      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-                    ) : null}
-                    <span
-                      className="truncate font-medium text-foreground"
-                      aria-current="page"
-                    >
-                      {breadcrumbs[breadcrumbs.length - 1].label}
-                    </span>
-                  </span>
-                ) : null}
-                <span className="hidden min-w-0 items-center gap-2 sm:flex">
-                  {breadcrumbs.map((crumb, i) => {
-                    const last = i === breadcrumbs.length - 1
-                    return (
-                      <React.Fragment key={`${crumb.label}-${i}`}>
-                        {i > 0 ? (
-                          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-                        ) : null}
-                        {crumb.to && !last ? (
-                          <Link
-                            to={crumb.to}
-                            aria-label={i === 0 ? 'Sheetbase home' : undefined}
-                            className="truncate text-muted-foreground no-underline hover:text-foreground"
-                          >
-                            {i === 0 && crumb.to === '/' ? (
-                              <HomeIcon className="size-3.5 shrink-0" />
-                            ) : (
-                              crumb.label
-                            )}
-                          </Link>
-                        ) : (
-                          <span
-                            className="truncate font-medium text-foreground"
-                            aria-current={last ? 'page' : undefined}
-                          >
-                            {crumb.label}
-                          </span>
-                        )}
-                      </React.Fragment>
-                    )
-                  })}
-                </span>
-              </nav>
-
-              <div className="ml-auto flex items-center gap-2">
-                <ConnectionStatus
-                  status={liveStatus.status}
-                  lastAppliedSeq={liveStatus.lastAppliedSeq}
-                />
-                <NotificationInbox />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={openPalette}
-                  className="hidden h-8 w-56 items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-muted/50 sm:flex"
-                  aria-label="Search records and samples"
-                >
-                  <Search className="size-4 shrink-0" />
-                  <span className="flex-1 truncate">
-                    Search records, samples…
-                  </span>
-                  <Kbd>⌘K</Kbd>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="sm:hidden"
-                  aria-label="Search"
-                  onClick={openPalette}
-                >
-                  <Search />
-                </Button>
-
-                {primaryAction}
-
-                {inspector && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="xl:hidden"
-                    aria-label={`Open ${inspectorLabel}`}
-                    aria-expanded={inspectorOpen}
-                    onClick={() => setInspectorOpen(true)}
-                  >
-                    <PanelRight /> {inspectorLabel}
-                  </Button>
-                )}
-                {inspector && inspectorCollapsible && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="hidden xl:inline-flex"
-                        aria-label={
-                          inspectorCollapsed
-                            ? 'Show inspector'
-                            : 'Hide inspector'
-                        }
-                        aria-expanded={!inspectorCollapsed}
-                        onClick={toggleInspectorCollapsed}
-                      >
-                        <PanelRight
-                          className={cn(
-                            'size-4',
-                            !inspectorCollapsed && 'text-foreground',
-                          )}
-                        />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-            </header>
-          )}
-
           <div className="flex flex-1 overflow-hidden">
             <main
               id={APP_SHELL_MAIN_ID}
@@ -1133,7 +1097,7 @@ function NavRow({
         aria-disabled="true"
         aria-label={collapsed ? item.label : undefined}
         className={cn(
-          'flex h-9 cursor-not-allowed items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground/60 no-underline',
+          'flex h-8 cursor-not-allowed items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground/60 no-underline',
           collapsed && 'justify-center px-0',
         )}
         title={`${item.label} (coming soon)`}
@@ -1167,9 +1131,9 @@ function NavRow({
             aria-current={active ? 'page' : undefined}
             aria-label={collapsed ? item.label : undefined}
             className={cn(
-              'flex h-9 items-center gap-2 rounded-md px-3 text-sm no-underline transition-colors',
+              'flex h-8 items-center gap-2 rounded-md px-3 text-sm no-underline transition-colors',
               active
-                ? 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground'
+                ? 'bg-sidebar-accent font-label text-sidebar-accent-foreground'
                 : 'font-medium text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground',
               collapsed && 'justify-center px-0',
             )}

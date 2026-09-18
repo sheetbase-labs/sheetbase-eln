@@ -114,17 +114,19 @@ describe('AppShell', () => {
     Element.prototype.scrollIntoView = vi.fn()
   })
 
-  it('keeps specialist tools out of default primary sections', () => {
-    const primaryHrefs = defaultNavSections
-      .filter((section) => section.label !== 'More')
-      .flatMap((section) => section.items.map((item) => item.to))
-    for (const href of SPECIALIST_NAV_HREFS) {
-      expect(primaryHrefs).not.toContain(href)
-    }
-    const more = defaultNavSections.find((section) => section.label === 'More')
-    expect(more?.items.map((item) => item.to)).toEqual(
+  it('groups specialist tools under the Tools section', () => {
+    const tools = defaultNavSections.find(
+      (section) => section.label === 'Tools',
+    )
+    expect(tools?.items.map((item) => item.to)).toEqual(
       expect.arrayContaining([...SPECIALIST_NAV_HREFS]),
     )
+    const registryHrefs = defaultNavSections
+      .find((section) => section.label === 'Registries')
+      ?.items.map((item) => item.to)
+    for (const href of SPECIALIST_NAV_HREFS) {
+      expect(registryHrefs).not.toContain(href)
+    }
   })
 
   it('gives every canonical destination one predictable product plane', () => {
@@ -135,13 +137,13 @@ describe('AppShell', () => {
       destinations.length,
     )
     expect(destinations.find((item) => item.to === '/samples')?.section).toBe(
-      'Scientific work',
+      'Registries',
     )
     expect(destinations.find((item) => item.to === '/templates')?.section).toBe(
-      'Configuration',
+      'Registries',
     )
     expect(destinations.find((item) => item.to === '/configure')?.label).toBe(
-      'Models & schemas',
+      'Schemas',
     )
   })
 

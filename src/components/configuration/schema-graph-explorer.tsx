@@ -314,8 +314,7 @@ function SchemaNodeCard({ data }: NodeProps<SchemaRFNode>) {
           </span>
         </span>
         <span className="shrink-0 text-[10px] text-muted-foreground">
-          {node.fields.length}{' '}
-          {node.fields.length === 1 ? 'field' : 'fields'}
+          {node.fields.length} {node.fields.length === 1 ? 'field' : 'fields'}
         </span>
       </div>
       <ul className="py-0.5">
@@ -510,8 +509,7 @@ function RailRow({
           {node.name}
         </span>
         <span className="block text-[11px] text-muted-foreground">
-          {node.fields.length}{' '}
-          {node.fields.length === 1 ? 'field' : 'fields'} ·{' '}
+          {node.fields.length} {node.fields.length === 1 ? 'field' : 'fields'} ·{' '}
           {node.rowCount === null
             ? '—'
             : `${node.rowCount} ${node.rowCount === 1 ? rowLabelSingular : rowLabel}`}

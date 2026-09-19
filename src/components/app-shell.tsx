@@ -503,7 +503,7 @@ export function AppShell({
   // → route re-set it → remount again).
   const router = useRouter()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const { theme, setTheme, density, setDensity } = useTheme()
+  const { theme, setTheme } = useTheme()
 
   // LIVE-003: quiet connection-status indicator in the top bar. The
   // coordinator is mounted at the root; this just subscribes to its
@@ -793,13 +793,6 @@ export function AppShell({
                   <Moon className="mr-2 size-4" />
                 )}
                 Toggle colour mode
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() =>
-                  setDensity(density === 'compact' ? 'comfortable' : 'compact')
-                }
-              >
-                <Settings className="mr-2 size-4" /> Toggle density
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={signOut}>
@@ -1112,8 +1105,6 @@ export function AppShell({
             onNavigate={() => setMobileOpen(false)}
             theme={theme}
             setTheme={setTheme}
-            density={density}
-            setDensity={setDensity}
             onSignOut={signOut}
             extensionCommands={extensionCommands}
             onExtensionCommand={onExtensionCommand}
@@ -1215,8 +1206,6 @@ function CommandPalette({
   onNavigate,
   theme,
   setTheme,
-  density,
-  setDensity,
   onSignOut,
   extensionCommands = [],
   onExtensionCommand,
@@ -1227,8 +1216,6 @@ function CommandPalette({
   onNavigate: () => void
   theme: 'light' | 'dark' | 'system'
   setTheme: (t: 'light' | 'dark' | 'system') => void
-  density: 'comfortable' | 'compact'
-  setDensity: (d: 'comfortable' | 'compact') => void
   onSignOut: () => void
   extensionCommands?: ResolvedExtensionContribution[]
   onExtensionCommand?: (command: ResolvedExtensionContribution) => void
@@ -1293,15 +1280,6 @@ function CommandPalette({
                   <Moon className="size-4" />
                 )}
                 Toggle colour mode
-              </CommandItem>
-              <CommandItem
-                onSelect={() => {
-                  setDensity(density === 'compact' ? 'comfortable' : 'compact')
-                  onOpenChange(false)
-                }}
-              >
-                <Settings className="size-4" />
-                Toggle density
               </CommandItem>
               <CommandItem
                 onSelect={() => {

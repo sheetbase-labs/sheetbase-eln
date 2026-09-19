@@ -4,7 +4,7 @@
  * actually loads code today:
  *
  * - Same-origin TanStack Start / Vite module scripts (`<Scripts />`).
- * - One inline theme/density bootstrap in `src/routes/__root.tsx`.
+ * - One inline theme bootstrap in `src/routes/__root.tsx`.
  * - TanStack `ScriptOnce` may emit additional inline scripts during SSR.
  * - Handsontable and HyperFormula load as same-origin client chunks.
  * - GitHub OAuth is a same-origin POST then a top-level navigation; it does

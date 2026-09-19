@@ -197,13 +197,6 @@
     scroll-behavior: smooth;
   }
 
-  /* Compact density: 15px root shrinks spacing, not text. The DESIGN.md
-     baseline (12px caption, 13px data, 14px body) is preserved; only the
-     8px-grid spacing around components tightens. */
-  html[data-density='compact'] {
-    font-size: 15px;
-  }
-
   body {
     @apply min-h-svh bg-background text-foreground antialiased;
     font-family: var(--font-sans);

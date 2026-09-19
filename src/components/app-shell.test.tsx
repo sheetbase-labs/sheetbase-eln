@@ -48,8 +48,6 @@ vi.mock('#/components/theme-provider', () => ({
   useTheme: () => ({
     theme: 'light' as const,
     setTheme: vi.fn(),
-    density: 'comfortable' as const,
-    setDensity: vi.fn(),
   }),
 }))
 

@@ -119,12 +119,12 @@ function RootRouteComponent() {
 }
 
 /**
- * Inline no-flash script: applies the saved theme and density to <html>
+ * Inline no-flash script: applies the saved theme to <html>
  * before the React tree hydrates, so there is no flash of the wrong theme
  * on reload. Runs synchronously in <head>. Production CSP allowlists inline
  * scripts by per-request nonce (see docs/operations/security-headers.md).
  */
-const themeNoFlash = `(function(){try{var t=localStorage.getItem('sheetbase-theme')||'light';var d=localStorage.getItem('sheetbase-density')||'comfortable';var dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(dark)document.documentElement.classList.add('dark');document.documentElement.dataset.density=d;}catch(e){}})();`
+const themeNoFlash = `(function(){try{var t=localStorage.getItem('sheetbase-theme')||'light';var dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(dark)document.documentElement.classList.add('dark');}catch(e){}})();`
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (

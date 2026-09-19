@@ -305,7 +305,7 @@ export function ProjectList({
             </Button>
           </div>
         </div>
-        <TabsContent value="list" className="mt-0">
+        <TabsContent value="list" className="mt-3.5">
           <DataTable
             data={filtered}
             columns={columns}
@@ -374,7 +374,7 @@ export function ProjectList({
             }}
           />
         </TabsContent>
-        <TabsContent value="timeline" className="mt-0">
+        <TabsContent value="timeline" className="mt-3.5">
           <ProjectsTimeline projects={filtered} />
         </TabsContent>
       </Tabs>

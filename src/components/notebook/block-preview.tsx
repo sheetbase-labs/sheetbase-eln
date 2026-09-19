@@ -512,12 +512,20 @@ function ProtocolReferencePreview({ payload }: { payload: unknown }) {
 function MaterialsPreview({ payload }: { payload: unknown }) {
   const obj = asObject(payload)
   const items = asArray<MaterialItem>(obj?.items) ?? []
+  // The same material can be listed more than once (e.g. a reagent used at
+  // several steps); dedupe ids so useQueries never sees duplicate keys.
+  const materialRecordIds = [
+    ...new Set(items.map((item) => item.materialRecordId)),
+  ]
   const records = useQueries({
-    queries: items.map((item) => ({
-      queryKey: notebookQueryKeys.record(item.materialRecordId),
-      queryFn: () => fetchRecordById(notebookDataClient, item.materialRecordId),
+    queries: materialRecordIds.map((id) => ({
+      queryKey: notebookQueryKeys.record(id),
+      queryFn: () => fetchRecordById(notebookDataClient, id),
     })),
   })
+  const recordByMaterialId = new Map(
+    materialRecordIds.map((id, index) => [id, records[index]]),
+  )
   const loading = records.some((query) => query.isLoading)
   const error = records.some((query) => query.error)
   if (items.length === 0) {
@@ -532,10 +540,13 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
         </p>
       ) : null}
       <div className="divide-y divide-border">
-        {items.map((item, index) => {
+        {items.map((item) => {
+          const materialQuery = recordByMaterialId.get(item.materialRecordId)
           const alerts =
-            loading || error ? [] : materialAlerts(records[index]?.data ?? null)
-          const currentRecord = error ? null : (records[index]?.data ?? null)
+            loading || error
+              ? []
+              : materialAlerts(materialQuery?.data ?? null)
+          const currentRecord = error ? null : (materialQuery?.data ?? null)
           return (
             <div
               key={item.id}
@@ -1297,10 +1308,15 @@ function PlateMapBlockPreview({
   // SampleRef snapshots are the evidence.
   const sampleRefs =
     spec?.wells.filter((w) => w.sampleRef).map((w) => w.sampleRef!) ?? []
+  // Replicates assign the same sample to several wells; dedupe record ids so
+  // useQueries never sees duplicate keys.
+  const uniqueSampleRefs = [
+    ...new Map(sampleRefs.map((ref) => [ref.recordId, ref])).values(),
+  ]
   const sampleQueries = useQueries({
     queries: frozen
       ? []
-      : sampleRefs.map((ref) => ({
+      : uniqueSampleRefs.map((ref) => ({
           queryKey: notebookQueryKeys.record(ref.recordId),
           queryFn: () => fetchRecordById(notebookDataClient, ref.recordId),
           staleTime: 30_000,
@@ -1331,7 +1347,7 @@ function PlateMapBlockPreview({
 
   const observations = new Map<string, LiveSampleObservation>()
   if (!frozen) {
-    sampleRefs.forEach((ref, i) => {
+    uniqueSampleRefs.forEach((ref, i) => {
       const q = sampleQueries.at(i)
       observations.set(
         ref.recordId,

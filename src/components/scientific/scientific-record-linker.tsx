@@ -180,17 +180,26 @@ export function ScientificRecordLinker({
   const scientificLinks = links.filter((l) =>
     isScientificRecordKind(l.targetKind),
   )
+  // Identifier-only links carry no target id, and links of different types
+  // can point at the same record; dedupe ids so useQueries never sees
+  // duplicate keys.
+  const summaryRecordIds = [
+    ...new Set(scientificLinks.map((l) => l.targetRecordId ?? '')),
+  ]
   const summaryQueries = useQueries({
-    queries: scientificLinks.map((l) => ({
-      queryKey: scientificRecordQueryKeys.record(l.targetRecordId ?? ''),
+    queries: summaryRecordIds.map((id) => ({
+      queryKey: scientificRecordQueryKeys.record(id),
       queryFn: () =>
-        fetchRecordById(client, l.targetRecordId ?? '').then((r) =>
+        fetchRecordById(client, id).then((r) =>
           r && isScientificRecordKind(r.kind) ? r : null,
         ),
-      enabled: Boolean(l.targetRecordId),
+      enabled: Boolean(id),
       staleTime: 30_000,
     })),
   })
+  const summaryByRecordId = new Map(
+    summaryRecordIds.map((id, index) => [id, summaryQueries[index]]),
+  )
 
   return (
     <div className="space-y-1.5">
@@ -305,14 +314,17 @@ export function ScientificRecordLinker({
 
       {!hideSummaries && scientificLinks.length > 0 ? (
         <div className="space-y-3">
-          {scientificLinks.map((link, i) => {
-            const record = summaryQueries[i]?.data
+          {scientificLinks.map((link) => {
+            const recordQuery = summaryByRecordId.get(
+              link.targetRecordId ?? '',
+            )
+            const record = recordQuery?.data
             return record ? (
               <ScientificRecordSummary
                 key={link.id}
                 record={record}
                 fieldDefinitions={defsQuery.data ?? []}
-                loading={summaryQueries[i]?.isLoading}
+                loading={recordQuery.isLoading}
               />
             ) : (
               <p

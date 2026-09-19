@@ -105,13 +105,33 @@ const CALENDAR_I18N: EventCalendarI18nOverrides = {
       if (view === 'day' || view === 'resource') {
         return formatLongDateInZone(date, VIEW_TIMEZONE)
       }
-      // Week / N-day / agenda: bounded range, e.g. "13–19 Sept 2026".
-      return new Intl.DateTimeFormat('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        timeZone: VIEW_TIMEZONE,
-      }).formatRange(activeRange.start, new Date(activeRange.end.getTime() - 1))
+      // Week / N-day / agenda: bounded range, e.g. "13 – 19 Sept 2026".
+      // formatRange's separator varies between Node and browser ICU
+      // (U+2009 thin space vs U+0020 around the dash), which fails SSR
+      // hydration — compose the bounds from plain format() calls instead.
+      const end = new Date(activeRange.end.getTime() - 1)
+      const fmt = (d: Date, options: Intl.DateTimeFormatOptions) =>
+        new Intl.DateTimeFormat('en-GB', {
+          timeZone: VIEW_TIMEZONE,
+          ...options,
+        }).format(d)
+      const sameYear =
+        fmt(activeRange.start, { year: 'numeric' }) ===
+        fmt(end, { year: 'numeric' })
+      const sameMonth =
+        sameYear &&
+        fmt(activeRange.start, { month: 'numeric' }) ===
+          fmt(end, { month: 'numeric' })
+      const startLabel = sameMonth
+        ? fmt(activeRange.start, { day: 'numeric' })
+        : sameYear
+          ? fmt(activeRange.start, { day: 'numeric', month: 'short' })
+          : fmt(activeRange.start, {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })
+      return `${startLabel} – ${fmt(end, { day: 'numeric', month: 'short', year: 'numeric' })}`
     },
     formatDayRange: (range) =>
       `${formatDateInZone(range.start, VIEW_TIMEZONE)} – ${formatDateInZone(new Date(range.end.getTime() - 1), VIEW_TIMEZONE)}`,

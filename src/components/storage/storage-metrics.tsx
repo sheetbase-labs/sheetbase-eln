@@ -29,7 +29,11 @@ export function StorageMetrics({
   positions: BoxPositionWithSample[]
   box: StorageBox | null
 }) {
-  const total = box?.capacity ?? 0
+  // The strip is a per-box capacity summary; the positions query only sees
+  // the selected box, so with nothing selected there is nothing to
+  // summarise — render nothing rather than a misleading all-zero strip.
+  if (!box) return null
+  const total = box.capacity
   const occupancy = boxOccupancy(positions, total)
   const values = [
     ['Total capacity', total, 'bg-primary'],

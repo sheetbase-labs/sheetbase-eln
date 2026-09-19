@@ -32,6 +32,7 @@ import {
   toLink,
 } from './notebook-data'
 import type { NotebookLink, RecordLinkWire } from './notebook-data'
+import { listInIdChunks } from './postgrest-in-list'
 
 /** Per-source bound so one chatty record cannot dominate the panel. */
 export const RELATIONSHIP_SOURCE_LIMIT = 50
@@ -206,9 +207,12 @@ export async function fetchRelationshipEndpoints(
   const unique = [...new Set(ids)].filter(Boolean)
   if (unique.length === 0) return new Map()
   const rows = await quiet(
-    client.list<RelationshipEndpointWire>(
+    listInIdChunks<RelationshipEndpointWire>(
+      client,
       'records',
-      `?id=in.(${unique.map((id) => encodeURIComponent(id)).join(',')})&select=id,kind,identifier,title,archived_at,deleted_at`,
+      unique,
+      (idFilter) =>
+        `?id=in.(${idFilter})&select=id,kind,identifier,title,archived_at,deleted_at`,
     ),
     [],
   )

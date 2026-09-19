@@ -20,6 +20,7 @@ import {
   isScientificRecordKind,
   linkTypeForKind,
   scientificRecordQueryKeys,
+  searchRecords,
   summariseProperties,
   toFieldDefinition,
   validateProperties,
@@ -29,6 +30,7 @@ import type {
   RecordFieldDefinition,
   ScientificRecordKind,
 } from './scientific-records'
+import { sanitizeQuery } from './postgrest-path'
 
 function def(
   overrides: Partial<RecordFieldDefinition> & {
@@ -464,6 +466,41 @@ describe('formatPropertyValue', () => {
         orphaned: false,
       }),
     ).toBe('3')
+  })
+})
+
+describe('searchRecords', () => {
+  it('emits a proxy-safe or() ilike filter for the picker search', async () => {
+    const queries: string[] = []
+    const client = {
+      list: async <T>(resource: string, query = ''): Promise<T[]> => {
+        queries.push(`${resource}${query}`)
+        return [] as T[]
+      },
+    }
+    await searchRecords(client as never, 'sample', 'SMP-2026')
+    expect(queries).toHaveLength(1)
+    expect(queries[0]).toContain(
+      'or=(identifier.ilike.SMP-2026*,title.ilike.SMP-2026*)',
+    )
+    // The /api/db proxy validator must accept the whole query.
+    const search = queries[0].slice(queries[0].indexOf('?'))
+    expect(() => sanitizeQuery(search)).not.toThrow()
+  })
+
+  it('keeps the query proxy-safe when the search term is blank', async () => {
+    const queries: string[] = []
+    const client = {
+      list: async <T>(resource: string, query = ''): Promise<T[]> => {
+        queries.push(`${resource}${query}`)
+        return [] as T[]
+      },
+    }
+    await searchRecords(client as never, 'reagent', '   ')
+    expect(queries[0]).not.toContain('or=(')
+    expect(() =>
+      sanitizeQuery(queries[0].slice(queries[0].indexOf('?'))),
+    ).not.toThrow()
   })
 })
 

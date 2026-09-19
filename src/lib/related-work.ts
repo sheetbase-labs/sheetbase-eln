@@ -35,6 +35,7 @@ import {
   recordKindLabel,
 } from './notebook-data'
 import { fetchSheetInstance } from './sheet-instance-data'
+import { listInIdChunks } from './postgrest-in-list'
 import { fetchTemplateUsage } from './templates'
 
 // ---------------------------------------------------------------------------
@@ -297,10 +298,6 @@ async function quiet<T>(promise: Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-function inFilter(ids: readonly string[]): string {
-  return `in.(${ids.map((id) => encodeURIComponent(id)).join(',')})`
-}
-
 /**
  * Batch-resolve record ids to openable labels. Records that are gone,
  * archived, deleted or simply invisible under RLS come back absent and are
@@ -313,9 +310,12 @@ async function resolveRecordLabels(
   const unique = [...new Set(ids)].filter(Boolean)
   if (unique.length === 0) return new Map()
   const rows = await quiet(
-    client.list<RecordLabelWire>(
+    listInIdChunks<RecordLabelWire>(
+      client,
       'records',
-      `?id=${inFilter(unique)}&select=id,kind,identifier,title,archived_at,deleted_at`,
+      unique,
+      (idFilter) =>
+        `?id=in.(${idFilter})&select=id,kind,identifier,title,archived_at,deleted_at`,
     ),
     [],
   )
@@ -627,18 +627,23 @@ async function fetchRelatedForDataset(
       ].filter((id) => id !== schemaId)
       if (siblingSchemaIds.length > 0) {
         const siblingVersions = await quiet(
-          client.list<{ id: string; schema_id: string }>(
+          listInIdChunks<{ id: string; schema_id: string }>(
+            client,
             'dataset_schema_versions',
-            `?schema_id=${inFilter(siblingSchemaIds)}&select=id,schema_id`,
+            siblingSchemaIds,
+            (idFilter) => `?schema_id=in.(${idFilter})&select=id,schema_id`,
           ),
           [],
         )
         const versionIds = siblingVersions.map((v) => v.id)
         if (versionIds.length > 0) {
           const siblings = await quiet(
-            client.list<DatasetIdentityWire>(
+            listInIdChunks<DatasetIdentityWire>(
+              client,
               'datasets',
-              `?schema_version_id=${inFilter(versionIds)}&select=id,name,lifecycle&limit=${RELATED_WORK_SOURCE_LIMIT}`,
+              versionIds,
+              (idFilter) =>
+                `?schema_version_id=in.(${idFilter})&select=id,name,lifecycle&limit=${RELATED_WORK_SOURCE_LIMIT}`,
             ),
             [],
           )

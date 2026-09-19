@@ -387,6 +387,36 @@ describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
     title: 'Sample A',
   }
 
+  it('issues a proxy-safe or() ilike filter for the record search', async () => {
+    const user = userEvent.setup()
+    const { notebookDataClient } = await import('#/lib/notebook-data')
+    const list = notebookDataClient.list as ReturnType<typeof vi.fn>
+    list.mockReset().mockResolvedValue([])
+    renderWithQuery(
+      <BlockEditor
+        block={block({
+          type: 'linked_record',
+          payload: {
+            targetKind: 'sample',
+            targetIdentifier: '',
+            linkType: 'general',
+            label: '',
+          },
+        })}
+        save={vi.fn(async () => ({ ok: true }))}
+      />,
+    )
+    await user.type(
+      screen.getByRole('textbox', { name: 'Search records or Datasets' }),
+      'SMP',
+    )
+    await waitFor(() => expect(list).toHaveBeenCalled())
+    const query = list.mock.calls.at(-1)?.[1] as string
+    expect(query).toContain('or=(identifier.ilike.SMP*,title.ilike.SMP*)')
+    const { sanitizeQuery } = await import('#/lib/postgrest-path')
+    expect(() => sanitizeQuery(query)).not.toThrow()
+  })
+
   it('captures the canonical UUID when a record is picked from search', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))

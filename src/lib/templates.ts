@@ -173,7 +173,7 @@ export function fetchTemplates(
   }
   if (opts.search && opts.search.trim()) {
     const q = encodeURIComponent(opts.search.trim().replace(/[,*]/g, ''))
-    parts.push(`(identifier=ilike.${q}*,title=ilike.${q}*)`)
+    parts.push(`or=(identifier.ilike.*${q}*,title.ilike.*${q}*)`)
   }
   return client
     .list<RecordWire>(

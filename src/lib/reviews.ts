@@ -16,6 +16,7 @@
 import type { DataClient } from './data-client'
 import { notebookDataClient, recordKindLabel, toProject } from './notebook-data'
 import type { ProjectWire, RecordWire } from './notebook-data'
+import { listInIdChunks } from './postgrest-in-list'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST).
@@ -277,10 +278,12 @@ export async function fetchRecordsForReviews(
   recordIds: string[],
 ): Promise<RecordWire[]> {
   if (recordIds.length === 0) return []
-  const idFilter = recordIds.join(',')
-  return client.list<RecordWire>(
+  return listInIdChunks<RecordWire>(
+    client,
     'records',
-    `?id=in.(${idFilter})&select=id,workspace_id,project_id,kind,identifier,title,status,created_at,updated_at,archived_at,deleted_at,created_by_user_id,structure_version,metadata_version,tags,properties,updated_by_user_id,locked_at,locked_by_revision_id`,
+    recordIds,
+    (idFilter) =>
+      `?id=in.(${idFilter})&select=id,workspace_id,project_id,kind,identifier,title,status,created_at,updated_at,archived_at,deleted_at,created_by_user_id,structure_version,metadata_version,tags,properties,updated_by_user_id,locked_at,locked_by_revision_id`,
   )
 }
 

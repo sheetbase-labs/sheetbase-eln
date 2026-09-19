@@ -6,6 +6,7 @@ import type {
   RecordWire,
 } from '#/lib/notebook-data'
 import { toBlock, toRecord } from '#/lib/notebook-data'
+import { listInIdChunks } from '#/lib/postgrest-in-list'
 
 export interface MaterialUnit {
   code: string
@@ -90,9 +91,11 @@ export async function fetchMaterialRecords(
   ids: string[],
 ): Promise<Map<string, NotebookRecord>> {
   if (ids.length === 0) return new Map()
-  const rows = await client.list<RecordWire>(
+  const rows = await listInIdChunks<RecordWire>(
+    client,
     'records',
-    `?id=in.(${ids.join(',')})`,
+    ids,
+    (idFilter) => `?id=in.(${idFilter})`,
   )
   return new Map(rows.map((row) => [row.id, toRecord(row)]))
 }

@@ -13,6 +13,7 @@ import {
   canManageTemplate,
   createTemplateFavouritesStore,
   duplicateTemplate,
+  fetchTemplates,
   fetchTemplateUsage,
   INSTANTIABLE_STATUSES,
   INSTANTIABLE_TARGET_KINDS,
@@ -27,6 +28,7 @@ import {
   toTemplateUsageItem,
 } from './templates'
 import type { NotebookBlock, NotebookRecord } from './notebook-data'
+import { sanitizeQuery } from './postgrest-path'
 
 describe('SCI-006 template domain helpers', () => {
   describe('isTemplateKind', () => {
@@ -252,6 +254,39 @@ describe('TPL-001 archiveTemplate / duplicateTemplate RPC wiring', () => {
       ],
       p_properties: { version: '1.0' },
     })
+  })
+})
+
+describe('fetchTemplates search filter', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('emits a proxy-safe or() ilike filter for search terms', async () => {
+    const list = vi.fn().mockResolvedValue([])
+    await fetchTemplates({ list } as never, { search: 'titration' })
+    const query = list.mock.calls[0][1] as string
+    expect(query).toContain(
+      'or=(identifier.ilike.*titration*,title.ilike.*titration*)',
+    )
+    // The /api/db proxy validator must accept the whole query.
+    expect(() => sanitizeQuery(query)).not.toThrow()
+  })
+
+  it('strips commas and wildcards from the search term before filtering', async () => {
+    const list = vi.fn().mockResolvedValue([])
+    await fetchTemplates({ list } as never, { search: 'titration,*' })
+    const query = list.mock.calls[0][1] as string
+    expect(query).toContain(
+      'or=(identifier.ilike.*titration*,title.ilike.*titration*)',
+    )
+    expect(() => sanitizeQuery(query)).not.toThrow()
+  })
+
+  it('omits the or() filter entirely when there is no search term', async () => {
+    const list = vi.fn().mockResolvedValue([])
+    await fetchTemplates({ list } as never, { search: '   ' })
+    const query = list.mock.calls[0][1] as string
+    expect(query).not.toContain('or=(')
+    expect(() => sanitizeQuery(query)).not.toThrow()
   })
 })
 

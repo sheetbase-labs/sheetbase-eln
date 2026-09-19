@@ -8,6 +8,7 @@ import { toRecord } from '#/lib/notebook-data'
 import type { RecordWire } from '#/lib/notebook-data'
 import type { Parameter } from '#/lib/parameter'
 import { scalarDefaultText } from '#/lib/parameter-input'
+import { listInIdChunks } from '#/lib/postgrest-in-list'
 
 const RECORD_SELECT =
   'id,workspace_id,project_id,folder_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,locked_at,locked_by_revision_id'
@@ -172,12 +173,13 @@ export function TemplateParameterInputs({
   const records = useQuery({
     queryKey: ['template-parameter-records', workspaceId, recordKinds],
     queryFn: () =>
-      client
-        .list<RecordWire>(
-          'records',
-          `?kind=in.(${recordKinds.map(encodeURIComponent).join(',')})&archived_at=is.null&order=title.asc&limit=200&select=${RECORD_SELECT}`,
-        )
-        .then((rows) => rows.map(toRecord)),
+      listInIdChunks<RecordWire>(
+        client,
+        'records',
+        recordKinds,
+        (idFilter) =>
+          `?kind=in.(${idFilter})&archived_at=is.null&order=title.asc&limit=200&select=${RECORD_SELECT}`,
+      ).then((rows) => rows.map(toRecord)),
     enabled: recordKinds.length > 0,
   })
   const datasets = useQuery({
@@ -223,9 +225,11 @@ export function TemplateParameterInputs({
       compatibilitySchemaVersionIds,
     ],
     queryFn: () =>
-      client.list<SchemaVersion>(
+      listInIdChunks<SchemaVersion>(
+        client,
         'dataset_schema_versions',
-        `?id=in.(${compatibilitySchemaVersionIds.map(encodeURIComponent).join(',')})&select=${SCHEMA_VERSION_SELECT}`,
+        compatibilitySchemaVersionIds,
+        (idFilter) => `?id=in.(${idFilter})&select=${SCHEMA_VERSION_SELECT}`,
       ),
     enabled:
       nonExactContracts.length > 0 && compatibilitySchemaVersionIds.length > 0,
@@ -237,9 +241,12 @@ export function TemplateParameterInputs({
       compatibilitySchemaVersionIds,
     ],
     queryFn: () =>
-      client.list<SchemaField>(
+      listInIdChunks<SchemaField>(
+        client,
         'dataset_schema_version_fields',
-        `?schema_version_id=in.(${compatibilitySchemaVersionIds.map(encodeURIComponent).join(',')})&select=${SCHEMA_FIELD_SELECT}`,
+        compatibilitySchemaVersionIds,
+        (idFilter) =>
+          `?schema_version_id=in.(${idFilter})&select=${SCHEMA_FIELD_SELECT}`,
       ),
     enabled:
       nonExactContracts.length > 0 && compatibilitySchemaVersionIds.length > 0,

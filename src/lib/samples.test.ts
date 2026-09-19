@@ -19,6 +19,7 @@ import {
   toSampleRecord,
 } from './samples'
 import type { RecordWire } from './notebook-data'
+import { sanitizeQuery } from './postgrest-path'
 import type { RegistryQuery } from './registry'
 
 const baseQuery: RegistryQuery = {
@@ -195,10 +196,21 @@ describe('buildSamplesFilter', () => {
     const clauses = buildSamplesFilter([
       { fieldId: 'search', operator: 'contains', values: ['50%_off'] },
     ])
-    const search = clauses.find((c) => c.startsWith('('))
+    const search = clauses.find((c) => c.startsWith('or=('))
     expect(search).toBeDefined()
     expect(search).not.toContain('%')
     expect(search).not.toContain('_')
+  })
+
+  it('emits a proxy-safe or() ilike clause for free-text search', () => {
+    const clauses = buildSamplesFilter([
+      { fieldId: 'search', operator: 'contains', values: ['BC-1'] },
+    ])
+    expect(clauses).toContain(
+      'or=(identifier.ilike.*BC-1*,title.ilike.*BC-1*,properties->>barcode.ilike.*BC-1*)',
+    )
+    // The /api/db proxy validator must accept the composed query.
+    expect(() => sanitizeQuery(`?${clauses.join('&')}`)).not.toThrow()
   })
 
   it('filters administrator-defined fields through custom_fields', () => {

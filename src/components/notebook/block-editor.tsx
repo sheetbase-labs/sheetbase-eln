@@ -707,7 +707,7 @@ function LinkedRecordSearch({
       ]
       if (trimmed) {
         const enc = encodeURIComponent(`${trimmed}*`)
-        filters.push(`(identifier=ilike.${enc},title=ilike.${enc})`)
+        filters.push(`or=(identifier.ilike.${enc},title.ilike.${enc})`)
       }
       const rows = await notebookDataClient.list<RecordWire>(
         'records',

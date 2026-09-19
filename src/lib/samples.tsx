@@ -25,6 +25,7 @@ import { toRecord } from './notebook-data'
 import type { RegistryFilterValue, RegistryQuery } from './registry'
 import type { ModelFieldDefinition } from './model-fields'
 import { displayModelFieldValue, modelFieldColumnId } from './model-fields'
+import { listInIdChunks } from './postgrest-in-list'
 
 // ---------------------------------------------------------------------------
 // Sample properties (records.properties JSONB).
@@ -306,7 +307,7 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
       case 'search': {
         const q = escapeIlike(value)
         clauses.push(
-          `(identifier=ilike.*${q}*,title=ilike.*${q}*,properties->>barcode=ilike.*${q}*)`,
+          `or=(identifier.ilike.*${q}*,title.ilike.*${q}*,properties->>barcode.ilike.*${q}*)`,
         )
         break
       }
@@ -537,9 +538,11 @@ export async function fetchLinkedExperiments(
       status: 'unknown',
     }))
   }
-  const records = await client.list<RecordWire>(
+  const records = await listInIdChunks<RecordWire>(
+    client,
     'records',
-    `?id=in.(${sourceIds.join(',')})&select=id,identifier,title,status`,
+    sourceIds,
+    (idFilter) => `?id=in.(${idFilter})&select=id,identifier,title,status`,
   )
   const byId = new Map(records.map((r) => [r.id, r]))
   return links.map((l) => {
@@ -581,18 +584,23 @@ export async function fetchLinkedFiles(
     }))
   }
   const [records, fileObjects] = await Promise.all([
-    client.list<RecordWire>(
+    listInIdChunks<RecordWire>(
+      client,
       'records',
-      `?id=in.(${targetIds.join(',')})&select=id,identifier,status`,
+      targetIds,
+      (idFilter) => `?id=in.(${idFilter})&select=id,identifier,status`,
     ),
-    client.list<{
+    listInIdChunks<{
       record_id: string
       display_name: string
       byte_size: string
       status: string
     }>(
+      client,
       'file_objects',
-      `?record_id=in.(${targetIds.join(',')})&select=record_id,display_name,byte_size,status`,
+      targetIds,
+      (idFilter) =>
+        `?record_id=in.(${idFilter})&select=record_id,display_name,byte_size,status`,
     ),
   ])
   const fileByRecord = new Map(fileObjects.map((f) => [f.record_id, f]))

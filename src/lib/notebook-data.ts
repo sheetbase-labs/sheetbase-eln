@@ -13,6 +13,7 @@
 
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
+import { listInIdChunks } from '#/lib/postgrest-in-list'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST).
@@ -417,19 +418,19 @@ export function fetchFileObjectsByRecordIds(
   fileRecordIds: string[],
 ): Promise<Map<string, FileObjectSummary>> {
   if (fileRecordIds.length === 0) return Promise.resolve(new Map())
-  const filter = fileRecordIds
-    .map((id) => `eq.${encodeURIComponent(id)}`)
-    .join(',')
-  return client
-    .list<FileObjectWire>(
-      'file_objects',
+  return listInIdChunks<FileObjectWire>(
+    client,
+    'file_objects',
+    // `in.()` items carry the eq. operator (PostgREST allows operators in
+    // the list); chunking keeps the whole value under the proxy cap.
+    fileRecordIds.map((id) => `eq.${id}`),
+    (filter) =>
       `?record_id=in.(${filter})&select=id,workspace_id,record_id,storage_key,display_name,media_type,byte_size,checksum,status,status_reason,version`,
-    )
-    .then((rows) => {
-      const map = new Map<string, FileObjectSummary>()
-      for (const row of rows) map.set(row.record_id, toFileObjectSummary(row))
-      return map
-    })
+  ).then((rows) => {
+    const map = new Map<string, FileObjectSummary>()
+    for (const row of rows) map.set(row.record_id, toFileObjectSummary(row))
+    return map
+  })
 }
 
 // Query keys are scoped by id so navigating between notebooks always refetches

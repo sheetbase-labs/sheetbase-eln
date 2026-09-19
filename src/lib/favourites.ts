@@ -33,6 +33,7 @@ import {
   recordDestination,
   sheetPath,
 } from './navigation'
+import { listInIdChunks } from './postgrest-in-list'
 import type { RecentObjectKind } from './recents'
 
 // ---------------------------------------------------------------------------
@@ -250,33 +251,45 @@ export async function resolveFavouriteItems(
   const [recordRows, datasetRows, sheetRows, projectRows, templateRows] =
     await Promise.all([
       idsByKind.has('record')
-        ? client.list<RecordLabelWire>(
+        ? listInIdChunks<RecordLabelWire>(
+            client,
             'records',
-            `?id=in.(${idsByKind.get('record')!.join(',')})&select=id,kind,identifier,title,archived_at,deleted_at`,
+            idsByKind.get('record')!,
+            (idFilter) =>
+              `?id=in.(${idFilter})&select=id,kind,identifier,title,archived_at,deleted_at`,
           )
         : Promise.resolve([]),
       idsByKind.has('dataset')
-        ? client.list<DatasetLabelWire>(
+        ? listInIdChunks<DatasetLabelWire>(
+            client,
             'datasets',
-            `?id=in.(${idsByKind.get('dataset')!.join(',')})&select=id,name,lifecycle`,
+            idsByKind.get('dataset')!,
+            (idFilter) => `?id=in.(${idFilter})&select=id,name,lifecycle`,
           )
         : Promise.resolve([]),
       idsByKind.has('sheet')
-        ? client.list<SheetLabelWire>(
+        ? listInIdChunks<SheetLabelWire>(
+            client,
             'sheet_instances',
-            `?id=in.(${idsByKind.get('sheet')!.join(',')})&select=id,name,lifecycle`,
+            idsByKind.get('sheet')!,
+            (idFilter) => `?id=in.(${idFilter})&select=id,name,lifecycle`,
           )
         : Promise.resolve([]),
       idsByKind.has('project')
-        ? client.list<ProjectWire>(
+        ? listInIdChunks<ProjectWire>(
+            client,
             'projects',
-            `?id=in.(${idsByKind.get('project')!.join(',')})&select=id,key,title,archived_at`,
+            idsByKind.get('project')!,
+            (idFilter) =>
+              `?id=in.(${idFilter})&select=id,key,title,archived_at`,
           )
         : Promise.resolve([]),
       idsByKind.has('notebook_template')
-        ? client.list<TemplateLabelWire>(
+        ? listInIdChunks<TemplateLabelWire>(
+            client,
             'notebook_templates',
-            `?id=in.(${idsByKind.get('notebook_template')!.join(',')})&select=id,key,name,lifecycle`,
+            idsByKind.get('notebook_template')!,
+            (idFilter) => `?id=in.(${idFilter})&select=id,key,name,lifecycle`,
           )
         : Promise.resolve([]),
     ])

@@ -414,7 +414,7 @@ export function searchRecords(
   const filters: string[] = [`kind=eq.${kind}`, 'deleted_at=is.null']
   if (trimmed) {
     const enc = encodeURIComponent(`${trimmed}*`)
-    filters.push(`(identifier=ilike.${enc},title=ilike.${enc})`)
+    filters.push(`or=(identifier.ilike.${enc},title.ilike.${enc})`)
   }
   filters.push('order=archived_at.asc,identifier.asc')
   if (!opts.includeArchived) {

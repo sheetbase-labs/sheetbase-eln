@@ -57,6 +57,7 @@ import {
   notebookTemplateDataClient,
 } from '#/lib/notebook-template-data'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
+import { listInIdChunks } from '#/lib/postgrest-in-list'
 import { useFavouritesList, useSetFavourite } from '#/lib/favourites'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
@@ -226,11 +227,14 @@ function TemplateLibraryRoute() {
     queryFn: async () => {
       const versionIds = notebookVersions.map((version) => version.id)
       if (versionIds.length === 0) return {}
-      const rows = await notebookDataClient.list<{
+      const rows = await listInIdChunks<{
         source_notebook_template_version_id: string
       }>(
+        notebookDataClient,
         'records',
-        `?source_notebook_template_version_id=in.(${versionIds.join(',')})&select=source_notebook_template_version_id`,
+        versionIds,
+        (idFilter) =>
+          `?source_notebook_template_version_id=in.(${idFilter})&select=source_notebook_template_version_id`,
       )
       const templateByVersion = new Map<string, string>()
       for (const version of notebookVersions) {
@@ -260,10 +264,11 @@ function TemplateLibraryRoute() {
   const blockCountsQuery = useQuery({
     queryKey: ['sci-006', 'template-block-counts', templateIds],
     queryFn: async () => {
-      const idFilter = templateIds.join(',')
-      const rows = await notebookDataClient.list<{ record_id: string }>(
+      const rows = await listInIdChunks<{ record_id: string }>(
+        notebookDataClient,
         'blocks',
-        `?record_id=in.(${idFilter})&select=record_id`,
+        templateIds,
+        (idFilter) => `?record_id=in.(${idFilter})&select=record_id`,
       )
       const counts: Record<string, number> = {}
       for (const row of rows) {
@@ -281,10 +286,12 @@ function TemplateLibraryRoute() {
   const usageCountsQuery = useQuery({
     queryKey: ['sci-006', 'template-usage-counts', templateIds],
     queryFn: async () => {
-      const idFilter = templateIds.join(',')
-      const rows = await notebookDataClient.list<{ target_record_id: string }>(
+      const rows = await listInIdChunks<{ target_record_id: string }>(
+        notebookDataClient,
         'record_links',
-        `?link_type=eq.template&target_record_id=in.(${idFilter})&select=target_record_id`,
+        templateIds,
+        (idFilter) =>
+          `?link_type=eq.template&target_record_id=in.(${idFilter})&select=target_record_id`,
       )
       const counts: Record<string, number> = {}
       for (const row of rows) {
@@ -301,10 +308,12 @@ function TemplateLibraryRoute() {
   const blockPreviewsQuery = useQuery({
     queryKey: ['tpl-001', 'template-block-previews', templateIds],
     queryFn: async () => {
-      const idFilter = templateIds.join(',')
-      const rows = await notebookDataClient.list<BlockWire>(
+      const rows = await listInIdChunks<BlockWire>(
+        notebookDataClient,
         'blocks',
-        `?record_id=in.(${idFilter})&order=record_id.asc,order.asc`,
+        templateIds,
+        (idFilter) =>
+          `?record_id=in.(${idFilter})&order=record_id.asc,order.asc`,
       )
       const grouped: Record<string, BlockWire[]> = {}
       for (const row of rows) {
@@ -344,9 +353,12 @@ function TemplateLibraryRoute() {
     queryFn: async () => {
       const ids = (usageLinksQuery.data ?? []).map((item) => item.recordId)
       if (ids.length === 0) return [] as TemplateLinkedRecord[]
-      const rows = await notebookDataClient.list<RecordWire>(
+      const rows = await listInIdChunks<RecordWire>(
+        notebookDataClient,
         'records',
-        `?id=in.(${ids.join(',')})&select=id,identifier,title,kind,status,project_id`,
+        ids,
+        (idFilter) =>
+          `?id=in.(${idFilter})&select=id,identifier,title,kind,status,project_id`,
       )
       const linked: TemplateLinkedRecord[] = rows.map((row) => ({
         id: row.id,

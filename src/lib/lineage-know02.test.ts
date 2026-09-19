@@ -22,6 +22,7 @@ import {
   parseLineageSeedParam,
 } from './lineage-data'
 import type { DataClient } from './data-client'
+import { sanitizeQuery } from './postgrest-path'
 import type {
   ChangeEventWire,
   LineageNode,
@@ -379,5 +380,105 @@ describe('seeded fetch filter syntax', () => {
     const expansion = queries.find((q) => q.startsWith('records?id=in.'))
     expect(expansion).toBe(`records?id=in.(${other})`)
     expect(graph.nodes.some((n) => n.recordId === other)).toBe(true)
+  })
+})
+
+describe('chunked id-list fetchers (proxy value cap)', () => {
+  const uuid = (n: number) =>
+    `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
+
+  /** Every query a fetcher emits must pass the real proxy validator. */
+  function expectProxySafe(queries: string[]) {
+    for (const q of queries) {
+      const search = q.slice(q.indexOf('?'))
+      expect(() => sanitizeQuery(search), q).not.toThrow()
+    }
+  }
+
+  it('chunks fetchLineageLinks so a workspace-sized id set stays under the cap', async () => {
+    // 62 records is the observed failing case: one or() value ≈ 2.3 KB.
+    const ids = Array.from({ length: 62 }, (_, i) => uuid(i))
+    const queries: string[] = []
+    await fetchLineageLinks(capturingClient(queries), ids)
+    expect(queries.length).toBeGreaterThan(1)
+    expectProxySafe(queries)
+    for (const q of queries) {
+      expect(q).toContain('or=(source_record_id.in.(')
+      const or = new URLSearchParams(q.slice(q.indexOf('?'))).get('or')
+      expect(or).not.toBeNull()
+      expect(or!.length).toBeLessThanOrEqual(500)
+    }
+  })
+
+  it('dedupes links that match both ends of different chunks', async () => {
+    const ids = Array.from({ length: 8 }, (_, i) => uuid(i))
+    // A link spanning two chunks: source in chunk 1, target in chunk 2.
+    const link = makeLink('link-span', uuid(0), uuid(7), 'EXP-7')
+    const queries: string[] = []
+    const client: DataClient = {
+      ...capturingClient(queries),
+      list: <T>(resource: string, query = ''): Promise<T[]> => {
+        queries.push(`${resource}${query}`)
+        const or = new URLSearchParams(query).get('or') ?? ''
+        return Promise.resolve(
+          (or.includes(uuid(0)) || or.includes(uuid(7)) ? [link] : []) as T[],
+        )
+      },
+    }
+    const links = await fetchLineageLinks(client, ids)
+    expect(queries.length).toBeGreaterThan(1)
+    expect(links.map((l) => l.id)).toEqual(['link-span'])
+  })
+
+  it('chunks the record-scoped fetchers with single-column in.() lists', async () => {
+    const ids = Array.from({ length: 25 }, (_, i) => uuid(i))
+    const queries: string[] = []
+    const client = capturingClient(queries)
+    await fetchLineageReviews(client, ids)
+    await fetchLineageDecisions(client, ids)
+    await fetchLineageSignatures(client, ids)
+    await fetchLineageEvents(client, ids)
+    // 25 ids ÷ 10 per chunk = 3 requests per fetcher.
+    expect(queries).toHaveLength(12)
+    expectProxySafe(queries)
+    for (const q of queries) {
+      expect(q).toContain('record_id=in.(')
+    }
+  })
+
+  it('keeps merged event pages newest-first across chunks', async () => {
+    const ids = Array.from({ length: 12 }, (_, i) => uuid(i))
+    const event = (id: string, at: string): ChangeEventWire => ({
+      id,
+      workspace_id: 'ws-1',
+      sequence: '1',
+      entity_type: 'record',
+      entity_uuid: id,
+      operation: 'update',
+      record_id: id,
+      project_id: null,
+      actor_user_id: null,
+      actor_credential_id: null,
+      client_id: null,
+      payload: {},
+      created_at: at,
+    })
+    const queries: string[] = []
+    const client: DataClient = {
+      ...capturingClient(queries),
+      list: <T>(resource: string, query = ''): Promise<T[]> => {
+        queries.push(`${resource}${query}`)
+        const list = new URLSearchParams(query).get('record_id') ?? ''
+        // Older event sits in the first chunk's page, newer in the second.
+        if (list.includes(uuid(0))) {
+          return Promise.resolve([
+            event('e-old', '2025-07-01T00:00:00Z'),
+          ] as T[])
+        }
+        return Promise.resolve([event('e-new', '2025-07-10T00:00:00Z')] as T[])
+      },
+    }
+    const events = await fetchLineageEvents(client, ids)
+    expect(events.map((e) => e.id)).toEqual(['e-new', 'e-old'])
   })
 })

@@ -1,6 +1,7 @@
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import type { FieldLogicalType } from '#/lib/field-definition'
+import { chunkIds } from '#/lib/postgrest-in-list'
 
 export type ScientificLogicalType = FieldLogicalType
 export interface ScientificOptionWire {
@@ -379,8 +380,18 @@ export async function deleteScientificRows(
   resource: string,
   rowIds: string[],
 ) {
-  const query = `?id=in.(${rowIds.map((id) => encodeURIComponent(id)).join(',')})`
-  return client.remove(encodeURIComponent(resource), query)
+  // Chunked deletes: the row-id set is a user selection of arbitrary size,
+  // so it must stay under the proxy's per-value cap like every other
+  // `in.()` list. Chunks are disjoint, so the merged result is the union.
+  const deleted = await Promise.all(
+    chunkIds(rowIds).map((chunk) =>
+      client.remove(
+        encodeURIComponent(resource),
+        `?id=in.(${chunk.map((id) => encodeURIComponent(id)).join(',')})`,
+      ),
+    ),
+  )
+  return deleted.flat()
 }
 
 export function renameScientificTable(

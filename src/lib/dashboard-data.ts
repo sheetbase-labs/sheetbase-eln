@@ -23,6 +23,7 @@ import type {
 import { fetchReviewSubmissions, toReviewItem } from './reviews'
 import type { ReviewItem, ReviewSubmissionWire } from './reviews'
 import type { CommentWire } from './comments-data'
+import { listInIdChunks } from './postgrest-in-list'
 
 // ---------------------------------------------------------------------------
 // Wire shapes — re-using the shared types from notebook-data and reviews.
@@ -360,9 +361,12 @@ export async function fetchMyPendingReviews(
   const submissions = await fetchReviewSubmissions(client)
   const recordIds = submissions.map((s) => s.record_id)
   const records = recordIds.length
-    ? await client.list<RecordWire>(
+    ? await listInIdChunks<RecordWire>(
+        client,
         'records',
-        `?id=in.(${recordIds.join(',')})&select=id,workspace_id,project_id,kind,identifier,title,status,created_at,updated_at,archived_at,deleted_at,created_by_user_id,structure_version,metadata_version,tags,properties,updated_by_user_id,locked_at,locked_by_revision_id`,
+        recordIds,
+        (idFilter) =>
+          `?id=in.(${idFilter})&select=id,workspace_id,project_id,kind,identifier,title,status,created_at,updated_at,archived_at,deleted_at,created_by_user_id,structure_version,metadata_version,tags,properties,updated_by_user_id,locked_at,locked_by_revision_id`,
       )
     : []
   const recordMap = new Map(records.map((r) => [r.id, r]))
@@ -370,12 +374,18 @@ export async function fetchMyPendingReviews(
   // Fetch only projects referenced by the returned records instead of
   // every project in the workspace.
   const projectIds = [
-    ...new Set(records.map((r) => r.project_id).filter(Boolean)),
+    ...new Set(
+      records
+        .map((r) => r.project_id)
+        .filter((id): id is string => id !== null),
+    ),
   ]
   const projectRows = projectIds.length
-    ? await client.list<ProjectWire>(
+    ? await listInIdChunks<ProjectWire>(
+        client,
         'projects',
-        `?id=in.(${projectIds.join(',')})&select=id,key,title`,
+        projectIds,
+        (idFilter) => `?id=in.(${idFilter})&select=id,key,title`,
       )
     : []
   const projectMap = new Map(
@@ -431,9 +441,12 @@ export async function fetchPinnedRecords(
   recordIds: string[],
 ): Promise<DashboardPinnedItem[]> {
   if (recordIds.length === 0) return []
-  const records = await client.list<RecordWire>(
+  const records = await listInIdChunks<RecordWire>(
+    client,
     'records',
-    `?id=in.(${recordIds.join(',')})&select=id,workspace_id,project_id,kind,identifier,title,status,created_at,updated_at,archived_at,deleted_at,created_by_user_id,structure_version,metadata_version,tags,properties,updated_by_user_id,locked_at,locked_by_revision_id`,
+    recordIds,
+    (idFilter) =>
+      `?id=in.(${idFilter})&select=id,workspace_id,project_id,kind,identifier,title,status,created_at,updated_at,archived_at,deleted_at,created_by_user_id,structure_version,metadata_version,tags,properties,updated_by_user_id,locked_at,locked_by_revision_id`,
   )
   const projectIds = [
     ...new Set(
@@ -444,9 +457,12 @@ export async function fetchPinnedRecords(
   ]
   const projects =
     projectIds.length > 0
-      ? await client.list<ProjectWire>(
+      ? await listInIdChunks<ProjectWire>(
+          client,
           'projects',
-          `?id=in.(${projectIds.join(',')})&select=id,key,title,status,created_at,updated_at,archived_at`,
+          projectIds,
+          (idFilter) =>
+            `?id=in.(${idFilter})&select=id,key,title,status,created_at,updated_at,archived_at`,
         )
       : []
   const projectMap = new Map(projects.map((p) => [p.id, p]))

@@ -12,6 +12,7 @@ import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
 import { notebookDataClient, toRecord } from './notebook-data'
 import type { RecordWire } from './notebook-data'
+import { listInIdChunks } from './postgrest-in-list'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (PostgREST snake_case).
@@ -793,9 +794,12 @@ export async function fetchBoxContents(
     .filter((id): id is string => Boolean(id))
   let records: RecordWire[] = []
   if (occupiedIds.length > 0) {
-    records = await client.list<RecordWire>(
+    records = await listInIdChunks<RecordWire>(
+      client,
       'records',
-      `?id=in.(${occupiedIds.join(',')})&select=id,identifier,title,status,properties`,
+      occupiedIds,
+      (idFilter) =>
+        `?id=in.(${idFilter})&select=id,identifier,title,status,properties`,
     )
   }
   const byId = new Map(records.map((r) => [r.id, r]))

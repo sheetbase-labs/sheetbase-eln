@@ -14,6 +14,7 @@ import {
   parseQuantityNumericValue,
   validateFieldValue,
 } from '#/lib/field-value-validation'
+import { listInIdChunks } from '#/lib/postgrest-in-list'
 
 export type ModelFieldLogicalType = FieldLogicalType
 
@@ -92,9 +93,12 @@ export async function fetchModelFields(
     `?kind=eq.${modelKey}&lifecycle=${lifecycle}&order=display_order.asc,field_name.asc`,
   )
   if (definitions.length === 0) return []
-  const options = await client.list<OptionWire>(
+  const options = await listInIdChunks<OptionWire>(
+    client,
     'model_field_options',
-    `?definition_id=in.(${definitions.map(({ id }) => id).join(',')})&order=display_order.asc,key.asc`,
+    definitions.map(({ id }) => id),
+    (idFilter) =>
+      `?definition_id=in.(${idFilter})&order=display_order.asc,key.asc`,
   )
   const optionsByDefinition = new Map<string, OptionWire[]>()
   for (const option of options) {

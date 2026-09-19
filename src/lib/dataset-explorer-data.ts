@@ -38,6 +38,7 @@ import type {
 import { fetchDatasetSchemaFields } from './dataset-schema-data'
 import { CHART_SPEC_VERSION } from './chart-spec'
 import type { ChartSpec } from './chart-spec'
+import { listInIdChunks } from './postgrest-in-list'
 import type { RegistryFilterValue } from './registry'
 
 // --- Safe limits ----------------------------------------------------------
@@ -216,27 +217,34 @@ export async function fetchDatasetSummaries(
   ]
   const [fields, versions] = await Promise.all([
     versionIds.length
-      ? client.list<DatasetVersionFieldWire>(
+      ? listInIdChunks<DatasetVersionFieldWire>(
+          client,
           'dataset_schema_version_fields',
-          `?schema_version_id=in.(${versionIds.map(encodeURIComponent).join(',')})&lifecycle=eq.active&order=display_order.asc`,
+          versionIds,
+          (idFilter) =>
+            `?schema_version_id=in.(${idFilter})&lifecycle=eq.active&order=display_order.asc`,
         )
       : Promise.resolve([]),
     versionIds.length
-      ? client.list<{
+      ? listInIdChunks<{
           id: string
           schema_id: string
           version: number
         }>(
+          client,
           'dataset_schema_versions',
-          `?id=in.(${versionIds.map(encodeURIComponent).join(',')})&select=id,schema_id,version`,
+          versionIds,
+          (idFilter) => `?id=in.(${idFilter})&select=id,schema_id,version`,
         )
       : Promise.resolve([]),
   ])
   const definitionIds = [...new Set(versions.map((item) => item.schema_id))]
   const definitions = definitionIds.length
-    ? await client.list<{ id: string; name: string; key: string }>(
+    ? await listInIdChunks<{ id: string; name: string; key: string }>(
+        client,
         'dataset_schema_definitions',
-        `?id=in.(${definitionIds.map(encodeURIComponent).join(',')})&select=id,name,key`,
+        definitionIds,
+        (idFilter) => `?id=in.(${idFilter})&select=id,name,key`,
       )
     : []
   const versionById = new Map(versions.map((item) => [item.id, item]))

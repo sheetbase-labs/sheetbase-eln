@@ -16,6 +16,7 @@
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { recordDestination } from './navigation'
+import { IN_LIST_OR_CHUNK_SIZE, listInIdChunks } from './postgrest-in-list'
 
 // ---------------------------------------------------------------------------
 // Safe limits
@@ -382,11 +383,18 @@ export async function fetchLineageLinks(
   recordIds: string[] | null = null,
 ): Promise<RecordLinkWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<RecordLinkWire>(
+    // The or() filter repeats the id list, so it needs half-size chunks to
+    // stay under the proxy's per-value cap. A link whose source is in one
+    // chunk and target in another matches both requests — dedupe by id.
+    const links = await listInIdChunks<RecordLinkWire>(
+      client,
       'record_links',
-      `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id`,
+      recordIds,
+      (filter) =>
+        `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id`,
+      { chunkSize: IN_LIST_OR_CHUNK_SIZE, dedupeBy: (link) => link.id },
     )
+    return links.sort((a, b) => b.created_at.localeCompare(a.created_at))
   }
   return client.list<RecordLinkWire>(
     'record_links',
@@ -402,11 +410,14 @@ export async function fetchLineageReviews(
   recordIds: string[] | null = null,
 ): Promise<ReviewSubmissionWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<ReviewSubmissionWire>(
+    const reviews = await listInIdChunks<ReviewSubmissionWire>(
+      client,
       'review_submissions',
-      `?record_id=in.(${filter})&order=submitted_at.desc&select=id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at`,
+      recordIds,
+      (filter) =>
+        `?record_id=in.(${filter})&order=submitted_at.desc&select=id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at`,
     )
+    return reviews.sort((a, b) => b.submitted_at.localeCompare(a.submitted_at))
   }
   return client.list<ReviewSubmissionWire>(
     'review_submissions',
@@ -422,11 +433,14 @@ export async function fetchLineageDecisions(
   recordIds: string[] | null = null,
 ): Promise<ReviewDecisionWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<ReviewDecisionWire>(
+    const decisions = await listInIdChunks<ReviewDecisionWire>(
+      client,
       'review_decisions',
-      `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at`,
+      recordIds,
+      (filter) =>
+        `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at`,
     )
+    return decisions.sort((a, b) => b.created_at.localeCompare(a.created_at))
   }
   return client.list<ReviewDecisionWire>(
     'review_decisions',
@@ -442,11 +456,14 @@ export async function fetchLineageSignatures(
   recordIds: string[] | null = null,
 ): Promise<SignatureWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<SignatureWire>(
+    const signatures = await listInIdChunks<SignatureWire>(
+      client,
       'signatures',
-      `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,record_id,revision_id,signer_user_id,signature_meaning,assurance_level,created_at`,
+      recordIds,
+      (filter) =>
+        `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,record_id,revision_id,signer_user_id,signature_meaning,assurance_level,created_at`,
     )
+    return signatures.sort((a, b) => b.created_at.localeCompare(a.created_at))
   }
   return client.list<SignatureWire>(
     'signatures',
@@ -463,11 +480,14 @@ export async function fetchLineageEvents(
   recordIds: string[] | null = null,
 ): Promise<ChangeEventWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<ChangeEventWire>(
+    const events = await listInIdChunks<ChangeEventWire>(
+      client,
       'change_events',
-      `?record_id=in.(${filter})&order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}&select=id,workspace_id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,client_id,payload,created_at`,
+      recordIds,
+      (filter) =>
+        `?record_id=in.(${filter})&order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}&select=id,workspace_id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,client_id,payload,created_at`,
     )
+    return events.sort((a, b) => b.created_at.localeCompare(a.created_at))
   }
   return client.list<ChangeEventWire>(
     'change_events',
@@ -1319,9 +1339,11 @@ export async function fetchLineageGraph(
       (id) => !knownIds.has(id),
     )
     if (newIds.length > 0 && newIds.length <= maxNodes) {
-      const newRecords = await client.list<RecordWire>(
+      const newRecords = await listInIdChunks<RecordWire>(
+        client,
         'records',
-        `?id=in.(${newIds.map((id) => encodeURIComponent(id)).join(',')})`,
+        newIds,
+        (filter) => `?id=in.(${filter})`,
       )
       records = [...records, ...newRecords]
       // Re-fetch links including the expanded record set.

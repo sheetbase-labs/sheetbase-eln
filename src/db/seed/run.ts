@@ -2603,8 +2603,11 @@ export const demoSteps: Array<SeedStep> = [
   // OPS-007: Report Builder demo data. The first report is deliberately ready
   // to export; the second retains stale live references to exercise the export
   // gate. Created through the same RPCs the UI uses (create_report_definition,
-  // add_report_section) so invariants fire. Idempotent: lookup-or-create by
-  // document_identifier and reconcile the seeded sections on every run.
+  // add_report_section) so invariants fire. The in_review report's canonical
+  // record is submitted through preview_submission_digest +
+  // submit_record_revision so the /reviews inbox has the matching row.
+  // Idempotent: lookup-or-create by document_identifier and reconcile the
+  // seeded sections on every run.
   // -------------------------------------------------------------------------
   {
     name: 'demo OPS-007 report builder: reports and sections',
@@ -2629,6 +2632,8 @@ export const demoSteps: Array<SeedStep> = [
             sub: FIXTURE_USER_ID,
             workspace_id: FIXTURE_WORKSPACE_ID,
             role: 'authenticated',
+            // submit_record_revision requires an attributed session claim.
+            session_id: 'seed-ops007',
           }),
         ])
 
@@ -2853,6 +2858,72 @@ export const demoSteps: Array<SeedStep> = [
                 FIXTURE_WORKSPACE_ID,
               ],
             )
+          }
+
+          // An in_review report is only self-consistent when its canonical
+          // record has a real submitted revision: the /reviews inbox lists
+          // api.review_submissions and the editorial status transition above
+          // creates none. Submit through the same RPCs the submit dialog
+          // uses — preview_submission_digest pins the source digest,
+          // submit_record_revision freezes the evidence envelope (sections
+          // included) — then link the submission on the definition. Reruns
+          // skip reports that already carry a submission, and reuse an
+          // unlinked submission for the record rather than minting a
+          // duplicate revision.
+          if (report.status === 'in_review') {
+            const definition = await client.query(
+              `select record_id, review_submission_id
+                 from api.report_definitions where id=$1`,
+              [reportId],
+            )
+            const recordId = definition.rows[0].record_id as string
+            let submissionId = definition.rows[0].review_submission_id as
+              string | null
+            if (!submissionId) {
+              const existingSubmission = await client.query(
+                `select id from api.review_submissions
+                  where workspace_id=$1 and record_id=$2
+                  order by submitted_at desc limit 1`,
+                [FIXTURE_WORKSPACE_ID, recordId],
+              )
+              if (existingSubmission.rowCount) {
+                submissionId = existingSubmission.rows[0].id as string
+              } else {
+                const preview = await client.query(
+                  `select api.preview_submission_digest($1) as result`,
+                  [recordId],
+                )
+                const sourceDigest = (
+                  preview.rows[0].result as { sourceDigest: string }
+                ).sourceDigest
+                const submitted = await client.query(
+                  `select api.submit_record_revision(
+                     $1, $2, 'default-scientific-review', 1,
+                     array[$3]::text[], true, $4
+                   ) as result`,
+                  [
+                    recordId,
+                    sourceDigest,
+                    FIXTURE_USER_ID,
+                    `seed-ops007-${report.docId}`,
+                  ],
+                )
+                submissionId = (
+                  submitted.rows[0].result as {
+                    submission: { id: string }
+                  }
+                ).submission.id
+              }
+              await rpc('update_report_definition', [
+                FIXTURE_WORKSPACE_ID,
+                reportId,
+                null,
+                null,
+                null,
+                null,
+                submissionId,
+              ])
+            }
           }
         }
 

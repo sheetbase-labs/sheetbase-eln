@@ -6,10 +6,6 @@
  * generated (PRODUCT.md:91 — distinguishable, reviewable, attributable),
  * and accepted only through the ordinary canonical operation:
  *
- * - `notebook_text` drafts become ordinary `rich_text` blocks via the
- *   canonical `insertBlock` path (normal permissions, validation,
- *   provenance) — and only on explicit Accept. No new block types:
- *   `ai_summary` does not exist and is not added here.
  * - `import_mapping` suggestions extend the existing exact-match suggester
  *   (`suggestImportMappings`) with confidence + reason + preview; Accept
  *   applies the mapping through the ordinary `mapImportSheet` /
@@ -22,20 +18,9 @@
  * Discard leaves zero state: builders are pure, the panel never mutates,
  * and the accept helpers are the only mutation seam (called by the host,
  * never by the proposal itself).
- *
- * Facts-primary pattern (mirrors ASSIST-01): deterministic local builders
- * are the facts; the gateway stub phrasing (`stubPhraseDraft`) is marked
- * assistance-only and rendered beside — never instead of — the proposal.
  */
 
-import { AI_CONTEXT_VERSION } from './ai-context'
-import type { AiContextEnvelope } from './ai-context'
-import { StubModelProvider } from './ai-gateway'
-import type { AiCitation } from './ai-retrieval'
-import type { AssistCitation, AssistPhrasing } from './assist-explain'
-import { ASSIST_STUB_MODEL } from './assist-explain'
-import { isRichTextPayload, richTextToPlainText, validateBlock } from './blocks'
-import type { RichTextPayload } from './blocks/rich-text'
+import type { AssistCitation } from './assist-explain'
 import {
   CHART_SPEC_VERSION,
   CHART_TYPES_NULL_X,
@@ -43,10 +28,7 @@ import {
   validateChartSpec,
 } from './chart-spec'
 import type { ChartSpec, ChartType } from './chart-spec'
-import type { DataClient } from './data-client'
 import type { ImportColumnMapping, ImportTargetField } from './import-mapping'
-import { insertBlock } from './notebook-mutations'
-import type { InsertBlockResult } from './notebook-mutations'
 
 /**
  * Badge rendered beside every proposal preview. Assistance is
@@ -71,15 +53,6 @@ interface AssistDraftBase {
   /** Which canonical state the proposal was assembled from. */
   groundedFrom: string
   marking: AssistDraftMarking
-}
-
-/** A notebook text draft: ordinary `rich_text` content on Accept. */
-export interface AssistTextDraftProposal extends AssistDraftBase {
-  kind: 'notebook_text'
-  /** Plain-text draft, assembled deterministically from cited sources. */
-  draftText: string
-  /** Canonical block insert args applied only on explicit Accept. */
-  block: { type: 'rich_text'; payload: RichTextPayload }
 }
 
 export type ImportMappingConfidence = 'exact' | 'close' | 'none'
@@ -109,235 +82,11 @@ export interface AssistChartProposal extends AssistDraftBase {
   rationale: string[]
 }
 
-export type AssistDraftProposal =
-  AssistTextDraftProposal | AssistMappingProposal | AssistChartProposal
+export type AssistDraftProposal = AssistMappingProposal | AssistChartProposal
 
 const MARKING: AssistDraftMarking = {
   badge: GENERATED_DRAFT_BADGE,
   assistance: true,
-}
-
-/**
- * Minimal context a draft can ground in: envelope version + objects.
- * A full `AiContextEnvelope` satisfies this, as does a local summary of
- * rows already visible to the actor (no new reads — see
- * `summariseNotebookBlocks`). Only `objects` and `version` are read.
- */
-export type AssistDraftContext = Pick<AiContextEnvelope, 'version' | 'objects'>
-
-function envelopeCitations(
-  envelope: AssistDraftContext | null | undefined,
-  citations: AiCitation[] | null | undefined,
-): AssistCitation[] {
-  const out: AssistCitation[] = []
-  const byId = new Map(
-    (citations ?? []).map((citation) => [citation.stableId, citation]),
-  )
-  for (const object of envelope?.objects ?? []) {
-    const citation = byId.get(object.id)
-    out.push({
-      label: `[${object.kind}:${object.id}] ${object.title}`,
-      detail:
-        `context envelope v${envelope?.version ?? '?'} · freshness ${object.freshness}` +
-        ` · sections ${object.sections.map((section) => section.heading).join(', ') || 'none'}`,
-      deepLink: citation?.deepLink ?? object.deepLink,
-    })
-  }
-  for (const citation of citations ?? []) {
-    if (envelope?.objects.some((object) => object.id === citation.stableId))
-      continue
-    out.push({
-      label: `[${citation.kind}:${citation.stableId}] ${citation.title}`,
-      detail:
-        `retrieval citation · matched ${citation.matchedField}` +
-        (citation.archived ? ' · archived' : ''),
-      deepLink: citation.deepLink,
-    })
-  }
-  return out
-}
-
-// ---------------------------------------------------------------------------
-// (a) Notebook text / summary drafts grounded in record context.
-// ---------------------------------------------------------------------------
-
-function textNode(text: string): { type: 'text'; text: string } {
-  return { type: 'text', text }
-}
-
-function draftPayload(paragraphs: string[]): RichTextPayload {
-  return {
-    doc: {
-      type: 'doc',
-      content: paragraphs.map((text) => ({
-        type: 'paragraph',
-        content: [textNode(text)],
-      })),
-    },
-  }
-}
-
-/**
- * Build a notebook text draft grounded in the cited record context.
- * Deterministic template over envelope sections + retrieval citations —
- * no model call. `keyPoints` are caller-supplied verbatim excerpts of
- * already-cited content, listed in the draft under their own heading.
- * Returns null when there are no sources: a draft with no cited context
- * would be ungrounded, so no proposal is offered.
- */
-export function buildTextDraftProposal(input: {
-  recordTitle: string
-  focus?: string
-  envelope?: AssistDraftContext | AiContextEnvelope | null
-  citations?: AiCitation[] | null
-  /** Verbatim excerpts of cited content; rendered under their own heading. */
-  keyPoints?: string[]
-  /** Override for callers whose sources are not AI-01/AI-02 assembled. */
-  groundedFrom?: string
-}): AssistTextDraftProposal | null {
-  const cited = envelopeCitations(input.envelope, input.citations)
-  if (cited.length === 0) return null
-  const focus = input.focus?.trim()
-  const keyPoints = (input.keyPoints ?? [])
-    .map((point) => point.trim())
-    .filter((point) => point.length > 0)
-  const draftText = [
-    `Draft summary for '${input.recordTitle}'.`,
-    focus ? `Focus: ${focus}.` : null,
-    keyPoints.length > 0 ? 'Key points:' : null,
-    ...keyPoints.map((point) => `— ${point}`),
-    'Review and edit after inserting — this draft restates existing content and adds no new claims.',
-  ]
-    .filter((line): line is string => line !== null)
-    .join('\n')
-  const payload = draftPayload([
-    `Draft summary for '${input.recordTitle}'.`,
-    focus ? `Focus: ${focus}.` : "Summarises the record's current content.",
-    ...(keyPoints.length > 0
-      ? ['Key points:', ...keyPoints.map((point) => `— ${point}`)]
-      : []),
-  ])
-  if (!validateBlock({ type: 'rich_text', payload }).ok) return null
-  return {
-    kind: 'notebook_text',
-    title: `Draft summary for '${input.recordTitle}'`,
-    summary:
-      "Inserts one rich_text block drafted from the record's existing " +
-      'content. Nothing is written until Accept.',
-    draftText,
-    block: { type: 'rich_text', payload },
-    citations: cited,
-    groundedFrom:
-      input.groundedFrom ??
-      'AI-01 context envelope sections + AI-02 retrieval citations (deterministic template, no model claims)',
-    marking: MARKING,
-  }
-}
-
-/**
- * Accept a text draft through the ordinary canonical operation: validate
- * at the boundary, then `insertBlock` with the caller's actor/permissions.
- * The inserted block is ordinary `rich_text` content — the generated
- * marking lives in the proposal UI, not in a new block type.
- */
-export async function acceptTextDraft(
-  client: DataClient,
-  args: {
-    recordId: string
-    proposal: AssistTextDraftProposal
-    afterBlockId?: string
-    expectedStructureVersion?: number
-  },
-): Promise<InsertBlockResult> {
-  const validation = validateBlock({
-    type: args.proposal.block.type,
-    payload: args.proposal.block.payload,
-  })
-  if (!validation.ok) {
-    throw new Error(
-      `Draft failed block validation: ${validation.errors.map((error) => error.message).join(' ')}`,
-    )
-  }
-  return insertBlock(client, {
-    recordId: args.recordId,
-    type: args.proposal.block.type,
-    payload: args.proposal.block.payload,
-    afterBlockId: args.afterBlockId,
-    expectedStructureVersion: args.expectedStructureVersion,
-  })
-}
-
-/** Max blocks summarised into one draft context; beyond this a truncation section is added. */
-export const MAX_DRAFT_SOURCE_BLOCKS = 20 as const
-/** Max chars kept per block body; longer bodies are cut with an ellipsis marker. */
-export const MAX_DRAFT_CHARS_PER_BLOCK = 500 as const
-
-/**
- * Summarise the notebook blocks already visible to the actor into draft
- * context + verbatim key points. Pure and local: performs no reads, so it
- * grants no access beyond what the caller already holds — the caller passes
- * the blocks it has rendered. Each block becomes one quoted body;
- * rich_text resolves to its plain text (cut with a marker past the char
- * cap); other types contribute a type line with no invented content.
- */
-export function summariseNotebookBlocks(input: {
-  recordId: string
-  title: string
-  deepLink: string
-  blocks: Array<{ id: string; type: string; payload: unknown }>
-  maxBlocks?: number
-  maxCharsPerBlock?: number
-}): {
-  context: AssistDraftContext
-  keyPoints: string[]
-  groundedFrom: string
-} {
-  const maxBlocks = input.maxBlocks ?? MAX_DRAFT_SOURCE_BLOCKS
-  const maxChars = input.maxCharsPerBlock ?? MAX_DRAFT_CHARS_PER_BLOCK
-  const taken = input.blocks.slice(0, maxBlocks)
-  const bodies = taken.map((block) => {
-    if (!isRichTextPayload(block.payload))
-      return `(${block.type} block — no text summary)`
-    const text = richTextToPlainText(block.payload).trim()
-    return text.length <= maxChars
-      ? text
-      : `${text.slice(0, maxChars).trimEnd()}…`
-  })
-  const sections = bodies.map((body, index) => ({
-    heading: `${taken[index]?.type ?? 'unknown'} block ${index + 1}`,
-    body,
-    truncated: body.endsWith('…'),
-  }))
-  if (input.blocks.length > taken.length) {
-    sections.push({
-      heading: 'Truncation',
-      body: `${input.blocks.length - taken.length} further block(s) omitted from this summary.`,
-      truncated: false,
-    })
-  }
-  return {
-    context: {
-      version: AI_CONTEXT_VERSION,
-      objects: [
-        {
-          kind: 'notebook',
-          id: input.recordId,
-          title: input.title,
-          deepLink: input.deepLink,
-          freshness: 'live',
-          pins: [],
-          sections,
-          truncated: input.blocks.length > taken.length,
-        },
-      ],
-    },
-    keyPoints: bodies
-      .map((body) => body.trim())
-      .filter((body) => body.length > 0 && !body.startsWith('('))
-      .slice(0, 8),
-    groundedFrom:
-      'visible notebook blocks (local deterministic summary of already-loaded rows, no new reads, no model claims)',
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -677,37 +426,4 @@ function buildChartProposal(
       'canonical dataset schema fields + chart-spec validators (deterministic type/binding rules, no model claims)',
     marking: MARKING,
   }
-}
-
-// ---------------------------------------------------------------------------
-// Gateway stub phrasing (AI-03). Marked assistance, never the proposal.
-// ---------------------------------------------------------------------------
-
-/**
- * Phrase a proposal through the AI-03 gateway stub. Deterministic in
- * tests (no network, no credentials): the stub echoes the citation labels
- * it was given. The result MUST be rendered with the generated-draft
- * banner beside the grounded proposal — never instead of it.
- */
-export async function stubPhraseDraft(
-  proposal: AssistDraftProposal,
-): Promise<AssistPhrasing> {
-  const provider = new StubModelProvider(ASSIST_STUB_MODEL, 'Draft phrasing')
-  const prompt = [proposal.title, proposal.summary]
-    .concat(
-      proposal.kind === 'chart_config'
-        ? proposal.rationale
-        : proposal.kind === 'import_mapping'
-          ? proposal.suggestions.map(
-              (suggestion) => `${suggestion.source}: ${suggestion.reason}`,
-            )
-          : [proposal.draftText],
-    )
-    .join('\n')
-  const response = await provider.complete({
-    prompt,
-    maxTokens: 500,
-    citationIds: proposal.citations.map((citation) => citation.label),
-  })
-  return { text: response.text, model: ASSIST_STUB_MODEL, assistance: true }
 }

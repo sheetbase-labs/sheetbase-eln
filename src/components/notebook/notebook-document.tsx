@@ -14,17 +14,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '#/components/ui'
-import { DraftProposalPanel } from '#/components/assist/draft-proposal-panel'
-import {
-  buildTextDraftProposal,
-  summariseNotebookBlocks,
-} from '#/lib/assist-drafts'
-import type { AssistTextDraftProposal } from '#/lib/assist-drafts'
 import { NotebookBlock } from './notebook-block'
 import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
@@ -158,13 +151,6 @@ export interface NotebookDocumentProps {
     type: string,
     options?: { datasetSchemaId?: string },
   ) => Promise<string | undefined>
-  /**
-   * ASSIST-02: insert an accepted text draft through the canonical block
-   * insert (route-owned, same permissions/validation/provenance as a manual
-   * insert). Present only when the caller wires it; the Draft-summary
-   * affordance hides otherwise.
-   */
-  onAcceptDraft?: (proposal: AssistTextDraftProposal) => Promise<void>
   readOnly?: boolean
   /** NOTE-02: anchors of currently collapsed sections (route presentation state). */
   collapsedSections?: ReadonlySet<string>
@@ -224,7 +210,6 @@ function NotebookDocumentContent({
   onUndoDelete,
   onMoveBlock,
   onReplaceBlock,
-  onAcceptDraft,
   readOnly,
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
@@ -240,44 +225,6 @@ function NotebookDocumentContent({
   // Per-block error messages for insert / duplicate / delete (ELN-005).
   // Save errors are owned per-editor by `useAutosave` (ELN-007).
   const [errorById, setErrorById] = React.useState<Record<string, string>>({})
-  // ASSIST-02: text-draft proposal previewed before commit. The draft is
-  // built from already-visible blocks; Accept delegates to the route-owned
-  // onAcceptDraft (canonical insert); Discard clears with zero state.
-  const [draftProposal, setDraftProposal] =
-    React.useState<AssistTextDraftProposal | null>(null)
-  const [draftStatus, setDraftStatus] = React.useState('')
-  const [draftAccepting, setDraftAccepting] = React.useState(false)
-
-  function buildDraftProposal(): AssistTextDraftProposal | null {
-    const summary = summariseNotebookBlocks({
-      recordId: record.id,
-      title: record.title,
-      deepLink: `/records/${record.id}`,
-      blocks,
-    })
-    return buildTextDraftProposal({
-      recordTitle: record.title,
-      envelope: summary.context,
-      keyPoints: summary.keyPoints,
-      groundedFrom: summary.groundedFrom,
-    })
-  }
-
-  async function handleAcceptDraftProposal() {
-    if (!draftProposal || !onAcceptDraft) return
-    setDraftAccepting(true)
-    try {
-      await onAcceptDraft(draftProposal)
-      setDraftProposal(null)
-      setDraftStatus('')
-    } catch (error) {
-      setDraftStatus(
-        error instanceof Error ? error.message : 'Could not insert the draft.',
-      )
-    } finally {
-      setDraftAccepting(false)
-    }
-  }
   const [confirmDelete, setConfirmDelete] =
     React.useState<NotebookBlockData | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState(false)
@@ -1220,38 +1167,6 @@ function NotebookDocumentContent({
           />
         </div>
       )}
-      {!isReadOnly && onAcceptDraft && orderedIds.length > 0 ? (
-        <div className="space-y-2 pt-2" data-print-hide>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const proposal = buildDraftProposal()
-              setDraftProposal(proposal)
-              setDraftStatus(
-                proposal ? '' : 'Nothing to summarise yet — add blocks first.',
-              )
-            }}
-          >
-            Draft summary
-          </Button>
-          {draftStatus ? (
-            <p className="text-xs text-muted-foreground">{draftStatus}</p>
-          ) : null}
-          {draftProposal ? (
-            <DraftProposalPanel
-              proposal={draftProposal}
-              accepting={draftAccepting}
-              onAccept={() => void handleAcceptDraftProposal()}
-              onDiscard={() => {
-                setDraftProposal(null)
-                setDraftStatus('')
-              }}
-            />
-          ) : null}
-        </div>
-      ) : null}
       {!isReadOnly && orderedIds.length > 0 ? (
         <p className="text-xs text-muted-foreground" data-print-hide>
           Type / in empty text to insert a block. Alt+↑/↓ reorders the focused

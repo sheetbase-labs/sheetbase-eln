@@ -8,14 +8,12 @@
  * no executors — JSON-serialisable guidance only, so no new write path
  * exists behind guidance.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { acceptTextDraft, buildTextDraftProposal } from './assist-drafts'
-import type { AiContextEnvelope } from './ai-context'
 import { approveReview, requestChangesOnReview } from './review-workspace'
 import { promoteToChartSpec } from './comparative-view'
 import { previewSubmissionDigest, submitRecordRevision } from './notebook-data'
-import type { DataClient } from './data-client'
+
 import {
   evaluateAnalysisToFigure,
   evaluateSubmissionReadiness,
@@ -57,43 +55,6 @@ function submissionState(
     submissionId: null,
     decision: null,
     ...overrides,
-  }
-}
-
-function envelope(): AiContextEnvelope {
-  return {
-    version: 1,
-    actor: { kind: 'user', id: 'user-1' },
-    workspace: { id: 'ws-1', project: null },
-    objects: [
-      {
-        kind: 'record',
-        id: 'rec-1',
-        title: 'Visible experiment',
-        deepLink: '/records/rec-1',
-        freshness: 'live',
-        pins: [],
-        sections: [
-          {
-            heading: 'Properties',
-            body: 'organism: E. coli',
-            truncated: false,
-          },
-        ],
-        truncated: false,
-      },
-    ],
-    omissions: [],
-    budgets: {
-      applied: {
-        maxObjects: 5,
-        maxSectionsPerObject: 5,
-        maxCharsPerSection: 100,
-        maxCharsTotal: 1000,
-        maxRowsPerDataset: 10,
-      },
-      usage: { chars: 10, sections: 1, rows: 0, objects: 1 },
-    },
   }
 }
 
@@ -164,8 +125,8 @@ describe('evaluateAnalysisToFigure', () => {
       'current',
     ])
     expect(proposed.steps[3]?.nextActions[0]?.target).toMatchObject({
-      kind: 'accept',
-      acceptKey: 'acceptTextDraft',
+      kind: 'navigate',
+      href: '/records/r1',
     })
     expect(proposed.currentStepId).toBe('figure-embedded')
 
@@ -329,7 +290,6 @@ describe('evaluateSubmissionReadiness', () => {
 describe('execution parity (no new write paths)', () => {
   it('registers the identical canonical accept function references', () => {
     expect(GUIDED_ACCEPTS.promoteToChartSpec).toBe(promoteToChartSpec)
-    expect(GUIDED_ACCEPTS.acceptTextDraft).toBe(acceptTextDraft)
     expect(GUIDED_ACCEPTS.previewSubmissionDigest).toBe(previewSubmissionDigest)
     expect(GUIDED_ACCEPTS.submitRecordRevision).toBe(submitRecordRevision)
     expect(GUIDED_ACCEPTS.approveReview).toBe(approveReview)
@@ -390,62 +350,4 @@ describe('execution parity (no new write paths)', () => {
     }
   })
 
-  it('a guided accept produces the identical client call sequence as the manual accept (permission/provenance parity)', async () => {
-    const proposal = buildTextDraftProposal({
-      recordTitle: 'EXP-1',
-      envelope: envelope(),
-    })
-    if (!proposal) throw new Error('fixture proposal must build')
-    const blockRow = {
-      id: 'b1',
-      record_id: 'r1',
-      type: 'rich_text',
-      payload: proposal.block.payload,
-      payload_schema_version: 1,
-      order: 1,
-      version: 1,
-      created_at: '2026-07-19T00:00:00.000Z',
-      updated_at: '2026-07-19T00:00:00.000Z',
-    }
-    const manualRpc = vi.fn(async () => ({
-      block: blockRow,
-      structure_version: 2,
-    }))
-    const guidedRpc = vi.fn(async () => ({
-      block: blockRow,
-      structure_version: 2,
-    }))
-    const manualClient = { rpc: manualRpc } as unknown as DataClient
-    const guidedClient = { rpc: guidedRpc } as unknown as DataClient
-
-    // Manual: the user accepts through the draft panel's canonical path.
-    await acceptTextDraft(manualClient, { recordId: 'r1', proposal })
-    // Guided: the workflow's next action invokes the same registered accept.
-    const workflow = evaluateAnalysisToFigure(
-      analysisState({
-        columnCount: 2,
-        rowCount: 5,
-        compareConfigValid: true,
-        chartSpecReady: true,
-        recordId: 'r1',
-      }),
-    )
-    const embedAction = workflow.steps[3].nextActions[0]
-    expect(embedAction.target).toMatchObject({
-      kind: 'accept',
-      acceptKey: 'acceptTextDraft',
-    })
-    await GUIDED_ACCEPTS.acceptTextDraft(guidedClient, {
-      recordId: 'r1',
-      proposal,
-    })
-
-    // Same function, same actor client shape, same RPC — so permission,
-    // provenance and audit are identical by construction.
-    expect(manualRpc.mock.calls).toEqual(guidedRpc.mock.calls)
-    expect(manualRpc).toHaveBeenCalledWith(
-      'insert_block',
-      expect.objectContaining({ p_record_id: 'r1', p_type: 'rich_text' }),
-    )
-  })
 })

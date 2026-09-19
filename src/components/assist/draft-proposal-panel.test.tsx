@@ -7,11 +7,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  buildTextDraftProposal,
-  proposeChartSpec,
-  suggestMappingProposal,
-} from '#/lib/assist-drafts'
+import { proposeChartSpec, suggestMappingProposal } from '#/lib/assist-drafts'
 import type { AssistDraftProposal } from '#/lib/assist-drafts'
 import type { ImportTargetField } from '#/lib/import-mapping'
 
@@ -20,48 +16,6 @@ import { DraftProposalPanel } from './draft-proposal-panel'
 afterEach(cleanup)
 
 const DATASET_ID = '11111111-1111-4111-8111-111111111111'
-
-function textProposal(): AssistDraftProposal {
-  const proposal = buildTextDraftProposal({
-    recordTitle: 'EXP-1',
-    envelope: {
-      version: 1,
-      actor: { kind: 'user', id: 'user-1' },
-      workspace: { id: 'ws-1', project: null },
-      objects: [
-        {
-          kind: 'record',
-          id: 'rec-1',
-          title: 'Visible experiment',
-          deepLink: '/records/rec-1',
-          freshness: 'live',
-          pins: [],
-          sections: [
-            {
-              heading: 'Properties',
-              body: 'organism: E. coli',
-              truncated: false,
-            },
-          ],
-          truncated: false,
-        },
-      ],
-      omissions: [],
-      budgets: {
-        applied: {
-          maxObjects: 5,
-          maxSectionsPerObject: 5,
-          maxCharsPerSection: 100,
-          maxCharsTotal: 1000,
-          maxRowsPerDataset: 10,
-        },
-        usage: { chars: 10, sections: 1, rows: 0, objects: 1 },
-      },
-    },
-  })
-  if (!proposal) throw new Error('fixture proposal must build')
-  return proposal
-}
 
 function mappingProposal(): AssistDraftProposal {
   const fields: ImportTargetField[] = [
@@ -94,38 +48,25 @@ function chartProposal(): AssistDraftProposal {
 
 describe('DraftProposalPanel', () => {
   it.each([
-    ['notebook text', textProposal],
     ['import mapping', mappingProposal],
     ['chart config', chartProposal],
-  ])('marks a %s proposal as generated without exposing grounding', (_label, build) => {
-    render(
-      <DraftProposalPanel
-        proposal={build()}
-        onAccept={() => {}}
-        onDiscard={() => {}}
-      />,
-    )
-    expect(screen.getByRole('note', { name: 'Generated draft' })).toBeTruthy()
-    expect(screen.getByText(/Not authoritative/)).toBeTruthy()
-    // No model provider exists yet — the cited-source grounding an LLM
-    // would consume is prompt material, not user-facing content.
-    expect(screen.queryByText(/Cited sources/)).toBeNull()
-  })
-
-  it('previews the draft text for a notebook proposal', () => {
-    render(
-      <DraftProposalPanel
-        proposal={textProposal()}
-        onAccept={() => {}}
-        onDiscard={() => {}}
-      />,
-    )
-    expect(screen.getByText(/Draft preview/)).toBeTruthy()
-    // Title and preview both name the draft; both must render.
-    expect(
-      screen.getAllByText(/Draft summary for/).length,
-    ).toBeGreaterThanOrEqual(2)
-  })
+  ])(
+    'marks a %s proposal as generated without exposing grounding',
+    (_label, build) => {
+      render(
+        <DraftProposalPanel
+          proposal={build()}
+          onAccept={() => {}}
+          onDiscard={() => {}}
+        />,
+      )
+      expect(screen.getByRole('note', { name: 'Generated draft' })).toBeTruthy()
+      expect(screen.getByText(/Not authoritative/)).toBeTruthy()
+      // No model provider exists yet — the cited-source grounding an LLM
+      // would consume is prompt material, not user-facing content.
+      expect(screen.queryByText(/Cited sources/)).toBeNull()
+    },
+  )
 
   it('previews per-column confidence for a mapping proposal', () => {
     render(
@@ -145,33 +86,15 @@ describe('DraftProposalPanel', () => {
     const onDiscard = vi.fn()
     render(
       <DraftProposalPanel
-        proposal={textProposal()}
+        proposal={mappingProposal()}
         onAccept={onAccept}
         onDiscard={onDiscard}
       />,
     )
-    fireEvent.click(screen.getByText('Accept and insert block'))
+    fireEvent.click(screen.getByText('Accept and apply mapping'))
     expect(onAccept).toHaveBeenCalledTimes(1)
     expect(onDiscard).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('Discard'))
     expect(onDiscard).toHaveBeenCalledTimes(1)
-  })
-
-  it('marks model phrasing as assistance beside the proposal', () => {
-    render(
-      <DraftProposalPanel
-        proposal={textProposal()}
-        phrasing={{
-          text: 'Stub phrasing.',
-          model: 'sheetbase-assist-1',
-          assistance: true,
-        }}
-        onAccept={() => {}}
-        onDiscard={() => {}}
-      />,
-    )
-    expect(screen.getByText(/Assistance phrasing/)).toBeTruthy()
-    expect(screen.getByText('Stub phrasing.')).toBeTruthy()
-    expect(screen.getByText(/Draft preview/)).toBeTruthy()
   })
 })

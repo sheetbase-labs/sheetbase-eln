@@ -9,20 +9,17 @@
  * leaving zero state.
  */
 import { ASSISTANCE_NOTE } from '#/lib/assist-explain'
-import type { AssistPhrasing } from '#/lib/assist-explain'
 import type { AssistDraftProposal } from '#/lib/assist-drafts'
 import { Button } from '#/components/ui'
 
 export function DraftProposalPanel({
   proposal,
-  phrasing,
   acceptLabel,
   accepting,
   onAccept,
   onDiscard,
 }: {
   proposal: AssistDraftProposal
-  phrasing?: AssistPhrasing | null
   acceptLabel?: string
   accepting?: boolean
   onAccept: () => void
@@ -43,15 +40,6 @@ export function DraftProposalPanel({
       <h4 className="font-semibold">{proposal.title}</h4>
       <p>{proposal.summary}</p>
       <ProposalPreview proposal={proposal} />
-      {phrasing ? (
-        <blockquote className="space-y-1 rounded border border-dashed p-2">
-          <p className="font-medium text-muted-foreground">
-            Assistance phrasing ({phrasing.model}) — verify against the
-            citations
-          </p>
-          <p>{phrasing.text}</p>
-        </blockquote>
-      ) : null}
       <p className="text-muted-foreground">{ASSISTANCE_NOTE}</p>
       <div className="flex gap-2">
         <Button type="button" size="sm" disabled={accepting} onClick={onAccept}>
@@ -73,8 +61,6 @@ export function DraftProposalPanel({
 
 function defaultAcceptLabel(proposal: AssistDraftProposal): string {
   switch (proposal.kind) {
-    case 'notebook_text':
-      return 'Accept and insert block'
     case 'import_mapping':
       return 'Accept and apply mapping'
     case 'chart_config':
@@ -84,17 +70,6 @@ function defaultAcceptLabel(proposal: AssistDraftProposal): string {
 
 function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
   switch (proposal.kind) {
-    case 'notebook_text':
-      return (
-        <div className="space-y-1">
-          <p className="font-medium text-muted-foreground">
-            Draft preview (rich_text block)
-          </p>
-          <p className="whitespace-pre-wrap rounded border p-2">
-            {proposal.draftText}
-          </p>
-        </div>
-      )
     case 'import_mapping':
       return (
         <div className="space-y-1">

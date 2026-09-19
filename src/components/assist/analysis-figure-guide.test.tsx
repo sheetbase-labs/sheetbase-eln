@@ -106,7 +106,6 @@ describe('AnalysisFigureGuide', () => {
   })
 
   it('navigates to the notebook surface for the record-less embed accept', () => {
-    const onNavigateGuide = vi.fn()
     render(
       <AnalysisFigureGuide
         datasetId={DATASET_ID}
@@ -115,15 +114,14 @@ describe('AnalysisFigureGuide', () => {
         compareConfig={validConfig()}
         columns={columns()}
         chartSpecReady
-        onNavigateGuide={onNavigateGuide}
       />,
     )
     expect(
       screen.getByLabelText(/Step 4: Figure embedded \(Current\)/),
     ).toBeTruthy()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Embed figure in notebook' }),
-    )
-    expect(onNavigateGuide).toHaveBeenCalledWith('/')
+    // No record context in the studio: the embed step links to the
+    // notebook surface rather than running a draft accept.
+    const link = screen.getByRole('link', { name: 'Open notebook' })
+    expect(link.getAttribute('href')).toBe('/')
   })
 })

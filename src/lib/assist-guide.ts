@@ -22,7 +22,6 @@ import {
   explainBlockValidation,
   explainSheetWriteBack,
 } from './assist-explain'
-import { acceptTextDraft } from './assist-drafts'
 import type { BlockValidationError } from './blocks'
 import { promoteToChartSpec } from './comparative-view'
 import { previewSubmissionDigest, submitRecordRevision } from './notebook-data'
@@ -47,7 +46,6 @@ export type GuideStepState = 'done' | 'current' | 'blocked'
  */
 export const GUIDED_ACCEPTS = {
   promoteToChartSpec,
-  acceptTextDraft,
   previewSubmissionDigest,
   submitRecordRevision,
   approveReview,
@@ -305,7 +303,7 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
         : [{ kind: 'dataset', id: s.datasetId, deepLink: datasetLink(s) }],
     isDone: (s) => s.embeddedBlockId !== null,
     waitingDetail: () =>
-      'The figure is proposed but not embedded yet — accept the draft to insert it as an ordinary notebook block.',
+      'The figure is proposed but not embedded yet — embed it as an ordinary notebook block from the record.',
     explanation: (s) =>
       s.blockErrors && s.blockErrors.length > 0
         ? explainBlockValidation({
@@ -315,25 +313,13 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
         : null,
     nextActions: (s) => [
       {
-        label: 'Embed figure in notebook',
+        label: 'Open notebook',
         target: {
-          kind: 'accept',
-          acceptKey: 'acceptTextDraft',
-          hint: 'Runs the ordinary acceptTextDraft → insertBlock path with your permissions — the same insert the draft panel uses. Nothing is written until you confirm.',
+          kind: 'navigate',
+          href: s.recordId ? `/records/${s.recordId}` : '/',
+          hint: 'Opens the canonical notebook surface, where the figure is embedded as an ordinary block. Guidance only navigates — nothing is changed.',
         },
       },
-      ...(s.recordId
-        ? [
-            {
-              label: 'Open notebook',
-              target: {
-                kind: 'navigate',
-                href: `/records/${s.recordId}`,
-                hint: 'Opens the canonical notebook surface. Guidance only navigates — nothing is changed.',
-              } as GuideActionTarget,
-            },
-          ]
-        : []),
     ],
   },
 ]

@@ -540,7 +540,7 @@ export function AnalysisStudioHeader({
 }: AnalysisStudioHeaderProps) {
   return (
     <header
-      className="flex shrink-0 flex-wrap items-center justify-between gap-3"
+      className="flex min-w-0 flex-wrap items-center justify-between gap-3"
       aria-labelledby="analysis-title"
     >
       <div className="min-w-0">

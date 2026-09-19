@@ -81,7 +81,7 @@ export function PlannerFilters({
     value.calendarResourceId
 
   return (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto text-xs">
+    <div className="flex flex-wrap items-center gap-2 text-xs">
       <Select
         aria-label="Group by"
         className={chipClassName}

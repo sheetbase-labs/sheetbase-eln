@@ -190,7 +190,12 @@ const FIELD_STYLES: Partial<Record<string, FieldStyle>> = {
   },
 }
 
-function humanizeToken(value: unknown): string {
+/**
+ * Turn a stored enum/entity token into a human phrase (`report_section` →
+ * "Report Section"). Shared by every surface that renders change-event or
+ * lifecycle tokens so no snake_case leaks into the UI.
+ */
+export function humanizeToken(value: unknown): string {
   return String(value)
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())

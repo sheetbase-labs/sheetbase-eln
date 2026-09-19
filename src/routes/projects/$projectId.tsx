@@ -54,6 +54,7 @@ import {
   recordKindLabel,
   RECORD_KIND_LABELS,
   statusDomainForKind,
+  statusKeyForBadge,
 } from '#/lib/notebook-data'
 import type { NotebookRecord, Project } from '#/lib/notebook-data'
 import { recordDestination } from '#/lib/navigation'
@@ -413,7 +414,11 @@ function computeRecordStats(records: NotebookRecord[]): RecordStats {
       default:
         break
     }
-    if (record.status === 'review' || record.status === 'under_review') {
+    if (
+      record.status === 'review' ||
+      record.status === 'in_review' ||
+      record.status === 'under_review'
+    ) {
       stats.pendingReviews += 1
     }
   }
@@ -543,7 +548,7 @@ export function RecordListSection({
         cell: ({ row }) => (
           <StatusBadge
             domain={statusDomainForKind(row.original.kind)}
-            status={row.original.status}
+            status={statusKeyForBadge(row.original.kind, row.original.status)}
           />
         ),
         meta: { className: 'w-[8.5rem]' },

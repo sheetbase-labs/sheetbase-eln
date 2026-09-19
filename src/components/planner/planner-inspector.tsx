@@ -47,8 +47,8 @@ export function PlannerInspector({
           No task selected
         </p>
         <p className="text-xs text-muted-foreground">
-          Select a task from the timeline, list, workload or resource view to
-          see its details.
+          Select a task from the Timeline, List or Workload view to see its
+          details.
         </p>
       </div>
     )

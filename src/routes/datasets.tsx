@@ -473,6 +473,7 @@ function DatasetExplorerRoute() {
                 client={datasetExplorerDataClient}
                 archived={selectedTable?.lifecycle === 'archived'}
                 workspaceId={context.workspace?.id ?? ''}
+                userId={context.user.id}
                 onRefresh={refreshDatasets}
                 onCreate={selectDataset}
               />

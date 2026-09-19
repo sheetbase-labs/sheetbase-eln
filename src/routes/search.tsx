@@ -71,6 +71,7 @@ import {
   notebookDataClient,
   notebookQueryKeys,
   recordKindLabel,
+  statusKeyForBadge,
   toProject,
 } from '#/lib/notebook-data'
 import type { NotebookLink, ProjectWire } from '#/lib/notebook-data'
@@ -97,6 +98,8 @@ import type {
   SearchUrlParams,
 } from '#/lib/search'
 import { searchResultToRelatedKind } from '#/lib/related-work'
+import { humanizeToken } from '#/lib/audit-history'
+import { useUserNames } from '#/lib/user-names'
 
 export const Route = createFileRoute('/search')({
   staticData: { shellFullBleed: true },
@@ -148,6 +151,8 @@ const KIND_STATUS_DOMAIN: Partial<Record<string, StatusDomain>> = {
   notebook_template: 'notebook_template',
   report: 'experiment',
   file: 'dataset',
+  dataset: 'dataset',
+  sheet_instance: 'dataset',
 }
 
 const KIND_FILTER_LABELS: Record<string, string> = {
@@ -480,17 +485,24 @@ function SearchRoute() {
     return map
   }, [projectsQuery.data])
 
-  // Owner name resolution. There is no client-side user directory, so the
-  // only name we can resolve is the signed-in user's own — which covers the
-  // common "my records" case and the seeded demo data. Other owners fall
-  // back to a short id slice.
-  const ownerNames = useMemo(() => {
-    const map = new Map<string, string>()
-    if (context.user.id) map.set(context.user.id, context.user.name)
-    return map
-  }, [context.user.id, context.user.name])
-
   const allResults = searchQuery.data ?? []
+
+  // Owner name resolution. `internal.user` is not PostgREST-exposed, so names
+  // resolve through the user-names server function over every result's owner
+  // id (records, datasets, sheets, templates); the signed-in user's own name
+  // resolves instantly. Unknown ids fall back to a short id slice.
+  const resultOwnerIds = useMemo(
+    () => allResults.map((r) => r.createdByUserId),
+    [allResults],
+  )
+  const { names: resolvedOwnerNames } = useUserNames(resultOwnerIds, {
+    id: context.user.id,
+    name: context.user.name,
+  })
+  const ownerNames = useMemo(
+    () => new Map(Object.entries(resolvedOwnerNames)),
+    [resolvedOwnerNames],
+  )
 
   // ---- Semantic suggestions (derived from RLS-filtered results) ----------
   const suggestions = useMemo(
@@ -859,7 +871,10 @@ function SearchRoute() {
                 value={status}
                 onChange={(v) => updateFilter('status', v)}
                 placeholder="Status: All"
-                options={statusOptions.map((s) => ({ value: s, label: s }))}
+                options={statusOptions.map((s) => ({
+                  value: s,
+                  label: humanizeToken(s),
+                }))}
               />
               <FilterSelect
                 id="filter-owner"
@@ -1508,10 +1523,14 @@ export function SearchResultRow({
                 </span>
               ) : null}
               {domain ? (
-                <StatusBadge domain={domain} status={result.status} size="sm" />
+                <StatusBadge
+                  domain={domain}
+                  status={statusKeyForBadge(result.kind, result.status)}
+                  size="sm"
+                />
               ) : (
                 <Badge variant="outline" className="text-xs">
-                  {result.status}
+                  {humanizeToken(result.status)}
                 </Badge>
               )}
             </div>
@@ -1551,17 +1570,21 @@ export function SearchResultRow({
             <span aria-hidden className="ml-auto">
               ·
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span
-                className="flex size-4 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
-                aria-hidden
-              >
-                {ownerInitials(result.createdByUserId, ownerName)}
+            {result.createdByUserId ? (
+              <span className="inline-flex items-center gap-1">
+                <span
+                  className="flex size-4 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+                  aria-hidden
+                >
+                  {ownerInitials(result.createdByUserId, ownerName)}
+                </span>
+                <span className={cn(!ownerName && 'font-mono')}>
+                  {ownerLabel(result.createdByUserId, ownerName)}
+                </span>
               </span>
-              <span className={cn(!ownerName && 'font-mono')}>
-                {ownerLabel(result.createdByUserId, ownerName)}
-              </span>
-            </span>
+            ) : (
+              <span aria-label="No owner recorded">—</span>
+            )}
           </div>
         </div>
       </Link>
@@ -1643,10 +1666,14 @@ function SearchResultInspector({
         </InspectorProp>
         <InspectorProp label="Status">
           {domain ? (
-            <StatusBadge domain={domain} status={result.status} size="sm" />
+            <StatusBadge
+              domain={domain}
+              status={statusKeyForBadge(result.kind, result.status)}
+              size="sm"
+            />
           ) : (
             <Badge variant="outline" className="text-xs">
-              {result.status}
+              {humanizeToken(result.status)}
             </Badge>
           )}
         </InspectorProp>
@@ -1656,17 +1683,21 @@ function SearchResultInspector({
           </InspectorProp>
         ) : null}
         <InspectorProp label="Owner">
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
-              aria-hidden
-            >
-              {ownerInitials(result.createdByUserId, ownerName ?? undefined)}
+          {result.createdByUserId ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+                aria-hidden
+              >
+                {ownerInitials(result.createdByUserId, ownerName ?? undefined)}
+              </span>
+              <span className={cn('text-xs', !ownerName && 'font-mono')}>
+                {ownerLabel(result.createdByUserId, ownerName ?? undefined)}
+              </span>
             </span>
-            <span className={cn('text-xs', !ownerName && 'font-mono')}>
-              {ownerLabel(result.createdByUserId, ownerName ?? undefined)}
-            </span>
-          </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
         </InspectorProp>
         <InspectorProp label="Created">
           {new Date(result.createdAt).toLocaleString()}

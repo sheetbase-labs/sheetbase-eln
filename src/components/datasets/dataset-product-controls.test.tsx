@@ -72,6 +72,7 @@ describe('DatasetCreateDialog', () => {
       name: 'HPLC',
       description: null,
       primary_project_id: null,
+      created_by_user_id: null,
     })
     expect(onCreated).toHaveBeenCalledWith('ds-created')
   })

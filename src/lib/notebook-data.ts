@@ -506,6 +506,24 @@ export function statusDomainForKind(
 }
 
 /**
+ * StatusBadge status key for a record's stored status within its kind's
+ * domain vocabulary. `records.status` is a free-form string (see the schema
+ * comment), and the "in review" state is stored under several spellings
+ * (`review`, `in_review`, `under_review`) while each domain names the entry
+ * differently (`review` for experiment-like kinds, `under_review` for
+ * protocol templates). Map the known spellings onto the domain's key so the
+ * stored enum never reaches the UI raw. Any other status passes through for
+ * the vocabulary to resolve or fall back on.
+ */
+export function statusKeyForBadge(kind: string, status: string): string {
+  const normalised = status.replace(/_/g, '-')
+  if (normalised !== 'in-review' && normalised !== 'under-review') {
+    return status
+  }
+  return statusDomainForKind(kind) === 'protocol' ? 'under_review' : 'review'
+}
+
+/**
  * Compact relative timestamp ("2h ago", "3d ago") for last-activity columns.
  * Falls back to a formatted date for anything older than a week so the value
  * stays unambiguous in dense tables. Returns an en-CA-style absolute date if

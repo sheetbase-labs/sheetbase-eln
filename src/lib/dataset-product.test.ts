@@ -105,6 +105,7 @@ describe('createDataset', () => {
       schemaVersionId: 'ver-2',
       name: '  HPLC results  ',
       description: 'live',
+      createdByUserId: 'user-9',
     })
     expect(calls).toEqual([
       {
@@ -115,10 +116,27 @@ describe('createDataset', () => {
           name: 'HPLC results',
           description: 'live',
           primary_project_id: null,
+          created_by_user_id: 'user-9',
         },
       },
     ])
     expect(created).toEqual({ id: 'ds-1', name: 'HPLC results', revision: 1 })
+  })
+
+  it('records a null owner when no user is supplied', async () => {
+    const calls: Array<{ resource: string; row: Record<string, unknown> }> = []
+    const client = {
+      insert: async (resource: string, row: Record<string, unknown>) => {
+        calls.push({ resource, row })
+        return { id: 'ds-2', name: row.name, revision: 1 }
+      },
+    } as unknown as DataClient
+    await createDataset(client, {
+      workspaceId: 'ws-1',
+      schemaVersionId: 'ver-2',
+      name: 'Connector import',
+    })
+    expect(calls[0].row.created_by_user_id).toBeNull()
   })
 })
 

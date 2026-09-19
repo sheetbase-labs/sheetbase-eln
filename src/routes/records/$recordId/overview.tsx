@@ -37,6 +37,8 @@ import {
   notebookDataClient,
   notebookQueryKeys,
   recordKindLabel,
+  statusDomainForKind,
+  statusKeyForBadge,
   updateRecordProperties,
 } from '#/lib/notebook-data'
 import type {
@@ -433,7 +435,10 @@ function OverviewInspector({
               </Property>
               <Property label="Kind">{recordKindLabel(record.kind)}</Property>
               <Property label="Status">
-                <StatusBadge domain="experiment" status={record.status} />
+                <StatusBadge
+                  domain={statusDomainForKind(record.kind)}
+                  status={statusKeyForBadge(record.kind, record.status)}
+                />
               </Property>
               {projectName ? (
                 <Property label="Project">{projectName}</Property>

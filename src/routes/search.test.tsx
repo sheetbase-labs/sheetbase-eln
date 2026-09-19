@@ -279,6 +279,49 @@ describe('SearchResultRow', () => {
     const link = screen.getByRole('option')
     expect(link.querySelector('a')?.getAttribute('href')).toBe('/records/rec-1')
   })
+
+  it('labels a report in_review status instead of the raw token', () => {
+    render(
+      <SearchResultRow
+        result={result({ kind: 'report', status: 'in_review' })}
+        selected={false}
+        active={false}
+        onSelect={() => {}}
+      />,
+    )
+    expect(screen.getByText('In review')).toBeTruthy()
+    expect(screen.queryByText('in_review')).toBeNull()
+  })
+
+  it('labels dataset lifecycle statuses through the dataset vocabulary', () => {
+    render(
+      <SearchResultRow
+        result={result({
+          resultType: 'dataset',
+          kind: 'dataset',
+          status: 'active',
+        })}
+        selected={false}
+        active={false}
+        onSelect={() => {}}
+      />,
+    )
+    expect(screen.getByText('Dataset')).toBeTruthy()
+    expect(screen.getByText('Active')).toBeTruthy()
+  })
+
+  it('shows an em dash instead of "? Unknown" when no owner is recorded', () => {
+    render(
+      <SearchResultRow
+        result={result({ kind: 'dataset', createdByUserId: '' })}
+        selected={false}
+        active={false}
+        onSelect={() => {}}
+      />,
+    )
+    expect(screen.getByLabelText('No owner recorded')).toBeTruthy()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
 })
 
 describe('search filter restoration', () => {

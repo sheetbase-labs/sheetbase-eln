@@ -36,12 +36,15 @@ export function DatasetCreateDialog({
   onOpenChange,
   client,
   workspaceId,
+  userId,
   onCreated,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   client: DataClient
   workspaceId: string
+  /** Signed-in user recorded as the Dataset owner. */
+  userId?: string
   onCreated: (datasetId: string) => void
 }) {
   const [name, setName] = useState('')
@@ -59,6 +62,7 @@ export function DatasetCreateDialog({
         schemaVersionId,
         name,
         description,
+        createdByUserId: userId ?? null,
       }),
     onSuccess: (created) => {
       onCreated(created.id)
@@ -319,6 +323,7 @@ export function DatasetProductActions({
   onRefresh,
   onCreate,
   workspaceId,
+  userId,
 }: {
   table: CanonicalDatasetWire | null
   client: DataClient
@@ -326,6 +331,8 @@ export function DatasetProductActions({
   onRefresh: () => void
   onCreate: (datasetId: string) => void
   workspaceId: string
+  /** Signed-in user recorded as the owner of a new Dataset. */
+  userId?: string
 }) {
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
@@ -405,6 +412,7 @@ export function DatasetProductActions({
         onOpenChange={setCreateOpen}
         client={client}
         workspaceId={workspaceId}
+        userId={userId}
         onCreated={(id) => {
           void queryClient.invalidateQueries({
             queryKey: ['dataset-explorer-summaries'],

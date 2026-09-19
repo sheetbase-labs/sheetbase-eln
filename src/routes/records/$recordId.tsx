@@ -97,6 +97,7 @@ import {
   notebookQueryKeys,
   recordKindLabel,
   statusDomainForKind,
+  statusKeyForBadge,
 } from '#/lib/notebook-data'
 import type {
   NotebookBlock as NotebookBlockDomain,
@@ -799,7 +800,10 @@ export function StickyRecordHeader({
         <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {recordKindLabel(record.kind)}
         </span>
-        <StatusBadge domain="experiment" status={record.status} />
+        <StatusBadge
+          domain={statusDomainForKind(record.kind)}
+          status={statusKeyForBadge(record.kind, record.status)}
+        />
         <span
           className={
             lifecycle === 'Submitted'
@@ -2319,7 +2323,7 @@ export function NotebookInspector({
             <Property label="Status">
               <StatusBadge
                 domain={statusDomainForKind(record.kind)}
-                status={record.status}
+                status={statusKeyForBadge(record.kind, record.status)}
               />
             </Property>
             <Property label="ID" mono>

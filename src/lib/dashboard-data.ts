@@ -12,6 +12,7 @@
  * with the rest of the app and respect the same RLS boundaries.
  */
 import type { DataClient } from './data-client'
+import { humanizeToken } from './audit-history'
 import { notebookDataClient, toRecord } from './notebook-data'
 import type {
   ChangeEventRecordWire,
@@ -257,21 +258,36 @@ const ENTITY_LABELS: Record<string, string> = {
   calculation: 'calculation',
   record_field_definition: 'field definition',
   file: 'file',
+  dataset: 'dataset',
   dataset_schema: 'dataset schema',
   dataset_schema_field: 'schema field',
   dataset_schema_relationship: 'schema relationship',
+  sheet_instance: 'sheet',
+  sheet_definition: 'sheet definition',
+  notebook_template: 'notebook template',
+  review_submission: 'review submission',
+  report_section: 'report section',
+  instrument_qc_check: 'instrument QC check',
   sample_event: 'sample event',
   comment: 'comment',
 }
 
-/** Human label for a change-event operation, e.g. "created" → "created". */
+/**
+ * Human label for a change-event operation, e.g. "create" → "created".
+ * Unknown operations humanise rather than leak the stored token.
+ */
 export function operationLabel(operation: string): string {
-  return OPERATION_LABELS[operation] ?? operation
+  return OPERATION_LABELS[operation] ?? humanizeToken(operation).toLowerCase()
 }
 
-/** Human label for a change-event entity type, e.g. "record" → "record". */
+/**
+ * Human label for a change-event entity type, e.g. "record" → "record". The
+ * change-event vocabulary is much wider than this map (report sections,
+ * instrument checks, sheet definitions, ...); unknown types humanise so no
+ * snake_case token reaches the feed.
+ */
 export function entityLabel(entityType: string): string {
-  return ENTITY_LABELS[entityType] ?? entityType
+  return ENTITY_LABELS[entityType] ?? humanizeToken(entityType).toLowerCase()
 }
 
 /**

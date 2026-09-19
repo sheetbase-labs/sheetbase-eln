@@ -638,7 +638,7 @@ function buildFields(
     id: 'q',
     label: 'Search',
     column: false,
-    filter: textFilter('ID, name, supplier, catalogue number or lot'),
+    filter: textFilter('ID, name, supplier or lot'),
     groupable: false,
   })
   return fields

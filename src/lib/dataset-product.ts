@@ -138,6 +138,12 @@ export async function createDataset(
     name: string
     description?: string | null
     primaryProjectId?: string | null
+    /**
+     * Signed-in user creating the Dataset. Unlike the scientific tables,
+     * `api.datasets` has no actor-stamping trigger, so the app records the
+     * owner explicitly — otherwise search and audit surfaces show no owner.
+     */
+    createdByUserId?: string | null
   },
 ): Promise<{ id: string; revision: number; name: string }> {
   const created = firstRow(
@@ -149,6 +155,7 @@ export async function createDataset(
         name: input.name.trim(),
         description: input.description?.trim() || null,
         primary_project_id: input.primaryProjectId ?? null,
+        created_by_user_id: input.createdByUserId ?? null,
       },
     ),
   )

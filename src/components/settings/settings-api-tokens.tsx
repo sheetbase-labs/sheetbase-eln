@@ -67,13 +67,11 @@ export function SettingsApiTokens({
   return (
     <div className="space-y-6">
       <p className="max-w-3xl text-sm text-muted-foreground">
-        A personal API token acts as you (the signed-in member), under the same
-        canonical Core-domain scopes and fail-closed allowlist as a workspace
-        service credential. It inherits your membership role — so a{' '}
-        <code>viewer</code> token is read-only. It is exchanged for a
-        short-lived token at <code>POST /api/token</code> and never passes
-        Notebook submit / sign / amend / revision checks. The full secret is
-        shown once.
+        A personal API token acts as you — it inherits your workspace role, so
+        a token created by a viewer can only read data. Tokens can call the API
+        for the areas you tick below, but they can never submit, sign or amend
+        notebook revisions. The full token secret is shown once, when it is
+        created.
       </p>
 
       {revealed ? (

@@ -2,12 +2,15 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { Eye } from 'lucide-react'
+
 import {
   ActivityFeed,
   FavouritesSection,
   MentionsPanel,
   MyPrioritiesPanel,
   MyWorkDashboard,
+  NeedsAttention,
   PinnedRecordsPanel,
   ProjectQuickAccess,
   RecentSection,
@@ -264,6 +267,36 @@ describe('ActivityFeed', () => {
     expect(screen.getByRole('alert').textContent).toBe(
       'Could not load activity.',
     )
+  })
+})
+
+describe('NeedsAttention', () => {
+  it('hides "View all" in the all-clear state', () => {
+    render(<NeedsAttention items={[]} isLoading={false} />)
+    expect(screen.getByText('All clear')).toBeTruthy()
+    expect(screen.queryByText('View all')).toBeNull()
+  })
+
+  it('shows "View all" when items need attention', () => {
+    render(
+      <NeedsAttention
+        items={[
+          {
+            id: 'a1',
+            tone: 'violet',
+            icon: Eye,
+            title: 'Review requested: Lentivector stability run 1',
+            meta: 'u2 submitted for your sign-off · overdue',
+            actionLabel: 'Open review',
+            to: '/reviews',
+            primaryAction: true,
+          },
+        ]}
+        isLoading={false}
+      />,
+    )
+    expect(screen.getByText('View all')).toBeTruthy()
+    expect(screen.getByText('Open review')).toBeTruthy()
   })
 })
 

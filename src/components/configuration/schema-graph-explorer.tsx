@@ -167,7 +167,7 @@ export function buildSchemaGraphData(input: {
     nodes.push({
       id: `model:${kind.key}`,
       key: kind.key,
-      name: kind.key,
+      name: kind.label,
       kind: 'model',
       fields: modelNodeFields(fields),
       rowCount: modelCounts[index] ?? null,
@@ -193,7 +193,9 @@ export function buildSchemaGraphData(input: {
     nodes.push({
       id: `schema:${schema.id}`,
       key: schema.id,
-      name: schema.slug,
+      // Human schema name, not the snake_case slug — the slug stays a
+      // storage identifier and must not be presented as the node title.
+      name: schema.name,
       kind: 'dataset-schema',
       fields: schemaNodeFields(fields, relationshipFieldIds),
       rowCount: datasetCounts[index] ?? null,
@@ -312,7 +314,8 @@ function SchemaNodeCard({ data }: NodeProps<SchemaRFNode>) {
           </span>
         </span>
         <span className="shrink-0 text-[10px] text-muted-foreground">
-          {node.fields.length} fields
+          {node.fields.length}{' '}
+          {node.fields.length === 1 ? 'field' : 'fields'}
         </span>
       </div>
       <ul className="py-0.5">
@@ -476,12 +479,14 @@ function RailRow({
   node,
   selected,
   rowLabel,
+  rowLabelSingular,
   onSelect,
   onOpen,
 }: {
   node: SchemaGraphNode
   selected: boolean
   rowLabel: string
+  rowLabelSingular: string
   onSelect: (id: string) => void
   onOpen: (node: SchemaGraphNode) => void
 }) {
@@ -505,8 +510,11 @@ function RailRow({
           {node.name}
         </span>
         <span className="block text-[11px] text-muted-foreground">
-          {node.fields.length} fields ·{' '}
-          {node.rowCount === null ? '—' : `${node.rowCount} ${rowLabel}`}
+          {node.fields.length}{' '}
+          {node.fields.length === 1 ? 'field' : 'fields'} ·{' '}
+          {node.rowCount === null
+            ? '—'
+            : `${node.rowCount} ${node.rowCount === 1 ? rowLabelSingular : rowLabel}`}
         </span>
       </span>
     </button>
@@ -578,6 +586,7 @@ export function SchemaGraphExplorer({
                     node={node}
                     selected={node.id === selectedId}
                     rowLabel="rows"
+                    rowLabelSingular="row"
                     onSelect={setSelectedId}
                     onOpen={onOpenNode}
                   />
@@ -596,6 +605,7 @@ export function SchemaGraphExplorer({
                       node={node}
                       selected={node.id === selectedId}
                       rowLabel="datasets"
+                      rowLabelSingular="dataset"
                       onSelect={setSelectedId}
                       onOpen={onOpenNode}
                     />

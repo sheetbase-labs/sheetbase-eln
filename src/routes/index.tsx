@@ -49,6 +49,8 @@ import { StatusBadge } from '#/components/scientific'
 import {
   notebookDataClient,
   notebookQueryKeys,
+  statusDomainForKind,
+  statusKeyForBadge,
   toProject,
   formatRelativeTime,
 } from '#/lib/notebook-data'
@@ -600,15 +602,19 @@ export function NeedsAttention({
 }) {
   return (
     <section aria-label="Needs attention" className="min-w-0">
+      {/* "View all" only makes sense when there is something to review —
+          hide it in the all-clear state. */}
       <SectionHeader
         title="Needs attention"
         action={
-          <Link
-            to="/reviews"
-            className="text-xs font-medium text-primary no-underline hover:underline"
-          >
-            View all
-          </Link>
+          items.length > 0 ? (
+            <Link
+              to="/reviews"
+              className="text-xs font-medium text-primary no-underline hover:underline"
+            >
+              View all
+            </Link>
+          ) : undefined
         }
       />
       <div className="rounded-md border border-border bg-surface">
@@ -756,7 +762,12 @@ export function ContinueWorking({
         (record.projectId
           ? (projectById.get(record.projectId)?.title ?? null)
           : null),
-      status: <StatusBadge domain="experiment" status={record.status} />,
+      status: (
+        <StatusBadge
+          domain={statusDomainForKind(record.kind)}
+          status={statusKeyForBadge(record.kind, record.status)}
+        />
+      ),
       editedAt: record.updatedAt,
       pin: { recordId: record.id, pinned: true },
     })),
@@ -1378,7 +1389,10 @@ export function RecentWorkTable({
                   ) : null}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge domain="experiment" status={record.status} />
+                  <StatusBadge
+                    domain={statusDomainForKind(record.kind)}
+                    status={statusKeyForBadge(record.kind, record.status)}
+                  />
                 </TableCell>
                 <TableCell className="hidden text-right text-xs tabular-nums text-muted-foreground sm:table-cell">
                   {formatRelativeTime(record.updatedAt)}

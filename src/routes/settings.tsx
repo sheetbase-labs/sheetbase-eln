@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import { KeyRound } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import { SettingsApiTokens } from '#/components/settings/settings-api-tokens'
@@ -92,9 +91,7 @@ function SettingsRoute() {
   return (
     <div className="space-y-8">
       <div className="space-y-1">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <KeyRound className="size-4" /> Settings
-        </h2>
+        <h2 className="text-lg font-semibold">Settings</h2>
         <p className="text-sm text-muted-foreground">
           Personal API tokens act as you. Workspace service credentials are
           managed by owners in{' '}

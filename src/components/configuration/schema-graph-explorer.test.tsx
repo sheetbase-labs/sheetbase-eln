@@ -190,6 +190,9 @@ describe('buildSchemaGraphData', () => {
       label: 'experiment_id',
     })
     const schemaNode = data.nodes[1]
+    // Human labels, not storage keys/slugs, name the graph nodes.
+    expect(data.nodes[0].name).toBe('Sample')
+    expect(schemaNode.name).toBe('Stability reading')
     expect(schemaNode.rowCount).toBe(8)
     expect(
       schemaNode.fields.find((f) => f.name === 'experiment_id'),

@@ -373,8 +373,8 @@ describe('operationLabel / entityLabel', () => {
     expect(operationLabel('archive')).toBe('archived')
   })
 
-  it('passes through unknown operations', () => {
-    expect(operationLabel('unknown_op')).toBe('unknown_op')
+  it('humanises unknown operations rather than leaking the token', () => {
+    expect(operationLabel('unknown_op')).toBe('unknown op')
   })
 
   it('maps known entity types', () => {
@@ -382,10 +382,13 @@ describe('operationLabel / entityLabel', () => {
     expect(entityLabel('block')).toBe('block')
     expect(entityLabel('file')).toBe('file')
     expect(entityLabel('dataset_schema')).toBe('dataset schema')
+    expect(entityLabel('report_section')).toBe('report section')
+    expect(entityLabel('instrument_qc_check')).toBe('instrument QC check')
   })
 
-  it('passes through unknown entity types', () => {
-    expect(entityLabel('unknown_entity')).toBe('unknown_entity')
+  it('humanises unknown entity types rather than leaking the token', () => {
+    expect(entityLabel('unknown_entity')).toBe('unknown entity')
+    expect(entityLabel('review_decision')).toBe('review decision')
   })
 })
 

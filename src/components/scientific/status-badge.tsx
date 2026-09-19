@@ -105,8 +105,15 @@ export const notebookTemplateStatusVocabulary: StatusVocabulary = {
   validated: { label: 'Validated', tone: 'success', icon: CheckCircle2 },
 }
 
+/**
+ * Dataset vocabulary. Covers the schema validation states and the coarse
+ * dataset/file/sheet lifecycle (`active` → `archived`) so live objects get a
+ * labelled pill rather than the raw lifecycle token.
+ */
 export const datasetStatusVocabulary: StatusVocabulary = {
   draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
+  active: { label: 'Active', tone: 'success', icon: CheckCircle2 },
+  archived: { label: 'Archived', tone: 'neutral', icon: Archive },
   valid: { label: 'Valid', tone: 'success', icon: CheckCircle2 },
   deprecated: { label: 'Deprecated', tone: 'warning', icon: Archive },
   retracted: { label: 'Retracted', tone: 'danger', icon: Ban },

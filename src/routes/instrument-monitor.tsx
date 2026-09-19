@@ -26,6 +26,7 @@ import {
 } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import {
+  completeInstrumentRun,
   createInstrument,
   createInstrumentRun,
   createPlateSnapshot,
@@ -43,6 +44,7 @@ import {
   instrumentMonitorQueryKeys,
   recordQcCheck,
   startInstrumentRun,
+  updateInstrumentConnection,
 } from '#/lib/instrument-monitor'
 import type { JsonObject } from '#/lib/instrument-monitor'
 
@@ -191,6 +193,15 @@ function InstrumentMonitorRoute() {
         instrumentId = instrument.id
       }
 
+      // A run that streams telemetry implies an online instrument; the
+      // registry default is 'disconnected', so mark it connected first.
+      await updateInstrumentConnection(dataClient, {
+        workspaceId,
+        instrumentId,
+        connectionStatus: 'connected',
+        lastConnectedAt: new Date().toISOString(),
+      })
+
       const fixture = createQpcrFixtureStream()
       const run = await createInstrumentRun(dataClient, {
         workspaceId,
@@ -271,6 +282,10 @@ function InstrumentMonitorRoute() {
           detail: { rSquared: 0.992 },
         }),
       ])
+      // The fixture ends with run_complete at 40/40 cycles — close out the
+      // run row so status/progress match the ingested telemetry instead of
+      // showing "Running" at 0% forever.
+      await completeInstrumentRun(dataClient, workspaceId, run.id)
       return run.id
     },
     onSuccess: (runId) => {

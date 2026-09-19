@@ -607,7 +607,55 @@ export function AppShell({
   const renderSidebarBody = (sidebarCollapsed: boolean) =>
     context ? (
       <div className="flex h-full flex-col">
-        <div className={cn('px-2 py-3', sidebarCollapsed && 'hidden')}>
+        {sidebarCollapsed ? (
+          <div className="flex flex-col items-center gap-1 px-2 pb-1 pt-3">
+            <Link
+              to="/"
+              aria-label="Sheetbase ELN home"
+              className="no-underline"
+            >
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                <span className="font-display text-sm font-semibold">S</span>
+              </span>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden md:inline-flex"
+              aria-label="Expand sidebar"
+              aria-pressed={true}
+              onClick={toggleCollapsed}
+            >
+              <PanelLeftOpen />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex h-14 shrink-0 items-center gap-2 px-3">
+            <Link
+              to="/"
+              aria-label="Sheetbase ELN home"
+              className="flex min-w-0 items-center gap-2 no-underline"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                <span className="font-display text-sm font-semibold">S</span>
+              </span>
+              <span className="truncate font-display text-sm font-semibold leading-none text-foreground">
+                Sheetbase ELN
+              </span>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="ml-auto hidden md:inline-flex"
+              aria-label="Collapse sidebar"
+              aria-pressed={collapsed}
+              onClick={toggleCollapsed}
+            >
+              <PanelLeftClose />
+            </Button>
+          </div>
+        )}
+        <div className={cn('px-2 pb-2 pt-1', sidebarCollapsed && 'hidden')}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -761,29 +809,12 @@ export function AppShell({
         )}
 
         {context && (
-          <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6">
-            <Link
-              to="/"
-              aria-label="Sheetbase ELN home"
-              className="flex shrink-0 items-center gap-2 no-underline"
-            >
-              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-                <span className="font-display text-sm font-semibold">S</span>
-              </span>
-              <span className="hidden font-display text-sm font-semibold leading-none text-foreground sm:block">
-                Sheetbase ELN
-              </span>
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="hidden md:inline-flex"
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-pressed={collapsed}
-              onClick={toggleCollapsed}
-            >
-              {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-            </Button>
+          <header
+            className={cn(
+              'fixed left-0 right-0 top-0 z-50 flex h-14 items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6',
+              collapsed ? 'md:left-14' : 'md:left-60',
+            )}
+          >
             <Button
               variant="ghost"
               size="icon-sm"
@@ -834,6 +865,18 @@ export function AppShell({
                 </span>
               ) : null}
               <span className="hidden min-w-0 items-center gap-2 sm:flex">
+                {breadcrumbs.length > 0 && breadcrumbs[0]?.to !== '/' ? (
+                  <>
+                    <Link
+                      to="/"
+                      aria-label="Sheetbase home"
+                      className="text-muted-foreground no-underline hover:text-foreground"
+                    >
+                      <HomeIcon className="size-3.5 shrink-0" />
+                    </Link>
+                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                  </>
+                ) : null}
                 {breadcrumbs.map((crumb, i) => {
                   const last = i === breadcrumbs.length - 1
                   return (
@@ -946,7 +989,7 @@ export function AppShell({
             aria-label="Application navigation"
             data-slot="sidebar"
             className={cn(
-              'fixed bottom-0 left-0 top-14 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
+              'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
               collapsed ? 'md:w-14' : 'md:w-60',
             )}
             data-collapsed={collapsed ? 'true' : 'false'}

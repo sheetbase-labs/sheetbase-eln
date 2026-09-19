@@ -107,16 +107,7 @@ export function ReportPreview({
       </header>
       <div className="flex-1 overflow-auto p-5">
         <div className="mx-auto max-w-2xl">
-          <h2 className="text-lg font-semibold">{report.title}</h2>
-          {report.subtitle ? (
-            <p className="text-sm italic text-muted-foreground">
-              {report.subtitle}
-            </p>
-          ) : null}
-          <p className="mt-1 text-xs text-muted-foreground">
-            {report.documentIdentifier} · v{report.version}
-          </p>
-          <div className="mt-4 space-y-4">
+          <div className="space-y-4">
             {ordered.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No sections. Add sections from the outline to build the report.
@@ -162,7 +153,12 @@ export function ReportPreview({
                       {VALIDATION_STATUS_LABELS[section.validationStatus]}
                     </Badge>
                   </div>
-                  {Object.keys(section.frozenPayload).length > 0 ? (
+                  {section.sectionType === 'text' &&
+                  typeof section.frozenPayload.text === 'string' ? (
+                    <p className="mt-2 whitespace-pre-wrap text-sm">
+                      {section.frozenPayload.text}
+                    </p>
+                  ) : Object.keys(section.frozenPayload).length > 0 ? (
                     <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted/30 p-2 text-xs">
                       {JSON.stringify(section.frozenPayload, null, 2)}
                     </pre>

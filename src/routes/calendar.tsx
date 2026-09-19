@@ -111,10 +111,7 @@ const CALENDAR_I18N: EventCalendarI18nOverrides = {
         month: 'short',
         year: 'numeric',
         timeZone: VIEW_TIMEZONE,
-      }).formatRange(
-        activeRange.start,
-        new Date(activeRange.end.getTime() - 1),
-      )
+      }).formatRange(activeRange.start, new Date(activeRange.end.getTime() - 1))
     },
     formatDayRange: (range) =>
       `${formatDateInZone(range.start, VIEW_TIMEZONE)} – ${formatDateInZone(new Date(range.end.getTime() - 1), VIEW_TIMEZONE)}`,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -110,6 +110,8 @@ export function VersionedNotebookTemplatePanel({
   selectedTemplateId: selectedTemplateIdProp,
   onSelectedTemplateIdChange,
   headerActions,
+  mode = 'full',
+  instantiateRequest = null,
 }: {
   workspaceId: string
   canEdit: boolean
@@ -118,6 +120,19 @@ export function VersionedNotebookTemplatePanel({
   onSelectedTemplateIdChange?: (templateId: string | null) => void
   /** Optional per-selected-template actions (e.g. the FIND-02 favourite star). */
   headerActions?: ReactNode
+  /**
+   * 'full' renders the catalogue header, filters and list plus the selected
+   * template's detail. 'detail' renders only the detail workspace (version
+   * history, builder, instantiate and upgrade dialogs) — used by the unified
+   * Template Library where the list is the shared cross-catalogue table.
+   */
+  mode?: 'full' | 'detail'
+  /**
+   * Route-level request to open the instantiate dialog for a published
+   * version (from the compact inspector). `nonce` distinguishes repeated
+   * requests for the same version.
+   */
+  instantiateRequest?: { versionId: string; nonce: number } | null
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -260,6 +275,28 @@ export function VersionedNotebookTemplatePanel({
       return true
     })
   }, [instantiateVersion, parameterValues])
+
+  // Open the instantiate dialog when the route-level inspector asks for a
+  // published version. The nonce ref lets a request arrive before the
+  // version query resolves without re-firing on unrelated refetches.
+  const handledInstantiateNonce = useRef(0)
+  useEffect(() => {
+    if (!instantiateRequest) return
+    if (handledInstantiateNonce.current === instantiateRequest.nonce) return
+    const version = (versions.data ?? []).find(
+      (candidate) => candidate.id === instantiateRequest.versionId,
+    )
+    if (!version || version.lifecycle !== 'published') return
+    handledInstantiateNonce.current = instantiateRequest.nonce
+    const template = (templates.data ?? []).find(
+      (candidate) => candidate.id === version.templateId,
+    )
+    setCreateVersionId(version.id)
+    setCreateTitle(template?.name ?? '')
+    setCreateProjectId(projects[0]?.id ?? '')
+    setParameterValues(defaultParameterDrafts(version.configuration.parameters))
+    setCreateOpen(true)
+  }, [instantiateRequest, versions.data, templates.data, projects])
 
   useEffect(() => {
     const firstTemplateId = visibleTemplates[0]?.id ?? null
@@ -491,195 +528,204 @@ export function VersionedNotebookTemplatePanel({
 
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold">Notebook templates</h2>
-          <p className="text-xs text-muted-foreground">
-            Search the catalogue, then create a Notebook from a published
-            version.
+      {mode === 'full' ? (
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold">Notebook templates</h2>
+            <p className="text-xs text-muted-foreground">
+              Search the catalogue, then create a Notebook from a published
+              version.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {headerActions}
+            {canEdit ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setDraftOpen(true)}
+                disabled={create.isPending}
+              >
+                New draft
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {mode === 'full' ? (
+        <div className="flex max-w-2xl flex-wrap items-center gap-2">
+          <label htmlFor="notebook-template-search" className="sr-only">
+            Search notebook templates
+          </label>
+          <Input
+            id="notebook-template-search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by name or key"
+            className="min-w-48 flex-1"
+          />
+          <label htmlFor="notebook-template-lifecycle" className="sr-only">
+            Filter by lifecycle
+          </label>
+          <Select
+            id="notebook-template-lifecycle"
+            value={lifecycleFilter}
+            onChange={(event) =>
+              setLifecycleFilter(event.target.value as typeof lifecycleFilter)
+            }
+            className="w-auto"
+          >
+            <option value="all">All lifecycles</option>
+            <option value="published">Published</option>
+            <option value="draft">Draft</option>
+            <option value="retired">Retired</option>
+          </Select>
+          <label htmlFor="notebook-template-needs" className="sr-only">
+            Filter by instantiation needs
+          </label>
+          <Select
+            id="notebook-template-needs"
+            value={needsFilter}
+            onChange={(event) =>
+              setNeedsFilter(event.target.value as NotebookTemplateNeedsFilter)
+            }
+            className="w-auto"
+          >
+            <option value="all">All needs</option>
+            <option value="none">No parameters</option>
+            <option value="optional-only">Optional only</option>
+            <option value="has-required">Has required</option>
+          </Select>
+        </div>
+      ) : null}
+      {mode === 'full' ? (
+        templates.isLoading || versions.isLoading ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            Loading notebook templates…
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {headerActions}
-          {canEdit ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setDraftOpen(true)}
-              disabled={create.isPending}
-            >
-              New draft
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      <div className="flex max-w-2xl flex-wrap items-center gap-2">
-        <label htmlFor="notebook-template-search" className="sr-only">
-          Search notebook templates
-        </label>
-        <Input
-          id="notebook-template-search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by name or key"
-          className="min-w-48 flex-1"
-        />
-        <label htmlFor="notebook-template-lifecycle" className="sr-only">
-          Filter by lifecycle
-        </label>
-        <Select
-          id="notebook-template-lifecycle"
-          value={lifecycleFilter}
-          onChange={(event) =>
-            setLifecycleFilter(event.target.value as typeof lifecycleFilter)
-          }
-          className="w-auto"
-        >
-          <option value="all">All lifecycles</option>
-          <option value="published">Published</option>
-          <option value="draft">Draft</option>
-          <option value="retired">Retired</option>
-        </Select>
-        <label htmlFor="notebook-template-needs" className="sr-only">
-          Filter by instantiation needs
-        </label>
-        <Select
-          id="notebook-template-needs"
-          value={needsFilter}
-          onChange={(event) =>
-            setNeedsFilter(event.target.value as NotebookTemplateNeedsFilter)
-          }
-          className="w-auto"
-        >
-          <option value="all">All needs</option>
-          <option value="none">No parameters</option>
-          <option value="optional-only">Optional only</option>
-          <option value="has-required">Has required</option>
-        </Select>
-      </div>
-      {templates.isLoading || versions.isLoading ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Loading notebook templates…
-        </p>
-      ) : visibleTemplates.length ? (
-        <Table containerClassName="rounded-md border">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Latest</TableHead>
-              <TableHead>Needs</TableHead>
-              <TableHead>Updated</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visibleTemplates.map((template) => {
-              const templateVersions = versionsByTemplate.get(template.id) ?? []
-              const latest = templateVersions.at(0) ?? null
-              const summary = summariesByTemplate.get(template.id) ?? null
-              const published = templateVersions.find(
-                (version) => version.lifecycle === 'published',
-              )
-              const draft = templateVersions.find(
-                (version) => version.lifecycle === 'draft',
-              )
-              return (
-                <TableRow key={template.id}>
-                  <TableCell>
-                    <p className="font-medium">{template.name}</p>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {template.key}
-                    </p>
-                    <Badge
-                      variant={parentLifecycleBadgeVariant(template.lifecycle)}
-                      className="mt-1 text-xs"
-                    >
-                      {template.lifecycle}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {latest ? (
-                      <span className="inline-flex items-center gap-2">
-                        <span>v{latest.version}</span>
-                        <Badge
-                          variant={versionLifecycleBadgeVariant(
-                            latest.lifecycle,
-                          )}
-                          className="text-xs"
-                        >
-                          {latest.lifecycle}
-                        </Badge>
-                      </span>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {summary ? notebookTemplateNeedsLine(summary) : '—'}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(template.updatedAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="inline-flex justify-end gap-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => selectTemplate(template.id)}
+        ) : visibleTemplates.length ? (
+          <Table containerClassName="rounded-md border">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Latest</TableHead>
+                <TableHead>Needs</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleTemplates.map((template) => {
+                const templateVersions =
+                  versionsByTemplate.get(template.id) ?? []
+                const latest = templateVersions.at(0) ?? null
+                const summary = summariesByTemplate.get(template.id) ?? null
+                const published = templateVersions.find(
+                  (version) => version.lifecycle === 'published',
+                )
+                const draft = templateVersions.find(
+                  (version) => version.lifecycle === 'draft',
+                )
+                return (
+                  <TableRow key={template.id}>
+                    <TableCell>
+                      <p className="font-medium">{template.name}</p>
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {template.key}
+                      </p>
+                      <Badge
+                        variant={parentLifecycleBadgeVariant(
+                          template.lifecycle,
+                        )}
+                        className="mt-1 text-xs"
                       >
-                        Open
-                      </Button>
-                      {canEdit && draft ? (
+                        {template.lifecycle}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {latest ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span>v{latest.version}</span>
+                          <Badge
+                            variant={versionLifecycleBadgeVariant(
+                              latest.lifecycle,
+                            )}
+                            className="text-xs"
+                          >
+                            {latest.lifecycle}
+                          </Badge>
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {summary ? notebookTemplateNeedsLine(summary) : '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(template.updatedAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="inline-flex justify-end gap-1">
                         <Button
                           type="button"
                           size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            publish.mutate({
-                              id: draft.id,
-                              revision: draft.revision,
-                            })
-                          }
+                          variant="ghost"
+                          onClick={() => selectTemplate(template.id)}
                         >
-                          Publish
+                          Open
                         </Button>
-                      ) : null}
-                      {published && projects.length > 0 ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setCreateVersionId(published.id)
-                            setCreateTitle(template.name)
-                            setCreateProjectId(projects[0]?.id ?? '')
-                            // REUSE-02: pre-fill declared defaults visibly so
-                            // what the user sees is what gets instantiated.
-                            setParameterValues(
-                              defaultParameterDrafts(
-                                published.configuration.parameters,
-                              ),
-                            )
-                            setCreateOpen(true)
-                          }}
-                        >
-                          Create notebook
-                        </Button>
-                      ) : null}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          No notebook templates match the current filters.
-        </p>
-      )}
-      {templates.data && templates.data.length === 100 ? (
+                        {canEdit && draft ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              publish.mutate({
+                                id: draft.id,
+                                revision: draft.revision,
+                              })
+                            }
+                          >
+                            Publish
+                          </Button>
+                        ) : null}
+                        {published && projects.length > 0 ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setCreateVersionId(published.id)
+                              setCreateTitle(template.name)
+                              setCreateProjectId(projects[0]?.id ?? '')
+                              // REUSE-02: pre-fill declared defaults visibly so
+                              // what the user sees is what gets instantiated.
+                              setParameterValues(
+                                defaultParameterDrafts(
+                                  published.configuration.parameters,
+                                ),
+                              )
+                              setCreateOpen(true)
+                            }}
+                          >
+                            Create notebook
+                          </Button>
+                        ) : null}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No notebook templates match the current filters.
+          </p>
+        )
+      ) : null}
+      {mode === 'full' && templates.data && templates.data.length === 100 ? (
         <p className="text-xs text-muted-foreground">
           Showing the first 100 matches. Narrow the search to find a specific
           template.

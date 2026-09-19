@@ -23,12 +23,14 @@ import type { ReactNode } from 'react'
 import { flexRender } from '@tanstack/react-table'
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 import {
-  BarChart3,
   Check,
   ChevronsUpDown,
   Database,
+  GitBranch,
   History,
   Layers,
+  LineChart as LineChartIcon,
+  Share2,
   Table as TableIcon,
   Workflow,
 } from 'lucide-react'
@@ -83,6 +85,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
   Skeleton,
   Table,
   TableBody,
@@ -165,16 +168,13 @@ export const Route = createFileRoute('/datasets')({
      * requested Dataset is archived or retired. Always boolean in output.
      */
     archived?: boolean
-    tab?: 'pipelines' | 'versions'
+    tab?: ExplorerTab
   } => ({
     dataset: typeof search.dataset === 'string' ? search.dataset : '',
     archived: search.archived === '1' || search.archived === true,
-    tab:
-      search.tab === 'pipelines'
-        ? 'pipelines'
-        : search.tab === 'versions'
-          ? 'versions'
-          : undefined,
+    tab: EXPLORER_TABS.includes(search.tab as ExplorerTab)
+      ? (search.tab as ExplorerTab)
+      : undefined,
   }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -183,6 +183,25 @@ export const Route = createFileRoute('/datasets')({
   },
   component: DatasetExplorerRoute,
 })
+
+type ExplorerTab =
+  | 'data'
+  | 'schema'
+  | 'relationships'
+  | 'lineage'
+  | 'versions'
+  | 'history'
+  | 'pipelines'
+
+const EXPLORER_TABS: ExplorerTab[] = [
+  'data',
+  'schema',
+  'relationships',
+  'lineage',
+  'versions',
+  'history',
+  'pipelines',
+]
 
 const DEFAULT_DATASET_QUERY: DatasetRowQuery = {
   pageIndex: 0,
@@ -295,15 +314,7 @@ function DatasetExplorerRoute() {
         setExtensionError(describeExtensionInvocationError(cause)),
       )
   }
-  const [activeTab, setActiveTab] = useState<
-    'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines'
-  >(
-    search.tab === 'pipelines'
-      ? 'pipelines'
-      : search.tab === 'versions'
-        ? 'versions'
-        : 'data',
-  )
+  const [activeTab, setActiveTab] = useState<ExplorerTab>(search.tab ?? 'data')
 
   const requestedTableId = search.dataset || null
   // NAV-02 review fix: a deep link (e.g. Sheet provenance) carries only the
@@ -543,10 +554,13 @@ export function DatasetExplorerHeader({
 
   return (
     <header
-      className="flex shrink-0 flex-wrap items-center justify-between gap-3"
+      className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
       aria-labelledby="datasets-title"
     >
       <div className="flex min-w-0 items-start gap-2.5">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-active text-primary">
+          <Database className="size-4" aria-hidden="true" />
+        </span>
         <div className="min-w-0">
           <h1
             id="datasets-title"
@@ -557,7 +571,7 @@ export function DatasetExplorerHeader({
           <p className="mt-1 text-sm text-muted-foreground">
             {selected
               ? `${formatCount(fieldCount)} ${fieldCount === 1 ? 'field' : 'fields'}${selected.dataset_schema ? ` · ${selected.dataset_schema.name} v${selected.schema_version}` : ''}${selected.lifecycle === 'archived' ? ' · archived' : ' · live'}`
-              : 'Create datasets, explore rows and save versions'}
+              : 'Browse scientific datasets, schemas, relationships and lineage'}
           </p>
         </div>
       </div>
@@ -685,10 +699,8 @@ function DatasetPicker({
 
 interface DatasetTabsProps {
   table: CanonicalDatasetWire
-  activeTab: 'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines'
-  onTabChange: (
-    tab: 'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines',
-  ) => void
+  activeTab: ExplorerTab
+  onTabChange: (tab: ExplorerTab) => void
   onRefresh: () => void
   /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
   collaborationWorkspaceId?: string | null
@@ -708,33 +720,37 @@ function DatasetTabs({
   return (
     <Tabs
       value={activeTab}
-      onValueChange={(v) =>
-        onTabChange(
-          v as
-            'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines',
-        )
-      }
+      onValueChange={(v) => onTabChange(v as ExplorerTab)}
       className="relative min-h-0 flex-1 overflow-hidden"
     >
       <TabsList variant="boxed" className="h-8 w-auto">
-        <TabsTrigger value="data" className="h-8 gap-1.5 px-0 py-0 text-xs">
-          <TableIcon className="size-3.5" aria-hidden="true" /> Live data
+        <TabsTrigger value="data" className="h-8 gap-1.5 px-3 py-0 text-xs">
+          <TableIcon className="size-3.5" aria-hidden="true" /> Data
         </TabsTrigger>
-        <TabsTrigger value="versions" className="h-8 gap-1.5 px-0 py-0 text-xs">
-          <Layers className="size-3.5" aria-hidden="true" /> Versions
-        </TabsTrigger>
-        <TabsTrigger value="schema" className="h-8 gap-1.5 px-0 py-0 text-xs">
+        <TabsTrigger value="schema" className="h-8 gap-1.5 px-3 py-0 text-xs">
           <Layers className="size-3.5" aria-hidden="true" /> Schema
         </TabsTrigger>
-        <TabsTrigger value="chart" className="h-8 gap-1.5 px-0 py-0 text-xs">
-          <BarChart3 className="size-3.5" aria-hidden="true" /> Chart
+        <TabsTrigger
+          value="relationships"
+          className="h-8 gap-1.5 px-3 py-0 text-xs"
+        >
+          <Share2 className="size-3.5" aria-hidden="true" /> Relationships
         </TabsTrigger>
-        <TabsTrigger value="history" className="h-8 gap-1.5 px-0 py-0 text-xs">
+        <TabsTrigger value="lineage" className="h-8 gap-1.5 px-3 py-0 text-xs">
+          <GitBranch className="size-3.5" aria-hidden="true" /> Lineage
+        </TabsTrigger>
+        <TabsTrigger
+          value="versions"
+          className="h-8 gap-1.5 px-3 py-0 text-xs"
+        >
+          <Layers className="size-3.5" aria-hidden="true" /> Versions
+        </TabsTrigger>
+        <TabsTrigger value="history" className="h-8 gap-1.5 px-3 py-0 text-xs">
           <History className="size-3.5" aria-hidden="true" /> History
         </TabsTrigger>
         <TabsTrigger
           value="pipelines"
-          className="h-8 gap-1.5 px-0 py-0 text-xs"
+          className="h-8 gap-1.5 px-3 py-0 text-xs"
         >
           <Workflow className="size-3.5" aria-hidden="true" /> Pipelines
         </TabsTrigger>
@@ -751,22 +767,28 @@ function DatasetTabs({
         />
       </TabsContent>
       <TabsContent
-        value="versions"
-        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-auto p-3"
-      >
-        <DatasetVersionsTab table={table} />
-      </TabsContent>
-      <TabsContent
         value="schema"
         className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col overflow-auto"
       >
         <DatasetSchemaTab table={table} />
       </TabsContent>
       <TabsContent
-        value="chart"
-        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-hidden p-3"
+        value="relationships"
+        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-auto p-3"
       >
-        <UnsupportedCanonicalView name="Chart" />
+        <DatasetRelationshipsTab table={table} />
+      </TabsContent>
+      <TabsContent
+        value="lineage"
+        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-auto p-3"
+      >
+        <DatasetLineageTab table={table} />
+      </TabsContent>
+      <TabsContent
+        value="versions"
+        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-auto p-3"
+      >
+        <DatasetVersionsTab table={table} />
       </TabsContent>
       <TabsContent
         value="history"
@@ -785,15 +807,6 @@ function DatasetTabs({
         />
       </TabsContent>
     </Tabs>
-  )
-}
-
-function UnsupportedCanonicalView({ name }: { name: string }) {
-  return (
-    <EmptyHint>
-      {name} is not yet available for canonical Datasets. The Explorer will not
-      read legacy physical sheet resources as a fallback.
-    </EmptyHint>
   )
 }
 
@@ -932,13 +945,109 @@ export function DatasetDataTab({
   }, [table.columns])
   const totalCount = rowsQuery.data?.pages[0]?.totalCount ?? 0
 
+  const defaultChartSpec = useMemo(() => {
+    const spec = buildDefaultChartSpec(table)
+    if (!spec) return null
+    const xColumn = table.columns.find(
+      (column) => column.id === spec.fields.x?.fieldId,
+    )
+    return /time|day|date/i.test(xColumn?.label ?? '')
+      ? { ...spec, type: 'line' as const }
+      : spec
+  }, [table])
+  const [chartSpec, setChartSpec] = useState<ChartSpec | null>(defaultChartSpec)
+
+  useEffect(() => setChartSpec(defaultChartSpec), [defaultChartSpec])
+
   useEffect(() => setSelectedRowId(null), [qid])
+
+  const numericColumns = table.columns.filter(
+    (column) =>
+      column.logical_type === 'decimal' || column.logical_type === 'integer',
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex shrink-0 justify-end px-1 py-1">
         <ExportMenu path={`/api/export/dataset/${table.id}`} />
       </div>
+      {chartSpec ? (
+        <section
+          aria-label="Chart preview"
+          className="mx-1 mb-2 shrink-0 rounded-lg border bg-card"
+        >
+          <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold">
+              <LineChartIcon
+                className="size-3.5 text-muted-foreground"
+                aria-hidden="true"
+              />
+              Chart preview
+            </h3>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                Type
+                <Select
+                  aria-label="Chart type"
+                  className="h-7 w-28 text-xs"
+                  value={chartSpec.type}
+                  onChange={(event) =>
+                    setChartSpec({
+                      ...chartSpec,
+                      type: event.target.value as ChartSpec['type'],
+                    })
+                  }
+                >
+                  <option value="line">line</option>
+                  <option value="scatter">scatter</option>
+                  <option value="connected_scatter">connected</option>
+                  <option value="bar">bar</option>
+                </Select>
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                Y
+                <Select
+                  aria-label="Chart Y field"
+                  className="h-7 w-36 text-xs"
+                  value={chartSpec.fields.y.fieldId}
+                  onChange={(event) => {
+                    const column = numericColumns.find(
+                      (c) => c.id === event.target.value,
+                    )
+                    if (!column) return
+                    setChartSpec({
+                      ...chartSpec,
+                      fields: {
+                        ...chartSpec.fields,
+                        y: { fieldId: column.id },
+                      },
+                      display: {
+                        ...chartSpec.display,
+                        axes: {
+                          ...chartSpec.display.axes,
+                          y: {
+                            ...chartSpec.display.axes.y,
+                            label: column.label,
+                          },
+                        },
+                      },
+                    })
+                  }}
+                >
+                  {numericColumns.map((column) => (
+                    <option key={column.id} value={column.id}>
+                      {column.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            </div>
+          </div>
+          <div className="h-56 p-3">
+            <ChartPreview table={table} chartSpec={chartSpec} />
+          </div>
+        </section>
+      ) : null}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <RegistryComposition
           registryId={`dataset-${table.id}`}

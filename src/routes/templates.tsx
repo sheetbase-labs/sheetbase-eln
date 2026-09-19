@@ -4,11 +4,18 @@ import { createServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
 
 import { useShell } from '#/components/app-shell'
+import { TemplateInspector } from '#/components/templates/template-library'
 import {
-  TemplateFilters,
-  TemplateInspector,
-  TemplateList,
-} from '#/components/templates/template-library'
+  NotebookTemplateInspector,
+  UnifiedTemplateFilters,
+  UnifiedTemplateTable,
+} from '#/components/templates/unified-template-list'
+import type {
+  UnifiedTemplateRow,
+  UnifiedTemplateStatusFilter,
+  UnifiedTemplateStatusKey,
+  UnifiedTemplateTypeFilter,
+} from '#/components/templates/unified-template-list'
 import { VersionedNotebookTemplatePanel } from '#/components/templates/versioned-notebook-templates'
 import type {
   TemplateLinkedRecord,
@@ -38,10 +45,19 @@ import {
 import type { TargetKind } from '#/lib/templates'
 import {
   derivePurposeFacets,
-  matchesProtocolLifecycle,
+  matchesNotebookTemplateNeeds,
   matchesPurposeFacet,
+  protocolLifecycleState,
+  summarizeNotebookTemplateRequirements,
 } from '#/lib/reuse-discovery'
-import type { ProtocolLifecycleState } from '#/lib/reuse-discovery'
+import type { NotebookTemplateNeedsFilter } from '#/lib/reuse-discovery'
+import {
+  fetchAllNotebookTemplateVersions,
+  fetchNotebookTemplates,
+  notebookTemplateDataClient,
+} from '#/lib/notebook-template-data'
+import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
+import { useFavouritesList, useSetFavourite } from '#/lib/favourites'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 
@@ -90,13 +106,18 @@ function TemplateLibraryRoute() {
   const workspaceId = context.workspace?.id ?? 'no-workspace'
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] =
+    useState<UnifiedTemplateStatusFilter>('all')
   const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<UnifiedTemplateTypeFilter>('all')
   const [ownership, setOwnership] = useState<TemplateOwnershipFilter>('all')
   const [favouritesOnly, setFavouritesOnly] = useState(false)
   const [purposeFilter, setPurposeFilter] = useState('all')
+  const [needsFilter, setNeedsFilter] =
+    useState<NotebookTemplateNeedsFilter>('all')
   const [view, setView] = useState<TemplateView>('list')
   const selectedId = routeSearch.protocol ?? null
+  const selectedNotebookId = routeSearch.template ?? null
   const [instantiationError, setInstantiationError] = useState<string | null>(
     null,
   )
@@ -105,19 +126,28 @@ function TemplateLibraryRoute() {
     projectId: string
   } | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [notebookInstantiateRequest, setNotebookInstantiateRequest] = useState<{
+    versionId: string
+    nonce: number
+  } | null>(null)
+
+  // Selecting a unified row navigates to the catalogue-specific deep link so
+  // ?template= and ?protocol= URLs keep working for both types.
+  function selectRow(row: UnifiedTemplateRow) {
+    void navigate({
+      to: '/templates',
+      search:
+        row.type === 'protocol'
+          ? { template: undefined, protocol: row.id }
+          : { template: row.id, protocol: undefined },
+      replace: false,
+    })
+  }
 
   function setSelectedId(id: string | null) {
     void navigate({
       to: '/templates',
       search: { template: undefined, protocol: id ?? undefined },
-      replace: false,
-    })
-  }
-
-  function setSelectedNotebookTemplateId(id: string | null) {
-    void navigate({
-      to: '/templates',
-      search: { template: id ?? undefined, protocol: undefined },
       replace: false,
     })
   }
@@ -159,6 +189,68 @@ function TemplateLibraryRoute() {
       })
     },
   })
+
+  // Canonical notebook template catalogue (TPL-001): the second data source
+  // for the unified table. `search` is shared with the protocol catalogue so
+  // the single filter box queries both.
+  const notebookTemplatesQuery = useQuery({
+    queryKey: ['notebook-templates', workspaceId, search],
+    queryFn: () =>
+      fetchNotebookTemplates(notebookTemplateDataClient, {
+        search,
+        limit: 100,
+      }),
+  })
+  const notebookVersionsQuery = useQuery({
+    queryKey: ['notebook-template-versions'],
+    queryFn: () => fetchAllNotebookTemplateVersions(notebookTemplateDataClient),
+  })
+
+  const notebookVersions = notebookVersionsQuery.data ?? []
+  const versionsByTemplate = useMemo(() => {
+    const map = new Map<string, NotebookTemplateVersion[]>()
+    for (const version of notebookVersions) {
+      const list = map.get(version.templateId) ?? []
+      list.push(version)
+      map.set(version.templateId, list)
+    }
+    return map
+  }, [notebookVersions])
+
+  // Notebook-template usage: instantiated notebooks pin
+  // source_notebook_template_version_id, so counting records per version id
+  // and mapping back through the template's versions gives the Used column.
+  const notebookUsageQuery = useQuery({
+    queryKey: ['tpl-001', 'notebook-template-usage', notebookVersions.length],
+    queryFn: async () => {
+      const versionIds = notebookVersions.map((version) => version.id)
+      if (versionIds.length === 0) return {}
+      const rows = await notebookDataClient.list<{
+        source_notebook_template_version_id: string
+      }>(
+        'records',
+        `?source_notebook_template_version_id=in.(${versionIds.join(',')})&select=source_notebook_template_version_id`,
+      )
+      const templateByVersion = new Map<string, string>()
+      for (const version of notebookVersions) {
+        templateByVersion.set(version.id, version.templateId)
+      }
+      const counts: Record<string, number> = {}
+      for (const row of rows) {
+        const templateId = templateByVersion.get(
+          row.source_notebook_template_version_id,
+        )
+        if (templateId) counts[templateId] = (counts[templateId] ?? 0) + 1
+      }
+      return counts
+    },
+    enabled: notebookVersions.length > 0,
+  })
+
+  // Server-side favourites (FIND-02) cover the notebook catalogue; protocol
+  // templates keep their per-user localStorage favourites list.
+  const serverFavouritesQuery = useFavouritesList()
+  const setFavouriteMutation = useSetFavourite()
 
   // Block counts for every listed template, fetched in a single query so
   // the list can show a "blocks" column without N+1 requests. Selects only
@@ -291,31 +383,56 @@ function TemplateLibraryRoute() {
     () => derivePurposeFacets(allTemplates),
     [allTemplates],
   )
-  const templates = useMemo(() => {
-    let rows = allTemplates
-    if (statusFilter !== 'all') {
-      const lifecycle = statusFilter as ProtocolLifecycleState
-      rows = rows.filter((t) => matchesProtocolLifecycle(t, lifecycle))
+  const notebookTemplates = notebookTemplatesQuery.data ?? []
+  const notebookUsage = notebookUsageQuery.data ?? {}
+  const serverFavourites = serverFavouritesQuery.data ?? []
+
+  // REUSE-01: latest-version requirement summaries back the unified Needs
+  // facet and the Blocks column, mirroring the notebook catalogue panel.
+  const summariesByTemplate = useMemo(() => {
+    const map = new Map<
+      string,
+      ReturnType<typeof summarizeNotebookTemplateRequirements> | null
+    >()
+    for (const template of notebookTemplates) {
+      const latest = versionsByTemplate.get(template.id)?.[0] ?? null
+      map.set(
+        template.id,
+        latest
+          ? summarizeNotebookTemplateRequirements(latest.configuration)
+          : null,
+      )
     }
-    if (purposeFilter !== 'all') {
-      rows = rows.filter((t) => matchesPurposeFacet(t.tags, purposeFilter))
+    return map
+  }, [notebookTemplates, versionsByTemplate])
+
+  const notebookFavouriteIds = useMemo(
+    () =>
+      new Set(
+        serverFavourites
+          .filter((f) => f.kind === 'notebook_template')
+          .map((f) => f.id),
+      ),
+    [serverFavourites],
+  )
+
+  function isRowFavourite(row: UnifiedTemplateRow): boolean {
+    return row.type === 'protocol'
+      ? favourites.has(row.id)
+      : notebookFavouriteIds.has(row.id)
+  }
+
+  function toggleRowFavourite(row: UnifiedTemplateRow) {
+    if (row.type === 'protocol') {
+      toggleFavourite(row.id)
+      return
     }
-    if (ownership === 'mine') {
-      rows = rows.filter((t) => t.createdByUserId === currentUserId)
-    }
-    if (favouritesOnly) {
-      rows = rows.filter((t) => favourites.has(t.id))
-    }
-    return rows
-  }, [
-    allTemplates,
-    statusFilter,
-    purposeFilter,
-    ownership,
-    favouritesOnly,
-    favourites,
-    currentUserId,
-  ])
+    setFavouriteMutation.mutate({
+      kind: 'notebook_template',
+      objectId: row.id,
+      favourite: !isRowFavourite(row),
+    })
+  }
 
   const selected = selectedQuery.data ?? null
   const selectedBlocks = blocksQuery.data ?? []
@@ -325,6 +442,93 @@ function TemplateLibraryRoute() {
   const blockPreviews = blockPreviewsQuery.data ?? {}
   const linkedRecords = linkedRecordsQuery.data ?? []
   const selectedUsageCount = selected ? (usageCounts[selected.id] ?? 0) : 0
+
+  // Unified rows: both catalogues normalised onto the shared column model.
+  // Purpose facets only exist on protocol rows and needs facets only on
+  // notebook rows, so setting one scopes the table to the catalogue that
+  // can answer it.
+  const unifiedRows = useMemo<UnifiedTemplateRow[]>(() => {
+    const rows: UnifiedTemplateRow[] = []
+    for (const record of allTemplates) {
+      rows.push({
+        type: 'protocol',
+        record,
+        id: record.id,
+        identifier: record.identifier,
+        title: record.title,
+        subline:
+          record.tags.length > 0 ? record.tags.slice(0, 3).join(' · ') : null,
+        versionLabel: `v${record.metadataVersion}`,
+        statusKey: protocolLifecycleState(record) as UnifiedTemplateStatusKey,
+        blocks: blockCounts[record.id] ?? null,
+        used: usageCounts[record.id] ?? 0,
+        updatedAt: record.updatedAt,
+        ownerId: record.createdByUserId,
+      })
+    }
+    for (const template of notebookTemplates) {
+      const versions = versionsByTemplate.get(template.id) ?? []
+      const latest = versions.at(0) ?? null
+      const summary = summariesByTemplate.get(template.id) ?? null
+      rows.push({
+        type: 'notebook',
+        template,
+        latest,
+        id: template.id,
+        identifier: template.key,
+        title: template.name,
+        subline: template.description,
+        versionLabel: latest ? `v${latest.version}` : '—',
+        statusKey: (latest?.lifecycle ??
+          (template.lifecycle === 'retired'
+            ? 'retired'
+            : 'draft')) as UnifiedTemplateStatusKey,
+        blocks: summary ? summary.placements.total : null,
+        used: notebookUsage[template.id] ?? 0,
+        updatedAt: template.updatedAt,
+        ownerId: latest?.createdByUserId ?? null,
+      })
+    }
+    return rows
+      .filter((row) => {
+        if (typeFilter !== 'all' && row.type !== typeFilter) return false
+        if (statusFilter !== 'all' && row.statusKey !== statusFilter)
+          return false
+        if (
+          purposeFilter !== 'all' &&
+          (row.type !== 'protocol' ||
+            !matchesPurposeFacet(row.record.tags, purposeFilter))
+        )
+          return false
+        if (needsFilter !== 'all') {
+          if (row.type !== 'notebook') return false
+          const summary = summariesByTemplate.get(row.id)
+          if (!summary || !matchesNotebookTemplateNeeds(summary, needsFilter))
+            return false
+        }
+        if (ownership === 'mine' && row.ownerId !== currentUserId) return false
+        if (favouritesOnly && !isRowFavourite(row)) return false
+        return true
+      })
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }, [
+    allTemplates,
+    notebookTemplates,
+    versionsByTemplate,
+    summariesByTemplate,
+    notebookUsage,
+    blockCounts,
+    usageCounts,
+    typeFilter,
+    statusFilter,
+    purposeFilter,
+    needsFilter,
+    ownership,
+    favouritesOnly,
+    favourites,
+    notebookFavouriteIds,
+    currentUserId,
+  ])
 
   // Instantiation mutation
   const instantiateMutation = useMutation({
@@ -497,6 +701,10 @@ function TemplateLibraryRoute() {
     },
   }
 
+  const selectedNotebookTemplate = selectedNotebookId
+    ? (notebookTemplates.find((t) => t.id === selectedNotebookId) ?? null)
+    : null
+
   const inspector = selected ? (
     <TemplateInspector
       template={selected}
@@ -527,6 +735,27 @@ function TemplateLibraryRoute() {
       isDuplicating={duplicateMutation.isPending}
       actionError={actionError}
     />
+  ) : selectedNotebookTemplate ? (
+    <NotebookTemplateInspector
+      template={selectedNotebookTemplate}
+      versions={versionsByTemplate.get(selectedNotebookTemplate.id) ?? []}
+      usedCount={notebookUsage[selectedNotebookTemplate.id] ?? 0}
+      currentUserId={currentUserId}
+      canEdit={role === 'owner' || role === 'admin' || role === 'steward'}
+      onInstantiate={(versionId) =>
+        setNotebookInstantiateRequest({
+          versionId,
+          nonce: Date.now(),
+        })
+      }
+      // FIND-02: star the selected canonical notebook template.
+      headerActions={
+        <FavouriteToggle
+          kind="notebook_template"
+          objectId={selectedNotebookId}
+        />
+      }
+    />
   ) : null
 
   useShell({
@@ -551,63 +780,69 @@ function TemplateLibraryRoute() {
           </p>
         </header>
 
+        <UnifiedTemplateFilters
+          search={search}
+          onSearchChange={setSearch}
+          typeFilter={typeFilter}
+          onTypeChange={setTypeFilter}
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+          ownership={ownership}
+          onOwnershipChange={setOwnership}
+          favouritesOnly={favouritesOnly}
+          onFavouritesOnlyChange={setFavouritesOnly}
+          view={view}
+          onViewChange={setView}
+          purposeFilter={purposeFilter}
+          onPurposeChange={setPurposeFilter}
+          purposeOptions={purposeOptions}
+          needsFilter={needsFilter}
+          onNeedsChange={setNeedsFilter}
+          count={unifiedRows.length}
+        />
+
+        <UnifiedTemplateTable
+          rows={unifiedRows}
+          isLoading={
+            templatesQuery.isLoading ||
+            notebookTemplatesQuery.isLoading ||
+            notebookVersionsQuery.isLoading
+          }
+          error={templatesQuery.error ?? notebookTemplatesQuery.error}
+          onRetry={() => {
+            void templatesQuery.refetch()
+            void notebookTemplatesQuery.refetch()
+            void notebookVersionsQuery.refetch()
+          }}
+          selectedId={selectedId ?? selectedNotebookId}
+          onSelect={selectRow}
+          isFavourite={isRowFavourite}
+          onToggleFavourite={toggleRowFavourite}
+          view={view}
+          blockPreviews={blockPreviews}
+        />
+
+        {/*
+          TPL-001: the unified table replaces the two catalogue lists, but the
+          notebook template workspace (version history, builder, upgrade and
+          the instantiate dialog) stays inline below it for the selected
+          notebook template. Protocol detail lives in the inspector.
+        */}
         <VersionedNotebookTemplatePanel
+          mode="detail"
           workspaceId={workspaceId}
           canEdit={role === 'owner' || role === 'admin' || role === 'steward'}
           projects={projects}
-          selectedTemplateId={routeSearch.template ?? null}
-          onSelectedTemplateIdChange={setSelectedNotebookTemplateId}
-          // FIND-02: star the selected canonical notebook template. The
-          // separate localStorage "favourites" filter below is the protocol
-          // template catalogue's own list filter, not FIND-02 state.
-          headerActions={
-            <FavouriteToggle
-              kind="notebook_template"
-              objectId={routeSearch.template ?? null}
-            />
+          selectedTemplateId={selectedNotebookId}
+          onSelectedTemplateIdChange={(id) =>
+            void navigate({
+              to: '/templates',
+              search: { template: id ?? undefined, protocol: undefined },
+              replace: false,
+            })
           }
+          instantiateRequest={notebookInstantiateRequest}
         />
-
-        <section className="space-y-4">
-          <div className="space-y-1">
-            <h2 className="text-sm font-semibold">Protocol templates</h2>
-            <p className="text-xs text-muted-foreground">
-              Add a specific protocol version to a notebook.
-            </p>
-          </div>
-          <TemplateFilters
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            search={search}
-            onSearchChange={setSearch}
-            count={templates.length}
-            favouritesOnly={favouritesOnly}
-            onFavouritesOnlyChange={setFavouritesOnly}
-            ownership={ownership}
-            onOwnershipChange={setOwnership}
-            view={view}
-            onViewChange={setView}
-            purposeFilter={purposeFilter}
-            onPurposeChange={setPurposeFilter}
-            purposeOptions={purposeOptions}
-          />
-
-          <TemplateList
-            templates={templates}
-            isLoading={templatesQuery.isLoading}
-            error={templatesQuery.error}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onRetry={() => templatesQuery.refetch()}
-            blockCounts={blockCounts}
-            usageCounts={usageCounts}
-            view={view}
-            favourites={favourites}
-            onToggleFavourite={toggleFavourite}
-            currentUserId={currentUserId}
-            blockPreviews={blockPreviews}
-          />
-        </section>
       </div>
     </>
   )

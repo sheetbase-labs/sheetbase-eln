@@ -70,6 +70,7 @@ export type NotebookTemplateVersion = {
   configuration: NotebookTemplateConfiguration
   revision: number
   publishedAt: string | null
+  createdByUserId: string | null
 }
 
 export type NotebookTemplateParameterInput =
@@ -137,6 +138,7 @@ export function notebookTemplateVersionFromWire(
     configuration: parseNotebookTemplateConfiguration(parsed.configuration),
     revision: parsed.revision,
     publishedAt: parsed.published_at,
+    createdByUserId: parsed.created_by_user_id,
   }
 }
 

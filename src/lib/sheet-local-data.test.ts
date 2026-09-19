@@ -58,6 +58,8 @@ describe('canonical Sheet local values', () => {
       updated_at: '2026-08-15T10:00:00Z',
       created_by_user_id: 'user',
       updated_by_user_id: 'user',
+      created_by_credential_id: null,
+      updated_by_credential_id: null,
     })
     await mutateSheetLocalState(
       {

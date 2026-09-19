@@ -142,6 +142,8 @@ describe('Sheet Definition upgrade contract', () => {
       updated_at: now,
       created_by_user_id: 'member',
       updated_by_user_id: 'member',
+      created_by_credential_id: null,
+      updated_by_credential_id: null,
     }
     const rpc = vi.fn().mockResolvedValue({
       status: 'applied',

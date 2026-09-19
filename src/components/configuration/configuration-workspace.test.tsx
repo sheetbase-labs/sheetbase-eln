@@ -293,6 +293,8 @@ function fakeClient(): DataClient {
             updated_at: '2026-01-01T00:00:00Z',
             created_by_user_id: null,
             updated_by_user_id: null,
+            created_by_credential_id: null,
+            updated_by_credential_id: null,
           },
         ]
       }

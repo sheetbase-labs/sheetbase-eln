@@ -102,6 +102,7 @@ function RouteShell({
 }
 
 export const Route = createFileRoute('/')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context }) => {
     // Auth context is fetched once at the root route — read it from there
     // instead of making a separate server round-trip.
@@ -141,6 +142,7 @@ function Home() {
   if (!context.workspace) {
     return (
       <RouteShell
+        fullBleed={false}
         context={{
           workspace: null,
           user: { name: context.user.name, email: context.user.email },
@@ -154,7 +156,6 @@ function Home() {
 
   return (
     <RouteShell
-      fullBleed
       context={{
         workspace: { name: context.workspace.name },
         user: {

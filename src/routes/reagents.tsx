@@ -83,6 +83,7 @@ import type { RegistryQuery } from '#/lib/registry'
  * projects, so the registry lists every reagent in the active workspace.
  */
 export const Route = createFileRoute('/reagents')({
+  staticData: { shellFullBleed: true },
   validateSearch: (search: Record<string, unknown>) => ({
     rq: typeof search.rq === 'string' ? search.rq : '',
     sort: typeof search.sort === 'string' ? search.sort : '',
@@ -334,7 +335,6 @@ function ReagentsRegistryRoute() {
   })
 
   useShell({
-    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Reagents' }],
   })

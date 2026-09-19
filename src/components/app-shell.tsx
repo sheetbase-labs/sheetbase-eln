@@ -5,6 +5,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Link,
+  useMatches,
   useNavigate,
   useRouter,
   useRouterState,
@@ -165,6 +166,9 @@ interface ShellConfig {
   inspector?: React.ReactNode
   inspectorLabel?: string
   inspectorCollapsible?: boolean
+  /** Dynamic override for `staticData.shellFullBleed` — prefer staticData so
+   * SSR and pending navigation render the right width without an
+   * effect-driven flash. */
   fullBleed?: boolean
   primaryAction?: React.ReactNode
   projectTree?: React.ReactNode
@@ -243,6 +247,17 @@ export function ShellProvider({
     [],
   )
 
+  // Route `staticData.shellFullBleed` declares the full-bleed layout, so it
+  // is already known during SSR and pending navigation — useShell's
+  // useLayoutEffect only lands after first paint and would flash the padded
+  // column. `useShell` may still override it dynamically via config.fullBleed.
+  const matches = useMatches()
+  const staticFullBleed = matches.some(
+    (match) =>
+      (match.staticData as { shellFullBleed?: boolean }).shellFullBleed ===
+      true,
+  )
+
   // `content` is memoized via ShellContent — config state updates
   // re-render AppShell but NOT the route children inside.
   // Always render AppShell (even when context is null) to keep the tree
@@ -254,7 +269,7 @@ export function ShellProvider({
       inspector={config.inspector}
       inspectorLabel={config.inspectorLabel}
       inspectorCollapsible={config.inspectorCollapsible}
-      fullBleed={config.fullBleed}
+      fullBleed={config.fullBleed ?? staticFullBleed}
       primaryAction={config.primaryAction}
       projectTree={config.projectTree}
       navExtra={config.navExtra}

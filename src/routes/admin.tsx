@@ -86,6 +86,7 @@ import type { Scope } from '#/lib/api-credential-scopes'
 import { fetchMemberNamesFn } from '#/lib/admin-platform'
 
 export const Route = createFileRoute('/admin')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -494,7 +495,6 @@ function AdminRoute() {
   }
 
   useShell({
-    fullBleed: true,
     context: shellContext,
     breadcrumbs: [
       { label: 'Administration' },

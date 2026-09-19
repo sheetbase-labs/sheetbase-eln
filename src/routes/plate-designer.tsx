@@ -43,6 +43,7 @@ import {
 import type { AssignmentRole } from '#/lib/plate-map'
 
 export const Route = createFileRoute('/plate-designer')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -211,7 +212,6 @@ function PlateDesignerRoute() {
   useShell({
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Plate Designer' }],
-    fullBleed: true,
     inspectorLabel: 'Plate well',
     inspector: (
       <PlateInspector

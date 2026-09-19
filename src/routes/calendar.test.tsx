@@ -11,6 +11,7 @@ import { Route } from './calendar'
 const CalendarRoute = Route.options.component as React.ComponentType
 
 vi.mock('@tanstack/react-router', () => ({
+  useMatches: () => [],
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useRouteContext: () => ({
       context: {

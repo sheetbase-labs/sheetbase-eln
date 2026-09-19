@@ -99,6 +99,7 @@ import type {
 import { searchResultToRelatedKind } from '#/lib/related-work'
 
 export const Route = createFileRoute('/search')({
+  staticData: { shellFullBleed: true },
   // SEARCH-001: filter and query state lives in the URL so searches are
   // shareable. Only public filter dimensions are stored — no tokens, session
   // IDs, or secrets. Project/record IDs are already part of the public URL
@@ -679,7 +680,6 @@ function SearchRoute() {
   ) : null
 
   useShell({
-    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Search' }],
     inspector: inspector,

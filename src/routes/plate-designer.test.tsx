@@ -14,6 +14,7 @@ const PlateDesignerRoute = Route.options.component as React.ComponentType
 const emptyQueryData: never[] = []
 
 vi.mock('@tanstack/react-router', () => ({
+  useMatches: () => [],
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useRouteContext: () => ({
       context: {

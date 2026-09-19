@@ -47,6 +47,7 @@ import {
 import type { JsonObject } from '#/lib/instrument-monitor'
 
 export const Route = createFileRoute('/instrument-monitor')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -295,7 +296,6 @@ function InstrumentMonitorRoute() {
       { label: 'Home', to: '/' },
       { label: 'Instrument Run Monitor' },
     ],
-    fullBleed: true,
     inspectorLabel: 'Run',
     inspector: (
       <RunInspector

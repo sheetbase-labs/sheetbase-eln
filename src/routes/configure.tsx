@@ -9,6 +9,7 @@ import { createDataClient } from '#/lib/data-client'
 import type { WorkspaceRole } from '#/lib/workspace-admin'
 
 export const Route = createFileRoute('/configure')({
+  staticData: { shellFullBleed: true },
   validateSearch: (
     search: Record<string, unknown>,
   ): {
@@ -45,7 +46,6 @@ function ConfigureRoute() {
   const role = context.workspace?.role as WorkspaceRole | undefined
 
   useShell({
-    fullBleed: true,
     context: {
       workspace: context.workspace ? { name: context.workspace.name } : null,
       user: {

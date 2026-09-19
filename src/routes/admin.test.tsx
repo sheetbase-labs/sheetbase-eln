@@ -12,6 +12,7 @@ const AdminRoute = Route.options.component as React.ComponentType
 let pathname = '/admin/dashboard'
 const navigate = vi.fn()
 vi.mock('@tanstack/react-router', () => ({
+  useMatches: () => [],
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useRouteContext: () => ({
       context: {

@@ -67,6 +67,7 @@ import type { PlannerView, StudyTask, StudyTaskInput } from '#/lib/planner'
 import { fetchCalendarResources } from '#/lib/calendar'
 
 export const Route = createFileRoute('/planner')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -299,7 +300,6 @@ function PlannerRoute() {
   useShell({
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Study Planner' }],
-    fullBleed: true,
     inspectorLabel: 'Task',
     inspector: (
       <PlannerInspector

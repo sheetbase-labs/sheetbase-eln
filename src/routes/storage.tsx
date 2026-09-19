@@ -59,6 +59,7 @@ import {
 } from '#/lib/storage'
 
 export const Route = createFileRoute('/storage')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -230,7 +231,6 @@ function StorageRoute() {
   useShell({
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Storage' }],
-    fullBleed: true,
     inspectorLabel: 'Storage position',
     inspector: (
       <StorageInspector

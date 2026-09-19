@@ -157,6 +157,7 @@ import {
 import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
 
 export const Route = createFileRoute('/datasets')({
+  staticData: { shellFullBleed: true },
   validateSearch: (
     search: Record<string, unknown>,
   ): {
@@ -423,7 +424,6 @@ function DatasetExplorerRoute() {
       // `?dataset=` ID — never from browser history.
       ...(selectedTable ? [{ label: selectedTable.name }] : []),
     ],
-    fullBleed: true,
   })
 
   function refreshDatasets() {

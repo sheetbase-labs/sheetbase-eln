@@ -76,6 +76,7 @@ function toProject(row: ProjectWire): Project {
 }
 
 export const Route = createFileRoute('/projects')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) {
@@ -215,7 +216,6 @@ function ProjectsIndexRoute() {
   }
 
   useShell({
-    fullBleed: true,
     context: {
       workspace: context.workspace ? { name: context.workspace.name } : null,
       user: { name: context.user.name, email: context.user.email },

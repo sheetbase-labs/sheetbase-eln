@@ -101,6 +101,7 @@ const reviewsSearchSchema = z.object({
 type ReviewsSearch = z.infer<typeof reviewsSearchSchema>
 
 export const Route = createFileRoute('/reviews')({
+  staticData: { shellFullBleed: true },
   validateSearch: reviewsSearchSchema,
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -697,7 +698,6 @@ function ReviewsInboxRoute() {
   }
 
   useShell({
-    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Reviews' }],
   })

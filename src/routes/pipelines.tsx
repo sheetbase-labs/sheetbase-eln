@@ -42,6 +42,7 @@ import {
 import type { PipelineDefinitionWire } from '#/lib/pipelines/types'
 
 export const Route = createFileRoute('/pipelines')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -94,7 +95,6 @@ function PipelinesIndexRoute() {
       },
     },
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Pipelines' }],
-    fullBleed: true,
   })
 
   return (

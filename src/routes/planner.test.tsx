@@ -12,6 +12,7 @@ import { Route } from './planner'
 const PlannerRoute = Route.options.component as React.ComponentType
 
 vi.mock('@tanstack/react-router', () => ({
+  useMatches: () => [],
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useRouteContext: () => ({
       context: {

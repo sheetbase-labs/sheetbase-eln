@@ -62,6 +62,7 @@ import type {
 } from '#/lib/calendar'
 
 export const Route = createFileRoute('/calendar')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -394,7 +395,6 @@ function CalendarRoute() {
   useShell({
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Lab Calendar' }],
-    fullBleed: true,
     inspectorLabel: 'Booking',
     inspector: (
       <CalendarInspector

@@ -92,6 +92,7 @@ import type {
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/lineage')({
+  staticData: { shellFullBleed: true },
   validateSearch: (search: Record<string, unknown>) => ({
     seed: parseLineageSeedParam(search) ?? undefined,
   }),
@@ -204,7 +205,6 @@ function LineageExplorerRoute() {
       { label: 'Analysis', to: '/analysis' },
       { label: 'Lineage Explorer' },
     ],
-    fullBleed: true,
     inspector: inspector,
     inspectorLabel: 'Lineage inspector',
     inspectorCollapsible: true,

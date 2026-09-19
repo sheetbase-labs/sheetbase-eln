@@ -102,6 +102,7 @@ export function searchFromSamplesQuery(
 }
 
 export const Route = createFileRoute('/samples')({
+  staticData: { shellFullBleed: true },
   validateSearch: (search: Record<string, unknown>) => {
     const page = Number(search.page)
     const size = Number(search.size)
@@ -475,7 +476,6 @@ function SamplesRegistryRoute() {
     )
 
   useShell({
-    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Samples' }],
   })

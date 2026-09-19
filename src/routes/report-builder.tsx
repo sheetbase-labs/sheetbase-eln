@@ -64,6 +64,7 @@ import {
 } from '#/lib/report-builder-pdf'
 
 export const Route = createFileRoute('/report-builder')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -340,7 +341,6 @@ function ReportBuilderRoute() {
   useShell({
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Report Builder' }],
-    fullBleed: true,
     inspectorLabel: 'Report',
     inspector: (
       <ReportDetails

@@ -16,6 +16,7 @@ const LineageRoute = Route.options.component as React.ComponentType
 const searchState: { seed?: string } = {}
 
 vi.mock('@tanstack/react-router', () => ({
+  useMatches: () => [],
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useRouteContext: () => ({
       context: {

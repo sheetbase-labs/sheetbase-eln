@@ -58,6 +58,7 @@ vi.mock('#/components/theme-provider', () => ({
 const navigateMock = vi.hoisted(() => vi.fn())
 let currentPathname = '/projects'
 vi.mock('@tanstack/react-router', () => ({
+  useMatches: () => [],
   useRouter: () => ({ invalidate: vi.fn() }),
   useNavigate: () => navigateMock,
   useRouterState: ({

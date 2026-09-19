@@ -109,6 +109,7 @@ import { rasteriseSvgToPng } from '#/lib/visualisation-export'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 
 export const Route = createFileRoute('/analysis')({
+  staticData: { shellFullBleed: true },
   validateSearch: (search: Record<string, unknown>) => {
     const next: { dataset?: string; x?: string; y?: string } = {}
     if (typeof search.dataset === 'string') next.dataset = search.dataset
@@ -341,7 +342,6 @@ function AnalysisStudioRoute() {
           ]
         : []),
     ],
-    fullBleed: true,
     inspectorCollapsible: true,
     inspectorLabel: 'Chart settings',
     inspector:

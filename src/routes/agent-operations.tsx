@@ -41,6 +41,7 @@ import { hasCapability } from '#/lib/capability'
 import { createDataClient } from '#/lib/data-client'
 
 export const Route = createFileRoute('/agent-operations')({
+  staticData: { shellFullBleed: true },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -305,7 +306,6 @@ function AgentOperationsRoute() {
       },
     },
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Agent operations' }],
-    fullBleed: true,
   })
 
   return (

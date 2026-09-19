@@ -75,6 +75,7 @@ const getTemplateContext = createServerFn({ method: 'GET' }).handler(
 )
 
 export const Route = createFileRoute('/templates')({
+  staticData: { shellFullBleed: true },
   validateSearch: (search: Record<string, unknown>) => ({
     template: typeof search.template === 'string' ? search.template : undefined,
     protocol: typeof search.protocol === 'string' ? search.protocol : undefined,
@@ -759,7 +760,6 @@ function TemplateLibraryRoute() {
   ) : null
 
   useShell({
-    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Templates' }],
     inspector: inspector,

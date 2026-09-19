@@ -7,6 +7,7 @@ import { Route } from './configure'
 const ConfigureRoute = Route.options.component as React.ComponentType
 
 vi.mock('@tanstack/react-router', () => ({
+  useMatches: () => [],
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useRouteContext: () => ({
       context: {

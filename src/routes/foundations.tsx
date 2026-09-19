@@ -59,6 +59,7 @@ import {
   FieldError,
   FieldLabel,
   Input,
+  PageHeader,
   Tabs,
   TabsContent,
   TabsList,
@@ -101,22 +102,12 @@ function FoundationsPage() {
   const { theme, setTheme } = useTheme()
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="mx-auto max-w-5xl px-6 py-10">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Foundations
-            </p>
-            <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight">
-              Visual rules and semantic tokens
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              The reconciled Sheetbase token set. Instrument Sans for headings,
-              Inter for body, controls and data. A single decisive blue,
-              restrained semantic colours, fine borders, low elevation. Compare
-              with DESIGN.md and the concept system.
-            </p>
-          </div>
+      <div className="mx-auto max-w-5xl">
+        <PageHeader
+          title="Visual rules and semantic tokens"
+          description="The reconciled Sheetbase token set. Instrument Sans for headings, Inter for body, controls and data. A single decisive blue, restrained semantic colours, fine borders, low elevation. Compare with DESIGN.md and the concept system."
+          className="border-b pb-6"
+        >
           <div className="flex items-center gap-2">
             <div
               role="group"
@@ -139,7 +130,7 @@ function FoundationsPage() {
               </ToggleButton>
             </div>
           </div>
-        </header>
+        </PageHeader>
 
         <Section
           id="colour"

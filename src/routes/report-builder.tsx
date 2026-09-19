@@ -362,9 +362,8 @@ function ReportBuilderRoute() {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-4 md:px-6 md:pt-6">
         <PageHeader
-          eyebrow={context.workspace?.name ?? undefined}
           title="Report Builder"
           description="Assemble frozen evidence into review-ready reports with deterministic generation and checksum audit."
           className="border-0 pb-4"
@@ -428,7 +427,7 @@ function ReportBuilderRoute() {
       </div>
 
       {reportsQuery.isLoading ? (
-        <div className="flex-1 space-y-4 p-4">
+        <div className="flex-1 space-y-4 p-4 md:p-6">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-32 w-full" />

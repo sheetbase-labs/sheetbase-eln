@@ -532,7 +532,7 @@ describe('resolveDatasetDeepLinkSelection', () => {
     ).toEqual({ selectedDatasetId: null, flipToArchived: true })
   })
 
-  it('falls back to the list default only for an unknown Dataset', () => {
+  it('selects nothing for an unknown Dataset so the list view shows', () => {
     expect(
       resolveDatasetDeepLinkSelection({
         datasets: listed,
@@ -540,10 +540,12 @@ describe('resolveDatasetDeepLinkSelection', () => {
         requestedLifecycle: null,
         summariesLoaded: true,
       }),
-    ).toEqual({ selectedDatasetId: 'd-active-1', flipToArchived: false })
+    ).toEqual({ selectedDatasetId: null, flipToArchived: false })
   })
 
-  it('defaults to the first Dataset when no deep link is present', () => {
+  it('selects nothing when no deep link is present', () => {
+    // Bare /datasets is the Dataset list; the explorer never implies a
+    // selection from list order.
     expect(
       resolveDatasetDeepLinkSelection({
         datasets: listed,
@@ -551,7 +553,7 @@ describe('resolveDatasetDeepLinkSelection', () => {
         requestedLifecycle: undefined,
         summariesLoaded: true,
       }),
-    ).toEqual({ selectedDatasetId: 'd-active-1', flipToArchived: false })
+    ).toEqual({ selectedDatasetId: null, flipToArchived: false })
   })
 
   it('selects nothing before the summaries list has loaded', () => {

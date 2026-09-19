@@ -328,9 +328,8 @@ function InstrumentMonitorRoute() {
     <>
       <div className="flex flex-1 min-h-0 flex-col">
         {/* Header */}
-        <div className="px-4 pt-4">
+        <div className="px-4 pt-4 md:px-6 md:pt-6">
           <PageHeader
-            compact
             title="Instrument Run Monitor"
             description="Real-time tracking of qPCR runs, plate reads, and telemetry."
             className="border-0 pb-4"
@@ -360,7 +359,7 @@ function InstrumentMonitorRoute() {
 
         {/* Body */}
         {instrumentsQuery.isLoading || runsQuery.isLoading ? (
-          <div className="flex-1 space-y-4 p-4">
+          <div className="flex-1 space-y-4 p-4 md:p-6">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-32 w-full" />
@@ -411,7 +410,7 @@ function InstrumentMonitorRoute() {
           </Empty>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 bg-muted/30 px-4 py-2.5 text-sm">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 bg-muted/30 px-4 py-2.5 text-sm md:px-6">
               <span className="font-medium" aria-label="Live runs">
                 Live{' '}
                 <span className="tabular-nums text-info">

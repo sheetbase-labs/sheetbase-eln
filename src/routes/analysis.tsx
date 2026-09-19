@@ -24,6 +24,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
+  ChevronsUpDown,
   ChevronUp,
   Database,
   Download,
@@ -41,6 +42,7 @@ import type { ChartSelection } from '#/components/viz/chart-plots'
 import { AnalysisPanel } from '#/components/viz/analysis-panel'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { DatasetPickerDialog } from '#/components/datasets/dataset-picker-dialog'
 import {
   Badge,
   Button,
@@ -49,6 +51,7 @@ import {
   FieldGroup,
   FieldLabel,
   Input,
+  PageHeader,
   Select,
   Skeleton,
   Table,
@@ -371,65 +374,74 @@ function AnalysisStudioRoute() {
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
-          <AnalysisStudioHeader
-            datasets={datasets}
-            loading={summariesQuery.isLoading}
-            error={summariesQuery.error}
-            selectedDatasetId={selectedDatasetId}
-            onSelect={setSelectedDatasetId}
-          />
-          <div
-            role="tablist"
-            aria-label="Studio mode"
-            className="flex items-center gap-1"
+        <div className="border-b border-border/60 px-4 pt-4 md:px-6 md:pt-6">
+          <PageHeader
+            title="Analysis Studio"
+            description="Build reproducible charts from typed specifications. Preview without mutating sources; save, share and export with provenance."
+            className="border-0 pb-4 md:flex-col md:items-start xl:flex-row xl:items-end"
           >
-            {(['chart', 'analyse', 'compare'] as const).map((value) => (
+            <AnalysisStudioHeader
+              datasets={datasets}
+              loading={summariesQuery.isLoading}
+              error={summariesQuery.error}
+              selectedDatasetId={selectedDatasetId}
+              onSelect={setSelectedDatasetId}
+            />
+          </PageHeader>
+          <div className="flex flex-wrap items-center gap-2 pb-2.5">
+            <div
+              role="tablist"
+              aria-label="Studio mode"
+              className="flex items-center gap-1"
+            >
+              {(['chart', 'analyse', 'compare'] as const).map((value) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={mode === value ? 'default' : 'outline'}
+                  role="tab"
+                  aria-selected={mode === value}
+                  onClick={() => setMode(value)}
+                >
+                  {value === 'chart'
+                    ? 'Chart builder'
+                    : value === 'analyse'
+                      ? 'Analyse'
+                      : 'Compare'}
+                </Button>
+              ))}
+            </div>
+            {mode === 'chart' && selectedSource && spec ? (
               <Button
-                key={value}
                 type="button"
                 size="sm"
-                variant={mode === value ? 'default' : 'outline'}
-                role="tab"
-                aria-selected={mode === value}
-                onClick={() => setMode(value)}
+                variant="ghost"
+                aria-expanded={configOpen}
+                aria-controls="analysis-chart-config"
+                onClick={() => setConfigOpen((open) => !open)}
               >
-                {value === 'chart'
-                  ? 'Chart builder'
-                  : value === 'analyse'
-                    ? 'Analyse'
-                    : 'Compare'}
+                {configOpen ? (
+                  <PanelLeftClose className="size-4" aria-hidden="true" />
+                ) : (
+                  <PanelLeft className="size-4" aria-hidden="true" />
+                )}
+                {configOpen ? 'Hide encodings' : 'Show encodings'}
               </Button>
-            ))}
+            ) : null}
           </div>
-          {mode === 'chart' && selectedSource && spec ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              aria-expanded={configOpen}
-              aria-controls="analysis-chart-config"
-              onClick={() => setConfigOpen((open) => !open)}
-            >
-              {configOpen ? (
-                <PanelLeftClose className="size-4" aria-hidden="true" />
-              ) : (
-                <PanelLeft className="size-4" aria-hidden="true" />
-              )}
-              {configOpen ? 'Hide encodings' : 'Show encodings'}
-            </Button>
-          ) : null}
         </div>
         {mode === 'analyse' ? (
-          <div className="min-h-0 flex-1 overflow-auto p-3">
+          <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
             <AnalysisPanel
               datasets={sources}
+              datasetCatalogue={datasets}
               workspaceId={workspaceId}
               userId={userId}
             />
           </div>
         ) : mode === 'compare' ? (
-          <div className="min-h-0 flex-1 overflow-auto p-3">
+          <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
             {/* ASSIST-03: step-aware guidance for dataset → compare → chart
                 propose → notebook embed. The guide reads the same live studio
                 state as the Compare tab it sits beside; its propose accept
@@ -478,7 +490,7 @@ function AnalysisStudioRoute() {
             {configOpen ? (
               <aside
                 id="analysis-chart-config"
-                className="flex w-56 shrink-0 flex-col overflow-y-auto border-r"
+                className="flex w-64 shrink-0 flex-col overflow-y-auto border-r"
               >
                 <ChartConfigurator
                   source={selectedSource}
@@ -507,7 +519,7 @@ function AnalysisStudioRoute() {
             </div>
           </div>
         ) : (
-          <div className="min-h-0 flex-1 p-3">
+          <div className="min-h-0 flex-1 p-4 md:p-6">
             <EmptyAnalysisState
               loading={summariesQuery.isLoading}
               error={summariesQuery.error}
@@ -538,56 +550,56 @@ export function AnalysisStudioHeader({
   selectedDatasetId,
   onSelect,
 }: AnalysisStudioHeaderProps) {
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const selectedDataset =
+    datasets.find((d) => d.id === selectedDatasetId) ?? null
   return (
-    <header
-      className="flex min-w-0 flex-wrap items-center justify-between gap-3"
-      aria-labelledby="analysis-title"
-    >
-      <div className="min-w-0">
-        <h1
-          id="analysis-title"
-          className="font-display text-headline font-heading tracking-tight"
-        >
-          Analysis Studio
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Build reproducible charts from typed specifications. Preview without
-          mutating sources; save, share and export with provenance.
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        {error ? (
-          <Badge variant="danger">Could not load datasets</Badge>
-        ) : loading ? (
-          <Skeleton className="h-7 w-48" />
-        ) : datasets.length === 0 ? (
-          <Badge variant="outline">No datasets</Badge>
-        ) : (
-          <Field className="flex items-center gap-2">
-            <FieldLabel
-              htmlFor="analysis-data-source"
-              className="text-xs text-muted-foreground"
-            >
-              Data source
-            </FieldLabel>
-            <Select
-              id="analysis-data-source"
-              aria-label="Select data source"
-              value={selectedDatasetId ?? ''}
-              onChange={(e) => onSelect(e.target.value)}
-              className="h-8 w-56 bg-background"
-            >
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                  {d.dataset_schema ? ` · ${d.dataset_schema.slug}` : ''}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
-      </div>
-    </header>
+    <div className="flex items-center gap-2">
+      {error ? (
+        <Badge variant="danger">Could not load datasets</Badge>
+      ) : loading ? (
+        <Skeleton className="h-7 w-48" />
+      ) : datasets.length === 0 ? (
+        <Badge variant="outline">No datasets</Badge>
+      ) : (
+        <Field className="flex shrink-0 items-center gap-2">
+          <FieldLabel
+            htmlFor="analysis-data-source"
+            className="shrink-0 whitespace-nowrap text-xs text-muted-foreground"
+          >
+            Data source
+          </FieldLabel>
+          <Button
+            id="analysis-data-source"
+            variant="outline"
+            size="sm"
+            role="combobox"
+            aria-label="Select data source"
+            aria-expanded={pickerOpen}
+            aria-haspopup="dialog"
+            onClick={() => setPickerOpen(true)}
+            className="h-8 w-56 justify-between bg-background px-2.5 text-xs font-normal"
+          >
+            <span className="truncate text-foreground">
+              {selectedDataset
+                ? `${selectedDataset.name}${selectedDataset.dataset_schema ? ` · ${selectedDataset.dataset_schema.slug}` : ''}`
+                : 'Select dataset'}
+            </span>
+            <ChevronsUpDown
+              className="size-3.5 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+          </Button>
+          <DatasetPickerDialog
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            datasets={datasets}
+            selectedId={selectedDatasetId}
+            onSelect={onSelect}
+          />
+        </Field>
+      )}
+    </div>
   )
 }
 

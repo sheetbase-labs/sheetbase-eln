@@ -4,6 +4,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
 
 import { useShell } from '#/components/app-shell'
+import { PageHeader } from '#/components/ui'
 import { TemplateInspector } from '#/components/templates/template-library'
 import {
   NotebookTemplateInspector,
@@ -779,18 +780,11 @@ function TemplateLibraryRoute() {
 
   return (
     <>
-      <div className="space-y-5 p-4">
-        <header className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-headline font-heading tracking-tight">
-              Template Library
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Start a notebook from a published template, or add a reusable
-            protocol.
-          </p>
-        </header>
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 md:p-6">
+        <PageHeader
+          title="Template Library"
+          description="Start a notebook from a published template, or add a reusable protocol."
+        />
 
         <UnifiedTemplateFilters
           search={search}

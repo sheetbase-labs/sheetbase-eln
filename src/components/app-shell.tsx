@@ -1042,7 +1042,7 @@ export function AppShell({
                 className={
                   fullBleed
                     ? 'contents'
-                    : 'mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8'
+                    : 'mx-auto w-full max-w-[1600px] p-4 md:p-6'
                 }
               >
                 {children}

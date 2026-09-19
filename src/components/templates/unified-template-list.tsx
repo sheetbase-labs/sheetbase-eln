@@ -11,7 +11,9 @@
  * effective lifecycle and block/usage counts. Selection is typed so the
  * route can keep ?template= / ?protocol= deep links.
  */
+import * as React from 'react'
 import type { ReactNode } from 'react'
+import { useTable } from '@tanstack/react-table'
 import {
   Archive,
   CheckCircle2,
@@ -26,19 +28,10 @@ import {
 import { StatusBadge } from '#/components/scientific'
 import type { StatusVocabulary } from '#/components/scientific/status-badge'
 import { Inspector, InspectorSection } from '#/components/record'
-import {
-  Badge,
-  Button,
-  Input,
-  Select,
-  Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui'
+import { DataGrid } from '#/components/data-grid/data-grid'
+import { appTableFeatures, createAppColumnHelper } from '#/lib/table-features'
+import type { AppColumnDef } from '#/lib/table-features'
+import { Badge, Button, Input, Select, Skeleton } from '#/components/ui'
 import { cn } from '#/lib/utils'
 import { formatDate } from '#/lib/notebook-data'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
@@ -507,89 +500,173 @@ export function UnifiedTemplateTable({
   }
 
   return (
-    <Table containerClassName="rounded-md border">
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-32">Identifier</TableHead>
-          <TableHead>Title</TableHead>
-          <TableHead className="w-20">Type</TableHead>
-          <TableHead className="w-12">Ver</TableHead>
-          <TableHead className="w-28">Status</TableHead>
-          <TableHead className="w-14 text-right">Blocks</TableHead>
-          <TableHead className="w-14 text-right">Used</TableHead>
-          <TableHead className="w-24">Updated</TableHead>
-          <TableHead className="w-10">
-            <span className="sr-only">Favourite</span>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => {
-          const isSelected = row.id === selectedId
+    <UnifiedTemplateDataGrid
+      rows={rows}
+      selectedId={selectedId}
+      onSelect={onSelect}
+      isFavourite={isFavourite}
+      onToggleFavourite={onToggleFavourite}
+    />
+  )
+}
+
+const unifiedColumnHelper = createAppColumnHelper<UnifiedTemplateRow>()
+const unifiedRowKey = (row: UnifiedTemplateRow) => `${row.type}:${row.id}`
+
+function UnifiedTemplateDataGrid({
+  rows,
+  selectedId,
+  onSelect,
+  isFavourite,
+  onToggleFavourite,
+}: {
+  rows: UnifiedTemplateRow[]
+  selectedId: string | null
+  onSelect: (row: UnifiedTemplateRow) => void
+  isFavourite: (row: UnifiedTemplateRow) => boolean
+  onToggleFavourite: (row: UnifiedTemplateRow) => void
+}) {
+  const columns = React.useMemo<AppColumnDef<UnifiedTemplateRow>[]>(
+    () => [
+      unifiedColumnHelper.accessor('identifier', {
+        id: 'identifier',
+        header: 'Identifier',
+        size: 128,
+        cell: (info) => (
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {info.getValue()}
+          </span>
+        ),
+      }),
+      unifiedColumnHelper.accessor('title', {
+        id: 'title',
+        header: 'Title',
+        size: 320,
+        minSize: 200,
+        cell: (info) => {
+          const row = info.row.original
           return (
-            <TableRow
-              key={`${row.type}:${row.id}`}
-              data-selected={isSelected || undefined}
-              onClick={() => onSelect(row)}
-              className={cn(
-                'cursor-pointer',
-                isSelected && 'bg-accent hover:bg-accent',
-              )}
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onSelect(row)
+              }}
+              aria-pressed={row.id === selectedId}
+              className="block max-w-full text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {row.identifier}
-              </TableCell>
-              <TableCell>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onSelect(row)
-                  }}
-                  aria-pressed={isSelected}
-                  className="block max-w-full text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <span className="block truncate text-sm">{row.title}</span>
-                  {row.subline ? (
-                    <span className="block truncate text-xs font-normal text-muted-foreground">
-                      {row.subline}
-                    </span>
-                  ) : null}
-                </button>
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {row.type === 'notebook' ? 'Notebook' : 'Protocol'}
-              </TableCell>
-              <TableCell className="text-xs tabular-nums text-muted-foreground">
-                {row.versionLabel}
-              </TableCell>
-              <TableCell>
-                <StatusBadge
-                  status={row.statusKey}
-                  vocabulary={unifiedTemplateStatusVocabulary}
-                />
-              </TableCell>
-              <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                {row.blocks ?? '—'}
-              </TableCell>
-              <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                {row.used}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {formatDate(row.updatedAt)}
-              </TableCell>
-              <TableCell className="text-right">
-                <UnifiedStar
-                  favourited={isFavourite(row)}
-                  onToggle={() => onToggleFavourite(row)}
-                  label={`Favourite ${row.title}`}
-                />
-              </TableCell>
-            </TableRow>
+              <span className="block truncate text-sm">{row.title}</span>
+              {row.subline ? (
+                <span className="block truncate text-xs font-normal text-muted-foreground">
+                  {row.subline}
+                </span>
+              ) : null}
+            </button>
           )
-        })}
-      </TableBody>
-    </Table>
+        },
+      }),
+      unifiedColumnHelper.accessor('type', {
+        id: 'type',
+        header: 'Type',
+        size: 80,
+        cell: (info) => (
+          <span className="text-xs text-muted-foreground">
+            {info.getValue() === 'notebook' ? 'Notebook' : 'Protocol'}
+          </span>
+        ),
+      }),
+      unifiedColumnHelper.accessor('versionLabel', {
+        id: 'versionLabel',
+        header: 'Ver',
+        size: 56,
+        cell: (info) => (
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {info.getValue()}
+          </span>
+        ),
+      }),
+      unifiedColumnHelper.accessor('statusKey', {
+        id: 'statusKey',
+        header: 'Status',
+        size: 116,
+        cell: (info) => (
+          <StatusBadge
+            status={info.getValue()}
+            vocabulary={unifiedTemplateStatusVocabulary}
+          />
+        ),
+      }),
+      unifiedColumnHelper.accessor('blocks', {
+        id: 'blocks',
+        header: 'Blocks',
+        size: 64,
+        cell: (info) => (
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {info.getValue() ?? '—'}
+          </span>
+        ),
+      }),
+      unifiedColumnHelper.accessor('used', {
+        id: 'used',
+        header: 'Used',
+        size: 56,
+        cell: (info) => (
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {info.getValue()}
+          </span>
+        ),
+      }),
+      unifiedColumnHelper.accessor('updatedAt', {
+        id: 'updatedAt',
+        header: 'Updated',
+        size: 104,
+        cell: (info) => (
+          <span className="text-xs text-muted-foreground">
+            {formatDate(info.getValue())}
+          </span>
+        ),
+      }),
+      unifiedColumnHelper.display({
+        id: 'favourite',
+        size: 40,
+        header: () => <span className="sr-only">Favourite</span>,
+        cell: (info) => {
+          const row = info.row.original
+          return (
+            <div className="text-right">
+              <UnifiedStar
+                favourited={isFavourite(row)}
+                onToggle={() => onToggleFavourite(row)}
+                label={`Favourite ${row.title}`}
+              />
+            </div>
+          )
+        },
+      }),
+    ],
+    [isFavourite, onSelect, onToggleFavourite, selectedId],
+  )
+
+  const table = useTable({
+    features: appTableFeatures,
+    data: rows,
+    columns,
+    getRowId: unifiedRowKey,
+  })
+
+  const selectedKey = rows.find((row) => row.id === selectedId)
+
+  return (
+    <DataGrid
+      table={table}
+      title="Templates"
+      getRowId={unifiedRowKey}
+      selectedId={selectedKey ? unifiedRowKey(selectedKey) : null}
+      onRowOpen={(key) => {
+        const row = rows.find((r) => unifiedRowKey(r) === key)
+        if (row) onSelect(row)
+      }}
+    />
   )
 }
 

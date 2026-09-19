@@ -524,13 +524,11 @@ export function SchemaGraphExplorer({
   workspaceId,
   onOpenNode,
   onNewSchema,
-  onManage,
 }: {
   client: DataClient
   workspaceId: string
   onOpenNode: (node: SchemaGraphNode) => void
   onNewSchema: () => void
-  onManage: () => void
 }) {
   const graphQuery = useQuery({
     queryKey: ['schema-graph', workspaceId],
@@ -636,32 +634,16 @@ export function SchemaGraphExplorer({
       )}
 
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5">
-          <p className="flex items-center gap-2 text-sm">
-            <GitBranch
-              className="size-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <span className="font-semibold">Schema relationships</span>
-            <span className="text-muted-foreground">
-              {data
-                ? `${data.nodes.length} schemas · ${data.edges.length} relationships`
-                : 'Loading…'}
-            </span>
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onManage}
-            >
-              Manage fields
-            </Button>
-            <Button type="button" size="sm" onClick={onNewSchema}>
-              <Plus className="size-3.5" aria-hidden="true" /> New schema
-            </Button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground md:px-6">
+          <GitBranch className="size-3.5" aria-hidden="true" />
+          <span className="font-medium text-foreground">
+            Schema relationships
+          </span>
+          <span>
+            {data
+              ? `${data.nodes.length} schemas · ${data.edges.length} relationships`
+              : 'Loading…'}
+          </span>
         </div>
         <div className="relative min-h-0 flex-1">
           {graphQuery.isLoading ? (

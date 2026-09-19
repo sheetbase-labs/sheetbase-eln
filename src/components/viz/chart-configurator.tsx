@@ -353,7 +353,7 @@ export function ChartConfigurator({
     <div
       className={
         layout === 'rail'
-          ? 'space-y-2.5 p-2'
+          ? 'space-y-3 p-3'
           : 'shrink-0 space-y-2.5 border-b pb-3'
       }
       aria-labelledby={`${idPrefix}-controls-title`}

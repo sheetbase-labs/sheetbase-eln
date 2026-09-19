@@ -45,7 +45,7 @@ import {
   AdminUsage,
   AdminWebhooks,
 } from '#/components/workspace-admin'
-import { Button } from '#/components/ui'
+import { Button, PageHeader } from '#/components/ui'
 import { cn } from '#/lib/utils'
 import { createDataClient } from '#/lib/data-client'
 import { hasCapability } from '#/lib/capability'
@@ -594,32 +594,31 @@ function AdminRoute() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="w-full px-4 pt-4 pb-3">
-        <header>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-headline font-heading tracking-tight">
-              Administration
-            </h1>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage workspace access and activity. Edit models in{' '}
-            <Link
-              to="/configure"
-              search={{ kind: 'model', id: undefined, model: undefined }}
-              className="font-medium text-primary hover:underline"
-            >
-              Configuration
-            </Link>{' '}
-            and personal API tokens in{' '}
-            <Link
-              to="/settings"
-              className="font-medium text-primary hover:underline"
-            >
-              Settings
-            </Link>
-            .
-          </p>
-        </header>
+      <div className="w-full px-4 pt-4 md:px-6 md:pt-6">
+        <PageHeader
+          title="Administration"
+          description={
+            <>
+              Manage workspace access and activity. Edit models in{' '}
+              <Link
+                to="/configure"
+                search={{ kind: 'model', id: undefined, model: undefined }}
+                className="font-medium text-primary hover:underline"
+              >
+                Configuration
+              </Link>{' '}
+              and personal API tokens in{' '}
+              <Link
+                to="/settings"
+                className="font-medium text-primary hover:underline"
+              >
+                Settings
+              </Link>
+              .
+            </>
+          }
+          className="border-0 pb-4"
+        />
       </div>
 
       <div className="border-b border-border">
@@ -676,7 +675,7 @@ function AdminRoute() {
         ) : null}
       </div>
 
-      <div className="w-full px-4 py-4">
+      <div className="w-full p-4 md:p-6">
         {sectionDenied ? (
           <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <p>

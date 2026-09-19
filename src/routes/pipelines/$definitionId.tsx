@@ -153,7 +153,6 @@ function PipelineDefinitionRoute() {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="px-4 pt-4 md:px-6 md:pt-6">
         <PageHeader
-          compact
           title={definition.name}
           description={definition.description ?? ''}
           className="border-0 pb-4"

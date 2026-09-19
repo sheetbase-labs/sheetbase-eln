@@ -4,7 +4,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
 import { useShell } from '#/components/app-shell'
 import { SettingsApiTokens } from '#/components/settings/settings-api-tokens'
-import { Button } from '#/components/ui'
+import { Button, PageHeader } from '#/components/ui'
 import {
   createPersonalTokenFn,
   listPersonalTokensFn,
@@ -90,22 +90,24 @@ function SettingsRoute() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold">Settings</h2>
-        <p className="text-sm text-muted-foreground">
-          Personal API tokens act as you. Workspace service credentials are
-          managed by owners in{' '}
-          <Link
-            to="/admin/$section"
-            params={{ section: 'api-credentials' }}
-            search={{ model: undefined }}
-            className="font-medium text-primary hover:underline"
-          >
-            Administration
-          </Link>
-          .
-        </p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description={
+          <>
+            Personal API tokens act as you. Workspace service credentials are
+            managed by owners in{' '}
+            <Link
+              to="/admin/$section"
+              params={{ section: 'api-credentials' }}
+              search={{ model: undefined }}
+              className="font-medium text-primary hover:underline"
+            >
+              Administration
+            </Link>
+            .
+          </>
+        }
+      />
 
       {createToken.isError && (
         <p role="alert" className="text-sm text-destructive">

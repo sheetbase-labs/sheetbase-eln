@@ -79,9 +79,8 @@ function ConnectorDetailRoute() {
 
   if (!connector) {
     return (
-      <div className="min-h-0 flex-1 overflow-auto px-4 pt-4">
+      <div className="min-h-0 flex-1 overflow-auto">
         <PageHeader
-          eyebrow="Integrations"
           title="Connector"
           description="This connector could not be loaded."
         />
@@ -137,9 +136,8 @@ function ConnectorDetailRoute() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4">
+      <div>
         <PageHeader
-          eyebrow={context.workspace?.name ?? undefined}
           title={connector.name}
           description={`${connector.connector_type} · ${connector.direction} · key ${connector.key}`}
           className="border-0 pb-4"
@@ -152,7 +150,7 @@ function ConnectorDetailRoute() {
         </PageHeader>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-4 overflow-auto px-4 pb-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="grid min-h-0 flex-1 gap-4 overflow-auto pb-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="space-y-4">
           <Card>
             <CardHeader>

@@ -264,11 +264,7 @@ function ProjectsIndexRoute() {
   return (
     <>
       <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto p-4 md:p-6">
-        <PageHeader
-          eyebrow={context.workspace?.name ?? undefined}
-          title="Projects"
-          description={headerMeta}
-        />
+        <PageHeader title="Projects" description={headerMeta} />
 
         <ProjectList
           projects={projects}

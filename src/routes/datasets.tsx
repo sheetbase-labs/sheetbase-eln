@@ -23,7 +23,6 @@ import type { ReactNode } from 'react'
 import { flexRender } from '@tanstack/react-table'
 import type { AppColumnDef, AppTable } from '#/lib/table-features'
 import {
-  Check,
   ChevronsUpDown,
   Database,
   GitBranch,
@@ -54,18 +53,20 @@ import { ThreadPanel } from '#/components/collaboration/thread-panel'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { canCommentInRoom } from '#/lib/collaboration/permissions'
-import { DatasetProductActions } from '#/components/datasets/dataset-product-controls'
-import { ObjectHistoryTimeline } from '#/components/audit'
 import {
-  auditHistoryDataClient,
-  fetchAuditEvents,
-  humanizeToken,
-} from '#/lib/audit-history'
+  DatasetCreateAction,
+  DatasetLifecycleActions,
+  DatasetRowActions,
+} from '#/components/datasets/dataset-product-controls'
+import { ObjectHistoryTimeline } from '#/components/audit'
+import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { RegistryComposition } from '#/components/registry'
 import type { DataGridField } from '#/components/data-grid'
+import { DatasetsListGrid } from '#/components/datasets/dataset-list-grid'
+import { DatasetPickerDialog } from '#/components/datasets/dataset-picker-dialog'
 import {
   EmptyHint,
   Inspector,
@@ -80,15 +81,7 @@ import {
   Button,
   Input,
   Label,
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+  PageHeader,
   Select,
   Skeleton,
   Table,
@@ -127,6 +120,7 @@ import {
   fetchDatasetLineage,
   fetchDatasetRelationshipsFor,
   fetchDatasetRowPage,
+  datasetLifecycleLabel,
   fetchDatasetSummaries,
   getNextDatasetPageParam,
   resolveDatasetDeepLinkSelection,
@@ -223,20 +217,6 @@ function queryIdentity(query: DatasetRowQuery): string {
       .map((f) => `${f.fieldId}:${f.operator}=${f.values.join(',')}`)
       .join(','),
   ].join('|')
-}
-
-const DATASET_LIFECYCLE_LABELS: Record<string, string> = {
-  active: 'Live',
-  archived: 'Archived',
-  retired: 'Retired',
-}
-
-/**
- * Human label for a Dataset's stored lifecycle token (`active` → "Live"),
- * so the raw enum never reaches explorer or extension-panel copy.
- */
-export function datasetLifecycleLabel(lifecycle: string): string {
-  return DATASET_LIFECYCLE_LABELS[lifecycle] ?? humanizeToken(lifecycle)
 }
 
 function rowCellValue(row: ScientificRowWire, column: ScientificColumnWire) {
@@ -402,13 +382,28 @@ function DatasetExplorerRoute() {
   }
 
   useEffect(() => {
-    if (!selectedTableId || selectedTableId === requestedTableId) return
+    // No auto-selection: a `?dataset=` ID that resolves to nothing is
+    // cleared so the URL matches the Dataset list once lookups settle.
+    if (!requestedTableId) return
+    if (selection.selectedDatasetId === requestedTableId) return
+    if (selection.flipToArchived) return
+    if (!summariesQuery.isSuccess) return
+    if (!requestedInList && resolveRequestedLifecycle.data === undefined) return
     void navigate({
       to: '/datasets',
-      search: { dataset: selectedTableId, archived: archivedView },
+      search: { dataset: '', archived: archivedView },
       replace: true,
     })
-  }, [navigate, requestedTableId, archivedView, selectedTableId])
+  }, [
+    navigate,
+    requestedTableId,
+    requestedInList,
+    archivedView,
+    selection.selectedDatasetId,
+    selection.flipToArchived,
+    summariesQuery.isSuccess,
+    resolveRequestedLifecycle.data,
+  ])
 
   useEffect(() => {
     if (!selection.flipToArchived || !requestedTableId) return
@@ -464,48 +459,82 @@ function DatasetExplorerRoute() {
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
-        <DatasetExplorerHeader
-          datasets={datasets}
-          loading={summariesQuery.isLoading}
-          error={summariesQuery.error}
-          selectedTableId={selectedTableId}
-          includeArchived={archivedView}
-          onToggleArchived={(archived) => {
-            void navigate({
-              to: '/datasets',
-              search: { dataset: selectedTableId ?? '', archived },
-              replace: false,
-            })
-          }}
-          onSelect={selectDataset}
-          actions={
-            <>
-              {/* FIND-02: deliberate pin for the selected dataset. */}
-              <FavouriteToggle kind="dataset" objectId={selectedTableId} />
-              {/* EXT-02: enabled extensions' object-actions for the selected
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 md:p-6">
+        {selectedTable || requestedTableId ? (
+          <DatasetExplorerHeader
+            datasets={datasets}
+            loading={summariesQuery.isLoading}
+            error={summariesQuery.error}
+            selectedTableId={selectedTableId}
+            includeArchived={archivedView}
+            onToggleArchived={(archived) => {
+              void navigate({
+                to: '/datasets',
+                search: { dataset: selectedTableId ?? '', archived },
+                replace: false,
+              })
+            }}
+            onSelect={selectDataset}
+            actions={
+              <>
+                {/* FIND-02: deliberate pin for the selected dataset. */}
+                <FavouriteToggle kind="dataset" objectId={selectedTableId} />
+                {/* EXT-02: enabled extensions' object-actions for the selected
                   dataset. Absent while empty; failures surface inline. */}
-              <ExtensionObjectActions
-                actions={selectedTable ? extensionPoints.objectActions : []}
-                onSelect={runExtensionContribution}
-              />
-              <DatasetProductActions
-                table={selectedTable}
+                <ExtensionObjectActions
+                  actions={selectedTable ? extensionPoints.objectActions : []}
+                  onSelect={runExtensionContribution}
+                />
+                {selectedTable ? (
+                  <DatasetLifecycleActions
+                    table={selectedTable}
+                    client={datasetExplorerDataClient}
+                    archived={selectedTable.lifecycle === 'archived'}
+                    onRefresh={refreshDatasets}
+                  />
+                ) : null}
+                {extensionError ? (
+                  <span role="alert" className="text-xs text-destructive">
+                    {extensionError}
+                  </span>
+                ) : null}
+              </>
+            }
+          />
+        ) : (
+          <PageHeader
+            title="Datasets"
+            description="Browse scientific datasets, schemas, relationships and lineage."
+            className="shrink-0"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <DatasetCreateAction
                 client={datasetExplorerDataClient}
-                archived={selectedTable?.lifecycle === 'archived'}
                 workspaceId={context.workspace?.id ?? ''}
                 userId={context.user.id}
-                onRefresh={refreshDatasets}
                 onCreate={selectDataset}
               />
+              <Button
+                size="sm"
+                variant={archivedView ? 'secondary' : 'outline'}
+                onClick={() => {
+                  void navigate({
+                    to: '/datasets',
+                    search: { dataset: '', archived: !archivedView },
+                    replace: false,
+                  })
+                }}
+              >
+                {archivedView ? 'Hide archived' : 'Show archived'}
+              </Button>
               {extensionError ? (
                 <span role="alert" className="text-xs text-destructive">
                   {extensionError}
                 </span>
               ) : null}
-            </>
-          }
-        />
+            </div>
+          </PageHeader>
+        )}
         {selectedTable ? (
           // COLLAB-02: the whole detail area (tabs + inspector) lives inside
           // the dataset room; CollaborationRoom renders children unchanged
@@ -526,10 +555,23 @@ function DatasetExplorerRoute() {
               collaborationRole={context.workspace?.role ?? 'viewer'}
             />
           </CollaborationRoom>
-        ) : (
+        ) : requestedTableId ? (
           <EmptyDatasetState
             loading={summariesQuery.isLoading}
             error={summariesQuery.error}
+          />
+        ) : (
+          <DatasetsListGrid
+            datasets={datasets}
+            loading={summariesQuery.isLoading}
+            error={summariesQuery.error}
+            onSelect={selectDataset}
+            emptyFallback={
+              <EmptyDatasetState
+                loading={summariesQuery.isLoading}
+                error={summariesQuery.error}
+              />
+            }
           />
         )}
         {/* EXT-02 sample panel dialog, shared with the record surface. */}
@@ -575,28 +617,15 @@ export function DatasetExplorerHeader({
   const fieldCount = selected?.columns.length ?? 0
 
   return (
-    <header
-      className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
-      aria-labelledby="datasets-title"
+    <PageHeader
+      title={selected?.name ?? 'Scientific datasets'}
+      description={
+        selected
+          ? `${formatCount(fieldCount)} ${fieldCount === 1 ? 'field' : 'fields'}${selected.dataset_schema ? ` · ${selected.dataset_schema.name} v${selected.schema_version}` : ''}${selected.lifecycle === 'archived' ? ' · archived' : ' · live'}`
+          : 'Browse scientific datasets, schemas, relationships and lineage'
+      }
+      className="shrink-0"
     >
-      <div className="flex min-w-0 items-start gap-2.5">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-active text-primary">
-          <Database className="size-4" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <h1
-            id="datasets-title"
-            className="break-words font-display text-headline font-heading tracking-tight"
-          >
-            {selected?.name ?? 'Scientific datasets'}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {selected
-              ? `${formatCount(fieldCount)} ${fieldCount === 1 ? 'field' : 'fields'}${selected.dataset_schema ? ` · ${selected.dataset_schema.name} v${selected.schema_version}` : ''}${selected.lifecycle === 'archived' ? ' · archived' : ' · live'}`
-              : 'Browse scientific datasets, schemas, relationships and lineage'}
-          </p>
-        </div>
-      </div>
       <div className="flex flex-wrap items-center gap-2">
         {actions}
         <Button
@@ -620,7 +649,7 @@ export function DatasetExplorerHeader({
           />
         )}
       </div>
-    </header>
+    </PageHeader>
   )
 }
 
@@ -640,77 +669,32 @@ function DatasetPicker({
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
       <span>Dataset</span>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            role="combobox"
-            aria-label="Select dataset"
-            aria-expanded={open}
-            className="h-7 w-56 justify-between bg-background px-2.5 text-xs font-normal"
-          >
-            <span className="truncate text-foreground">
-              Browse {formatCount(datasets.length)}{' '}
-              {datasets.length === 1 ? 'dataset' : 'datasets'}
-            </span>
-            <ChevronsUpDown
-              className="shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-72 p-0">
-          <Command label="Search datasets" loop>
-            <CommandInput
-              aria-label="Search datasets"
-              placeholder="Search datasets…"
-              className="h-9 py-2 text-xs"
-            />
-            <CommandList className="max-h-64">
-              <CommandEmpty>No datasets match your search.</CommandEmpty>
-              <CommandGroup
-                heading={`${formatCount(datasets.length)} ${datasets.length === 1 ? 'dataset' : 'datasets'}`}
-              >
-                {datasets.map((dataset) => {
-                  const schema = dataset.dataset_schema
-                  return (
-                    <CommandItem
-                      key={dataset.id}
-                      value={`${dataset.name} ${schema?.name ?? ''} ${schema?.slug ?? ''}`}
-                      onSelect={() => {
-                        onSelect(dataset.id)
-                        setOpen(false)
-                      }}
-                      className="py-1.5 text-xs"
-                    >
-                      <Check
-                        className={cn(
-                          'shrink-0',
-                          dataset.id === selectedTableId
-                            ? 'opacity-100'
-                            : 'opacity-0',
-                        )}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-foreground">
-                          {dataset.name}
-                        </span>
-                        {schema ? (
-                          <span className="block truncate text-[0.65rem] text-muted-foreground">
-                            {schema.name}
-                          </span>
-                        ) : null}
-                      </span>
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <Button
+        variant="outline"
+        size="sm"
+        role="combobox"
+        aria-label="Select dataset"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        className="h-7 w-56 justify-between bg-background px-2.5 text-xs font-normal"
+      >
+        <span className="truncate text-foreground">
+          Browse {formatCount(datasets.length)}{' '}
+          {datasets.length === 1 ? 'dataset' : 'datasets'}
+        </span>
+        <ChevronsUpDown
+          className="shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+      </Button>
+      <DatasetPickerDialog
+        open={open}
+        onOpenChange={setOpen}
+        datasets={datasets}
+        selectedId={selectedTableId}
+        onSelect={onSelect}
+      />
     </div>
   )
 }
@@ -998,7 +982,13 @@ export function DatasetDataTab({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 justify-end px-1 py-1">
+      <div className="flex shrink-0 items-center justify-between gap-2 px-1 py-1">
+        <DatasetRowActions
+          table={table}
+          client={datasetExplorerDataClient}
+          archived={table.lifecycle === 'archived'}
+          onRefresh={() => onRefresh?.()}
+        />
         <ExportMenu path={`/api/export/dataset/${table.id}`} />
       </div>
       {chartSpec ? (
@@ -1721,25 +1711,43 @@ interface DatasetSchemaTabProps {
 
 export function DatasetSchemaTab({ table }: DatasetSchemaTabProps) {
   return (
-    <div className="max-w-5xl space-y-4 py-3">
-      <section aria-labelledby="dataset-structure-title">
+    <div className="grid items-start gap-4 p-3 lg:grid-cols-[18rem_minmax(0,1fr)]">
+      <section
+        aria-labelledby="dataset-structure-title"
+        className="rounded-lg border bg-card p-4"
+      >
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 id="dataset-structure-title" className="text-sm font-semibold">
-              Schema Version
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {table.dataset_schema
-                ? `This live Dataset is pinned to “${table.dataset_schema.name}” v${table.schema_version}. Historical Versions keep the Schema they were snapshotted with.`
-                : 'Fields on this Dataset come from the pinned Schema Version.'}
-            </p>
-          </div>
+          <h2 id="dataset-structure-title" className="text-sm font-semibold">
+            Schema Version
+          </h2>
           <Badge variant="outline">
             {datasetLifecycleLabel(table.lifecycle)}
           </Badge>
         </div>
+        <PropertyList>
+          <Property label="Schema">
+            {table.dataset_schema?.name ?? '—'}
+          </Property>
+          <Property label="Version" mono>
+            v{table.schema_version}
+          </Property>
+          <Property label="Schema revision" mono>
+            {table.dataset_schema?.revision ?? '—'}
+          </Property>
+          <Property label="Dataset revision" mono>
+            {datasetRevision(table)}
+          </Property>
+          <Property label="Created">
+            {formatRelativeTime(table.created_at)}
+          </Property>
+        </PropertyList>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {table.dataset_schema
+            ? `This live Dataset is pinned to “${table.dataset_schema.name}” v${table.schema_version}. Historical Versions keep the Schema they were snapshotted with.`
+            : 'Fields on this Dataset come from the pinned Schema Version.'}
+        </p>
       </section>
-      <section className="border-t pt-4" aria-labelledby="dataset-fields-title">
+      <section aria-labelledby="dataset-fields-title">
         <h3 id="dataset-fields-title" className="text-sm font-semibold">
           Pinned fields
         </h3>
@@ -1749,7 +1757,9 @@ export function DatasetSchemaTab({ table }: DatasetSchemaTabProps) {
               <TableRow className="hover:bg-transparent">
                 <TableHead>Label</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Unit</TableHead>
                 <TableHead>Required</TableHead>
+                <TableHead>Options</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1757,7 +1767,13 @@ export function DatasetSchemaTab({ table }: DatasetSchemaTabProps) {
                 <TableRow key={column.id}>
                   <TableCell>{column.label}</TableCell>
                   <TableCell>{column.logical_type}</TableCell>
+                  <TableCell>{describeUnit(column.unit)}</TableCell>
                   <TableCell>{column.nullable ? 'No' : 'Yes'}</TableCell>
+                  <TableCell>
+                    {column.options.length > 0
+                      ? `${column.options.length} ${column.options.length === 1 ? 'option' : 'options'}`
+                      : '—'}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

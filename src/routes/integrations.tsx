@@ -80,9 +80,8 @@ function IntegrationsRoute() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4">
+      <div>
         <PageHeader
-          compact
           title="Integrations"
           description="Connect instruments and storage, check recent runs and resolve failures."
           className="border-0 pb-4"
@@ -95,7 +94,7 @@ function IntegrationsRoute() {
         </PageHeader>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
+      <div className="min-h-0 flex-1 overflow-auto pb-8">
         {!canManage && (
           <p className="text-muted-foreground mb-4 text-sm">
             You can view integrations; only owners, admins and stewards register

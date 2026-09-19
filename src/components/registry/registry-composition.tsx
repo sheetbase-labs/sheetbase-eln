@@ -18,6 +18,7 @@ import {
 import {
   Button,
   Input,
+  PageHeader,
   Select,
   Sheet,
   SheetContent,
@@ -367,28 +368,19 @@ export function RegistryComposition<TData extends RowData>({
 
   return (
     <section
-      aria-labelledby={`${registryId}-title`}
+      aria-label={title}
       className="flex min-h-0 min-w-0 flex-1 flex-col gap-3"
     >
       {!hideHeader ? (
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1
-              id={`${registryId}-title`}
-              className="font-display text-headline font-heading tracking-tight"
-            >
-              {title}
-            </h1>
-            {description ? (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {description}
-              </p>
-            ) : null}
-          </div>
+        <PageHeader
+          title={title}
+          description={description ?? ''}
+          className="flex-wrap items-start"
+        >
           {permissionDenied ? null : (
             <div className="flex shrink-0 items-center gap-2">{actions}</div>
           )}
-        </header>
+        </PageHeader>
       ) : null}
 
       {!permissionDenied && summaries.length > 0 ? (

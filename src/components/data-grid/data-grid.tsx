@@ -143,7 +143,7 @@ export function DataGrid<TData extends RowData>({
   return (
     <div
       ref={rootRef}
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-y border-border"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border"
     >
       <div
         ref={viewportRef}
@@ -200,7 +200,7 @@ export function DataGrid<TData extends RowData>({
                           key={header.id}
                           className={cn(
                             resizableColumns && 'relative',
-                            'h-7 whitespace-nowrap px-2.5 text-[0.65rem]',
+                            'whitespace-nowrap',
                             header.column.columnDef.meta?.dataGridFormat
                               ?.kind === 'scientific' && 'text-right',
                           )}
@@ -329,7 +329,7 @@ export function DataGrid<TData extends RowData>({
                         >
                           <button
                             type="button"
-                            className="flex h-7 w-full items-center gap-1.5 px-2.5 text-xs font-medium"
+                            className="flex h-8 w-full items-center gap-1.5 px-3 text-xs font-medium"
                             onClick={() => row.getToggleExpandedHandler()()}
                             aria-label="Toggle group"
                           >
@@ -403,7 +403,7 @@ export function DataGrid<TData extends RowData>({
                         <TableCell
                           key={cell.id}
                           className={cn(
-                            'whitespace-nowrap px-2.5 py-1 text-xs',
+                            'whitespace-nowrap text-xs',
                             typeof cell.getValue() === 'number' &&
                               'scientific-nums text-right tabular-nums',
                           )}

@@ -41,15 +41,14 @@ function PipelineRunRoute() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4">
+      <div>
         <PageHeader
-          compact
           title={`Run ${runId.slice(0, 8)}`}
           description="Inputs, ELN action results, outputs and execution log."
           className="border-0 pb-4"
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
+      <div className="min-h-0 flex-1 overflow-auto pb-8">
         <PipelineRunDetail dataClient={dataClient} runId={runId} />
       </div>
     </div>

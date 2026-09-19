@@ -65,6 +65,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  PageHeader,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -258,7 +259,7 @@ function LineageExplorerRoute() {
         {/* KNOW-02 — seeded per-object view: same traversal as the inspector
             miniature, reconstructed at full depth. */}
         {seedRecordId ? (
-          <div className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground">
+          <div className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground md:px-6">
             <Network className="size-3.5" aria-hidden="true" />
             <span>
               Seeded lineage for{' '}
@@ -346,47 +347,41 @@ function LineageHeader({
   loading: boolean
 }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-3">
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-2">
-          <Network className="size-4 text-primary" aria-hidden="true" />
-          <h1 className="font-display text-headline font-heading tracking-tight">
-            Lineage Explorer
-          </h1>
+    <div className="border-b border-border/60 px-4 pt-4 md:px-6 md:pt-6">
+      <PageHeader
+        title="Lineage Explorer"
+        description="Explore provenance and relationships for experiments, datasets, samples and files."
+        className="border-0 pb-4"
+      >
+        <div className="flex items-center gap-4">
+          {!loading && (
+            <span className="text-xs text-muted-foreground">
+              {nodeCount} node{nodeCount === 1 ? '' : 's'} · {edgeCount} edge
+              {edgeCount === 1 ? '' : 's'}
+            </span>
+          )}
+          <div className="flex items-center gap-1 rounded-md border bg-card p-0.5">
+            <ViewTabButton
+              active={viewMode === 'graph'}
+              onClick={() => onViewModeChange('graph')}
+              icon={Network}
+              label="Graph"
+            />
+            <ViewTabButton
+              active={viewMode === 'timeline'}
+              onClick={() => onViewModeChange('timeline')}
+              icon={Clock}
+              label="Timeline"
+            />
+            <ViewTabButton
+              active={viewMode === 'table'}
+              onClick={() => onViewModeChange('table')}
+              icon={TableIcon}
+              label="Table"
+            />
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Explore provenance and relationships for experiments, datasets,
-          samples and files.
-        </p>
-      </div>
-      <div className="flex items-center gap-4">
-        {!loading && (
-          <span className="text-xs text-muted-foreground">
-            {nodeCount} node{nodeCount === 1 ? '' : 's'} · {edgeCount} edge
-            {edgeCount === 1 ? '' : 's'}
-          </span>
-        )}
-        <div className="flex items-center gap-1 rounded-md border bg-card p-0.5">
-          <ViewTabButton
-            active={viewMode === 'graph'}
-            onClick={() => onViewModeChange('graph')}
-            icon={Network}
-            label="Graph"
-          />
-          <ViewTabButton
-            active={viewMode === 'timeline'}
-            onClick={() => onViewModeChange('timeline')}
-            icon={Clock}
-            label="Timeline"
-          />
-          <ViewTabButton
-            active={viewMode === 'table'}
-            onClick={() => onViewModeChange('table')}
-            icon={TableIcon}
-            label="Table"
-          />
-        </div>
-      </div>
+      </PageHeader>
     </div>
   )
 }
@@ -550,7 +545,7 @@ function FilterBar({
   seedIdentifier: string | null
 }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-3 border-b bg-muted/30 px-4 py-2">
+    <div className="flex shrink-0 flex-wrap items-center gap-3 border-b bg-muted/30 px-4 py-2 md:px-6">
       {/* Seed picker — the explorer is most useful seeded on one record;
           deep-links land on ?seed=<id> but the picker lets anyone start a
           traversal without leaving the page. */}
@@ -954,7 +949,7 @@ function TimelineView({ graph }: { graph: LineageGraph }) {
   }
 
   return (
-    <div className="h-full overflow-auto p-4">
+    <div className="h-full overflow-auto p-4 md:p-6">
       <div className="mx-auto max-w-2xl">
         <h2 className="mb-4 text-sm font-semibold tracking-tight">
           Key Events

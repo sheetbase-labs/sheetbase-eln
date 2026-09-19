@@ -3,7 +3,6 @@ import { PageHeader } from '#/components/ui/page-header'
 import { Button } from '#/components/ui/button'
 
 const args = {
-  eyebrow: 'Experiments',
   title: 'Virus Stability at 4 °C',
   description: 'Evaluate concentrated lentiviral vector at 4 °C over 28 days.',
 }
@@ -26,7 +25,7 @@ export const WithActions: Story = {
     ),
   },
 }
-export const NoEyebrow: Story = { args: { eyebrow: undefined } }
+export const NoDescription: Story = { args: { description: undefined } }
 export const LongTitle: Story = {
   args: {
     title:

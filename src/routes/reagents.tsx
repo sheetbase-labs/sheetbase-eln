@@ -341,7 +341,7 @@ function ReagentsRegistryRoute() {
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
+      <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4 md:p-6">
         <RegistryComposition
           registryId="reagents"
           title="Reagents"

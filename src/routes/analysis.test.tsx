@@ -133,7 +133,7 @@ function spec(overrides: Partial<ChartSpec> = {}): ChartSpec {
 
 describe('AnalysisStudioHeader', () => {
   it('renders a skeleton while loading', () => {
-    render(
+    const { container } = render(
       <AnalysisStudioHeader
         datasets={[]}
         loading
@@ -142,7 +142,7 @@ describe('AnalysisStudioHeader', () => {
         onSelect={() => {}}
       />,
     )
-    expect(screen.getByText('Analysis Studio')).toBeTruthy()
+    expect(container.querySelector('.animate-pulse')).toBeTruthy()
     expect(screen.queryByLabelText('Select data source')).toBeNull()
   })
 
@@ -176,8 +176,8 @@ describe('AnalysisStudioHeader', () => {
         onSelect={() => {}}
       />,
     )
-    const select = screen.getByLabelText('Select data source')
-    expect((select as unknown as HTMLSelectElement).value).toBe(t.datasetId)
+    const trigger = screen.getByRole('combobox', { name: 'Select data source' })
+    expect(trigger.textContent).toContain(t.name)
   })
 })
 

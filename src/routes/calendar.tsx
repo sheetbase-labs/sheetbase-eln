@@ -495,9 +495,8 @@ function CalendarRoute() {
     <>
       <div className="flex flex-1 min-h-0 flex-col">
         {/* Header: title, new-booking action, filters */}
-        <div className="border-b border-border/60 px-4 pt-4">
+        <div className="border-b border-border/60 px-4 pt-4 md:px-6 md:pt-6">
           <PageHeader
-            compact
             title="Lab Calendar"
             description="Bookings for instruments, rooms, and shared resources."
           >

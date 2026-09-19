@@ -482,7 +482,7 @@ function SamplesRegistryRoute() {
 
   return (
     <>
-      <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
+      <div className="flex h-full flex-col gap-3 overflow-hidden p-4 md:p-6">
         <RegistryComposition
           registryId="samples"
           title="Samples"

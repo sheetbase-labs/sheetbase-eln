@@ -6,7 +6,7 @@
  * a DatasetDataTab smoke test with mocked queries so the incremental grid,
  * filter toolbar and failure states render end-to-end.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
@@ -21,9 +21,9 @@ import {
   DatasetChartTab,
   DatasetInspector,
   DatasetSchemaTab,
-  datasetLifecycleLabel,
   HistoricalDatasetVersionTable,
 } from './datasets'
+import { datasetLifecycleLabel } from '#/lib/dataset-explorer-data'
 import type { DatasetDataTabProps } from './datasets'
 import { useTable } from '@tanstack/react-table'
 import { appTableFeatures } from '#/lib/table-features'
@@ -260,16 +260,17 @@ describe('DatasetExplorerHeader', () => {
     expect(screen.getByRole('heading', { name: 'Stability' })).toBeTruthy()
 
     await user.click(trigger)
-    const search = screen.getByRole('combobox', { name: 'Search datasets' })
+    const search = screen.getByRole('searchbox', { name: 'Search datasets' })
     await user.type(search, 'Process dataset 117')
 
-    expect(screen.getByText('Process dataset 117')).toBeTruthy()
-    expect(screen.queryByText('Process dataset 3')).toBeNull()
-    await user.keyboard('{Enter}')
+    await waitFor(() =>
+      expect(screen.queryByText('Process dataset 3')).toBeNull(),
+    )
+    await user.click(screen.getByText('Process dataset 117'))
 
     expect(onSelect).toHaveBeenCalledWith('process-116')
     expect(
-      screen.queryByRole('combobox', { name: 'Search datasets' }),
+      screen.queryByRole('searchbox', { name: 'Search datasets' }),
     ).toBeNull()
   })
 
@@ -290,11 +291,15 @@ describe('DatasetExplorerHeader', () => {
 
     await user.click(screen.getByRole('combobox', { name: 'Select dataset' }))
     await user.type(
-      screen.getByRole('combobox', { name: 'Search datasets' }),
+      screen.getByRole('searchbox', { name: 'Search datasets' }),
       'unavailable assay',
     )
 
-    expect(screen.getByText('No datasets match your search.')).toBeTruthy()
+    await waitFor(() =>
+      expect(
+        screen.getByText('No datasets match the current search or filters.'),
+      ).toBeTruthy(),
+    )
   })
 })
 

@@ -41,6 +41,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  PageHeader,
   Skeleton,
   Table,
   TableBody,
@@ -293,12 +294,6 @@ interface DashboardContext {
 export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   const now = new Date()
   const greeting = greetingFor(now.getHours())
-  const todayLabel = now.toLocaleDateString(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
   const userId = context.userId
 
   // --- Real data queries -------------------------------------------------
@@ -534,13 +529,7 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-        <div>
-          <p className="text-sm text-muted-foreground">{todayLabel}</p>
-          <h1 className="mt-0.5 font-display text-headline font-heading tracking-tight text-foreground">
-            {greeting}, {context.user.name.split(/\s+/)[0]}
-          </h1>
-        </div>
+      <PageHeader title={`${greeting}, ${context.user.name.split(/\s+/)[0]}`}>
         <div className="flex items-center gap-4 pb-0.5 text-sm text-muted-foreground">
           {pendingReviews.length > 0 ? (
             <span className="flex items-center gap-1.5">
@@ -573,7 +562,7 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
             </span>
           ) : null}
         </div>
-      </header>
+      </PageHeader>
 
       <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-6">

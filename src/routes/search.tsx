@@ -60,7 +60,14 @@ import { useShell } from '#/components/app-shell'
 import { Inspector } from '#/components/record/inspector'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusDomain } from '#/components/scientific/status-badge'
-import { Badge, Button, Input, Select, Skeleton } from '#/components/ui'
+import {
+  Badge,
+  Button,
+  Input,
+  PageHeader,
+  Select,
+  Skeleton,
+} from '#/components/ui'
 import { RelatedWorkPanel } from '#/components/related-work/related-work-panel'
 import { cn } from '#/lib/utils'
 import { createDataClient, DataClientError } from '#/lib/data-client'
@@ -701,17 +708,10 @@ function SearchRoute() {
   return (
     <>
       <div className="flex flex-col gap-4 p-4 md:p-6">
-        {/* Page heading — compact, per DESIGN.md (no marketing-scale type). */}
-        <header className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="font-display text-lg font-medium tracking-tight text-foreground">
-              Search
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Find records, files and notebook content across your workspace.
-            </p>
-          </div>
-        </header>
+        <PageHeader
+          title="Search"
+          description="Find records, files and notebook content across your workspace."
+        />
 
         {/* Prominent search bar + save query */}
         <form

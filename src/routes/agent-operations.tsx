@@ -312,14 +312,13 @@ function AgentOperationsRoute() {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="px-4 pt-4 md:px-6 md:pt-6">
         <PageHeader
-          compact
           title="Agent operations"
           description="Monitor agent workflows, review proposed changes and manage execution policies."
           className="border-0 pb-4"
         />
       </div>
       {error instanceof Error && (
-        <p role="alert" className="text-destructive px-4 pb-3 text-sm">
+        <p role="alert" className="text-destructive px-4 pb-3 text-sm md:px-6">
           {error.message}
         </p>
       )}

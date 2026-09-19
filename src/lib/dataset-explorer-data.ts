@@ -39,6 +39,7 @@ import { fetchDatasetSchemaFields } from './dataset-schema-data'
 import { CHART_SPEC_VERSION } from './chart-spec'
 import type { ChartSpec } from './chart-spec'
 import { listInIdChunks } from './postgrest-in-list'
+import { humanizeToken } from './audit-history'
 import type { RegistryFilterValue } from './registry'
 
 // --- Safe limits ----------------------------------------------------------
@@ -90,6 +91,20 @@ export interface CanonicalDatasetWire extends ScientificTableWire {
   revision?: number
   schema_definition_id?: string | null
   schema_version_number?: number | null
+}
+
+const DATASET_LIFECYCLE_LABELS: Record<string, string> = {
+  active: 'Live',
+  archived: 'Archived',
+  retired: 'Retired',
+}
+
+/**
+ * Human label for a Dataset's stored lifecycle token (`active` → "Live"),
+ * so the raw enum never reaches explorer or extension-panel copy.
+ */
+export function datasetLifecycleLabel(lifecycle: string): string {
+  return DATASET_LIFECYCLE_LABELS[lifecycle] ?? humanizeToken(lifecycle)
 }
 
 interface DatasetResourceWire {
@@ -168,10 +183,9 @@ export function resolveDatasetDeepLinkSelection({
   summariesLoaded,
 }: DatasetDeepLinkSelectionInput): DatasetDeepLinkSelection {
   if (!requestedDatasetId) {
-    return {
-      selectedDatasetId: datasets.at(0)?.id ?? null,
-      flipToArchived: false,
-    }
+    // No deep link: the explorer shows the Dataset list, not an implied
+    // selection of whichever Dataset happens to sort first.
+    return { selectedDatasetId: null, flipToArchived: false }
   }
   if (datasets.some((dataset) => dataset.id === requestedDatasetId)) {
     return { selectedDatasetId: requestedDatasetId, flipToArchived: false }
@@ -184,22 +198,16 @@ export function resolveDatasetDeepLinkSelection({
     return { selectedDatasetId: null, flipToArchived: false }
   }
   if (requestedLifecycle === null) {
-    // The requested Dataset does not exist: fall back to the list default.
-    return {
-      selectedDatasetId: datasets.at(0)?.id ?? null,
-      flipToArchived: false,
-    }
+    // The requested Dataset does not exist: fall back to the list view.
+    return { selectedDatasetId: null, flipToArchived: false }
   }
   if (requestedLifecycle !== 'active') {
     // Archived/retired: keep selecting the requested Dataset, but in the
     // archived view where the list actually contains it.
     return { selectedDatasetId: null, flipToArchived: true }
   }
-  // Active but absent from the list (e.g. raced creation): fall back.
-  return {
-    selectedDatasetId: datasets.at(0)?.id ?? null,
-    flipToArchived: false,
-  }
+  // Active but absent from the list (e.g. raced creation): list view.
+  return { selectedDatasetId: null, flipToArchived: false }
 }
 
 /** List canonical Datasets and the active fields pinned to each version. */

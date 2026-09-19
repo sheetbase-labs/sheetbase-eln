@@ -5,6 +5,7 @@ import { ConfigurationWorkspace } from '#/components/configuration/configuration
 import type { ConfigurationKind } from '#/components/configuration/configuration-workspace'
 import { SchemaGraphExplorer } from '#/components/configuration/schema-graph-explorer'
 import type { SchemaGraphNode } from '#/components/configuration/schema-graph-explorer'
+import { Button, PageHeader } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import type { WorkspaceRole } from '#/lib/workspace-admin'
 
@@ -71,6 +72,45 @@ function ConfigureRoute() {
   if (!search.kind) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
+        <div className="border-b border-border/60 px-4 pt-4 md:px-6 md:pt-6">
+          <PageHeader
+            title="Schemas"
+            description="Define record fields, dataset schemas and reusable structures."
+            className="border-0 pb-4"
+          >
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void navigate({
+                    to: '/configure',
+                    search: { kind: 'model', id: undefined, model: undefined },
+                  })
+                }
+              >
+                Manage fields
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() =>
+                  void navigate({
+                    to: '/configure',
+                    search: {
+                      kind: 'schema',
+                      id: undefined,
+                      model: undefined,
+                    },
+                  })
+                }
+              >
+                New schema
+              </Button>
+            </div>
+          </PageHeader>
+        </div>
         <SchemaGraphExplorer
           client={dataClient}
           workspaceId={context.workspace?.id ?? ''}
@@ -81,12 +121,6 @@ function ConfigureRoute() {
               search: { kind: 'schema', id: undefined, model: undefined },
             })
           }
-          onManage={() =>
-            void navigate({
-              to: '/configure',
-              search: { kind: 'model', id: undefined, model: undefined },
-            })
-          }
         />
       </div>
     )
@@ -94,13 +128,16 @@ function ConfigureRoute() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <h1 className="text-headline font-heading tracking-tight">
-            Models &amp; schemas
-          </h1>
-          <button
+      <div className="border-b border-border/60 px-4 pt-4 md:px-6 md:pt-6">
+        <PageHeader
+          title="Models &amp; schemas"
+          description="Define record fields, dataset schemas and reusable structures."
+          className="border-0 pb-4"
+        >
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() =>
               void navigate({
                 to: '/configure',
@@ -111,15 +148,11 @@ function ConfigureRoute() {
                 },
               })
             }
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
           >
             Schema graph
-          </button>
-        </div>
-        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-          Define record fields, dataset schemas and reusable structures.
-        </p>
-      </header>
+          </Button>
+        </PageHeader>
+      </div>
       <ConfigurationWorkspace
         client={dataClient}
         workspaceId={context.workspace?.id ?? ''}

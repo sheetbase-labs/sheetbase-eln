@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 
+import { PageHeader } from '#/components/ui'
 import { DOC_NAMES, DOC_TITLES } from './-documents'
 
 /**
@@ -19,11 +20,11 @@ export const Route = createFileRoute('/docs/')({
 
 function DocsIndexPage() {
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
-      <h1 className="text-2xl font-semibold">Documentation</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Operational runbooks for this deployment.
-      </p>
+    <div className="mx-auto max-w-4xl">
+      <PageHeader
+        title="Documentation"
+        description="Operational runbooks for this deployment."
+      />
       <ul className="mt-4 space-y-2">
         {DOC_NAMES.map((name) => (
           <li key={name}>

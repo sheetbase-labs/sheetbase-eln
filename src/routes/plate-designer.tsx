@@ -11,7 +11,7 @@ import {
   PlateToolbar,
 } from '#/components/plate-designer/plate-toolbar'
 import type { AutoFillConfig } from '#/components/plate-designer/plate-toolbar'
-import { Button, Input, Select } from '#/components/ui'
+import { Button, Input, PageHeader, Select } from '#/components/ui'
 import { PlateMap } from '#/components/viz/plate-map'
 import type { PlateWell } from '#/components/viz/plate-map'
 import { createDataClient } from '#/lib/data-client'
@@ -237,62 +237,60 @@ function PlateDesignerRoute() {
 
   return (
     <>
-      <div className="h-full overflow-auto bg-muted/20 p-4">
+      <div className="h-full overflow-auto bg-muted/20 p-4 md:p-6">
         <div className="space-y-4">
-          <header className="flex flex-wrap items-center gap-2">
-            <div className="mr-auto">
-              <h1 className="font-display text-headline font-heading tracking-tight">
-                Plate Designer
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Design, validate, and save microplate layouts.
-              </p>
-            </div>
-            <Input
-              className="w-48"
-              aria-label="New design name"
-              value={newName}
-              onChange={(event) => setNewName(event.target.value)}
-            />
-            <Button
-              size="sm"
-              disabled={
-                !workspaceId || !newName.trim() || createMutation.isPending
-              }
-              onClick={() => createMutation.mutate()}
-            >
-              <Plus className="size-4" /> New design
-            </Button>
-            <Select
-              className="w-56"
-              aria-label="Plate design"
-              value={design.id ?? ''}
-              onChange={(event) => {
-                const next = designs.data?.find(
-                  (item) => item.id === event.target.value,
-                )
-                if (next) {
-                  setDesign(next)
-                  setSelectedWellCodes([])
+          <PageHeader
+            title="Plate Designer"
+            description="Design, validate, and save microplate layouts."
+            className="border-0 pb-4"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                className="w-48"
+                aria-label="New design name"
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+              />
+              <Button
+                size="sm"
+                disabled={
+                  !workspaceId || !newName.trim() || createMutation.isPending
                 }
-              }}
-            >
-              <option value="">Select a design</option>
-              {(designs.data ?? []).map((item) => (
-                <option key={item.id} value={item.id ?? ''}>
-                  {item.name}
-                </option>
-              ))}
-            </Select>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!design.id || archiveMutation.isPending}
-              onClick={() => archiveMutation.mutate()}
-            >
-              <Archive className="size-4" /> Archive
-            </Button>
-          </header>
+                onClick={() => createMutation.mutate()}
+              >
+                <Plus className="size-4" /> New design
+              </Button>
+              <Select
+                className="w-56"
+                aria-label="Plate design"
+                value={design.id ?? ''}
+                onChange={(event) => {
+                  const next = designs.data?.find(
+                    (item) => item.id === event.target.value,
+                  )
+                  if (next) {
+                    setDesign(next)
+                    setSelectedWellCodes([])
+                  }
+                }}
+              >
+                <option value="">Select a design</option>
+                {(designs.data ?? []).map((item) => (
+                  <option key={item.id} value={item.id ?? ''}>
+                    {item.name}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!design.id || archiveMutation.isPending}
+                onClick={() => archiveMutation.mutate()}
+              >
+                <Archive className="size-4" /> Archive
+              </Button>
+            </div>
+          </PageHeader>
           {error && (
             <p role="alert" className="text-xs text-danger">
               {error}

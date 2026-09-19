@@ -1,8 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Save, Sigma, Trash2, TriangleAlert } from 'lucide-react'
+import {
+  ChevronsUpDown,
+  Play,
+  Save,
+  Sigma,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { DatasetPickerDialog } from '#/components/datasets/dataset-picker-dialog'
+import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
 import {
   Badge,
   Button,
@@ -65,6 +74,12 @@ import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 export interface AnalysisPanelProps {
   datasets: CanonicalDatasetSource[]
+  /**
+   * Canonical catalogue rows for the dataset picker dialog. When provided,
+   * the dataset field opens the searchable grid dialog instead of a native
+   * select — the control stays usable once the catalogue outgrows a dropdown.
+   */
+  datasetCatalogue?: CanonicalDatasetWire[]
   workspaceId: string
   userId: string
 }
@@ -83,11 +98,13 @@ const emptyDraft: DefinitionDraft = {
 
 export function AnalysisPanel({
   datasets,
+  datasetCatalogue,
   workspaceId,
   userId,
 }: AnalysisPanelProps) {
   const queryClient = useQueryClient()
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [draft, setDraft] = useState<DefinitionDraft>(emptyDraft)
 
   const definitionsQuery = useQuery({
@@ -276,22 +293,52 @@ export function AnalysisPanel({
             <FieldLabel htmlFor="analysis-definition-dataset">
               Dataset
             </FieldLabel>
-            <Select
-              id="analysis-definition-dataset"
-              aria-label="Analysis dataset"
-              value={selectedDatasetId}
-              onChange={(event) => {
-                setSelectedDatasetId(event.target.value)
-              }}
-              className="h-8 bg-background"
-            >
-              <option value="">Select a dataset</option>
-              {datasets.map((d) => (
-                <option key={d.datasetId} value={d.datasetId}>
-                  {d.name}
-                </option>
-              ))}
-            </Select>
+            {datasetCatalogue ? (
+              <>
+                <Button
+                  id="analysis-definition-dataset"
+                  variant="outline"
+                  role="combobox"
+                  aria-label="Analysis dataset"
+                  aria-expanded={pickerOpen}
+                  aria-haspopup="dialog"
+                  onClick={() => setPickerOpen(true)}
+                  className="h-8 w-full justify-between bg-background px-2.5 text-xs font-normal"
+                >
+                  <span className="truncate text-foreground">
+                    {selectedDataset?.name ?? 'Select a dataset'}
+                  </span>
+                  <ChevronsUpDown
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </Button>
+                <DatasetPickerDialog
+                  open={pickerOpen}
+                  onOpenChange={setPickerOpen}
+                  datasets={datasetCatalogue}
+                  selectedId={selectedDatasetId || null}
+                  onSelect={setSelectedDatasetId}
+                />
+              </>
+            ) : (
+              <Select
+                id="analysis-definition-dataset"
+                aria-label="Analysis dataset"
+                value={selectedDatasetId}
+                onChange={(event) => {
+                  setSelectedDatasetId(event.target.value)
+                }}
+                className="h-8 bg-background"
+              >
+                <option value="">Select a dataset</option>
+                {datasets.map((d) => (
+                  <option key={d.datasetId} value={d.datasetId}>
+                    {d.name}
+                  </option>
+                ))}
+              </Select>
+            )}
           </Field>
           <Field className="min-w-40 flex-1">
             <FieldLabel htmlFor="analysis-kind">Analysis</FieldLabel>

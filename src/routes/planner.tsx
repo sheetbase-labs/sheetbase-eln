@@ -318,9 +318,8 @@ function PlannerRoute() {
     <>
       <div className="flex flex-1 min-h-0 flex-col">
         {/* Header */}
-        <div className="px-4 pt-4">
+        <div className="px-4 pt-4 md:px-6 md:pt-6">
           <PageHeader
-            compact
             title="Study Planner"
             description="Tasks, milestones, and dependencies across the workspace."
             className="border-0 pb-4"
@@ -396,7 +395,7 @@ function PlannerRoute() {
 
         {/* Body */}
         {tasksQuery.isLoading || workstreamsQuery.isLoading ? (
-          <div className="flex-1 space-y-4 p-4">
+          <div className="flex-1 space-y-4 p-4 md:p-6">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-32 w-full" />

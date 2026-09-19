@@ -316,19 +316,17 @@ export function DatasetAddRowDialog({
   )
 }
 
-export function DatasetProductActions({
-  table,
+/**
+ * List-scope action: create a new Dataset. Lives on the `/datasets` list
+ * header — creating belongs to the catalogue, not an open Dataset.
+ */
+export function DatasetCreateAction({
   client,
-  archived,
-  onRefresh,
   onCreate,
   workspaceId,
   userId,
 }: {
-  table: CanonicalDatasetWire | null
   client: DataClient
-  archived: boolean
-  onRefresh: () => void
   onCreate: (datasetId: string) => void
   workspaceId: string
   /** Signed-in user recorded as the owner of a new Dataset. */
@@ -336,12 +334,99 @@ export function DatasetProductActions({
 }) {
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
-  const [snapshotOpen, setSnapshotOpen] = useState(false)
+  return (
+    <>
+      <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Plus className="size-3.5" /> New Dataset
+      </Button>
+      <DatasetCreateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        client={client}
+        workspaceId={workspaceId}
+        userId={userId}
+        onCreated={(id) => {
+          void queryClient.invalidateQueries({
+            queryKey: ['dataset-explorer-summaries'],
+          })
+          onCreate(id)
+        }}
+      />
+    </>
+  )
+}
+
+/**
+ * Row-scope actions: append or import rows. They act on the Dataset's data,
+ * so they live on the Data tab's grid toolbar rather than the page header.
+ */
+export function DatasetRowActions({
+  table,
+  client,
+  archived,
+  onRefresh,
+}: {
+  table: CanonicalDatasetWire
+  client: DataClient
+  archived: boolean
+  onRefresh: () => void
+}) {
   const [pasteOpen, setPasteOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  return (
+    <div className="flex items-center gap-1.5">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={archived}
+        onClick={() => setAddOpen(true)}
+      >
+        <Plus className="size-3.5" /> Add row
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={archived}
+        onClick={() => setPasteOpen(true)}
+      >
+        Import
+      </Button>
+      <ImportWizard
+        open={pasteOpen}
+        onOpenChange={setPasteOpen}
+        client={client}
+        mode={{ kind: 'dataset', table }}
+        onDone={onRefresh}
+      />
+      <DatasetAddRowDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        client={client}
+        table={table}
+        onDone={onRefresh}
+      />
+    </div>
+  )
+}
+
+/**
+ * Dataset-scope lifecycle actions: snapshot and archive/restore. These stay
+ * on the explorer header alongside the picker and pin.
+ */
+export function DatasetLifecycleActions({
+  table,
+  client,
+  archived,
+  onRefresh,
+}: {
+  table: CanonicalDatasetWire
+  client: DataClient
+  archived: boolean
+  onRefresh: () => void
+}) {
+  const [snapshotOpen, setSnapshotOpen] = useState(false)
   const lifecycleMutation = useMutation({
     mutationFn: async () => {
-      if (!table) throw new Error('No Dataset selected')
       const input = {
         datasetId: table.id,
         expectedRevision: datasetRevision(table),
@@ -362,89 +447,35 @@ export function DatasetProductActions({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Button size="sm" onClick={() => setCreateOpen(true)}>
-        <Plus className="size-3.5" /> New Dataset
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={archived}
+        onClick={() => setSnapshotOpen(true)}
+      >
+        <Camera className="size-3.5" /> Snapshot
       </Button>
-      {table ? (
-        <>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={archived}
-            onClick={() => setAddOpen(true)}
-          >
-            <Plus className="size-3.5" /> Add row
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={archived}
-            onClick={() => setPasteOpen(true)}
-          >
-            Import
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={archived}
-            onClick={() => setSnapshotOpen(true)}
-          >
-            <Camera className="size-3.5" /> Snapshot
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => lifecycleMutation.mutate()}
-            disabled={lifecycleMutation.isPending}
-          >
-            <Archive className="size-3.5" />
-            {archived ? 'Restore' : 'Archive'}
-          </Button>
-        </>
-      ) : null}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => lifecycleMutation.mutate()}
+        disabled={lifecycleMutation.isPending}
+      >
+        <Archive className="size-3.5" />
+        {archived ? 'Restore' : 'Archive'}
+      </Button>
       {lifecycleError ? (
         <span role="alert" className="text-xs text-destructive">
           {lifecycleError}
         </span>
       ) : null}
-      <DatasetCreateDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
+      <DatasetSnapshotDialog
+        open={snapshotOpen}
+        onOpenChange={setSnapshotOpen}
         client={client}
-        workspaceId={workspaceId}
-        userId={userId}
-        onCreated={(id) => {
-          void queryClient.invalidateQueries({
-            queryKey: ['dataset-explorer-summaries'],
-          })
-          onCreate(id)
-        }}
+        table={table}
+        onDone={onRefresh}
       />
-      {table ? (
-        <>
-          <DatasetSnapshotDialog
-            open={snapshotOpen}
-            onOpenChange={setSnapshotOpen}
-            client={client}
-            table={table}
-            onDone={onRefresh}
-          />
-          <ImportWizard
-            open={pasteOpen}
-            onOpenChange={setPasteOpen}
-            client={client}
-            mode={{ kind: 'dataset', table }}
-            onDone={onRefresh}
-          />
-          <DatasetAddRowDialog
-            open={addOpen}
-            onOpenChange={setAddOpen}
-            client={client}
-            table={table}
-            onDone={onRefresh}
-          />
-        </>
-      ) : null}
     </div>
   )
 }

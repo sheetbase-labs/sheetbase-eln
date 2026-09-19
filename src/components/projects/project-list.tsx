@@ -2,9 +2,8 @@ import { useMemo, useRef, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Link } from '@tanstack/react-router'
-import { ChevronRight, Search, X } from 'lucide-react'
+import { Archive, ChevronRight, Search, X } from 'lucide-react'
 import { DataTable } from '#/components/scientific/data-table'
-import { StatusBadge } from '#/components/scientific'
 import {
   Button,
   Input,
@@ -34,6 +33,41 @@ interface ProjectListProject {
 }
 
 const columnHelper = createColumnHelper<ProjectListProject>()
+
+/**
+ * Paper V2ALT status pill: a tinted lozenge with a 5px dot (or an archive
+ * glyph for archived) and a lowercase 11px label.
+ */
+function ProjectStatusPill({ status }: { status: string }) {
+  if (status === 'active') {
+    return (
+      <span className="inline-flex items-center gap-[5px] rounded-full bg-active px-2 py-[2px]">
+        <span className="size-[5px] rounded-full bg-primary" />
+        <span className="text-[11px] font-label leading-[14px] text-primary">
+          active
+        </span>
+      </span>
+    )
+  }
+  if (status === 'archived') {
+    return (
+      <span className="inline-flex items-center gap-[5px] rounded-full bg-control px-2 py-[2px]">
+        <Archive className="size-2.5 text-muted-foreground" aria-hidden />
+        <span className="text-[11px] font-label leading-[14px] text-muted-foreground">
+          archived
+        </span>
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-[5px] rounded-full bg-control px-2 py-[2px]">
+      <span className="size-[5px] rounded-full bg-muted-foreground/50" />
+      <span className="text-[11px] font-label leading-[14px] text-muted-foreground">
+        {status}
+      </span>
+    </span>
+  )
+}
 
 export function ProjectList({
   projects,
@@ -102,10 +136,10 @@ export function ProjectList({
               className="flex min-w-0 flex-col gap-0.5 rounded-sm no-underline hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               title={p.title}
             >
-              <span className="truncate text-sm font-medium text-foreground">
+              <span className="truncate font-label text-data text-foreground">
                 {p.title}
               </span>
-              <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
+              <span className="truncate text-[11px] leading-[14px] text-muted-foreground">
                 {p.key}
               </span>
             </Link>
@@ -123,7 +157,7 @@ export function ProjectList({
             return countsLoading ? (
               <Skeleton className="h-4 w-8" />
             ) : (
-              <span className="text-sm tabular-nums text-muted-foreground">
+              <span className="text-caption tabular-nums text-muted-foreground">
                 —
               </span>
             )
@@ -133,12 +167,12 @@ export function ProjectList({
             total !== undefined ? `${total} records` : null,
           ].filter(Boolean)
           return (
-            <span className="text-sm tabular-nums text-foreground">
+            <span className="text-caption tabular-nums text-muted-foreground">
               {parts.join(' · ')}
             </span>
           )
         },
-        meta: { className: 'w-[10rem]' },
+        meta: { className: 'w-[10rem] text-right' },
       }),
       columnHelper.accessor((p) => reviewsByProject?.get(p.id) ?? 0, {
         id: 'reviews',
@@ -147,13 +181,13 @@ export function ProjectList({
           const awaiting = reviewsByProject?.get(row.original.id) ?? 0
           if (awaiting === 0) {
             return (
-              <span className="text-sm tabular-nums text-muted-foreground">
+              <span className="text-caption tabular-nums text-muted-foreground">
                 —
               </span>
             )
           }
           return (
-            <span className="text-sm font-medium tabular-nums text-violet">
+            <span className="text-caption font-label tabular-nums text-violet">
               {awaiting} awaiting you
             </span>
           )
@@ -162,9 +196,7 @@ export function ProjectList({
       }),
       columnHelper.accessor('status', {
         header: 'Status',
-        cell: ({ getValue }) => (
-          <StatusBadge domain="project" status={getValue()} />
-        ),
+        cell: ({ getValue }) => <ProjectStatusPill status={getValue()} />,
         meta: { className: 'w-[8rem]' },
       }),
       columnHelper.accessor('lastActivityAt', {
@@ -172,11 +204,15 @@ export function ProjectList({
         cell: ({ getValue }) => {
           const value = getValue()
           return value ? (
-            <time dateTime={value} title={value}>
+            <time
+              dateTime={value}
+              title={value}
+              className="text-caption tabular-nums text-muted-foreground"
+            >
               {formatRelativeTime(value)}
             </time>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-caption text-muted-foreground">—</span>
           )
         },
         meta: { className: 'w-[9rem] text-right' },
@@ -187,7 +223,7 @@ export function ProjectList({
         enableSorting: false,
         cell: () => (
           <ChevronRight
-            className="ml-auto size-4 text-muted-foreground"
+            className="ml-auto size-3 text-muted-foreground"
             aria-hidden="true"
           />
         ),
@@ -264,7 +300,7 @@ export function ProjectList({
             <TabsList className="w-auto border-b-0">
               <TabsTrigger value="all">
                 All
-                <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+                <span className="ml-1.5 rounded-full bg-active px-1.5 py-0.5 text-[11px] font-label tabular-nums text-primary">
                   {statusCounts.all}
                 </span>
               </TabsTrigger>
@@ -278,10 +314,10 @@ export function ProjectList({
                 type="button"
                 onClick={clearFilter}
                 aria-label="Clear filter"
-                className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-xs font-medium text-foreground hover:bg-control"
+                className="inline-flex h-[26px] items-center gap-1.5 rounded-md border border-primary/20 bg-active px-2.5 text-caption font-label text-primary"
               >
                 Filter: “{filter}”
-                <X className="size-3.5 text-muted-foreground" aria-hidden />
+                <X className="size-3.5 text-primary" aria-hidden />
               </button>
             ) : null}
             {status !== 'all' ? (
@@ -298,7 +334,7 @@ export function ProjectList({
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 gap-1 text-xs"
+              className="h-[26px] gap-[5px] rounded-md px-[9px] text-caption font-label"
               onClick={() => filterRef.current?.focus()}
             >
               + Filter

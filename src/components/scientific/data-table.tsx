@@ -152,7 +152,7 @@ function DataTable<TData, TValue>({
         className={
           variant === 'quiet'
             ? 'border-y border-border'
-            : 'overflow-hidden rounded-md border'
+            : 'overflow-hidden rounded-lg border'
         }
       >
         <Table variant={variant} className={tableClassName} aria-label={label}>

@@ -724,7 +724,7 @@ function DatasetTabs({
       onValueChange={(v) => onTabChange(v as ExplorerTab)}
       className="relative min-h-0 flex-1 overflow-hidden"
     >
-      <TabsList variant="boxed" className="h-8 w-auto">
+      <TabsList className="h-8 w-auto">
         <TabsTrigger value="data" className="h-8 gap-1.5 px-3 py-0 text-xs">
           <TableIcon className="size-3.5" aria-hidden="true" /> Data
         </TabsTrigger>

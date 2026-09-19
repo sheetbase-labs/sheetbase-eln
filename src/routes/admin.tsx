@@ -559,11 +559,11 @@ function AdminRoute() {
 
       <nav
         aria-label="Administration sections"
-        className="border-y bg-muted/30"
+        className="border-b border-border"
       >
         {/* The strip scrolls horizontally when all sections don't fit; the
             right-edge fade is the affordance that more sections exist. */}
-        <div className="flex w-full items-center gap-0 overflow-x-auto px-4 py-1.5 [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-full items-center gap-5 overflow-x-auto px-4 [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map((item) => {
             const active = item.key === activeSection
             return (
@@ -573,7 +573,7 @@ function AdminRoute() {
                 params={{ section: item.key }}
                 search={{ model: undefined }}
                 aria-current={active ? 'page' : undefined}
-                className={`flex shrink-0 items-center rounded-md px-3 py-1 text-sm no-underline transition-colors ${active ? 'bg-background font-medium text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`-mb-px flex shrink-0 items-center border-b-2 px-1 py-2 text-sm font-medium no-underline transition-colors ${active ? 'border-primary font-label text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
               >
                 <span className="whitespace-nowrap">{item.label}</span>
               </Link>

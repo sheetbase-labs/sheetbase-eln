@@ -336,10 +336,7 @@ function AgentOperationsRoute() {
         }
         className="flex min-h-0 flex-1 flex-col"
       >
-        <TabsList
-          variant="boxed"
-          className="mx-4 mb-3 w-fit max-w-[calc(100%-2rem)] md:mx-6"
-        >
+        <TabsList className="mb-3 w-full px-4 md:px-6">
           <TabsTrigger value="workflows">Workflows</TabsTrigger>
           <TabsTrigger value="proposals">Proposals</TabsTrigger>
           <TabsTrigger value="policies">Policies</TabsTrigger>

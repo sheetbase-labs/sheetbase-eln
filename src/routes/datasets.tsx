@@ -56,7 +56,11 @@ import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { DatasetProductActions } from '#/components/datasets/dataset-product-controls'
 import { ObjectHistoryTimeline } from '#/components/audit'
-import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
+import {
+  auditHistoryDataClient,
+  fetchAuditEvents,
+  humanizeToken,
+} from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
@@ -221,6 +225,20 @@ function queryIdentity(query: DatasetRowQuery): string {
   ].join('|')
 }
 
+const DATASET_LIFECYCLE_LABELS: Record<string, string> = {
+  active: 'Live',
+  archived: 'Archived',
+  retired: 'Retired',
+}
+
+/**
+ * Human label for a Dataset's stored lifecycle token (`active` → "Live"),
+ * so the raw enum never reaches explorer or extension-panel copy.
+ */
+export function datasetLifecycleLabel(lifecycle: string): string {
+  return DATASET_LIFECYCLE_LABELS[lifecycle] ?? humanizeToken(lifecycle)
+}
+
 function rowCellValue(row: ScientificRowWire, column: ScientificColumnWire) {
   const value = row[column.field_name]
   if (value === null || value === undefined || value === '') return '—'
@@ -357,13 +375,16 @@ function DatasetExplorerRoute() {
     async () => ({
       heading: selectedTable?.name ?? 'No dataset selected',
       subheading: selectedTable
-        ? `Dataset · ${selectedTable.lifecycle}`
+        ? `Dataset · ${datasetLifecycleLabel(selectedTable.lifecycle)}`
         : undefined,
       rows: [
         { label: 'Datasets in view', value: String(datasets.length) },
         ...(selectedTable
           ? [
-              { label: 'Status', value: selectedTable.lifecycle },
+              {
+                label: 'Status',
+                value: datasetLifecycleLabel(selectedTable.lifecycle),
+              },
               { label: 'ID', value: selectedTable.id },
             ]
           : []),
@@ -1703,7 +1724,7 @@ export function DatasetSchemaTab({ table }: DatasetSchemaTabProps) {
             </p>
           </div>
           <Badge variant="outline">
-            {table.lifecycle === 'archived' ? 'Archived' : 'Live'}
+            {datasetLifecycleLabel(table.lifecycle)}
           </Badge>
         </div>
       </section>

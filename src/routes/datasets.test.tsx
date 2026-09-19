@@ -21,6 +21,7 @@ import {
   DatasetChartTab,
   DatasetInspector,
   DatasetSchemaTab,
+  datasetLifecycleLabel,
   HistoricalDatasetVersionTable,
 } from './datasets'
 import type { DatasetDataTabProps } from './datasets'
@@ -183,6 +184,20 @@ function queryResult<T>(
     ...overrides,
   } as unknown as UseQueryResult<T, Error>
 }
+
+// --- datasetLifecycleLabel ------------------------------------------------
+
+describe('datasetLifecycleLabel', () => {
+  it('labels stored lifecycle tokens instead of leaking the raw enum', () => {
+    expect(datasetLifecycleLabel('active')).toBe('Live')
+    expect(datasetLifecycleLabel('archived')).toBe('Archived')
+    expect(datasetLifecycleLabel('retired')).toBe('Retired')
+  })
+
+  it('humanises unknown tokens rather than passing them through raw', () => {
+    expect(datasetLifecycleLabel('under_review')).toBe('Under Review')
+  })
+})
 
 // --- DatasetExplorerHeader ------------------------------------------------
 

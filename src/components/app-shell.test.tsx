@@ -226,6 +226,31 @@ describe('AppShell', () => {
     expect(projectsLink.getAttribute('aria-current')).toBe('page')
   })
 
+  it('marks exactly one nav item as current for any pathname', () => {
+    // Guard for the dark-mode audit report of Home and Instruments both
+    // appearing highlighted on `/`: isActive must never light up two rows.
+    for (const [pathname, expected] of [
+      ['/', 'Home'],
+      ['/instrument-monitor', 'Instruments'],
+      ['/instrument-monitor/runs/42', 'Instruments'],
+      ['/projects', 'Projects'],
+    ] as const) {
+      cleanup()
+      currentPathname = pathname
+      renderShell({
+        context: baseContext,
+        breadcrumbs: [{ label: 'Test' }],
+        children: null,
+      })
+      const nav = screen.getByRole('navigation', { name: 'Primary' })
+      const current = within(nav)
+        .getAllByRole('link')
+        .filter((el) => el.getAttribute('aria-current') === 'page')
+      expect(current).toHaveLength(1)
+      expect(current[0].textContent).toBe(expected)
+    }
+  })
+
   it('renders disabled nav items as non-interactive placeholders', () => {
     const items: AppShellNavItem[] = [
       { to: '/tasks', label: 'Tasks', icon: ListTodo, disabled: true },

@@ -16,7 +16,7 @@
  * never offers an action it cannot honour.
  */
 import { useQuery } from '@tanstack/react-query'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { AppColumnDef } from '#/lib/table-features'
 import {
   createFileRoute,
   Link,
@@ -253,7 +253,7 @@ export function buildReviewSummaries(
 
 function buildColumns(
   userLabel: (userId: string) => string,
-): ColumnDef<ReviewItem, unknown>[] {
+): AppColumnDef<ReviewItem>[] {
   return [
     {
       id: 'entry',

@@ -9,16 +9,18 @@ import type {
   DataGridFilterValue,
   DataGridScalar,
 } from '#/lib/data-grid'
+import type { RowData } from '@tanstack/react-table'
+
 import type { DataGridField } from './data-grid-types'
 
-export interface DataGridFiltersProps<TData> {
+export interface DataGridFiltersProps<TData extends RowData> {
   fields: DataGridField<TData>[]
   filters: DataGridFilterValue[]
   onFiltersChange: (filters: DataGridFilterValue[]) => void
   debounceMs?: number
 }
 
-export function DataGridFilters<TData>({
+export function DataGridFilters<TData extends RowData>({
   fields,
   filters: controlledFilters,
   onFiltersChange,

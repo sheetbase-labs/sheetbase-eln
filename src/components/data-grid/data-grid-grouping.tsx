@@ -10,15 +10,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
+import type { RowData } from '@tanstack/react-table'
+
 import type { DataGridField } from './data-grid-types'
 
-export interface DataGridGroupingProps<TData> {
+export interface DataGridGroupingProps<TData extends RowData> {
   fields: DataGridField<TData>[]
   grouping: string[]
   onGroupingChange: (grouping: string[]) => void
 }
 
-export function DataGridGrouping<TData>({
+export function DataGridGrouping<TData extends RowData>({
   fields,
   grouping,
   onGroupingChange,

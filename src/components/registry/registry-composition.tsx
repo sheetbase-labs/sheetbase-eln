@@ -1,16 +1,11 @@
 import * as React from 'react'
-import {
-  getCoreRowModel,
-  getExpandedRowModel,
-  getGroupedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { functionalUpdate, useTable } from '@tanstack/react-table'
 import type {
   ColumnFiltersState,
+  ColumnVisibilityState,
   ExpandedState,
+  RowData,
   SortingState,
-  Updater,
-  VisibilityState,
 } from '@tanstack/react-table'
 import {
   ChevronLeft,
@@ -31,6 +26,7 @@ import {
   StatStrip,
 } from '#/components/ui'
 import { formatCount } from '#/lib/format-numbers'
+import { appTableFeatures } from '#/lib/table-features'
 import { DEFAULT_REGISTRY_QUERY } from '#/lib/registry'
 import type { RegistryQuery, RegistryScalar } from '#/lib/registry'
 import type {
@@ -49,7 +45,7 @@ export interface RegistrySummary {
   tone?: 'positive' | 'warning' | 'danger' | 'neutral'
 }
 
-export interface RegistryCompositionProps<TData> {
+export interface RegistryCompositionProps<TData extends RowData> {
   registryId: string
   title: string
   description?: string
@@ -81,7 +77,7 @@ export interface RegistryCompositionProps<TData> {
   emptyTitle?: string
   emptyDescription?: string
   noResultsTitle?: string
-  initialColumnVisibility?: VisibilityState
+  initialColumnVisibility?: ColumnVisibilityState
   actions?: React.ReactNode
   /** Hide the built-in title/description header when the route supplies its own. */
   hideHeader?: boolean
@@ -91,12 +87,6 @@ export interface RegistryCompositionProps<TData> {
   resizableColumns?: boolean
   /** Debounce server-owned text search. Defaults to immediate updates. */
   searchDebounceMs?: number
-}
-
-function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
-  return typeof updater === 'function'
-    ? (updater as (old: T) => T)(previous)
-    : updater
 }
 
 /** Detect the xl breakpoint (1280px+) for inspector pin behaviour. */
@@ -120,7 +110,7 @@ function useIsXl(): boolean {
 const PIN_KEY = (registryId: string) =>
   `sheetbase-inspector-pinned-${registryId}`
 
-export function RegistryComposition<TData>({
+export function RegistryComposition<TData extends RowData>({
   registryId,
   title,
   description,
@@ -168,7 +158,7 @@ export function RegistryComposition<TData>({
   )
   const groupingOptions = fields.filter((field) => field.groupable)
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>(initialColumnVisibility)
+    React.useState<ColumnVisibilityState>(initialColumnVisibility)
   const [uncontrolledInspectorOpen, setUncontrolledInspectorOpen] =
     React.useState(false)
   const [inspectorPinned, setInspectorPinned] = React.useState(false)
@@ -212,13 +202,11 @@ export function RegistryComposition<TData>({
     setExpanded(groupingKey ? true : {})
   }, [groupingKey])
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: rows,
     columns,
     getRowId: (row) => getRowId(row),
-    getCoreRowModel: getCoreRowModel(),
-    getGroupedRowModel: getGroupedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
     autoResetExpanded: false,
     manualPagination: true,
     manualSorting: true,
@@ -235,7 +223,7 @@ export function RegistryComposition<TData>({
       columnVisibility,
     },
     onPaginationChange(updater) {
-      const next = resolveUpdater(updater, {
+      const next = functionalUpdate(updater, {
         pageIndex: query.pageIndex,
         pageSize: query.pageSize,
       })
@@ -245,20 +233,20 @@ export function RegistryComposition<TData>({
       onQueryChange({
         ...query,
         pageIndex: 0,
-        sorting: resolveUpdater(updater, sorting),
+        sorting: functionalUpdate(updater, sorting),
       })
     },
     onGroupingChange(updater) {
       onQueryChange({
         ...query,
         pageIndex: 0,
-        grouping: resolveUpdater(updater, grouping),
+        grouping: functionalUpdate(updater, grouping),
       })
       setExpanded(true)
     },
     onExpandedChange: setExpanded,
     onColumnFiltersChange(updater) {
-      const next = resolveUpdater(updater, columnFilters)
+      const next = functionalUpdate(updater, columnFilters)
       onQueryChange({
         ...query,
         pageIndex: 0,

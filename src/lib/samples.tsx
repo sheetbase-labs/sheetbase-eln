@@ -15,7 +15,7 @@
  * wrappers for the RPCs. PostgreSQL and RLS remain the authoritative
  * access-control boundary; these helpers improve errors and drive the UI.
  */
-import type { ColumnDef } from '@tanstack/react-table'
+import type { AppColumnDef } from '#/lib/table-features'
 
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type { DataClient } from './data-client'
@@ -807,8 +807,8 @@ export function describeSampleError(error: unknown): string {
 
 export function sampleColumns<T extends SampleRecord>(
   modelFields: ModelFieldDefinition[] = [],
-): ColumnDef<T, unknown>[] {
-  const columns: ColumnDef<T, unknown>[] = [
+): AppColumnDef<T>[] {
+  const columns: AppColumnDef<T>[] = [
     {
       accessorKey: 'identifier',
       header: 'Sample ID',

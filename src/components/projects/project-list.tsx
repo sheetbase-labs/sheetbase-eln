@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
-import { createColumnHelper } from '@tanstack/react-table'
 import { Link } from '@tanstack/react-router'
 import { Archive, ChevronRight, Search, X } from 'lucide-react'
 import { DataTable } from '#/components/scientific/data-table'
+import { createAppColumnHelper } from '#/lib/table-features'
+import type { AppColumnDef } from '#/lib/table-features'
 import {
   Button,
   Input,
@@ -32,7 +32,7 @@ interface ProjectListProject {
   experimentCount?: number
 }
 
-const columnHelper = createColumnHelper<ProjectListProject>()
+const columnHelper = createAppColumnHelper<ProjectListProject>()
 
 /**
  * Paper V2ALT status pill: a tinted lozenge with a 5px dot (or an archive
@@ -229,7 +229,7 @@ export function ProjectList({
         ),
         meta: { className: 'w-8' },
       }),
-    ] as ColumnDef<ProjectListProject, unknown>[]
+    ] as AppColumnDef<ProjectListProject>[]
   }, [recordCounts, countsLoading, reviewsByProject])
 
   if (isLoading) {
@@ -355,7 +355,7 @@ export function ProjectList({
                 : 'No projects with this status.'
             }
             footer={(table) => {
-              const sorting = table.getState().sorting.at(0)
+              const sorting = table.store.state.sorting.at(0)
               const sortLabel = sorting
                 ? {
                     title: 'project',
@@ -381,7 +381,7 @@ export function ProjectList({
                     {table.getPageCount() > 1 && (
                       <>
                         <span role="status">
-                          Page {table.getState().pagination.pageIndex + 1} of{' '}
+                          Page {table.store.state.pagination.pageIndex + 1} of{' '}
                           {table.getPageCount()}
                         </span>
                         <Button

@@ -1,6 +1,7 @@
-import type { Table } from '@tanstack/react-table'
+import type { RowData } from '@tanstack/react-table'
 import { Columns3 } from 'lucide-react'
 import { Button } from '#/components/ui/button'
+import type { AppTable } from '#/lib/table-features'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -9,10 +10,10 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 
-export function DataGridColumnSelector<TData>({
+export function DataGridColumnSelector<TData extends RowData>({
   table,
 }: {
-  table: Table<TData>
+  table: AppTable<TData>
 }) {
   return (
     <DropdownMenu>

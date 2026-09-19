@@ -24,8 +24,9 @@ import {
   HistoricalDatasetVersionTable,
 } from './datasets'
 import type { DatasetDataTabProps } from './datasets'
-import { useReactTable, getCoreRowModel } from '@tanstack/react-table'
-import type { ColumnDef } from '@tanstack/react-table'
+import { useTable } from '@tanstack/react-table'
+import { appTableFeatures } from '#/lib/table-features'
+import type { AppColumnDef, AppTable } from '#/lib/table-features'
 import type {
   ScientificColumnWire,
   ScientificRowWire,
@@ -300,20 +301,20 @@ function makeTableInstance(
   rows: ScientificRowWire[],
   columns: ScientificColumnWire[],
 ) {
-  const defs: ColumnDef<ScientificRowWire, unknown>[] = columns.map((c) => ({
+  const defs: AppColumnDef<ScientificRowWire>[] = columns.map((c) => ({
     id: c.field_name,
     accessorKey: c.field_name,
     header: c.label,
     cell: ({ row }) => String(row.original[c.field_name] ?? '—'),
   }))
-  // useReactTable is a hook; wrap in a tiny component to capture the instance.
-  let instance: ReturnType<typeof useReactTable<ScientificRowWire>> | null =
-    null
+  // useTable is a hook; wrap in a tiny component to capture the instance.
+  let instance: AppTable<ScientificRowWire> | null = null
   function Harness() {
-    instance = useReactTable({
+    instance = useTable({
+      features: appTableFeatures,
       data: rows,
       columns: defs,
-      getCoreRowModel: getCoreRowModel(),
+      manualPagination: true,
     })
     return null
   }

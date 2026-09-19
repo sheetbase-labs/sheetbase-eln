@@ -25,8 +25,8 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { createColumnHelper } from '@tanstack/react-table'
-import type { ColumnDef } from '@tanstack/react-table'
+import { createAppColumnHelper } from '#/lib/table-features'
+import type { AppColumnDef } from '#/lib/table-features'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { Archive, FlaskConical } from 'lucide-react'
@@ -106,7 +106,7 @@ export const Route = createFileRoute('/reagents')({
 // session cookie per request.
 const client = createDataClient()
 
-const columnHelper = createColumnHelper<Reagent>()
+const columnHelper = createAppColumnHelper<Reagent>()
 
 /**
  * Build the server-owned RegistryQuery from the parsed URL search state.
@@ -456,7 +456,7 @@ function ReagentsRegistryRoute() {
 // Columns.
 // ---------------------------------------------------------------------------
 
-function buildColumns(): ColumnDef<Reagent, unknown>[] {
+function buildColumns(): AppColumnDef<Reagent>[] {
   return [
     columnHelper.accessor('identifier', {
       id: 'identifier',
@@ -577,11 +577,11 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       meta: { dataGridFormat: { kind: 'date', dateStyle: 'short' } },
       cell: (info) => formatDate(info.getValue()),
     }),
-  ] as ColumnDef<Reagent, unknown>[]
+  ] as AppColumnDef<Reagent>[]
 }
 
 function buildFields(
-  columns: ColumnDef<Reagent, unknown>[],
+  columns: AppColumnDef<Reagent>[],
 ): DataGridField<Reagent>[] {
   const labels: Record<string, string> = {
     identifier: 'Reagent ID',

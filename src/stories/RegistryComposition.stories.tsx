@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { AppColumnDef } from '#/lib/table-features'
 import {
   RegistryComposition,
   DEFAULT_REGISTRY_QUERY,
@@ -48,7 +48,7 @@ const rows: Row[] = [
   },
 ]
 
-const columns: ColumnDef<unknown, unknown>[] = [
+const columns: AppColumnDef<Row>[] = [
   { accessorKey: 'identifier', header: 'Identifier' },
   { accessorKey: 'title', header: 'Sample' },
   { accessorKey: 'status', header: 'Status' },
@@ -57,9 +57,9 @@ const columns: ColumnDef<unknown, unknown>[] = [
 
 const meta = {
   title: 'Registry/Registry composition',
-  component: RegistryComposition,
+  component: RegistryComposition<Row>,
   tags: ['autodocs'],
-} satisfies Meta<typeof RegistryComposition>
+} satisfies Meta<typeof RegistryComposition<Row>>
 
 export default meta
 type Story = StoryObj<typeof meta>

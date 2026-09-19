@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { AppColumnDef } from '#/lib/table-features'
 import { DataTable } from '#/components/scientific/data-table'
 import { Badge } from '#/components/ui/badge'
 
@@ -61,7 +61,7 @@ const data: SampleRow[] = [
     status: 'Low stock',
   },
 ]
-const columns: ColumnDef<SampleRow>[] = [
+const columns: AppColumnDef<SampleRow>[] = [
   { accessorKey: 'id', header: 'Sample ID' },
   { accessorKey: 'type', header: 'Type' },
   { accessorKey: 'batch', header: 'Batch' },
@@ -87,10 +87,10 @@ const columns: ColumnDef<SampleRow>[] = [
 ]
 const meta = {
   title: 'Scientific/DataTable',
-  component: DataTable<SampleRow, unknown>,
+  component: DataTable<SampleRow>,
   tags: ['autodocs'],
   args: { columns, data },
-} satisfies Meta<typeof DataTable<SampleRow, unknown>>
+} satisfies Meta<typeof DataTable<SampleRow>>
 export default meta
 type Story = StoryObj<typeof meta>
 export const Default: Story = {}

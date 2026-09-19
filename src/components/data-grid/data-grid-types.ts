@@ -1,16 +1,10 @@
-import type { ColumnDef } from '@tanstack/react-table'
+import type { RowData } from '@tanstack/react-table'
 
+import type { AppColumnDef } from '#/lib/table-features'
 import type {
   DataGridFilterOperator,
   DataGridScalar,
-  DataGridValueFormat,
 } from '#/lib/data-grid'
-
-declare module '@tanstack/react-table' {
-  interface ColumnMeta<TData, TValue> {
-    dataGridFormat?: DataGridValueFormat
-  }
-}
 
 export interface DataGridFieldFilter {
   type: 'text' | 'select'
@@ -20,10 +14,10 @@ export interface DataGridFieldFilter {
 }
 
 /** The single metadata contract used to derive grid columns and controls. */
-export interface DataGridField<TData> {
+export interface DataGridField<TData extends RowData> {
   id: string
   label: string
-  column?: ColumnDef<TData, unknown> | false
+  column?: AppColumnDef<TData> | false
   filter?: DataGridFieldFilter
   groupable: boolean
 }

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { flexRender } from '@tanstack/react-table'
-import type { Table as TanStackTable } from '@tanstack/react-table'
+import type { RowData } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -13,11 +13,12 @@ import {
   TableRow,
 } from '#/components/ui'
 import { formatDataGridValue } from '#/lib/data-grid'
+import type { AppTable } from '#/lib/table-features'
 import { cn } from '#/lib/utils'
 import type { DataGridIncrementalRows } from './data-grid-types'
 
-export interface DataGridProps<TData> {
-  table: TanStackTable<TData>
+export interface DataGridProps<TData extends RowData> {
+  table: AppTable<TData>
   title: string
   getRowId: (row: TData) => string
   selectedId: string | null
@@ -34,7 +35,7 @@ export interface DataGridProps<TData> {
 }
 
 /** Dense, keyboard-accessible TanStack grid with optional virtual row loading. */
-export function DataGrid<TData>({
+export function DataGrid<TData extends RowData>({
   table,
   title,
   getRowId,
@@ -89,13 +90,14 @@ export function DataGrid<TData>({
     if (viewportRef.current) viewportRef.current.scrollTop = 0
   }, [incrementalEnabled, resetKey])
 
+  const tableState = table.store.state
+  const dataLength = table.options.data.length
   React.useEffect(() => {
     if (
       !incrementalRows?.hasMore ||
       incrementalRows.loadingMore ||
       displayRows.length === 0 ||
-      (table.getState().grouping.length > 0 &&
-        table.getState().expanded !== true)
+      (tableState.grouping.length > 0 && tableState.expanded !== true)
     ) {
       return
     }
@@ -103,12 +105,12 @@ export function DataGrid<TData>({
     if (
       lastVisible &&
       lastVisible.index >= displayRows.length - 10 &&
-      lastRequestedRowCountRef.current !== table.options.data.length
+      lastRequestedRowCountRef.current !== dataLength
     ) {
-      lastRequestedRowCountRef.current = table.options.data.length
+      lastRequestedRowCountRef.current = dataLength
       incrementalRows.onLoadMore()
     }
-  }, [displayRows.length, incrementalRows, table, virtualItems])
+  }, [displayRows.length, incrementalRows, tableState, dataLength, virtualItems])
 
   function focusRow(index: number) {
     const row = navigableRows[index]
@@ -347,7 +349,6 @@ export function DataGrid<TData>({
                       </TableRow>
                     )
                   }
-                  if (row.depth > 0 && !row.original) return null
                   const id = getRowId(row.original)
                   const navigableIndex = navigableRows.indexOf(row)
                   return (

@@ -1,11 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { flexRender, useTable } from '@tanstack/react-table'
 import {
   createFileRoute,
   Link,
@@ -64,6 +58,11 @@ import {
 import type { NotebookRecord, Project } from '#/lib/notebook-data'
 import { recordDestination } from '#/lib/navigation'
 import { useRecentViewTracking } from '#/lib/recents'
+import {
+  appTableFeatures,
+  createAppColumnHelper,
+} from '#/lib/table-features'
+import type { AppColumnDef } from '#/lib/table-features'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import {
   activitySentence,
@@ -96,14 +95,8 @@ function RouteShell({
  * archived, empty and error states are all handled.
  */
 
-// Column width/alignment hints for the dense records table. Shared with the
-// projects list via declaration merging.
-declare module '@tanstack/react-table' {
-  interface ColumnMeta<TData, TValue> {
-    className?: string
-  }
-}
-
+// Column width/alignment hints for the dense records table come from the
+// shared columnMeta slot in appTableFeatures.
 export const Route = createFileRoute('/projects/$projectId')({
   component: ProjectRoute,
 })
@@ -479,7 +472,7 @@ function ProjectStatCards({
 // Records table (filterable by kind)
 // ---------------------------------------------------------------------------
 
-const columnHelper = createColumnHelper<NotebookRecord>()
+const columnHelper = createAppColumnHelper<NotebookRecord>()
 
 /** Kind filters shown as tabs above the records table. */
 const KIND_FILTERS: { value: string; label: string }[] = [
@@ -515,7 +508,7 @@ export function RecordListSection({
     [kindFilter],
   )
 
-  const columns = useMemo(
+  const columns = useMemo<AppColumnDef<NotebookRecord>[]>(
     () => [
       columnHelper.display({
         id: 'title',
@@ -589,12 +582,12 @@ export function RecordListSection({
     [userLabel],
   )
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data: records,
     columns,
     state: { columnFilters },
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+    manualPagination: true,
   })
 
   const rows = table.getRowModel().rows

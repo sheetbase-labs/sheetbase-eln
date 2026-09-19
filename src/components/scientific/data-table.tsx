@@ -1,16 +1,9 @@
 import * as React from 'react'
-import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { flexRender, useTable } from '@tanstack/react-table'
 import type {
-  ColumnDef,
+  ColumnVisibilityState,
+  RowData,
   SortingState,
-  Table as TanstackTable,
-  VisibilityState,
 } from '@tanstack/react-table'
 import { ArrowUpDown, ArrowUp, ArrowDown, Columns3 } from 'lucide-react'
 
@@ -30,18 +23,12 @@ import {
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
 } from '#/components/ui/dropdown-menu'
+import { appTableFeatures } from '#/lib/table-features'
+import type { AppColumnDef, AppTable } from '#/lib/table-features'
 import { cn } from '#/lib/utils'
 
-// Column width/alignment hints consumed by the TableHead/TableCell renderers
-// so the dense grid stays aligned without per-cell className repetition.
-declare module '@tanstack/react-table' {
-  interface ColumnMeta<TData, TValue> {
-    className?: string
-  }
-}
-
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
+interface DataTableProps<TData extends RowData> {
+  columns: AppColumnDef<TData>[]
   data: TData[]
   enableSorting?: boolean
   enableRowSelection?: boolean
@@ -53,17 +40,17 @@ interface DataTableProps<TData, TValue> {
   label?: string
   enablePagination?: boolean
   enableColumnVisibility?: boolean
-  initialColumnVisibility?: VisibilityState
+  initialColumnVisibility?: ColumnVisibilityState
   variant?: 'default' | 'quiet'
   emptyMessage?: React.ReactNode
   getRowId?: (row: TData) => string
   /** Custom footer row beneath the table. Receives the table instance so
    * callers can render counts, sort state and pagination controls. When
    * provided it replaces the default pagination block. */
-  footer?: (table: TanstackTable<TData>) => React.ReactNode
+  footer?: (table: AppTable<TData>) => React.ReactNode
 }
 
-function DataTable<TData, TValue>({
+function DataTable<TData extends RowData>({
   columns,
   data,
   enableSorting = true,
@@ -81,33 +68,33 @@ function DataTable<TData, TValue>({
   emptyMessage = 'No results.',
   getRowId,
   footer,
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] = React.useState(
     initialColumnVisibility,
   )
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data,
     columns,
     state: { sorting, rowSelection, columnVisibility },
     onColumnVisibilityChange: setColumnVisibility,
     getRowId,
-    initialState: { pagination: { pageSize: 20 } },
-    getPaginationRowModel: enablePagination
-      ? getPaginationRowModel()
-      : undefined,
+    initialState: { pagination: { pageIndex: 0, pageSize: 20 } },
+    manualPagination: !enablePagination,
     enableSorting,
     enableRowSelection,
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   })
 
+  // `useTable` v9 wraps the stable core instance in a fresh object each
+  // render, so deps must reference stable method refs, never `table` itself.
+  const setPageIndex = table.setPageIndex
   React.useEffect(() => {
-    if (enablePagination) table.setPageIndex(0)
-  }, [data, enablePagination, table])
+    if (enablePagination) setPageIndex(0)
+  }, [data, enablePagination, setPageIndex])
 
   return (
     <div className={cn('min-w-0 space-y-2', className)}>
@@ -280,7 +267,7 @@ function DataTable<TData, TValue>({
             Rows per page
             <select
               className="rounded-md border border-input bg-background p-1 text-foreground"
-              value={table.getState().pagination.pageSize}
+              value={table.state.pagination.pageSize}
               onChange={(event) =>
                 table.setPageSize(Number(event.target.value))
               }
@@ -294,7 +281,7 @@ function DataTable<TData, TValue>({
           </label>
           <div className="flex items-center gap-2">
             <span role="status">
-              Page {table.getState().pagination.pageIndex + 1} of{' '}
+              Page {table.state.pagination.pageIndex + 1} of{' '}
               {Math.max(1, table.getPageCount())}
             </span>
             <Button

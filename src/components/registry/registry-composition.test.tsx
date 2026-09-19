@@ -8,7 +8,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { AppColumnDef } from '#/lib/table-features'
 import { useState } from 'react'
 
 import { RegistryComposition } from './registry-composition'
@@ -28,7 +28,7 @@ const rows: Row[] = [
   { id: 'two', identifier: 'SMP-0002', status: 'reserved', value: 2.4 },
 ]
 
-const columns: ColumnDef<Row, unknown>[] = [
+const columns: AppColumnDef<Row>[] = [
   { accessorKey: 'identifier', header: 'Identifier' },
   { accessorKey: 'status', header: 'Status' },
   {

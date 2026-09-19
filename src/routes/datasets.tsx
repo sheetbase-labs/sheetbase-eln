@@ -21,7 +21,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { flexRender } from '@tanstack/react-table'
-import type { ColumnDef, useReactTable } from '@tanstack/react-table'
+import type { AppColumnDef, AppTable } from '#/lib/table-features'
 import {
   Check,
   ChevronsUpDown,
@@ -230,7 +230,7 @@ function rowCellValue(row: ScientificRowWire, column: ScientificColumnWire) {
 
 function toColumnDefs(
   columns: ScientificColumnWire[],
-): ColumnDef<ScientificRowWire, unknown>[] {
+): AppColumnDef<ScientificRowWire>[] {
   return columns.map((column) => {
     const numeric = ['decimal', 'integer'].includes(column.logical_type)
     return {
@@ -1185,7 +1185,7 @@ function DatasetRowEditor({
 // ---------------------------------------------------------------------------
 
 interface DataTableViewProps {
-  table: ReturnType<typeof useReactTable<ScientificRowWire>>
+  table: AppTable<ScientificRowWire>
   density: DatasetDensity
   loading: boolean
   error: unknown

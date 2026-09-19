@@ -197,9 +197,6 @@ export function buildTextDraftProposal(input: {
 }): AssistTextDraftProposal | null {
   const cited = envelopeCitations(input.envelope, input.citations)
   if (cited.length === 0) return null
-  const sourceLines = cited.map(
-    (citation, index) => `${index + 1}. ${citation.label} — ${citation.detail}`,
-  )
   const focus = input.focus?.trim()
   const keyPoints = (input.keyPoints ?? [])
     .map((point) => point.trim())
@@ -207,30 +204,26 @@ export function buildTextDraftProposal(input: {
   const draftText = [
     `Draft summary for '${input.recordTitle}'.`,
     focus ? `Focus: ${focus}.` : null,
-    keyPoints.length > 0 ? 'From the cited sources:' : null,
+    keyPoints.length > 0 ? 'Key points:' : null,
     ...keyPoints.map((point) => `— ${point}`),
-    `Grounded in ${cited.length} cited source${cited.length === 1 ? '' : 's'}:`,
-    ...sourceLines,
-    'Review and edit after inserting — this draft restates the cited sources and adds no new claims.',
+    'Review and edit after inserting — this draft restates existing content and adds no new claims.',
   ]
     .filter((line): line is string => line !== null)
     .join('\n')
   const payload = draftPayload([
     `Draft summary for '${input.recordTitle}'.`,
-    focus ? `Focus: ${focus}.` : 'Grounded in the cited record context below.',
+    focus ? `Focus: ${focus}.` : "Summarises the record's current content.",
     ...(keyPoints.length > 0
-      ? ['From the cited sources:', ...keyPoints.map((point) => `— ${point}`)]
+      ? ['Key points:', ...keyPoints.map((point) => `— ${point}`)]
       : []),
-    ...sourceLines,
   ])
   if (!validateBlock({ type: 'rich_text', payload }).ok) return null
   return {
     kind: 'notebook_text',
     title: `Draft summary for '${input.recordTitle}'`,
     summary:
-      `Inserts one rich_text block drafted from ${cited.length} cited source` +
-      `${cited.length === 1 ? '' : 's'} via the canonical block insert. ` +
-      'Nothing is written until Accept.',
+      "Inserts one rich_text block drafted from the record's existing " +
+      'content. Nothing is written until Accept.',
     draftText,
     block: { type: 'rich_text', payload },
     citations: cited,

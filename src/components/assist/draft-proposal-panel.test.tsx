@@ -1,7 +1,7 @@
 /**
  * DraftProposalPanel tests (ASSIST-02). Every proposal renders
- * preview-before-commit: a marked-generated banner, the preview, source
- * citations, and Accept/Discard. The panel never mutates — Accept and
+ * preview-before-commit: a marked-generated banner, the preview, and
+ * Accept/Discard. The panel never mutates — Accept and
  * Discard only call the host callbacks, and Discard leaves zero state.
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -97,7 +97,7 @@ describe('DraftProposalPanel', () => {
     ['notebook text', textProposal],
     ['import mapping', mappingProposal],
     ['chart config', chartProposal],
-  ])('marks a %s proposal as generated with citations', (_label, build) => {
+  ])('marks a %s proposal as generated without exposing grounding', (_label, build) => {
     render(
       <DraftProposalPanel
         proposal={build()}
@@ -106,8 +106,10 @@ describe('DraftProposalPanel', () => {
       />,
     )
     expect(screen.getByRole('note', { name: 'Generated draft' })).toBeTruthy()
-    expect(screen.getByText(/Cited sources/)).toBeTruthy()
     expect(screen.getByText(/Not authoritative/)).toBeTruthy()
+    // No model provider exists yet — the cited-source grounding an LLM
+    // would consume is prompt material, not user-facing content.
+    expect(screen.queryByText(/Cited sources/)).toBeNull()
   })
 
   it('previews the draft text for a notebook proposal', () => {

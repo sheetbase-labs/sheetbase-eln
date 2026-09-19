@@ -2,8 +2,8 @@
  * ASSIST-02 — Draft proposal panel.
  *
  * Preview-before-commit for every proposal kind: a marked-generated
- * banner, the deterministic preview, source citations, and
- * Accept/Discard. The panel never mutates anything itself — Accept calls
+ * banner, the deterministic preview, and Accept/Discard. The panel
+ * never mutates anything itself — Accept calls
  * the host's `onAccept` (which executes the ordinary canonical operation:
  * block insert, mapping apply, spec load) and Discard calls `onDiscard`
  * leaving zero state.
@@ -52,23 +52,6 @@ export function DraftProposalPanel({
           <p>{phrasing.text}</p>
         </blockquote>
       ) : null}
-      <div className="space-y-1">
-        <p className="font-medium text-muted-foreground">Cited sources</p>
-        <ul className="space-y-1">
-          {proposal.citations.map((citation, index) => (
-            <li key={index} className="text-muted-foreground">
-              <span className="font-mono">[{citation.label}]</span>{' '}
-              {citation.detail}
-              {citation.deepLink ? (
-                <>
-                  {' '}
-                  <span className="font-mono">{citation.deepLink}</span>
-                </>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </div>
       <p className="text-muted-foreground">{ASSISTANCE_NOTE}</p>
       <div className="flex gap-2">
         <Button type="button" size="sm" disabled={accepting} onClick={onAccept}>

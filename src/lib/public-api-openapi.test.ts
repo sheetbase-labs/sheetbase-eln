@@ -51,7 +51,9 @@ function rpcRequestSchema(name: string): {
 
 describe('API-03 external OpenAPI', () => {
   it('keeps generate-routes and adds openapi:generate', () => {
-    expect(packageJson.scripts['generate-routes']).toBe('tsr generate')
+    expect(packageJson.scripts['generate-routes']).toBe(
+      'tsx scripts/generate-routes.ts',
+    )
     expect(packageJson.scripts['openapi:generate']).toContain(
       'scripts/generate-public-openapi.ts',
     )

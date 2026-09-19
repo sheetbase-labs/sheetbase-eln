@@ -39,6 +39,10 @@ export const sheetInstanceWireSchema = z
     updated_at: timestamp,
     created_by_user_id: z.string().nullable(),
     updated_by_user_id: z.string().nullable(),
+    // API-07 service-credential write actors (migration 0115). Parsed so the
+    // strict boundary accepts real rows; not surfaced on the domain object.
+    created_by_credential_id: nullableUuid,
+    updated_by_credential_id: nullableUuid,
   })
   .strict()
 

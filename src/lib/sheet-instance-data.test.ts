@@ -25,6 +25,8 @@ function wire() {
     updated_at: '2026-08-14T10:00:00Z',
     created_by_user_id: 'user',
     updated_by_user_id: 'user',
+    created_by_credential_id: null,
+    updated_by_credential_id: null,
   }
 }
 
@@ -42,6 +44,16 @@ describe('Sheet Instance data boundary', () => {
     expect(() =>
       sheetInstanceFromWire({ ...wire(), id: 'not-a-uuid' }),
     ).toThrow()
+  })
+
+  it('accepts API-07 credential write-actor columns on real rows', () => {
+    const credential = crypto.randomUUID()
+    const parsed = sheetInstanceFromWire({
+      ...wire(),
+      created_by_credential_id: credential,
+      updated_by_credential_id: credential,
+    })
+    expect(parsed.id).toBeTruthy()
   })
 
   it('accepts Postgres timestamptz with six fractional digits', () => {

@@ -745,35 +745,46 @@ function DatasetTabs({
       onValueChange={(v) => onTabChange(v as ExplorerTab)}
       className="relative min-h-0 flex-1 overflow-hidden"
     >
-      <TabsList className="h-8 w-auto">
-        <TabsTrigger value="data" className="h-8 gap-1.5 px-3 py-0 text-xs">
-          <TableIcon className="size-3.5" aria-hidden="true" /> Data
-        </TabsTrigger>
-        <TabsTrigger value="schema" className="h-8 gap-1.5 px-3 py-0 text-xs">
-          <Layers className="size-3.5" aria-hidden="true" /> Schema
-        </TabsTrigger>
-        <TabsTrigger
-          value="relationships"
-          className="h-8 gap-1.5 px-3 py-0 text-xs"
-        >
-          <Share2 className="size-3.5" aria-hidden="true" /> Relationships
-        </TabsTrigger>
-        <TabsTrigger value="lineage" className="h-8 gap-1.5 px-3 py-0 text-xs">
-          <GitBranch className="size-3.5" aria-hidden="true" /> Lineage
-        </TabsTrigger>
-        <TabsTrigger value="versions" className="h-8 gap-1.5 px-3 py-0 text-xs">
-          <Layers className="size-3.5" aria-hidden="true" /> Versions
-        </TabsTrigger>
-        <TabsTrigger value="history" className="h-8 gap-1.5 px-3 py-0 text-xs">
-          <History className="size-3.5" aria-hidden="true" /> History
-        </TabsTrigger>
-        <TabsTrigger
-          value="pipelines"
-          className="h-8 gap-1.5 px-3 py-0 text-xs"
-        >
-          <Workflow className="size-3.5" aria-hidden="true" /> Pipelines
-        </TabsTrigger>
-      </TabsList>
+      <div className="shrink-0 overflow-x-auto">
+        <TabsList className="h-8 w-auto">
+          <TabsTrigger value="data" className="h-8 gap-1.5 px-3 py-0 text-xs">
+            <TableIcon className="size-3.5" aria-hidden="true" /> Data
+          </TabsTrigger>
+          <TabsTrigger value="schema" className="h-8 gap-1.5 px-3 py-0 text-xs">
+            <Layers className="size-3.5" aria-hidden="true" /> Schema
+          </TabsTrigger>
+          <TabsTrigger
+            value="relationships"
+            className="h-8 gap-1.5 px-3 py-0 text-xs"
+          >
+            <Share2 className="size-3.5" aria-hidden="true" /> Relationships
+          </TabsTrigger>
+          <TabsTrigger
+            value="lineage"
+            className="h-8 gap-1.5 px-3 py-0 text-xs"
+          >
+            <GitBranch className="size-3.5" aria-hidden="true" /> Lineage
+          </TabsTrigger>
+          <TabsTrigger
+            value="versions"
+            className="h-8 gap-1.5 px-3 py-0 text-xs"
+          >
+            <Layers className="size-3.5" aria-hidden="true" /> Versions
+          </TabsTrigger>
+          <TabsTrigger
+            value="history"
+            className="h-8 gap-1.5 px-3 py-0 text-xs"
+          >
+            <History className="size-3.5" aria-hidden="true" /> History
+          </TabsTrigger>
+          <TabsTrigger
+            value="pipelines"
+            className="h-8 gap-1.5 px-3 py-0 text-xs"
+          >
+            <Workflow className="size-3.5" aria-hidden="true" /> Pipelines
+          </TabsTrigger>
+        </TabsList>
+      </div>
       <TabsContent
         value="data"
         className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col"
@@ -995,7 +1006,7 @@ export function DatasetDataTab({
           aria-label="Chart preview"
           className="mx-1 mb-2 shrink-0 rounded-lg border bg-card"
         >
-          <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2">
             <h3 className="flex items-center gap-1.5 text-xs font-semibold">
               <LineChartIcon
                 className="size-3.5 text-muted-foreground"

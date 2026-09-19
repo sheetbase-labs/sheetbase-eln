@@ -111,7 +111,7 @@ export function SettingsApiTokens({
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start">
         <form
           onSubmit={submit}
           className="space-y-4 rounded-lg border bg-background p-4"

@@ -346,7 +346,7 @@ function LineageHeader({
   loading: boolean
 }) {
   return (
-    <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-3">
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <Network className="size-4 text-primary" aria-hidden="true" />

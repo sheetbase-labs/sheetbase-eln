@@ -545,11 +545,11 @@ export function SchemaGraphExplorer({
     data?.nodes.filter((node) => node.kind === 'dataset-schema') ?? []
 
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="relative flex min-h-0 flex-1">
       {railOpen ? (
         <aside
           aria-label="Schemas"
-          className="flex w-56 shrink-0 flex-col overflow-y-auto border-r"
+          className="flex w-56 shrink-0 flex-col overflow-y-auto border-r max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-10 max-sm:bg-background"
         >
           <div className="flex items-center justify-between px-3 py-2.5">
             <h2 className="text-sm font-semibold">Schemas</h2>
@@ -636,7 +636,7 @@ export function SchemaGraphExplorer({
       )}
 
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5">
           <p className="flex items-center gap-2 text-sm">
             <GitBranch
               className="size-4 text-muted-foreground"

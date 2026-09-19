@@ -29,6 +29,7 @@ import {
 import type { CalendarFilterValue } from '#/components/calendar'
 import { EventCalendar } from '#/components/reui/event-calendar/event-calendar'
 import { EventCalendarContent } from '#/components/reui/event-calendar/event-calendar-content'
+import type { EventCalendarI18nOverrides } from '#/components/reui/event-calendar/event-calendar-i18n'
 import { EventCalendarNav } from '#/components/reui/event-calendar/event-calendar-nav'
 import type {
   CalendarEvent,
@@ -53,6 +54,10 @@ import {
   fetchBookingSamples,
   fetchCalendarBookings,
   fetchCalendarResources,
+  formatDateInZone,
+  formatLongDateInZone,
+  formatTimeInZone,
+  isSameDayInZone,
   toCalendarBooking,
 } from '#/lib/calendar'
 import type {
@@ -73,6 +78,61 @@ export const Route = createFileRoute('/calendar')({
 
 const dataClient = createDataClient()
 const VIEW_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+
+/**
+ * The app's en-GB date/time conventions ("19 Sept 2026", 24-hour "08:00"),
+ * applied to the reui calendar whose defaults are en-US ("September 13 –
+ * 19, 2026", "1 AM"). Format strings are date-fns patterns; the range and
+ * event-time renderers reuse the shared `#/lib/calendar` zone helpers.
+ */
+const CALENDAR_I18N: EventCalendarI18nOverrides = {
+  formats: {
+    timeGutter: 'HH:mm',
+    timeGutterMinute: 'HH:mm',
+    eventTime: 'HH:mm',
+    agendaDayHeader: 'EEEE d MMMM',
+    moreDayHeader: 'EEEE d MMMM',
+  },
+  functions: {
+    formatTitle: (view, { date, activeRange }) => {
+      if (view === 'month') {
+        return new Intl.DateTimeFormat('en-GB', {
+          month: 'long',
+          year: 'numeric',
+          timeZone: VIEW_TIMEZONE,
+        }).format(date)
+      }
+      if (view === 'day' || view === 'resource') {
+        return formatLongDateInZone(date, VIEW_TIMEZONE)
+      }
+      // Week / N-day / agenda: bounded range, e.g. "13–19 Sept 2026".
+      return new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        timeZone: VIEW_TIMEZONE,
+      }).formatRange(
+        activeRange.start,
+        new Date(activeRange.end.getTime() - 1),
+      )
+    },
+    formatDayRange: (range) =>
+      `${formatDateInZone(range.start, VIEW_TIMEZONE)} – ${formatDateInZone(new Date(range.end.getTime() - 1), VIEW_TIMEZONE)}`,
+    formatEventTime: (start, end, allDay) => {
+      if (allDay) return 'All day'
+      // Multi-day timed events carry the date on both sides; compare wall
+      // days off the last rendered instant (end is exclusive).
+      const lastInstant =
+        end.getTime() - 1 >= start.getTime()
+          ? new Date(end.getTime() - 1)
+          : start
+      if (!isSameDayInZone(start, lastInstant, VIEW_TIMEZONE)) {
+        return `${formatDateInZone(start, VIEW_TIMEZONE)}, ${formatTimeInZone(start, VIEW_TIMEZONE)} – ${formatDateInZone(end, VIEW_TIMEZONE)}, ${formatTimeInZone(end, VIEW_TIMEZONE)}`
+      }
+      return `${formatTimeInZone(start, VIEW_TIMEZONE)} – ${formatTimeInZone(end, VIEW_TIMEZONE)}`
+    },
+  },
+}
 
 /** Map our booking color token names to CSS colors for the reui event chip. */
 const BOOKING_COLOR_TO_CSS: Record<string, string> = {
@@ -485,6 +545,7 @@ function CalendarRoute() {
               date={calendarDate}
               onDateChange={setCalendarDate}
               timeZone={VIEW_TIMEZONE}
+              i18n={CALENDAR_I18N}
               resources={eventResources}
               loading={resourcesQuery.isLoading || bookingsQuery.isLoading}
               onEventClick={(occurrence) =>

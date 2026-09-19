@@ -1,5 +1,5 @@
 /** PLAT-04 Platform Administration route tests. */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ShellProvider } from '#/components/app-shell'
@@ -28,13 +28,20 @@ vi.mock('@tanstack/react-router', () => ({
     select({ location: { pathname } }),
   Link: ({
     to,
+    params,
+    search: _search,
     children,
     ...props
   }: {
     to: string
+    params?: Record<string, string>
+    search?: unknown
     children: React.ReactNode
   } & Record<string, unknown>) => (
-    <a href={to} {...props}>
+    <a
+      href={params?.section ? to.replace('$section', params.section) : to}
+      {...props}
+    >
       {children}
     </a>
   ),
@@ -49,6 +56,35 @@ vi.mock('@tanstack/react-start', () => ({
     return chain
   },
 }))
+
+// Section panels are stubbed: this suite covers the nav chrome, and each
+// panel has its own test file under components/workspace-admin.
+vi.mock('#/components/workspace-admin', () => {
+  const stub = (name: string) => {
+    const Stub = () => <div data-testid={name} />
+    Stub.displayName = name
+    return Stub
+  }
+  return {
+    AdminApiCredentials: stub('AdminApiCredentials'),
+    AdminAuditExplorer: stub('AdminAuditExplorer'),
+    AdminConnectors: stub('AdminConnectors'),
+    AdminDashboard: stub('AdminDashboard'),
+    AdminDeployment: stub('AdminDeployment'),
+    AdminDiagnostics: stub('AdminDiagnostics'),
+    AdminExtensions: stub('AdminExtensions'),
+    AdminExternalAccess: stub('AdminExternalAccess'),
+    AdminInspector: stub('AdminInspector'),
+    AdminMembers: stub('AdminMembers'),
+    AdminPipelines: stub('AdminPipelines'),
+    AdminProjectAccess: stub('AdminProjectAccess'),
+    AdminSessions: stub('AdminSessions'),
+    AdminSettings: stub('AdminSettings'),
+    AdminStorage: stub('AdminStorage'),
+    AdminUsage: stub('AdminUsage'),
+    AdminWebhooks: stub('AdminWebhooks'),
+  }
+})
 
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -260,33 +296,153 @@ describe('AdminRoute', () => {
   })
 
   it('renders addressable links for every administration subpage', () => {
+    // Sections are grouped; each group header links to its first section,
+    // and the active group exposes its sections in the second row.
+    const expected: Record<string, { group: string; sections: string[] }> = {
+      '/admin/dashboard': {
+        group: 'Overview',
+        sections: ['Dashboard', 'External access'],
+      },
+      '/admin/external-access': {
+        group: 'Overview',
+        sections: ['Dashboard', 'External access'],
+      },
+      '/admin/users': {
+        group: 'Workspace',
+        sections: ['Members', 'Access', 'Workspace settings'],
+      },
+      '/admin/project-access': {
+        group: 'Workspace',
+        sections: ['Members', 'Access', 'Workspace settings'],
+      },
+      '/admin/settings': {
+        group: 'Workspace',
+        sections: ['Members', 'Access', 'Workspace settings'],
+      },
+      '/admin/sessions': {
+        group: 'Security and audit',
+        sections: ['Sessions', 'API', 'Audit'],
+      },
+      '/admin/api-credentials': {
+        group: 'Security and audit',
+        sections: ['Sessions', 'API', 'Audit'],
+      },
+      '/admin/activity': {
+        group: 'Security and audit',
+        sections: ['Sessions', 'API', 'Audit'],
+      },
+      '/admin/connectors': {
+        group: 'Integrations',
+        sections: ['Connectors', 'Pipelines', 'Extensions', 'Webhooks'],
+      },
+      '/admin/pipelines': {
+        group: 'Integrations',
+        sections: ['Connectors', 'Pipelines', 'Extensions', 'Webhooks'],
+      },
+      '/admin/extensions': {
+        group: 'Integrations',
+        sections: ['Connectors', 'Pipelines', 'Extensions', 'Webhooks'],
+      },
+      '/admin/webhooks': {
+        group: 'Integrations',
+        sections: ['Connectors', 'Pipelines', 'Extensions', 'Webhooks'],
+      },
+      '/admin/storage': {
+        group: 'Data',
+        sections: ['Storage', 'Usage'],
+      },
+      '/admin/usage': { group: 'Data', sections: ['Storage', 'Usage'] },
+      '/admin/diagnostics': {
+        group: 'Platform',
+        sections: ['Diagnostics', 'Deploy'],
+      },
+      '/admin/deployment': {
+        group: 'Platform',
+        sections: ['Diagnostics', 'Deploy'],
+      },
+    }
+    for (const [path, { group, sections }] of Object.entries(expected)) {
+      pathname = path
+      const { unmount } = render(
+        <ShellProvider>
+          <AdminRoute />
+        </ShellProvider>,
+      )
+      expect(
+        screen.getByRole('link', { name: group }).getAttribute('aria-current'),
+      ).toBe('true')
+      for (const label of sections) {
+        expect(screen.getByRole('link', { name: label })).toBeTruthy()
+      }
+      expect(screen.queryByRole('link', { name: 'Model fields' })).toBeNull()
+      unmount()
+    }
+  })
+
+  it('keeps every administration section reachable through its group', () => {
     render(
       <ShellProvider>
         <AdminRoute />
       </ShellProvider>,
     )
-    for (const label of [
-      'Dashboard',
-      'External access',
-      'Members',
-      'Access',
-      'Sessions',
-      'API',
-      'Connectors',
-      'Pipelines',
-      'Extensions',
-      'Webhooks',
-      'Storage',
-      'Usage',
-      'Audit',
-      'Diagnostics',
-      'Deploy',
+    // Every group header is a real link to its first visible section, so
+    // deep links remain canonical /admin/$section URLs.
+    const areas = screen.getByLabelText('Administration areas')
+    const groupLinks = Array.from(areas.querySelectorAll('a'))
+    expect(groupLinks.map((link) => link.textContent)).toEqual([
+      'Overview',
       'Workspace',
-    ]) {
-      expect(screen.getByRole('link', { name: label })).toBeTruthy()
-    }
-    expect(screen.queryByRole('link', { name: 'Model fields' })).toBeNull()
+      'Security and audit',
+      'Integrations',
+      'Data',
+      'Platform',
+    ])
+    const hrefs = groupLinks.map((link) => link.getAttribute('href'))
+    expect(hrefs).toEqual([
+      '/admin/dashboard',
+      '/admin/users',
+      '/admin/sessions',
+      '/admin/connectors',
+      '/admin/storage',
+      '/admin/diagnostics',
+    ])
+    // Only the active group's sections render in the second row.
+    const sections = screen.getByLabelText('Administration sections')
+    expect(
+      Array.from(sections.querySelectorAll('a')).map(
+        (link) => link.textContent,
+      ),
+    ).toEqual(['Dashboard', 'External access'])
   })
+  it('hides the overflow fade once a strip is scrolled to its end', () => {
+    render(
+      <ShellProvider>
+        <AdminRoute />
+      </ShellProvider>,
+    )
+    const strip = screen.getByLabelText('Administration areas')
+      .firstElementChild as HTMLElement
+    // jsdom reports zero layout; stub an overflowing strip.
+    let scrollWidth = 500
+    const clientWidth = 200
+    let scrollLeft = 0
+    Object.defineProperties(strip, {
+      scrollWidth: { get: () => scrollWidth },
+      clientWidth: { get: () => clientWidth },
+      scrollLeft: { get: () => scrollLeft },
+    })
+    fireEvent.scroll(strip)
+    expect(strip.className).toContain('mask-image')
+    scrollLeft = scrollWidth - clientWidth
+    fireEvent.scroll(strip)
+    expect(strip.className).not.toContain('mask-image')
+    // When everything fits without scrolling there is no fade either.
+    scrollLeft = 0
+    scrollWidth = clientWidth
+    fireEvent.scroll(strip)
+    expect(strip.className).not.toContain('mask-image')
+  })
+
   it('does not mention scientific models in the header copy', () => {
     render(
       <ShellProvider>
@@ -347,9 +503,9 @@ describe('Admin IA gating contract', () => {
         expect(visible).toEqual([
           'dashboard',
           'external-access',
+          'activity',
           'storage',
           'usage',
-          'activity',
           'diagnostics',
           'deployment',
         ])

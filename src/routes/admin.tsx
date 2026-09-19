@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createFileRoute,
@@ -46,6 +46,7 @@ import {
   AdminWebhooks,
 } from '#/components/workspace-admin'
 import { Button } from '#/components/ui'
+import { cn } from '#/lib/utils'
 import { createDataClient } from '#/lib/data-client'
 import { hasCapability } from '#/lib/capability'
 import type { Capability } from '#/lib/capability'
@@ -143,7 +144,7 @@ export const ADMIN_SECTIONS: AdminSectionDef[] = [
   },
   {
     key: 'settings',
-    label: 'Workspace',
+    label: 'Workspace settings',
     description:
       'Workspace registration, review, signature and retention policies.',
     group: 'Workspace',
@@ -166,6 +167,14 @@ export const ADMIN_SECTIONS: AdminSectionDef[] = [
     group: 'Security and audit',
     icon: Lock,
     capability: 'workspace.admin',
+  },
+  {
+    key: 'activity',
+    label: 'Audit',
+    description: 'Inspect and export the workspace audit trail.',
+    group: 'Security and audit',
+    icon: Activity,
+    capability: null,
   },
   {
     key: 'connectors',
@@ -218,14 +227,6 @@ export const ADMIN_SECTIONS: AdminSectionDef[] = [
     capability: null,
   },
   {
-    key: 'activity',
-    label: 'Audit',
-    description: 'Inspect and export the workspace audit trail.',
-    group: 'Security and audit',
-    icon: Activity,
-    capability: null,
-  },
-  {
     key: 'diagnostics',
     label: 'Diagnostics',
     description: 'Health checks, scheduler, executor, and configuration state.',
@@ -253,6 +254,55 @@ function sectionFromPath(pathname: string): AdminSectionKey {
     : 'dashboard'
 }
 
+interface AdminSectionGroup {
+  label: string
+  sections: AdminSectionDef[]
+}
+
+/**
+ * Horizontally scrolling nav strip. The right-edge fade is the affordance
+ * that more items exist, so it only renders while content actually sits
+ * beyond the edge — it clears at the scroll end and never shows when the
+ * strip fits without scrolling.
+ */
+function AdminNavStrip({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [showFade, setShowFade] = useState(false)
+
+  const update = useCallback(() => {
+    const strip = ref.current
+    if (!strip) return
+    setShowFade(strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1)
+  }, [])
+
+  useEffect(() => {
+    const strip = ref.current
+    if (!strip) return
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(strip)
+    return () => observer.disconnect()
+  }, [update])
+
+  // The item set can change without a resize (e.g. switching group), so
+  // re-check after every render; the state setter bails when unchanged.
+  useEffect(update)
+
+  return (
+    <div
+      ref={ref}
+      onScroll={update}
+      className={cn(
+        'flex w-full items-center gap-5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        showFade &&
+          '[mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)]',
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
 function AdminRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
@@ -267,6 +317,21 @@ function AdminRoute() {
   // Filter sections by capability — nav only shows what the user can access.
   const visibleSections = ADMIN_SECTIONS.filter(
     (section) => !section.capability || hasCapability(role, section.capability),
+  )
+  // Bucket the visible sections into their declared groups, preserving
+  // ADMIN_SECTIONS order, so the nav renders six areas rather than a flat
+  // sixteen-item strip.
+  const visibleGroups = visibleSections.reduce<AdminSectionGroup[]>(
+    (groups, item) => {
+      const group = groups.find((entry) => entry.label === item.group)
+      if (group) group.sections.push(item)
+      else groups.push({ label: item.group, sections: [item] })
+      return groups
+    },
+    [],
+  )
+  const activeGroup = visibleGroups.find((group) =>
+    group.sections.some((item) => item.key === activeSection),
   )
   const section = ADMIN_SECTIONS.find((item) => item.key === activeSection)!
 
@@ -557,30 +622,59 @@ function AdminRoute() {
         </header>
       </div>
 
-      <nav
-        aria-label="Administration sections"
-        className="border-b border-border"
-      >
-        {/* The strip scrolls horizontally when all sections don't fit; the
-            right-edge fade is the affordance that more sections exist. */}
-        <div className="flex w-full items-center gap-5 overflow-x-auto px-4 [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {visibleSections.map((item) => {
-            const active = item.key === activeSection
-            return (
-              <Link
-                key={item.key}
-                to="/admin/$section"
-                params={{ section: item.key }}
-                search={{ model: undefined }}
-                aria-current={active ? 'page' : undefined}
-                className={`-mb-px flex shrink-0 items-center border-b-2 px-1 py-2 text-sm font-medium no-underline transition-colors ${active ? 'border-primary font-label text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-              >
-                <span className="whitespace-nowrap">{item.label}</span>
-              </Link>
-            )
-          })}
-        </div>
-      </nav>
+      <div className="border-b border-border">
+        {/* The group row is the coarse area selector; each group links to
+            its first visible section so the URL stays canonical. */}
+        <nav aria-label="Administration areas">
+          <AdminNavStrip>
+            {visibleGroups.map((group) => {
+              const current = group.sections.some(
+                (item) => item.key === activeSection,
+              )
+              return (
+                <Link
+                  key={group.label}
+                  to="/admin/$section"
+                  params={{ section: group.sections[0].key }}
+                  search={{ model: undefined }}
+                  aria-current={current ? 'true' : undefined}
+                  className={cn(
+                    'flex shrink-0 items-center px-1 pt-1.5 pb-1 text-sm no-underline transition-colors',
+                    current
+                      ? 'font-label text-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <span className="whitespace-nowrap">{group.label}</span>
+                </Link>
+              )
+            })}
+          </AdminNavStrip>
+        </nav>
+        {/* The active group's sections keep the line-tab treatment on the
+            shared baseline. Hidden when the active section is gated. */}
+        {activeGroup ? (
+          <nav aria-label="Administration sections">
+            <AdminNavStrip>
+              {activeGroup.sections.map((item) => {
+                const active = item.key === activeSection
+                return (
+                  <Link
+                    key={item.key}
+                    to="/admin/$section"
+                    params={{ section: item.key }}
+                    search={{ model: undefined }}
+                    aria-current={active ? 'page' : undefined}
+                    className={`-mb-px flex shrink-0 items-center border-b-2 px-1 py-2 text-sm font-medium no-underline transition-colors ${active ? 'border-primary font-label text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <span className="whitespace-nowrap">{item.label}</span>
+                  </Link>
+                )
+              })}
+            </AdminNavStrip>
+          </nav>
+        ) : null}
+      </div>
 
       <div className="w-full px-4 py-4">
         {sectionDenied ? (

@@ -7,7 +7,7 @@
  */
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -36,6 +36,7 @@ globalThis.ResizeObserver = class {
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
+  useNavigate: () => vi.fn(),
 }))
 
 vi.mock('@tanstack/react-query', () => {
@@ -249,6 +250,16 @@ describe('ViewTabButton', () => {
 // ---------------------------------------------------------------------------
 
 describe('FilterBar', () => {
+  // The seed picker's useQuery is mocked to an idle result; the popover's
+  // search behaviour is covered by the picker components' own tests.
+  beforeEach(() => {
+    vi.mocked(useQuery).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof useQuery>)
+  })
+
   it('renders filter controls and reset button', () => {
     render(
       <FilterBar
@@ -256,6 +267,8 @@ describe('FilterBar', () => {
         onFiltersChange={() => {}}
         onReset={() => {}}
         cycle={null}
+        seedRecordId={null}
+        seedIdentifier={null}
       />,
     )
 
@@ -273,6 +286,8 @@ describe('FilterBar', () => {
         onFiltersChange={() => {}}
         onReset={() => {}}
         cycle={['a', 'b', 'a']}
+        seedRecordId={null}
+        seedIdentifier={null}
       />,
     )
 
@@ -286,6 +301,8 @@ describe('FilterBar', () => {
         onFiltersChange={() => {}}
         onReset={() => {}}
         cycle={null}
+        seedRecordId={null}
+        seedIdentifier={null}
       />,
     )
 
@@ -303,6 +320,8 @@ describe('FilterBar', () => {
         }}
         onReset={() => {}}
         cycle={null}
+        seedRecordId={null}
+        seedIdentifier={null}
       />,
     )
 

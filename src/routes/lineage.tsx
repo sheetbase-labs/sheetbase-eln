@@ -12,7 +12,12 @@
  * to inaccessible targets are rendered as honest "restricted" nodes.
  */
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import { useCallback, useMemo, useState } from 'react'
 import {
   Background,
@@ -40,9 +45,11 @@ import {
   FileText,
   FlaskConical,
   Layers,
+  Loader2,
   Maximize,
   Network,
   PenLine,
+  Search,
   Table as TableIcon,
   TriangleAlert,
 } from 'lucide-react'
@@ -52,6 +59,15 @@ import { useShell } from '#/components/app-shell'
 import {
   Badge,
   Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   Skeleton,
   Table,
@@ -61,7 +77,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui'
-import { formatRelativeTime } from '#/lib/notebook-data'
+import { formatRelativeTime, recordKindLabel } from '#/lib/notebook-data'
 import {
   ALL_ENTITY_TYPES,
   buildTableData,
@@ -80,6 +96,7 @@ import {
   lineageNodeDestination,
   lineageQueryKeys,
   parseLineageSeedParam,
+  searchLineageSeedRecords,
 } from '#/lib/lineage-data'
 import type {
   LineageEdge,
@@ -155,6 +172,16 @@ function LineageExplorerRoute() {
     return filterLineageGraph(rawGraph, filters)
   }, [rawGraph, filters])
 
+  // Resolve the seed record's identifier for the picker label; node ids are
+  // record ids.
+  const seedNode = useMemo(
+    () =>
+      seedRecordId
+        ? (rawGraph?.nodes.find((n) => n.id === seedRecordId) ?? null)
+        : null,
+    [rawGraph, seedRecordId],
+  )
+
   const selectedNode = useMemo(() => {
     if (!filteredGraph || !selectedNodeId) return null
     return filteredGraph.nodes.find((n) => n.id === selectedNodeId) ?? null
@@ -224,6 +251,8 @@ function LineageExplorerRoute() {
           onFiltersChange={setFilters}
           onReset={handleResetFilters}
           cycle={cycle}
+          seedRecordId={seedRecordId}
+          seedIdentifier={seedNode?.identifier ?? null}
         />
 
         {/* KNOW-02 — seeded per-object view: same traversal as the inspector
@@ -392,6 +421,116 @@ function ViewTabButton({
 }
 
 // ---------------------------------------------------------------------------
+// Seed picker — choose the record the traversal starts from
+// ---------------------------------------------------------------------------
+
+function SeedPicker({
+  seedRecordId,
+  seedIdentifier,
+}: {
+  seedRecordId: string | null
+  seedIdentifier: string | null
+}) {
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const seedSearch = useQuery({
+    queryKey: ['lineage-seed-search', query],
+    queryFn: () => searchLineageSeedRecords(lineageDataClient, query),
+    enabled: open,
+    staleTime: 15_000,
+  })
+  const results = seedSearch.data ?? []
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 text-xs"
+          aria-label="Choose the record to seed the lineage graph from"
+        >
+          <Network className="size-3.5" aria-hidden />
+          {seedIdentifier
+            ? `Seed: ${seedIdentifier}`
+            : seedRecordId
+              ? 'Seed: loading…'
+              : 'Seed graph…'}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-0">
+        <Command shouldFilter={false} loop>
+          <div className="flex items-center gap-2 border-b px-3">
+            <Search
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+            <CommandInput
+              placeholder="Search records by identifier or title"
+              onValueChange={setQuery}
+              aria-label="Search records by identifier or title"
+            />
+            {seedSearch.isLoading ? (
+              <Loader2
+                className="size-4 shrink-0 animate-spin text-muted-foreground"
+                aria-hidden
+              />
+            ) : null}
+          </div>
+          <CommandList>
+            {seedSearch.error ? (
+              <div
+                role="alert"
+                className="flex items-start gap-2 px-3 py-4 text-sm text-destructive"
+              >
+                Could not load records.
+              </div>
+            ) : null}
+            {!seedSearch.error &&
+            !seedSearch.isLoading &&
+            results.length === 0 ? (
+              <CommandEmpty>No records match your search.</CommandEmpty>
+            ) : null}
+            {results.length > 0 ? (
+              <CommandGroup heading="Records">
+                {results.map((record) => (
+                  <CommandItem
+                    key={record.id}
+                    value={`${record.identifier} ${record.title}`}
+                    aria-selected={record.id === seedRecordId}
+                    onSelect={() => {
+                      setOpen(false)
+                      void navigate({
+                        to: '/lineage',
+                        search: { seed: record.id },
+                      })
+                    }}
+                  >
+                    <div className="flex w-full items-center gap-2">
+                      <div className="min-w-0">
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {record.identifier}
+                        </span>
+                        <p className="truncate text-sm font-medium">
+                          {record.title}
+                        </p>
+                      </div>
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                        {recordKindLabel(record.kind)}
+                      </span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Filter bar
 // ---------------------------------------------------------------------------
 
@@ -400,14 +539,26 @@ function FilterBar({
   onFiltersChange,
   onReset,
   cycle,
+  seedRecordId,
+  seedIdentifier,
 }: {
   filters: LineageFilters
   onFiltersChange: (filters: LineageFilters) => void
   onReset: () => void
   cycle: string[] | null
+  seedRecordId: string | null
+  seedIdentifier: string | null
 }) {
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-3 border-b bg-muted/30 px-4 py-2">
+      {/* Seed picker — the explorer is most useful seeded on one record;
+          deep-links land on ?seed=<id> but the picker lets anyone start a
+          traversal without leaving the page. */}
+      <SeedPicker
+        seedRecordId={seedRecordId}
+        seedIdentifier={seedIdentifier}
+      />
+
       {/* Entity type filter */}
       <div className="flex items-center gap-1.5">
         <span className="text-xs font-medium text-muted-foreground">

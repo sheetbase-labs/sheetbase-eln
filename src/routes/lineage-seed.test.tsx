@@ -17,6 +17,7 @@ const searchState: { seed?: string } = {}
 
 vi.mock('@tanstack/react-router', () => ({
   useMatches: () => [],
+  useNavigate: () => vi.fn(),
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useRouteContext: () => ({
       context: {

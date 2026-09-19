@@ -495,6 +495,31 @@ export async function fetchLineageEvents(
   )
 }
 
+/**
+ * Search candidate seed records for the explorer's seed picker: identifier/
+ * title contains-match over non-deleted records, most recently updated
+ * first. Kind-agnostic — any record can seed a traversal. Cross-workspace
+ * records are invisible under RLS, so the picker cannot offer one.
+ */
+export function searchLineageSeedRecords(
+  client: DataClient = lineageDataClient,
+  query: string,
+  limit = 20,
+): Promise<RecordWire[]> {
+  const filters = ['deleted_at=is.null']
+  const trimmed = query.trim()
+  if (trimmed) {
+    const enc = encodeURIComponent(`*${trimmed}*`)
+    filters.push(`or=(identifier=ilike.${enc},title=ilike.${enc})`)
+  }
+  filters.push(
+    'order=updated_at.desc',
+    `limit=${limit}`,
+    'select=id,workspace_id,project_id,kind,identifier,title,status,properties,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id',
+  )
+  return client.list<RecordWire>('records', `?${filters.join('&')}`)
+}
+
 // ---------------------------------------------------------------------------
 // Graph building (pure functions)
 // ---------------------------------------------------------------------------

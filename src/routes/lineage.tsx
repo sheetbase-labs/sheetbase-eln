@@ -202,7 +202,6 @@ function LineageExplorerRoute() {
     context: shellContext,
     breadcrumbs: [
       { label: 'Home', to: '/' },
-      { label: 'Analysis', to: '/analysis' },
       { label: 'Lineage Explorer' },
     ],
     inspector: inspector,

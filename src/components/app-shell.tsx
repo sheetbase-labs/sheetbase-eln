@@ -120,7 +120,6 @@ const G_SEQUENCE_DESTINATIONS: Record<string, string | undefined> = {
   h: '/',
   p: '/projects',
   d: '/datasets',
-  s: '/sheets',
   t: '/templates',
   a: '/samples',
   r: '/reagents',
@@ -1297,7 +1296,6 @@ function CommandPalette({
             <span>g h Home</span>
             <span>g p Projects</span>
             <span>g d Datasets</span>
-            <span>g s Sheets</span>
             <span>g t Templates</span>
             <span>g a Samples</span>
             <span>g r Reagents</span>

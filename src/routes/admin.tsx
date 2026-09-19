@@ -561,7 +561,9 @@ function AdminRoute() {
         aria-label="Administration sections"
         className="border-y bg-muted/30"
       >
-        <div className="flex w-full items-center gap-0 overflow-x-auto px-4 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* The strip scrolls horizontally when all sections don't fit; the
+            right-edge fade is the affordance that more sections exist. */}
+        <div className="flex w-full items-center gap-0 overflow-x-auto px-4 py-1.5 [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map((item) => {
             const active = item.key === activeSection
             return (

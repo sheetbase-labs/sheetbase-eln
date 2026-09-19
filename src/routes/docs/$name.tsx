@@ -1,14 +1,7 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { marked } from 'marked'
 
-const DOC_NAMES = [
-  'deployment',
-  'recovery',
-  'security',
-  'performance',
-  'observability',
-  'administration',
-] as const
+import { DOC_NAMES, DOC_TITLES } from './-documents'
 
 export const Route = createFileRoute('/docs/$name')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -35,15 +28,6 @@ export const Route = createFileRoute('/docs/$name')({
   },
   component: DocPage,
 })
-
-const DOC_TITLES: Record<string, string> = {
-  deployment: 'Deployment',
-  recovery: 'Recovery',
-  security: 'Security',
-  performance: 'Performance',
-  observability: 'Observability',
-  administration: 'Administration',
-}
 
 function DocPage() {
   const { name, html } = Route.useLoaderData()

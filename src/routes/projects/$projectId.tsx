@@ -258,7 +258,6 @@ function ProjectRoute() {
             isArchived={isArchived}
             recordCount={records.length}
             isLoadingRecords={recordsQuery.isLoading}
-            onCreateExperiment={() => setCreateOpen(true)}
           />
 
           {records.length > 0 && (
@@ -311,13 +310,11 @@ function ProjectHeader({
   isArchived,
   recordCount,
   isLoadingRecords,
-  onCreateExperiment,
 }: {
   project: Project
   isArchived: boolean
   recordCount: number
   isLoadingRecords: boolean
-  onCreateExperiment: () => void
 }) {
   return (
     <header className="space-y-3">
@@ -353,12 +350,6 @@ function ProjectHeader({
         </div>
         <div className="flex items-center gap-2">
           <FavouriteToggle kind="project" objectId={project.id} />
-          {!isArchived ? (
-            <Button size="sm" onClick={onCreateExperiment}>
-              <FlaskConical className="size-3.5" aria-hidden="true" />
-              New experiment
-            </Button>
-          ) : null}
         </div>
       </div>
     </header>

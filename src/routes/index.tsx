@@ -14,6 +14,7 @@ import {
   ArrowRight,
   AtSign,
   CalendarDays,
+  ChevronDown,
   ChevronRight,
   CircleCheck,
   ClipboardList,
@@ -21,18 +22,25 @@ import {
   Eye,
   FlaskConical,
   Folder,
+  FolderOpen,
   GanttChart,
   Inbox,
   LayoutTemplate,
   Pin,
   Plus,
   Star,
+  TestTube,
+  TestTubes,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Skeleton,
   Table,
   TableBody,
@@ -168,12 +176,73 @@ function Home() {
       }}
       breadcrumbs={[{ label: 'Home' }]}
       primaryAction={
-        <Button asChild size="sm">
-          <Link to="/projects" className="no-underline">
-            <Plus className="size-3.5" />
-            New
-          </Link>
-        </Button>
+        // "+ New" offers a choice of what to create. Creation dialogs live on
+        // their owning surfaces, so each item navigates to the page whose
+        // primary action performs the create (experiments are created inside
+        // a project, so both experiment and project go to /projects).
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm">
+              <Plus className="size-3.5" />
+              New
+              <ChevronDown className="size-3.5" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to="/projects">
+                <FlaskConical className="mr-2 size-4" aria-hidden="true" />
+                Experiment
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/projects">
+                <FolderOpen className="mr-2 size-4" aria-hidden="true" />
+                Project
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                to="/samples"
+                search={{
+                  page: undefined,
+                  size: undefined,
+                  sort: undefined,
+                  group: undefined,
+                  filters: undefined,
+                  selected: undefined,
+                  rq: undefined,
+                }}
+              >
+                <TestTube className="mr-2 size-4" aria-hidden="true" />
+                Sample
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                to="/reagents"
+                search={{
+                  rq: '',
+                  sort: '',
+                  group: undefined,
+                  status: '',
+                  storage: '',
+                  q: '',
+                  selected: '',
+                }}
+              >
+                <TestTubes className="mr-2 size-4" aria-hidden="true" />
+                Reagent
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/datasets" search={{ dataset: '' }}>
+                <Database className="mr-2 size-4" aria-hidden="true" />
+                Dataset
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       }
     >
       <MyWorkDashboard

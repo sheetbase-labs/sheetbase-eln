@@ -39,6 +39,7 @@ import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
 import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsNameRouteImport } from './routes/docs/$name'
 import { Route as IntegrationsConnectorIdRouteImport } from './routes/integrations/$connectorId'
 import { Route as PipelinesDefinitionIdRouteImport } from './routes/pipelines/$definitionId'
@@ -218,6 +219,11 @@ const ApiMetricsRoute = ApiMetricsRouteImport.update({
 const ApiSheetCalculationsRoute = ApiSheetCalculationsRouteImport.update({
   id: '/api/sheet-calculations',
   path: '/api/sheet-calculations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/docs/',
+  path: '/docs/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsNameRoute = DocsNameRouteImport.update({
@@ -416,6 +422,7 @@ export interface FileRoutesByFullPath {
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/docs/': typeof DocsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -478,6 +485,7 @@ export interface FileRoutesByTo {
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/docs': typeof DocsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -541,6 +549,7 @@ export interface FileRoutesById {
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/docs/': typeof DocsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -605,6 +614,7 @@ export interface FileRouteTypes {
     | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
+    | '/docs/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -667,6 +677,7 @@ export interface FileRouteTypes {
     | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
+    | '/docs'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -729,6 +740,7 @@ export interface FileRouteTypes {
     | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
+    | '/docs/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -787,6 +799,7 @@ export interface RootRouteChildren {
   DocsNameRoute: typeof DocsNameRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
   SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
+  DocsIndexRoute: typeof DocsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
@@ -1020,6 +1033,13 @@ declare module '@tanstack/react-router' {
       path: '/api/sheet-calculations'
       fullPath: '/api/sheet-calculations'
       preLoaderRoute: typeof ApiSheetCalculationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/': {
+      id: '/docs/'
+      path: '/docs'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs/$name': {
@@ -1339,6 +1359,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocsNameRoute: DocsNameRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
   SheetsInstanceIdRoute: SheetsInstanceIdRoute,
+  DocsIndexRoute: DocsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
@@ -1364,13 +1385,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

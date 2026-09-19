@@ -554,10 +554,7 @@ function FilterBar({
       {/* Seed picker — the explorer is most useful seeded on one record;
           deep-links land on ?seed=<id> but the picker lets anyone start a
           traversal without leaving the page. */}
-      <SeedPicker
-        seedRecordId={seedRecordId}
-        seedIdentifier={seedIdentifier}
-      />
+      <SeedPicker seedRecordId={seedRecordId} seedIdentifier={seedIdentifier} />
 
       {/* Entity type filter */}
       <div className="flex items-center gap-1.5">

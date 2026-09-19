@@ -315,9 +315,7 @@ export function ScientificRecordLinker({
       {!hideSummaries && scientificLinks.length > 0 ? (
         <div className="space-y-3">
           {scientificLinks.map((link) => {
-            const recordQuery = summaryByRecordId.get(
-              link.targetRecordId ?? '',
-            )
+            const recordQuery = summaryByRecordId.get(link.targetRecordId ?? '')
             const record = recordQuery?.data
             return record ? (
               <ScientificRecordSummary

@@ -543,9 +543,7 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
         {items.map((item) => {
           const materialQuery = recordByMaterialId.get(item.materialRecordId)
           const alerts =
-            loading || error
-              ? []
-              : materialAlerts(materialQuery?.data ?? null)
+            loading || error ? [] : materialAlerts(materialQuery?.data ?? null)
           const currentRecord = error ? null : (materialQuery?.data ?? null)
           return (
             <div

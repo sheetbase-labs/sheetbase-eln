@@ -475,6 +475,7 @@ function CalendarRoute() {
               upcoming={railData.upcoming}
               conflicts={railData.conflicts}
               availableNow={railData.availableNow}
+              hasResources={(resourcesQuery.data ?? []).length > 0}
               onSelectBooking={setSelectedBookingId}
             />
             <EventCalendar
@@ -601,6 +602,7 @@ function CalendarRail({
   upcoming,
   conflicts,
   availableNow,
+  hasResources,
   onSelectBooking,
 }: {
   date: Date
@@ -611,6 +613,7 @@ function CalendarRail({
     resource: CalendarResource
     freeUntil: string | undefined
   }>
+  hasResources: boolean
   onSelectBooking: (id: string) => void
 }) {
   return (
@@ -668,7 +671,11 @@ function CalendarRail({
       </RailSection>
       <RailSection icon={CircleCheck} title="Available now">
         {availableNow.length === 0 ? (
-          <p className="text-xs text-muted-foreground">All resources booked.</p>
+          <p className="text-xs text-muted-foreground">
+            {hasResources
+              ? 'All resources booked.'
+              : 'No resources registered.'}
+          </p>
         ) : (
           <ul className="space-y-1 text-xs">
             {availableNow.slice(0, 4).map(({ resource, freeUntil }) => (

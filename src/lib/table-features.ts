@@ -47,10 +47,11 @@ export type AppTableFeatures = typeof appTableFeatures
 // Column defs are parameterised by their cell value type; `any` mirrors the
 // v8 `ColumnDef<TData, any>` convention and v9's own `helper.columns()` so
 // defs with concrete TValue inference stay assignable to `columns` options.
-export type AppColumnDef<
-  TData extends RowData,
-  TValue = any,
-> = ColumnDef<AppTableFeatures, TData, TValue>
+export type AppColumnDef<TData extends RowData, TValue = any> = ColumnDef<
+  AppTableFeatures,
+  TData,
+  TValue
+>
 export type AppTable<TData extends RowData> = Table<AppTableFeatures, TData>
 export const createAppColumnHelper = <TData extends RowData>() =>
   createColumnHelper<AppTableFeatures, TData>()

@@ -1,10 +1,7 @@
 import type { RowData } from '@tanstack/react-table'
 
 import type { AppColumnDef } from '#/lib/table-features'
-import type {
-  DataGridFilterOperator,
-  DataGridScalar,
-} from '#/lib/data-grid'
+import type { DataGridFilterOperator, DataGridScalar } from '#/lib/data-grid'
 
 export interface DataGridFieldFilter {
   type: 'text' | 'select'

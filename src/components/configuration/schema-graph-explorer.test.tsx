@@ -77,10 +77,7 @@ describe('buildSchemaGraphData', () => {
       ['quantity', 'number'],
     ])
     expect(sample.rowCount).toBe(128)
-    expect(data.nodes[1].fields.map((f) => f.typeLabel)).toEqual([
-      'pk',
-      'date',
-    ])
+    expect(data.nodes[1].fields.map((f) => f.typeLabel)).toEqual(['pk', 'date'])
     expect(data.edges).toHaveLength(0)
   })
 
@@ -194,8 +191,8 @@ describe('buildSchemaGraphData', () => {
     })
     const schemaNode = data.nodes[1]
     expect(schemaNode.rowCount).toBe(8)
-    expect(schemaNode.fields.find((f) => f.name === 'experiment_id')).toMatchObject(
-      { typeLabel: 'fk', isFk: true },
-    )
+    expect(
+      schemaNode.fields.find((f) => f.name === 'experiment_id'),
+    ).toMatchObject({ typeLabel: 'fk', isFk: true })
   })
 })

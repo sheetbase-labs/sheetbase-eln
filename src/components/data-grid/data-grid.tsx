@@ -110,7 +110,13 @@ export function DataGrid<TData extends RowData>({
       lastRequestedRowCountRef.current = dataLength
       incrementalRows.onLoadMore()
     }
-  }, [displayRows.length, incrementalRows, tableState, dataLength, virtualItems])
+  }, [
+    displayRows.length,
+    incrementalRows,
+    tableState,
+    dataLength,
+    virtualItems,
+  ])
 
   function focusRow(index: number) {
     const row = navigableRows[index]

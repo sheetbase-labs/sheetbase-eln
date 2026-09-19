@@ -349,5 +349,4 @@ describe('execution parity (no new write paths)', () => {
       expect(JSON.parse(JSON.stringify(workflow))).toEqual(workflow)
     }
   })
-
 })

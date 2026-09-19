@@ -739,10 +739,7 @@ function DatasetTabs({
         <TabsTrigger value="lineage" className="h-8 gap-1.5 px-3 py-0 text-xs">
           <GitBranch className="size-3.5" aria-hidden="true" /> Lineage
         </TabsTrigger>
-        <TabsTrigger
-          value="versions"
-          className="h-8 gap-1.5 px-3 py-0 text-xs"
-        >
+        <TabsTrigger value="versions" className="h-8 gap-1.5 px-3 py-0 text-xs">
           <Layers className="size-3.5" aria-hidden="true" /> Versions
         </TabsTrigger>
         <TabsTrigger value="history" className="h-8 gap-1.5 px-3 py-0 text-xs">

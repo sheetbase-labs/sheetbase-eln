@@ -120,8 +120,7 @@ function schemaNodeFields(
     { name: 'id', typeLabel: 'pk', isPk: true },
     ...fields.map((field) => {
       const isFk =
-        field.logical_type === 'reference' &&
-        relationshipFieldIds.has(field.id)
+        field.logical_type === 'reference' && relationshipFieldIds.has(field.id)
       return {
         name: field.slug,
         typeLabel: fieldTypeLabel(field.logical_type, isFk),

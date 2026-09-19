@@ -54,9 +54,7 @@ function ConfigureRoute() {
         role: context.workspace?.role,
       },
     },
-    breadcrumbs: [
-      { label: search.kind ? 'Models & schemas' : 'Schemas' },
-    ],
+    breadcrumbs: [{ label: search.kind ? 'Models & schemas' : 'Schemas' }],
     inspector: null,
   })
 

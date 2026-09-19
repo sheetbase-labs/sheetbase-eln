@@ -194,9 +194,7 @@ describe('UnifiedTemplateTable', () => {
       expect.objectContaining({ type: 'notebook', id: 'nbk-1' }),
     )
 
-    await user.click(
-      screen.getByRole('button', { name: /^Titration Assay/ }),
-    )
+    await user.click(screen.getByRole('button', { name: /^Titration Assay/ }))
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'protocol', id: 'prt-1' }),
     )
@@ -205,9 +203,7 @@ describe('UnifiedTemplateTable', () => {
   it('fires the favourite toggle from the row star', async () => {
     const user = userEvent.setup()
     const onToggleFavourite = vi.fn()
-    render(
-      <UnifiedTemplateTable {...tableProps({ onToggleFavourite })} />,
-    )
+    render(<UnifiedTemplateTable {...tableProps({ onToggleFavourite })} />)
 
     await user.click(
       screen.getByRole('button', { name: 'Favourite Titration Assay' }),
@@ -233,9 +229,7 @@ describe('UnifiedTemplateTable', () => {
   })
 
   it('renders grid cards in grid view', () => {
-    render(
-      <UnifiedTemplateTable {...tableProps({ view: 'grid' as const })} />,
-    )
+    render(<UnifiedTemplateTable {...tableProps({ view: 'grid' as const })} />)
     expect(screen.getByText('Titration Assay')).toBeTruthy()
     expect(screen.getByText('Stability Study (ICH)')).toBeTruthy()
     expect(screen.getByText('1 placements')).toBeTruthy()
@@ -279,9 +273,7 @@ describe('UnifiedTemplateFilters', () => {
     const user = userEvent.setup()
     const onFavouritesOnlyChange = vi.fn()
     render(
-      <UnifiedTemplateFilters
-        {...filterProps({ onFavouritesOnlyChange })}
-      />,
+      <UnifiedTemplateFilters {...filterProps({ onFavouritesOnlyChange })} />,
     )
     await user.click(screen.getByRole('button', { name: /Favourites/ }))
     expect(onFavouritesOnlyChange).toHaveBeenCalledWith(true)
@@ -316,9 +308,7 @@ describe('NotebookTemplateInspector', () => {
     expect(screen.getByText('Records created')).toBeTruthy()
     expect(screen.getByText('14')).toBeTruthy()
 
-    await user.click(
-      screen.getByRole('button', { name: 'Create notebook' }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Create notebook' }))
     expect(onInstantiate).toHaveBeenCalledWith('nbv-1')
   })
 

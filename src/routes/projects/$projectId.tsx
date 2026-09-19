@@ -58,10 +58,7 @@ import {
 import type { NotebookRecord, Project } from '#/lib/notebook-data'
 import { recordDestination } from '#/lib/navigation'
 import { useRecentViewTracking } from '#/lib/recents'
-import {
-  appTableFeatures,
-  createAppColumnHelper,
-} from '#/lib/table-features'
+import { appTableFeatures, createAppColumnHelper } from '#/lib/table-features'
 import type { AppColumnDef } from '#/lib/table-features'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import {

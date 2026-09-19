@@ -41,7 +41,10 @@ function TableHeader({
   return (
     <thead
       data-slot="table-header"
-      className={cn('[&_tr]:border-b bg-control [&_tr:hover]:bg-transparent', className)}
+      className={cn(
+        '[&_tr]:border-b bg-control [&_tr:hover]:bg-transparent',
+        className,
+      )}
       {...props}
     />
   )

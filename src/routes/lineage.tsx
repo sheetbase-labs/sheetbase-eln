@@ -200,10 +200,7 @@ function LineageExplorerRoute() {
 
   useShell({
     context: shellContext,
-    breadcrumbs: [
-      { label: 'Home', to: '/' },
-      { label: 'Lineage Explorer' },
-    ],
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Lineage Explorer' }],
     inspector: inspector,
     inspectorLabel: 'Lineage inspector',
     inspectorCollapsible: true,

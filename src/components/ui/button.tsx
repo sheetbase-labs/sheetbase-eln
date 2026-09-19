@@ -15,20 +15,23 @@ import { cn } from '#/lib/utils'
  *   a child `<span className="sr-only">` (enforced by review, not the type).
  */
 const buttonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-label transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4',
+  'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-label transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4',
   {
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover',
+          'bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover disabled:hover:bg-primary',
         destructive:
-          'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/40',
-        outline: 'border border-input bg-surface shadow-xs hover:bg-control',
+          'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/40 disabled:hover:bg-destructive',
+        outline:
+          'border border-input bg-surface shadow-xs hover:bg-control disabled:hover:bg-surface',
         secondary:
-          'bg-secondary text-secondary-foreground shadow-xs hover:bg-input/50',
-        ghost: 'hover:bg-control hover:text-foreground',
+          'bg-secondary text-secondary-foreground shadow-xs hover:bg-input/50 disabled:hover:bg-secondary',
+        ghost:
+          'hover:bg-control hover:text-foreground disabled:hover:bg-transparent disabled:hover:text-inherit',
         link: 'text-primary underline underline-offset-4',
-        subtle: 'bg-accent/70 text-accent-foreground hover:bg-accent',
+        subtle:
+          'bg-accent/70 text-accent-foreground hover:bg-accent disabled:hover:bg-accent/70',
       },
       size: {
         default: 'h-9 px-3.5',

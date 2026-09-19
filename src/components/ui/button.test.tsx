@@ -43,10 +43,18 @@ describe('Button', () => {
     })
   })
 
-  it('disables pointer events and dims when disabled', () => {
+  it('dims and shows the not-allowed cursor when disabled', () => {
     render(<Button disabled>Save</Button>)
     const button = screen.getByRole('button', { name: 'Save' })
     expect(button.hasAttribute('disabled')).toBe(true)
+    expect(button.className).toContain('disabled:cursor-not-allowed')
+    expect(button.className).toContain('disabled:opacity-50')
+  })
+
+  it('keeps its base background on hover while disabled', () => {
+    render(<Button disabled>Save</Button>)
+    const button = screen.getByRole('button', { name: 'Save' })
+    expect(button.className).toContain('disabled:hover:bg-primary')
   })
 
   it('forwards onClick handlers', () => {

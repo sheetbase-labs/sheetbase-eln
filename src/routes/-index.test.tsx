@@ -315,7 +315,7 @@ describe('MyPrioritiesPanel', () => {
   it('shows an empty state when there are no priorities', () => {
     render(<MyPrioritiesPanel priorities={[]} isLoading={false} />)
 
-    expect(screen.getByText('No priorities')).toBeTruthy()
+    expect(screen.getByText('Nothing awaiting your review')).toBeTruthy()
   })
 })
 

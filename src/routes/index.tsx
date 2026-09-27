@@ -87,6 +87,7 @@ import type { RecentItem } from '#/lib/recents'
 import { recordDestination, recordPath } from '#/lib/navigation'
 import { cn } from '#/lib/utils'
 import { useUserNames } from '#/lib/user-names'
+import { useWorkItems } from '#/lib/work-items/data'
 
 function RouteShell({
   children,
@@ -396,6 +397,8 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
           isLoading={myReviewsQuery.isLoading}
         />
       </div>
+
+      <NeedsAttentionSection />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
@@ -766,7 +769,7 @@ export function RecentSection({
   return (
     <section aria-label="Recent" className="min-w-0 border-t border-border">
       <SectionHeader
-        title="Recent"
+        title="Continue working"
         count={isLoading ? undefined : items.length}
       />
       {isLoading ? (
@@ -1214,6 +1217,71 @@ export function ActivityFeed({
 // My priorities — top pending reviews, shown in the right sidebar.
 // ---------------------------------------------------------------------------
 
+/**
+ * WORK-02.1 — "Needs attention": the caller's open work items (assigned
+ * reviews, failed runs and followed records), from api.my_work_items.
+ */
+function NeedsAttentionSection() {
+  const query = useWorkItems()
+  const items = (query.data ?? []).filter(
+    (item) => item.state !== 'following' && item.kind !== 'following',
+  )
+  return (
+    <section
+      aria-label="Needs attention"
+      className="min-w-0 border-t border-border"
+    >
+      <SectionHeader title="Needs attention" />
+      {query.isLoading ? (
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={Inbox}
+          title="Nothing needs attention"
+          body="Reviews, failed pipeline runs and followed records will appear here."
+        />
+      ) : (
+        <ul className="divide-y divide-border">
+          {items.map((item) => (
+            <li key={`${item.kind}:${item.recordId ?? item.identifier}`}>
+              {item.recordId ? (
+                <Link
+                  to={recordPath(item.recordId)}
+                  className="flex items-center gap-3 px-4 py-3 no-underline"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {item.title}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {item.reason}
+                    </p>
+                  </div>
+                </Link>
+              ) : (
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {item.title}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {item.reason}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 export function MyPrioritiesPanel({
   priorities,
   isLoading,
@@ -1223,10 +1291,10 @@ export function MyPrioritiesPanel({
 }) {
   return (
     <section
-      aria-label="My priorities"
+      aria-label="Awaiting your review"
       className="min-w-0 border-t border-border"
     >
-      <SectionHeader title="My priorities" />
+      <SectionHeader title="Awaiting your review" />
       {isLoading ? (
         <div className="space-y-2 p-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -1236,8 +1304,8 @@ export function MyPrioritiesPanel({
       ) : priorities.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title="No priorities"
-          body="Pending reviews assigned to you will appear here as priorities."
+          title="Nothing awaiting your review"
+          body="Pending reviews assigned to you will appear here."
         />
       ) : (
         <ol className="divide-y divide-border">

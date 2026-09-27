@@ -89,6 +89,7 @@ import { cn } from '#/lib/utils'
 import { requestShortcutsDialog } from '#/lib/shortcuts-dialog'
 import { useUserNames } from '#/lib/user-names'
 import { fetchCalendarBookings, formatTimeInZone } from '#/lib/calendar'
+import { fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import { useWorkItems } from '#/lib/work-items/data'
 
 function RouteShell({
@@ -380,7 +381,12 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
         </Link>
       </div>
 
-      {isFirstRun ? <FirstRunSection projects={projects} /> : null}
+      {isFirstRun ? (
+        <FirstRunSection
+          projects={projects}
+          workspaceId={context.workspace.id}
+        />
+      ) : null}
 
       <QuickActionsGrid />
 
@@ -1260,11 +1266,20 @@ export function ActivityFeed({
  */
 function FirstRunSection({
   projects,
+  workspaceId,
 }: {
   projects: Array<{ id: string; title: string }>
+  workspaceId: string
 }) {
   const firstProject: { id: string; title: string } | null =
     projects.length > 0 ? projects[0] : null
+  const membersQuery = useQuery({
+    queryKey: ['workspace-members', workspaceId],
+    queryFn: () => fetchWorkspaceMembers(notebookDataClient, workspaceId),
+    staleTime: 60_000,
+  })
+  const members = (membersQuery.data ?? []).slice(0, 5)
+  const { userLabel } = useUserNames(members.map((member) => member.userId))
   const steps = [
     {
       title: 'Account created',
@@ -1340,6 +1355,58 @@ function FirstRunSection({
           </li>
         ))}
       </ol>
+      <div className="grid gap-4 border-t border-border p-4 md:grid-cols-2">
+        <div className="min-w-0">
+          <h3 className="mb-2 text-label text-muted-foreground">
+            Your projects
+          </h3>
+          {projects.length === 0 ? (
+            <p className="text-caption text-muted-foreground">
+              Other projects in this workspace are visible once someone adds
+              you.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {projects.slice(0, 5).map((project) => (
+                <li key={project.id}>
+                  <Link
+                    to={projectPath(project.id)}
+                    className="text-sm text-foreground no-underline hover:underline"
+                  >
+                    {project.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="min-w-0">
+          <h3 className="mb-2 text-label text-muted-foreground">
+            People to know
+          </h3>
+          {members.length === 0 ? (
+            <p className="text-caption text-muted-foreground">
+              Workspace members appear here.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {members.map((member) => (
+                <li
+                  key={member.id}
+                  className="flex items-center justify-between gap-2 text-sm"
+                >
+                  <span className="truncate text-foreground">
+                    {userLabel(member.userId)}
+                  </span>
+                  <span className="shrink-0 text-caption text-muted-foreground">
+                    {member.role}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
       <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-2 text-caption">
         <span className="text-muted-foreground">Help</span>
         <Link to="/help" className="text-primary no-underline hover:underline">

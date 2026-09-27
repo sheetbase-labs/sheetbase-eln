@@ -267,6 +267,34 @@ export const designSteps: Array<SeedStep> = [
     },
   },
   {
+    name: 'design protocols',
+    run: async (db) => {
+      for (const protocol of DESIGN_PROTOCOLS) {
+        await db
+          .insert(schema.records)
+          .values({
+            id: protocol.id,
+            workspaceId: PROCESS,
+            projectId: null,
+            kind: 'protocol_template',
+            identifier: protocol.identifier,
+            title: protocol.title,
+            status: protocol.status,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: schema.records.id,
+            set: {
+              title: protocol.title,
+              status: protocol.status,
+              deletedAt: null,
+              archivedAt: null,
+            },
+          })
+      }
+    },
+  },
+  {
     name: 'design experiments',
     run: async (db) => {
       for (const experiment of DESIGN_EXPERIMENTS) {
@@ -400,6 +428,32 @@ const DESIGN_EXPERIMENTS: ReadonlyArray<{
         text: 'Determine the harvest timepoint that maximises genome titre without compromising capsid integrity.',
       },
     ],
+  },
+]
+
+const DESIGN_PROTOCOLS: ReadonlyArray<{
+  id: string
+  identifier: string
+  title: string
+  status: string
+}> = [
+  {
+    id: '00000000-0000-4000-8000-000000000370',
+    identifier: 'PRT-006',
+    title: 'HEK293 transfection',
+    status: 'active',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000371',
+    identifier: 'PRT-014',
+    title: 'AAV9 harvest clarification',
+    status: 'active',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000372',
+    identifier: 'PRT-018',
+    title: 'PEI:DNA transfection',
+    status: 'under_review',
   },
 ]
 

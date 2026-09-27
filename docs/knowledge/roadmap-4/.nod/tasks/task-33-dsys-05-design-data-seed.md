@@ -25,3 +25,4 @@ Spec: [DSYS-05 in tasks/DSYS.md](../../tasks/DSYS.md#dsys-05--design-data-seed)
 - Steps: 4 subtasks
 
 ## Work Log
+- 2026-09-27: Seeded the design projects (design seed): 8 PRJ projects across the four workspaces, idempotent (db:seed:design converges). Custom fields await the PROJ-01 columns; the projects.custom_fields trigger rejects unregistered keys.

@@ -178,4 +178,83 @@ export const designSteps: Array<SeedStep> = [
       }
     },
   },
+  {
+    name: 'design projects',
+    run: async (db) => {
+      for (const project of DESIGN_PROJECTS) {
+        await db
+          .insert(schema.projects)
+          .values({
+            id: project.id,
+            workspaceId: project.workspaceId,
+            key: project.key,
+            title: project.title,
+          })
+          .onConflictDoUpdate({
+            target: [schema.projects.workspaceId, schema.projects.key],
+            set: { title: project.title },
+          })
+      }
+    },
+  },
+]
+
+/**
+ * The projects the design screens show, per workspace. Client, stage and lead
+ * live in `custom_fields` until PROJ-01 gives them columns.
+ */
+const DESIGN_PROJECTS: ReadonlyArray<{
+  id: string
+  workspaceId: string
+  key: string
+  title: string
+}> = [
+  {
+    id: '00000000-0000-4000-8000-000000000320',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    key: 'aav9-process-transfer',
+    title: 'AAV9 process transfer',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000321',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    key: 'lvv-stability-2-8c',
+    title: 'LVV stability, 2–8 °C hold',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000322',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    key: 'ambr-250-perfusion-scale-down',
+    title: 'Ambr 250 perfusion scale-down',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000323',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    key: 'car-t-expansion-media-screen',
+    title: 'CAR-T expansion media screen',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000324',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    key: 'hek293-cell-bank-characterisation',
+    title: 'HEK293 cell bank characterisation',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000325',
+    workspaceId: DESIGN_WORKSPACE_IDS.analyticalDevelopment,
+    key: 'ddpcr-titre-qualification',
+    title: 'ddPCR titre qualification',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000326',
+    workspaceId: DESIGN_WORKSPACE_IDS.gmpManufacturing,
+    key: 'engineering-run-50l',
+    title: '50 L engineering run',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000327',
+    workspaceId: DESIGN_WORKSPACE_IDS.qualityControl,
+    key: 'release-testing-aav9',
+    title: 'Release testing, AAV9',
+  },
 ]

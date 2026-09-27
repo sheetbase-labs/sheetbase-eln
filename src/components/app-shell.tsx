@@ -57,6 +57,10 @@ import { cn } from '#/lib/utils'
 import { useTheme } from '#/components/theme-provider'
 import { ConnectionStatus, useLiveStatus } from '#/components/live'
 import { NotificationInbox } from './collaboration/notification-inbox'
+import { createGlobalShortcuts } from '#/lib/global-shortcuts'
+import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
+import { ShortcutProvider } from './shortcuts/shortcut-provider'
+import { ShortcutsDialog } from './shortcuts/shortcuts-dialog'
 import {
   Badge,
   Button,
@@ -107,18 +111,17 @@ import {
 const COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
 const INSPECTOR_COLLAPSE_KEY = 'sheetbase-inspector-collapsed'
 
-// NAV-03: `g`-then-letter keyboard navigation. The second key must land
-// within the window after `g`; anything else consumes the pending `g`.
-const G_SEQUENCE_WINDOW_MS = 800
-const G_SEQUENCE_DESTINATIONS: Record<string, string | undefined> = {
-  h: '/',
-  p: '/projects',
-  d: '/datasets',
-  s: '/sheets',
-  t: '/templates',
-  a: '/samples',
-  r: '/reagents',
-}
+// NAV-03: `g`-then-letter keyboard navigation, registered through the
+// SHELL-03 shortcut registry (see createGlobalShortcuts).
+const G_SEQUENCE_DESTINATIONS: GlobalShortcutDestination[] = [
+  { key: 'h', to: '/', label: 'Home' },
+  { key: 'p', to: '/projects', label: 'Projects' },
+  { key: 'd', to: '/datasets', label: 'Datasets' },
+  { key: 's', to: '/sheets', label: 'Sheets' },
+  { key: 't', to: '/templates', label: 'Templates' },
+  { key: 'a', to: '/samples', label: 'Samples' },
+  { key: 'r', to: '/reagents', label: 'Reagents' },
+]
 
 /**
  * NAV-03: restore focus to the element that was focused before an overlay
@@ -520,8 +523,7 @@ export function AppShell({
     capturePaletteFocus()
     setCommandOpen(true)
   }, [capturePaletteFocus])
-  // NAV-03: timestamp of the last standalone `g` keypress for sequences.
-  const gPressedAt = React.useRef(0)
+  const [helpOpen, setHelpOpen] = React.useState(false)
 
   React.useEffect(() => {
     try {
@@ -564,48 +566,17 @@ export function AppShell({
     setInspectorCollapsed(next)
   }, [inspectorCollapsed])
 
-  React.useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        openPalette()
-        return
-      }
-      // NAV-03: `g`-then-letter keyboard navigation. Skipped inside
-      // editable targets and with modifiers held so typing is unaffected.
-      if (event.metaKey || event.ctrlKey || event.altKey) return
-      const target = event.target as HTMLElement | null
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
-        return
-      }
-      const key = event.key.toLowerCase()
-      const now = Date.now()
-      if (key === 'g') {
-        gPressedAt.current = now
-        return
-      }
-      if (
-        gPressedAt.current !== 0 &&
-        now - gPressedAt.current <= G_SEQUENCE_WINDOW_MS
-      ) {
-        gPressedAt.current = 0
-        const to = G_SEQUENCE_DESTINATIONS[key]
-        if (to !== undefined) {
-          event.preventDefault()
-          void navigate({ to })
-        }
-        // Unknown second keys are ignored — the pending `g` is consumed.
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [navigate, openPalette])
+  const globalShortcuts = React.useMemo(
+    () =>
+      createGlobalShortcuts({
+        openPalette,
+        openHelp: () => setHelpOpen(true),
+        toggleRail: toggleCollapsed,
+        navigate: (to) => void navigate({ to }),
+        destinations: G_SEQUENCE_DESTINATIONS,
+      }),
+    [navigate, openPalette, toggleCollapsed],
+  )
 
   const signOut = React.useCallback(async () => {
     await authClient.signOut()
@@ -799,296 +770,311 @@ export function AppShell({
     ) : null
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="min-h-svh bg-background text-foreground">
-        {context && (
-          <a
-            href={`#${APP_SHELL_MAIN_ID}`}
-            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
-          >
-            Skip to content
-          </a>
-        )}
-
-        {context && (
-          <aside
-            aria-label="Application navigation"
-            data-slot="sidebar"
-            className={cn(
-              'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
-              collapsed ? 'md:w-14' : 'md:w-60',
-            )}
-            data-collapsed={collapsed ? 'true' : 'false'}
-          >
-            {renderSidebarBody(collapsed)}
-          </aside>
-        )}
-
-        {context && (
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetContent
-              side="left"
-              className="w-72 border-r border-sidebar-border bg-sidebar p-0 md:hidden"
-            >
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
-              {renderSidebarBody(false)}
-            </SheetContent>
-          </Sheet>
-        )}
-
-        <div
-          className={cn(
-            fullBleed
-              ? 'flex h-svh flex-col overflow-hidden'
-              : 'flex min-h-svh flex-col',
-            context && (collapsed ? 'md:pl-14' : 'md:pl-60'),
-          )}
-        >
+    <ShortcutProvider definitions={globalShortcuts}>
+      <TooltipProvider delayDuration={200}>
+        <div className="min-h-svh bg-background text-foreground">
           {context && (
-            <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="md:hidden"
-                aria-label="Open navigation"
-                onClick={() => {
-                  captureMobileFocus()
-                  setMobileOpen(true)
-                }}
-              >
-                <Menu />
-              </Button>
+            <a
+              href={`#${APP_SHELL_MAIN_ID}`}
+              className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+            >
+              Skip to content
+            </a>
+          )}
 
-              <nav
-                aria-label="Breadcrumb"
-                className="flex min-w-0 items-center gap-2 text-sm"
-              >
-                {/* Narrow screens keep the canonical parent and current
-                    location visible. Desktop shows the complete hierarchy. */}
-                {breadcrumbs.length > 0 ? (
-                  <span
-                    className="flex min-w-0 items-center gap-2 sm:hidden"
-                    data-slot="mobile-breadcrumb"
-                  >
-                    {breadcrumbs.length > 1 &&
-                    breadcrumbs[breadcrumbs.length - 2]?.to ? (
-                      <Link
-                        to={breadcrumbs[breadcrumbs.length - 2].to ?? ''}
-                        className="inline-flex items-center gap-1 text-muted-foreground no-underline hover:text-foreground"
-                      >
-                        <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
-                        <span className="truncate">
-                          {breadcrumbs[breadcrumbs.length - 2].label}
-                        </span>
-                      </Link>
-                    ) : breadcrumbs.length > 1 ? (
-                      <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
-                    ) : null}
-                    {breadcrumbs.length > 1 ? (
-                      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-                    ) : null}
-                    <span
-                      className="truncate font-medium text-foreground"
-                      aria-current="page"
-                    >
-                      {breadcrumbs[breadcrumbs.length - 1].label}
-                    </span>
-                  </span>
-                ) : null}
-                <span className="hidden min-w-0 items-center gap-2 sm:flex">
-                  {breadcrumbs.map((crumb, i) => {
-                    const last = i === breadcrumbs.length - 1
-                    return (
-                      <React.Fragment key={`${crumb.label}-${i}`}>
-                        {i > 0 ? (
-                          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-                        ) : null}
-                        {crumb.to && !last ? (
-                          <Link
-                            to={crumb.to}
-                            aria-label={i === 0 ? 'Sheetbase home' : undefined}
-                            className="truncate text-muted-foreground no-underline hover:text-foreground"
-                          >
-                            {i === 0 && crumb.to === '/' ? (
-                              <HomeIcon className="size-3.5 shrink-0" />
-                            ) : (
-                              crumb.label
-                            )}
-                          </Link>
-                        ) : (
-                          <span
-                            className="truncate font-medium text-foreground"
-                            aria-current={last ? 'page' : undefined}
-                          >
-                            {crumb.label}
-                          </span>
-                        )}
-                      </React.Fragment>
-                    )
-                  })}
-                </span>
-              </nav>
+          {context && (
+            <aside
+              aria-label="Application navigation"
+              data-slot="sidebar"
+              className={cn(
+                'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
+                collapsed ? 'md:w-14' : 'md:w-60',
+              )}
+              data-collapsed={collapsed ? 'true' : 'false'}
+            >
+              {renderSidebarBody(collapsed)}
+            </aside>
+          )}
 
-              <div className="ml-auto flex items-center gap-2">
-                <ConnectionStatus
-                  status={liveStatus.status}
-                  lastAppliedSeq={liveStatus.lastAppliedSeq}
-                />
-                <NotificationInbox />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={openPalette}
-                  className="hidden h-8 w-56 items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-muted/50 sm:flex"
-                  aria-label="Search records and samples"
-                >
-                  <Search className="size-4 shrink-0" />
-                  <span className="flex-1 truncate">
-                    Search records, samples…
-                  </span>
-                  <Kbd>⌘K</Kbd>
-                </Button>
+          {context && (
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetContent
+                side="left"
+                className="w-72 border-r border-sidebar-border bg-sidebar p-0 md:hidden"
+              >
+                <SheetTitle className="sr-only">Navigation</SheetTitle>
+                {renderSidebarBody(false)}
+              </SheetContent>
+            </Sheet>
+          )}
+
+          <div
+            className={cn(
+              fullBleed
+                ? 'flex h-svh flex-col overflow-hidden'
+                : 'flex min-h-svh flex-col',
+              context && (collapsed ? 'md:pl-14' : 'md:pl-60'),
+            )}
+          >
+            {context && (
+              <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6">
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="sm:hidden"
-                  aria-label="Search"
-                  onClick={openPalette}
+                  className="md:hidden"
+                  aria-label="Open navigation"
+                  onClick={() => {
+                    captureMobileFocus()
+                    setMobileOpen(true)
+                  }}
                 >
-                  <Search />
+                  <Menu />
                 </Button>
 
-                {primaryAction}
+                <nav
+                  aria-label="Breadcrumb"
+                  className="flex min-w-0 items-center gap-2 text-sm"
+                >
+                  {/* Narrow screens keep the canonical parent and current
+                    location visible. Desktop shows the complete hierarchy. */}
+                  {breadcrumbs.length > 0 ? (
+                    <span
+                      className="flex min-w-0 items-center gap-2 sm:hidden"
+                      data-slot="mobile-breadcrumb"
+                    >
+                      {breadcrumbs.length > 1 &&
+                      breadcrumbs[breadcrumbs.length - 2]?.to ? (
+                        <Link
+                          to={breadcrumbs[breadcrumbs.length - 2].to ?? ''}
+                          className="inline-flex items-center gap-1 text-muted-foreground no-underline hover:text-foreground"
+                        >
+                          <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
+                          <span className="truncate">
+                            {breadcrumbs[breadcrumbs.length - 2].label}
+                          </span>
+                        </Link>
+                      ) : breadcrumbs.length > 1 ? (
+                        <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
+                      ) : null}
+                      {breadcrumbs.length > 1 ? (
+                        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                      ) : null}
+                      <span
+                        className="truncate font-medium text-foreground"
+                        aria-current="page"
+                      >
+                        {breadcrumbs[breadcrumbs.length - 1].label}
+                      </span>
+                    </span>
+                  ) : null}
+                  <span className="hidden min-w-0 items-center gap-2 sm:flex">
+                    {breadcrumbs.map((crumb, i) => {
+                      const last = i === breadcrumbs.length - 1
+                      return (
+                        <React.Fragment key={`${crumb.label}-${i}`}>
+                          {i > 0 ? (
+                            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                          ) : null}
+                          {crumb.to && !last ? (
+                            <Link
+                              to={crumb.to}
+                              aria-label={
+                                i === 0 ? 'Sheetbase home' : undefined
+                              }
+                              className="truncate text-muted-foreground no-underline hover:text-foreground"
+                            >
+                              {i === 0 && crumb.to === '/' ? (
+                                <HomeIcon className="size-3.5 shrink-0" />
+                              ) : (
+                                crumb.label
+                              )}
+                            </Link>
+                          ) : (
+                            <span
+                              className="truncate font-medium text-foreground"
+                              aria-current={last ? 'page' : undefined}
+                            >
+                              {crumb.label}
+                            </span>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
+                  </span>
+                </nav>
 
-                {inspector && (
+                <div className="ml-auto flex items-center gap-2">
+                  <ConnectionStatus
+                    status={liveStatus.status}
+                    lastAppliedSeq={liveStatus.lastAppliedSeq}
+                  />
+                  <NotificationInbox />
                   <Button
-                    variant="outline"
-                    size="sm"
-                    className="xl:hidden"
-                    aria-label={`Open ${inspectorLabel}`}
-                    aria-expanded={inspectorOpen}
-                    onClick={() => setInspectorOpen(true)}
+                    type="button"
+                    variant="ghost"
+                    onClick={openPalette}
+                    className="hidden h-8 w-56 items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-muted/50 sm:flex"
+                    aria-label="Search records and samples"
                   >
-                    <PanelRight /> {inspectorLabel}
+                    <Search className="size-4 shrink-0" />
+                    <span className="flex-1 truncate">
+                      Search records, samples…
+                    </span>
+                    <Kbd>⌘K</Kbd>
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="sm:hidden"
+                    aria-label="Search"
+                    onClick={openPalette}
+                  >
+                    <Search />
+                  </Button>
+
+                  {primaryAction}
+
+                  {inspector && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="xl:hidden"
+                      aria-label={`Open ${inspectorLabel}`}
+                      aria-expanded={inspectorOpen}
+                      onClick={() => setInspectorOpen(true)}
+                    >
+                      <PanelRight /> {inspectorLabel}
+                    </Button>
+                  )}
+                  {inspector && inspectorCollapsible && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="hidden xl:inline-flex"
+                          aria-label={
+                            inspectorCollapsed
+                              ? 'Show inspector'
+                              : 'Hide inspector'
+                          }
+                          aria-expanded={!inspectorCollapsed}
+                          onClick={toggleInspectorCollapsed}
+                        >
+                          <PanelRight
+                            className={cn(
+                              'size-4',
+                              !inspectorCollapsed && 'text-foreground',
+                            )}
+                          />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {inspectorCollapsed
+                          ? 'Show inspector'
+                          : 'Hide inspector'}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              </header>
+            )}
+
+            <div className="flex flex-1 overflow-hidden">
+              <main
+                id={APP_SHELL_MAIN_ID}
+                tabIndex={-1}
+                className={cn(
+                  'min-h-0 min-w-0 flex-1',
+                  fullBleed && 'flex flex-col overflow-hidden',
                 )}
-                {inspector && inspectorCollapsible && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+              >
+                {/* Keep the route at the same React depth when its layout changes.
+                  Remounting it runs useShell cleanup, which changes the layout
+                  again and can repeatedly tear down the active route. */}
+                <div
+                  className={
+                    fullBleed
+                      ? 'contents'
+                      : 'mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8'
+                  }
+                >
+                  {children}
+                </div>
+              </main>
+
+              {context && inspector && (
+                <aside
+                  aria-label={inspectorLabel}
+                  data-slot="inspector"
+                  className={cn(
+                    'hidden shrink-0 border-l border-sidebar-border bg-background xl:block',
+                    inspectorCollapsible && inspectorCollapsed
+                      ? 'w-10'
+                      : 'w-80',
+                  )}
+                  data-inspector-collapsed={
+                    inspectorCollapsible && inspectorCollapsed
+                      ? 'true'
+                      : 'false'
+                  }
+                >
+                  {inspectorCollapsible && inspectorCollapsed ? (
+                    <div className="flex h-full flex-col items-center pt-3">
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="hidden xl:inline-flex"
-                        aria-label={
-                          inspectorCollapsed
-                            ? 'Show inspector'
-                            : 'Hide inspector'
-                        }
-                        aria-expanded={!inspectorCollapsed}
+                        aria-label="Show inspector"
+                        aria-expanded={false}
                         onClick={toggleInspectorCollapsed}
                       >
-                        <PanelRight
-                          className={cn(
-                            'size-4',
-                            !inspectorCollapsed && 'text-foreground',
-                          )}
-                        />
+                        <PanelRight className="size-4" />
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-            </header>
+                    </div>
+                  ) : (
+                    <div className="sticky top-14 h-[calc(100svh-3.5rem)]">
+                      {inspector}
+                    </div>
+                  )}
+                </aside>
+              )}
+            </div>
+          </div>
+
+          {context && inspector && (
+            <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
+              <SheetContent
+                side="right"
+                className="w-80 border-l p-0 xl:hidden"
+                showClose={false}
+              >
+                <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
+                <div className="h-full">{inspector}</div>
+              </SheetContent>
+            </Sheet>
           )}
 
-          <div className="flex flex-1 overflow-hidden">
-            <main
-              id={APP_SHELL_MAIN_ID}
-              tabIndex={-1}
-              className={cn(
-                'min-h-0 min-w-0 flex-1',
-                fullBleed && 'flex flex-col overflow-hidden',
-              )}
-            >
-              {/* Keep the route at the same React depth when its layout changes.
-                  Remounting it runs useShell cleanup, which changes the layout
-                  again and can repeatedly tear down the active route. */}
-              <div
-                className={
-                  fullBleed
-                    ? 'contents'
-                    : 'mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8'
-                }
-              >
-                {children}
-              </div>
-            </main>
-
-            {context && inspector && (
-              <aside
-                aria-label={inspectorLabel}
-                data-slot="inspector"
-                className={cn(
-                  'hidden shrink-0 border-l border-sidebar-border bg-background xl:block',
-                  inspectorCollapsible && inspectorCollapsed ? 'w-10' : 'w-80',
-                )}
-                data-inspector-collapsed={
-                  inspectorCollapsible && inspectorCollapsed ? 'true' : 'false'
-                }
-              >
-                {inspectorCollapsible && inspectorCollapsed ? (
-                  <div className="flex h-full flex-col items-center pt-3">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Show inspector"
-                      aria-expanded={false}
-                      onClick={toggleInspectorCollapsed}
-                    >
-                      <PanelRight className="size-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="sticky top-14 h-[calc(100svh-3.5rem)]">
-                    {inspector}
-                  </div>
-                )}
-              </aside>
-            )}
-          </div>
+          {context && (
+            <CommandPalette
+              open={commandOpen}
+              onOpenChange={setCommandOpen}
+              navSections={navSections}
+              onNavigate={() => setMobileOpen(false)}
+              theme={theme}
+              setTheme={setTheme}
+              onSignOut={signOut}
+              extensionCommands={extensionCommands}
+              onExtensionCommand={onExtensionCommand}
+            />
+          )}
         </div>
-
-        {context && inspector && (
-          <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-            <SheetContent
-              side="right"
-              className="w-80 border-l p-0 xl:hidden"
-              showClose={false}
-            >
-              <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
-              <div className="h-full">{inspector}</div>
-            </SheetContent>
-          </Sheet>
-        )}
-
-        {context && (
-          <CommandPalette
-            open={commandOpen}
-            onOpenChange={setCommandOpen}
-            navSections={navSections}
-            onNavigate={() => setMobileOpen(false)}
-            theme={theme}
-            setTheme={setTheme}
-            onSignOut={signOut}
-            extensionCommands={extensionCommands}
-            onExtensionCommand={onExtensionCommand}
-          />
-        )}
-      </div>
-    </TooltipProvider>
+        <ShortcutsDialog
+          open={helpOpen}
+          onOpenChange={setHelpOpen}
+          definitions={globalShortcuts}
+        />
+      </TooltipProvider>
+    </ShortcutProvider>
   )
 }
 

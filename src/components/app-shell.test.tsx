@@ -22,6 +22,12 @@ import {
 import type { AppShellNavItem } from './app-shell'
 import type { FavouriteItem } from '#/lib/favourites'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { currentPlatform } from '#/lib/shortcuts'
+
+// The ⌘K / Ctrl+K binding is platform-aware (SHELL-03); press the modifier the
+// active platform expects so the test is portable.
+const paletteKeys =
+  currentPlatform() === 'mac' ? '{Meta>}k{/Meta}' : '{Control>}k{/Control}'
 
 // Stub auth-client so signOut never hits the network.
 vi.mock('#/lib/auth-client', () => ({
@@ -288,7 +294,7 @@ describe('AppShell', () => {
       navSections: [{ items }],
       children: null,
     })
-    await user.keyboard('{Meta>}k{/Meta}')
+    await user.keyboard(paletteKeys)
     const dialog = screen.getByRole('dialog', { name: 'Command palette' })
     expect(dialog).toBeTruthy()
     expect(dialog.textContent).toContain('Projects')
@@ -313,7 +319,7 @@ describe('AppShell', () => {
       breadcrumbs: [{ label: 'Home' }],
       children: null,
     })
-    await user.keyboard('{Meta>}k{/Meta}')
+    await user.keyboard(paletteKeys)
     const dialog = screen.getByRole('dialog', { name: 'Command palette' })
     await waitFor(() => {
       expect(dialog.textContent).toContain('Stability study')
@@ -328,7 +334,7 @@ describe('AppShell', () => {
       breadcrumbs: [{ label: 'Home' }],
       children: null,
     })
-    await user.keyboard('{Meta>}k{/Meta}')
+    await user.keyboard(paletteKeys)
     const dialog = screen.getByRole('dialog', { name: 'Command palette' })
     await waitFor(() => {
       expect(fetchFavouriteItemsMock).toHaveBeenCalled()
@@ -446,7 +452,7 @@ describe('AppShell', () => {
         breadcrumbs: [{ label: 'Home' }],
         children: null,
       })
-      await user.keyboard('{Meta>}k{/Meta}')
+      await user.keyboard(paletteKeys)
       const dialog = screen.getByRole('dialog', { name: 'Command palette' })
       await waitFor(() => {
         expect(dialog.textContent).toContain('Projects')
@@ -474,7 +480,7 @@ describe('AppShell', () => {
         breadcrumbs: [{ label: 'Home' }],
         children: null,
       })
-      await user.keyboard('{Meta>}k{/Meta}')
+      await user.keyboard(paletteKeys)
       const dialog = screen.getByRole('dialog', { name: 'Command palette' })
       // Both palette queries fire; the projects one rejects and must
       // degrade to "group absent" once it settles.
@@ -498,7 +504,7 @@ describe('AppShell', () => {
       breadcrumbs: [{ label: 'Home' }],
       children: null,
     })
-    await user.keyboard('{Meta>}k{/Meta}')
+    await user.keyboard(paletteKeys)
     const dialog = screen.getByRole('dialog', { name: 'Command palette' })
     for (const hint of [
       'g h Home',

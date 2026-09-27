@@ -130,13 +130,13 @@ export function formatShortcut(binding: string, platform: Platform): string {
 export interface ShortcutRegistry {
   definitions: ShortcutDefinition[]
   /** Definitions in a scope, in registration order. */
-  inScope(scope: ShortcutScope): ShortcutDefinition[]
+  inScope: (scope: ShortcutScope) => ShortcutDefinition[]
   /** Match a single, complete binding (no sequence). */
-  match(
+  match: (
     event: KeyboardEvent,
     scope: ShortcutScope,
     platform: Platform,
-  ): ShortcutDefinition | undefined
+  ) => ShortcutDefinition | undefined
 }
 
 export function createShortcutRegistry(

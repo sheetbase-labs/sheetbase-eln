@@ -2,7 +2,7 @@
 id: subtask-93
 title: SHELL-03.2 — Register the global shortcuts
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

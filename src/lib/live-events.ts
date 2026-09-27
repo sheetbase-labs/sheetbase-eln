@@ -196,6 +196,8 @@ export function createLiveEventCoordinator(
           queryKey: keys.project(event.entityUuid),
         })
         void qc.invalidateQueries({ queryKey: keys.projectsList() })
+        // The Inbox work list derives from project records.
+        void qc.invalidateQueries({ queryKey: ['work-items'] })
         break
       }
       case 'record': {
@@ -209,6 +211,8 @@ export function createLiveEventCoordinator(
         }
         // Records list on the home/projects views may also reflect this.
         void qc.invalidateQueries({ queryKey: keys.projectsList() })
+        // Reviews and follows on this record change the Inbox work list.
+        void qc.invalidateQueries({ queryKey: ['work-items'] })
         break
       }
       case 'block': {

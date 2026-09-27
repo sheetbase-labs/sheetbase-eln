@@ -1,6 +1,5 @@
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
-import { ChevronRight, Home as HomeIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
 
@@ -26,20 +25,17 @@ export function ShellBreadcrumbs({
           data-slot="mobile-breadcrumb"
         >
           {breadcrumbs.length > 1 && breadcrumbs[breadcrumbs.length - 2]?.to ? (
-            <Link
-              to={breadcrumbs[breadcrumbs.length - 2].to ?? ''}
-              className="inline-flex items-center gap-1 text-muted-foreground no-underline hover:text-foreground"
-            >
-              <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
-              <span className="truncate">
+            <>
+              <Link
+                to={breadcrumbs[breadcrumbs.length - 2].to ?? ''}
+                className="truncate text-muted-foreground no-underline hover:text-foreground"
+              >
                 {breadcrumbs[breadcrumbs.length - 2].label}
-              </span>
-            </Link>
+              </Link>
+              <span className="shrink-0 text-muted-foreground/60">/</span>
+            </>
           ) : breadcrumbs.length > 1 ? (
-            <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
-          ) : null}
-          {breadcrumbs.length > 1 ? (
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+            <span className="shrink-0 text-muted-foreground/60">/</span>
           ) : null}
           <span
             className="truncate font-medium text-foreground"
@@ -55,7 +51,7 @@ export function ShellBreadcrumbs({
           return (
             <React.Fragment key={`${crumb.label}-${i}`}>
               {i > 0 ? (
-                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                <span className="shrink-0 text-muted-foreground/60">/</span>
               ) : null}
               {crumb.to && !last ? (
                 <Link
@@ -63,11 +59,7 @@ export function ShellBreadcrumbs({
                   aria-label={i === 0 ? 'Sheetbase home' : undefined}
                   className="truncate text-muted-foreground no-underline hover:text-foreground"
                 >
-                  {i === 0 && crumb.to === '/' ? (
-                    <HomeIcon className="size-3.5 shrink-0" />
-                  ) : (
-                    crumb.label
-                  )}
+                  {crumb.label}
                 </Link>
               ) : (
                 <span

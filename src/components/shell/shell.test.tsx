@@ -524,7 +524,7 @@ describe('AppShell', () => {
       children: null,
     })
     const trigger = screen.getByRole('button', {
-      name: 'Search records and samples',
+      name: 'Search experiments, samples, datasets',
     })
     await user.click(trigger)
     expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeTruthy()

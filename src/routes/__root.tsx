@@ -144,7 +144,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        {import.meta.env.DEV ? (
+        {import.meta.env.DEV && !import.meta.env.VITE_PARITY ? (
           <TanStackDevtools
             config={{ position: 'bottom-right' }}
             plugins={[

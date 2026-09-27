@@ -89,12 +89,12 @@ export function TopBarActions({
           type="button"
           variant="ghost"
           onClick={onOpenPalette}
-          className="hidden h-7 w-64 items-center gap-2 rounded-md border border-input bg-card px-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent sm:flex"
-          aria-label="Search records and samples"
+          className="hidden h-7 w-[28rem] max-w-full items-center gap-2 rounded-md border border-input bg-card px-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent sm:flex"
+          aria-label="Search experiments, samples, datasets"
         >
           <Search className="size-3.5 shrink-0" />
           <span className="flex-1 truncate">
-            Search records, samples, datasets
+            Search experiments, samples, datasets
           </span>
           <Kbd>⌘K</Kbd>
         </Button>

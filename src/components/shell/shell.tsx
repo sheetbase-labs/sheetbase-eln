@@ -718,7 +718,7 @@ export function AppShell({
                     <Link
                       to="/"
                       aria-label="Sheetbase home"
-                      className="flex items-center gap-2 no-underline"
+                      className="flex w-nav shrink-0 items-center gap-2 no-underline"
                       onClick={() => setMobileOpen(false)}
                     >
                       <span className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">

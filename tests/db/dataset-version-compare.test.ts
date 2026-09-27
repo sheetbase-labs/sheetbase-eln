@@ -133,3 +133,24 @@ describe('api.compare_dataset_versions', () => {
     ).rejects.toMatchObject({ code: '42501' })
   })
 })
+
+interface VersionListRow {
+  id: string
+  rowCount: number
+  change: { added: number; removed: number; changed: number } | null
+}
+
+describe('api.dataset_version_list', () => {
+  it('lists snapshots newest first with the change against the previous one', async () => {
+    const client = await asAuthenticated()
+    const { rows } = await client.query<{ result: VersionListRow[] }>(
+      `SELECT api.dataset_version_list($1) AS result`,
+      [DATASET],
+    )
+    const list = rows[0]!.result
+    expect(list.map((version) => version.id)).toEqual([VERSION_B, VERSION_A])
+    expect(list[0]!.change).toEqual({ added: 1, removed: 1, changed: 1 })
+    expect(list[0]!.rowCount).toBe(2)
+    expect(list[1]!.change).toBeNull()
+  })
+})

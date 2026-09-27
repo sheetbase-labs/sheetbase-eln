@@ -1217,6 +1217,20 @@
       "when": 1790545888124,
       "tag": "0175_project_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1790546253322,
+      "tag": "0176_long_squadron_sinister",
+      "breakpoints": true
+    },
+    {
+      "idx": 177,
+      "version": "7",
+      "when": 1790546263822,
+      "tag": "0177_work_item_follows_rls",
+      "breakpoints": true
     }
   ]
 }

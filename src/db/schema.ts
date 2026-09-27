@@ -3730,6 +3730,39 @@ export const userFavourites = api.table(
 )
 
 /**
+ * work_item_follows (WORK-01.3) — a per-user follow of a record so it appears
+ * in the caller's Inbox work list. Only the follow itself is stored; the work
+ * item is derived from canonical state. Written through `follow_record` /
+ * `unfollow_record`; read under RLS for the row owner only.
+ */
+export const workItemFollows = api.table(
+  'work_item_follows',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_work_item_follows_user_record').on(table.userId, table.recordId),
+    // Read path: WHERE user_id = $1 ORDER BY created_at DESC LIMIT n.
+    index('idx_work_item_follows_user_created').on(
+      table.userId,
+      table.createdAt,
+    ),
+  ],
+)
+
+/**
  * user_preferences (SHELL-02) — one row per user holding their appearance
  * choice (System/Light/Dark) and navigation state. Written exclusively through
  * the `set_user_preference` SECURITY DEFINER RPC so the user id always comes

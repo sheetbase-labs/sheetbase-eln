@@ -54,7 +54,7 @@ export function FavouriteToggle({
           className={cn(
             'size-3.5',
             isFavourite
-              ? 'fill-amber-400 text-amber-500'
+              ? 'fill-warning text-warning-text'
               : 'text-muted-foreground',
           )}
           aria-hidden="true"

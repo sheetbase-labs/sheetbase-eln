@@ -674,10 +674,10 @@ function wallHourOnSameDay(instant: Date, timeZone: string): number | null {
 
 /** Colour tokens for booking categories (matches the mockup palette). */
 export const BOOKING_COLOR_TOKENS: Record<string, string> = {
-  blue: 'bg-blue-100 text-blue-900 border-blue-300',
-  green: 'bg-green-100 text-green-900 border-green-300',
-  purple: 'bg-purple-100 text-purple-900 border-purple-300',
-  orange: 'bg-orange-100 text-orange-900 border-orange-300',
+  blue: 'bg-selection text-info border-info',
+  green: 'bg-success-wash text-success-text border-success',
+  purple: 'bg-review-wash text-review border-review',
+  orange: 'bg-warning-wash text-warning-text border-warning-border',
 }
 
 export const BOOKING_COLOR_OPTIONS = Object.keys(BOOKING_COLOR_TOKENS)

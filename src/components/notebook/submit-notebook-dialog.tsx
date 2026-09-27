@@ -342,7 +342,7 @@ export function SubmitNotebookDialog({
                     aria-hidden="true"
                     className={
                       check.state === 'pass'
-                        ? 'mt-0.5 font-medium text-emerald-600 dark:text-emerald-400'
+                        ? 'mt-0.5 font-medium text-success-text'
                         : check.state === 'fail'
                           ? 'mt-0.5 font-medium text-destructive'
                           : 'mt-0.5 font-medium text-muted-foreground'

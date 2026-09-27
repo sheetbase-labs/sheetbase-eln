@@ -79,7 +79,7 @@ export function SettingsApiTokens({
       {revealed ? (
         <div
           role="status"
-          className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+          className="space-y-3 rounded-lg border border-warning-border bg-warning-wash p-4 text-sm text-warning-text"
         >
           <p className="font-medium">
             Copy the token for {revealed.name} now. It will not be shown again.

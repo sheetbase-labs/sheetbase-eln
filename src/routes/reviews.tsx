@@ -128,9 +128,9 @@ const inboxStatusVocabulary: StatusVocabulary = {
 }
 
 const PRIORITY_META: Record<ReviewPriority, string> = {
-  high: 'text-red-600 dark:text-red-400',
-  medium: 'text-amber-600 dark:text-amber-400',
-  low: 'text-emerald-600 dark:text-emerald-400',
+  high: 'text-danger-text',
+  medium: 'text-warning-text',
+  low: 'text-success-text',
 }
 
 type BadgeVariant = NonNullable<ComponentProps<typeof Badge>['variant']>
@@ -335,7 +335,7 @@ function buildColumns(
             className={cn(
               'text-xs tabular-nums whitespace-nowrap',
               overdue
-                ? 'font-semibold text-red-600 dark:text-red-400'
+                ? 'font-semibold text-danger-text'
                 : 'text-muted-foreground',
             )}
           >
@@ -346,9 +346,7 @@ function buildColumns(
               </span>
             )}
             {overdue && (
-              <span className="ml-1 text-red-600 dark:text-red-400">
-                · Overdue
-              </span>
+              <span className="ml-1 text-danger-text">· Overdue</span>
             )}
           </span>
         )
@@ -824,7 +822,7 @@ export function ReviewInspector({
         {overdue ? (
           <div
             role="status"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+            className="rounded-md border border-danger-border bg-danger-wash px-3 py-2 text-xs text-danger-text"
           >
             <Clock className="mr-1 inline size-3.5" aria-hidden />
             Overdue — pending for more than {OVERDUE_DAYS} days.
@@ -859,7 +857,7 @@ export function ReviewInspector({
             <span
               className={cn(
                 'text-xs',
-                overdue && 'font-semibold text-red-600 dark:text-red-400',
+                overdue && 'font-semibold text-danger-text',
               )}
             >
               {overdue

@@ -933,8 +933,7 @@ export function SavedViewsPanel({
                 key={view.id}
                 className={cn(
                   'flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs',
-                  selected &&
-                    'border-violet-400 bg-violet-50 dark:bg-violet-950/30',
+                  selected && 'border-review bg-review-wash',
                 )}
               >
                 <button

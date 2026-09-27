@@ -28,7 +28,7 @@ type WellStatus = 'amplified' | 'no_amplification' | 'blank' | 'pending'
 const WELL_ROLE_CLASS: Record<WellStatus, string> = {
   amplified: 'bg-success/80',
   no_amplification: 'bg-info/80',
-  blank: 'bg-zinc-400 dark:bg-zinc-500',
+  blank: 'bg-muted',
   pending: 'bg-muted/30',
 }
 

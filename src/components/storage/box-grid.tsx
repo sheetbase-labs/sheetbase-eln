@@ -28,9 +28,15 @@ function appearance(position: BoxPositionWithSample) {
       'bg-destructive/10 border-destructive/30 text-destructive',
     ]
   if (isLowVolume(position))
-    return ['Low volume', 'bg-yellow-100 border-yellow-300 text-yellow-900']
+    return [
+      'Low volume',
+      'bg-warning-wash border-warning-border text-warning-text',
+    ]
   if (isExpiringSoon(position))
-    return ['Expiring soon', 'bg-orange-100 border-orange-300 text-orange-900']
+    return [
+      'Expiring soon',
+      'bg-warning-wash border-warning-border text-warning-text',
+    ]
   if (position.status === 'occupied')
     return [definition.label, 'bg-info/10 border-info/30 text-info']
   return [definition.label, 'bg-muted/40 border-border text-muted-foreground']
@@ -39,7 +45,7 @@ function appearance(position: BoxPositionWithSample) {
 const legend = [
   ['Occupied', 'bg-info/20'],
   ['Low volume', 'bg-warning/25'],
-  ['Expiring soon', 'bg-orange-200'],
+  ['Expiring soon', 'bg-warning-wash'],
   ['Quarantined', 'bg-warning/25'],
   ['Available', 'bg-muted'],
   ['Missing', 'bg-destructive/20'],

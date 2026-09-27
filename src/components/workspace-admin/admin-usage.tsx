@@ -71,8 +71,8 @@ export function AdminUsage({ workspaceId }: { workspaceId: string }) {
                 <Badge
                   className={
                     warning.level === 'warning'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-blue-100 text-blue-800'
+                      ? 'bg-warning-wash text-warning-text'
+                      : 'bg-selection text-info'
                   }
                 >
                   {warning.level}

@@ -116,7 +116,7 @@ const DEFAULT_BANDS: PlateMapBand[] = [
     from: 0.75,
     to: 1.0001,
     label: 'High',
-    className: 'bg-indigo-400 dark:bg-indigo-600',
+    className: 'bg-primary',
   },
 ]
 

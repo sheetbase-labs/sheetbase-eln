@@ -538,14 +538,14 @@ export const WORKSPACE_ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
 }
 
 export const WORKSPACE_ROLE_TOKENS: Record<WorkspaceRole, string> = {
-  owner: 'bg-purple-100 text-purple-700',
-  admin: 'bg-blue-100 text-blue-700',
-  member: 'bg-slate-100 text-slate-700',
-  steward: 'bg-teal-100 text-teal-800',
-  scientist: 'bg-emerald-100 text-emerald-700',
-  analyst: 'bg-cyan-100 text-cyan-700',
-  reviewer: 'bg-amber-100 text-amber-700',
-  viewer: 'bg-zinc-100 text-zinc-600',
+  owner: 'bg-review-wash text-review',
+  admin: 'bg-selection text-info',
+  member: 'bg-muted text-muted-foreground',
+  steward: 'bg-success-wash text-success-text',
+  scientist: 'bg-success-wash text-success-text',
+  analyst: 'bg-selection text-info',
+  reviewer: 'bg-warning-wash text-warning-text',
+  viewer: 'bg-muted text-muted-foreground',
 }
 
 export const INVITATION_STATUS_LABELS: Record<InvitationStatus, string> = {
@@ -556,10 +556,10 @@ export const INVITATION_STATUS_LABELS: Record<InvitationStatus, string> = {
 }
 
 export const INVITATION_STATUS_TOKENS: Record<InvitationStatus, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  accepted: 'bg-emerald-100 text-emerald-700',
-  revoked: 'bg-red-100 text-red-700',
-  expired: 'bg-zinc-100 text-zinc-600',
+  pending: 'bg-warning-wash text-warning-text',
+  accepted: 'bg-success-wash text-success-text',
+  revoked: 'bg-danger-wash text-danger-text',
+  expired: 'bg-muted text-muted-foreground',
 }
 
 export const PROJECT_ACCESS_LABELS: Record<ProjectAccessLevel, string> = {
@@ -569,9 +569,9 @@ export const PROJECT_ACCESS_LABELS: Record<ProjectAccessLevel, string> = {
 }
 
 export const PROJECT_ACCESS_TOKENS: Record<ProjectAccessLevel, string> = {
-  owner: 'bg-purple-100 text-purple-700',
-  editor: 'bg-blue-100 text-blue-700',
-  viewer: 'bg-zinc-100 text-zinc-600',
+  owner: 'bg-review-wash text-review',
+  editor: 'bg-selection text-info',
+  viewer: 'bg-muted text-muted-foreground',
 }
 
 export const REGISTRATION_MODE_LABELS: Record<RegistrationMode, string> = {

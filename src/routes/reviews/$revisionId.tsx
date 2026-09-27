@@ -740,7 +740,7 @@ export function WorkspaceHeader({
       {isLocked ? (
         <div
           role="status"
-          className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+          className="rounded-md border border-success bg-success-wash px-3 py-2 text-xs text-success-text"
         >
           <Lock className="mr-1 inline size-3 align-text-bottom" aria-hidden />
           This record is locked by an approved signature
@@ -756,7 +756,7 @@ export function WorkspaceHeader({
           ) : null}
           . Scientific evidence is frozen — start an amendment to edit again.
           {lockedAt ? (
-            <span className="ml-1 text-emerald-700 dark:text-emerald-300">
+            <span className="ml-1 text-success-text">
               Locked {formatDate(lockedAt)}.
             </span>
           ) : null}
@@ -765,7 +765,7 @@ export function WorkspaceHeader({
       {isSuperseded ? (
         <div
           role="status"
-          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+          className="rounded-md border border-warning-border bg-warning-wash px-3 py-2 text-xs text-warning-text"
         >
           This revision has been superseded by a newer submission. No review
           actions are available.
@@ -1705,9 +1705,9 @@ function SignaturePanel({
                 })
                 const tone =
                   validity.applicability === 'current'
-                    ? 'text-emerald-700 dark:text-emerald-300'
+                    ? 'text-success-text'
                     : validity.applicability === 'superseded'
-                      ? 'text-amber-700 dark:text-amber-300'
+                      ? 'text-warning-text'
                       : 'text-destructive'
                 return (
                   <p className={`mt-1 text-xs ${tone}`}>
@@ -2064,7 +2064,7 @@ function AmendmentSection({
     return (
       <section
         role="status"
-        className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+        className="rounded-md border border-success bg-success-wash p-2 text-xs text-success-text"
       >
         <GitCommit
           className="mr-1 inline size-3 align-text-bottom"

@@ -230,7 +230,7 @@ export function PipelineRunDetail({
                     log.level === 'error'
                       ? 'text-destructive font-mono'
                       : log.level === 'warning'
-                        ? 'text-amber-600 font-mono'
+                        ? 'text-warning-text font-mono'
                         : 'font-mono'
                   }
                 >

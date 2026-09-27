@@ -17,7 +17,7 @@ const roleWells: PlateWell[] = [
     row: 0,
     col: 0,
     wellCode: 'A1',
-    roleClass: 'bg-blue-300',
+    roleClass: 'bg-primary',
     displayLabel: 'S',
     label: 'A1 Sample',
   },
@@ -25,7 +25,7 @@ const roleWells: PlateWell[] = [
     row: 0,
     col: 1,
     wellCode: 'A2',
-    roleClass: 'bg-emerald-400',
+    roleClass: 'bg-success',
     displayLabel: 'P',
     label: 'A2 Positive control',
   },
@@ -33,7 +33,7 @@ const roleWells: PlateWell[] = [
     row: 1,
     col: 0,
     wellCode: 'B1',
-    roleClass: 'bg-orange-400',
+    roleClass: 'bg-warning',
     displayLabel: 'N',
     label: 'B1 Negative control',
   },
@@ -41,9 +41,9 @@ const roleWells: PlateWell[] = [
 ]
 
 const roleLegend = [
-  { label: 'Sample', className: 'bg-blue-300' },
-  { label: 'Positive control', className: 'bg-emerald-400' },
-  { label: 'Negative control', className: 'bg-orange-400' },
+  { label: 'Sample', className: 'bg-primary' },
+  { label: 'Positive control', className: 'bg-success' },
+  { label: 'Negative control', className: 'bg-warning' },
 ]
 
 describe('PlateMap SCI-005 extensions', () => {

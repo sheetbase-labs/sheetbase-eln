@@ -679,10 +679,10 @@ export function describePlannerError(error: unknown): string {
 
 export const TASK_STATUS_TOKENS: Record<StudyTaskStatus, string> = {
   not_started: 'bg-muted text-muted-foreground border-border',
-  in_progress: 'bg-blue-100 text-blue-900 border-blue-300',
-  review: 'bg-amber-100 text-amber-900 border-amber-300',
-  completed: 'bg-green-100 text-green-900 border-green-300',
-  blocked: 'bg-red-100 text-red-900 border-red-300',
+  in_progress: 'bg-selection text-info border-info',
+  review: 'bg-warning-wash text-warning-text border-warning-border',
+  completed: 'bg-success-wash text-success-text border-success',
+  blocked: 'bg-danger-wash text-danger-text border-danger-border',
   cancelled: 'bg-muted text-muted-foreground border-border line-through',
 }
 
@@ -720,9 +720,9 @@ export const PRIORITY_LABELS: Record<StudyTaskPriority, string> = {
 
 export const PRIORITY_TOKENS: Record<StudyTaskPriority, string> = {
   low: 'text-muted-foreground',
-  medium: 'text-blue-600',
-  high: 'text-amber-600',
-  critical: 'text-red-600',
+  medium: 'text-info',
+  high: 'text-warning-text',
+  critical: 'text-danger-text',
 }
 
 // ---------------------------------------------------------------------------

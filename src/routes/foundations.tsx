@@ -152,16 +152,16 @@ function FoundationsPage() {
             ))}
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
-            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+            <span className="rounded-full bg-success-wash px-2.5 py-0.5 text-xs font-medium text-success-text">
               In progress
             </span>
-            <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
+            <span className="rounded-full bg-review-wash px-2.5 py-0.5 text-xs font-medium text-review">
               Needs review
             </span>
-            <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950/60 dark:text-red-300">
+            <span className="rounded-full bg-danger-wash px-2.5 py-0.5 text-xs font-medium text-danger-text">
               Failed
             </span>
-            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+            <span className="rounded-full bg-warning-wash px-2.5 py-0.5 text-xs font-medium text-warning-text">
               Expired
             </span>
             <span className="rounded-full border px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
@@ -826,11 +826,11 @@ function NotebookVizPreview() {
           legend={
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                <span className="inline-block size-2.5 rounded-[2px] bg-blue-500" />
+                <span className="inline-block size-2.5 rounded-[2px] bg-primary" />
                 Lot LWV-250601
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="inline-block size-2.5 rounded-[2px] bg-emerald-500" />
+                <span className="inline-block size-2.5 rounded-[2px] bg-success" />
                 Lot LWV-250602
               </span>
             </div>

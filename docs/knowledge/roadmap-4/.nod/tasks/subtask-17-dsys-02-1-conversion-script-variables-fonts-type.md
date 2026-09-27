@@ -2,7 +2,7 @@
 id: subtask-17
 title: DSYS-02.1 — Conversion script, variables, fonts, type/radius/shadow/size utilities,…
 type: subtask
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

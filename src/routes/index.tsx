@@ -476,11 +476,11 @@ const hintToneClasses: Record<
   string
 > = {
   default: 'text-muted-foreground',
-  urgent: 'text-red-600 dark:text-red-400',
-  warning: 'text-amber-600 dark:text-amber-400',
-  info: 'text-blue-600 dark:text-blue-400',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  violet: 'text-violet-600 dark:text-violet-400',
+  urgent: 'text-danger-text',
+  warning: 'text-warning-text',
+  info: 'text-info',
+  success: 'text-success-text',
+  violet: 'text-review',
 }
 
 /**
@@ -710,7 +710,7 @@ export function FavouritesSection({
                   onClick={() => onRemove(item)}
                 >
                   <Star
-                    className="size-3.5 fill-amber-400 text-amber-500"
+                    className="size-3.5 fill-warning text-warning-text"
                     aria-hidden="true"
                   />
                 </Button>
@@ -753,10 +753,8 @@ const RECENT_SIGNAL_LABELS: Record<RecentItem['signal'], string> = {
 }
 
 const RECENT_SIGNAL_CLASSES: Record<RecentItem['signal'], string> = {
-  edited:
-    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  reviewed:
-    'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+  edited: 'bg-success-wash text-success-text',
+  reviewed: 'bg-review-wash text-review',
   viewed: 'bg-muted text-muted-foreground',
 }
 
@@ -1272,8 +1270,8 @@ export function MyPrioritiesPanel({
                   className={cn(
                     'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
                     overdue
-                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                      : 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+                      ? 'bg-danger-wash text-danger-text'
+                      : 'bg-review-wash text-review',
                   )}
                 >
                   {overdue ? 'Overdue' : 'Under review'}
@@ -1403,9 +1401,7 @@ export function UpcomingApprovalsPanel({
                     <span
                       className={cn(
                         'text-xs font-medium',
-                        overdue
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-muted-foreground',
+                        overdue ? 'text-danger-text' : 'text-muted-foreground',
                       )}
                     >
                       {overdue

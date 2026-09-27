@@ -251,7 +251,7 @@ export function TemplateFilters({
             className={cn(
               'size-4',
               favouritesOnly
-                ? 'fill-amber-400 text-warning-foreground'
+                ? 'fill-warning text-warning-foreground'
                 : 'text-muted-foreground',
             )}
             aria-hidden="true"
@@ -345,7 +345,7 @@ function FavouriteToggle({
       <Star
         className={cn(
           'size-4',
-          favourited && 'fill-amber-400 text-warning-foreground',
+          favourited && 'fill-warning text-warning-foreground',
         )}
         aria-hidden="true"
       />
@@ -625,7 +625,7 @@ export function TemplateList({
                     ) : null}
                     {favourites.has(template.id) ? (
                       <Star
-                        className="size-3 shrink-0 fill-amber-400 text-warning-foreground"
+                        className="size-3 shrink-0 fill-warning text-warning-foreground"
                         aria-label="Favourite"
                       />
                     ) : null}

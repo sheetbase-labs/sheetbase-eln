@@ -449,7 +449,7 @@ export function AdminExtensions({
             </p>
           ) : null}
           {draftUntrusted ? (
-            <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <label className="flex items-start gap-2 rounded-md border border-warning-border bg-warning-wash p-3 text-xs text-warning-text">
               <Checkbox
                 checked={form.acknowledgeUntrusted}
                 onCheckedChange={(checked) =>

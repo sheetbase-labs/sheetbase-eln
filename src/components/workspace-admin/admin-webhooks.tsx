@@ -49,18 +49,18 @@ const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
 ])
 
 const subscriptionStatusClass: Record<string, string> = {
-  active: 'bg-green-100 text-green-800',
-  paused: 'bg-amber-100 text-amber-800',
-  disabled: 'bg-red-100 text-red-800',
-  archived: 'bg-zinc-100 text-zinc-700',
+  active: 'bg-success-wash text-success-text',
+  paused: 'bg-warning-wash text-warning-text',
+  disabled: 'bg-danger-wash text-danger-text',
+  archived: 'bg-muted text-muted-foreground',
 }
 
 const deliveryStatusClass: Record<string, string> = {
-  pending: 'bg-zinc-100 text-zinc-700',
-  delivered: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-  retrying: 'bg-amber-100 text-amber-800',
-  dead_letter: 'bg-red-100 text-red-800',
+  pending: 'bg-muted text-muted-foreground',
+  delivered: 'bg-success-wash text-success-text',
+  failed: 'bg-danger-wash text-danger-text',
+  retrying: 'bg-warning-wash text-warning-text',
+  dead_letter: 'bg-danger-wash text-danger-text',
 }
 
 function subscriptionState(subscription: WebhookSubscriptionWire): {
@@ -285,7 +285,7 @@ export function AdminWebhooks({
         </p>
       ) : null}
       {rotated ? (
-        <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm">
+        <div className="space-y-2 rounded-md border border-warning-border bg-warning-wash p-4 text-sm">
           <p className="font-medium">
             New signing secret — shown exactly once.
           </p>

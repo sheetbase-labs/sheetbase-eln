@@ -2,7 +2,7 @@
 id: subtask-19
 title: DSYS-02.3 — Replace literal colours and add the lint rule
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

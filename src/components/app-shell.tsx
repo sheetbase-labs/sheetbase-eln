@@ -1342,7 +1342,7 @@ function FavouritesCommandGroup({
               {FAVOURITE_KIND_LABELS[item.kind]}
             </span>
             <Star
-              className="size-3.5 shrink-0 fill-amber-400 text-amber-500"
+              className="size-3.5 shrink-0 fill-warning text-warning-text"
               aria-hidden="true"
             />
           </CommandItem>

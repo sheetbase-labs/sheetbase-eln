@@ -30,9 +30,9 @@ import { formatRelativeTime } from '#/lib/workspace-admin'
 const dataClient = createDataClient()
 
 const statusClass: Record<string, string> = {
-  active: 'bg-green-100 text-green-800',
-  paused: 'bg-amber-100 text-amber-800',
-  archived: 'bg-zinc-100 text-zinc-700',
+  active: 'bg-success-wash text-success-text',
+  paused: 'bg-warning-wash text-warning-text',
+  archived: 'bg-muted text-muted-foreground',
 }
 
 export function AdminConnectors({

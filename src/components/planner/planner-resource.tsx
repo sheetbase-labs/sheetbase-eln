@@ -244,7 +244,7 @@ export function PlannerResourceView({
                           conflicts.includes(tr)
                             ? 'border-destructive/40 bg-destructive/10 text-destructive'
                             : 'border-info/30 bg-info/10 text-info',
-                          isSelected && 'ring-2 ring-blue-400',
+                          isSelected && 'ring-2 ring-info',
                         )}
                         style={{
                           left: `${leftPct}%`,

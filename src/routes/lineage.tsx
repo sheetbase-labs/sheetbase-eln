@@ -520,7 +520,7 @@ function FilterBar({
 
       {/* Cycle warning */}
       {cycle && (
-        <div className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+        <div className="flex items-center gap-1.5 rounded-md bg-warning-wash px-2 py-1 text-xs text-warning-text">
           <TriangleAlert className="size-3.5" aria-hidden="true" />
           <span>Cycle detected ({cycle.length} nodes)</span>
         </div>
@@ -831,10 +831,10 @@ function TimelineView({ graph }: { graph: LineageGraph }) {
                   className={cn(
                     'mt-0.5 size-4 shrink-0 rounded-full border-2',
                     entry.operation === 'create'
-                      ? 'border-blue-500 bg-blue-500/20'
+                      ? 'border-info bg-primary/20'
                       : entry.operation === 'delete' ||
                           entry.operation === 'archive'
-                        ? 'border-red-400 bg-red-400/20'
+                        ? 'border-danger-border bg-destructive/20'
                         : 'border-muted-foreground bg-muted',
                   )}
                   aria-hidden="true"
@@ -1019,13 +1019,13 @@ function LineageInspector({
                 className={cn(
                   'inline-block size-2 rounded-full',
                   node.status === 'approved' || node.status === 'signed'
-                    ? 'bg-green-500'
+                    ? 'bg-success'
                     : node.status === 'rejected'
-                      ? 'bg-red-500'
+                      ? 'bg-destructive'
                       : node.status === 'restricted' ||
                           node.status === 'missing'
                         ? 'bg-muted-foreground'
-                        : 'bg-blue-500',
+                        : 'bg-primary',
                 )}
                 aria-hidden="true"
               />
@@ -1034,7 +1034,7 @@ function LineageInspector({
           )}
         </div>
         {!node.accessible && (
-          <div className="mt-2 flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+          <div className="mt-2 flex items-center gap-1.5 rounded-md bg-warning-wash px-2 py-1 text-xs text-warning-text">
             <CircleAlert className="size-3.5" aria-hidden="true" />
             <span>
               {node.status === 'missing'

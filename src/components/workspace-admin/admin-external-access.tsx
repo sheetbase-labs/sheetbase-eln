@@ -54,15 +54,15 @@ const dataClient = createDataClient()
 const OVERVIEW_ROW_LIMIT = 8
 
 const statusClass: Record<string, string> = {
-  active: 'bg-green-100 text-green-800',
-  enabled: 'bg-green-100 text-green-800',
-  paused: 'bg-amber-100 text-amber-800',
-  disabled: 'bg-red-100 text-red-800',
-  installed: 'bg-zinc-100 text-zinc-700',
-  archived: 'bg-zinc-100 text-zinc-700',
-  suspended: 'bg-amber-100 text-amber-800',
-  revoked: 'bg-red-100 text-red-800',
-  expired: 'bg-amber-100 text-amber-800',
+  active: 'bg-success-wash text-success-text',
+  enabled: 'bg-success-wash text-success-text',
+  paused: 'bg-warning-wash text-warning-text',
+  disabled: 'bg-danger-wash text-danger-text',
+  installed: 'bg-muted text-muted-foreground',
+  archived: 'bg-muted text-muted-foreground',
+  suspended: 'bg-warning-wash text-warning-text',
+  revoked: 'bg-danger-wash text-danger-text',
+  expired: 'bg-warning-wash text-warning-text',
 }
 
 function credentialStatus(row: {
@@ -281,7 +281,7 @@ export function AdminExternalAccess({
         </p>
       ) : null}
       {rotatedCredential ? (
-        <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm">
+        <div className="space-y-2 rounded-md border border-warning-border bg-warning-wash p-4 text-sm">
           <p className="font-medium">
             Replacement credential secret — shown exactly once.
           </p>

@@ -580,7 +580,7 @@ function AdminRoute() {
 
       <div className="w-full px-4 py-4">
         {sectionDenied ? (
-          <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="space-y-2 rounded-md border border-warning-border bg-warning-wash p-4 text-sm text-warning-text">
             <p>
               You do not have permission to access this administration section.
             </p>

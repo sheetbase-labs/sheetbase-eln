@@ -507,11 +507,11 @@ function ProjectStatCards({
 }
 
 const toneClasses: Record<StatCardDef['tone'], string> = {
-  info: 'text-blue-600 dark:text-blue-400',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  warning: 'text-amber-600 dark:text-amber-400',
-  violet: 'text-violet-600 dark:text-violet-400',
-  danger: 'text-red-600 dark:text-red-400',
+  info: 'text-info',
+  success: 'text-success-text',
+  warning: 'text-warning-text',
+  violet: 'text-review',
+  danger: 'text-danger-text',
   neutral: 'text-muted-foreground',
 }
 
@@ -1043,7 +1043,7 @@ export function ProjectSidebar({
           <InspectorSection title="Compliance">
             <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground">
               <ShieldCheck
-                className="size-3.5 text-emerald-600 dark:text-emerald-400"
+                className="size-3.5 text-success-text"
                 aria-hidden="true"
               />
               All checks passing

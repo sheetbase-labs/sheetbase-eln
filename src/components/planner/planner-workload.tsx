@@ -220,7 +220,7 @@ export function PlannerWorkload({
                         className={cn(
                           'flex items-center truncate rounded border px-2 text-left text-xs font-medium transition-all hover:opacity-80',
                           TASK_STATUS_TOKENS[task.status],
-                          isSelected && 'ring-2 ring-blue-400',
+                          isSelected && 'ring-2 ring-info',
                         )}
                         style={{
                           position: 'absolute',

@@ -111,8 +111,8 @@ export function AdminPipelines({
                     <Badge
                       className={
                         definition.lifecycle === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-zinc-100 text-zinc-700'
+                          ? 'bg-success-wash text-success-text'
+                          : 'bg-muted text-muted-foreground'
                       }
                     >
                       {definition.lifecycle}
@@ -182,8 +182,8 @@ export function AdminPipelines({
                       <Badge
                         className={
                           schedule.enabled
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-zinc-100 text-zinc-700'
+                            ? 'bg-success-wash text-success-text'
+                            : 'bg-muted text-muted-foreground'
                         }
                       >
                         {schedule.enabled ? 'Enabled' : 'Disabled'}
@@ -191,7 +191,7 @@ export function AdminPipelines({
                     </TableCell>
                     <TableCell>
                       {overdue ? (
-                        <span className="text-amber-700">
+                        <span className="text-warning-text">
                           Overdue · {formatRelativeTime(schedule.next_run_at)}
                         </span>
                       ) : (

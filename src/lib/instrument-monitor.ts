@@ -746,11 +746,11 @@ export function describeInstrumentMonitorError(error: unknown): string {
 }
 
 export const RUN_STATUS_TOKENS: Record<RunStatus, string> = {
-  queued: 'bg-slate-100 text-slate-700',
-  running: 'bg-blue-100 text-blue-700',
-  completed: 'bg-emerald-100 text-emerald-700',
-  failed: 'bg-red-100 text-red-700',
-  cancelled: 'bg-zinc-100 text-zinc-600',
+  queued: 'bg-muted text-muted-foreground',
+  running: 'bg-selection text-info',
+  completed: 'bg-success-wash text-success-text',
+  failed: 'bg-danger-wash text-danger-text',
+  cancelled: 'bg-muted text-muted-foreground',
 }
 /**
  * Semantic Badge variants for run status. Status is always conveyed by text
@@ -775,9 +775,9 @@ export const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   cancelled: 'Cancelled',
 }
 export const CONNECTION_STATUS_TOKENS: Record<ConnectionStatus, string> = {
-  connected: 'bg-emerald-100 text-emerald-700',
-  disconnected: 'bg-slate-100 text-slate-600',
-  error: 'bg-red-100 text-red-700',
+  connected: 'bg-success-wash text-success-text',
+  disconnected: 'bg-muted text-muted-foreground',
+  error: 'bg-danger-wash text-danger-text',
 }
 export const CONNECTION_STATUS_BADGE_VARIANT: Record<
   ConnectionStatus,
@@ -793,11 +793,11 @@ export const CONNECTION_STATUS_LABELS: Record<ConnectionStatus, string> = {
   error: 'Error',
 }
 export const STAGE_STATUS_TOKENS: Record<StageStatus, string> = {
-  pending: 'bg-slate-100 text-slate-600',
-  running: 'bg-blue-100 text-blue-700',
-  completed: 'bg-emerald-100 text-emerald-700',
-  skipped: 'bg-zinc-100 text-zinc-600',
-  failed: 'bg-red-100 text-red-700',
+  pending: 'bg-muted text-muted-foreground',
+  running: 'bg-selection text-info',
+  completed: 'bg-success-wash text-success-text',
+  skipped: 'bg-muted text-muted-foreground',
+  failed: 'bg-danger-wash text-danger-text',
 }
 export const STAGE_STATUS_BADGE_VARIANT: Record<
   StageStatus,
@@ -817,10 +817,10 @@ export const STAGE_STATUS_LABELS: Record<StageStatus, string> = {
   failed: 'Failed',
 }
 export const QC_CHECK_TOKENS: Record<QcCheckType, string> = {
-  pass: 'bg-emerald-100 text-emerald-700',
-  warning: 'bg-amber-100 text-amber-700',
-  fail: 'bg-red-100 text-red-700',
-  info: 'bg-blue-100 text-blue-700',
+  pass: 'bg-success-wash text-success-text',
+  warning: 'bg-warning-wash text-warning-text',
+  fail: 'bg-danger-wash text-danger-text',
+  info: 'bg-selection text-info',
 }
 export const QC_CHECK_BADGE_VARIANT: Record<
   QcCheckType,
@@ -838,10 +838,10 @@ export const QC_CHECK_LABELS: Record<QcCheckType, string> = {
   info: 'Info',
 }
 export const INGESTION_STATUS_TOKENS: Record<IngestionStatus, string> = {
-  received: 'bg-blue-100 text-blue-700',
-  processed: 'bg-emerald-100 text-emerald-700',
-  failed: 'bg-red-100 text-red-700',
-  duplicate: 'bg-amber-100 text-amber-700',
+  received: 'bg-selection text-info',
+  processed: 'bg-success-wash text-success-text',
+  failed: 'bg-danger-wash text-danger-text',
+  duplicate: 'bg-warning-wash text-warning-text',
 }
 export const INGESTION_STATUS_LABELS: Record<IngestionStatus, string> = {
   received: 'Received',

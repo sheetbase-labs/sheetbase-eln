@@ -804,9 +804,9 @@ export function StickyRecordHeader({
         <span
           className={
             lifecycle === 'Submitted'
-              ? 'inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300'
+              ? 'inline-flex items-center gap-1 rounded-full border border-success bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text'
               : lifecycle === 'In review'
-                ? 'inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300'
+                ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
                 : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
           }
         >
@@ -1019,12 +1019,9 @@ export function LockedBanner({
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs"
+      className="flex flex-wrap items-center gap-2 rounded-md border border-success bg-success/10 px-3 py-2 text-xs"
     >
-      <Lock
-        className="size-3.5 text-emerald-600 dark:text-emerald-400"
-        aria-hidden="true"
-      />
+      <Lock className="size-3.5 text-success-text" aria-hidden="true" />
       <span className="text-foreground">
         This Notebook is submitted
         {record.lockedAt

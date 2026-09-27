@@ -37,8 +37,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-02 — Sheet grid and formula authority
 
-**Status:** proposed. Choose option (a) or (b) in [ADR-0048](../../decisions/0048-sheet-grid-on-sheetbase-table.md) with a compatibility run over the existing formula fixtures, then accept it.
-Evidence: ADR-0048 "Compatibility evidence (2026-09-27)" — 146-formula run, 18 required functions absent, recommends option (a); owner choice pending.
+**Status:** accepted 2026-09-27 ([ADR-0048](../../decisions/0048-sheet-grid-on-sheetbase-table.md), option (b)). The server adopts the `sheetbase-table` engine; HyperFormula and Handsontable are removed. COMP-06 owns the engine parity work.
 **Unblocks:** COMP-06.
 
 **How:** Run the existing formula fixtures (`src/lib/formula-ir.test.ts`, `src/lib/calculation.server.test.ts`, `pnpm test:phase4`) through the `sheetbase-table` engine in a spike branch; list unsupported functions and differing results; choose option (a) or (b) in ADR-0048 with that table as evidence.

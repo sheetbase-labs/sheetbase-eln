@@ -1,9 +1,9 @@
 # 0048. Sheet grid on sheetbase-table
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-09-27
 - **Ticket:** Roadmap 4, COMP-06
-- **Amends (if accepted):** ADR-0021 (HyperFormula trust and persistence) and ADR-0022 (cross-sheet formula resolution) where they name the client grid
+- **Amends:** ADR-0021 (HyperFormula trust and persistence) and ADR-0022 (cross-sheet formula resolution) where they name the client grid
 
 ## Context
 
@@ -102,4 +102,20 @@ needs the 18 functions plus a parity suite over this corpus and the codec
 differences above. The compiled-path gaps for `SUBSTITUTE`/`FILTER` are COMP-06
 work either way.
 
-The product owner chooses and accepts; this evidence does not accept the ADR.
+**Owner decision (2026-09-27): option (b).** The server adopts the
+`sheetbase-table` engine; HyperFormula and Handsontable are removed. The
+existing formula fixtures already pass on the table engine. The following work
+is part of COMP-06 and lands with the swap:
+
+- implement the 18 required statistical functions in `sheetbase-table`
+  (`packages/table/src/engine/functions-*`);
+- reconcile the semantic differences — boolean literals (`TRUE`/`FALSE`), date
+  and error codecs, `TEXT` number formatting and spill results — with a parity
+  suite over the corpus above;
+- fix the compiled-formula path for `SUBSTITUTE` and `FILTER` and align
+  `TIMEVALUE` input handling;
+- keep ADR-0021/0022's trust, persistence and cross-sheet resolution contracts;
+  only the engine changes.
+
+The option (a) recommendation above is retained as the evidence that motivated
+this work list; it was not taken.

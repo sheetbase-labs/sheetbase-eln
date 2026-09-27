@@ -312,7 +312,7 @@ and a package release that changes a v3 screen fails the ELN parity suite.
 
 ## COMP-06 — Replace Handsontable
 
-**Status:** proposed; after [DEC-02](DEC.md) accepts [ADR-0048](../../decisions/0048-sheet-grid-on-sheetbase-table.md).
+**Status:** proposed; [DEC-02](DEC.md) accepted [ADR-0048](../../decisions/0048-sheet-grid-on-sheetbase-table.md) option (b) on 2026-09-27 — the server adopts the `sheetbase-table` engine and HyperFormula/Handsontable are removed.
 
 ### Scope
 
@@ -322,8 +322,12 @@ and a package release that changes a v3 screen fails the ELN parity suite.
   (ADR-0020/0022).
 - Record-link editor, formula reference editing and function autocomplete on
   the table's editor hooks.
-- Implement the formula-authority decision from ADR-0048 so the grid and the
-  server never disagree on a value.
+- Implement the formula-authority decision from ADR-0048 option (b): the
+  server evaluates with the `sheetbase-table` engine, so the grid and the
+  server never disagree. This needs the engine parity work in
+  `sheetbase-components` recorded in ADR-0048: the 18 missing statistical
+  functions, the boolean/date/error/format/spill semantics and the compiled
+  `SUBSTITUTE`/`FILTER` path.
 - Remove `handsontable`, `@handsontable/react-wrapper`,
   `VITE_HANDSONTABLE_LICENSE_KEY` and the `--ht-*` theme.
 
@@ -354,7 +358,12 @@ and a package release that changes a v3 screen fails the ELN parity suite.
    one PR each.
 3. Editors: record link and formula reference editing on the table's editor
    hooks; function autocomplete from the same function list.
-4. Formula authority per ADR-0048.
+4. Formula authority per ADR-0048 option (b). In `sheetbase-components`:
+   implement the 18 missing statistical functions, fix the compiled
+   `SUBSTITUTE`/`FILTER` path and align boolean/date/error/format/spill
+   semantics with a parity suite over the ADR corpus. In the ELN: move
+   `calculation.server.ts`/`formula-write.server.ts` and the profile onto the
+   table engine and remove HyperFormula, keeping ADR-0021/0022 contracts.
 5. Remove Handsontable packages, `VITE_HANDSONTABLE_LICENSE_KEY` (from
    `.env.example`, `src/env.server.ts`/client env, compose files, docs), the
    `--ht-*` CSS and `docs/development/handsontable.md` (replace with a
@@ -369,7 +378,8 @@ All listed tests plus `pnpm test:phase4` pass after each PR;
 
 All sheet surfaces (canonical, composed, ad-hoc, notebook blocks) run on
 `sheetbase-table`; existing grid, write-back and formula tests pass unchanged
-in intent; Handsontable is gone from the dependency tree.
+in intent; the ADR-0048 parity suite passes and HyperFormula is gone;
+Handsontable is gone from the dependency tree.
 
 ## COMP-07 — Replace Recharts
 

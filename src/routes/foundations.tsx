@@ -538,22 +538,59 @@ function TokenSwatch({ name, value, varName }: TokenSwatchProps) {
 }
 
 const COLOUR_TOKENS: TokenSwatchProps[] = [
-  { name: 'Primary', value: 'oklch(0.55 0.19 255)', varName: '--primary' },
+  { name: 'Primary', value: 'oklch(0.551 0.188 256)', varName: '--primary' },
   {
-    name: 'Foreground',
-    value: 'oklch(0.19 0.018 260)',
+    name: 'Text',
+    value: 'oklch(0.19 0.018 259.7)',
     varName: '--foreground',
   },
-  { name: 'Muted', value: 'oklch(0.968 0.005 260)', varName: '--muted' },
-  { name: 'Border', value: 'oklch(0.91 0.009 260)', varName: '--border' },
   {
-    name: 'Destructive',
+    name: 'Text muted',
+    value: 'oklch(0.501 0.02 259.4)',
+    varName: '--muted-foreground',
+  },
+  {
+    name: 'Text faint',
+    value: 'oklch(0.55 0.019 259.4)',
+    varName: '--faint-foreground',
+  },
+  {
+    name: 'Danger',
     value: 'oklch(0.61 0.22 27)',
     varName: '--destructive',
   },
-  { name: 'Accent', value: 'oklch(0.95 0.018 255)', varName: '--accent' },
-  { name: 'Card', value: 'oklch(1 0 0)', varName: '--card' },
-  { name: 'Sidebar', value: 'oklch(0.982 0.004 260)', varName: '--sidebar' },
+  {
+    name: 'Warning',
+    value: 'oklch(0.761 0.159 77.7)',
+    varName: '--warning',
+  },
+  {
+    name: 'Success',
+    value: 'oklch(0.636 0.163 153.3)',
+    varName: '--success',
+  },
+  {
+    name: 'Selection',
+    value: 'oklch(0.95 0.018 258.4)',
+    varName: '--selection',
+  },
+  {
+    name: 'Review',
+    value: 'oklch(0.62 0.2 300.1)',
+    varName: '--review',
+  },
+  {
+    name: 'Analysis',
+    value: 'oklch(0.657 0.115 213)',
+    varName: '--analysis',
+  },
+  { name: 'Border', value: 'oklch(0.909 0.009 264.5)', varName: '--border' },
+  { name: 'Surface', value: 'oklch(1 0 89.9)', varName: '--card' },
+  {
+    name: 'Background',
+    value: 'oklch(0.995 0.003 286.4)',
+    varName: '--background',
+  },
 ]
 
 /**
@@ -985,46 +1022,67 @@ const CONTRAST_PAIRS: Array<{
   bgVar: string
 }> = [
   {
-    label: 'Foreground on background',
+    label: 'Text on background',
     fgVar: 'var(--foreground)',
     bgVar: 'var(--background)',
-    fg: { L: 0.19, C: 0.018, h: 260 },
-    bg: { L: 0.995, C: 0.002, h: 260 },
+    fg: { L: 0.19, C: 0.018, h: 259.7 },
+    bg: { L: 0.995, C: 0.003, h: 286.4 },
   },
   {
-    label: 'Muted-foreground on background',
+    label: 'Text muted on surface',
     fgVar: 'var(--muted-foreground)',
-    bgVar: 'var(--background)',
-    fg: { L: 0.5, C: 0.02, h: 260 },
-    bg: { L: 0.995, C: 0.002, h: 260 },
+    bgVar: 'var(--card)',
+    fg: { L: 0.501, C: 0.02, h: 259.4 },
+    bg: { L: 1, C: 0, h: 89.9 },
   },
   {
-    label: 'Muted-foreground on muted',
-    fgVar: 'var(--muted-foreground)',
+    label: 'Text faint on surface muted',
+    fgVar: 'var(--faint-foreground)',
     bgVar: 'var(--muted)',
-    fg: { L: 0.5, C: 0.02, h: 260 },
-    bg: { L: 0.968, C: 0.005, h: 260 },
+    fg: { L: 0.55, C: 0.019, h: 259.4 },
+    bg: { L: 0.979, C: 0.003, h: 264.5 },
   },
   {
-    label: 'Primary-foreground on primary',
+    label: 'On-accent on primary',
     fgVar: 'var(--primary-foreground)',
     bgVar: 'var(--primary)',
-    fg: { L: 0.985, C: 0.002, h: 255 },
-    bg: { L: 0.55, C: 0.19, h: 255 },
+    fg: { L: 1, C: 0, h: 89.9 },
+    bg: { L: 0.551, C: 0.188, h: 256 },
   },
   {
-    label: 'Destructive-foreground on destructive',
-    fgVar: 'var(--destructive-foreground)',
-    bgVar: 'var(--destructive)',
-    fg: { L: 0.985, C: 0.002, h: 27 },
-    bg: { L: 0.55, C: 0.21, h: 27 },
-  },
-  {
-    label: 'Foreground on card',
-    fgVar: 'var(--foreground)',
+    label: 'Link on surface',
+    fgVar: 'var(--link)',
     bgVar: 'var(--card)',
-    fg: { L: 0.19, C: 0.018, h: 260 },
-    bg: { L: 1, C: 0, h: 0 },
+    fg: { L: 0.551, C: 0.188, h: 256 },
+    bg: { L: 1, C: 0, h: 89.9 },
+  },
+  {
+    label: 'Danger text on danger wash',
+    fgVar: 'var(--danger-text)',
+    bgVar: 'var(--danger-wash)',
+    fg: { L: 0.5, C: 0.182, h: 29.5 },
+    bg: { L: 0.959, C: 0.017, h: 17.5 },
+  },
+  {
+    label: 'Warning text on warning wash',
+    fgVar: 'var(--warning-text)',
+    bgVar: 'var(--warning-wash)',
+    fg: { L: 0.508, C: 0.108, h: 73.3 },
+    bg: { L: 0.976, C: 0.031, h: 91 },
+  },
+  {
+    label: 'Success text on success wash',
+    fgVar: 'var(--success-text)',
+    bgVar: 'var(--success-wash)',
+    fg: { L: 0.457, C: 0.108, h: 154 },
+    bg: { L: 0.954, C: 0.022, h: 164.5 },
+  },
+  {
+    label: 'Inverse text on inverse background',
+    fgVar: 'var(--inverse-text)',
+    bgVar: 'var(--inverse-bg)',
+    fg: { L: 1, C: 0, h: 89.9 },
+    bg: { L: 0.19, C: 0.018, h: 259.7 },
   },
 ]
 
@@ -1052,7 +1110,7 @@ function ContrastGrid() {
               <span
                 className={cn(
                   'font-semibold',
-                  aa === 'pass' ? 'text-emerald-600' : 'text-red-600',
+                  aa === 'pass' ? 'text-success-text' : 'text-danger-text',
                 )}
               >
                 {aa === 'pass' ? 'AA pass' : 'AA fail'}

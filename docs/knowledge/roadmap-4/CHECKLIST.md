@@ -28,8 +28,8 @@ Specification: [tasks/DEC.md](tasks/DEC.md) · nod `epic-1`
 Specification: [tasks/DSYS.md](tasks/DSYS.md) · nod `epic-14`
 
 - [x] **DSYS-01** Vendor the design reference and render it `task-15`
-- [ ] **DSYS-02** Tokens `task-16`
-  - [ ] DSYS-02.1 Conversion script, variables, fonts, type/radius/shadow/size utilities,… `subtask-17`
+- [ ] **DSYS-02** Tokens — **in progress** `task-16`
+  - [ ] DSYS-02.1 Conversion script, variables, fonts, type/radius/shadow/size utilities,… — **in progress** `subtask-17`
   - [ ] DSYS-02.2 Remove density `subtask-18`
   - [ ] DSYS-02.3 Replace literal colours and add the lint rule `subtask-19`
 - [ ] **DSYS-03** Primitives restyled in place `task-20`

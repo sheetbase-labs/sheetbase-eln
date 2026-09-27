@@ -24,3 +24,4 @@ Spec: [DEC-09 in tasks/DEC.md](../../tasks/DEC.md#dec-09--durable-offline-edits)
 
 ## Work Log
 - 2026-09-27: DEC-09 decided by the product owner 2026-09-27: ADR-0018 amended — IndexedDB device store, replay with expected revisions, block- and cell-level conflicts, drafts retained after sign-out until discarded.
+- 2026-09-27: PR #199: DEC-09 recorded (ADR-0018 amendment).

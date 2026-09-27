@@ -10,6 +10,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import {
+  Check,
   CheckCircle2,
   ChevronsUpDown,
   Database,
@@ -53,6 +54,8 @@ import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
 import { ShortcutProvider } from '../shortcuts/shortcut-provider'
 import { ShortcutsDialog } from '../shortcuts/shortcuts-dialog'
 import { ShellBreadcrumbs } from './page-header'
+import { createDataClient } from '#/lib/data-client'
+import { setActiveWorkspace } from '#/lib/user-preferences'
 import { TopBarActions } from './top-bar'
 import { ShellInspector, ShellInspectorSheet } from './inspector'
 import {
@@ -444,6 +447,20 @@ export function AppShell({
     router.invalidate()
   }, [router])
 
+  // SHELL-01.4: switch the active workspace, then re-resolve the shell
+  // context (and every workspace-scoped query) for the new workspace.
+  const switchWorkspace = React.useCallback(
+    async (workspaceId: string) => {
+      try {
+        await setActiveWorkspace(createDataClient(), workspaceId)
+      } catch {
+        /* keep the current workspace if the switch is refused */
+      }
+      router.invalidate()
+    },
+    [router],
+  )
+
   const renderSidebarBody = (sidebarCollapsed: boolean) =>
     context ? (
       <div className="flex h-full flex-col">
@@ -498,9 +515,24 @@ export function AppShell({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-              <DropdownMenuItem disabled>
-                {context.workspace ? context.workspace.name : 'No workspace'}
-              </DropdownMenuItem>
+              {(
+                context.workspaces ??
+                (context.workspace ? [context.workspace] : [])
+              ).map((workspace) => (
+                <DropdownMenuItem
+                  key={workspace.id ?? workspace.name}
+                  onSelect={() => {
+                    if (workspace.id) void switchWorkspace(workspace.id)
+                  }}
+                >
+                  {workspace.id && workspace.id === context.workspace?.id ? (
+                    <Check className="mr-2 size-4" />
+                  ) : (
+                    <span className="mr-2 size-4" />
+                  )}
+                  {workspace.name}
+                </DropdownMenuItem>
+              ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
             </DropdownMenuContent>

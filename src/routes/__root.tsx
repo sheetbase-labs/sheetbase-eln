@@ -94,7 +94,14 @@ function RootRouteComponent() {
   // content appeared but the sidebar was missing.
   const shellContext = auth
     ? {
-        workspace: auth.workspace ? { name: auth.workspace.name } : null,
+        workspace: auth.workspace
+          ? {
+              id: auth.workspace.id,
+              slug: auth.workspace.slug,
+              name: auth.workspace.name,
+            }
+          : null,
+        workspaces: auth.workspaces,
         user: {
           name: auth.user.name,
           email: auth.user.email,

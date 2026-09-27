@@ -75,9 +75,21 @@ export async function recordDataExportReceipt(input: {
 export const realSessionAuthDeps: SessionAuthDeps = {
   getSession: getAppSession,
   getWorkspaceForUser: async (userId) => {
-    const membership = await db.query.workspaceMemberships.findFirst({
-      where: eq(schema.workspaceMemberships.userId, userId),
-    })
+    const [preference, memberships] = await Promise.all([
+      db.query.userPreferences.findFirst({
+        where: eq(schema.userPreferences.userId, userId),
+      }),
+      db.query.workspaceMemberships.findMany({
+        where: eq(schema.workspaceMemberships.userId, userId),
+      }),
+    ])
+    // SHELL-01.4: prefer the chosen workspace while the user is a member.
+    const membership =
+      (preference?.activeWorkspaceId
+        ? memberships.find(
+            (item) => item.workspaceId === preference.activeWorkspaceId,
+          )
+        : undefined) ?? memberships.at(0)
     return membership ? { id: membership.workspaceId } : null
   },
   mintToken: (input) => mintPostgrestToken(env.PGRST_JWT_SECRET, input),

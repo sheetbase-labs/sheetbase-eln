@@ -34,6 +34,8 @@ export interface AppShellNavSection {
 }
 
 export interface AppShellWorkspace {
+  id?: string
+  slug?: string
   name: string
 }
 
@@ -45,6 +47,8 @@ export interface AppShellUser {
 
 export interface AppShellContext {
   workspace: AppShellWorkspace | null
+  /** Every workspace the user belongs to (SHELL-01.4 switcher). */
+  workspaces?: AppShellWorkspace[]
   user: AppShellUser
 }
 

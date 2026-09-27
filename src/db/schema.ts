@@ -3744,6 +3744,11 @@ export const userPreferences = api.table(
       .references(() => user.id, { onDelete: 'cascade' }),
     appearance: text('appearance').notNull().default('system'),
     navCollapsed: boolean('nav_collapsed').notNull().default(false),
+    /**
+     * The workspace the user last switched to (SHELL-01.4). Resolution uses it
+     * only while the user is still a member; otherwise the first membership.
+     */
+    activeWorkspaceId: uuid('active_workspace_id'),
     preferences: jsonb('preferences').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()

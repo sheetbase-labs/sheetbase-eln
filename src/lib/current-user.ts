@@ -12,6 +12,8 @@ import { isCollaborationEnabled } from '#/lib/collaboration/access.server'
 export interface CurrentContext {
   user: { id: string; name: string; email: string }
   workspace: { id: string; slug: string; name: string; role: string } | null
+  /** Every workspace the user is a member of (SHELL-01.4 switcher). */
+  workspaces: Array<{ id: string; slug: string; name: string; role: string }>
   /** COLLAB: Liveblocks substrate configured on this deployment? */
   collaborationEnabled: boolean
 }
@@ -23,10 +25,24 @@ export async function getCurrentContext(
   const session = await getAppSession(headers)
   if (!session) return null
 
-  const membership = await db.query.workspaceMemberships.findFirst({
-    where: eq(schema.workspaceMemberships.userId, session.user.id),
-    with: { workspace: true },
-  })
+  const [preference, memberships] = await Promise.all([
+    db.query.userPreferences.findFirst({
+      where: eq(schema.userPreferences.userId, session.user.id),
+    }),
+    db.query.workspaceMemberships.findMany({
+      where: eq(schema.workspaceMemberships.userId, session.user.id),
+      with: { workspace: true },
+    }),
+  ])
+
+  // SHELL-01.4: honour the user's chosen workspace while they are still a
+  // member; otherwise fall back to their first membership.
+  const membership =
+    (preference?.activeWorkspaceId
+      ? memberships.find(
+          (item) => item.workspaceId === preference.activeWorkspaceId,
+        )
+      : undefined) ?? memberships.at(0)
 
   return {
     user: {
@@ -42,6 +58,12 @@ export async function getCurrentContext(
           role: membership.role,
         }
       : null,
+    workspaces: memberships.map((item) => ({
+      id: item.workspace.id,
+      slug: item.workspace.slug,
+      name: item.workspace.name,
+      role: item.role,
+    })),
     collaborationEnabled: isCollaborationEnabled(),
   }
 }

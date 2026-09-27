@@ -52,3 +52,11 @@ export async function setUserAppearance(
 ): Promise<void> {
   await client.rpc('set_user_appearance', { p_appearance: appearance })
 }
+
+/** Switch the user's active workspace (SHELL-01.4). */
+export async function setActiveWorkspace(
+  client: DataClient,
+  workspaceId: string,
+): Promise<void> {
+  await client.rpc('set_active_workspace', { p_workspace_id: workspaceId })
+}

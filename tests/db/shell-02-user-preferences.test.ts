@@ -9,6 +9,8 @@ import { prepareTestDatabase } from './helpers'
 
 const A = 'shell02-a'
 const B = 'shell02-b'
+const WS1 = '00000000-0000-4000-8000-0000000002a1'
+const WS2 = '00000000-0000-4000-8000-0000000002a2'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -20,6 +22,17 @@ beforeAll(async () => {
     `INSERT INTO internal.user (id, name, email, "emailVerified") VALUES
       ('${A}', 'Shell A', 'shell02-a@sheetbase.test', true),
       ('${B}', 'Shell B', 'shell02-b@sheetbase.test', true)`,
+  )
+  await migrator.query(
+    `INSERT INTO api.workspaces (id, slug, name) VALUES
+      ('${WS1}', 'shell02-ws1', 'Shell WS 1'),
+      ('${WS2}', 'shell02-ws2', 'Shell WS 2')
+     ON CONFLICT (id) DO NOTHING`,
+  )
+  await migrator.query(
+    `INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
+      ('${WS1}', '${A}', 'owner')
+     ON CONFLICT (workspace_id, user_id) DO NOTHING`,
   )
 })
 
@@ -118,5 +131,24 @@ describe('user preferences', () => {
         `INSERT INTO api.user_preferences (user_id, appearance) VALUES ('${A}', 'dark')`,
       ),
     ).rejects.toMatchObject({ code: '42501' })
+  })
+
+  it('stores the active workspace only for a member', async () => {
+    const a = await asUser(A)
+    await a.query(`SELECT api.set_active_workspace('${WS1}')`)
+    const stored = await a.query(
+      `SELECT active_workspace_id FROM api.user_preferences`,
+    )
+    expect(stored.rows[0].active_workspace_id).toBe(WS1)
+
+    // A workspace the caller is not a member of is refused, and the stored
+    // value is unchanged.
+    await expect(
+      a.query(`SELECT api.set_active_workspace('${WS2}')`),
+    ).rejects.toMatchObject({ code: '42501' })
+    const after = await a.query(
+      `SELECT active_workspace_id FROM api.user_preferences`,
+    )
+    expect(after.rows[0].active_workspace_id).toBe(WS1)
   })
 })

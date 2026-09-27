@@ -24,3 +24,4 @@ Spec: [DEC-02 in tasks/DEC.md](../../tasks/DEC.md#dec-02--sheet-grid-and-formula
 
 ## Work Log
 - 2026-09-27: ADR-0048 compatibility spike done: 146-formula run over both engines; 18 required functions absent; recommends option (a); owner choice pending.
+- 2026-09-27: PR #193: ADR-0048 compatibility evidence; owner choice (a) recommended, pending.

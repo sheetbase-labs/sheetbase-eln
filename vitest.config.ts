@@ -14,6 +14,7 @@ export default defineConfig({
       'tests/db/**',
       'tests/api/**',
       'tests/browser/**',
+      'tests/visual/**',
     ],
   },
 })

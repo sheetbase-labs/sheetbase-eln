@@ -2,7 +2,7 @@
 id: task-38
 title: DSYS-06 — Visual parity suite
 type: task
-status: todo
+status: in-progress
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

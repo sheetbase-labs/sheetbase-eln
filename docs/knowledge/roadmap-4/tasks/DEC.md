@@ -72,7 +72,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-07 — Workspace-defined record models
 
-**Status:** proposed. New ADR amending ADR-0026 (see [MDL-01](MDL.md)), including whether materials and cell banks are built-in or workspace-defined.
+**Status:** accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): generic record host with versioned, approvable workspace models; cell banks workspace-defined; materials built-in; no table-per-model.
 **Unblocks:** MDL-01, MDL-04, LAB-04.
 
 **How:** Read ADR-0026 and `src/db/schema.ts` (`model_kinds`, `record_field_definitions`); prototype how a workspace-defined kind would be stored (generic record host vs table per model) and how RLS, search, lineage and the public API (`docs/api/`) treat it; decide materials/cell banks; write the ADR.

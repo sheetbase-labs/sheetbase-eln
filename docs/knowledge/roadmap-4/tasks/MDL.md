@@ -1,6 +1,6 @@
 # MDL — Models and Records from Models
 
-**Status (2026-09-27):** Proposed; not assigned. MDL-01 follows [DEC-07](DEC.md).
+**Status (2026-09-27):** Proposed; not assigned. MDL-01 follows [DEC-07](DEC.md), accepted 2026-09-27 as [ADR-0051](../../decisions/0051-workspace-defined-record-models.md).
 
 ## Programme goal
 
@@ -21,7 +21,7 @@ from those definitions.
 
 ## MDL-01 — Workspace-defined record models
 
-**Status:** proposed; after [DEC-07](DEC.md).
+**Status:** proposed; [DEC-07](DEC.md) accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): generic record host, versioned schemas, cell banks workspace-defined, materials built-in.
 
 ### Design
 

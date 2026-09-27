@@ -2,7 +2,7 @@
 id: task-8
 title: DEC-07 — Workspace-defined record models
 type: task
-status: todo
+status: done
 priority: critical
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -23,3 +23,4 @@ Spec: [DEC-07 in tasks/DEC.md](../../tasks/DEC.md#dec-07--workspace-defined-reco
 - Steps: 0 subtasks
 
 ## Work Log
+- 2026-09-27: DEC-07 decided by the product owner 2026-09-27: ADR-0051 accepted — generic record host with versioned approvable workspace models; cell banks workspace-defined, materials built-in; no table-per-model.

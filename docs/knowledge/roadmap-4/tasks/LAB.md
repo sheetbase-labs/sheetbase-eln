@@ -159,7 +159,7 @@ link to their row; the seeded SMP-2231 matches the design.
 
 ## LAB-04 — Materials and lots
 
-**Status:** proposed; after [DEC-07](DEC.md), which decides whether materials are built-in or a workspace-defined model.
+**Status:** proposed; [DEC-07](DEC.md) accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): materials are built-in, not workspace-defined.
 
 ### Design
 

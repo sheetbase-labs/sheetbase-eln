@@ -81,3 +81,42 @@ Forces:
   that change become migration work items.
 - Rejecting this ADR leaves ADR-0007 and ADR-0009 in force; Roadmap 4's
   capability tasks remain valid but would be built in the current UI.
+
+## Review evidence (2026-09-27)
+
+Reviewed against the vendored design and the current code before acceptance.
+No blocking discrepancy was found; the owner accepts by setting the status.
+
+- **Tokens.** `design-system/tokens.json` has 50 colour tokens with light and
+  dark values and the size tokens topbar 44px, nav 232px, inspector 300px,
+  row 32px (sheet 28px) and control 28px, with radius sm 4 / md 6 / lg 10. The
+  mapping in [`../roadmap-4/DESIGN_ADOPTION.md`](../roadmap-4/DESIGN_ADOPTION.md)
+  covers them and names the tokens `src/styles.css` lacks (`--faint-foreground`,
+  `--border-subtle`, `--danger-wash`, the status washes and text, `--chart-grid`,
+  `--chart-axis`, `--review`, `--analysis`, `--row-hover`, `--skeleton`,
+  `--highlight`).
+- **Existing tokens.** `src/styles.css` already defines `--success`, `--warning`,
+  `--ring`, `--chart-1..5` and `--violet`; `--violet` is used in 35 places and is
+  renamed to `--review` by DSYS-02.3, the literal-colour cleanup step.
+- **Fonts.** `@fontsource-variable/instrument-sans`, `inter` and `jetbrains-mono`
+  are already dependencies, so decision item 3 needs no new font package.
+- **Density.** `src/components/theme-provider.tsx` and `src/styles.css` implement
+  ADR-0007's `comfortable`/`compact` modes through `data-density`; DSYS-02.2
+  removes them, as decision item 4 requires.
+- **Contrast.** `src/lib/contrast.ts` and `src/lib/contrast.test.ts` exist and are
+  the evidence path for every text-bearing pair (decision item 2).
+- **Components.** `design-system/components/index.d.ts` exports 27 components
+  (Button, Menu, MenuItem, MenuSep, MenuLabel, Tooltip, Toast, Banner, Notice,
+  EmptyState, Skeleton, Kbd, Avatar, Segmented, Status, Dot, Source, Diff, Tag,
+  Chip, Choice, Stepper, Tree, TreeItem, Secret, Icon, theme); DSYS-03/04 map
+  them onto `src/components`.
+- **Packages.** `sheetbase-table`, `sheetbase-explorer` and
+  `sheetbase-advanced-search` are the names in
+  [`../roadmap-4/tasks/COMP.md`](../roadmap-4/tasks/COMP.md); none are in the ELN
+  `package.json` yet, which is the expected pre-COMP baseline.
+- **Renders.** `pnpm design:render` produces light and dark PNGs from the
+  vendored snapshot (DSYS-01); that is the exact-parity reference in decision
+  item 9.
+
+The owner decision is recorded by changing **Status** above to `accepted` with
+the date; this review does not accept it.

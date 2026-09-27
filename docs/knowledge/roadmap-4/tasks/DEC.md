@@ -31,6 +31,7 @@ assigned to a junior developer. Each follows the same steps:
 ## DEC-01 — Adopt UI system v3
 
 **Status:** proposed. Accept [ADR-0047](../../decisions/0047-ui-system-v3-adoption.md).
+Evidence: the ADR's "Review evidence (2026-09-27)" section; ready for owner acceptance.
 **Unblocks:** DSYS-02 onward and every screen.
 
 **How:** Review ADR-0047 against the renders (`pnpm design:render`) and `DESIGN_ADOPTION.md`; confirm the token mapping, the removal of density modes and the exact-parity rule; accept.

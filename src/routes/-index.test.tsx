@@ -305,15 +305,24 @@ describe('MentionsPanel', () => {
 })
 
 describe('MyPrioritiesPanel', () => {
-  it('renders pending reviews as numbered priorities', () => {
-    render(<MyPrioritiesPanel priorities={[baseReview]} isLoading={false} />)
+  it('renders pending reviews as a table', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MyPrioritiesPanel priorities={[baseReview]} isLoading={false} />
+      </QueryClientProvider>,
+    )
 
-    expect(screen.getByText('Review EXP-2025-0001')).toBeTruthy()
-    expect(screen.getByText('Under review')).toBeTruthy()
+    expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
+    expect(screen.getByText('Lentivector stability run 1')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Review' })).toBeTruthy()
   })
 
   it('shows an empty state when there are no priorities', () => {
-    render(<MyPrioritiesPanel priorities={[]} isLoading={false} />)
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MyPrioritiesPanel priorities={[]} isLoading={false} />
+      </QueryClientProvider>,
+    )
 
     expect(screen.getByText('Nothing awaiting your review')).toBeTruthy()
   })

@@ -21,3 +21,4 @@ Step 2 of 4 in [WORK-02](../../tasks/WORK.md#work-02--home-and-inbox-pages); the
 - 2026-09-27: PR #206: Home sections aligned — 'Continue working' (recents), 'Awaiting your review' (priorities), and a new 'Needs attention' section from api.my_work_items.
 - 2026-09-27: PR #206: Home counts row (to review, experiments in progress, open inbox · N) from real queries; dataset-error and instrument-run counts wait for their data sources.
 - 2026-09-27: PR #206: Home 'Today' section from calendar_bookings for the current day.
+- 2026-09-27: PR #206: Awaiting your review is now the design's table (Record, Project, Submitted by, Due, Action) with resolved submitter names.

@@ -1376,6 +1376,9 @@ export function MyPrioritiesPanel({
   priorities: ReviewItem[]
   isLoading: boolean
 }) {
+  const { userLabel } = useUserNames(
+    priorities.map((review) => review.submittedByUserId),
+  )
   return (
     <section
       aria-label="Awaiting your review"
@@ -1395,40 +1398,68 @@ export function MyPrioritiesPanel({
           body="Pending reviews assigned to you will appear here."
         />
       ) : (
-        <ol className="divide-y divide-border">
-          {priorities.map((review, i) => {
-            const overdue = isReviewOverdue(
-              review.state,
-              review.submittedAt,
-              OVERDUE_DAYS,
-            )
-            return (
-              <li key={review.id} className="flex items-center gap-3 px-4 py-3">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                  {i + 1}
-                </span>
-                <Link to="/inbox" className="min-w-0 flex-1 no-underline">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    Review {review.recordIdentifier}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {review.recordTitle}
-                  </p>
-                </Link>
-                <span
-                  className={cn(
-                    'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
-                    overdue
-                      ? 'bg-danger-wash text-danger-text'
-                      : 'bg-review-wash text-review',
-                  )}
-                >
-                  {overdue ? 'Overdue' : 'Under review'}
-                </span>
-              </li>
-            )
-          })}
-        </ol>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Record</TableHead>
+                <TableHead>Project</TableHead>
+                <TableHead>Submitted by</TableHead>
+                <TableHead>Due</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {priorities.map((review) => {
+                const overdue = isReviewOverdue(
+                  review.state,
+                  review.submittedAt,
+                  OVERDUE_DAYS,
+                )
+                return (
+                  <TableRow key={review.id}>
+                    <TableCell>
+                      <Link to="/inbox" className="no-underline">
+                        <span className="block text-sm font-medium text-foreground">
+                          {review.recordTitle}
+                        </span>
+                        <span className="block text-id text-muted-foreground">
+                          {review.recordIdentifier}
+                        </span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {review.projectTitle ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {userLabel(review.submittedByUserId)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'text-muted-foreground',
+                        overdue && 'text-danger-text',
+                      )}
+                    >
+                      {review.dueAt
+                        ? new Date(review.dueAt).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                          })
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild size="sm" variant="secondary">
+                        <Link to="/inbox" className="no-underline">
+                          Review
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </section>
   )

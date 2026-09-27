@@ -54,13 +54,12 @@ import type { ProjectWire } from '#/lib/notebook-data'
 import { projectPath } from '#/lib/navigation'
 import { cn } from '#/lib/utils'
 import { useTheme } from '#/components/theme-provider'
-import { ConnectionStatus, useLiveStatus } from '#/components/live'
-import { NotificationInbox } from './collaboration/notification-inbox'
 import { createGlobalShortcuts } from '#/lib/global-shortcuts'
 import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
 import { ShortcutProvider } from './shortcuts/shortcut-provider'
 import { ShortcutsDialog } from './shortcuts/shortcuts-dialog'
 import { ShellBreadcrumbs } from './shell/page-header'
+import { TopBarActions } from './shell/top-bar'
 import {
   ShellContent,
   APP_SHELL_MAIN_ID,
@@ -341,14 +340,6 @@ export const defaultNavSections: AppShellNavSection[] = [
   },
 ]
 
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="pointer-events-none hidden h-5 select-none items-center gap-0.5 rounded border bg-muted px-1.5 font-sans text-xs font-medium text-muted-foreground sm:flex">
-      {children}
-    </kbd>
-  )
-}
-
 function initials(name: string): string {
   return name
     .split(/\s+/)
@@ -387,11 +378,6 @@ export function AppShell({
   const router = useRouter()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { theme, setTheme } = useTheme()
-
-  // LIVE-003: quiet connection-status indicator in the top bar. The
-  // coordinator is mounted at the root; this just subscribes to its
-  // status snapshot.
-  const liveStatus = useLiveStatus()
 
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
@@ -726,80 +712,16 @@ export function AppShell({
 
                 <ShellBreadcrumbs breadcrumbs={breadcrumbs} />
 
-                <div className="ml-auto flex items-center gap-2">
-                  <ConnectionStatus
-                    status={liveStatus.status}
-                    lastAppliedSeq={liveStatus.lastAppliedSeq}
-                  />
-                  <NotificationInbox />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={openPalette}
-                    className="hidden h-8 w-56 items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-muted/50 sm:flex"
-                    aria-label="Search records and samples"
-                  >
-                    <Search className="size-4 shrink-0" />
-                    <span className="flex-1 truncate">
-                      Search records, samples…
-                    </span>
-                    <Kbd>⌘K</Kbd>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="sm:hidden"
-                    aria-label="Search"
-                    onClick={openPalette}
-                  >
-                    <Search />
-                  </Button>
-
-                  {primaryAction}
-
-                  {inspector && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="xl:hidden"
-                      aria-label={`Open ${inspectorLabel}`}
-                      aria-expanded={inspectorOpen}
-                      onClick={() => setInspectorOpen(true)}
-                    >
-                      <PanelRight /> {inspectorLabel}
-                    </Button>
-                  )}
-                  {inspector && inspectorCollapsible && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="hidden xl:inline-flex"
-                          aria-label={
-                            inspectorCollapsed
-                              ? 'Show inspector'
-                              : 'Hide inspector'
-                          }
-                          aria-expanded={!inspectorCollapsed}
-                          onClick={toggleInspectorCollapsed}
-                        >
-                          <PanelRight
-                            className={cn(
-                              'size-4',
-                              !inspectorCollapsed && 'text-foreground',
-                            )}
-                          />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {inspectorCollapsed
-                          ? 'Show inspector'
-                          : 'Hide inspector'}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
+                <TopBarActions
+                  onOpenPalette={openPalette}
+                  primaryAction={primaryAction}
+                  hasInspector={Boolean(inspector)}
+                  inspectorLabel={inspectorLabel}
+                  inspectorCollapsible={inspectorCollapsible}
+                  inspectorCollapsed={inspectorCollapsed}
+                  onOpenInspector={() => setInspectorOpen(true)}
+                  onToggleInspector={toggleInspectorCollapsed}
+                />
               </header>
             )}
 

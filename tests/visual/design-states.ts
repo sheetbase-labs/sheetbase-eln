@@ -152,6 +152,9 @@ export const DESIGN_SCREEN_SIZES: Record<
 }
 
 /** Screens with a route and state mapping, once migrated. */
+/** The design seed's fixed clock (DSYS-05.1); parity freezes the browser to it. */
+export const DESIGN_CLOCK = new Date('2026-09-25T09:40:00+01:00')
+
 export const DESIGN_STATES: DesignState[] = []
 
 /**

@@ -1,6 +1,7 @@
 import { expect, test } from 'playwright/test'
 
 import {
+  DESIGN_CLOCK,
   DESIGN_SCREEN_SIZES,
   DESIGN_STATES,
   DESIGN_USER_IDS,
@@ -23,6 +24,9 @@ for (const state of DESIGN_STATES) {
     }
     await page.setViewportSize(size)
     await page.emulateMedia({ colorScheme: state.theme })
+    // Freeze the browser clock to the design seed's clock so weekday,
+    // date and relative-time copy render as the design does.
+    await page.clock.install({ time: DESIGN_CLOCK })
     // The appearance setting persists in localStorage; force the screen's
     // theme so the comparison is not decided by the seeded user's preference.
     await page.addInitScript((theme) => {

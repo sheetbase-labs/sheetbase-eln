@@ -201,3 +201,39 @@ describe('api.keep_dataset_version', () => {
     )
   })
 })
+
+describe('api.prune_dataset_versions', () => {
+  it('removes only eligible snapshots, honouring keeps and citing', async () => {
+    // A dataset archived long enough that the uncited retention has passed.
+    await migrator.query(
+      `UPDATE api.datasets SET archived_at = '2023-01-01T00:00:00Z', lifecycle = 'archived' WHERE id = $1`,
+      [DATASET],
+    )
+    // VERSION_A was kept by the earlier test, so only VERSION_B is eligible.
+    await migrator.query('RESET ROLE')
+    const { rows } = await migrator.query<{
+      result: { pruned: Array<{ datasetVersionId: string }> }
+    }>(`SELECT api.prune_dataset_versions(100) AS result`)
+    const prunedIds = rows[0]!.result.pruned.map((p) => p.datasetVersionId)
+    expect(prunedIds).toContain(VERSION_B)
+    expect(prunedIds).not.toContain(VERSION_A)
+
+    const remaining = await migrator.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM api.dataset_version_rows WHERE dataset_version_id = $1`,
+      [VERSION_B],
+    )
+    expect(remaining.rows[0]!.n).toBe(0)
+
+    const record = await migrator.query<{ pruned_row_count: number }>(
+      `SELECT pruned_row_count FROM api.dataset_version_prunes WHERE dataset_version_id = $1`,
+      [VERSION_B],
+    )
+    expect(record.rows[0]!.pruned_row_count).toBe(2)
+
+    const audit = await migrator.query<{ operation: string }>(
+      `SELECT operation FROM api.change_events WHERE entity_type = 'dataset_version' AND entity_uuid = $1`,
+      [VERSION_B],
+    )
+    expect(audit.rows.some((row) => row.operation === 'delete')).toBe(true)
+  })
+})

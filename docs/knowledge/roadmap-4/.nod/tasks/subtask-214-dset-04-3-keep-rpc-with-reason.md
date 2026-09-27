@@ -2,7 +2,7 @@
 id: subtask-214
 title: DSET-04.3 — "Keep" RPC with reason
 type: subtask
-status: done
+status: in-progress
 priority: medium
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -18,3 +18,4 @@ Step 3 of 3 in [DSET-04](../../tasks/DSET.md#dset-04--snapshot-retention); the f
 
 ## Work Log
 - 2026-09-27: PR #206: api.keep_dataset_version stores a keep beside the immutable snapshot (dataset_version_keeps, not exposed) with a required reason; retention honours it. DB tests.
+- 2026-09-27: Correction: the Keep RPC landed; the warning banner before removal and the SnapshotRemoved tombstone view remain, so this step is not complete.

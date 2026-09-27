@@ -3034,6 +3034,26 @@ export const datasetVersionKeeps = api.table(
   ],
 )
 
+/**
+ * dataset_version_prunes (DSET-04.2) — records that a snapshot's row data was
+ * removed by the retention job, keeping the snapshot's identity and history.
+ */
+export const datasetVersionPrunes = api.table(
+  'dataset_version_prunes',
+  {
+    datasetVersionId: uuid('dataset_version_id')
+      .primaryKey()
+      .references(() => datasetVersions.id, { onDelete: 'cascade' }),
+    rowsRemovedAt: timestamp('rows_removed_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+    prunedRowCount: integer('pruned_row_count').notNull().default(0),
+  },
+)
+
 export const datasetRowValues = api.table(
   'dataset_row_values',
   {

@@ -257,8 +257,8 @@ Specification: [tasks/DSET.md](tasks/DSET.md) · nod `epic-195`
   - [ ] DSET-03.3 Snapshots and Compare tabs per design `subtask-210`
 - [ ] **DSET-04** Snapshot retention `task-211`
   - [x] DSET-04.1 Retention policy in workspace settings (periods from DEC-11) `subtask-212`
-  - [ ] DSET-04.2 Job removing rows of eligible snapshots `subtask-213`
-  - [x] DSET-04.3 "Keep" RPC with reason `subtask-214`
+  - [x] DSET-04.2 Job removing rows of eligible snapshots `subtask-213`
+  - [ ] DSET-04.3 "Keep" RPC with reason — **in progress** `subtask-214`
 - [ ] **DSET-05** Import flow `task-215`
   - [ ] DSET-05.1 /import route with the three-step Stepper `subtask-216`
   - [ ] DSET-05.2 Parser recognition `subtask-217`

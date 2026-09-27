@@ -266,6 +266,141 @@ export const designSteps: Array<SeedStep> = [
       }
     },
   },
+  {
+    name: 'design experiments',
+    run: async (db) => {
+      for (const experiment of DESIGN_EXPERIMENTS) {
+        await db
+          .insert(schema.records)
+          .values({
+            id: experiment.id,
+            workspaceId: PROCESS,
+            projectId: DESIGN_PROJECTS[0].id,
+            kind: 'experiment',
+            identifier: experiment.identifier,
+            title: experiment.title,
+            status: experiment.status,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: [schema.records.projectId, schema.records.identifier],
+            set: {
+              title: experiment.title,
+              status: experiment.status,
+              deletedAt: null,
+              archivedAt: null,
+            },
+          })
+        for (const block of experiment.blocks ?? []) {
+          await db
+            .insert(schema.blocks)
+            .values({
+              id: block.id,
+              recordId: experiment.id,
+              type: 'rich_text',
+              order: block.order,
+              payload: {
+                doc: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'heading',
+                      attrs: { level: 2 },
+                      content: [{ type: 'text', text: block.heading }],
+                    },
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: block.text }],
+                    },
+                  ],
+                },
+              },
+              createdByUserId: DESIGN_USER_IDS.gareth,
+            })
+            .onConflictDoUpdate({
+              target: schema.blocks.id,
+              set: { payload: { doc: block.text }, order: block.order },
+            })
+        }
+      }
+    },
+  },
+]
+
+const DESIGN_EXPERIMENTS: ReadonlyArray<{
+  id: string
+  identifier: string
+  title: string
+  status: string
+  blocks?: ReadonlyArray<{
+    id: string
+    order: number
+    heading: string
+    text: string
+  }>
+}> = [
+  {
+    id: '00000000-0000-4000-8000-000000000350',
+    identifier: 'EXP-0138',
+    title: 'Transfection ratio, PEI:DNA sweep',
+    status: 'in_review',
+    blocks: [
+      {
+        id: '00000000-0000-4000-8000-000000000360',
+        order: 1,
+        heading: 'Objective',
+        text: 'Find the PEI:DNA ratio (w/w) that maximises AAV9 genome titre in HEK293 suspension culture at 1.0 µg DNA per mL, without viability at harvest falling below 80 %.',
+      },
+    ],
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000351',
+    identifier: 'EXP-0142',
+    title: 'Harvest clarification: depth filter screening',
+    status: 'in_progress',
+    blocks: [
+      {
+        id: '00000000-0000-4000-8000-000000000361',
+        order: 1,
+        heading: 'Objective',
+        text: 'Screen depth filter trains for harvest clarification of AAV9, tracking step yield and filtrate turbidity across load conditions.',
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000362',
+        order: 2,
+        heading: 'Observations',
+        text: 'Train B held ≥ 84 % step yield across all loads with filtrate turbidity below 10 NTU. Train A fell below target at 150 L/m².',
+      },
+    ],
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000352',
+    identifier: 'EXP-0136',
+    title: 'Seeding density at transfection',
+    status: 'approved',
+    blocks: [
+      {
+        id: '00000000-0000-4000-8000-000000000363',
+        order: 1,
+        heading: 'Objective',
+        text: 'Compare 1.5, 2.0 and 2.5 × 10⁶ cells/mL seeding densities for transfection productivity and viability.',
+      },
+    ],
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000353',
+    identifier: 'EXP-0133',
+    title: 'Harvest timing: 48, 72 and 96 h',
+    status: 'approved',
+    blocks: [
+      {
+        id: '00000000-0000-4000-8000-000000000364',
+        order: 1,
+        heading: 'Objective',
+        text: 'Determine the harvest timepoint that maximises genome titre without compromising capsid integrity.',
+      },
+    ],
+  },
 ]
 
 const DESIGN_SAMPLE_FIELDS: ReadonlyArray<{

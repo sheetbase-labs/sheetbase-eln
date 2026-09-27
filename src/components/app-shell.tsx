@@ -473,7 +473,7 @@ export function AppShell({
   const renderSidebarBody = (sidebarCollapsed: boolean) =>
     context ? (
       <div className="flex h-full flex-col">
-        <div className="flex h-14 items-center border-b border-sidebar-border px-3">
+        <div className="flex h-topbar items-center border-b border-sidebar-border px-3">
           <Link
             to="/"
             aria-label="Sheetbase ELN home"
@@ -681,7 +681,7 @@ export function AppShell({
               data-slot="sidebar"
               className={cn(
                 'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
-                collapsed ? 'md:w-14' : 'md:w-60',
+                collapsed ? 'md:w-12' : 'md:w-nav',
               )}
               data-collapsed={collapsed ? 'true' : 'false'}
             >
@@ -693,7 +693,7 @@ export function AppShell({
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetContent
                 side="left"
-                className="w-72 border-r border-sidebar-border bg-sidebar p-0 md:hidden"
+                className="w-nav border-r border-sidebar-border bg-sidebar p-0 md:hidden"
               >
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                 {renderSidebarBody(false)}
@@ -706,11 +706,11 @@ export function AppShell({
               fullBleed
                 ? 'flex h-svh flex-col overflow-hidden'
                 : 'flex min-h-svh flex-col',
-              context && (collapsed ? 'md:pl-14' : 'md:pl-60'),
+              context && (collapsed ? 'md:pl-12' : 'md:pl-nav'),
             )}
           >
             {context && (
-              <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6">
+              <header className="sticky top-0 z-30 flex h-topbar items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6">
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -904,7 +904,7 @@ export function AppShell({
                     'hidden shrink-0 border-l border-sidebar-border bg-background xl:block',
                     inspectorCollapsible && inspectorCollapsed
                       ? 'w-10'
-                      : 'w-80',
+                      : 'w-inspector',
                   )}
                   data-inspector-collapsed={
                     inspectorCollapsible && inspectorCollapsed
@@ -925,7 +925,7 @@ export function AppShell({
                       </Button>
                     </div>
                   ) : (
-                    <div className="sticky top-14 h-[calc(100svh-3.5rem)]">
+                    <div className="sticky top-topbar h-[calc(100svh-var(--topbar-height))]">
                       {inspector}
                     </div>
                   )}
@@ -938,7 +938,7 @@ export function AppShell({
             <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
               <SheetContent
                 side="right"
-                className="w-80 border-l p-0 xl:hidden"
+                className="w-inspector border-l p-0 xl:hidden"
                 showClose={false}
               >
                 <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>

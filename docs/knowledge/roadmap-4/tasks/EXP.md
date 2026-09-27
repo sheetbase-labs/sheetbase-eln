@@ -239,7 +239,7 @@ cannot enter edit mode by any route (tested at RPC level).
 
 ## EXP-05 — Offline editing and conflict resolution
 
-**Status:** proposed; after [DEC-09](DEC.md).
+**Status:** proposed; [DEC-09](DEC.md) accepted 2026-09-27 ([ADR-0018](../../decisions/0018-notebook-autosave-and-conflict.md) amendment): IndexedDB device store, replay with expected revisions, block- and cell-level conflicts, drafts retained after sign-out until discarded.
 
 ### Design
 

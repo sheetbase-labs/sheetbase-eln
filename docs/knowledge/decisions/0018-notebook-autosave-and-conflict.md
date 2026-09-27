@@ -75,3 +75,33 @@ signal for navigation guards.
 - The `onSaveBlock` callback changed from `Promise<void>` (rejecting on
   error) to `Promise<SaveResult>` (returning structured results). The
   read-only branch returns `{ ok: true }` as a no-op.
+
+## Amendment — durable offline edits (DEC-09, 2026-09-27)
+
+The v3 design (`canvas/NbOffline.dc.html`, `canvas/NbConflict.dc.html`,
+`canvas/SignedOut.dc.html`) requires edits to survive a lost connection and a
+sign-out, so this ADR is extended:
+
+1. **Device store.** Pending edits are persisted in IndexedDB, keyed by user,
+   workspace and record. It holds only the user's un-synced drafts: block text,
+   sheet-cell edits, added rows and draft comments. Server-authoritative values
+   are not copied into it. Entries are removed after a successful sync.
+2. **Offline capability.** Editing text, sheet cells, adding rows and comments
+   work offline. Imports, re-running analyses, submitting, signing and search
+   require a connection, as the design states.
+3. **Replay with expected revisions.** On reconnect, drafts replay in order
+   through the canonical RPCs with the expected revisions the user last saw:
+   `expectedVersion` for blocks, the sheet write path's expected revisions for
+   cells and rows. A replayed write that is stale surfaces a conflict; it never
+   overwrites the server value.
+4. **Conflict granularity.** Blocks keep block-level conflicts (this ADR);
+   sheet cells resolve per cell, as `NbConflict` shows ("Resolved conflict ·
+   row 6 · Capsid titre"). The user keeps their edit or takes the server value
+   per conflict, and the choice is attributed.
+5. **Sign-out retention.** Un-synced drafts survive sign-out until the user
+   explicitly discards them; the signed-out page explains that they are kept
+   and offers retry or discard after sign-in. Drafts are per user and are never
+   visible to another user.
+
+Submitting and signing remain online-only, so a retained draft can never become
+signed evidence while offline.

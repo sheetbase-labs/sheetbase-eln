@@ -86,7 +86,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-09 — Durable offline edits
 
-**Status:** proposed. New ADR amending ADR-0018 for device-persisted edits, replay with expected revisions, per-cell conflicts and retention after sign-out (see [EXP-05](EXP.md)).
+**Status:** accepted 2026-09-27 ([ADR-0018](../../decisions/0018-notebook-autosave-and-conflict.md) amendment): IndexedDB per user/workspace/record; replay through canonical RPCs with expected revisions; block-level conflicts for blocks, cell-level for sheet cells; drafts retained after sign-out until explicitly discarded; submit/sign stay online-only.
 **Unblocks:** EXP-05.
 
 **How:** Read ADR-0018 and `src/components/notebook/use-autosave.ts`; design IndexedDB storage, replay with expected revisions, conflict granularity (cell, block) and sign-out retention; write the ADR.

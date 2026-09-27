@@ -2,7 +2,7 @@
 id: subtask-32
 title: DSYS-04.4 — A mapping table in src/components/ui/README.md from every name in index.d.ts…
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

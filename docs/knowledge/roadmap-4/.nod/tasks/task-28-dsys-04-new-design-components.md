@@ -2,7 +2,7 @@
 id: task-28
 title: DSYS-04 — New design components
 type: task
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -25,3 +25,4 @@ Spec: [DSYS-04 in tasks/DSYS.md](../../tasks/DSYS.md#dsys-04--new-design-compone
 - Steps: 4 subtasks
 
 ## Work Log
+- 2026-09-27: DSYS-04 complete: Source, Diff, Tag, Chip, Choice, Stepper, Secret, Tree, Segmented, Dot; index.d.ts mapping table.

@@ -13,6 +13,8 @@ interface ShortcutContextValue {
   scope: ShortcutScope
   setScope: (scope: ShortcutScope) => void
   registry: ReturnType<typeof createShortcutRegistry>
+  /** Register route-scoped definitions; returns an unregister function. */
+  register: (id: string, definitions: ShortcutDefinition[]) => () => void
 }
 
 const ShortcutContext = React.createContext<ShortcutContextValue | null>(null)
@@ -33,9 +35,36 @@ export function ShortcutProvider({
   children: React.ReactNode
 }) {
   const [scope, setScope] = React.useState<ShortcutScope>('global')
+  // Route-scoped definitions (SHELL-03.3): screens register their list,
+  // notebook and review shortcuts while they are mounted.
+  const [scoped, setScoped] = React.useState<
+    Record<string, ShortcutDefinition[]>
+  >({})
+  const register = React.useCallback(
+    (id: string, definitions: ShortcutDefinition[]) => {
+      setScoped((current) =>
+        current[id] === definitions
+          ? current
+          : { ...current, [id]: definitions },
+      )
+      return () => {
+        setScoped((current) => {
+          if (!(id in current)) return current
+          const next = { ...current }
+          delete next[id]
+          return next
+        })
+      }
+    },
+    [],
+  )
+  const allDefinitions = React.useMemo(
+    () => [...definitions, ...Object.values(scoped).flat()],
+    [definitions, scoped],
+  )
   const registry = React.useMemo(
-    () => createShortcutRegistry(definitions),
-    [definitions],
+    () => createShortcutRegistry(allDefinitions),
+    [allDefinitions],
   )
   const pending = React.useRef<{ steps: string[]; index: number }>({
     steps: [],
@@ -139,8 +168,8 @@ export function ShortcutProvider({
   }, [registry, scope])
 
   const value = React.useMemo<ShortcutContextValue>(
-    () => ({ scope, setScope, registry }),
-    [scope, registry],
+    () => ({ scope, setScope, registry, register }),
+    [scope, registry, register],
   )
   return (
     <ShortcutContext.Provider value={value}>
@@ -151,11 +180,27 @@ export function ShortcutProvider({
 
 export function useShortcutScope(scope: ShortcutScope) {
   const context = React.useContext(ShortcutContext)
+  const setScope = context?.setScope
   React.useEffect(() => {
-    if (!context) return
-    context.setScope(scope)
-    return () => context.setScope('global')
-  }, [context, scope])
+    if (!setScope) return
+    setScope(scope)
+    return () => setScope('global')
+  }, [setScope, scope])
+}
+
+/**
+ * Registers route-scoped shortcuts (SHELL-03.3) for as long as the calling
+ * component is mounted. Pass a `useMemo`-stable array; the definitions are
+ * merged into the active scope by the single provider listener.
+ */
+export function useRegisterShortcuts(definitions: ShortcutDefinition[]) {
+  const context = React.useContext(ShortcutContext)
+  const register = context?.register
+  const id = React.useId()
+  React.useEffect(() => {
+    if (!register) return
+    return register(id, definitions)
+  }, [register, id, definitions])
 }
 
 export function useShortcuts() {

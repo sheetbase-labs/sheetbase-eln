@@ -114,7 +114,7 @@ Specification: [tasks/SHELL.md](tasks/SHELL.md) · nod `epic-80`
 - [ ] **SHELL-03** Keyboard shortcuts and command palette frame — **in progress** `task-91`
   - [x] SHELL-03.1 src/lib/shortcuts.ts `subtask-92`
   - [x] SHELL-03.2 Register the global shortcuts `subtask-93`
-  - [ ] SHELL-03.3 List, notebook and review scopes registered by their screens as those… `subtask-94`
+  - [ ] SHELL-03.3 List, notebook and review scopes registered by their screens as those… — **in progress** `subtask-94`
   - [ ] SHELL-03.4 ⌘K palette frame (dialog, input, grouped result slots, footer hints) `subtask-95`
 - [ ] **SHELL-04** Decide the fate of surfaces outside the design `task-96`
   - [ ] SHELL-04.1 For each route, find its roadmap origin `subtask-97`

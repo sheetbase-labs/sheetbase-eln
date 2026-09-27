@@ -1,8 +1,13 @@
+import * as React from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ShortcutProvider } from './shortcut-provider'
+import {
+  ShortcutProvider,
+  useRegisterShortcuts,
+  useShortcutScope,
+} from './shortcut-provider'
 
 afterEach(cleanup)
 
@@ -52,5 +57,79 @@ describe('ShortcutProvider', () => {
     await user.keyboard('g')
     await user.keyboard('h')
     expect(home).not.toHaveBeenCalled()
+  })
+})
+
+describe('route-scoped shortcuts (SHELL-03.3)', () => {
+  function ListScene({ onNext }: { onNext: () => void }) {
+    useShortcutScope('list')
+    useRegisterShortcuts(
+      React.useMemo(
+        () => [
+          {
+            id: 'next',
+            scope: 'list' as const,
+            keys: ['j'],
+            description: 'Next item',
+            handler: onNext,
+          },
+        ],
+        [onNext],
+      ),
+    )
+    return <div />
+  }
+
+  it('fires a registered list shortcut while the scene is mounted', async () => {
+    const user = userEvent.setup()
+    const onNext = vi.fn()
+    render(
+      <ShortcutProvider definitions={[]}>
+        <ListScene onNext={onNext} />
+      </ShortcutProvider>,
+    )
+    await user.keyboard('j')
+    expect(onNext).toHaveBeenCalledOnce()
+  })
+
+  it('stops firing after the scene unmounts', async () => {
+    const user = userEvent.setup()
+    const onNext = vi.fn()
+    const { rerender } = render(
+      <ShortcutProvider definitions={[]}>
+        <ListScene onNext={onNext} />
+      </ShortcutProvider>,
+    )
+    await user.keyboard('j')
+    expect(onNext).toHaveBeenCalledOnce()
+    rerender(
+      <ShortcutProvider definitions={[]}>
+        <div />
+      </ShortcutProvider>,
+    )
+    await user.keyboard('j')
+    expect(onNext).toHaveBeenCalledOnce()
+  })
+
+  it('does not fire a list shortcut in the global scope', async () => {
+    const user = userEvent.setup()
+    const onNext = vi.fn()
+    render(
+      <ShortcutProvider
+        definitions={[
+          {
+            id: 'next',
+            scope: 'list',
+            keys: ['j'],
+            description: 'Next item',
+            handler: onNext,
+          },
+        ]}
+      >
+        <div />
+      </ShortcutProvider>,
+    )
+    await user.keyboard('j')
+    expect(onNext).not.toHaveBeenCalled()
   })
 })

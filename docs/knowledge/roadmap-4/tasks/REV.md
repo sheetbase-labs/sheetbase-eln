@@ -1,6 +1,6 @@
 # REV — Review, Signatures and Evidence
 
-**Status (2026-09-27):** Proposed; not assigned. REV-03 and REV-05 follow [DEC-04](DEC.md), which takes GXP-01 / [ADR-0045](../../decisions/0045-regulated-intended-use-control-model.md) to a decision.
+**Status (2026-09-27):** Proposed; not assigned. REV-03 and REV-05 follow [DEC-04](DEC.md), which accepted GXP-01 / [ADR-0045](../../decisions/0045-regulated-intended-use-control-model.md) on 2026-09-27.
 
 ## Programme goal
 
@@ -77,7 +77,7 @@ comments at once; checklist completion is stored with the decision.
 
 ## REV-02 — Signature meanings and author signing
 
-**Status:** proposed.
+**Status:** proposed; [DEC-04](DEC.md) accepted 2026-09-27 (meanings Authored, Witnessed, Reviewed, Reviewed and approved; role-restricted).
 
 ### Design
 
@@ -116,7 +116,7 @@ time, meaning and exact revision digest.
 
 ## REV-03 — Signing with password re-entry and signature certification
 
-**Status:** proposed; after [DEC-04](DEC.md).
+**Status:** proposed; [DEC-04](DEC.md) accepted 2026-09-27 (password re-entry, signing token, certification, 3-attempt / 15-minute lockout).
 
 ### Design
 
@@ -198,7 +198,7 @@ snapshots (never live state); differences are computed, not stored.
 
 ## REV-05 — Tamper-evident audit trail
 
-**Status:** proposed; after [DEC-04](DEC.md).
+**Status:** proposed; [DEC-04](DEC.md) accepted 2026-09-27 (SHA-256 hash chain, nightly verification at 06:00, 15-year retention).
 
 ### Design
 

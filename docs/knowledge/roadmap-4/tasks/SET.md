@@ -1,6 +1,6 @@
 # SET — Workspace and Account Settings
 
-**Status (2026-09-27):** Proposed; not assigned. Groups in SET-02 follow [DEC-06](DEC.md); lockout in SET-03 follows [DEC-04](DEC.md).
+**Status (2026-09-27):** Proposed; not assigned. Groups in SET-02 follow [DEC-06](DEC.md); lockout in SET-03 follows [DEC-04](DEC.md), accepted 2026-09-27.
 
 ## Programme goal
 
@@ -125,8 +125,8 @@ explaining kept offline edits.
 1. Profile fields (full name printed on signatures, initials, job title, time
    zone) and appearance (SHELL-02).
 2. My sessions list with sign-out per session (Better Auth session API).
-3. Inactivity timeout and failed sign-in lockout (per DEC-04) with audit
-   events; signed-out page.
+3. Inactivity timeout and failed sign-in lockout (per DEC-04: 3 attempts, 15
+   minutes) with audit events; signed-out page.
 
 ### Check it
 

@@ -51,7 +51,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-04 — Regulated signing and tamper-evident audit
 
-**Status:** proposed. Decide [ADR-0045](../../decisions/0045-regulated-intended-use-control-model.md) (GXP-01) for the intended use the design shows: password re-entry at signing, signature certification, signature meanings, lockout, hash-chained audit with nightly verification, and how re-authentication works with company SSO.
+**Status:** accepted 2026-09-27 ([ADR-0045](../../decisions/0045-regulated-intended-use-control-model.md)): intended use "controlled development and regulated record, CDMO under client audit"; password re-entry for SSO users, certification, meanings Authored/Witnessed/Reviewed/Reviewed-and-approved, 3-attempt/15-minute lockout, SHA-256 hash-chained audit verified nightly.
 **Unblocks:** REV-03, REV-05, SET-03 lockout.
 
 **How:** Read ADR-0045 and `roadmap-3/tasks/GXP.md`; define the intended use the design implies (signing records in a CDMO under client audit); decide re-authentication with SSO (password re-entry vs. provider step-up), signature meanings by role, lockout policy and the audit hash-chain design; accept ADR-0045 or supersede it.

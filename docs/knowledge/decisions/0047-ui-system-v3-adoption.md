@@ -1,9 +1,9 @@
 # 0047. UI system v3 adoption
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-09-27
 - **Ticket:** Roadmap 4, DSYS-02
-- **Amends (if accepted):** ADR-0007 colour values, font tokens and density; ADR-0009 application shell anatomy
+- **Amends:** ADR-0007 colour values, font tokens and density; ADR-0009 application shell anatomy
 
 ## Context
 
@@ -118,5 +118,5 @@ No blocking discrepancy was found; the owner accepts by setting the status.
   vendored snapshot (DSYS-01); that is the exact-parity reference in decision
   item 9.
 
-The owner decision is recorded by changing **Status** above to `accepted` with
-the date; this review does not accept it.
+Accepted by the product owner on 2026-09-27; the review above is the evidence
+for that decision.

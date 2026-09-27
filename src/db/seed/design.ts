@@ -7,6 +7,7 @@
  * by later steps; each step runs through the canonical data layer.
  */
 import * as schema from '../schema'
+import { eq } from 'drizzle-orm'
 import type { SeedStep } from './run'
 
 /** Fixed clock for the design seed: Friday 25 Sep 2026, 09:40 Europe/London. */
@@ -353,6 +354,63 @@ export const designSteps: Array<SeedStep> = [
       }
     },
   },
+  {
+    name: 'design templates',
+    run: async (db) => {
+      for (const template of DESIGN_TEMPLATES) {
+        await db
+          .insert(schema.notebookTemplates)
+          .values({
+            id: template.id,
+            workspaceId: PROCESS,
+            key: template.key,
+            name: template.name,
+            description: template.description ?? null,
+            lifecycle: 'active',
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.notebookTemplates.workspaceId,
+              schema.notebookTemplates.key,
+            ],
+            set: {
+              name: template.name,
+              description: template.description ?? null,
+            },
+          })
+        const existingVersion = await db
+          .select({
+            id: schema.notebookTemplateVersions.id,
+            lifecycle: schema.notebookTemplateVersions.lifecycle,
+          })
+          .from(schema.notebookTemplateVersions)
+          .where(eq(schema.notebookTemplateVersions.templateId, template.id))
+          .limit(1)
+        if (existingVersion.length === 0) {
+          await db.insert(schema.notebookTemplateVersions).values({
+            id: template.versionId,
+            templateId: template.id,
+            version: 1,
+            lifecycle: 'draft',
+            revision: 1n,
+            configuration: template.configuration,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+        }
+        if (existingVersion[0]?.lifecycle !== 'published') {
+          await db
+            .update(schema.notebookTemplateVersions)
+            .set({
+              lifecycle: 'published',
+              publishedAt: DESIGN_CLOCK,
+              publishedByUserId: DESIGN_USER_IDS.gareth,
+            })
+            .where(eq(schema.notebookTemplateVersions.id, template.versionId))
+        }
+      }
+    },
+  },
 ]
 
 const DESIGN_EXPERIMENTS: ReadonlyArray<{
@@ -428,6 +486,41 @@ const DESIGN_EXPERIMENTS: ReadonlyArray<{
         text: 'Determine the harvest timepoint that maximises genome titre without compromising capsid integrity.',
       },
     ],
+  },
+]
+
+const DESIGN_TEMPLATES: ReadonlyArray<{
+  id: string
+  versionId: string
+  key: string
+  name: string
+  description?: string
+  configuration: Record<string, unknown>
+}> = [
+  {
+    id: '00000000-0000-4000-8000-000000000380',
+    versionId: '00000000-0000-4000-8000-000000000381',
+    key: 'aav9_transfection_notebook',
+    name: 'AAV9 transfection notebook',
+    description: 'Standard transfection setup, sampling and harvest capture.',
+    configuration: { formatVersion: 1, parameters: [], placements: [] },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000382',
+    versionId: '00000000-0000-4000-8000-000000000383',
+    key: 'depth_filter_screening',
+    name: 'Depth filter screening',
+    description:
+      'Harvest clarification screening with step yield and turbidity.',
+    configuration: { formatVersion: 1, parameters: [], placements: [] },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000384',
+    versionId: '00000000-0000-4000-8000-000000000385',
+    key: 'stability_pull',
+    name: 'Stability pull',
+    description: 'Routine stability timepoint pull with assay capture.',
+    configuration: { formatVersion: 1, parameters: [], placements: [] },
   },
 ]
 

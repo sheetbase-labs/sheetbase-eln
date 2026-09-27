@@ -1,0 +1,26 @@
+Settings, e-signature
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications My electronic signature
+Sam R. · needed before you can author, review or approve records
+✓ Confirm your identity
+Verified by Gareth P. (admin), 25 Sep 09:38
+2
+Certify your signature
+I understand that my electronic signature in Sheetbase is the legally binding equivalent of my handwritten signature. I will not share my password, and I will report any suspected misuse to QA.
+I have read and agree to this statement
+Enter your password to certify
+Certify signature
+3 Try a practice signature
+On a sample record. Not stored as a real signature.
+Signature meanings you can use
+Authored
+Your own records
+Witnessed
+Others' records, when asked
+Reviewed
+Needs the Reviewer role
+Approved
+Needs the Reviewer role
+Every signature records
+Your full name, the date and time, the meaning, and the exact record version it applies to.

@@ -1,0 +1,22 @@
+Inbox, phone
+Inbox
+8 need action · reviews and signing open the full record
+Review
+EXP-0138 Transfection ratio, PEI:DNA sweep
+Priya S. · due 29 Sep
+Data issue
+DS-0311 turbidity outside 0–50 NTU
+Blocks review of EXP-0142
+Evidence
+EXP-0133 live data moved on since signing
+Signed 19 Sep · conclusion unchanged
+Run
+ELISA plate 4 at 11:30
+Plate reader PR-01
+Signature
+Witness EXP-0136
+Requested by Mei L.
+Material
+Filter train C lot expires 1 Oct
+MAT-0420 · no replacement yet
+Today Scan Inbox {{toastMsg}}

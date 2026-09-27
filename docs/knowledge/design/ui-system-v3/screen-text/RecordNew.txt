@@ -1,0 +1,27 @@
+New record from a model
+Models / Cell bank New cell bank
+Model Cell bank v4 Draft, not saved
+Identity
+Name *
+Cell line * HEK293 ▾
+Choice from the model
+Parent bank * CB-0010 HEK293 MCB ▾
+Record link · Cell bank
+Passage * Working banks must be at passage 30 or lower (model rule). This bank would be P34.
+Frozen on *
+Storage
+Vials * Number, whole
+Location * LN2-2 · rack C · box 5 ▾
+Record link · Storage location
+Release
+Status starts as In review. Sterility, mycoplasma and identity are filled in by QC LIMS or by hand before release.
+Create cell bank Cancel Fix 1 field to continue
+From model
+Model
+Cell bank v4
+Fields
+12 · 7 required here
+ID
+CB-0039 on save
+This form is generated
+The model decides the fields, types, units and rules. Change the model to change this form; records already made keep their values.

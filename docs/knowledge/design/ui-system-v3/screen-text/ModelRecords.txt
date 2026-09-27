@@ -1,0 +1,26 @@
+Records of a model
+Models / MDL-0019 Cell bank
+Published v4 Record model ID prefix CB- Owner Mei L.
+Records 38 Fields 12 Versions 4
+Columns are this model’s fields. Add a field to the model and every cell bank gets it; existing records show it as not yet recorded.
+Search cell banks Filter Columns Export CSV
+| | ID | Name | Cell line | Passage | Vials left | Location | Status | Mycoplasma
+| CB-0012 | HEK293 WCB lot 3 | HEK293 | P12 | 31 of 50 | LN2-2 · rack C | Released | —
+| CB-0011 | HEK293 WCB lot 2 | HEK293 | P12 | 4 of 50 | LN2-2 · rack C | Low stock | Negative
+| CB-0010 | HEK293 MCB | HEK293 | P8 | 18 of 20 | LN2-1 · rack A | Released | Negative
+| CB-0009 | Sf9 WCB lot 1 | Sf9 | P20 | 22 of 40 | LN2-2 · rack D | In review | Pending
+| CB-0008 | HEK293T WCB lot 5 | HEK293T | P15 | 0 of 40 | — | Depleted | Negative
+| CB-0007 | CHO-K1 MCB | CHO-K1 | P6 | 12 of 20 | LN2-1 · rack B | Quarantine | Positive
+| CB-0006 | HEK293 WCB lot 1 | HEK293 | P12 | 0 of 50 | — | Depleted | Negative
+Model
+Cell bank
+A frozen bank of cells with its passage, storage and release tests.
+New cell bank Edit model
+Fields
+Name, cell line, passage, parent bank, vials, vials left, location, frozen on, status, sterility, mycoplasma v4 , identity (STR)
+Rules
+Working banks: passage ≤ 30
+Released needs sterility and mycoplasma negative
+Vials left can’t go below 0
+Used by
+Samples (as source), Transfection condition, 3 templates.

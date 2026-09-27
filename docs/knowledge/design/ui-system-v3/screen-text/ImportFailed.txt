@@ -1,0 +1,17 @@
+Import, file not recognised
+Datasets / Import data
+Import data
+Cancel Continue
+1 Upload 2 Map columns 3 Review and import
+CSV
+TB-02_turbidity_2026-09-25.csv
+2 KB · uploaded 12:05
+Replace file
+This file doesn't match the TB-02 CSV format
+Expected a header sample_id,reading_ntu,dilution,time . Found Sample,NTU,Dil,Timestamp on row 1, which looks like the TB-02 firmware 4 export.
+Nothing was imported. The file is kept so you can retry.
+How do you want to continue?
+Map columns by hand for this file
+Try parser “TB-02 CSV firmware 4 (draft)”
+Ask an admin to update the parser
+Map columns

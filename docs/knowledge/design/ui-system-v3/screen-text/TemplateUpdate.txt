@@ -1,0 +1,14 @@
+Template update
+Templates / TPL-006 Update EXP-0142 to template v4
+Depth-filter clarification screen v3 → v4 Harvest clarification: depth filter screening
+EXP-0142 was created from template Depth-filter clarification screen v3 . Version 4 was published today. Nothing in this notebook has changed.
+What adding v4 would do
+| | Section | Change in v4 | In your notebook
+| Objective, Materials, Method | None | Unchanged
+| Clarification runs (sheet) | None | Unchanged · 9 rows
+| Pressure and ΔP (sheet) | Added | Will be added, empty, after Clarification runs
+| Result summary | Changed adds Max ΔP field | Field added; your values stay
+| Figure 1 | None | Unchanged
+Choose Recorded in History as a template update. You can remove the empty sheet later. You won’t be asked again for this version.
+Apply Back to notebook
+Existing text, rows and signatures are never touched by a template update. Signed records can’t be updated at all; use an amendment.

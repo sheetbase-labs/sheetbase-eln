@@ -1,0 +1,19 @@
+Settings, members
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications Members and roles
+7 Roles and permissions Invite people
+Process Development workspace · roles decide what people can do; project membership decides where.
+Role: any Training: any
+| | Name | Username | Role | Groups | Training | E-signature | Last active
+| Gareth P. | gareth.p | Admin, Editor | Process Development leads | Current | Set up | Now
+| Priya S. | priya.s | Editor | Upstream | Current | Set up | 10:02
+| Mei L. | mei.l | Reviewer, Editor | Analytical | Current | Set up | 09:40
+| Tom H. | tom.h | Editor | Upstream, Downstream | PRT-014 v2 overdue | Set up | Yesterday
+| Sam R. | sam.r | Editor | Downstream | 2 documents to read | Not set up | 09:41
+| Anna B. | anna.b | Viewer | QA | Current | Set up | 08:15
+| CL-017 client (2) | — | Client viewer | CL-017 portal | — | — | 23 Sep
+Admin Settings, members, models and parsers. Cannot sign records they didn't author or review.
+Editor Create and edit experiments, samples and datasets in their projects. Signs as author.
+Reviewer Everything an editor can do, plus review and sign others' records.
+Viewer Read, copy, export and comment. Client viewers see approved records only.

@@ -1,0 +1,43 @@
+Run #22 · Full/empty ratio from AUC traces
+Pipelines / PL-0014 / #22 Run #22 · Full/empty ratio from AUC traces
+Failed at step 3 25 Sep 09:44 · 4 min 14 s Started by: Mei L., manual Version 2
+Step 3 ran out of temporary storage (2 GB). Nothing was saved and no ELN actions ran. Temporary data was deleted. Edit step 3 Retry run
+Steps
+✓ Load AUC traces
+SQL · 2,416 rows
+1.1 s
+✓ Select cells C1–C6
+SQL · 2,416 → 2,416 rows
+0.3 s
+! Deconvolve AUC traces
+Python · stopped at 2.0 of 2.0 GB
+4 min 12 s
+4 Save full/empty ratio
+Not started
+—
+5 Email Mei L.
+Not started
+—
+Likely cause Step 3 resamples every trace at 0.1 s before fitting. At 2,416 traces that needs about 3.4 GB.
+Ways to fix it Resample at 0.5 s, or fit one cell at a time and pass only the results on. An admin can raise the limit to 8 GB for this pipeline.
+Log
+09:44:02 step 3 python: resampling 2,416 traces at 0.1 s 09:46:40 temporary storage 1.6 GB 09:48:14 temporary storage 2.0 GB · limit reached 09:48:14 OSError: [Errno 28] No space left on device: '/tmp/run/traces_resampled.parquet' 09:48:14 run stopped · steps 4 and 5 not started · temporary data deleted
+Mei L. was emailed about the failure. DS-0306 still shows its last good snapshot, from run #21.
+Inputs used
+DS-0306
+Snapshot S-9 · 2,416 rows
+Version
+PL-0014 v2
+Python environment
+Storage
+2.0 of 2.0 GB
+Memory
+1.1 of 4 GB
+Network
+None
+Database
+No credentials
+Kept
+Nothing
+Did
+Emailed owner about the failure

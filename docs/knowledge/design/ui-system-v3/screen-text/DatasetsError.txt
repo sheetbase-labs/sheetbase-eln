@@ -1,0 +1,13 @@
+Datasets, partial error
+Datasets
+311 Connect instrument Import data
+All 311 Mine 64 Has issues — Locked 188
+Table Filter Sort Group
+Search
+Validation status couldn't be loaded. Rows and names are current; the Validation column shows “—” until the check service responds. Retry
+| | ID | Name | Model | Experiment | Rows | Validation | Updated
+| DS-0311 | ELISA capsid titre and turbidity | ELISA and turbidity v2 | EXP-0142 | 96 | — | 24 Sep
+| DS-0310 | Filtration pressure log | Filtration run v1 | EXP-0142 | 27 | — | 23 Sep
+| DS-0298 | Ambr 250 daily readings, AMB-25-118 | Ambr 250 daily reading v1 | EXP-0140 | 84 | — | 09:12
+| DS-0305 | HEK293 WCB viability panel | ViCell v2 | EXP-0130 | 48 | — | 23 Sep
+| DS-0302 | ddPCR titre, transfection sweep | ddPCR titre v1 | EXP-0138 | 16 | — | 24 Sep

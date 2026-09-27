@@ -1,0 +1,46 @@
+Pipeline triggers and outputs
+Pipelines / PL-0007 Clarification step yield
+Test run Publish v4…
+Draft v4 v3 published 23 Sep Owner Gareth P. AAV9 process transfer SQL and Python
+Steps 5 Triggers and outputs Runs 148
+Starts on
+Manual
+Editors of AAV9 process transfer can press Run now
+On
+When DS-0311 gets a new snapshot
+Waits 2 minutes so a batch of imports runs once · last fired 10:12
+On
+Schedule
+Weekdays at 07:30, Europe/London
+Off
+Incoming webhook
+For an instrument or another system to start a run
+Off
+URL Copy
+Signing secret Rotate…
+Requests without a valid signature are rejected and logged.
+The request body is available to step 1 as a temporary table in_webhook . It can’t choose which datasets the run reads.
+What a run keeps
+Keep nothing Inputs and every step result are temporary and deleted when the run ends. The run record, logs and row counts stay.
+Save a step result as a snapshot of an existing dataset Choose the step and the dataset. The new snapshot records this run as its source.
+Save a step result as a new dataset Creates a dataset with a model you choose. Nothing is created until a run succeeds.
+ELN actions
+| | Action | Where | Needs a person
+| Propose a figure block | EXP-0142 · after Figure 1 | Yes · Gareth P. accepts or rejects
+| Create inbox item on failure | Owner | No
+Notifications
+| | Message | To | When
+| Run summary with step yields | Teams · #aav9-process | Succeeded
+| Failure with the failing step | Email · pipeline owner | Failed
+Runs as
+Service identity pl-0007 , owned by Gareth P. Every change it makes is recorded under that name and the run number.
+Allowed
+Read DS-0310, DS-0311
+Propose blocks in AAV9 notebooks
+Queue messages to #aav9-process
+Never allowed
+Sign, approve or submit records
+Delete or overwrite data
+Change its own permissions
+Python steps
+Run in an isolated environment with 2 GB of temporary storage and no database credentials. They only see the tables the run passes them.

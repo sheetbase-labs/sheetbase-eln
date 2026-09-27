@@ -1,0 +1,27 @@
+New experiment
+Experiments / New
+New experiment
+Cancel Create draft
+Project AAV9 process transfer ▾
+Title
+Protocol PRT-021 v3 · Depth-filter clarification screen ▾
+Chosen on the right. Protocol text is linked; editing it records a deviation.
+Reviewer Mei L. ▾
+Planned end
+Follows EXP-0142 depth filter screening ▾
+Copies nothing; links the two records.
+Copy materials from EXP-0142 (you can change them)
+Search protocols
+Approved protocols · AAV9 process transfer
+Depth-filter clarification screen AAV · downstream · 6 sections · 1 sheet PRT-021 v3 Transfection ratio sweep AAV · upstream · 5 sections · 1 sheet PRT-018 v2 Harvest timing AAV · upstream · 4 sections · 1 sheet PRT-017 v2 TFF concentration and diafiltration AAV · downstream · 7 sections · 2 sheets PRT-024 v1 Ambr 250 perfusion run Platform · upstream · 8 sections · 2 sheets PRT-014 v2 Blank notebook Any · No sections —
+PRT-021 v3 · approved 2 Sep 2026 by QA
+Depth-filter clarification screen
+Screens depth-filter trains for clarification of AAV harvest at constant flux. Selects a train and maximum load for scale-up.
+| | Section | Contains | Required
+| Objective | Text | Yes
+| Materials | Harvest lot, filter trains | Yes
+| Method | Protocol text (linked) | —
+| Clarification runs | Sheet · Clarification run v4 | Yes
+| Figure 1 | Step yield by load | —
+| Result summary | Decision fields | To submit
+Open protocol

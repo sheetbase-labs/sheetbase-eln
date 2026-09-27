@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Keyboard focus order</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+table.t td{white-space:normal;height:auto;padding-top:7px;padding-bottom:7px;line-height:17px}
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 1440px; height: 760px">
+<div style="padding: 36px 40px; display: flex; gap: 40px; height: 100%; overflow: hidden"><div style="display: flex; flex-direction: column; gap: 14px"><div><div class="h" style="font-size: 18px; font-weight: 600">Keyboard focus order</div><div class="muted" style="font-size: 12px; margin-top: 2px">Tab order through the app shell. Numbers are tab stops.</div></div><div style="position: relative; width: 860px; height: 560px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow: visible; margin-top: 8px"><div style="position: absolute; left: 8px; top: 6px; width: 110px; height: 26px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; border-color: var(--focus)">Skip to content</div><span class="fo" style="left: 0px; top: -2px">1</span><div style="position: absolute; left: 8px; top: 40px; width: 120px; height: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; ">Sheetbase</div><span class="fo" style="left: 0px; top: 32px">2</span><div style="position: absolute; left: 140px; top: 40px; width: 120px; height: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; ">Workspace ▾</div><span class="fo" style="left: 132px; top: 32px">3</span><div style="position: absolute; left: 300px; top: 40px; width: 260px; height: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; ">Search  ⌘K</div><span class="fo" style="left: 292px; top: 32px">4</span><div style="position: absolute; left: 610px; top: 40px; width: 60px; height: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; ">+ New</div><span class="fo" style="left: 602px; top: 32px">5</span><div style="position: absolute; left: 680px; top: 40px; width: 34px; height: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; "></div><span class="fo" style="left: 672px; top: 32px">6</span><div style="position: absolute; left: 722px; top: 40px; width: 34px; height: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; "></div><span class="fo" style="left: 714px; top: 32px">7</span><div style="position: absolute; left: 764px; top: 40px; width: 34px; height: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; "></div><span class="fo" style="left: 756px; top: 32px">8</span><div style="position: absolute; left: 8px; top: 82px; width: 150px; height: 460px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; ">Navigation<br>↑ ↓ within, Tab leaves</div><span class="fo" style="left: 0px; top: 74px">9</span><div style="position: absolute; left: 174px; top: 82px; width: 470px; height: 60px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; ">Page header: breadcrumb, title, actions</div><span class="fo" style="left: 166px; top: 74px">10</span><div style="position: absolute; left: 174px; top: 150px; width: 470px; height: 30px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; ">Tabs · ← → between tabs</div><span class="fo" style="left: 166px; top: 142px">11</span><div style="position: absolute; left: 174px; top: 188px; width: 470px; height: 354px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; ">Content: blocks in reading order; sheet cells use arrow keys, Tab leaves the grid</div><span class="fo" style="left: 166px; top: 180px">12</span><div style="position: absolute; left: 656px; top: 82px; width: 190px; height: 460px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text-muted); padding: 4px 6px; ">Inspector</div><span class="fo" style="left: 648px; top: 74px">13</span></div></div><div style="display: flex; flex-direction: column; gap: 16px; width: 440px; padding-top: 50px"><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t num"><thead><tr><th style="padding-left: 12px">Stop</th><th>Region</th><th>Behaviour</th></tr></thead><tbody><tr><td style="padding-left: 12px">1</td><td>Skip to content</td><td>First stop on every page; hidden until focused.</td></tr><tr><td style="padding-left: 12px">2–8</td><td>Top bar</td><td>Home, workspace, search, New, notifications, appearance, account.</td></tr><tr><td style="padding-left: 12px">9</td><td>Navigation</td><td>One tab stop; arrow keys move within it.</td></tr><tr><td style="padding-left: 12px">10–11</td><td>Page header and tabs</td><td>Actions in visual order, then the tab list.</td></tr><tr><td style="padding-left: 12px">12</td><td>Content</td><td>Document order. A sheet is one tab stop; arrow keys move between cells, Enter edits, Esc cancels.</td></tr><tr><td style="padding-left: 12px">13</td><td>Inspector</td><td>Follows the content it describes.</td></tr></tbody></table></div><div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; line-height: 18px"><div style="display: grid; grid-template-columns: 14px 1fr; gap: 6px"><span class="muted">•</span><span>Menus, popovers and dialogs take focus when they open, keep it inside while open, and return it to the button that opened them.</span></div><div style="display: grid; grid-template-columns: 14px 1fr; gap: 6px"><span class="muted">•</span><span>Esc closes the top-most overlay. Clicking outside closes menus but never dialogs with unsaved input.</span></div><div style="display: grid; grid-template-columns: 14px 1fr; gap: 6px"><span class="muted">•</span><span>The focus ring is 2 px <span class="mono">focus</span> with a 1 px offset. It is never removed, only moved inside a grid cell.</span></div><div style="display: grid; grid-template-columns: 14px 1fr; gap: 6px"><span class="muted">•</span><span>Signing asks for the password in the dialog itself; focus starts in the password field.</span></div><div style="display: grid; grid-template-columns: 14px 1fr; gap: 6px"><span class="muted">•</span><span>Every icon-only button has a label that names the object: “Remove filter: Updated in last 30 days”, not “Remove”.</span></div></div><div style="font-size: 12px">All shortcuts: <a href="Shortcuts.dc.html">Keyboard shortcuts</a></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":760}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

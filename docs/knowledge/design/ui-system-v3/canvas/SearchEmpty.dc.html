@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search, no results</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<!--tabs [["arch", ["no", "yes"], "no"]]-->
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="position: relative; width: 1440px; height: 560px">
+<div aria-hidden="true" style="position: absolute; inset: 0; display: flex; flex-direction: column"><div style="height: 44px; background: var(--surface); border-bottom: 1px solid var(--border)"></div><div style="flex-grow: 1; display: flex"><div style="width: 232px; background: var(--surface); border-right: 1px solid var(--border)"></div><div style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px"><div class="sk" style="height: 18px; width: 90px"></div><div class="sk" style="height: 150px"></div><div class="sk" style="height: 240px"></div></div></div></div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="dialog" role="dialog" aria-modal="true" aria-label="Search" style="left: 400px; top: 80px; width: 640px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 48px; border-bottom: 1px solid var(--border-subtle)">
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-muted)" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg>
+<label style="flex-grow: 1"><span class="sr">Search</span><input value="HL-0943" style="width: 100%; border: 0; outline: none; font: 15px var(--font-sans); color: var(--text); background: transparent"></label><span class="muted" style="font-size: 12px">In: all projects ▾</span></div>
+<div role="status" style="padding: 28px 20px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-weight: 600">No matches for “HL-0943”</div>
+<div class="muted" style="font-size: 13px; line-height: 19px">Nothing in names, IDs, cell values, comments or files you can access.</div>
+<div style="font-size: 13px">Did you mean <a href="SampleDetail.dc.html"><b style="font-weight: 500">HL-0934</b></a>? <span class="muted">Harvest lot, SMP-2231</span></div>
+<div class="muted" style="font-size: 12px">Archived projects and other workspaces aren't searched. <button type="button" class="linklike" onClick="{{arch.yes.pick}}">Include archived</button><sc-if value="{{arch.yes.on}}" hint-placeholder-val="{{ false }}"><span style="display: block; margin-top: 6px">Archived projects searched too: still no matches for “HL-0943”.</span></sc-if></div></div>
+<div style="display: flex; align-items: center; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--border-subtle); background: var(--surface-muted); font-size: 12px" class="muted"><span><kbd>Esc</kbd> close</span></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":560}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+v.arch = tabs("arch", ["no", "yes"], "no");
+return v;
+}
+}
+</script>
+</body>
+</html>

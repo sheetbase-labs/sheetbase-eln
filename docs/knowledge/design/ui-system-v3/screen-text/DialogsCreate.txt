@@ -1,0 +1,29 @@
+Creation dialogs
+Creation dialogs
+Opened from “New” in the header or a list page. The background page dims behind them.
+New project
+New project
+Process Development workspace
+Name
+Client CL-021 ▾
+Modality AAV ▾
+Stage Process development ▾
+Lead Gareth P. ▾
+Start from
+Empty project
+Copy structure of  AAV9 process transfer  (milestones, members, protocols; no records)
+Default reviewer Mei L. ▾
+Reviews and signatures go to this person unless an experiment names another.
+Cancel Create project
+Register sample · validation error on location
+Register sample
+Adds a record to the sample registry and prints its label
+Type Dilution ▾
+Parent sample SMP-2248 C-150 filtrate ▾
+Name
+Quantity
+Unit mL ▾
+Dilution factor
+Location A9 holds SMP-2248. Next free position in box 14: B2.
+Print label on ZD-2 (Lab 2) after saving
+Cancel Save and register another Register SMP-2249

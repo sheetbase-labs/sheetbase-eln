@@ -1,0 +1,24 @@
+Workspace settings
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications General
+Save changes
+Process Development workspace · changes apply to everyone in it
+Workspace
+Name
+Site Stevenage, Lab 2 ▾
+Time zone Europe/London (BST, UTC+1) ▾
+Date format 25 Sep 2026 ▾
+Number format 1,234.5 · scientific ×10ⁿ ▾
+Record IDs
+| | Record | Prefix | Next ID | Example
+| Experiment | EXP- | 0146 | EXP-0146
+| Sample | SMP- | 2251 | SMP-2251
+| Dataset | DS- | 0312 | DS-0312
+| Protocol | PRT- | 025 | PRT-025
+| Material | MAT- | 0421 | MAT-0421
+IDs are never reused, even for deleted drafts.
+Editing rules
+Ask for a reason when a saved value is changed The reason is written to History with the old and new value.
+Lock a record when it is signed Changes after signing need an amendment and a new review.
+Allow offline editing on this workspace’s devices Edits sync when the device reconnects. Conflicts are shown to both people.

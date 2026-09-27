@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar and inspector states</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+.lbl{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px}
+.lbl2{font-size:12px;color:var(--text-muted);margin-bottom:10px;max-width:260px;line-height:17px}
+.frame{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.rail a{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);position:relative}
+.rail a.on{background:var(--selection);color:var(--text)}
+.mi{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;font-size:13px}
+.st{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:6px;font-size:13px;width:212px}
+.tabs a:not([href]){cursor:default}
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root" style="width: 1440px; height: 1860px; padding: 32px 30px; display: flex; flex-direction: column; gap: 40px; background: var(--canvas-sunken)">
+
+<div>
+<div class="h" style="font-size: 18px; font-weight: 600">Left navigation</div>
+<div class="muted" style="font-size: 12px">Location and hierarchy. Collapses to a rail on narrow windows or when the notebook needs width.</div>
+</div>
+
+<div style="display: flex; gap: 40px; align-items: flex-start; margin-top: -20px">
+
+<div>
+<div class="lbl">Expanded · default</div>
+<div class="lbl2">232 px. Home, Inbox and Schedule above the divider; records below.</div>
+<div class="frame nav" style="width: 232px; height: 700px">
+<a href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"></path></svg>Home</a>
+<a href="HomeTriage.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 9h3.5l1 2h3l1-2H14M2 9l2-5.5h8L14 9v4.5H2z"></path></svg>Inbox<span class="ct">8</span></a>
+<a href="HomeBench.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5"></rect><path d="M2.5 7h11M5.5 2v3M10.5 2v3"></path></svg>Schedule</a>
+<div class="div" aria-hidden="true"></div>
+<a href="Projects.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4.5h4.5l1.5 1.5h6v7.5H2z"></path></svg>Projects</a>
+<a href="ExperimentsList.dc.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 2v4.5L2.5 13.5h11L10 6.5V2M5 2h6"></path></svg>Experiments</a>
+<a href="ProtocolsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 2h5.5L12 4.5V14H4z"></path><path d="M6 7.5h4M6 10h4"></path></svg>Protocols</a>
+<a href="SamplesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg>Samples</a>
+<a href="MaterialsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 5L8 2.5 13.5 5v6L8 13.5 2.5 11z"></path><path d="M2.5 5L8 7.5 13.5 5M8 7.5v6"></path></svg>Materials</a>
+<a href="DatasetsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M2 6.5h12M2 10h12M6 2.5v11"></path></svg>Datasets<span class="ct">2 errors</span></a>
+<a href="Analysis.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 13.5h12M4 11l3-4 2.5 2L13 4"></path></svg>Analysis</a>
+<a href="SchemasList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6"></path></svg>Models</a>
+<div class="grp">Pinned projects</div>
+<a href="ProjectDetail.dc.html"><x-import component-from-global-scope="Sheetbase.Status" tone="progress" sx="margin: 0 4px">AAV9 process transfer</x-import></a>
+<a href="ProjectLVV.dc.html"><x-import component-from-global-scope="Sheetbase.Status" tone="review" sx="margin: 0 4px">LVV stability, 2–8 °C hold</x-import></a>
+<a href="ProjectAmbr.dc.html"><x-import component-from-global-scope="Sheetbase.Status" tone="progress" sx="margin: 0 4px">Ambr 250 perfusion scale-down</x-import></a>
+<div style="flex-grow: 1"></div>
+<a href="NotebookLaptop.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M10 3L5 8l5 5"></path></svg>Collapse sidebar<span class="ct mono" style="font-size: 10px">⌘\</span></a>
+<a href="SettingsMembers.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Settings</a>
+</div>
+</div>
+
+<div>
+<div class="lbl">Collapsed rail</div>
+<div class="lbl2" style="max-width: 150px">48 px. Labels appear on hover and focus.</div>
+<div style="position: relative">
+<div class="frame rail" style="width: 48px; height: 700px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0">
+<a href="Main.dc.html" aria-label="Home"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"></path></svg></a>
+<a href="HomeTriage.dc.html" aria-label="Inbox, 8 items"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 9h3.5l1 2h3l1-2H14M2 9l2-5.5h8L14 9v4.5H2z"></path></svg><span style="position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent)"></span></a>
+<a href="HomeBench.dc.html" aria-label="Schedule"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5"></rect><path d="M2.5 7h11M5.5 2v3M10.5 2v3"></path></svg></a>
+<div aria-hidden="true" style="height: 1px; width: 24px; background: var(--skeleton); margin: 4px 0"></div>
+<a href="Projects.dc.html" aria-label="Projects"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4.5h4.5l1.5 1.5h6v7.5H2z"></path></svg></a>
+<a href="ExperimentsList.dc.html" class="on" aria-label="Experiments" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 2v4.5L2.5 13.5h11L10 6.5V2M5 2h6"></path></svg></a>
+<a href="ProtocolsList.dc.html" aria-label="Protocols"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 2h5.5L12 4.5V14H4z"></path><path d="M6 7.5h4M6 10h4"></path></svg></a>
+<a href="SamplesList.dc.html" aria-label="Samples" style="background: var(--surface-hover); color: var(--text)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg></a>
+<a href="MaterialsList.dc.html" aria-label="Materials"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 5L8 2.5 13.5 5v6L8 13.5 2.5 11z"></path><path d="M2.5 5L8 7.5 13.5 5M8 7.5v6"></path></svg></a>
+<a href="DatasetsList.dc.html" aria-label="Datasets, 2 errors"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M2 6.5h12M2 10h12M6 2.5v11"></path></svg><span style="position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--danger)"></span></a>
+<a href="Analysis.dc.html" aria-label="Analysis"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 13.5h12M4 11l3-4 2.5 2L13 4"></path></svg></a>
+<a href="SchemasList.dc.html" aria-label="Models"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6"></path></svg></a>
+<div style="flex-grow: 1"></div>
+<a href="Main.dc.html" aria-label="Expand sidebar"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 3l5 5-5 5"></path></svg></a>
+</div>
+<div role="tooltip" style="position: absolute; left: 52px; top: 208px; background: var(--inverse-bg); color: var(--inverse-text); font-size: 12px; padding: 4px 8px; border-radius: 4px; white-space: nowrap">Samples</div>
+</div>
+</div>
+
+<div>
+<div class="lbl">Workspace switcher open</div>
+<div class="lbl2">Workspaces separate teams and permissions. Current one is checked.</div>
+<div style="position: relative; width: 300px; height: 700px">
+<div class="frame" style="width: 280px; padding: 6px; display: flex; flex-direction: column; gap: 1px; box-shadow: var(--shadow-overlay)">
+<label style="position: relative; display: block; margin-bottom: 4px"><span class="sr">Find a workspace</span><input placeholder="Find a workspace" style="width: 100%; height: 30px; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; font: 13px Inter, sans-serif"></label>
+<div class="mi" style="background: var(--selection)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke-width="1.6" aria-hidden="true" style="stroke: var(--series-b)"><path d="M3 7.5l2.5 2.5L11 4.5"></path></svg><span style="flex-grow: 1">Process Development</span><span class="muted" style="font-size: 12px">Editor</span></div>
+<div class="mi"><span style="width: 14px"></span><span style="flex-grow: 1">Analytical Development</span><span class="muted" style="font-size: 12px">Editor</span></div>
+<div class="mi"><span style="width: 14px"></span><span style="flex-grow: 1">GMP Manufacturing</span><span class="muted" style="font-size: 12px">Viewer</span></div>
+<div class="mi"><span style="width: 14px"></span><span style="flex-grow: 1">Quality Control</span><span class="muted" style="font-size: 12px">Viewer</span></div>
+<div style="height: 1px; background: var(--skeleton); margin: 4px 0"></div>
+<div class="mi muted" style="font-size: 12px">Workspace settings</div>
+</div>
+</div>
+</div>
+
+<div>
+<div class="lbl">Item states</div>
+<div class="lbl2">Colour marks state; weight and the wash mark location.</div>
+<div class="frame" style="width: 260px; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+<div><div class="muted" style="font-size: 11px; margin-bottom: 3px">Default</div><div class="st"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true" style="stroke: var(--text-muted)"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg>Samples</div></div>
+<div><div class="muted" style="font-size: 11px; margin-bottom: 3px">Hover</div><div class="st" style="background: var(--surface-hover)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true" style="stroke: var(--text-muted)"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg>Samples</div></div>
+<div><div class="muted" style="font-size: 11px; margin-bottom: 3px">Keyboard focus</div><div class="st" style="outline: 2px solid var(--accent); outline-offset: 1px"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true" style="stroke: var(--text-muted)"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg>Samples</div></div>
+<div><div class="muted" style="font-size: 11px; margin-bottom: 3px">Current page</div><div class="st" style="background: var(--selection); font-weight: 500"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true" style="stroke: var(--text-muted)"><path d="M6 2v4.5L2.5 13.5h11L10 6.5V2M5 2h6"></path></svg>Experiments</div></div>
+<div><div class="muted" style="font-size: 11px; margin-bottom: 3px">With count</div><div class="st"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true" style="stroke: var(--text-muted)"><path d="M2 9h3.5l1 2h3l1-2H14M2 9l2-5.5h8L14 9v4.5H2z"></path></svg>Inbox<span style="margin-left: auto; font-size: 12px; color: var(--text-muted)">8</span></div></div>
+<div><div class="muted" style="font-size: 11px; margin-bottom: 3px">With problem</div><div class="st"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true" style="stroke: var(--text-muted)"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M2 6.5h12M2 10h12M6 2.5v11"></path></svg>Datasets<span style="margin-left: auto; font-size: 12px; color: var(--danger-text)">2 errors</span></div></div>
+<div><div class="muted" style="font-size: 11px; margin-bottom: 3px">No access (hidden, not disabled)</div><div class="muted" style="font-size: 12px; line-height: 17px">Sections a role can't open are left out, so the list never shows dead ends.</div></div>
+</div>
+</div>
+
+</div>
+
+<div>
+<div class="h" style="font-size: 18px; font-weight: 600">Right inspector</div>
+<div class="muted" style="font-size: 12px">Properties, provenance and context for whatever is selected. 300 px, subordinate to the work.</div>
+</div>
+
+<div style="display: flex; gap: 40px; align-items: flex-start; margin-top: -20px">
+
+<div>
+<div class="lbl">Nothing selected</div>
+<div class="lbl2">Shows the experiment itself.</div>
+<div class="frame insp" style="width: 300px; height: 740px">
+<div class="tabs" style="display: flex; gap: 16px; padding: 0 16px; border-bottom: 1px solid var(--border)"><a class="on">Properties</a><a>Comments <span class="ct">2</span></a><a>History</a></div>
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 18px">
+<section><h3>Experiment</h3>
+<dl class="dl">
+<dt>Status</dt><dd><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></dd>
+<dt>Owner</dt><dd>Gareth P.</dd>
+<dt>Reviewer</dt><dd>Mei L.</dd>
+<dt>Protocol</dt><dd><a href="ProtocolDetail.dc.html">PRT-021 v3</a></dd>
+<dt>Started</dt><dd class="num">21 Sep 2026</dd>
+</dl></section>
+<section><h3>In this notebook</h3>
+<dl class="dl">
+<dt>Blocks</dt><dd class="num">9</dd>
+<dt>Records</dt><dd class="num">4 materials, 12 samples</dd>
+<dt>Datasets</dt><dd>DS-0310, DS-0311</dd>
+<dt>Open issues</dt><dd style="color: var(--danger-text)">1 validation error</dd>
+</dl></section>
+<section><h3>Protocol deviations</h3><div class="muted" style="font-size: 12px">None recorded</div></section>
+</div>
+</div>
+</div>
+
+<div>
+<div class="lbl">Sheet block selected</div>
+<div class="lbl2">Source, model and derived fields for the whole sheet.</div>
+<div class="frame insp" style="width: 300px; height: 740px">
+<div class="tabs" style="display: flex; gap: 16px; padding: 0 16px; border-bottom: 1px solid var(--border)"><a class="on">Properties</a><a>Comments</a><a>History</a></div>
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 18px">
+<section><h3>Sheet · Clarification runs</h3>
+<dl class="dl">
+<dt>Model</dt><dd><a href="SchemaEditor.dc.html">Clarification run v4</a></dd>
+<dt>Rows</dt><dd class="num">9 records</dd>
+<dt>Sources</dt><dd>This experiment; DS-0311 (linked)</dd>
+</dl></section>
+<section><h3>Columns</h3>
+<div style="display: flex; flex-direction: column; font-size: 12px">
+<div style="display: grid; grid-template-columns: 1fr auto; padding: 5px 0; border-bottom: 1px solid var(--border-subtle)"><span>Condition</span><span class="muted">Text · required</span></div>
+<div style="display: grid; grid-template-columns: 1fr auto; padding: 5px 0; border-bottom: 1px solid var(--border-subtle)"><span>Filter train</span><span class="muted">Link · Material</span></div>
+<div style="display: grid; grid-template-columns: 1fr auto; padding: 5px 0; border-bottom: 1px solid var(--border-subtle)"><span>Load</span><span class="muted">Number · L/m²</span></div>
+<div style="display: grid; grid-template-columns: 1fr auto; padding: 5px 0; border-bottom: 1px solid var(--border-subtle)"><span>Turbidity out</span><span class="muted">From DS-0311 · NTU</span></div>
+<div style="display: grid; grid-template-columns: 1fr auto; padding: 5px 0; border-bottom: 1px solid var(--border-subtle)"><span>Capsid titre</span><span class="muted">From DS-0311 · cp/mL</span></div>
+<div style="display: grid; grid-template-columns: 1fr auto; padding: 5px 0; border-bottom: 1px solid var(--border-subtle)"><span>Step yield <span class="mono" style="font-size: 10px; color: var(--text-muted)">ƒx</span></span><span class="muted">%</span></div>
+<div style="display: grid; grid-template-columns: 1fr auto; padding: 5px 0"><span>Meets criteria <span class="mono" style="font-size: 10px; color: var(--text-muted)">ƒx</span></span><span class="muted">Yes / No</span></div>
+</div></section>
+<section><h3>Formula · Step yield</h3>
+<div class="mono" style="font-size: 11px; background: var(--surface-muted); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px">= Capsid titre / Feed titre × 100</div>
+<div class="muted" style="font-size: 12px; margin-top: 6px">Feed titre 8.6 × 10¹¹ cp/mL from SMP-2231</div></section>
+</div>
+</div>
+</div>
+
+<div>
+<div class="lbl">Comments tab</div>
+<div class="lbl2">Threads anchored to blocks and cells; resolved ones collapse.</div>
+<div class="frame insp" style="width: 300px; height: 740px">
+<div class="tabs" style="display: flex; gap: 16px; padding: 0 16px; border-bottom: 1px solid var(--border)"><a>Properties</a><a class="on">Comments <span class="ct">2</span></a><a>History</a></div>
+<div style="padding: 10px 16px; display: flex; gap: 6px; border-bottom: 1px solid var(--border-subtle)"><x-import component-from-global-scope="Sheetbase.Button" size="sm" sx="background: var(--selection); border-color: var(--selection)" href="Notebook.dc.html">Open 1</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm" sx="border-color: transparent" href="Notebook.dc.html">Resolved 3</x-import></div>
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 16px; font-size: 12px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div class="muted" style="font-size: 11px">On Observations</div>
+<div><div><b style="font-weight: 500">Priya S.</b> <span class="muted num">09:05</span></div><div style="line-height: 18px">Can we repeat C at 150 with a 1:5 dilution?</div></div>
+<div style="padding-left: 12px; border-left: 1px solid var(--border)"><div><b style="font-weight: 500">You</b> <span class="muted num">09:31</span></div><div style="line-height: 18px">Yes. Queued for plate 4 at 11:30.</div></div>
+<label style="display: block"><span class="sr">Reply</span><input placeholder="Reply…" style="width: 100%; height: 30px; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; font: 12px Inter, sans-serif"></label>
+<div style="display: flex; gap: 6px"><x-import component-from-global-scope="Sheetbase.Button" size="sm" href="Notebook.dc.html">Resolve</x-import></div>
+</div>
+<div class="muted" style="line-height: 18px">Mention someone with @ to notify them. Comments are kept with the record but are not part of the signed content.</div>
+</div>
+</div>
+</div>
+
+<div>
+<div class="lbl">History tab</div>
+<div class="lbl2">The selected block's changes. Full trail lives in the History page.</div>
+<div class="frame insp" style="width: 300px; height: 740px">
+<div class="tabs" style="display: flex; gap: 16px; padding: 0 16px; border-bottom: 1px solid var(--border)"><a>Properties</a><a>Comments</a><a class="on">History</a></div>
+<div style="padding: 14px 16px; display: flex; flex-direction: column; font-size: 12px">
+<div class="muted" style="font-size: 11px; margin-bottom: 6px">Clarification runs · 5 changes</div>
+<div style="display: grid; grid-template-columns: 70px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border-subtle)"><span class="num muted">25 Sep 09:32</span><span><b style="font-weight: 500">You</b> · row 9 Load<div><span class="muted" style="text-decoration: line-through">125</span> → 150</div><div class="muted">Transcription error</div></span></div>
+<div style="display: grid; grid-template-columns: 70px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border-subtle)"><span class="num muted">24 Sep 16:04</span><span><b style="font-weight: 500">System</b> · linked 18 values from DS-0311</span></div>
+<div style="display: grid; grid-template-columns: 70px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border-subtle)"><span class="num muted">23 Sep 17:40</span><span><b style="font-weight: 500">You</b> · added rows 1–9</span></div>
+<div style="display: grid; grid-template-columns: 70px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border-subtle)"><span class="num muted">23 Sep 17:31</span><span><b style="font-weight: 500">You</b> · added column Meets criteria</span></div>
+<div style="display: grid; grid-template-columns: 70px 1fr; gap: 8px; padding: 7px 0"><span class="num muted">21 Sep 09:12</span><span><b style="font-weight: 500">Template</b> · created from PRT-021 v3</span></div>
+<a href="ExpHistory.dc.html" style="margin-top: 10px">Open full history</a>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":1860}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 390px; height: 844px">
+<div style="display: flex; flex-direction: column; height: 100%; background: var(--bg)"><header class="phone-bar"><span class="brand" style="width: auto"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="2.5" width="15" height="15" rx="3"></rect><path d="M2.5 8h15M8 8v9.5"></path></svg></span><h1 class="h" style="font-size: 17px; font-weight: 600; margin: 0; flex-grow: 1">Today</h1></header><main id="main" style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column"><div style="padding: 16px 16px 8px"><div class="muted" style="font-size: 13px">Friday 25 September · Lab 2</div></div><div style="padding: 0 16px 16px"><a href="PhoneScan.dc.html" class="btn btn-p btn-l" style="width: 100%"><x-import component-from-global-scope="Sheetbase.Icon" name="scan" size="18"></x-import>Scan a label</a></div><div class="grp" style="padding: 8px 16px 6px">Your bookings</div><div style="background: var(--surface); border-top: 1px solid var(--border)"><div class="row-l" style="min-height: 64px"><span class="num" style="width: 44px; font-weight: 500">09:00</span><div style="flex-grow: 1; min-width: 0"><div style="font-weight: 500">AMB-25-118 day 6 sampling</div><div class="muted" style="font-size: 12px">Ambr 250 · bay 2</div></div><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Done</x-import></div><div class="row-l" style="min-height: 64px"><span class="num" style="width: 44px; font-weight: 500">11:30</span><div style="flex-grow: 1; min-width: 0"><div style="font-weight: 500">ELISA plate 4, capsid titre</div><div class="muted" style="font-size: 12px">Plate reader PR-01 · EXP-0142</div></div><x-import component-from-global-scope="Sheetbase.Status" tone="progress">Next</x-import></div><div class="row-l" style="min-height: 64px"><span class="num" style="width: 44px; font-weight: 500">14:00</span><div style="flex-grow: 1; min-width: 0"><div style="font-weight: 500">Tech-transfer review, CL-017</div><div class="muted" style="font-size: 12px">Meeting room 3</div></div></div></div><div class="grp" style="padding: 18px 16px 6px">Needs you</div><div style="background: var(--surface); border-top: 1px solid var(--border)"><a class="row-l" href="PhoneReading.dc.html"><x-import component-from-global-scope="Sheetbase.Dot" tone="bad"></x-import><div style="flex-grow: 1; min-width: 0"><div style="font-weight: 500">Turbidity 61.5 NTU outside range</div><div class="muted" style="font-size: 12px">EXP-0142 · row 88</div></div><span class="muted"><x-import component-from-global-scope="Sheetbase.Icon" name="chevronRight" size="16"></x-import></span></a><a class="row-l" href="PhoneInbox.dc.html"><x-import component-from-global-scope="Sheetbase.Dot" tone="review"></x-import><div style="flex-grow: 1; min-width: 0"><div style="font-weight: 500">Review EXP-0138</div><div class="muted" style="font-size: 12px">Due 29 Sep · Priya S.</div></div><span class="muted"><x-import component-from-global-scope="Sheetbase.Icon" name="chevronRight" size="16"></x-import></span></a><a class="row-l" href="PhoneInbox.dc.html"><x-import component-from-global-scope="Sheetbase.Dot" tone="warn"></x-import><div style="flex-grow: 1; min-width: 0"><div style="font-weight: 500">Filter train C lot expires</div><div class="muted" style="font-size: 12px">MAT-0420 · 1 Oct</div></div><span class="muted"><x-import component-from-global-scope="Sheetbase.Icon" name="chevronRight" size="16"></x-import></span></a></div></main><nav class="phone-tabs" aria-label="Main" style="grid-template-columns: repeat(3, minmax(0, 1fr))"><a href="PhoneHome.dc.html" class="on" aria-current="page"><x-import component-from-global-scope="Sheetbase.Icon" name="calendar" size="22"></x-import>Today</a><a href="PhoneScan.dc.html"><x-import component-from-global-scope="Sheetbase.Icon" name="scan" size="22"></x-import>Scan</a><a href="PhoneInbox.dc.html"><x-import component-from-global-scope="Sheetbase.Icon" name="inbox" size="22"></x-import>Inbox</a></nav><sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}"><div class="toast-stack" style="bottom: 90px"><x-import component-from-global-scope="Sheetbase.Toast" action="{{toastAction}}" on-action="{{dismissToast}}">{{toastMsg}}</x-import></div></sc-if></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+Analysis workspace
+Analysis / AN-0057
+Step yield and turbidity by filter load
+Draft · v3 · inputs changed 09:32
+Re-run
+Share
+Save as v4
+Source
+Clarification runs · EXP-0142 ▾
++ DS-0310 joined on Condition
+Fields · drag onto an axis
+Aa Condition
+⌘ Filter train series
+# Load L/m² · x
+# Turbidity out NTU · y2
+# Capsid titre cp/mL
+ƒx Step yield % · y1
+# ΔP end bar
++ Calculated field
+1 · Step yield (%)
+Train A
+Train B
+Train C
+Target ≥ 80 %
+60 70 80 90
+50 100 150
+2 · Turbidity out (NTU)
+Limit ≤ 20 NTU
+0 10 20 30
+50 100 150 Load (L/m²)
+↑ 61.5
+Data 9 Diagnostics Versions 3
+| | Condition | Train | Load (L/m²) | Turbidity (NTU) | Step yield (%) | In criteria
+| B-100 | B | 100 | 5.6 | 88.4 | Included
+| B-150 | B | 150 | 8.9 | 84.9 | Included
+| C-50 | C | 50 | 12.7 | 80.2 | Included
+| C-100 | C | 100 | 24.3 | 72.1 | Included
+| C-150 | C | 150 | 61.5 | 62.8 | Excluded · value flagged in DS-0311
+Join DS-0310 on Condition: 9 of 9 rows matched
+1 point excluded: C-150 turbidity flagged in DS-0311 row 88
+Units consistent across series (L/m², NTU, %)
+Replicates: 1 per condition, spread not shown
+| | Version | Saved | By | Change
+| v3 · draft | Today 09:32 | Gareth P. | Inputs changed: row 9 load 125 → 150
+| v2 | 24 Sep 16:20 | Gareth P. | Turbidity chart added; used in EXP-0142 Figure 1
+| v1 | 23 Sep 18:02 | Gareth P. | Step yield by load
+Chart 2 · Turbidity out
+X axis Load (L/m²) shared
+Y axis Turbidity out (NTU) ▾
+Y range 0 – 30 NTU fixed
+Reference line 20 NTU · limit from PRT-021
+Exclusions
+Exclude flagged values from criteria (1)
+Show excluded points hollow
+Used in
+EXP-0142 · Figure 1 EXP-0142 · Results tab
+Embedded figures update when you save a new version. Signed records keep the version they cite.

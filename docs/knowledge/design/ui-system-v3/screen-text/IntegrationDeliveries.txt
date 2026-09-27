@@ -1,0 +1,17 @@
+Webhook deliveries failing
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications Deliveries · Document management
+Back to integrations
+https://dms.cdmo.example/api/ingest · record.signed · owner Tom H.
+Deliveries to Document management have failed since 25 Sep 06:00. 4 signed records are waiting. Nothing is lost: queued deliveries are kept 7 days and retried every 30 minutes. Retry now Pause
+| | Time | Event | Record | Response | Attempts |
+| 26 Sep 09:40 | record.signed | EXP-0141 v1 | 503 Service unavailable | 4 | Next try 10:10
+| 26 Sep 08:15 | record.signed | EXP-0139 v2 | 503 Service unavailable | 6 | Next try 10:10
+| 25 Sep 17:02 | record.signed | EXP-0138 v1 | Timed out after 30 s | 9 | Next try 10:10
+| 25 Sep 06:00 | record.signed | EXP-0137 v1 | 503 Service unavailable | 12 | Next try 10:10
+| 24 Sep 16:40 | record.signed | EXP-0136 v1 | 200 OK | 1 |
+What to check
+The receiving service answers 503, so the problem is on its side. Tom H. and the integration owner were told at 06:30.
+If it stays down past 2 Oct, queued items expire and are listed in Inbox for resending by hand.
+Signing in Sheetbase is not affected.

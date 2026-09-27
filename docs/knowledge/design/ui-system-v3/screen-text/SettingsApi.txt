@@ -1,0 +1,19 @@
+API and SDK
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications API and SDK
+Create token
+Tokens let scripts and tools act for a person or a pipeline. A token can never do more than its owner.
+| | Token | Owner | Can | Last used | Expires |
+| Plate-map exporter | Mei L. | Read datasets · write DS-0311 via import | 10:11 | 12 Dec 2026 | Revoke
+| Jupyter, Gareth | Gareth P. | Read AAV9 process transfer | Yesterday | 30 Oct 2026 | Revoke
+| pl-0007 service identity | Pipeline PL-0007 | Read DS-0310, DS-0311 · propose blocks | 10:12 | While the pipeline exists |
+| Old LIMS bridge | Tom H. | Read samples | Never | 2 Oct 2026 | Revoke
+Python SDK
+# Python SDK 1.4 · reads the snapshot a record cites from sheetbase import Client sb = Client(token=os.environ[ "SHEETBASE_TOKEN" ]) ds = sb.datasets.get( "DS-0311" ).snapshot( "S-15" ) df = ds.to_pandas() # 96 rows, read-only
+Install with pip install sheetbase . Signing and approving aren’t available through the API.
+Rules
+Tokens expire after 90 days at most.
+Each call is checked on the server with the owner’s permissions.
+Every write is in the audit log with the token name.
+Tokens unused for 30 days are flagged to their owner.

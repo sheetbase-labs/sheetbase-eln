@@ -1,0 +1,9 @@
+Record a reading, phone
+Record reading
+EXP-0142 · Clarification runs
+C-150 repeat, 1:5 dilution
+SMP-2249 · Turbidimeter TB-02
+Turbidity out NTU
+Allowed 0–50 NTU · × 5 dilution gives 62.0 NTU undiluted
+The 1:5 repeat confirms C-150 is out of range. Save it and it will be flagged on the sheet for Gareth P. to decide. Also attach a photo of the instrument display
+Save reading Cancel {{toastMsg}}

@@ -1,0 +1,31 @@
+Dataset snapshots
+Datasets / DS-0311 ELISA capsid titre and turbidity
+Download CSV
+1 out of range Model ELISA and turbidity v2 EXP-0142 Owner Gareth P.
+Rows 96 Snapshots 15 Compare
+A snapshot never changes. Records, analyses and pipeline runs cite the snapshot they used, so later imports can’t alter what was reviewed.
+| | Snapshot | Saved | Made by | Rows | Change | Pinned or cited by |
+| S-15 | 25 Sep 10:11 | Pipeline PL-0011 run #88 · plate 4 export | 96 | +8 rows | PL-0007 run #148 | Latest
+| S-14 | 24 Sep 16:04 | Import · TB-02_turbidity_2026-09-24.csv | 88 | +9 rows, 1 flagged | EXP-0142 Figure 1 · AN-0057 v2 | Kept
+| S-13 | 24 Sep 15:40 | Import · PR-01 plates 1–3 | 79 | +36 rows | — | Kept
+| S-12 | 23 Sep 17:40 | Gareth P. · saved by hand | 43 | 1 value corrected | PL-0007 run #145 | Kept
+| S-11 | 23 Sep 15:02 | Import · PR-01 plate 0 (controls) | 43 | +12 rows | — | Kept
+| S-1 to S-10 | 21–23 Sep | Imports and 2 hand saves | 31 | | — | Kept
+Save a snapshot now Imports and pipelines save snapshots automatically; you can also save one before an edit.
+DS-0311 · S-15 Snapshot 15
+96 rows · 11 columns · saved 25 Sep 10:11
+Compare with S-14 Download
+Source
+Made by
+PL-0011 v4, run #88
+Trigger
+Webhook from plate reader PR-01
+File
+PR-01_EXP-0142_plate4.xlsx
+SHA-256
+9c02…e71a
+Cited by
+PL-0007 run #148 · input
+No signed records yet
+Keeping
+Snapshots cited by a signed record are kept for 15 years. Others are kept for 2 years after the dataset is archived.

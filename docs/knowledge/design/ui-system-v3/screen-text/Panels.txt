@@ -1,0 +1,120 @@
+Sidebar and inspector states
+Left navigation
+Location and hierarchy. Collapses to a rail on narrow windows or when the notebook needs width.
+Expanded · default
+232 px. Home, Inbox and Schedule above the divider; records below.
+Home
+Inbox 8
+Schedule
+Projects
+Experiments
+Protocols
+Samples
+Materials
+Datasets 2 errors
+Analysis
+Models
+Pinned projects
+AAV9 process transfer
+LVV stability, 2–8 °C hold
+Ambr 250 perfusion scale-down
+Collapse sidebar ⌘\
+Settings
+Collapsed rail
+48 px. Labels appear on hover and focus.
+Samples
+Workspace switcher open
+Workspaces separate teams and permissions. Current one is checked.
+Find a workspace
+Process Development Editor
+Analytical Development Editor
+GMP Manufacturing Viewer
+Quality Control Viewer
+Workspace settings
+Item states
+Colour marks state; weight and the wash mark location.
+Default
+Samples
+Hover
+Samples
+Keyboard focus
+Samples
+Current page
+Experiments
+With count
+Inbox 8
+With problem
+Datasets 2 errors
+No access (hidden, not disabled)
+Sections a role can't open are left out, so the list never shows dead ends.
+Right inspector
+Properties, provenance and context for whatever is selected. 300 px, subordinate to the work.
+Nothing selected
+Shows the experiment itself.
+Properties Comments 2 History
+Experiment
+Status
+In progress
+Owner
+Gareth P.
+Reviewer
+Mei L.
+Protocol
+PRT-021 v3
+Started
+21 Sep 2026
+In this notebook
+Blocks
+9
+Records
+4 materials, 12 samples
+Datasets
+DS-0310, DS-0311
+Open issues
+1 validation error
+Protocol deviations
+None recorded
+Sheet block selected
+Source, model and derived fields for the whole sheet.
+Properties Comments History
+Sheet · Clarification runs
+Model
+Clarification run v4
+Rows
+9 records
+Sources
+This experiment; DS-0311 (linked)
+Columns
+Condition Text · required
+Filter train Link · Material
+Load Number · L/m²
+Turbidity out From DS-0311 · NTU
+Capsid titre From DS-0311 · cp/mL
+Step yield ƒx %
+Meets criteria ƒx Yes / No
+Formula · Step yield
+= Capsid titre / Feed titre × 100
+Feed titre 8.6 × 10¹¹ cp/mL from SMP-2231
+Comments tab
+Threads anchored to blocks and cells; resolved ones collapse.
+Properties Comments 2 History
+Open 1 Resolved 3
+On Observations
+Priya S. 09:05
+Can we repeat C at 150 with a 1:5 dilution?
+You 09:31
+Yes. Queued for plate 4 at 11:30.
+Reply
+Resolve
+Mention someone with @ to notify them. Comments are kept with the record but are not part of the signed content.
+History tab
+The selected block's changes. Full trail lives in the History page.
+Properties Comments History
+Clarification runs · 5 changes
+25 Sep 09:32 You · row 9 Load 125 → 150
+Transcription error
+24 Sep 16:04 System · linked 18 values from DS-0311
+23 Sep 17:40 You · added rows 1–9
+23 Sep 17:31 You · added column Meets criteria
+21 Sep 09:12 Template · created from PRT-021 v3
+Open full history

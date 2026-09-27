@@ -1,0 +1,19 @@
+Model versions
+Models / MDL-0019 Cell bank
+Start draft v5
+Published v4 Record model ID prefix CB- Owner Mei L.
+Records 38 Fields 12 Versions 4
+| | Version | Published | By | Change | Approved by |
+| v4 | 19 Sep 2026 | Mei L. | Added Mycoplasma, required to release | Anna B. (QA) | Current
+| v3 | 2 Jul 2026 | Mei L. | Added Vials left ƒx | Anna B. (QA) | Replaced
+| v2 | 11 Mar 2026 | Tom H. | Added Identity (STR) · Changed Passage rule | Anna B. (QA) | Replaced
+| v1 | 6 Jan 2026 | Mei L. | Created with 9 fields | Anna B. (QA) | Replaced
+A new version adds or changes fields for every record of the model. Existing values are never rewritten; new fields start empty, and rules apply only to changes made after the version is published.
+MDL-0019 · v4 Version 4
+Published 19 Sep 2026 · approved by Anna B.
+What happened to records
+31 records moved from v3 to v4 with Mycoplasma empty
+7 records created on v4
+No value changed
+Signed records
+Records signed on an earlier version still show the fields they were signed with. The upgrade appears in their history, not in their evidence.

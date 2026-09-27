@@ -1,0 +1,11 @@
+Evidence on phone
+EXP-0133 evidence
+Submitted evidence. Version 1, signed 19 Sep by Gareth P. and Mei L. It will always read like this.
+Harvest timing: 48, 72 and 96 h
+Hash verified 25 Sep 06:00 Live data has moved on since signing. The conclusion is unchanged; cited numbers differ by up to 3 %.
+3 differences from live
+H96 genome titre Signed now
+Instrument name Signed now
+Comments Signed now
+Open live record Create amendment on desktop
+Today Scan Inbox {{toastMsg}}

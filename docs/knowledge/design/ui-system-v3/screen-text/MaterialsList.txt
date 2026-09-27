@@ -1,0 +1,34 @@
+Materials
+Materials
+412 Scan label Receive lot
+In stock 356 Expiring in 30 days 4 Quarantine 3 Expired 9
+Table Filter Sort Group
+Search
+| | ID | Material | Supplier | Lot | Stock | Location | Status
+| MAT-0420 | Filter train C, single-stage depth | Supplier B | L-77310 | 2 units | Consumables store, bay 4 | Expires 1 Oct
+| MAT-0419 | Filter train B, two-stage depth | Supplier A | L-55021 | 6 units | Consumables store, bay 4 | Released · Mar 2027
+| MAT-0418 | Filter train A, two-stage depth | Supplier A | L-54988 | 5 units | Consumables store, bay 4 | Released · Jan 2027
+| MAT-0377 | Capsid ELISA kit | Supplier C | K-2208 | 2 plates | F-2 (2–8 °C) | Released · Dec 2026
+| MAT-0371 | PEI transfection reagent | Supplier D | P-9914 | 42 mL | F-1 (2–8 °C) | Released · Feb 2027
+| MAT-0366 | HEK293 expression medium | Supplier E | M-3301 | 18 L | Cold room CR-1 | Released · Nov 2026
+| MAT-0402 | AEX resin, 5 mL column | Supplier F | R-1170 | 3 columns | Consumables store, bay 2 | Quarantine · CoA missing
+| MAT-0355 | Pluronic F-68, 10 % | Supplier D | PL-202 | 0.2 L | Room temp store | Expired 20 Sep
+| MAT-0342 | TFF cassette, 100 kDa | Supplier G | T-8810 | 4 units | Consumables store, bay 1 | Released · Aug 2027
+MAT-0420 · lot L-77310 Filter train C, single-stage depth
+Expires 1 Oct 2026 (6 days)
+Register replacement lot Quarantine
+Lot
+Supplier
+Supplier B · cat. DF-C0SP-01
+Received
+4 Jun 2026
+Released by
+QC · 6 Jun 2026
+Certificate
+CoA_L-77310.pdf
+Stock
+2 of 6 units
+Used in
+EXP-0142 · 1 unit, 23 Sep
+No replacement lot
+EXP-0145 plans train B only, so nothing is blocked. Experiments can't reference an expired lot.

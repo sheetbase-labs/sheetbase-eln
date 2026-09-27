@@ -1,3 +1,8 @@
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+# Verbatim design reference snapshot; files must stay byte-identical to their source.
+docs/knowledge/design/ui-system-v3/canvas
+docs/knowledge/design/ui-system-v3/design-system
+docs/knowledge/design/ui-system-v3/screen-text
+docs/knowledge/design/ui-system-v3/runtime

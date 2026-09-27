@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Review, EXP-0138</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<!--tabs [["etab", ["overview", "notebook", "samples", "datasets", "files", "history"], "notebook"]]-->
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+
+</style>
+</helmet>
+<!--shell {"user_name": "Gareth P.", "user": "GP", "avatar_tone": "accent", "workspace": "Process Development", "search": "normal", "query": "", "new": true, "active": "Inbox", "inbox": "8", "datasets": "2 errors", "extra": [], "pinned_html": null, "pinned": true, "role": "Process Development · Editor"}-->
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 1440px; height: 1000px">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+<a href="Main.dc.html" class="brand"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="2.5" width="15" height="15" rx="3"></rect><path d="M2.5 8h15M8 8v9.5"></path></svg><span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span></a>
+<x-import component-from-global-scope="Sheetbase.Button" variant="quiet" aria-haspopup="menu" aria-expanded="{{exp.ws}}" on-click="{{open.ws}}">Process Development <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 4.5l3 3 3-3"></path></svg></x-import>
+<div style="flex-grow: 1; display: flex; justify-content: center"><a href="SearchPalette.dc.html" class="searchbox" aria-label="Search Sheetbase"><x-import component-from-global-scope="Sheetbase.Icon" name="search" size="14"></x-import><span>Search experiments, samples, datasets</span><span class="kbd">⌘K</span></a></div>
+<x-import component-from-global-scope="Sheetbase.Button" variant="primary" icon="plus" aria-haspopup="menu" aria-expanded="{{exp.new}}" on-click="{{open.new}}">New</x-import>
+<x-import component-from-global-scope="Sheetbase.Button" variant="quiet" icon-only="true" icon="bell" class-name="{{bellClass}}" aria-label="{{bellLabel}}" aria-haspopup="dialog" aria-expanded="{{exp.notif}}" on-click="{{open.notif}}"></x-import>
+<button type="button" class="btn ib" aria-haspopup="menu" aria-expanded="{{exp.account}}" onClick="{{open.account}}" aria-label="Account: Gareth P." style="border-radius: 50%; padding: 0"><x-import component-from-global-scope="Sheetbase.Avatar" initials="GP" tone="accent"></x-import></button>
+</header>
+<div style="flex-grow: 1; display: flex; min-height: 0">
+<nav class="nav" aria-label="Main">
+<a href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"></path></svg>Home</a>
+<a href="HomeTriage.dc.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 9h3.5l1 2h3l1-2H14M2 9l2-5.5h8L14 9v4.5H2z"></path></svg>Inbox<span class="ct">8</span></a>
+<a href="HomeBench.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5"></rect><path d="M2.5 7h11M5.5 2v3M10.5 2v3"></path></svg>Schedule</a>
+<div class="div" aria-hidden="true"></div>
+<a href="Projects.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4.5h4.5l1.5 1.5h6v7.5H2z"></path></svg>Projects</a>
+<a href="ExperimentsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 2v4.5L2.5 13.5h11L10 6.5V2M5 2h6"></path></svg>Experiments</a>
+<a href="ProtocolsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 2h5.5L12 4.5V14H4z"></path><path d="M6 7.5h4M6 10h4"></path></svg>Protocols</a>
+<a href="TemplatesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 2h7l3 3v9H3z"></path><path d="M10 2v3h3"></path><path d="M5.5 8h5M5.5 10.5h3"></path></svg>Templates</a>
+<a href="SamplesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg>Samples</a>
+<a href="MaterialsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 5L8 2.5 13.5 5v6L8 13.5 2.5 11z"></path><path d="M2.5 5L8 7.5 13.5 5M8 7.5v6"></path></svg>Materials</a>
+<a href="DatasetsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M2 6.5h12M2 10h12M6 2.5v11"></path></svg>Datasets<span class="ct">2 errors</span></a>
+<a href="Analysis.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 13.5h12M4 11l3-4 2.5 2L13 4"></path></svg>Analysis</a>
+<a href="PipelinesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="3.5" cy="4" r="1.6"></circle><circle cx="12.5" cy="12" r="1.6"></circle><path d="M5.1 4H8a2 2 0 012 2v4a2 2 0 002 2"></path><path d="M3.5 5.6V12h7.4"></path></svg>Pipelines<span class="ct">1 failed</span></a>
+<a href="SchemasList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6"></path></svg>Models</a>
+<div class="grp">Pinned projects</div>
+<a href="ProjectDetail.dc.html"><span class="dot st-progress" style="margin: 0 4px"></span>AAV9 process transfer</a>
+<a href="ProjectLVV.dc.html"><span class="dot st-review" style="margin: 0 4px"></span>LVV stability, 2–8 °C hold</a>
+<a href="ProjectAmbr.dc.html"><span class="dot st-progress" style="margin: 0 4px"></span>Ambr 250 perfusion scale-down</a>
+<div style="flex-grow: 1"></div>
+<a href="SettingsGeneral.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Settings</a>
+</nav>
+<main id="main" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface)"><div class="pagehead" style="padding: 14px 32px 0">
+<nav aria-label="Breadcrumb" class="crumbs"><a href="Projects.dc.html">Projects</a>  /  <a href="ProjectDetail.dc.html">AAV9 process transfer</a>  /  <span class="mono">EXP-0138</span></nav>
+<div style="display: flex; align-items: center; gap: 8px"><h1 class="page-title" style="flex-grow: 1">Transfection ratio, PEI:DNA sweep</h1></div>
+<div class="meta"><span style="color: var(--text)"><x-import component-from-global-scope="Sheetbase.Status" tone="review">In review, round 2</x-import></span><span>Owner Priya S.</span><span>Protocol <a href="ProtocolDetail.dc.html">PRT-018 v2</a></span><span>Submitted 24 Sep 2026, 16:40</span><span>Due 29 Sep</span></div>
+<div class="tabs" role="tablist" style="margin-top: 4px"><button type="button" role="tab" class="{{etab.overview.cls}}" aria-selected="{{etab.overview.sel}}" onClick="{{etab.overview.pick}}">Overview</button><button type="button" role="tab" class="{{etab.notebook.cls}}" aria-selected="{{etab.notebook.sel}}" onClick="{{etab.notebook.pick}}">Notebook</button><button type="button" role="tab" class="{{etab.samples.cls}}" aria-selected="{{etab.samples.sel}}" onClick="{{etab.samples.pick}}">Samples <span class="ct">8</span></button><button type="button" role="tab" class="{{etab.datasets.cls}}" aria-selected="{{etab.datasets.sel}}" onClick="{{etab.datasets.pick}}">Datasets <span class="ct">2</span></button><button type="button" role="tab" class="{{etab.files.cls}}" aria-selected="{{etab.files.sel}}" onClick="{{etab.files.pick}}">Files <span class="ct">1</span></button><button type="button" role="tab" class="{{etab.history.cls}}" aria-selected="{{etab.history.sel}}" onClick="{{etab.history.pick}}">History</button></div>
+</div><div class="banner review" style="padding: 8px 32px">
+<span style="font-weight: 500; white-space: nowrap">You are reviewing</span><span class="muted" style="white-space: nowrap">Read-only for you until returned or signed</span><span style="flex-grow: 1"></span>
+<label class="check" style="align-items: center; white-space: nowrap"><input type="checkbox" checked="checked">Show changes since round 1</label>
+<span class="muted num" style="white-space: nowrap">2 changes · 1 open comment</span><x-import component-from-global-scope="Sheetbase.Button" size="sm">‹ Prev change</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm">Next change ›</x-import></div>
+<sc-if value="{{etab.notebook.on}}" hint-placeholder-val="{{ true }}"><article class="doc" style="padding: 26px 32px 40px 62px; display: flex; flex-direction: column; gap: 14px">
+<h2>Objective</h2>
+<p>Find the PEI:DNA ratio (w/w) that maximises AAV9 genome titre in HEK293 suspension culture at 1.0 µg DNA per mL, without viability at harvest falling below 80 %.</p>
+<div class="blk" style="margin-top: 12px; display: flex; flex-direction: column; gap: 14px">
+<span class="chg-mark" aria-label="Changed since round 1">Δ</span>
+<h2>Method</h2>
+<p>Cells were seeded at 2.0 × 10⁶ cells/mL in 125 mL shake flasks (30 mL working volume) and transfected with the triple-plasmid mix at 1.0 µg DNA/mL <ins>(0.5 pg DNA per cell)</ins>. PEI:DNA ratios of 1:1, 1.5:1, 2:1 and 3:1 (w/w) were run in duplicate. Harvest at 72 h; <del>titre by qPCR</del> <ins>genome titre by ddPCR (<a href="DatasetsList.dc.html">DS-0302</a>)</ins>, viability by ViCell (<a href="DatasetsList.dc.html">DS-0303</a>).</p>
+<div class="muted" style="font-size: 12px">Edited by Priya S., 24 Sep 15:41 · resolves your comment “State the DNA mass per cell…”</div>
+</div>
+<div class="blk" style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px">
+<span class="chg-mark" aria-label="Changed since round 1">Δ</span>
+<div style="display: flex; align-items: center; gap: 8px"><span style="font-weight: 600">Transfection results</span><span class="muted" style="font-size: 12px">Sheet · mean of 2 flasks · 4 rows</span></div>
+<div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden; border-right: 0; border-bottom: 0">
+<table class="g num" role="grid" aria-label="Transfection results">
+<thead><tr><th class="rn"></th><th>Condition</th><th class="r">PEI:DNA (w/w)</th><th class="r">Genome titre (vg/mL)</th><th class="r">Viability at harvest (%)</th><th class="r">Titre vs 2:1 (%)<span class="fx">ƒx</span></th><th>Meets criteria<span class="fx">ƒx</span></th></tr></thead>
+<tbody>
+<tr><td class="rn">1</td><td>R1.0</td><td class="r">1:1</td><td class="r">3.1 × 10¹⁰</td><td class="r">88.1</td><td class="r der">43.1</td><td class="der">Viability yes</td></tr>
+<tr><td class="rn">2</td><td>R1.5</td><td class="r">1.5:1</td><td class="r">5.8 × 10¹⁰</td><td class="r">85.4</td><td class="r der">80.6</td><td class="der">Viability yes</td></tr>
+<tr><td class="rn">3</td><td>R2.0</td><td class="r">2:1</td><td class="r" style="background: var(--review-wash); box-shadow: inset 0 0 0 2px var(--review)"><del style="font-size: 11px; margin-right: 6px">6.9 × 10¹⁰</del>7.2 × 10¹⁰</td><td class="r">81.9</td><td class="r der">100.0</td><td class="der">Viability yes</td></tr>
+<tr><td class="rn">4</td><td>R3.0</td><td class="r">3:1</td><td class="r">6.4 × 10¹⁰</td><td class="r" style="color: var(--danger-text)">72.6</td><td class="r der">88.9</td><td class="der" style="color: var(--danger-text)">Viability no</td></tr>
+</tbody></table></div>
+<div style="font-size: 12px; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; row-gap: 2px; padding: 8px 10px; background: var(--surface-muted); border: 1px solid var(--border-subtle); border-radius: 6px">
+<span class="muted">Change</span><span>Row 3 · Genome titre · 6.9 × 10¹⁰ → 7.2 × 10¹⁰ vg/mL</span>
+<span class="muted">By</span><span>Priya S. · 24 Sep 2026, 15:58</span>
+<span class="muted">Reason</span><span>Dilution factor corrected in DS-0302 (1:100 → 1:104); recalculated from the instrument export</span>
+</div></div>
+<div class="blk" style="margin-top: 12px; display: flex; gap: 28px; align-items: flex-start">
+<div style="display: flex; flex-direction: column; gap: 14px; min-width: 0">
+<h2>Conclusion</h2>
+<p>A 2:1 PEI:DNA ratio gave the highest genome titre (7.2 × 10¹⁰ vg/mL) with viability above 80 %. <span style="background: var(--warning-wash); border-bottom: 1px solid var(--warning)">3:1 reduced viability to 72.6 % with no titre gain.</span> Recommend 2:1 for the 50 L engineering run.</p>
+</div>
+<aside aria-label="Your review comment" class="popover" style="width: 280px; flex-shrink: 0; padding: 10px 12px; font-size: 12px; display: flex; flex-direction: column; gap: 8px">
+<div><div><b style="font-weight: 500">You</b> <span class="muted">draft · not sent</span></div><div style="line-height: 18px">With n = 2, is the 2:1 vs 3:1 titre difference outside ddPCR variability? Add the per-flask values or the assay CV.</div></div>
+<div style="display: flex; gap: 6px"><x-import component-from-global-scope="Sheetbase.Button" size="sm">Edit</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm">Delete</x-import></div></aside>
+</div>
+</article></sc-if>
+<sc-if value="{{etab.overview.on}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 26px"><section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">Summary</h2><span style="flex-grow: 1"></span></div><dl class="dl num" style="grid-template-columns: 130px 1fr; row-gap: 9px; font-size: 13px"><dt>Objective</dt><dd>Find the PEI:DNA ratio that maximises AAV9 genome titre with viability ≥ 80 %.</dd><dt>Protocol</dt><dd><a href="ProtocolsList.dc.html">PRT-018 v2</a></dd><dt>Owner</dt><dd>Priya S.</dd><dt>Reviewer</dt><dd>Gareth P.</dd><dt>Result</dt><dd>2:1 PEI:DNA, 7.2 × 10¹⁰ vg/mL, viability 81.9 %</dd><dt>Review</dt><dd>Round 2 · 2 changes since round 1</dd></dl></section><section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">Checks before signing</h2><span style="flex-grow: 1"></span></div><div style="font-size: 13px; line-height: 22px"><x-import component-from-global-scope="Sheetbase.Status" tone="ok">All required fields complete</x-import><br><x-import component-from-global-scope="Sheetbase.Status" tone="ok">No validation errors</x-import><br><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Materials in date at time of use</x-import></div></section></div>
+</sc-if>
+
+<sc-if value="{{etab.samples.on}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 26px"><section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">Samples</h2><span class="muted num" style="font-size: 12px">8</span><span style="flex-grow: 1"></span></div><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t num"><thead><tr><th style="padding-left: 12px">ID</th><th>Name</th><th>Type</th><th class="r">Volume</th><th>Status</th></tr></thead><tbody><tr><td style="padding-left: 12px"><span class="mono">SMP-2232</span></td><td>R1.0 flask A</td><td>Culture</td><td class="r">30 mL</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Harvested</x-import></td></tr><tr><td style="padding-left: 12px"><span class="mono">SMP-2233</span></td><td>R1.0 flask B</td><td>Culture</td><td class="r">30 mL</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Harvested</x-import></td></tr><tr><td style="padding-left: 12px"><span class="mono">SMP-2234</span></td><td>R1.5 flask A</td><td>Culture</td><td class="r">30 mL</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Harvested</x-import></td></tr><tr><td style="padding-left: 12px"><span class="mono">SMP-2235</span></td><td>R1.5 flask B</td><td>Culture</td><td class="r">30 mL</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Harvested</x-import></td></tr><tr><td style="padding-left: 12px"><span class="mono">SMP-2237</span></td><td>R2.0 flask A</td><td>Culture</td><td class="r">30 mL</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Harvested</x-import></td></tr><tr><td style="padding-left: 12px"><span class="mono">SMP-2239</span></td><td>R2.0 flask B</td><td>Culture</td><td class="r">30 mL</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Harvested</x-import></td></tr><tr><td style="padding-left: 12px"><span class="mono">SMP-2251</span></td><td>R3.0 flask A</td><td>Culture</td><td class="r">30 mL</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Harvested</x-import></td></tr><tr><td style="padding-left: 12px"><span class="mono">SMP-2252</span></td><td>R3.0 flask B</td><td>Culture</td><td class="r">30 mL</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Harvested</x-import></td></tr></tbody></table></div></section></div>
+</sc-if>
+
+<sc-if value="{{etab.datasets.on}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 26px"><section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">Datasets</h2><span class="muted num" style="font-size: 12px">2</span><span style="flex-grow: 1"></span><a href="DatasetsList.dc.html" style="font-size: 12px">All datasets</a></div><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t num"><thead><tr><th style="padding-left: 12px">ID</th><th>Name</th><th>Model</th><th class="r">Rows</th><th>Validation</th></tr></thead><tbody><tr><td style="padding-left: 12px"><span class="mono">DS-0302</span></td><td>ddPCR titre, transfection sweep</td><td>ddPCR titre v1</td><td class="r">16</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Valid</x-import></td></tr><tr><td style="padding-left: 12px"><span class="mono">DS-0303</span></td><td>ViCell, harvest 72 h</td><td>ViCell v2</td><td class="r">8</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Valid</x-import></td></tr></tbody></table></div></section></div>
+</sc-if>
+
+<sc-if value="{{etab.files.on}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 26px"><section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">Files</h2><span class="muted num" style="font-size: 12px">1</span><span style="flex-grow: 1"></span></div><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t num"><thead><tr><th style="padding-left: 12px">Name</th><th>Kind</th><th class="r">Size</th><th>Uploaded</th></tr></thead><tbody><tr><td style="padding-left: 12px">ddPCR_titre_transfection_sweep.xlsx</td><td>Instrument export</td><td class="r">96 KB</td><td>Priya S. · 23 Sep</td></tr></tbody></table></div></section></div>
+</sc-if>
+
+<sc-if value="{{etab.history.on}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 26px"><section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">History</h2><span class="muted num" style="font-size: 12px">5 entries</span><span style="flex-grow: 1"></span></div><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t num"><thead><tr><th style="padding-left: 12px">When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead><tbody><tr><td style="padding-left: 12px">24 Sep 16:40</td><td>Priya S.</td><td>Submitted</td><td>Round 2</td></tr><tr><td style="padding-left: 12px">24 Sep 15:58</td><td>Priya S.</td><td>Edited cell</td><td>Row 3 genome titre 6.9 → 7.2 × 10¹⁰ · dilution factor corrected</td></tr><tr><td style="padding-left: 12px">24 Sep 15:41</td><td>Priya S.</td><td>Edited text</td><td>Method · resolves your comment</td></tr><tr><td style="padding-left: 12px">22 Sep 10:12</td><td>Gareth P.</td><td>Returned</td><td>Round 1 with 3 comments</td></tr><tr><td style="padding-left: 12px">21 Sep 17:05</td><td>Priya S.</td><td>Submitted</td><td>Round 1</td></tr></tbody></table></div></section></div>
+</sc-if>
+</main><aside class="insp" aria-label="Review" style="width: 320px; display: flex; flex-direction: column">
+<div style="padding: 14px 16px; border-bottom: 1px solid var(--border)"><div class="h" style="font-size: 15px; font-weight: 600">Review</div><div class="muted" style="font-size: 12px">Template: Process development experiment v3</div></div>
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 20px">
+<section><h3>Checklist <span class="muted num" style="font-weight: 400">4 of 5</span></h3>
+<label class="ck"><input type="checkbox" checked="checked">Protocol version matches the approved plan</label>
+<label class="ck"><input type="checkbox" checked="checked">Materials were in date and released</label>
+<label class="ck"><input type="checkbox" checked="checked">All values carry units</label>
+<label class="ck"><input type="checkbox" >Calculations verified against source data</label>
+<label class="ck"><input type="checkbox" checked="checked">Deviations recorded (none)</label></section>
+<section><h3>Decision</h3>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label class="ck"><input type="radio" name="d">Approve</label>
+<label class="ck"><input type="radio" name="d" checked="checked">Return with comments <span class="muted">(1 draft)</span></label></div>
+<div class="muted" style="font-size: 12px; margin: 8px 0 10px; line-height: 18px">Signature meaning: “Reviewed”. You will be asked for your password. Signing locks this version; later edits create a new version.</div>
+<div style="display: flex; gap: 6px"><x-import component-from-global-scope="Sheetbase.Button" variant="primary" href="ReviewReturned.dc.html">Return with 1 comment</x-import><x-import component-from-global-scope="Sheetbase.Button" on-click="{{onSaved}}">Save draft</x-import></div></section>
+<section><h3>History</h3>
+<div class="au"><span class="num muted">24 Sep 16:40</span><span><b style="font-weight: 500">Priya S.</b> submitted round 2</span></div>
+<div class="au"><span class="num muted">24 Sep 15:58</span><span><b style="font-weight: 500">Priya S.</b> changed Genome titre, row 3<div class="muted">6.9 → 7.2 × 10¹⁰ vg/mL · reason given</div></span></div>
+<div class="au"><span class="num muted">24 Sep 15:41</span><span><b style="font-weight: 500">Priya S.</b> edited Method</span></div>
+<div class="au"><span class="num muted">22 Sep 10:12</span><span><b style="font-weight: 500">You</b> returned round 1 with 3 comments</span></div>
+<div class="au" style="border-bottom: 0"><span class="num muted">21 Sep 17:05</span><span><b style="font-weight: 500">Priya S.</b> submitted round 1</span></div></section>
+</div></aside>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+<!--overlays-->
+<sc-if value="{{m.any}}" hint-placeholder-val="{{ false }}"><button type="button" class="dismiss" aria-label="Close menu" onClick="{{close}}"></button></sc-if>
+<sc-if value="{{m.ws}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Switch workspace" sx="left: 228px; top: 40px; width: 280px"><x-import component-from-global-scope="Sheetbase.MenuLabel">Workspaces</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="check" hint="Editor" href="Main.dc.html">Process Development</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Editor" href="ProjectsEmpty.dc.html">Analytical Development</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Viewer" href="Main.dc.html">GMP Manufacturing</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Viewer" href="Main.dc.html">Quality Control</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import><x-import component-from-global-scope="Sheetbase.MenuItem" icon="settings" href="SettingsGeneral.dc.html">Workspace settings</x-import></x-import></sc-if>
+<sc-if value="{{m.new}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Create" sx="right: 104px; top: 40px; width: 240px"><x-import component-from-global-scope="Sheetbase.MenuItem" icon="flask" href="NewExperiment.dc.html" hint="E">Experiment</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="table" href="SheetEmpty.dc.html">Working sheet</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="tube" href="DialogsCreate.dc.html" hint="S">Sample</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="folder" href="DialogsCreate.dc.html">Project</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="upload" href="ImportUpload.dc.html" hint="I">Import data</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="scan" href="PhoneScan.dc.html">Scan a label</x-import></x-import></sc-if>
+<sc-if value="{{m.notif}}" hint-placeholder-val="{{ false }}"><div class="popover" role="dialog" aria-label="Notifications" style="position: absolute; right: 70px; top: 40px; width: 380px; z-index: 40; overflow: hidden">
+<div style="display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border)"><span class="sh" style="font-size: 14px">Notifications</span><span style="flex-grow: 1"></span><x-import component-from-global-scope="Sheetbase.Button" variant="quiet" size="sm" disabled="{{allRead}}" on-click="{{markRead}}">Mark all read</x-import></div>
+<a class="notif" href="PromoteRejected.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><b>Anna B.</b> returned your column promotion from <span class="mono">SHT-0019</span></span><span class="when">10:40</span></a>
+<a class="notif" href="ReviewRecord.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><b>Priya S.</b> resubmitted <span class="mono">EXP-0138</span> for your review</span><span class="when">16:40</span></a>
+<a class="notif" href="DatasetExplorer.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><span class="mono">DS-0298</span> imported with 84 rows missing a unit</span><span class="when">10:12</span></a>
+<a class="notif" href="PipelineRunWaiting.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span>Pipeline <span class="mono">PL-0003</span> is waiting for you to confirm units</span><span class="when">09:12</span></a>
+<a class="notif" href="SampleQuarantine.dc.html"><span></span><span><span class="mono">SMP-2220</span> moved to quarantine: endotoxin pending</span><span class="when">16 Sep</span></a>
+<a class="notif" href="PipelineRunFailed.dc.html"><span></span><span>Pipeline <span class="mono">PL-0014</span> failed at step 3: out of temporary storage</span><span class="when">09:48</span></a>
+<div style="padding: 8px 12px; font-size: 12px; background: var(--surface-muted)"><a href="HomeTriage.dc.html">Open inbox</a> · <a href="SettingsNotifications.dc.html">Notification settings</a></div>
+</div></sc-if>
+<sc-if value="{{m.account}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Account" sx="right: 8px; top: 40px; width: 272px"><div style="display: flex; gap: 10px; align-items: center; padding: 8px"><x-import component-from-global-scope="Sheetbase.Avatar" initials="GP" tone="accent"></x-import><div style="font-size: 12px; line-height: 17px"><div style="font-weight: 600; font-size: 13px">Gareth P.</div><div class="muted">Process Development · Editor</div></div></div>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuLabel">Appearance</x-import>
+<div style="padding: 2px 8px 8px"><x-import component-from-global-scope="Sheetbase.Segmented" options="System|Light|Dark" icons="monitor|sun|moon" value="{{appearance}}" on-change="{{setAppearance}}" aria-label="Appearance"></x-import></div>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="user" href="SettingsProfile.dc.html">Profile and signature</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="bell" href="SettingsNotifications.dc.html">Notifications</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="info" href="Shortcuts.dc.html" hint="?">Keyboard shortcuts</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="signOut" href="SignedOut.dc.html">Sign out</x-import></x-import></sc-if>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}"><div class="toast-stack"><x-import component-from-global-scope="Sheetbase.Toast" tone="{{toastTone}}" action="{{toastAction}}" on-action="{{dismissToast}}" on-close="{{dismissToast}}">{{toastMsg}}</x-import></div></sc-if>
+<!--/overlays-->
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+v.etab = tabs("etab", ["overview", "notebook", "samples", "datasets", "files", "history"], "notebook");
+return v;
+}
+}
+</script>
+</body>
+</html>

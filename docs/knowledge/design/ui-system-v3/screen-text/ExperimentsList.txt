@@ -1,0 +1,22 @@
+Experiments
+Experiments
+148 Import New experiment
+All 148 Mine 31 In progress 12 In review 4 Approved 97 Drafts 3
+Table Filter · 1 Sort: Updated Group: none
+Search experiments
+Fields
+Updated in last 30 days × + Add filter
+| | ID | Experiment | Project | Owner | Protocol | Status | Open issues | Started | Updated
+| EXP-0145 | Harvest clarification: 50 L confirmation run | AAV9 process transfer | Gareth P. | PRT-021 v3 | Draft | — | — | 09:40
+| EXP-0142 | Harvest clarification: depth filter screening | AAV9 process transfer | Gareth P. | PRT-021 v3 | In progress | 1 validation error | 21 Sep | 09:32
+| EXP-0140 | Ambr 250 run AMB-25-118 | Ambr 250 perfusion scale-down | Gareth P. | PRT-014 v2 | In progress | 2 missing units | 19 Sep | Yesterday
+| EXP-0138 | Transfection ratio, PEI:DNA sweep | AAV9 process transfer | Priya S. | PRT-018 v2 | In review | — | 17 Sep | 24 Sep
+| EXP-0131 | Day 7 stability pull, 2–8 °C | LVV stability, 2–8 °C hold | Tom H. | PRT-019 v1 | In review | — | 14 Sep | 24 Sep
+| EXP-0130 | HEK293 WCB viability panel | HEK293 cell bank characterisation | Mei L. | PRT-009 v4 | In review | — | 12 Sep | 23 Sep
+| EXP-0128 | Expansion media A vs B | CAR-T expansion media screen | Tom H. | PRT-020 v1 | In progress | — | 9 Sep | 23 Sep
+| EXP-0125 | Full/empty ratio by AUC | AAV full/empty assay qualification | Mei L. | PRT-012 v2 | Approved | — | 1 Sep | 22 Sep
+| EXP-0144 | TFF concentration, run 2 | AAV8 TFF concentration | Tom H. | — | Planned | No protocol version | — | 20 Sep
+| EXP-0136 | Seeding density at transfection | AAV9 process transfer | Gareth P. | PRT-017 v2 | Approved | — | 8 Sep | 19 Sep
+| EXP-0133 | Harvest timing: 48, 72 and 96 h | AAV9 process transfer | Gareth P. | PRT-017 v2 | Approved | — | 5 Sep | 19 Sep
+| EXP-0139 | AEX resin screen | LVV downstream chromatography | Gareth P. | PRT-022 v1 | On hold | — | 10 Sep | 11 Sep
+12 of 148 · filtered to last 30 days

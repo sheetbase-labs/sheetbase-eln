@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Run #148 · Clarification step yield</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+
+</style>
+</helmet>
+<!--shell {"user_name": "Gareth P.", "user": "GP", "avatar_tone": "accent", "workspace": "Process Development", "search": "normal", "query": "", "new": true, "active": null, "inbox": "8", "datasets": "2 errors", "extra": [], "pinned_html": null, "pinned": true, "role": "Process Development · Editor"}-->
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 1440px; height: 1000px">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+<a href="Main.dc.html" class="brand"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="2.5" width="15" height="15" rx="3"></rect><path d="M2.5 8h15M8 8v9.5"></path></svg><span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span></a>
+<x-import component-from-global-scope="Sheetbase.Button" variant="quiet" aria-haspopup="menu" aria-expanded="{{exp.ws}}" on-click="{{open.ws}}">Process Development <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 4.5l3 3 3-3"></path></svg></x-import>
+<div style="flex-grow: 1; display: flex; justify-content: center"><a href="SearchPalette.dc.html" class="searchbox" aria-label="Search Sheetbase"><x-import component-from-global-scope="Sheetbase.Icon" name="search" size="14"></x-import><span>Search experiments, samples, datasets</span><span class="kbd">⌘K</span></a></div>
+<x-import component-from-global-scope="Sheetbase.Button" variant="primary" icon="plus" aria-haspopup="menu" aria-expanded="{{exp.new}}" on-click="{{open.new}}">New</x-import>
+<x-import component-from-global-scope="Sheetbase.Button" variant="quiet" icon-only="true" icon="bell" class-name="{{bellClass}}" aria-label="{{bellLabel}}" aria-haspopup="dialog" aria-expanded="{{exp.notif}}" on-click="{{open.notif}}"></x-import>
+<button type="button" class="btn ib" aria-haspopup="menu" aria-expanded="{{exp.account}}" onClick="{{open.account}}" aria-label="Account: Gareth P." style="border-radius: 50%; padding: 0"><x-import component-from-global-scope="Sheetbase.Avatar" initials="GP" tone="accent"></x-import></button>
+</header>
+<div style="flex-grow: 1; display: flex; min-height: 0">
+<nav class="nav" aria-label="Main">
+<a href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"></path></svg>Home</a>
+<a href="HomeTriage.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 9h3.5l1 2h3l1-2H14M2 9l2-5.5h8L14 9v4.5H2z"></path></svg>Inbox<span class="ct">8</span></a>
+<a href="HomeBench.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5"></rect><path d="M2.5 7h11M5.5 2v3M10.5 2v3"></path></svg>Schedule</a>
+<div class="div" aria-hidden="true"></div>
+<a href="Projects.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4.5h4.5l1.5 1.5h6v7.5H2z"></path></svg>Projects</a>
+<a href="ExperimentsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 2v4.5L2.5 13.5h11L10 6.5V2M5 2h6"></path></svg>Experiments</a>
+<a href="ProtocolsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 2h5.5L12 4.5V14H4z"></path><path d="M6 7.5h4M6 10h4"></path></svg>Protocols</a>
+<a href="TemplatesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 2h7l3 3v9H3z"></path><path d="M10 2v3h3"></path><path d="M5.5 8h5M5.5 10.5h3"></path></svg>Templates</a>
+<a href="SamplesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg>Samples</a>
+<a href="MaterialsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 5L8 2.5 13.5 5v6L8 13.5 2.5 11z"></path><path d="M2.5 5L8 7.5 13.5 5M8 7.5v6"></path></svg>Materials</a>
+<a href="DatasetsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M2 6.5h12M2 10h12M6 2.5v11"></path></svg>Datasets<span class="ct">2 errors</span></a>
+<a href="Analysis.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 13.5h12M4 11l3-4 2.5 2L13 4"></path></svg>Analysis</a>
+<a href="PipelinesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="3.5" cy="4" r="1.6"></circle><circle cx="12.5" cy="12" r="1.6"></circle><path d="M5.1 4H8a2 2 0 012 2v4a2 2 0 002 2"></path><path d="M3.5 5.6V12h7.4"></path></svg>Pipelines<span class="ct">1 failed</span></a>
+<a href="SchemasList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6"></path></svg>Models</a>
+<div class="grp">Pinned projects</div>
+<a href="ProjectDetail.dc.html"><span class="dot st-progress" style="margin: 0 4px"></span>AAV9 process transfer</a>
+<a href="ProjectLVV.dc.html"><span class="dot st-review" style="margin: 0 4px"></span>LVV stability, 2–8 °C hold</a>
+<a href="ProjectAmbr.dc.html"><span class="dot st-progress" style="margin: 0 4px"></span>Ambr 250 perfusion scale-down</a>
+<div style="flex-grow: 1"></div>
+<a href="SettingsGeneral.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Settings</a>
+</nav>
+<main id="main" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface); overflow: hidden"><div class="pagehead" style="padding: 14px 24px 0; border-bottom: 1px solid var(--border)"><nav class="crumbs"><a href="PipelinesList.dc.html">Pipelines</a>  /  <a href="PipelineRuns.dc.html">PL-0007</a>  /  <span class="mono">#148</span></nav><div style="display: flex; align-items: center; gap: 8px"><h1 class="page-title" style="flex-grow: 1">Run #148 · Clarification step yield</h1><x-import component-from-global-scope="Sheetbase.Button" icon="play" on-click="{{onRerun}}">Run again</x-import><x-import component-from-global-scope="Sheetbase.Button" href="PipelineEditor.dc.html">Open pipeline</x-import></div><div class="meta" style="padding-bottom: 12px"><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Succeeded</x-import><span>25 Sep 10:12 · 38 s</span><span>Started by: new DS-0311 snapshot S-15 (plate 4 import)</span><span>Version 3</span></div></div><div style="flex-grow: 1; display: flex; min-height: 0"><div style="width: 290px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 16px; overflow: hidden"><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 6px">Steps</h3><ol class="steps" aria-label="Run steps"><li><span class="n" style="background: var(--success-wash); border-color: var(--success); color: var(--success-text)">✓</span><div><div style="font-weight: 500">Join titre to runs</div><div class="sub">SQL · 96 + 27 rows in → 9 out</div></div><span class="muted num" style="font-size: 11px">0.2 s</span></li><li><span class="n" style="background: var(--success-wash); border-color: var(--success); color: var(--success-text)">✓</span><div><div style="font-weight: 500">Step yield per run</div><div class="sub">SQL · 9 in → 8 out</div></div><span class="muted num" style="font-size: 11px">0.1 s</span></li><li class="on" aria-current="step"><span class="n" style="background: var(--success-wash); border-color: var(--success); color: var(--success-text)">✓</span><div><div style="font-weight: 500">Fit yield vs load, draw figure</div><div class="sub">Python · 3 fits, 1 figure · 140 MB used</div></div><span class="muted num" style="font-size: 11px">31 s</span></li><li><span class="n" style="background: var(--success-wash); border-color: var(--success); color: var(--success-text)">✓</span><div><div style="font-weight: 500">Propose Figure 1 in EXP-0142</div><div class="sub">ELN · proposal waiting for Gareth P.</div></div><span class="muted num" style="font-size: 11px">0.4 s</span></li><li><span class="n" style="background: var(--success-wash); border-color: var(--success); color: var(--success-text)">✓</span><div><div style="font-weight: 500">Post summary to #aav9-process</div><div class="sub">Notify · queued, sent 10:13</div></div><span class="muted num" style="font-size: 11px">0.1 s</span></li></ol></div><div style="flex-grow: 1; min-width: 0; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; overflow: hidden"><div style="display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; align-items: start"><div style="border: 1px solid var(--border); border-radius: 6px; padding: 12px"><div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px"><b style="font-weight: 600; font-size: 12px">Step 3 output</b><span class="tmp"><x-import component-from-global-scope="Sheetbase.Icon" name="clock" size="11"></x-import>Deleted 10:12:42</span></div><svg viewBox="0 0 520 190" style="width: 100%; height: auto; display: block" role="img" aria-label="Step yield falls with load for trains A, B and C; B stays above 84 %"><g style="stroke: var(--chart-grid)"><path d="M40 20H510M40 70H510M40 120H510M40 170H510"></path></g><g font-size="16" style="fill: var(--text-muted)"><text x="4" y="25">90</text><text x="4" y="75">80</text><text x="4" y="125">70</text><text x="4" y="175">60</text><text x="78" y="190">50</text><text x="266" y="190">100</text><text x="420" y="190">150 L/m²</text></g><path d="M90 45L280 60L470 88" fill="none" stroke-width="1.8" style="stroke: var(--series-a)"></path><path d="M90 16L280 26L470 44" fill="none" stroke-width="1.8" style="stroke: var(--series-b)"></path><path d="M90 60L280 108" fill="none" stroke-width="1.8" style="stroke: var(--series-c)"></path><path d="M40 70H510" stroke-dasharray="4 3" style="stroke: var(--text)"></path></svg><div style="display: flex; gap: 14px; font-size: 12px; margin-top: 6px"><span><span class="dot" style="background: var(--series-a)"></span>Train A</span><span><span class="dot" style="background: var(--series-b)"></span>Train B</span><span><span class="dot" style="background: var(--series-c)"></span>Train C</span><span class="muted">Dashed: 80 % target</span></div></div><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t num"><thead><tr><th style="padding-left: 12px">Train</th><th class="r">Yield at 150</th><th class="r">r²</th></tr></thead><tbody><tr><td style="padding-left: 12px">A</td><td class="r">75.6 %</td><td class="r">0.99</td></tr><tr><td style="padding-left: 12px">B</td><td class="r">84.9 %</td><td class="r">0.97</td></tr><tr><td style="padding-left: 12px">C</td><td class="r">— (flagged)</td><td class="r">0.98</td></tr></tbody></table></div></div><div class="notice info" style="display: flex; gap: 10px; align-items: center"><x-import component-from-global-scope="Sheetbase.Icon" name="info" size="14"></x-import><span style="flex-grow: 1">Step 4 didn’t change the notebook. It proposed a new Figure 1 that Gareth P. can accept or reject in EXP-0142.</span><a href="Notebook.dc.html" class="btn btn-s">Open proposal</a></div><div><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 6px">Log</h3><pre class="code wrap" style="font-size: 11px"><span class="l">10:12:04  run #148 started by event: DS-0311 snapshot S-15 (import of PR-01_EXP-0142_plate4.xlsx)</span><span class="l">10:12:04  materialised in_ds0311 (96 rows, S-15) and in_ds0310 (27 rows, S-6)</span><span class="l">10:12:05  step 3 python: fitting 3 trains · r² A 0.99, B 0.97, C 0.98</span><span class="l">10:12:36  step 3 wrote figure step_yield_by_load.png (48 KB) <span class="cm">temporary</span></span><span class="l">10:12:37  step 4 proposed block “Step yield by filter load (run #148)” in EXP-0142</span><span class="l">10:12:42  run finished · temporary tables and files deleted</span></pre></div></div></div></main><aside class="insp" aria-label="Details" style="padding: 16px; display: flex; flex-direction: column; gap: 20px; overflow: hidden"><section><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 6px">Inputs used</h3><dl class="dl num" style="grid-template-columns: 70px 1fr; row-gap: 9px; font-size: 13px"><dt>DS-0311</dt><dd><a href="DatasetSnapshots.dc.html">Snapshot S-15</a> · 96 rows</dd><dt>DS-0310</dt><dd>Snapshot S-6 · 27 rows</dd><dt>Version</dt><dd>PL-0007 v3</dd></dl></section><section><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 6px">Temporary data</h3><div style="font-size: 12px; line-height: 20px"><span class="mono">in_ds0311</span> 96 rows<br><span class="mono">in_ds0310</span> 27 rows<br><span class="mono">step_1</span> 9 · <span class="mono">step_2</span> 8 rows<br><span class="mono">step_yield_by_load.png</span> 48 KB</div><div class="muted" style="font-size: 12px; line-height: 18px">All deleted when the run ended at 10:12:42. Row counts and the log stay.</div></section><section><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 6px">Kept</h3><div style="font-size: 12px; line-height: 18px">No dataset. This pipeline keeps nothing.</div></section><section><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 6px">Did</h3><div style="font-size: 12px; line-height: 20px"><x-import component-from-global-scope="Sheetbase.Status" tone="review">Proposed Figure 1 in EXP-0142</x-import><br><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Sent 1 message to #aav9-process</x-import></div></section></aside>
+</div>
+
+
+
+
+
+
+<!--overlays-->
+<sc-if value="{{m.any}}" hint-placeholder-val="{{ false }}"><button type="button" class="dismiss" aria-label="Close menu" onClick="{{close}}"></button></sc-if>
+<sc-if value="{{m.ws}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Switch workspace" sx="left: 228px; top: 40px; width: 280px"><x-import component-from-global-scope="Sheetbase.MenuLabel">Workspaces</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="check" hint="Editor" href="Main.dc.html">Process Development</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Editor" href="ProjectsEmpty.dc.html">Analytical Development</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Viewer" href="Main.dc.html">GMP Manufacturing</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Viewer" href="Main.dc.html">Quality Control</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import><x-import component-from-global-scope="Sheetbase.MenuItem" icon="settings" href="SettingsGeneral.dc.html">Workspace settings</x-import></x-import></sc-if>
+<sc-if value="{{m.new}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Create" sx="right: 104px; top: 40px; width: 240px"><x-import component-from-global-scope="Sheetbase.MenuItem" icon="flask" href="NewExperiment.dc.html" hint="E">Experiment</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="table" href="SheetEmpty.dc.html">Working sheet</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="tube" href="DialogsCreate.dc.html" hint="S">Sample</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="folder" href="DialogsCreate.dc.html">Project</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="upload" href="ImportUpload.dc.html" hint="I">Import data</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="scan" href="PhoneScan.dc.html">Scan a label</x-import></x-import></sc-if>
+<sc-if value="{{m.notif}}" hint-placeholder-val="{{ false }}"><div class="popover" role="dialog" aria-label="Notifications" style="position: absolute; right: 70px; top: 40px; width: 380px; z-index: 40; overflow: hidden">
+<div style="display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border)"><span class="sh" style="font-size: 14px">Notifications</span><span style="flex-grow: 1"></span><x-import component-from-global-scope="Sheetbase.Button" variant="quiet" size="sm" disabled="{{allRead}}" on-click="{{markRead}}">Mark all read</x-import></div>
+<a class="notif" href="PromoteRejected.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><b>Anna B.</b> returned your column promotion from <span class="mono">SHT-0019</span></span><span class="when">10:40</span></a>
+<a class="notif" href="ReviewRecord.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><b>Priya S.</b> resubmitted <span class="mono">EXP-0138</span> for your review</span><span class="when">16:40</span></a>
+<a class="notif" href="DatasetExplorer.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><span class="mono">DS-0298</span> imported with 84 rows missing a unit</span><span class="when">10:12</span></a>
+<a class="notif" href="PipelineRunWaiting.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span>Pipeline <span class="mono">PL-0003</span> is waiting for you to confirm units</span><span class="when">09:12</span></a>
+<a class="notif" href="SampleQuarantine.dc.html"><span></span><span><span class="mono">SMP-2220</span> moved to quarantine: endotoxin pending</span><span class="when">16 Sep</span></a>
+<a class="notif" href="PipelineRunFailed.dc.html"><span></span><span>Pipeline <span class="mono">PL-0014</span> failed at step 3: out of temporary storage</span><span class="when">09:48</span></a>
+<div style="padding: 8px 12px; font-size: 12px; background: var(--surface-muted)"><a href="HomeTriage.dc.html">Open inbox</a> · <a href="SettingsNotifications.dc.html">Notification settings</a></div>
+</div></sc-if>
+<sc-if value="{{m.account}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Account" sx="right: 8px; top: 40px; width: 272px"><div style="display: flex; gap: 10px; align-items: center; padding: 8px"><x-import component-from-global-scope="Sheetbase.Avatar" initials="GP" tone="accent"></x-import><div style="font-size: 12px; line-height: 17px"><div style="font-weight: 600; font-size: 13px">Gareth P.</div><div class="muted">Process Development · Editor</div></div></div>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuLabel">Appearance</x-import>
+<div style="padding: 2px 8px 8px"><x-import component-from-global-scope="Sheetbase.Segmented" options="System|Light|Dark" icons="monitor|sun|moon" value="{{appearance}}" on-change="{{setAppearance}}" aria-label="Appearance"></x-import></div>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="user" href="SettingsProfile.dc.html">Profile and signature</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="bell" href="SettingsNotifications.dc.html">Notifications</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="info" href="Shortcuts.dc.html" hint="?">Keyboard shortcuts</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="signOut" href="SignedOut.dc.html">Sign out</x-import></x-import></sc-if>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}"><div class="toast-stack"><x-import component-from-global-scope="Sheetbase.Toast" tone="{{toastTone}}" action="{{toastAction}}" on-action="{{dismissToast}}" on-close="{{dismissToast}}">{{toastMsg}}</x-import></div></sc-if>
+<!--/overlays-->
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

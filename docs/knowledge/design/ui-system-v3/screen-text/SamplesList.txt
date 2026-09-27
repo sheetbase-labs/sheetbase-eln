@@ -1,0 +1,38 @@
+Samples
+Samples
+4,212 Scan label Import Register sample
+In stock 3,480 Mine 212 Awaiting measurement 6 Quarantine 3 Consumed 732
+Table Filter Sort: Created Group: none
+Search samples
+Fields
+| | ID | Name | Type | Quantity | Location | Status
+| SMP-2250 | Feed retain | Retain | 50.0 mL | F-2, box 14, B1 | Stored
+| SMP-2249 | C-150 filtrate, 1:5 dilution | Dilution | 1.0 mL | Plate 4, G1–G2 | Awaiting measurement
+| SMP-2248 | C-150 filtrate | Filtrate | 14.2 mL | F-2, box 14, A9 | Stored
+| SMP-2238 | AMB-25-118 day 6 | Culture sample | 2.0 mL | F-1, box 3, C4 | Stored
+| SMP-2236 | LVV hold, day 7 aliquot | Stability pull | 0.5 mL | F-4 (−80 °C), box 2 | Stored
+| SMP-2231 | Harvest lot HL-0934 | Cell harvest | 4,600 mL | CR-1, shelf 3 | Released
+| SMP-2227 | HEK293 WCB-2, vial 12 | Cell bank vial | 1 vial | LN2 tank 2, rack C, 4 | Stored
+| SMP-2220 | pAAV9-RC, lot P-117 | Plasmid | 12.5 mg | F-3 (−20 °C), box 7 | Quarantine
+| SMP-2214 | Donor 44 PBMC | Cells | 3 vials | LN2 tank 1, rack A, 2 | Stored
+| SMP-2201 | AMB-25-118 inoculum | Culture | In process | Ambr 250, bay 2 | In use
+| SMP-2190 | LVV harvest H-21, 2–8 °C hold | Viral harvest | 180 mL | CR-2, shelf 1 | Hold limit passed
+| SMP-2210 | LVV harvest H-22 | Viral harvest | 0 mL | — | Consumed
+11 of 3,480 in stock 1 selected
+SMP-2231
+Harvest lot HL-0934
+Released · 4,600 mL of 15,000 mL left
+Open record Withdraw…
+Key properties
+Capsid titre
+8.6 × 10¹¹ cp/mL
+Harvested
+20 Sep 2026
+Hold limit
+2–8 °C until 4 Oct
+Location
+CR-1, shelf 3
+Derived samples
+11 · see lineage
+Used in
+EXP-0142 · filtration runs A–C

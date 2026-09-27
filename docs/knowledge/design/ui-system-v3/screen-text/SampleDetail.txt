@@ -1,0 +1,54 @@
+Sample record
+Samples / SMP-2231
+Harvest lot HL-0934
+Print label
+Move
+Withdraw volume…
+Released Cell harvest AAV9 process transfer Model Sample v6
+Details Lineage 11 Usage 3 Measurements 18 History
+Properties
+Registered volume
+15,000 mL
+Current volume
+4,600 mL
+Capsid titre
+8.6 × 10¹¹ cp/mL · DS-0311 rows 1–2
+Cell line
+HEK293 WCB-2 ( SMP-1002 )
+Produced in
+EXP-0134 · 20 L production run
+Harvested
+20 Sep 2026, 16:30
+Storage and release
+Location
+Cold room CR-1, shelf 3
+Condition
+2–8 °C
+Hold limit
+4 Oct 2026 (14 days from harvest)
+Released by
+Mei L. · 20 Sep, 18:05
+Release basis
+Bioburden, endotoxin and titre within limits
+Withdrawals
+2
+| | When | By | Volume | Purpose | Remaining
+| 23 Sep, 09:15 | Gareth P. | 10,350 mL | Filter runs A–C, EXP-0142 (3 × 3,450 mL) | 4,600 mL
+| 21 Sep, 10:02 | Gareth P. | 50 mL | Feed retain, SMP-2250 | 14,950 mL
+Derived samples
+11 Show as tree
+| | ID | Name | Relation | Status
+| SMP-2240 … 2247 | A-50 to C-100 filtrates (8) | Filtered from this lot | Stored
+| SMP-2248 | C-150 filtrate | Filtered from this lot | Stored
+| ↳ SMP-2249 | C-150 filtrate, 1:5 dilution | Diluted from SMP-2248 | Awaiting measurement
+| SMP-2250 | Feed retain | Aliquot of this lot | Stored
+Label
+SMP-2231
+HL-0934
+2–8 °C · use by 04-Oct
+Hold time
+5 of 14 days used
+Recent history
+23 Sep Gareth P. withdrew 10,350 mL
+21 Sep Gareth P. withdrew 50 mL
+20 Sep Mei L. changed status Quarantine → Released

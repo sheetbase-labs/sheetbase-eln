@@ -1,0 +1,19 @@
+Templates
+Templates
+14 New template
+Reusable notebooks, sheets and record forms. A new version never changes work already made from an old one.
+| | Template | Kind | Version | Status | Built on | In use | Owner
+| Depth-filter clarification screen | Notebook | v4 | Published today | PRT-021 v3 | 2 notebooks on v3 | Gareth P.
+| Transfection ratio sweep | Notebook | v2 | Published | PRT-018 v2 | 6 | Priya S.
+| Ambr 250 daily readings | Sheet | v3 | Published | — | 11 sheets | Gareth P.
+| Stability pull, 2–8 °C | Notebook | v1 | Published | PRT-019 v1 | 3 | Tom H.
+| Sample registration, harvest lot | Record | v2 | Published | Model Sample v6 | 41 records | Mei L.
+| Full/empty by AUC | Notebook | v1 | In review | PRT-012 v2 | — | Mei L.
+| TFF run sheet | Sheet | v1 | Draft | — | — | Tom H.
+TPL-006 · v4 Depth-filter clarification screen
+Notebook with objective, materials, method from PRT-021, the clarification runs sheet, Figure 1 and a result summary.
+Use template Edit
+What v4 changed
+Adds a “Pressure and ΔP” sheet and a Max ΔP field in the result summary.
+Reuse is deliberate
+Publishing v4 changes no existing notebook. Owners of the 2 notebooks on v3 are told and choose whether to add the new sections.

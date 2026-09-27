@@ -1,0 +1,48 @@
+Instrument record
+Instruments / INS-0007 Turbidimeter TB-02
+Book Edit
+In service Model Instrument v3 Also known as “Turbidimeter 2”
+Fields
+Manufacturer
+Supplier H
+Serial
+TB2-40917
+Range
+0–1,000 NTU
+Location
+Lab 2, bench 4
+Qualified for
+GxP use
+Calibration due
+3 Oct 2026 (8 days)
+Identity
+Links point to INS-0007 , not to its name or where it sits. Renaming it or moving it to another lab updates every mention and breaks nothing.
+| | When | Change | By
+| 3 Aug 2026 | Name Turbidimeter 2 → Turbidimeter TB-02 | Gareth P.
+| 12 Jun 2026 | Location Lab 1, bench 2 → Lab 2, bench 4 | Tom H.
+| 2 Mar 2026 | Created from model Instrument v2 | Mei L.
+Used by
+4
+| | Record | How | Since
+| DS-0311 ELISA capsid titre and turbidity | Turbidity column source | 21 Sep
+| PL-0011 Plate reader PR-01 export | No · uses PR-01 | —
+| EXP-0133 Harvest timing (signed) | Cited as “Turbidimeter 2”, shown with its current name | 5 Sep
+| TB-02 CSV v1.0 parser | Parses its exports | 12 Jun
+The signed record EXP-0133 still shows the name used when it was signed, “Turbidimeter 2”, with the current name beside it. Signed text never changes.
+Calibration
+Last
+3 Apr 2026
+Due
+3 Oct 2026
+Certificate
+CAL-0913.pdf
+Record
+ID
+INS-0007
+Model
+Instrument v3
+Created
+2 Mar 2026 · Mei L.
+Bookings this week
+Fri 16:04 · Gareth P.
+Mon 10:00 · Tom H.

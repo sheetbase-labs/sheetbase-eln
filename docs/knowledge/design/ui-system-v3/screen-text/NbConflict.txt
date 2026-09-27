@@ -1,0 +1,30 @@
+Notebook, edit conflict
+Back online. 2 of your 3 offline changes synced. 1 conflicts with an edit by Priya S. and needs your decision.
+Go to conflict
+Projects / AAV9 process transfer / EXP-0142
+Harvest clarification: depth filter screening
+Share
+Submit for review
+In progress Owner Gareth P. 1 conflict
+Overview Notebook Samples Datasets Results Files History
+Clarification runs Sheet · 9 rows
+| | | Condition | Filter train | Load (L/m²) | Turbidity out (NTU) | Capsid titre (cp/mL) | Step yield (%) ƒx | Meets criteria ƒx
+| 4 | B-50 | MAT-0419 B | 50 | 4.1 | 7.8 × 10¹¹ | 90.7 | Yes
+| 5 | B-100 | MAT-0419 B | 100 | 5.6 | 7.6 × 10¹¹ | 88.4 | Yes
+| 6 | B-150 | MAT-0419 B | 150 | 8.9 | 2 values | — | —
+| 7 | C-50 | MAT-0420 C | 50 | 12.7 | 6.9 × 10¹¹ | 80.2 | Yes
+| 8 | C-100 | MAT-0420 C | 100 | 24.3 | 6.2 × 10¹¹ | 72.1 | No · both
+Step yield and Meets criteria for row 6 are held until the conflict is resolved.
+Observations
+Train B held ≥ 84 % step yield across all loads with filtrate turbidity below 10 NTU. Train A fell below target at 150 L/m². Train C breached the 20 NTU limit above 50 L/m² and had the highest pressure drop (1.86 bar at 150 L/m²).
+Your offline edit synced at 10:31 (no overlap with other edits)
+Conflict · row 6, Capsid titre
+Both of you changed this cell from 7.3 × 10¹¹ while you were offline.
+7.5 × 10¹¹ cp/mL Priya S. · 10:09, online
+“Re-read plate 2 after blank correction”
+7.4 × 10¹¹ cp/mL You · 10:14, offline
+No reason given
+Enter another value
+Reason required
+Resolve Ask Priya
+Both values and your decision are kept in History.

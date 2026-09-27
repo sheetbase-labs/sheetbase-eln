@@ -1,0 +1,5 @@
+Signed out
+Sheetbase
+You’re signed out
+Unsaved edits on this device were kept and will sync when you sign in again. Signing out ends your session on this browser only.
+Sign in with your company account Sessions end after 30 minutes without activity. Signing a record always asks for your password again.

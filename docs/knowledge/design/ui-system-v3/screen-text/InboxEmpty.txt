@@ -1,0 +1,35 @@
+Inbox, empty
+Inbox
+Everything waiting on you, across projects
+Notification settings
+Needs action 0 Following 5 Done today 6
+Nothing needs you right now
+Reviews, signature requests, data issues and runs assigned to you will appear here. You cleared 6 items today.
+See what you did today
+Coming up
+Not actionable yet
+Mon 28 Ambr 250 run AMB-25-118, day 9 sampling Ambr 250 perfusion scale-down
+Tue 29 EXP-0142 due for submission AAV9 process transfer
+Thu 1 MAT-0420 lot expires Filter train C
+Review EXP-0131 Day 7 stability pull, 2–8 °C Mei L. is reviewing · you are a collaborator
+LVV stability, 2–8 °C hold 28 Sep Open
+Run AN-0057 Step yield and turbidity by filter load Re-runs when DS-0311 changes · last run 24 Sep
+AAV9 process transfer — Open
+Import DS-0311 Plate 4 results from PR-01 Expected after the 11:30 run · auto-imports
+AAV9 process transfer Today Open
+Material MAT-0420 Filter train C lot L-77310 Expires 1 Oct · no replacement lot yet
+AAV9 process transfer 1 Oct Open
+Model MDL-0012 Clarification run v5 Waiting for QA approval · Anna B.
+Process Development 30 Sep Open
+Signed EXP-0138 Transfection ratio, PEI:DNA sweep You approved version 2 · 10:52
+AAV9 process transfer 10:52 Open
+Resolved EXP-0142 Conflict on Clarification runs, row 6 Kept Priya’s blank-corrected value · 10:31
+AAV9 process transfer 10:31 Open
+Reviewed DS-0305 HEK293 WCB viability panel Approved with no comments · 09:40
+HEK293 cell bank characterisation 09:40 Open
+Resolved DS-0311 Turbidity 61.5 NTU marked out of range Repeat queued as SMP-2249 · 09:34
+AAV9 process transfer 09:34 Open
+Signed EXP-0136 Witness signature Meaning “Witnessed” · 09:02
+AAV9 process transfer 09:02 Open
+Booked PR-01 Plate reader, Mon 28 Sep 14:00 Booking confirmed
+AAV9 process transfer 08:50 Open

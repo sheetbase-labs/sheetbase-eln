@@ -1,0 +1,35 @@
+Template editor
+Templates / TPL-006 Depth-filter clarification screen
+Preview
+Draft v5 Notebook template Published v4 today Owner Gareth P.
+Sections
+Objective Text Materials Record list · Material lot Method From protocol PRT-021 v3 Clarification runs Sheet · 8 columns Pressure and ΔP Sheet · 4 columns Figure 1 Chart from Clarification runs Result summary Fields · 5 Add section
+Clarification runs
+Sheet section · rows filled in the notebook
+| | Column | Source | Type | Unit | Required | Rule
+| Condition | Model Clarification run | Text | — | Yes | Unique in sheet
+| Filter train | Material lot | Record link | — | Yes | Status is Released
+| Load | Model Clarification run | Number, 0 dp | L/m² | Yes | 10–300
+| Turbidity out | Model ELISA and turbidity | Number, 1 dp | NTU | Yes | 0–50, else out of range
+| Capsid titre | Model ELISA and turbidity | Number, sci. | cp/mL | Yes | —
+| Step yield | ƒx | = titre out ÷ titre in | % | — | —
+| Meets criteria | ƒx | Turbidity ≤ 20 and yield ≥ 80 | — | — | —
+| Max ΔP v5 | ƒx | = max of Pressure and ΔP | bar | — | ≤ 1.5
+Add column
+Placeholder text
+Record one row per filter train and load. Enter turbidity from TB-02 and titre from the ELISA plate; both are read from DS-0311 when you link the dataset.
+TPL-006 Draft v5
+Based on v4 · edited by Gareth P. 09:50
+Publish v5… Discard draft
+Changes since v4
+Added Max ΔP column
+Changed Load rule
+When you publish
+Nothing already made changes. 2 notebooks on v3 and 4 on v4 are told v5 exists; each owner chooses whether to take it. New notebooks start from v5.
+Built on
+Protocol
+PRT-021 v3
+Models
+Clarification run v4, ELISA and turbidity v2
+Review
+Needs 1 approver

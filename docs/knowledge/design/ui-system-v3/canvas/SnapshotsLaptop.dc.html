@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dataset snapshots at 1024px</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+table.t td{white-space:normal;line-height:17px;padding-top:7px;padding-bottom:7px}
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="position: relative; width: 1024px; height: 760px">
+<header class="topbar"><button type="button" class="btn ib" aria-label="Open navigation"><x-import component-from-global-scope="Sheetbase.Icon" name="schema" size="16"></x-import></button><span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span><span style="flex-grow: 1"></span><button type="button" class="btn ib" aria-label="Search"><x-import component-from-global-scope="Sheetbase.Icon" name="search" size="16"></x-import></button><button type="button" class="btn ib" aria-label="Account: Gareth P." style="border-radius: 50%; background: var(--selection); font-size: 11px; font-weight: 600">GP</button></header><div style="flex-grow: 1; display: flex; min-height: 0"><nav class="nav-rail" aria-label="Main"><a href="Main.dc.html" aria-label="Home"><x-import component-from-global-scope="Sheetbase.Icon" name="home" size="16"></x-import></a><a href="HomeTriage.dc.html" aria-label="Inbox"><x-import component-from-global-scope="Sheetbase.Icon" name="inbox" size="16"></x-import></a><a href="Projects.dc.html" aria-label="Projects"><x-import component-from-global-scope="Sheetbase.Icon" name="folder" size="16"></x-import></a><a href="ExperimentsList.dc.html" aria-label="Experiments"><x-import component-from-global-scope="Sheetbase.Icon" name="flask" size="16"></x-import></a><a href="TemplatesList.dc.html" aria-label="Templates"><x-import component-from-global-scope="Sheetbase.Icon" name="template" size="16"></x-import></a><a href="SamplesList.dc.html" aria-label="Samples"><x-import component-from-global-scope="Sheetbase.Icon" name="tube" size="16"></x-import></a><a href="DatasetsList.dc.html" aria-label="Datasets" class="on" aria-current="page"><x-import component-from-global-scope="Sheetbase.Icon" name="database" size="16"></x-import></a><a href="PipelinesList.dc.html" aria-label="Pipelines"><x-import component-from-global-scope="Sheetbase.Icon" name="pipeline" size="16"></x-import></a><a href="SchemasList.dc.html" aria-label="Models"><x-import component-from-global-scope="Sheetbase.Icon" name="schema" size="16"></x-import></a></nav><main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface)"><div class="pagehead" style="padding: 12px 20px 0"><nav class="crumbs"><a href="DatasetsList.dc.html">Datasets</a>  /  <span class="mono">DS-0311</span></nav><div style="display: flex; align-items: center; gap: 8px"><h1 class="page-title" style="flex-grow: 1">ELISA capsid titre and turbidity</h1><x-import component-from-global-scope="Sheetbase.Button" icon="info" aria-pressed="false">Details</x-import></div><div class="meta"><x-import component-from-global-scope="Sheetbase.Status" tone="bad">1 out of range</x-import><span>Model ELISA and turbidity v2</span><span><a href="Notebook.dc.html">EXP-0142</a></span><span>Owner Gareth P.</span></div><div class="tabs" style="margin-top: 4px"><a href="ExpDatasets.dc.html">Rows <span class="ct">96</span></a><a href="DatasetSnapshots.dc.html" class="on" aria-current="page">Snapshots <span class="ct">15</span></a><a href="DatasetCompare.dc.html">Compare</a></div></div><div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px"><div class="notice info" style="display: flex; gap: 10px; align-items: center; line-height: 18px"><x-import component-from-global-scope="Sheetbase.Icon" name="lock" size="14"></x-import><span style="flex-grow: 1">A snapshot never changes. Records, analyses and runs cite the snapshot they used.</span></div><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t num"><thead><tr><th style="padding-left: 16px">Snapshot</th><th>Saved</th><th>Made by</th><th class="r">Rows</th><th>Change</th><th></th></tr></thead><tbody><tr class="sel" aria-selected="true"><td style="padding-left: 16px"><b style="font-weight: 600">S-15</b></td><td>25 Sep 10:11</td><td>PL-0011 run #88</td><td class="r">96</td><td>+8 rows</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="progress">Latest</x-import></td></tr><tr><td style="padding-left: 16px">S-14</td><td>24 Sep 16:04</td><td>Import · TB-02 CSV</td><td class="r">88</td><td>+9 rows, 1 flagged</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Kept</x-import></td></tr><tr><td style="padding-left: 16px">S-13</td><td>24 Sep 15:40</td><td>Import · PR-01 plates 1–3</td><td class="r">79</td><td>+36 rows</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Kept</x-import></td></tr><tr><td style="padding-left: 16px">S-12</td><td>23 Sep 17:40</td><td>Gareth P. · by hand</td><td class="r">43</td><td>1 value corrected</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Kept</x-import></td></tr><tr><td style="padding-left: 16px">S-11</td><td>23 Sep 15:02</td><td>Import · PR-01 plate 0</td><td class="r">43</td><td>+12 rows</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="stored">Kept</x-import></td></tr></tbody></table></div><div class="muted" style="font-size: 12px">Details panel is hidden at this width; select a snapshot and press Details.</div></div></main></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1024,"height":760}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

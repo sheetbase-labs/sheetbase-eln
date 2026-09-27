@@ -1,0 +1,26 @@
+Sample usage, SMP-2231
+Samples / SMP-2231
+Harvest lot HL-0934
+Print label
+Move
+Withdraw volume…
+Released Cell harvest AAV9 process transfer Model Sample v6
+Details Lineage 11 Usage 3 Measurements 18 History
+Usage
+3 Withdraw volume…
+| | Experiment | Title | Purpose | Volume | By | When
+| EXP-0142 | Harvest clarification: depth filter screening | Feed for trains A–C | 10,350 mL | Gareth P. | 23 Sep
+| EXP-0142 | Feed retain | Retained for re-assay | 50 mL | Gareth P. | 21 Sep
+| EXP-0145 | Harvest clarification: 50 L confirmation run | Planned feed · reserved | 3,000 mL | Gareth P. | Planned
+Volume
+Used 10,400 mL Reserved 3,000 mL Free 1,600 mL
+Label
+SMP-2231
+HL-0934
+2–8 °C · use by 04-Oct
+Hold time
+5 of 14 days used
+Recent history
+23 Sep Gareth P. withdrew 10,350 mL
+21 Sep Gareth P. withdrew 50 mL
+20 Sep Mei L. changed status Quarantine → Released

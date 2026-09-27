@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Experiment overview</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+.oi{display:grid;grid-template-columns:16px 1fr auto;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--border-subtle)}
+</style>
+</helmet>
+<!--shell {"user_name": "Gareth P.", "user": "GP", "avatar_tone": "accent", "workspace": "Process Development", "search": "normal", "query": "", "new": true, "active": "Experiments", "inbox": "8", "datasets": "2 errors", "extra": [], "pinned_html": null, "pinned": true, "role": "Process Development · Editor"}-->
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 1440px; height: 1000px">
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+<a href="Main.dc.html" class="brand"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="2.5" width="15" height="15" rx="3"></rect><path d="M2.5 8h15M8 8v9.5"></path></svg><span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span></a>
+<x-import component-from-global-scope="Sheetbase.Button" variant="quiet" aria-haspopup="menu" aria-expanded="{{exp.ws}}" on-click="{{open.ws}}">Process Development <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 4.5l3 3 3-3"></path></svg></x-import>
+<div style="flex-grow: 1; display: flex; justify-content: center"><a href="SearchPalette.dc.html" class="searchbox" aria-label="Search Sheetbase"><x-import component-from-global-scope="Sheetbase.Icon" name="search" size="14"></x-import><span>Search experiments, samples, datasets</span><span class="kbd">⌘K</span></a></div>
+<x-import component-from-global-scope="Sheetbase.Button" variant="primary" icon="plus" aria-haspopup="menu" aria-expanded="{{exp.new}}" on-click="{{open.new}}">New</x-import>
+<x-import component-from-global-scope="Sheetbase.Button" variant="quiet" icon-only="true" icon="bell" class-name="{{bellClass}}" aria-label="{{bellLabel}}" aria-haspopup="dialog" aria-expanded="{{exp.notif}}" on-click="{{open.notif}}"></x-import>
+<button type="button" class="btn ib" aria-haspopup="menu" aria-expanded="{{exp.account}}" onClick="{{open.account}}" aria-label="Account: Gareth P." style="border-radius: 50%; padding: 0"><x-import component-from-global-scope="Sheetbase.Avatar" initials="GP" tone="accent"></x-import></button>
+</header>
+
+<div style="flex-grow: 1; display: flex; min-height: 0">
+
+<nav class="nav" aria-label="Main">
+<a href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"></path></svg>Home</a>
+<a href="HomeTriage.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 9h3.5l1 2h3l1-2H14M2 9l2-5.5h8L14 9v4.5H2z"></path></svg>Inbox<span class="ct">8</span></a>
+<a href="HomeBench.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5"></rect><path d="M2.5 7h11M5.5 2v3M10.5 2v3"></path></svg>Schedule</a>
+<div class="div" aria-hidden="true"></div>
+<a href="Projects.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4.5h4.5l1.5 1.5h6v7.5H2z"></path></svg>Projects</a>
+<a href="ExperimentsList.dc.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 2v4.5L2.5 13.5h11L10 6.5V2M5 2h6"></path></svg>Experiments</a>
+<a href="ProtocolsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 2h5.5L12 4.5V14H4z"></path><path d="M6 7.5h4M6 10h4"></path></svg>Protocols</a>
+<a href="TemplatesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 2h7l3 3v9H3z"></path><path d="M10 2v3h3"></path><path d="M5.5 8h5M5.5 10.5h3"></path></svg>Templates</a>
+<a href="SamplesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg>Samples</a>
+<a href="MaterialsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 5L8 2.5 13.5 5v6L8 13.5 2.5 11z"></path><path d="M2.5 5L8 7.5 13.5 5M8 7.5v6"></path></svg>Materials</a>
+<a href="DatasetsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M2 6.5h12M2 10h12M6 2.5v11"></path></svg>Datasets<span class="ct">2 errors</span></a>
+<a href="Analysis.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 13.5h12M4 11l3-4 2.5 2L13 4"></path></svg>Analysis</a>
+<a href="PipelinesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="3.5" cy="4" r="1.6"></circle><circle cx="12.5" cy="12" r="1.6"></circle><path d="M5.1 4H8a2 2 0 012 2v4a2 2 0 002 2"></path><path d="M3.5 5.6V12h7.4"></path></svg>Pipelines<span class="ct">1 failed</span></a>
+<a href="SchemasList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6"></path></svg>Models</a>
+<div class="grp">Pinned projects</div>
+<a href="ProjectDetail.dc.html"><span class="dot st-progress" style="margin: 0 4px"></span>AAV9 process transfer</a>
+<a href="ProjectLVV.dc.html"><span class="dot st-review" style="margin: 0 4px"></span>LVV stability, 2–8 °C hold</a>
+<a href="ProjectAmbr.dc.html"><span class="dot st-progress" style="margin: 0 4px"></span>Ambr 250 perfusion scale-down</a>
+<div style="flex-grow: 1"></div>
+<a href="SettingsGeneral.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Settings</a>
+</nav>
+
+<main id="main" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface)">
+
+<div style="padding: 14px 32px 0; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px">
+<nav aria-label="Breadcrumb" style="font-size: 12px" class="muted"><a href="Projects.dc.html">Projects</a>  /  <a href="Projects.dc.html">AAV9 process transfer</a>  /  <span class="mono">EXP-0142</span></nav>
+<div style="display: flex; align-items: center; gap: 8px">
+<h1 class="page-title" style="flex-grow: 1">Harvest clarification: depth filter screening</h1>
+<x-import component-from-global-scope="Sheetbase.Button" on-click="{{onCopied}}">Share</x-import>
+<x-import component-from-global-scope="Sheetbase.Button" variant="primary" on-click="{{onSubmitted}}">Submit for review</x-import>
+<x-import component-from-global-scope="Sheetbase.Button" icon-only="true" aria-label="More actions" sx="border-color: var(--border); background: var(--surface)"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="fill: var(--text-muted)"><circle cx="3" cy="7" r="1.2"></circle><circle cx="7" cy="7" r="1.2"></circle><circle cx="11" cy="7" r="1.2"></circle></svg></x-import>
+</div>
+<div class="muted" style="display: flex; gap: 14px; font-size: 12px"><span style="color: var(--text)"><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></span><span>Owner Gareth P.</span><span>Started 21 Sep 2026</span><span>Protocol <a href="ProtocolDetail.dc.html">PRT-021 v3</a></span><span>Client CL-017</span><span style="margin-left: auto">Saved 09:32</span></div>
+<div class="tabs" role="tablist" style="display: flex; gap: 20px; margin-top: 4px">
+<a href="ExpOverview.dc.html" class="on" aria-current="page">Overview</a><a href="Notebook.dc.html">Notebook</a><a href="ExpSamples.dc.html">Samples <span class="ct">12</span></a><a href="ExpDatasets.dc.html">Datasets <span class="ct">2</span></a><a href="ExpResults.dc.html">Results</a><a href="ExpFiles.dc.html">Files <span class="ct">4</span></a><a href="ExpHistory.dc.html">History</a>
+</div>
+</div>
+
+<div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 24px">
+
+<section style="display: flex; flex-direction: column; gap: 6px; max-width: 760px">
+<h2 class="sh">Objective</h2>
+<p style="margin: 0; font-size: 14px; line-height: 22px">Screen three depth-filter trains for clarification of AAV9 harvest lot HL-0934 and select one for the 50 L tech-transfer run. Acceptance: capsid step yield ≥ 80 % with filtrate turbidity ≤ 20 NTU.</p>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">Protocol progress</h2><span class="muted" style="font-size: 12px">PRT-021 v3 · 3 of 6 steps done</span></div>
+<div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden">
+<table class="t num">
+<thead><tr><th style="width: 36px">#</th><th>Step</th><th>Status</th><th>By</th><th>When</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td class="muted">1</td><td>Hold harvest at 2–8 °C</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Done</x-import></td><td>Gareth P.</td><td class="muted">21 Sep, 14:10</td><td><a href="ExpSamples.dc.html">SMP-2231</a></td></tr>
+<tr><td class="muted">2</td><td>Filter runs, trains A–C at 50, 100, 150 L/m²</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Done</x-import></td><td>Gareth P.</td><td class="muted">23 Sep, 17:40</td><td><a href="ExpSamples.dc.html">9 filtrate samples</a> · <a href="ExpDatasets.dc.html">DS-0310</a></td></tr>
+<tr><td class="muted">3</td><td>Filtrate turbidity</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Done, 1 flag</x-import></td><td>Import</td><td class="muted">24 Sep, 16:04</td><td><a href="ExpDatasets.dc.html">DS-0311</a> · 1 value out of range</td></tr>
+<tr><td class="muted">4</td><td>Capsid titre by ELISA, plates 1–4</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></td><td>Gareth P.</td><td class="muted">Plate 4 today, 11:30</td><td><a href="ExpDatasets.dc.html">DS-0311</a></td></tr>
+<tr><td class="muted">5</td><td>Step yield by load</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="draft">Draft</x-import></td><td>Gareth P.</td><td class="muted">23 Sep</td><td><a href="ExpResults.dc.html">AN-0057</a></td></tr>
+<tr><td class="muted">6</td><td>Decision and review</td><td class="muted"><x-import component-from-global-scope="Sheetbase.Status" tone="none">Not started</x-import></td><td class="muted">—</td><td class="muted">—</td><td class="muted">Reviewer Mei L.</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px">
+<section>
+<div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px"><h2 class="sh">Open before submission</h2><span class="muted num">3</span></div>
+<div class="oi"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke-width="1.5" style="stroke: var(--danger); margin-top: 2px" aria-hidden="true"><circle cx="7" cy="7" r="5.5"></circle><path d="M7 4v3.5M7 9.5v.5"></path></svg><div>Turbidity 61.5 NTU outside 0–50 NTU<div class="muted" style="font-size: 12px">DS-0311 row 88 · repeat queued on plate 4</div></div><a href="Notebook.dc.html" style="font-size: 12px">Go to cell</a></div>
+<div class="oi"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke-width="1.4" style="stroke: var(--text-muted); margin-top: 2px" aria-hidden="true"><path d="M2 3h10v6H6l-3 2.5V9H2z"></path></svg><div>1 open comment thread<div class="muted" style="font-size: 12px">Observations · Priya S.</div></div><a href="Notebook.dc.html" style="font-size: 12px">Open</a></div>
+<div class="oi"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke-width="1.4" style="stroke: var(--text-muted); margin-top: 2px" aria-hidden="true"><rect x="2" y="2" width="10" height="10" rx="2"></rect></svg><div>Decision field empty<div class="muted" style="font-size: 12px">Result summary · required by PRT-021</div></div><a href="Notebook.dc.html" style="font-size: 12px">Fill in</a></div>
+</section>
+<section>
+<div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px"><h2 class="sh">Key results</h2><span class="muted" style="font-size: 12px">Preliminary · not reviewed</span></div>
+<dl class="dl" style="font-size: 13px; grid-template-columns: 180px 1fr; row-gap: 9px; padding-top: 6px">
+<dt>Leading train</dt><dd>B (<a href="MaterialsList.dc.html">MAT-0419</a>)</dd>
+<dt>Step yield, train B</dt><dd class="num">84.9–90.7 %</dd>
+<dt>Filtrate turbidity, train B</dt><dd class="num">4.1–8.9 NTU</dd>
+<dt>Trains meeting criteria</dt><dd class="num">1 of 3 at all loads</dd>
+</dl>
+<a href="ExpResults.dc.html" style="display: inline-block; margin-top: 10px; font-size: 12px">Open results</a>
+</section>
+</div>
+
+</div>
+</main>
+
+<aside class="insp" aria-label="Properties" style="padding: 16px; display: flex; flex-direction: column; gap: 20px">
+<section>
+<h3>Properties</h3>
+<dl class="dl">
+<dt>Status</dt><dd><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></dd>
+<dt>Owner</dt><dd>Gareth P.</dd>
+<dt>Collaborators</dt><dd>Priya S.</dd>
+<dt>Reviewer</dt><dd>Mei L.</dd>
+<dt>Project</dt><dd><a href="Projects.dc.html">AAV9 process transfer</a></dd>
+<dt>Client</dt><dd>CL-017</dd>
+<dt>Protocol</dt><dd><a href="ProtocolDetail.dc.html">PRT-021 v3</a></dd>
+<dt>Started</dt><dd class="num">21 Sep 2026</dd>
+<dt>Planned end</dt><dd class="num">29 Sep 2026</dd>
+</dl>
+</section>
+<section>
+<h3>Linked experiments</h3>
+<div style="display: flex; flex-direction: column; font-size: 12px">
+<div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border-subtle)"><span class="muted">Upstream</span><span><a href="ReviewRecord.dc.html">EXP-0138</a> Transfection ratio sweep</span></div>
+<div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border-subtle)"><span class="muted">Upstream</span><span><a href="NbSigned.dc.html">EXP-0133</a> Harvest timing</span></div>
+<div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px; padding: 5px 0"><span class="muted">Next</span><span><a href="NbNew.dc.html">EXP-0145</a> 50 L confirmation run <span class="muted">· draft</span></span></div>
+</div>
+</section>
+<section>
+<h3>Signatures</h3>
+<div class="muted" style="font-size: 12px">None yet. Author and reviewer sign after review.</div>
+</section>
+</aside>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+<!--overlays-->
+<sc-if value="{{m.any}}" hint-placeholder-val="{{ false }}"><button type="button" class="dismiss" aria-label="Close menu" onClick="{{close}}"></button></sc-if>
+<sc-if value="{{m.ws}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Switch workspace" sx="left: 228px; top: 40px; width: 280px"><x-import component-from-global-scope="Sheetbase.MenuLabel">Workspaces</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="check" hint="Editor" href="Main.dc.html">Process Development</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Editor" href="ProjectsEmpty.dc.html">Analytical Development</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Viewer" href="Main.dc.html">GMP Manufacturing</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Viewer" href="Main.dc.html">Quality Control</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import><x-import component-from-global-scope="Sheetbase.MenuItem" icon="settings" href="SettingsGeneral.dc.html">Workspace settings</x-import></x-import></sc-if>
+<sc-if value="{{m.new}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Create" sx="right: 104px; top: 40px; width: 240px"><x-import component-from-global-scope="Sheetbase.MenuItem" icon="flask" href="NewExperiment.dc.html" hint="E">Experiment</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="table" href="SheetEmpty.dc.html">Working sheet</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="tube" href="DialogsCreate.dc.html" hint="S">Sample</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="folder" href="DialogsCreate.dc.html">Project</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="upload" href="ImportUpload.dc.html" hint="I">Import data</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="scan" href="PhoneScan.dc.html">Scan a label</x-import></x-import></sc-if>
+<sc-if value="{{m.notif}}" hint-placeholder-val="{{ false }}"><div class="popover" role="dialog" aria-label="Notifications" style="position: absolute; right: 70px; top: 40px; width: 380px; z-index: 40; overflow: hidden">
+<div style="display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border)"><span class="sh" style="font-size: 14px">Notifications</span><span style="flex-grow: 1"></span><x-import component-from-global-scope="Sheetbase.Button" variant="quiet" size="sm" disabled="{{allRead}}" on-click="{{markRead}}">Mark all read</x-import></div>
+<a class="notif" href="PromoteRejected.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><b>Anna B.</b> returned your column promotion from <span class="mono">SHT-0019</span></span><span class="when">10:40</span></a>
+<a class="notif" href="ReviewRecord.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><b>Priya S.</b> resubmitted <span class="mono">EXP-0138</span> for your review</span><span class="when">16:40</span></a>
+<a class="notif" href="DatasetExplorer.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><span class="mono">DS-0298</span> imported with 84 rows missing a unit</span><span class="when">10:12</span></a>
+<a class="notif" href="PipelineRunWaiting.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span>Pipeline <span class="mono">PL-0003</span> is waiting for you to confirm units</span><span class="when">09:12</span></a>
+<a class="notif" href="SampleQuarantine.dc.html"><span></span><span><span class="mono">SMP-2220</span> moved to quarantine: endotoxin pending</span><span class="when">16 Sep</span></a>
+<a class="notif" href="PipelineRunFailed.dc.html"><span></span><span>Pipeline <span class="mono">PL-0014</span> failed at step 3: out of temporary storage</span><span class="when">09:48</span></a>
+<div style="padding: 8px 12px; font-size: 12px; background: var(--surface-muted)"><a href="HomeTriage.dc.html">Open inbox</a> · <a href="SettingsNotifications.dc.html">Notification settings</a></div>
+</div></sc-if>
+<sc-if value="{{m.account}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Account" sx="right: 8px; top: 40px; width: 272px"><div style="display: flex; gap: 10px; align-items: center; padding: 8px"><x-import component-from-global-scope="Sheetbase.Avatar" initials="GP" tone="accent"></x-import><div style="font-size: 12px; line-height: 17px"><div style="font-weight: 600; font-size: 13px">Gareth P.</div><div class="muted">Process Development · Editor</div></div></div>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuLabel">Appearance</x-import>
+<div style="padding: 2px 8px 8px"><x-import component-from-global-scope="Sheetbase.Segmented" options="System|Light|Dark" icons="monitor|sun|moon" value="{{appearance}}" on-change="{{setAppearance}}" aria-label="Appearance"></x-import></div>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="user" href="SettingsProfile.dc.html">Profile and signature</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="bell" href="SettingsNotifications.dc.html">Notifications</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="info" href="Shortcuts.dc.html" hint="?">Keyboard shortcuts</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="signOut" href="SignedOut.dc.html">Sign out</x-import></x-import></sc-if>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}"><div class="toast-stack"><x-import component-from-global-scope="Sheetbase.Toast" tone="{{toastTone}}" action="{{toastAction}}" on-action="{{dismissToast}}" on-close="{{dismissToast}}">{{toastMsg}}</x-import></div></sc-if>
+<!--/overlays-->
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+Project access
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications Project access
+Add rule
+Who can open each project. Roles decide what they can do there.
+Project: any Group: any
+| | Project | Edit | Review | View | Client portal
+| AAV9 process transfer | Process Development leads, Upstream, Downstream | Analytical (reviewers) | QA | CL-017 portal
+| LVV stability, 2–8 °C hold | Upstream | Analytical (reviewers) | QA, Gareth P. | CL-009 portal
+| Ambr 250 perfusion scale-down | Process Development leads, Upstream | Analytical (reviewers) | QA | —
+| CAR-T expansion media screen | Upstream | Analytical (reviewers) | QA | CL-011 portal
+| HEK293 cell bank characterisation | Analytical | Analytical (reviewers) | QA, all workspace | —
+Defaults for new projects
+New projects are private to the lead until members are added QA can always view every project Required for audit. Can’t be turned off for GxP projects.
+Client portal is off until the lead turns it on

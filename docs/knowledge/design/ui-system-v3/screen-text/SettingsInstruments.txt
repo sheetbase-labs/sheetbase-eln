@@ -1,0 +1,28 @@
+Settings, instruments
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications Instruments and parsers
+7 Add instrument
+| | Instrument | Parser | Status | Calibration due | Last import
+| Plate reader PR-01 | PR-01 plate map v1.3 | Connected | 14 Nov 2026 | 11:52
+| Turbidimeter TB-02 | TB-02 CSV v1.0 | Parser needs update | 3 Oct 2026 | 24 Sep
+| Ambr 250, bay 2 | Ambr 250 CSV v2.1 | Connected | 1 Dec 2026 | 09:12
+| ddPCR reader | ddPCR export v1.2 | Connected | 20 Jan 2027 | 24 Sep
+| ViCell BLU | ViCell v2 | Connected | 8 Oct 2026 | Yesterday
+| Pressure logger | Filtration run v1 | Offline since 23 Sep | — | 23 Sep
+| ÄKTA system | ÄKTA export v3 | Calibration overdue | 18 Sep 2026 | 11 Sep
+Turbidimeter TB-02
+1 file failed to import today
+Parsers
+TB-02 CSV v1.0 · firmware 3 Active
+TB-02 CSV firmware 4 Draft
+Validate draft parser Test with a file
+Why
+Firmware 4 renamed the export columns. The draft maps them; it needs a validation run and QA approval before it can import GxP data.
+Calibration
+Last
+3 Apr 2026
+Due
+3 Oct 2026
+Certificate
+CAL-0913.pdf

@@ -9,7 +9,7 @@ Roadmap 1    RECORDED COMPLETE
 Roadmap 2    ACTIVE SCOPE CLOSED; GOV-02 DEFERRED
 Roadmap 3    WAVES A–C IMPLEMENTATION MERGED; ACCEPTANCE QUALIFIED
              WAVE D: 2 PROPOSED DECISIONS + 8 DEFERRED TASKS
-Roadmap 4    PROPOSAL ONLY; NOT ACTIVATED
+Roadmap 4    PROPOSED (2026-09-27); NOT ACTIVATED — exact UI system v3 parity
 ```
 
 Current priority and hand-off live in [`NEXT.md`](NEXT.md). The
@@ -81,8 +81,17 @@ Governing principle:
 ## Next phase
 
 Reconcile and close verification gaps before assigning the next capability
-programme. A Roadmap 4 proposal has been discussed but is not activated or
-implemented by this status update. [`NEXT.md`](NEXT.md) owns the next-work order.
+programme. The Roadmap 4 proposal, below, is not activated or implemented by
+this status update. [`NEXT.md`](NEXT.md) owns the next-work order.
+
+## Roadmap 4 — Design-led Product (proposed)
+
+[`roadmap-4/`](roadmap-4/README.md) proposes making the vendored
+[UI system v3](design/ui-system-v3/README.md) the product interface and building
+every capability its 126 screens show, to exact visual parity: 17 streams,
+86 tasks, with the decisions it needs scheduled first. Adoption depends on proposed
+[ADR-0047](decisions/0047-ui-system-v3-adoption.md). It is a proposal, not an
+assignment.
 
 ## Golden workflow
 

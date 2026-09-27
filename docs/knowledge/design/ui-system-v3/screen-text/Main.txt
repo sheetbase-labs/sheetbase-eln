@@ -1,0 +1,41 @@
+Sheetbase home
+Home
+Friday 25 September · Process Development
+Open notebook
+New experiment
+3 to review
+2 datasets with errors
+4 experiments in progress
+2 instrument runs today
+Open inbox · 8 items
+Awaiting your review
+3 All in inbox
+| | Record | Project | Submitted by | Due | Action
+| EXP-0138 Transfection ratio, PEI:DNA sweep | AAV9 process transfer | Priya S. | 29 Sep | Review
+| EXP-0131 Day 7 stability pull, 2–8 °C | LVV stability, 2–8 °C hold | Tom H. | 28 Sep | Review
+| DS-0305 HEK293 WCB viability panel | HEK293 cell bank characterisation | Mei L. | Today | Review
+Continue working
+All recent
+| | Name | Status | Your last change | Updated
+| EXP-0142 Harvest clarification: depth filter screening | In progress | Edited sheet “Clarification runs” | 09:32
+| DS-0311 ELISA capsid titre, plates 1–3 | 1 validation error | Imported 96 rows | Yesterday
+| EXP-0140 Ambr 250 run AMB-25-118, day 6 | In progress | Added VCD readings | Yesterday
+| AN-0057 Step yield vs filter load | Draft | Changed x-axis to L/m² | 23 Sep
+| MDL-0012 Clarification run | Published v4 | Added field “Load (L/m²)” | 22 Sep
+| EXP-0136 Seeding density at transfection | Approved | Signed off | 19 Sep
+Today Full schedule
+09:00 AMB-25-118 day 6 sampling
+Ambr 250 · bay 2 · done
+11:30 ELISA plate 4, capsid titre
+Plate reader PR-01 · EXP-0142 · next
+14:00 Tech-transfer review, CL-017
+AAV9 process transfer
+Needs attention Inbox
+DS-0311 · 1 value outside range Turbidity out 61.5 NTU, allowed 0–50 NTU
+DS-0298 · 2 columns missing units “Osmolality”, “Glucose” — add before review
+MAT-0420 · lot expires in 6 days Filter train C, used in EXP-0142
+Recent activity
+09:32 You edited Load (L/m²) in EXP-0142 row 9: 125 → 150
+09:05 Priya S. commented on EXP-0142 “Can we repeat C at 150 with a 1:5 dilution?”
+08:47 Mei L. approved EXP-0136 Signature: meaning “Reviewed”
+08:12 Import added 96 rows to DS-0311 Source: PR-01 export, plate 3

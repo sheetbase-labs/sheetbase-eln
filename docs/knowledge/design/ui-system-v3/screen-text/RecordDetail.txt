@@ -1,0 +1,54 @@
+Record from a model
+Models / Cell bank / CB-0012 HEK293 WCB lot 3
+Withdraw vials Edit
+Released Cell bank · model v4 31 vials
+Mycoplasma was added to this model in v4, after this bank was released. The release still stands; record the result from QC LIMS when you have it. Record result
+Identity
+Cell line
+HEK293
+Passage
+P12
+Parent bank
+CB-0010 HEK293 MCB
+Frozen on
+14 Jul 2026
+Identity (STR)
+Match, 100 %
+Storage
+Vials left
+31 of 50
+Location
+LN2-2 · rack C · box 4
+Owner
+Mei L.
+Release
+Status
+Released by Anna B., 2 Aug
+Sterility
+Negative · QC LIMS 29 Jul
+Mycoplasma
+Not recorded Added in model v4
+Used by
+19 vials withdrawn by 6 samples
+EXP-0140 , EXP-0131 as cell source
+Template “Transfection ratio sweep” as default bank
+History
+| | When | Change | By
+| 25 Sep 11:02 | Vials left · SMP-2240 | Priya S.
+| 19 Sep | Model v3 → v4 · Mycoplasma field added, empty | Model update
+| 2 Aug | Status | Anna B.
+| 14 Jul | Created from model Cell bank v3 | Mei L.
+Record
+ID
+CB-0012
+Model
+Cell bank v4
+Created
+14 Jul · Mei L.
+Label
+CB-0012 · printed
+Identity
+Links use CB-0012. Renaming the bank or moving its box changes no link; signed records show the name they were signed with.
+Integrations
+QC LIMS · sterility result
+Updates arrive as history entries

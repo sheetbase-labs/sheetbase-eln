@@ -1,0 +1,21 @@
+Profile
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications Profile
+Save changes
+How you appear to others and on signed records
+GP Full name Printed on signed records.
+Initials
+Username Set by your administrator.
+Email From your company sign-in.
+Job title
+Time zone Europe/London ▾
+Appearance
+Applies to every Sheetbase screen open in this browser. System follows your computer’s setting.
+Electronic signature
+Certified 12 Aug 2026 Manage signature
+Sessions
+| | Device | Where | Last active |
+| Chrome on Windows · this device | Stevenage | Now |
+| Sheetbase on iPhone | Stevenage | 08:12 | Sign out
+| Lab tablet LT-04 | Lab 2 | Yesterday | Sign out

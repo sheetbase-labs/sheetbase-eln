@@ -1,0 +1,22 @@
+Pipeline runs
+Pipelines / PL-0007 Clarification step yield
+Edit
+v3 published Draft v4 open Owner Gareth P. AAV9 process transfer SQL and Python
+Steps 5 Triggers and outputs Runs 148
+Runs
+148 Run now
+| | Run | Version | Started by | Result | Started | Took | What it kept or did
+| #148 | v3 | New DS-0311 snapshot S-15 | Succeeded | 25 Sep 10:12 | 38 s | Figure proposed · 1 message
+| #147 | v3 | Manual · Gareth P. | Succeeded | 24 Sep 17:02 | 41 s | Figure proposed · accepted
+| #146 | v3 | New DS-0311 snapshot S-14 | Failed at step 1 | 23 Sep 16:04 | 6 s | Nothing
+| #145 | v3 | New DS-0311 snapshot S-13 | Succeeded | 23 Sep 15:40 | 39 s | Figure proposed · rejected
+| #144 | v3 test | Test run · Gareth P. | Succeeded | 23 Sep 15:31 | 37 s | Nothing (test runs keep nothing)
+| #143 | v2 | Manual · Gareth P. | Cancelled | 23 Sep 11:20 | 12 s | Nothing
+Versions
+4
+| | Version | Status | Date | By | Change
+| v4 | Draft | Today | Gareth P. | Step 2 excludes flagged rows
+| v3 | Published | 23 Sep | Gareth P. | Added figure proposal and Teams message
+| v2 | Retired | 22 Sep | Gareth P. | Joined pressure log for ΔP
+| v1 | Retired | 21 Sep | Gareth P. | Step yield only
+Each run records the version and the exact input snapshots it used, so a result can always be traced back. Run records are kept for 15 years; temporary tables are not.

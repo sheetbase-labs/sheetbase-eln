@@ -1,0 +1,32 @@
+Sample, quarantine
+Samples / SMP-2220
+pAAV9-RC, lot P-117
+Print label Withdraw Release…
+Quarantine Plasmid Plasmid lot release panel
+Details Lineage Usage Measurements History
+In quarantine since 16 Sep. Endotoxin result pending from QC (EXP-0129). Can't be used in experiments until released. View release checks
+Quantity
+12.5 mg
+Concentration
+1.02 mg/mL (A260)
+Location
+F-3 (−20 °C), box 7
+Release checks
+2 of 3 passed · endotoxin pending
+Requested by
+EXP-0145 (planned)
+Lineage
+SMP-2220 pAAV9-RC, lot P-117
+This sample · received 16 Sep Quarantine
+Received from plasmid supplier, no parent in Sheetbase
+Usage
+Nothing withdrawn. EXP-0145 has requested 2 mg once released.
+Measurements
+| | Measurement | Value | Unit | Result
+| A260 concentration | 1.02 | mg/mL | Pass
+| Supercoiled | 94 | % | Pass
+| Endotoxin | — | EU/mg | Pending
+History
+| | When | Who | Action | Detail
+| 16 Sep 11:20 | Mei L. | Quarantined | Awaiting endotoxin from QC (EXP-0129)
+| 16 Sep 11:05 | Mei L. | Registered | 12.5 mg, F-3 box 7

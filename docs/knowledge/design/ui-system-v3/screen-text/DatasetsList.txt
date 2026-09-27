@@ -1,0 +1,32 @@
+Datasets
+Datasets
+311 Connect instrument Import data
+All 311 Mine 64 Has issues 2 Locked 188
+Table Filter Sort: Updated Group: none
+Search datasets
+| | ID | Name | Model | Experiment | Rows | Validation
+| DS-0311 | ELISA capsid titre and turbidity | ELISA and turbidity v2 | EXP-0142 | 96 | 1 out of range
+| DS-0310 | Filtration pressure log | Filtration run v1 | EXP-0142 | 27 | Valid
+| DS-0298 | Ambr 250 daily readings, AMB-25-118 | Ambr 250 daily reading v1 | EXP-0140 | 84 | 2 columns missing units
+| DS-0305 | HEK293 WCB viability panel | ViCell v2 | EXP-0130 | 48 | Valid · in review
+| DS-0303 | ViCell, transfection sweep | ViCell v2 | EXP-0138 | 8 | Valid
+| DS-0302 | ddPCR titre, transfection sweep | ddPCR titre v1 | EXP-0138 | 16 | Valid
+| DS-0297 | ViCell, harvest timing | ViCell v2 | EXP-0133 | 9 | Valid · locked
+| DS-0296 | ddPCR titre, harvest timing | ddPCR titre v1 | EXP-0133 | 18 | Valid · locked
+| DS-0290 | AUC full/empty ratio | AUC v1 | EXP-0125 | 30 | Valid · locked
+| DS-0287 | AEX screen fractions | Chromatography fraction v1 | EXP-0139 | 64 | Valid
+DS-0298
+Ambr 250 daily readings, AMB-25-118
+2 columns missing units
+Open and fix
+Issues
+“Glucose” and “Osmolality” have no unit. Units are required before EXP-0140 can be submitted.
+Details
+Rows
+84 (4 vessels × 7 days × 3 reads)
+Model
+Ambr 250 daily reading v1
+Imported
+Daily, last 09:12
+Owner
+Gareth P.

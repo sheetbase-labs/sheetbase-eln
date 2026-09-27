@@ -1,0 +1,29 @@
+Keyboard shortcuts
+Keyboard shortcuts
+Anywhere
+Search and jump ⌘ K
+Create… C
+Go to Home G then H
+Go to Inbox G then I
+Go to Experiments G then E
+Show this list ?
+Collapse the sidebar ⌘ \
+Lists
+Move between rows ↑ ↓
+Next and previous item J K
+Open ↵
+Select Space
+Add to selection X
+Filter this list /
+Notebook and sheets
+Insert a block /
+Edit the cell ↵
+Cancel the edit Esc
+Next cell Tab
+Save the row ⌘ ↵
+Comment on selection ⌥ ⌘ M
+Review
+Next and previous change N P
+Reply to comment R
+Approve and sign… ⌘ ⇧ ↵
+On Windows, use Ctrl for ⌘ and Alt for ⌥. Focus order Close

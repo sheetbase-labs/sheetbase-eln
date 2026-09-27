@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notebook at 1024px</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 1024px; height: 760px">
+<header class="topbar">
+<a href="Main.dc.html" style="display: flex; align-items: center; gap: 8px; color: var(--text); width: 208px; text-decoration: none">
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="2.5" width="15" height="15" rx="3"></rect><path d="M2.5 8h15M8 8v9.5"></path></svg>
+<span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span>
+</a>
+<button class="btn btn-q">Process Development<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 4.5l3 3 3-3"></path></svg></button>
+<div style="flex-grow: 1; display: flex; justify-content: center"><label style="position: relative; width: 300px; display: block"><span class="sr">Search Sheetbase</span>
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="position: absolute; left: 10px; top: 8px; color: var(--text-muted)" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg>
+<input type="search" class="input" placeholder="Search experiments, samples, datasets" style="background: var(--surface-muted); padding-left: 30px">
+<span class="kbd" style="position: absolute; right: 8px; top: 7px">⌘K</span></label></div>
+<a href="NewExperiment.dc.html" class="btn btn-p"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 2v8M2 6h8"></path></svg>New</a>
+<button class="btn ib" aria-label="Notifications"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="color: var(--text-muted)" aria-hidden="true"><path d="M4 11V7a4 4 0 018 0v4l1 1.5H3L4 11zM6.5 14h3"></path></svg></button>
+<button class="btn ib" aria-label="Account: Gareth P." style="border-radius: 50%; background: var(--selection); font-size: 11px; font-weight: 600">GP</button>
+</header><div style="flex-grow: 1; display: flex; min-height: 0"><nav aria-label="Main" class="nav-rail" style="width: 48px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0"><a href="Main.dc.html" aria-label="Home"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"></path></svg></a>
+<a href="HomeTriage.dc.html" aria-label="Inbox"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 9h3.5l1 2h3l1-2H14M2 9l2-5.5h8L14 9v4.5H2z"></path></svg></a>
+<a href="HomeBench.dc.html" aria-label="Schedule"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5"></rect><path d="M2.5 7h11M5.5 2v3M10.5 2v3"></path></svg></a>
+<div style="height: 1px; width: 24px; background: var(--border-subtle); margin: 4px 0"></div>
+<a href="Projects.dc.html" aria-label="Projects"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4.5h4.5l1.5 1.5h6v7.5H2z"></path></svg></a>
+<a href="ExperimentsList.dc.html" aria-label="Experiments" style="background: var(--selection); color: var(--text)" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 2v4.5L2.5 13.5h11L10 6.5V2M5 2h6"></path></svg></a>
+<a href="ProtocolsList.dc.html" aria-label="Protocols"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 2h5.5L12 4.5V14H4z"></path><path d="M6 7.5h4M6 10h4"></path></svg></a>
+<a href="SamplesList.dc.html" aria-label="Samples"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg></a>
+<a href="MaterialsList.dc.html" aria-label="Materials"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 5L8 2.5 13.5 5v6L8 13.5 2.5 11z"></path><path d="M2.5 5L8 7.5 13.5 5M8 7.5v6"></path></svg></a>
+<a href="DatasetsList.dc.html" aria-label="Datasets"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M2 6.5h12M2 10h12M6 2.5v11"></path></svg></a>
+<a href="Analysis.dc.html" aria-label="Analysis"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 13.5h12M4 11l3-4 2.5 2L13 4"></path></svg></a>
+<a href="SchemasList.dc.html" aria-label="Models"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6"></path></svg></a></nav><main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface)"><div class="pagehead" style="padding: 12px 24px 0"><nav class="crumbs"><a href="ProjectDetail.dc.html">AAV9 process transfer</a>  /  <span class="mono">EXP-0142</span></nav>
+<div style="display: flex; align-items: center; gap: 8px"><h1 class="page-title" style="flex-grow: 1; font-size: 18px">Harvest clarification: depth filter screening</h1><x-import component-from-global-scope="Sheetbase.Button" on-click="{{onSubmitted}}">Submit for review</x-import><x-import component-from-global-scope="Sheetbase.Button" icon-only="true" aria-label="Show properties panel" aria-pressed="false" sx="border-color: var(--border)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M10 2.5v11"></path></svg></x-import></div>
+<div class="meta"><span style="color: var(--text)"><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></span><span>Gareth P.</span><span>Saved 09:32</span></div>
+<div class="tabs" style="margin-top: 2px; gap: 16px"><a href="ExpOverview.dc.html">Overview</a><a href="Notebook.dc.html" class="on">Notebook</a><a href="ExpSamples.dc.html">Samples</a><a href="ExpDatasets.dc.html">Datasets</a><a href="ExpResults.dc.html">Results</a><span style="position: relative; display: inline-flex"><button type="button" aria-haspopup="menu" aria-expanded="{{exp.more}}" onClick="{{open.more}}">More ▾</button><sc-if value="{{m.more}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="More tabs" sx="left: 0; top: 36px; width: 180px"><x-import component-from-global-scope="Sheetbase.MenuItem" href="ExpFiles.dc.html" hint="4">Files</x-import><x-import component-from-global-scope="Sheetbase.MenuItem" href="ExpHistory.dc.html">History</x-import></x-import></sc-if></span></div></div><article class="doc" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<h2>Method</h2><p>Harvest was held at 2–8 °C and filtered at a constant flux of 100 LMH. Filtrate was sampled at 50, 100 and 150 L/m² for turbidity and capsid titre (ELISA, method EM-004).</p>
+<div style="display: flex; align-items: center; gap: 8px; margin-top: 8px"><span style="font-weight: 600">Clarification runs</span><span class="muted" style="font-size: 12px">9 rows · scroll for more columns →</span></div>
+<div class="hscroll"><table class="g num" role="grid" aria-label="Clarification runs" style="width: 1040px">
+<thead><tr><th class="rn" style="position: sticky; left: 0; z-index: 1"></th><th style="position: sticky; left: 36px; z-index: 1; box-shadow: 1px 0 0 var(--grid-line)">Condition</th><th>Filter train</th><th class="r">Load (L/m²)</th><th class="r">Turbidity out (NTU)</th><th class="r">Capsid titre (cp/mL)</th><th class="r">Step yield (%)<span class="fx">ƒx</span></th><th>Meets criteria<span class="fx">ƒx</span></th></tr></thead><tbody>
+<tr><td class="rn" style="position: sticky; left: 0">7</td><td style="position: sticky; left: 36px; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">C-50</td><td>MAT-0420 C</td><td class="r">50</td><td class="r">12.7</td><td class="r">6.9 × 10¹¹</td><td class="r der">80.2</td><td class="der">Yes</td></tr><tr><td class="rn" style="position: sticky; left: 0">8</td><td style="position: sticky; left: 36px; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">C-100</td><td>MAT-0420 C</td><td class="r">100</td><td class="r">24.3</td><td class="r">6.2 × 10¹¹</td><td class="r der">72.1</td><td class="der">No · both</td></tr><tr><td class="rn" style="position: sticky; left: 0">9</td><td style="position: sticky; left: 36px; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">C-150</td><td>MAT-0420 C</td><td class="r">150</td><td class="r cell-invalid cell-active">61.5</td><td class="r">5.4 × 10¹¹</td><td class="r der">62.8</td><td class="der">No · both</td></tr></tbody></table><div class="fade-r" aria-hidden="true"></div></div>
+<div style="font-size: 12px; color: var(--danger-text)">1 validation error · C9 Turbidity out. Open the properties panel to fix it.</div>
+<h2 style="margin-top: 8px">Observations</h2><p>Train B held ≥ 84 % step yield across all loads with filtrate turbidity below 10 NTU. Train C breached the 20 NTU limit above 50 L/m².</p></article></main></div>
+<sc-if value="{{m.any}}" hint-placeholder-val="{{ false }}"><button type="button" class="dismiss" aria-label="Close menu" onClick="{{close}}"></button></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1024,"height":760}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+Record dialogs
+Record dialogs
+Opened from the notebook, sample record, viewer banner, signed record and schedule. Each confirm button names the action.
+Mark out of range
+Mark value out of range
+DS-0311 row 88 · Turbidity out · 61.5 NTU
+The value stays as recorded. It is flagged as out of range and excluded from criteria and analyses until you or a reviewer change that.
+Reason
+Above the assay's validated range
+Instrument or handling error
+Other
+Comment Repeat at 1:5 dilution queued as SMP-2249 (plate 4).
+Cancel Mark out of range
+Withdraw volume · over-withdrawal blocked
+Withdraw volume
+SMP-2231 · Harvest lot HL-0934 · 4,600 mL available
+Volume Only 4,600 mL left. Enter 4,600 or less.
+Unit mL ▾
+Purpose EXP-0145 · 50 L confirmation run ▾
+Remaining after
+−400 mL
+Hold limit
+4 Oct (9 days left)
+Cancel Withdraw
+Request edit access (viewer)
+Request edit access
+AAV9 process transfer · owner Gareth P.
+Access
+Editor for EXP-0142 only
+Editor for the whole project
+Why you need it QA verification of the turbidity repeat: I need to attach the TB-02 calibration certificate to Files. Sent to Gareth P. Access and its approval are recorded in the project's audit log.
+Cancel Send request
+Create amendment
+Create amendment
+EXP-0133 · Harvest timing · approved, version 1
+Version 1 stays signed and readable. The amendment is version 2, editable by you, and needs a new review before it replaces version 1 as current.
+Reason for amendment Add per-flask ddPCR values to the results sheet (requested in EXP-0138 review).
+Reviewer Mei L. ▾
+Cancel Create version 2
+Book instrument · conflict
+Book instrument
+Plate reader PR-01
+Date Mon 28 Sep ▾
+From
+To
+Overlaps Priya S. (EXP-0138 ddPCR prep, 14:00–15:00). Next free slot: 15:00–17:00.
+For EXP-0142 · ELISA plate 5 ▾
+Qualification
+You are trained on PR-01 (until Mar 2027)
+Calibration
+Valid until 14 Nov 2026
+Cancel Use 15:00–17:00 Book

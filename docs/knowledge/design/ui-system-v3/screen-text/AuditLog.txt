@@ -1,0 +1,23 @@
+Audit log
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications
+Audit log
+Process Development · all projects Retention policy Export for inspection…
+Integrity verified 25 Sep 06:00 · entries can't be edited or deleted · kept 15 years
+24–25 Sep 2026 ▾ Actor: anyone Action: any Project: any Search audit log 1,412 entries in range
+| | Time (BST) | Actor | Action | Object | Change | Reason
+| 26 Sep 06:00:14 | Token “Stability export” (Tom H.) | Call refused | DS-0320 Stability chamber log | — | Token expired 24 Sep
+| 25 Sep 10:11:02 | Token “Plate-map exporter” (Mei L.) | Imported rows | DS-0311 · snapshot S-15 | +8 rows | Via PL-0011 webhook
+| 25 Sep 10:12:37 | Pipeline PL-0007 v3 | Proposed block | EXP-0142 · Figure 1 | Run #148 · waiting for Gareth P. | Triggered by DS-0311 snapshot S-15
+| 25 Sep 11:52:10 | Gareth P. | Uploaded file | PR-01_EXP-0142_plate4.xlsx | 42aa…d61f | —
+| 25 Sep 10:52:31 | Gareth P. | Signed | EXP-0138 v2 | Meaning: Reviewed and approved | —
+| 25 Sep 10:31:04 | Gareth P. | Resolved conflict | EXP-0142 · row 6 · Capsid titre | 7.4 / 7.5 → 7.5 × 10¹¹ | Blank-corrected re-read
+| 25 Sep 09:41:55 | Gareth P. | Changed role | Sam R. | — → Editor | New starter
+| 25 Sep 09:32:14 | Gareth P. | Edited cell | EXP-0142 · row 9 · Load | 125 → 150 | Transcription error
+| 25 Sep 08:47:02 | Mei L. | Signed | EXP-0136 v1 | Meaning: Reviewed | —
+| 25 Sep 08:12:40 | Import service | Imported rows | DS-0311 | +96 rows | PR-01, TB-02 exports
+| 25 Sep 07:58:12 | Anna B. | Exported | EXP-0133 v1 (PDF) | — | Client report pack
+| 25 Sep 06:00:00 | System | Verified audit trail | Workspace | Hash chain intact · 1,204,331 entries | Nightly check
+| 24 Sep 23:14:09 | System | Failed sign-in | tom.h | 3 attempts, account locked 15 min | —
+| 24 Sep 16:40:22 | Priya S. | Submitted for review | EXP-0138 v2 | Round 2 | —

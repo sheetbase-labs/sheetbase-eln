@@ -1,0 +1,10 @@
+Projects, failed to load
+Projects
+Import New project
+All — Mine — In progress — In review — Archived —
+Table Filter · 1 Sort: Updated
+| | ID | Project | Client | Modality | Stage | Lead | Experiments | Status | Updated
+Couldn't load projects
+The server didn't respond in time. Your filter and sort are kept. Nothing was changed.
+Error 504 · request 3f9a-71c2 · 10:42:08
+Try again Copy error details Service status: degraded since 10:41

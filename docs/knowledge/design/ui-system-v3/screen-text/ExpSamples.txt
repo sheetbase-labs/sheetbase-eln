@@ -1,0 +1,52 @@
+Experiment samples
+Projects / AAV9 process transfer / EXP-0142
+Harvest clarification: depth filter screening
+Share
+Submit for review
+In progress Owner Gareth P. Started 21 Sep 2026 Protocol PRT-021 v3 Client CL-017
+Overview Notebook Samples 12 Datasets 2 Results Files 4 History
+Table
+Filter
+Sort: ID
+Group: none
+Print labels
+Register sample
+| | | ID | Name | Type | Parent | Volume (mL) | Location | Status | Created
+| | SMP-2231 | Harvest lot HL-0934 | Cell harvest | — | 4,600 | CR-1, shelf 3 | Released | 20 Sep
+| | SMP-2240 | A-50 filtrate | Filtrate | SMP-2231 | 15.0 | F-2, box 14, A1 | Stored | 23 Sep
+| | SMP-2241 | A-100 filtrate | Filtrate | SMP-2231 | 15.0 | F-2, box 14, A2 | Stored | 23 Sep
+| | SMP-2242 | A-150 filtrate | Filtrate | SMP-2231 | 15.0 | F-2, box 14, A3 | Stored | 23 Sep
+| | SMP-2243 | B-50 filtrate | Filtrate | SMP-2231 | 15.0 | F-2, box 14, A4 | Stored | 23 Sep
+| | SMP-2244 | B-100 filtrate | Filtrate | SMP-2231 | 15.0 | F-2, box 14, A5 | Stored | 23 Sep
+| | SMP-2245 | B-150 filtrate | Filtrate | SMP-2231 | 15.0 | F-2, box 14, A6 | Stored | 23 Sep
+| | SMP-2246 | C-50 filtrate | Filtrate | SMP-2231 | 15.0 | F-2, box 14, A7 | Stored | 23 Sep
+| | SMP-2247 | C-100 filtrate | Filtrate | SMP-2231 | 15.0 | F-2, box 14, A8 | Stored | 23 Sep
+| | SMP-2248 | C-150 filtrate | Filtrate | SMP-2231 | 14.2 | F-2, box 14, A9 | Stored | 23 Sep
+| | SMP-2249 | C-150 filtrate, 1:5 dilution | Dilution | SMP-2248 | 1.0 | Plate 4, G1–G2 | Awaiting measurement | 09:34
+| | SMP-2250 | Feed retain | Retain | SMP-2231 | 50.0 | F-2, box 14, B1 | Stored | 21 Sep
+12 samples Volumes are current, after withdrawals 1 selected
+SMP-2249
+C-150 filtrate, 1:5 dilution
+Awaiting measurement · plate 4, 11:30
+Print label Move
+Lineage
+SMP-2231 Harvest lot HL-0934
+↓ filtered, train C, 150 L/m²
+SMP-2248 C-150 filtrate
+↓ diluted 1:5 in PBS
+SMP-2249 This sample
+Properties
+Type
+Dilution
+Dilution factor
+5
+Diluent
+PBS
+Volume
+1.0 mL
+Created by
+Gareth P., 25 Sep 09:34
+Reason
+Repeat of DS-0311 row 88, outside assay range
+Used in
+DS-0311 · plate 4, wells G1–G2 (scheduled)

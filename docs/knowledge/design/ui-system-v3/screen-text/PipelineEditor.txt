@@ -1,0 +1,58 @@
+Pipeline editor
+Pipelines / PL-0007 Clarification step yield
+Test run Publish v4…
+Draft v4 v3 published 23 Sep Owner Gareth P. AAV9 process transfer SQL and Python
+Steps 5 Triggers and outputs Runs 148
+Inputs
+DS-0311 ELISA and turbidity
+Pinned: latest snapshot at run start · now S-15
+in_ds0311 Temporary
+DS-0310 Filtration pressure log
+Pinned: snapshot S-6 (23 Sep)
+in_ds0310 Temporary
+Pinned inputs are copied into temporary SQL tables for each run. The datasets themselves are never changed.
+Steps
+1 Join titre to runs
+in_ds0311, in_ds0310 → 9 rows
+SQL
+2 Step yield per run
+previous → 8 rows
+SQL
+3 Fit yield vs load, draw figure
+previous → figure, 3 fits
+Python
+4 Propose Figure 1 in EXP-0142
+Needs Gareth P. to accept
+ELN
+5 Post summary to #aav9-process
+Queued when the run ends
+Notify
+Add step
+2 Step yield per run
+SQL Test this step
+-- Step 2 · Step yield per run -- previous = the 9 rows from step 1 SELECT p.condition, p.train, p.load_l_m2, p.capsid_titre, f.feed_titre, ROUND (100.0 * p.capsid_titre / f.feed_titre, 1) AS step_yield_pct, p.turbidity_ntu, p.flagged FROM previous p JOIN in_ds0310 f USING (train) WHERE NOT p.flagged -- C-150 stays out, flagged in DS-0311 row 88 ORDER BY p.train, p.load_l_m2;
+Preview
+8 rows · test run on pinned inputs, 12 ms Passed to step 3 as previous, then deleted
+| | condition | train | load_l_m2 | capsid_titre | feed_titre | step_yield_pct | turbidity_ntu
+| A-50 | A | 50 | 7.4 × 10¹¹ | 8.6 × 10¹¹ | 86.0 | 6.2
+| A-100 | A | 100 | 7.1 × 10¹¹ | 8.6 × 10¹¹ | 82.6 | 9.8
+| A-150 | A | 150 | 6.5 × 10¹¹ | 8.6 × 10¹¹ | 75.6 | 18.4
+| B-50 | B | 50 | 7.8 × 10¹¹ | 8.6 × 10¹¹ | 90.7 | 4.1
+| B-100 | B | 100 | 7.6 × 10¹¹ | 8.6 × 10¹¹ | 88.4 | 5.6
+| B-150 | B | 150 | 7.3 × 10¹¹ | 8.6 × 10¹¹ | 84.9 | 8.9
+| C-50 | C | 50 | 6.9 × 10¹¹ | 8.6 × 10¹¹ | 80.2 | 12.7
+| C-100 | C | 100 | 6.2 × 10¹¹ | 8.6 × 10¹¹ | 72.1 | 24.3
+Step 2
+Type
+SQL
+Reads
+previous (step 1, 9 rows), in_ds0310
+Writes
+step_2 Temporary
+Time limit
+60 s
+Keep this result
+Save as a dataset snapshot Off: the table exists only while the run is going and is deleted when it ends.
+Draft changes
+Version 4 draft · you changed step 2 (excludes flagged rows). Runs keep using v3 until you publish.
+Compare with v3 Discard

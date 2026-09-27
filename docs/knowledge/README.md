@@ -48,6 +48,7 @@ docs/knowledge/
 │   ├── PROGRAMME_MAP.md
 │   ├── tasks/               # 18 streams / 60 tasks; qualified status index
 │   └── prompts/             # historical execution prompts, not assignments
+├── roadmap-4/               # proposal: exact UI system v3 parity + 86 tasks; not activated
 ├── mockups/
 ├── references/
 ├── history/                 # includes dated reconciliation evidence
@@ -61,7 +62,7 @@ docs/knowledge/
 The [7 September 2026 reconciliation](history/2026-09-07-roadmap-reconciliation.md)
 records the checked baseline, implementation dispositions, outstanding work and
 verification limits. It is supporting historical evidence, not another current
-hand-off. A Roadmap 4 proposal is not activated by this reconciliation.
+hand-off. The Roadmap 4 proposal is not activated by this reconciliation.
 
 When merged reality changes what is active or next, update the root `NEXT.md`.
 
@@ -75,6 +76,7 @@ When merged reality changes what is active or next, update the root `NEXT.md`.
 - [`product/ux-principles.md`](product/ux-principles.md)
 - [`product/non-goals.md`](product/non-goals.md)
 - [`design/ui-system-v2.md`](design/ui-system-v2.md) — durable historical design ideas extracted from the original UI-system work.
+- [`design/ui-system-v3/`](design/ui-system-v3/README.md) — verbatim snapshot of the current design (126 screens and the design system); adoption proposed by Roadmap 4 and ADR-0047.
 
 ## Architecture and decisions
 
@@ -114,6 +116,15 @@ Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md),
 [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and
 [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md). Original task goals and
 exits remain intact. Read current status before reusing an old agent prompt.
+
+### Roadmap 4 — Design-led Product (proposal)
+
+[`roadmap-4/`](roadmap-4/README.md) proposes making Sheetbase look and work
+exactly like UI system v3, verified against renders of the design, with grids
+and charts on `sheetbase-components`: **17 streams and 86 tasks**, starting with
+the decisions it needs (ADR-0044, ADR-0045, proposed ADR-0047 and ADR-0048). It
+is not activated; [`NEXT.md`](NEXT.md) owns assignment.
+Start with [`roadmap-4/DESIGN_ADOPTION.md`](roadmap-4/DESIGN_ADOPTION.md).
 
 ## Mockups, references and history
 

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Working sheet on tablet</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="position: relative; width: 834px; height: 1112px">
+<header class="topbar"><button type="button" class="btn ib" aria-label="Open navigation"><x-import component-from-global-scope="Sheetbase.Icon" name="schema" size="16"></x-import></button><span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span><span style="flex-grow: 1"></span><button type="button" class="btn ib" aria-label="Search"><x-import component-from-global-scope="Sheetbase.Icon" name="search" size="16"></x-import></button><button type="button" class="btn ib" aria-label="Account: Gareth P." style="border-radius: 50%; background: var(--selection); font-size: 11px; font-weight: 600">GP</button></header><main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface)"><div class="pagehead" style="padding: 14px 16px 10px"><nav class="crumbs"><a href="ProjectFolders.dc.html">AAV9 process transfer</a>  /  <a href="ProjectFolders.dc.html">Clarification</a></nav><div style="display: flex; align-items: center; gap: 8px"><h1 class="page-title" style="flex-grow: 1; font-size: 18px">Clarification working sheet</h1><x-import component-from-global-scope="Sheetbase.Button" sx="height: 36px" on-click="{{onCopied}}">Share</x-import></div><div class="meta"><span class="mono">SHT-0019</span><span>Saved 09:40</span></div></div><div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 10px"><div class="notice info" style="line-height: 18px">Dataset columns are pinned to DS-0311 · S-15 and read-only. Local columns stay in this sheet until promoted.</div><div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; position: relative"><table class="g num" role="grid" aria-label="Clarification working sheet" style="width: 980px"><thead><tr><th style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)"><div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 0"><span>Condition</span><x-import component-from-global-scope="Sheetbase.Source" kind="dataset">DS-0311 · S-15</x-import></div></th><th><div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 0"><span>Turbidity (NTU)</span><x-import component-from-global-scope="Sheetbase.Source" kind="dataset">DS-0311 · S-15</x-import></div></th><th><div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 0"><span>Step yield (%)</span><x-import component-from-global-scope="Sheetbase.Source" kind="calc">ƒx</x-import></div></th><th style="background: var(--selection-subtle)"><div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 0"><span>Visual clarity</span><x-import component-from-global-scope="Sheetbase.Source" kind="local">Local</x-import></div></th><th><div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 0"><span>Adj. yield (%)</span><x-import component-from-global-scope="Sheetbase.Source" kind="local">Local</x-import></div></th><th><div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 0"><span>Capsid titre (cp/mL)</span><x-import component-from-global-scope="Sheetbase.Source" kind="dataset">DS-0311 · S-15</x-import></div></th><th><div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 0"><span>Filter train</span><x-import component-from-global-scope="Sheetbase.Source" kind="record">Material record</x-import></div></th></tr></thead><tbody><tr style="height: 40px"><td class="der" style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">A-50</td><td class="der r">6.2</td><td class="der r">86.0</td><td>Clear</td><td class="r">85</td><td class="der r">7.4 × 10¹¹</td><td>MAT-0418 A</td></tr><tr style="height: 40px"><td class="der" style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">A-100</td><td class="der r">9.8</td><td class="der r">82.6</td><td>Clear</td><td class="r">82</td><td class="der r">7.1 × 10¹¹</td><td>MAT-0418 A</td></tr><tr style="height: 40px"><td class="der" style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">A-150</td><td class="der r">18.4</td><td class="der r">75.6</td><td style="box-shadow: inset 0 0 0 2px var(--accent)">Slight haze</td><td class="r">—</td><td class="der r">6.5 × 10¹¹</td><td>MAT-0418 A</td></tr><tr style="height: 40px"><td class="der" style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">B-50</td><td class="der r">4.1</td><td class="der r">90.7</td><td>Clear</td><td class="r">90</td><td class="der r">7.8 × 10¹¹</td><td>MAT-0419 B</td></tr><tr style="height: 40px"><td class="der" style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">B-100</td><td class="der r">5.6</td><td class="der r">88.4</td><td>Clear</td><td class="r">88</td><td class="der r">7.6 × 10¹¹</td><td>MAT-0419 B</td></tr><tr style="height: 40px"><td class="der" style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">B-150</td><td class="der r">8.9</td><td class="der r">84.9</td><td>Clear</td><td class="r">84</td><td class="der r">7.3 × 10¹¹</td><td>MAT-0419 B</td></tr><tr style="height: 40px"><td class="der" style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">C-50</td><td class="der r">12.7</td><td class="der r">80.2</td><td>Slight haze</td><td class="r">79</td><td class="der r">6.9 × 10¹¹</td><td>MAT-0420 C</td></tr><tr style="height: 40px"><td class="der" style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">C-100</td><td class="der r">24.3</td><td class="der r">72.1</td><td>Hazy</td><td class="r">—</td><td class="der r">6.2 × 10¹¹</td><td>MAT-0420 C</td></tr><tr style="height: 40px"><td class="der" style="position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">C-150</td><td class="der r cell-invalid">61.5</td><td class="der r">62.8</td><td>Hazy</td><td class="r">—</td><td class="der r">5.4 × 10¹¹</td><td>MAT-0420 C</td></tr></tbody></table></div><div class="muted" style="font-size: 12px">9 rows · condition stays pinned · scroll sideways for 3 more columns</div></div></main><aside class="dialog" aria-label="Column Visual clarity" style="left: 0; right: 0; bottom: 0; border-radius: 12px 12px 0 0"><div style="display: flex; justify-content: center; padding-top: 8px"><span style="width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong)"></span></div><div style="padding: 10px 20px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-subtle)"><div style="flex-grow: 1"><div class="h" style="font-size: 15px; font-weight: 600">Visual clarity</div><x-import component-from-global-scope="Sheetbase.Source" kind="local">Local · text · added 24 Sep</x-import></div><x-import component-from-global-scope="Sheetbase.Button" variant="quiet" icon-only="true" icon="x" aria-label="Close column panel" sx="width: 44px; height: 44px"></x-import></div><div style="padding: 14px 20px 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px"><section><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 6px">Where it lives</h3><div class="muted" style="font-size: 12px; line-height: 18px">Only in this sheet. It can’t be cited as evidence and pipelines can’t read it.</div></section><section><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 6px">Make it lasting</h3><div class="muted" style="font-size: 12px; line-height: 18px">Promote it into DS-0311. The model change is reviewed first.</div><div style="margin-top: 10px"><x-import component-from-global-scope="Sheetbase.Button" variant="primary" size="lg" href="SheetPromote.dc.html">Promote columns…</x-import></div></section></div></aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":834,"height":1112}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

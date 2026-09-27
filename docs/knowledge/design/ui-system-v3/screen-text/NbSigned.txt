@@ -1,0 +1,40 @@
+Notebook, signed and locked
+Projects / AAV9 process transfer / EXP-0133
+Harvest timing: 48, 72 and 96 h
+Export PDF
+Create amendment
+Approved
+Locked, version 1 Owner Gareth P. Signed 19 Sep 2026
+Overview Notebook Samples Datasets Results Files History
+This record is signed and read-only. Compare evidence with live data . To change it, create an amendment: that makes version 2 and needs a new review. Comments are still open.
+Objective
+Choose the harvest time for AAV9 production in HEK293 suspension culture: highest genome titre while keeping viability at harvest at or above 80 %.
+Method
+Triplicate 125 mL shake flasks per condition, transfected at 2.0 × 10⁶ cells/mL with a 2:1 PEI:DNA ratio. Harvested at 48, 72 and 96 h. Genome titre by ddPCR ( DS-0296 ), viability by ViCell ( DS-0297 ).
+Harvest timing results Sheet · mean of 3 flasks · read-only
+| | | Condition | Harvest time (h) | Genome titre (vg/mL) | Viability at harvest (%) | Meets criteria ƒx
+| 1 | H48 | 48 | 3.9 × 10¹⁰ | 90.2 | Yes
+| 2 | H72 | 72 | 7.0 × 10¹⁰ | 82.5 | Yes
+| 3 | H96 | 96 | 7.3 × 10¹⁰ | 61.8 | No · viability
+Conclusion
+Harvest at 72 h. 96 h added about 4 % titre but viability fell to 61.8 %, which increases host-cell impurities for downstream. 72 h is carried into EXP-0138 and EXP-0142.
+Signatures
+| | Name | Meaning | Signed | Signature ID
+| Gareth P. | Authored | 18 Sep 2026, 16:22 BST | SIG-8841
+| Mei L. | Reviewed | 19 Sep 2026, 10:05 BST | SIG-8850
+Each signature was made with a password re-entry and is bound to version 1 of this record.
+Record
+Status
+Approved
+Version
+1 (current)
+Locked
+19 Sep 2026, 10:05
+Content hash
+5ad2…e019
+Retention
+Until 2041
+Amendments
+None. An amendment copies this version, records a reason, and goes through review again. Version 1 stays readable.
+Used by
+EXP-0138 Transfection ratio sweep EXP-0142 Harvest clarification

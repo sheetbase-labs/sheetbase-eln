@@ -1,0 +1,26 @@
+Compare dataset snapshots
+Datasets / DS-0311 ELISA capsid titre and turbidity
+1 out of range Model ELISA and turbidity v2 EXP-0142 Owner Gareth P.
+Rows 96 Snapshots 15 Compare
+S-14 · 24 Sep 16:04 ▾
+S-15 · 25 Sep 10:11 ▾
+Only show changes
+Rows added
+8
+Rows changed
+1
+Rows removed
+0
+Columns changed
+0
+| | Change | Row | Sample | Condition | Turbidity (NTU) | Other change
+| Changed | 88 | SMP-2248 | C-150 | 61.5 61.5 | Out of range: no yes
+| Added | 89 | SMP-2249 | C-150 1:5 | 12.4 | —
+| Added | 90 | SMP-2249 | C-150 1:5 | 12.1 | —
+| Added | 91 | SMP-2249 | C-150 1:5 | — | ELISA 5.4 × 10¹⁰
+| Added | 92 | SMP-2249 | C-150 1:5 | — | ELISA 5.5 × 10¹⁰
+| Added | 93 | BLANK | — | 0.3 | —
+| Added | 94 | BLANK | — | 0.2 | —
+| Added | 95 | STD-4 | — | — | ELISA 1.0 × 10¹¹
+| Added | 96 | STD-4 | — | — | ELISA 1.0 × 10¹¹
+Row 88 kept its value. What changed is the flag: it was marked out of range in EXP-0142 on 25 Sep, so the repeat at 1:5 (rows 89–92) was added by the plate 4 export.

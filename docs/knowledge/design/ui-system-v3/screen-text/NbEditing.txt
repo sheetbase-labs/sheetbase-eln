@@ -1,0 +1,46 @@
+Notebook, editing
+Projects / AAV9 process transfer / EXP-0142
+Harvest clarification: depth filter screening
+Share
+Submit for review
+In progress Owner Gareth P. Started 21 Sep 2026
+Saving 1 change…
+Overview Notebook Samples Datasets Results Files History
+… Objective, Materials and Method above
+Clarification runs
+Sheet · 9 rows · 1 draft
+Enter save row · Esc discard · Tab next cell
+| | | Condition | Filter train | Load (L/m²) | Turbidity out (NTU) | Capsid titre (cp/mL) | Step yield (%) ƒx | Meets criteria ƒx
+| 7 | C-50 | MAT-0420 C | 50 | 12.7 | 6.9 × 10¹¹ | 80.2 | Yes
+| 8 | C-100 | MAT-0420 C | 100 | 24.3 | 6.2 × 10¹¹ | 72.1 | No · both
+| 9 | C-150 | MAT-0420 C | 150 | 61.5 | 5.4 × 10¹¹ | 62.8 | No · both
+| new | C-150R | MAT-0420 C | Load, litres per square metre | — | — | — | —
+Draft row, not saved Creates 1 Clarification run record when saved · Load is required
+Observations
+Train B held ≥ 84 % step yield across all loads with filtrate turbidity below 10 NTU. Train A fell below target at 150 L/m². Train C breached the 20 NTU limit above 50 L/m²; the 150 L/m² turbidity reading is outside the assay range and needs a repeat at 1:5 dilution.
++
+/
+Type to filter blocks
+Insert block
+Sheet Grid backed by a model ↵
+Chart From a sheet or dataset
+Record reference Sample, material, dataset…
+Text Paragraph
+H Heading
+File or image
+ƒx Formula Calculated value with units
+↑ ↓ to move · Esc to close
+New record · draft
+Clarification run, model v4
+Condition
+C-150R
+Filter train
+MAT-0420 C
+Load
+Editing… required, L/m²
+Sample
+SMP-2249 suggested
+On save
+Adds row 10, links SMP-2249, and recalculates Figure 1. Turbidity and titre fill in when plate 4 imports.
+Autosave
+Text saves as you type. Sheet rows save when you press Enter or leave the row. Each save is recorded in History.

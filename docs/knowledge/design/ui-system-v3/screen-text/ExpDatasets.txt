@@ -1,0 +1,52 @@
+Experiment datasets
+Projects / AAV9 process transfer / EXP-0142
+Harvest clarification: depth filter screening
+Share
+Submit for review
+In progress Owner Gareth P. Started 21 Sep 2026 Protocol PRT-021 v3 Client CL-017
+Overview Notebook Samples 12 Datasets 2 Results Files 4 History
+| | Dataset | Model | Rows | Validation | Source
+| DS-0311 ELISA capsid titre and turbidity | ELISA and turbidity v2 | 96 + 2 pending | 1 out of range | PR-01, TB-02 exports
+| DS-0310 Filtration pressure log | Filtration run v1 | 27 | Valid | Pressure logger export
+DS-0311
+View: All rows
+Filter · Sample is SMP-2246 to 2249
+Sort: Row
+Fields
+Snapshots Download CSV
+| | Row | Sample | Condition | Assay | Plate / well | Dilution | Raw | Result | Unit | Status | Captured
+| 81 | SMP-2246 | C-50 | ELISA | P3 · E1 | 1:2000 | 0.812 OD | 6.8 × 10¹¹ | cp/mL | Valid | 24 Sep 15:40
+| 82 | SMP-2246 | C-50 | ELISA | P3 · E2 | 1:2000 | 0.834 OD | 7.0 × 10¹¹ | cp/mL | Valid | 24 Sep 15:40
+| 83 | SMP-2246 | C-50 | Turbidity | TB-02 | 1:1 | 12.7 | 12.7 | NTU | Valid | 24 Sep 15:52
+| 84 | SMP-2247 | C-100 | ELISA | P3 · F1 | 1:2000 | 0.741 OD | 6.1 × 10¹¹ | cp/mL | Valid | 24 Sep 15:40
+| 85 | SMP-2247 | C-100 | ELISA | P3 · F2 | 1:2000 | 0.763 OD | 6.3 × 10¹¹ | cp/mL | Valid | 24 Sep 15:40
+| 86 | SMP-2247 | C-100 | Turbidity | TB-02 | 1:1 | 24.3 | 24.3 | NTU | Valid | 24 Sep 15:55
+| 87 | SMP-2248 | C-150 | ELISA | P3 · G1 | 1:2000 | 0.662 OD | 5.3 × 10¹¹ | cp/mL | Valid | 24 Sep 15:40
+| 88 | SMP-2248 | C-150 | Turbidity | TB-02 | 1:1 | 61.5 | 61.5 | NTU | Out of range | 24 Sep 15:58
+| 89 | SMP-2248 | C-150 | ELISA | P3 · G2 | 1:2000 | 0.684 OD | 5.5 × 10¹¹ | cp/mL | Valid | 24 Sep 15:40
+| 97 | SMP-2249 | C-150 · 1:5 | ELISA | P4 · G1 | 1:400 | — | — | cp/mL | Pending · 11:30 | —
+| 98 | SMP-2249 | C-150 · 1:5 | Turbidity | TB-02 | 1:5 | — | — | NTU | Pending · 10:30 | —
+Showing 11 of 98 rows · rows 97–98 are planned measurements and hold no values yet
+DS-0311
+Model
+ELISA and turbidity v2
+Rows
+96 recorded, 2 pending
+Validation
+95 valid, 1 out of range
+Used by
+Clarification runs , AN-0057
+Provenance
+Sources
+PR-01 export, plates 1–3 ; TB-02 CSV
+Imported
+24 Sep 2026, 16:04
+Triggered by
+Gareth P.
+Parser
+PR-01 plate map v1.3
+SHA-256
+9f3c…a41e
+Selected value · row 88
+Turbidity 61.5 NTU is outside the model range 0–50 NTU. Instrument values are never edited in place. Record a repeat (SMP-2249 is queued) or mark the value out of range with a reason.
+Mark out of range…

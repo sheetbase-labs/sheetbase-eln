@@ -1,0 +1,6 @@
+Empty sheet
+AAV9 process transfer / Downstream / Clarification Untitled sheet
+Share
+SHT-0020 Owner Gareth P. Created just now
+From a dataset snapshot Pick columns from a dataset. They stay read-only and pinned to the snapshot. From a template Ambr 250 daily readings v3, TFF run sheet and 4 more. Paste or import a file CSV or Excel. Values stay local until you promote them. Blank sheet Start with local columns only.
+Sheets are private to the project and never count as evidence. Promote columns into a dataset when you want to keep them.

@@ -1,0 +1,40 @@
+Schedule
+Schedule
+Friday 25 September · 4 more bookings of yours today · 3 instruments
+‹ Today ›
+Day Week
+Book instrument
+08:00 09:00 10:00 11:00 12:00 13:00 14:00 15:00 16:00 17:00
+Ambr 250, bay 2
+Plate reader PR-01
+Turbidimeter TB-02
+BSC 3
+✓ AMB-25-118 sample
+Feed
+Sample d6 pm
+EXP-0142 · ELISA plate 4
+Priya S. · EXP-0138 ddPCR prep
+C-150 1:5
+Tom H. · harvest
+09:40
+My active experiments
+4 All experiments
+| | Experiment | Phase | Next step | Latest data | Blocking |
+| EXP-0142 Harvest clarification AAV9 process transfer
+| Day 4 of 6 | Repeat C-150 turbidity at 1:5 · 10:30 | DS-0311 · 24 Sep, 16:04 | 1 validation error | Open
+| EXP-0140 Ambr 250 run AMB-25-118 Ambr 250 perfusion scale-down
+| Day 6 of 14 | Bolus feed · 13:00 | VCD 12.4 × 10⁶ cells/mL · 09:12 | — | Open
+| EXP-0144 TFF concentration, run 2 AAV8 TFF concentration
+| Planned | Assign membrane lot and protocol | — | No protocol version | Open
+| EXP-0139 AEX resin screen LVV downstream chromatography
+| On hold | Waiting on client resin decision | DS-0287 · 11 Sep | — | Open
+Reviews due this week
+3 Inbox
+DS-0305 HEK293 WCB viability panel · Mei L. Due today
+EXP-0131 Day 7 stability pull · Tom H. 28 Sep
+EXP-0138 Transfection ratio sweep · Priya S. 29 Sep
+Materials for today
+3
+SMP-2231 Harvest lot HL-0934 · cold room CR-1, shelf 3 4.6 L left
+MAT-0420 Filter train C · expires 1 Oct 6 days
+MAT-0377 Capsid ELISA kit, lot K-2208 · freezer F-2 2 plates left

@@ -1,0 +1,38 @@
+Experiment files
+Projects / AAV9 process transfer / EXP-0142
+Harvest clarification: depth filter screening
+Share
+Submit for review
+In progress Owner Gareth P. Started 21 Sep 2026 Protocol PRT-021 v3 Client CL-017
+Overview Notebook Samples 12 Datasets 2 Results Files 4 History
+All kinds
+Sort: Uploaded
+Upload
+| | Name | Kind | Feeds | Size | Uploaded by | Uploaded
+| XLSX PR-01_EXP-0142_plates1-3.xlsx | Instrument export | DS-0311 | 214 KB | Import service | 24 Sep, 16:03
+| CSV TB-02_turbidity_2026-09-24.csv | Instrument export | DS-0311 | 3 KB | Gareth P. | 24 Sep, 15:59
+| CSV pressure_log_trains_A-C.csv | Instrument export | DS-0310 | 41 KB | Gareth P. | 23 Sep, 17:52
+| PDF PRT-021_v3_depth_filtration.pdf | Protocol, controlled copy | PRT-021 v3 | 1.2 MB | Document control | 21 Sep, 09:10
+Drop files here or browse · instrument exports are parsed into datasets when a parser matches
+TB-02_turbidity_2026-09-24.csv
+Instrument export · 3 KB · version 1
+Download Upload new version
+Preview first 6 lines
+sample_id,reading_ntu,dilution,time
+SMP-2240,6.2,1,2026-09-24T15:31
+SMP-2241,9.8,1,2026-09-24T15:34
+SMP-2242,18.4,1,2026-09-24T15:37
+SMP-2243,4.1,1,2026-09-24T15:40
+SMP-2244,5.6,1,2026-09-24T15:43
+Record
+Instrument
+Turbidimeter TB-02
+Parsed into
+DS-0311 , 9 rows
+Parser
+TB-02 CSV v1.0
+SHA-256
+1b77e4…a3f10c92
+Retention
+Until 2041 (15 years)
+Raw files can't be edited or deleted. A new upload becomes version 2; version 1 and its hash stay in History.

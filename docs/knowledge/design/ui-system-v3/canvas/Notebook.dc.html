@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Experiment notebook</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<!--tabs [["itab", ["properties", "comments"], "properties"]]-->
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+.ref{border-collapse:collapse;width:680px}
+.ref td{height:30px;padding:0 8px;border-bottom:1px solid var(--border-subtle);white-space:nowrap}
+.g .grp-h{height:24px;font-size:11px;color:var(--text-muted);font-weight:500;background:var(--surface)}
+</style>
+</helmet>
+<!--shell {"user_name": "Gareth P.", "user": "GP", "avatar_tone": "accent", "workspace": "Process Development", "search": "normal", "query": "", "new": true, "active": "Experiments", "inbox": "8", "datasets": "2 errors", "extra": [], "pinned_html": null, "pinned": true, "role": "Process Development · Editor"}-->
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 1440px; height: 1840px">
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+<a href="Main.dc.html" class="brand"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="2.5" width="15" height="15" rx="3"></rect><path d="M2.5 8h15M8 8v9.5"></path></svg><span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span></a>
+<x-import component-from-global-scope="Sheetbase.Button" variant="quiet" aria-haspopup="menu" aria-expanded="{{exp.ws}}" on-click="{{open.ws}}">Process Development <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 4.5l3 3 3-3"></path></svg></x-import>
+<div style="flex-grow: 1; display: flex; justify-content: center"><a href="SearchPalette.dc.html" class="searchbox" aria-label="Search Sheetbase"><x-import component-from-global-scope="Sheetbase.Icon" name="search" size="14"></x-import><span>Search experiments, samples, datasets</span><span class="kbd">⌘K</span></a></div>
+<x-import component-from-global-scope="Sheetbase.Button" variant="primary" icon="plus" aria-haspopup="menu" aria-expanded="{{exp.new}}" on-click="{{open.new}}">New</x-import>
+<x-import component-from-global-scope="Sheetbase.Button" variant="quiet" icon-only="true" icon="bell" class-name="{{bellClass}}" aria-label="{{bellLabel}}" aria-haspopup="dialog" aria-expanded="{{exp.notif}}" on-click="{{open.notif}}"></x-import>
+<button type="button" class="btn ib" aria-haspopup="menu" aria-expanded="{{exp.account}}" onClick="{{open.account}}" aria-label="Account: Gareth P." style="border-radius: 50%; padding: 0"><x-import component-from-global-scope="Sheetbase.Avatar" initials="GP" tone="accent"></x-import></button>
+</header>
+
+<div style="flex-grow: 1; display: flex; min-height: 0">
+
+<nav class="nav" aria-label="Main">
+<a href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"></path></svg>Home</a>
+<a href="HomeTriage.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 9h3.5l1 2h3l1-2H14M2 9l2-5.5h8L14 9v4.5H2z"></path></svg>Inbox<span class="ct">8</span></a>
+<a href="HomeBench.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5"></rect><path d="M2.5 7h11M5.5 2v3M10.5 2v3"></path></svg>Schedule</a>
+<div class="div" aria-hidden="true"></div>
+<a href="Projects.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4.5h4.5l1.5 1.5h6v7.5H2z"></path></svg>Projects</a>
+<a href="ExperimentsList.dc.html" class="on" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 2v4.5L2.5 13.5h11L10 6.5V2M5 2h6"></path></svg>Experiments</a>
+<a href="ProtocolsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 2h5.5L12 4.5V14H4z"></path><path d="M6 7.5h4M6 10h4"></path></svg>Protocols</a>
+<a href="TemplatesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 2h7l3 3v9H3z"></path><path d="M10 2v3h3"></path><path d="M5.5 8h5M5.5 10.5h3"></path></svg>Templates</a>
+<a href="SamplesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4" y="2" width="8" height="12" rx="2"></rect><path d="M4 9h8"></path></svg>Samples</a>
+<a href="MaterialsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 5L8 2.5 13.5 5v6L8 13.5 2.5 11z"></path><path d="M2.5 5L8 7.5 13.5 5M8 7.5v6"></path></svg>Materials</a>
+<a href="DatasetsList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M2 6.5h12M2 10h12M6 2.5v11"></path></svg>Datasets<span class="ct">2 errors</span></a>
+<a href="Analysis.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 13.5h12M4 11l3-4 2.5 2L13 4"></path></svg>Analysis</a>
+<a href="PipelinesList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="3.5" cy="4" r="1.6"></circle><circle cx="12.5" cy="12" r="1.6"></circle><path d="M5.1 4H8a2 2 0 012 2v4a2 2 0 002 2"></path><path d="M3.5 5.6V12h7.4"></path></svg>Pipelines<span class="ct">1 failed</span></a>
+<a href="SchemasList.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6"></path></svg>Models</a>
+<div class="grp">Pinned projects</div>
+<a href="ProjectDetail.dc.html"><span class="dot st-progress" style="margin: 0 4px"></span>AAV9 process transfer</a>
+<a href="ProjectLVV.dc.html"><span class="dot st-review" style="margin: 0 4px"></span>LVV stability, 2–8 °C hold</a>
+<a href="ProjectAmbr.dc.html"><span class="dot st-progress" style="margin: 0 4px"></span>Ambr 250 perfusion scale-down</a>
+<div style="flex-grow: 1"></div>
+<a href="SettingsGeneral.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Settings</a>
+</nav>
+
+<main id="main" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface)">
+
+<div style="padding: 14px 32px 0; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px">
+<nav aria-label="Breadcrumb" style="font-size: 12px" class="muted"><a href="Projects.dc.html">Projects</a>  /  <a href="Projects.dc.html">AAV9 process transfer</a>  /  <span class="mono">EXP-0142</span></nav>
+<div style="display: flex; align-items: center; gap: 8px">
+<h1 class="page-title" style="flex-grow: 1">Harvest clarification: depth filter screening</h1>
+<x-import component-from-global-scope="Sheetbase.Button" on-click="{{onCopied}}">Share</x-import>
+<x-import component-from-global-scope="Sheetbase.Button" variant="primary" on-click="{{onSubmitted}}">Submit for review</x-import>
+<x-import component-from-global-scope="Sheetbase.Button" icon-only="true" aria-label="More actions" sx="border-color: var(--border); background: var(--surface)"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="fill: var(--text-muted)"><circle cx="3" cy="7" r="1.2"></circle><circle cx="7" cy="7" r="1.2"></circle><circle cx="11" cy="7" r="1.2"></circle></svg></x-import>
+</div>
+<div class="muted" style="display: flex; gap: 14px; font-size: 12px"><span style="color: var(--text)"><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></span><span>Owner Gareth P.</span><span>Started 21 Sep 2026</span><span>Protocol <a href="ProtocolDetail.dc.html">PRT-021 v3</a></span><span>Client CL-017</span><span style="margin-left: auto">Saved 09:32</span></div>
+<div class="tabs" role="tablist" style="display: flex; gap: 20px; margin-top: 4px">
+<a href="ExpOverview.dc.html">Overview</a><a href="Notebook.dc.html" class="on" aria-current="page">Notebook</a><a href="ExpSamples.dc.html">Samples <span class="ct">12</span></a><a href="ExpDatasets.dc.html">Datasets <span class="ct">2</span></a><a href="ExpResults.dc.html">Results</a><a href="ExpFiles.dc.html">Files <span class="ct">4</span></a><a href="ExpHistory.dc.html">History</a>
+</div>
+</div>
+
+<div class="banner" style="padding: 8px 32px"><x-import component-from-global-scope="Sheetbase.Icon" name="info" size="14"></x-import><span>Template <b style="font-weight: 600">Depth-filter clarification screen</b> has a new version (v4). This notebook stays on v3 until you choose.</span><span style="flex-grow: 1"></span><a class="btn btn-s" href="TemplateUpdate.dc.html">Review v4</a></div>
+<article class="doc" style="padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 14px">
+
+<h2>Objective</h2>
+<p>Screen three depth-filter trains for clarification of AAV9 harvest lot HL-0934 and select one for the 50 L tech-transfer run. Acceptance: capsid step yield ≥ 80 % with filtrate turbidity ≤ 20 NTU.</p>
+
+<h2 style="margin-top: 14px">Materials</h2>
+<table class="ref" aria-label="Referenced records">
+<tbody>
+<tr><td style="width: 92px"><a href="SampleDetail.dc.html" class="mono">SMP-2231</a></td><td>Harvest lot HL-0934</td><td class="muted">Cell harvest</td><td class="num r" style="text-align: right">15.0 L</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Released</x-import></td></tr>
+<tr><td><a href="MaterialsList.dc.html" class="mono">MAT-0418</a></td><td>Filter train A, two-stage depth</td><td class="muted">Consumable</td><td class="num" style="text-align: right">0.023 m²</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">In date</x-import></td></tr>
+<tr><td><a href="MaterialsList.dc.html" class="mono">MAT-0419</a></td><td>Filter train B, two-stage depth</td><td class="muted">Consumable</td><td class="num" style="text-align: right">0.023 m²</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">In date</x-import></td></tr>
+<tr><td><a href="MaterialsList.dc.html" class="mono">MAT-0420</a></td><td>Filter train C, single-stage depth</td><td class="muted">Consumable</td><td class="num" style="text-align: right">0.023 m²</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="warn">Expires 1 Oct</x-import></td></tr>
+</tbody>
+</table>
+
+<h2 style="margin-top: 14px">Method</h2>
+<p>Harvest was held at 2–8 °C and filtered at a constant flux of 100 LMH. Filtrate was sampled at 50, 100 and 150 L/m² for turbidity and capsid titre (ELISA, method EM-004). Feed titre 8.6 × 10¹¹ cp/mL.</p>
+
+<div class="blk" style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 8px">
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true" style="stroke: var(--text-muted)"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M2 6.5h12M2 10h12M6 2.5v11"></path></svg>
+<span style="font-weight: 600">Clarification runs</span>
+<span class="muted" style="font-size: 12px">Sheet · model <a href="SchemaEditor.dc.html">Clarification run v4</a> · 9 rows</span>
+<span style="flex-grow: 1"></span>
+<x-import component-from-global-scope="Sheetbase.Button" size="sm">Filter</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm">Sort</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm">Fields</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm" icon-only="true" aria-label="Sheet options" sx="width: 24px; height: 24px"><svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true" style="fill: var(--text-muted)"><circle cx="3" cy="7" r="1.2"></circle><circle cx="7" cy="7" r="1.2"></circle><circle cx="11" cy="7" r="1.2"></circle></svg></x-import>
+</div>
+<div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden; border-right: 0; border-bottom: 0">
+<table class="g num" role="grid" aria-label="Clarification runs">
+<thead>
+<tr><th class="grp-h rn" style="background: var(--surface)"></th><th class="grp-h" colspan="3">Run · this experiment</th><th class="grp-h" colspan="2">Measured · <a href="ExpDatasets.dc.html">DS-0311</a> ELISA / turbidity</th><th class="grp-h" colspan="2">Derived</th></tr>
+<tr><th class="rn"></th><th>Condition</th><th>Filter train</th><th class="r" style="text-align: right">Load (L/m²)</th><th class="r" style="text-align: right">Turbidity out (NTU)</th><th class="r" style="text-align: right">Capsid titre (cp/mL)</th><th class="r" style="text-align: right">Step yield (%)<span class="fx">ƒx</span></th><th>Meets criteria<span class="fx">ƒx</span></th></tr>
+</thead>
+<tbody>
+<tr><td class="rn">1</td><td>A-50</td><td><a href="MaterialsList.dc.html">MAT-0418</a> A</td><td class="r">50</td><td class="r">6.2</td><td class="r">7.4 × 10¹¹</td><td class="r der">86.0</td><td class="der">Yes</td></tr>
+<tr><td class="rn">2</td><td>A-100</td><td><a href="MaterialsList.dc.html">MAT-0418</a> A</td><td class="r">100</td><td class="r">9.8</td><td class="r">7.1 × 10¹¹</td><td class="r der">82.6</td><td class="der">Yes</td></tr>
+<tr><td class="rn">3</td><td>A-150</td><td><a href="MaterialsList.dc.html">MAT-0418</a> A</td><td class="r">150</td><td class="r">18.4</td><td class="r">6.5 × 10¹¹</td><td class="r der">75.6</td><td class="der">No · yield</td></tr>
+<tr><td class="rn">4</td><td>B-50</td><td><a href="MaterialsList.dc.html">MAT-0419</a> B</td><td class="r">50</td><td class="r">4.1</td><td class="r">7.8 × 10¹¹</td><td class="r der">90.7</td><td class="der">Yes</td></tr>
+<tr><td class="rn">5</td><td>B-100</td><td><a href="MaterialsList.dc.html">MAT-0419</a> B</td><td class="r">100</td><td class="r">5.6</td><td class="r">7.6 × 10¹¹</td><td class="r der">88.4</td><td class="der">Yes</td></tr>
+<tr><td class="rn">6</td><td>B-150</td><td><a href="MaterialsList.dc.html">MAT-0419</a> B</td><td class="r">150</td><td class="r">8.9</td><td class="r">7.3 × 10¹¹</td><td class="r der">84.9</td><td class="der">Yes</td></tr>
+<tr><td class="rn">7</td><td>C-50</td><td><a href="MaterialsList.dc.html">MAT-0420</a> C</td><td class="r">50</td><td class="r">12.7</td><td class="r">6.9 × 10¹¹</td><td class="r der">80.2</td><td class="der">Yes</td></tr>
+<tr><td class="rn">8</td><td>C-100</td><td><a href="MaterialsList.dc.html">MAT-0420</a> C</td><td class="r">100</td><td class="r">24.3</td><td class="r">6.2 × 10¹¹</td><td class="r der">72.1</td><td class="der">No · both</td></tr>
+<tr><td class="rn" style="background: var(--selection); color: var(--text)">9</td><td>C-150</td><td><a href="MaterialsList.dc.html">MAT-0420</a> C</td><td class="r">150</td><td class="r" aria-selected="true" aria-invalid="true" style="background: var(--danger-wash); box-shadow: inset 0 0 0 2px var(--accent); color: var(--danger-text); font-weight: 500"><span aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 0; height: 0; border-top: 7px solid var(--danger); border-right: 7px solid transparent"></span>61.5</td><td class="r">5.4 × 10¹¹</td><td class="r der">62.8</td><td class="der">No · both</td></tr>
+<tr><td class="rn" style="color: var(--text-faint)">+</td><td colspan="7" style="color: var(--text-muted)">New run — type a condition or paste rows</td></tr>
+</tbody>
+</table>
+</div>
+<div class="muted" style="font-size: 12px; display: flex; gap: 14px"><span style="color: var(--danger-text)">1 validation error</span><span>C9 · Turbidity out</span><span style="margin-left: auto">Feed titre 8.6 × 10¹¹ cp/mL used for step yield</span></div>
+</div>
+
+<div class="blk" style="margin-top: 18px; display: flex; flex-direction: column; gap: 6px">
+<div class="notice" role="status" style="background: var(--review-wash); display: flex; gap: 10px; align-items: center; margin-bottom: 4px"><x-import component-from-global-scope="Sheetbase.Icon" name="pipeline" size="16"></x-import><span style="flex-grow: 1; line-height: 18px"><b style="font-weight: 600">Proposed update from pipeline PL-0007, run #148.</b> A new Figure 1 from DS-0311 snapshot S-15, which adds plate 4. Nothing here changes until you accept it.</span><x-import component-from-global-scope="Sheetbase.Button" size="sm" href="PipelineRun.dc.html">Compare</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm" variant="quiet" on-click="{{onRemoved}}">Reject</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm" variant="primary" on-click="{{onSaved}}">Accept</x-import></div>
+<div style="display: flex; align-items: center; gap: 14px">
+<span style="font-weight: 600">Step yield by filter load</span><span class="muted" style="font-size: 12px">Analysis <a href="Analysis.dc.html">AN-0057</a> · from “Clarification runs”</span>
+<span style="flex-grow: 1"></span>
+<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px"><svg width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="3.5" style="fill: var(--series-a)"></circle></svg>Train A</span>
+<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px"><svg width="10" height="10" aria-hidden="true"><rect x="1.5" y="1.5" width="7" height="7" style="fill: var(--series-b)"></rect></svg>Train B</span>
+<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px"><svg width="10" height="10" aria-hidden="true"><path d="M5 1l4 7.5H1z" style="fill: var(--text-muted)"></path></svg>Train C</span>
+</div>
+<svg width="844" height="262" viewBox="0 0 844 262" role="img" aria-label="Line chart of step yield in percent against filter load in litres per square metre for trains A, B and C, with an 80 percent target line." style="font-family: Inter, sans-serif">
+<g stroke-width="1" style="stroke: var(--chart-grid)">
+<line x1="56" y1="162.9" x2="824" y2="162.9"></line>
+<line x1="56" y1="105.7" x2="824" y2="105.7"></line>
+<line x1="56" y1="48.6" x2="824" y2="48.6"></line>
+</g>
+<line x1="56" y1="220" x2="824" y2="220" stroke-width="1" style="stroke: var(--chart-axis)"></line>
+<line x1="56" y1="20" x2="56" y2="220" stroke-width="1" style="stroke: var(--chart-axis)"></line>
+<line x1="56" y1="105.7" x2="824" y2="105.7" stroke-width="1" stroke-dasharray="4 3" style="stroke: var(--text)"></line>
+<text x="820" y="100" font-size="11" text-anchor="end" style="fill: var(--text)">Target ≥ 80 %</text>
+<g font-size="11" text-anchor="end" style="fill: var(--text-muted)">
+<text x="48" y="224">60</text><text x="48" y="166.9">70</text><text x="48" y="109.7">80</text><text x="48" y="52.6">90</text>
+</g>
+<g font-size="11" text-anchor="middle" style="fill: var(--text-muted)">
+<text x="184" y="236">50</text><text x="440" y="236">100</text><text x="696" y="236">150</text>
+<text x="440" y="256" style="fill: var(--text)">Load (L/m²)</text>
+</g>
+<text x="14" y="120" font-size="11" text-anchor="middle" transform="rotate(-90 14 120)" style="fill: var(--text)">Step yield (%)</text>
+<polyline points="184,71.4 440,90.9 696,130.9" fill="none" stroke-width="1.6" style="stroke: var(--series-a)"></polyline>
+<polyline points="184,44.6 440,57.7 696,77.7" fill="none" stroke-width="1.6" style="stroke: var(--series-b)"></polyline>
+<polyline points="184,104.6 440,150.9 696,204" fill="none" stroke-width="1.6" style="stroke: var(--text-muted)"></polyline>
+<g style="fill: var(--series-a)"><circle cx="184" cy="71.4" r="4"></circle><circle cx="440" cy="90.9" r="4"></circle><circle cx="696" cy="130.9" r="4"></circle></g>
+<g style="fill: var(--series-b)"><rect x="180" y="40.6" width="8" height="8"></rect><rect x="436" y="53.7" width="8" height="8"></rect><rect x="692" y="73.7" width="8" height="8"></rect></g>
+<g style="fill: var(--text-muted)"><path d="M184 99.6l4.5 8h-9z"></path><path d="M440 145.9l4.5 8h-9z"></path></g>
+<path d="M696 199l4.5 8h-9z" stroke-width="1.4" style="fill: var(--surface); stroke: var(--text-muted)"></path>
+<text x="706" y="216" font-size="11" style="fill: var(--danger-text)">flagged</text>
+</svg>
+<div class="muted" style="font-size: 12px; max-width: 680px">Figure 1. Capsid step yield by filter load, flux 100 LMH. Hollow marker: turbidity value outside the allowed range in DS-0311; yield shown but excluded from the decision.</div>
+</div>
+
+<div class="blk" style="margin-top: 18px; display: flex; flex-direction: column; gap: 10px">
+<div aria-hidden="true" style="position: absolute; left: -28px; top: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="width: 20px; height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); background: var(--surface-hover)"><svg width="10" height="10" viewBox="0 0 10 10" style="fill: var(--text-muted)"><circle cx="3" cy="2" r="1"></circle><circle cx="7" cy="2" r="1"></circle><circle cx="3" cy="5" r="1"></circle><circle cx="7" cy="5" r="1"></circle><circle cx="3" cy="8" r="1"></circle><circle cx="7" cy="8" r="1"></circle></svg></span>
+</div>
+<h2>Observations</h2>
+<p style="background: var(--surface-derived); box-shadow: 0 0 0 6px var(--surface-derived); border-radius: 2px">Train B held ≥ 84 % step yield across all loads with filtrate turbidity below 10 NTU. Train A fell below target at 150 L/m². Train C breached the 20 NTU limit above 50 L/m²; the 150 L/m² turbidity reading is outside the assay range and needs a repeat at 1:5 dilution.</p>
+</div>
+
+<div class="blk" style="margin-top: 18px; display: flex; flex-direction: column; gap: 10px; max-width: 680px">
+<h2>Result summary</h2>
+<dl class="dl" style="font-size: 13px; grid-template-columns: 160px 1fr; row-gap: 8px">
+<dt>Selected train</dt><dd>B (<a href="MaterialsList.dc.html">MAT-0419</a>)</dd>
+<dt>Max load</dt><dd class="num">150 L/m²</dd>
+<dt>Step yield, train B</dt><dd class="num">84.9–90.7 %</dd>
+<dt>Filtrate turbidity, train B</dt><dd class="num">4.1–8.9 NTU</dd>
+<dt>Decision</dt><dd><x-import component-from-global-scope="Sheetbase.Status" tone="draft">Pending review</x-import></dd>
+</dl>
+</div>
+
+<div style="margin-top: 8px; display: flex; gap: 8px; align-items: center" class="muted">
+<x-import component-from-global-scope="Sheetbase.Button" size="sm" sx="border-style: dashed">+ Add block</x-import>
+<span style="font-size: 12px">Text, sheet, chart, record, file… or type “/”</span>
+</div>
+
+</article>
+</main>
+
+<aside class="insp" aria-label="Inspector" style="display: flex; flex-direction: column">
+<div role="tablist" class="tabs" style="display: flex; gap: 16px; padding: 0 16px; border-bottom: 1px solid var(--border)">
+<button type="button" role="tab" class="{{itab.properties.cls}}" aria-selected="{{itab.properties.sel}}" onClick="{{itab.properties.pick}}">Properties</button><button type="button" role="tab" class="{{itab.comments.cls}}" aria-selected="{{itab.comments.sel}}" onClick="{{itab.comments.pick}}">Comments <span class="ct">2</span></button><a href="ExpHistory.dc.html">History</a>
+</div>
+<sc-if value="{{itab.properties.on}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 18px">
+
+<section>
+<h3>Selected cell</h3>
+<div class="muted" style="font-size: 12px; margin-bottom: 8px">Clarification runs · row 9 · Turbidity out</div>
+<div class="num" style="font-size: 20px; font-weight: 500">61.5 <span class="muted" style="font-size: 13px; font-weight: 400">NTU</span></div>
+</section>
+
+<section style="background: var(--danger-wash); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 6px; font-size: 12px"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke-width="1.5" style="stroke: var(--danger-text); flex-shrink: 0; margin-top: 1px" aria-hidden="true"><circle cx="7" cy="7" r="5.5"></circle><path d="M7 4v3.5M7 9.5v.5"></path></svg><div><b style="font-weight: 600; color: var(--danger-text)">Outside allowed range</b><div>Allowed 0–50 NTU. Repeat the reading at a higher dilution, or record it as out of range with a reason.</div></div></div>
+<div style="display: flex; gap: 6px"><x-import component-from-global-scope="Sheetbase.Button" size="sm" on-click="{{onSent}}">Request repeat</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm" href="DialogsRecord.dc.html">Mark out of range…</x-import></div>
+</section>
+
+<section>
+<h3>Provenance</h3>
+<dl class="dl">
+<dt>Dataset</dt><dd><a href="ExpDatasets.dc.html">DS-0311</a> row 88</dd>
+<dt>Instrument</dt><dd><a href="RecordInstrument.dc.html">Turbidimeter TB-02</a></dd>
+<dt>Captured</dt><dd class="num">24 Sep 2026, 16:04</dd>
+<dt>Entered by</dt><dd>Import, PR-01 export</dd>
+<dt>Edited</dt><dd class="muted">—</dd>
+</dl>
+</section>
+
+<section>
+<h3>Column</h3>
+<dl class="dl">
+<dt>Field</dt><dd>Turbidity out</dd>
+<dt>Type</dt><dd>Number, 1 dp</dd>
+<dt>Unit</dt><dd>NTU</dd>
+<dt>Validation</dt><dd class="num">0 ≤ value ≤ 50</dd>
+<dt>Required</dt><dd>Yes</dd>
+<dt>Source</dt><dd>Linked from DS-0311</dd>
+</dl>
+</section>
+
+<section>
+<h3>Comments on this row</h3>
+<div style="display: flex; flex-direction: column; gap: 10px; font-size: 12px">
+<div><div><b style="font-weight: 500">Priya S.</b> <span class="muted num">09:05</span></div><div>Can we repeat C at 150 with a 1:5 dilution?</div></div>
+<div><div><b style="font-weight: 500">You</b> <span class="muted num">09:31</span></div><div>Yes. Queued for plate 4 at 11:30.</div></div>
+</div>
+</section>
+
+</div>
+</sc-if>
+<sc-if value="{{itab.comments.on}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; font-size: 12px"><div style="display: flex; gap: 6px"><span class="seg"><button type="button" class="on">Open 1</button><button type="button">Resolved 3</button></span></div><div><div class="muted" style="font-size: 11px; margin-bottom: 4px">On Observations</div><b style="font-weight: 600">Priya S.</b> <span class="muted">09:05</span><div>Can we repeat C at 150 with a 1:5 dilution?</div><div style="margin: 8px 0 0 12px; padding-left: 10px; border-left: 2px solid var(--border)"><b style="font-weight: 600">You</b> <span class="muted">09:31</span><div>Yes. Queued for plate 4 at 11:30.</div></div></div><textarea class="input" rows="2" placeholder="Reply…" aria-label="Reply"></textarea><div style="display: flex; gap: 6px"><x-import component-from-global-scope="Sheetbase.Button" variant="primary" size="sm" on-click="{{onSent}}">Reply</x-import><x-import component-from-global-scope="Sheetbase.Button" size="sm" on-click="{{onSaved}}">Resolve</x-import></div><div class="muted" style="line-height: 17px">Mention someone with @ to notify them. Comments stay with the record but aren’t part of the signed content.</div></div>
+</sc-if>
+</aside>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--overlays-->
+<sc-if value="{{m.any}}" hint-placeholder-val="{{ false }}"><button type="button" class="dismiss" aria-label="Close menu" onClick="{{close}}"></button></sc-if>
+<sc-if value="{{m.ws}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Switch workspace" sx="left: 228px; top: 40px; width: 280px"><x-import component-from-global-scope="Sheetbase.MenuLabel">Workspaces</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="check" hint="Editor" href="Main.dc.html">Process Development</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Editor" href="ProjectsEmpty.dc.html">Analytical Development</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Viewer" href="Main.dc.html">GMP Manufacturing</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" sx="padding-left: 30px" hint="Viewer" href="Main.dc.html">Quality Control</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import><x-import component-from-global-scope="Sheetbase.MenuItem" icon="settings" href="SettingsGeneral.dc.html">Workspace settings</x-import></x-import></sc-if>
+<sc-if value="{{m.new}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Create" sx="right: 104px; top: 40px; width: 240px"><x-import component-from-global-scope="Sheetbase.MenuItem" icon="flask" href="NewExperiment.dc.html" hint="E">Experiment</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="table" href="SheetEmpty.dc.html">Working sheet</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="tube" href="DialogsCreate.dc.html" hint="S">Sample</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="folder" href="DialogsCreate.dc.html">Project</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="upload" href="ImportUpload.dc.html" hint="I">Import data</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="scan" href="PhoneScan.dc.html">Scan a label</x-import></x-import></sc-if>
+<sc-if value="{{m.notif}}" hint-placeholder-val="{{ false }}"><div class="popover" role="dialog" aria-label="Notifications" style="position: absolute; right: 70px; top: 40px; width: 380px; z-index: 40; overflow: hidden">
+<div style="display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border)"><span class="sh" style="font-size: 14px">Notifications</span><span style="flex-grow: 1"></span><x-import component-from-global-scope="Sheetbase.Button" variant="quiet" size="sm" disabled="{{allRead}}" on-click="{{markRead}}">Mark all read</x-import></div>
+<a class="notif" href="PromoteRejected.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><b>Anna B.</b> returned your column promotion from <span class="mono">SHT-0019</span></span><span class="when">10:40</span></a>
+<a class="notif" href="ReviewRecord.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><b>Priya S.</b> resubmitted <span class="mono">EXP-0138</span> for your review</span><span class="when">16:40</span></a>
+<a class="notif" href="DatasetExplorer.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span><span class="mono">DS-0298</span> imported with 84 rows missing a unit</span><span class="when">10:12</span></a>
+<a class="notif" href="PipelineRunWaiting.dc.html"><sc-if value="{{unread}}" hint-placeholder-val="{{ true }}"><span class="unread" aria-label="Unread"></span></sc-if><sc-if value="{{allRead}}" hint-placeholder-val="{{ false }}"><span></span></sc-if><span>Pipeline <span class="mono">PL-0003</span> is waiting for you to confirm units</span><span class="when">09:12</span></a>
+<a class="notif" href="SampleQuarantine.dc.html"><span></span><span><span class="mono">SMP-2220</span> moved to quarantine: endotoxin pending</span><span class="when">16 Sep</span></a>
+<a class="notif" href="PipelineRunFailed.dc.html"><span></span><span>Pipeline <span class="mono">PL-0014</span> failed at step 3: out of temporary storage</span><span class="when">09:48</span></a>
+<div style="padding: 8px 12px; font-size: 12px; background: var(--surface-muted)"><a href="HomeTriage.dc.html">Open inbox</a> · <a href="SettingsNotifications.dc.html">Notification settings</a></div>
+</div></sc-if>
+<sc-if value="{{m.account}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="Account" sx="right: 8px; top: 40px; width: 272px"><div style="display: flex; gap: 10px; align-items: center; padding: 8px"><x-import component-from-global-scope="Sheetbase.Avatar" initials="GP" tone="accent"></x-import><div style="font-size: 12px; line-height: 17px"><div style="font-weight: 600; font-size: 13px">Gareth P.</div><div class="muted">Process Development · Editor</div></div></div>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuLabel">Appearance</x-import>
+<div style="padding: 2px 8px 8px"><x-import component-from-global-scope="Sheetbase.Segmented" options="System|Light|Dark" icons="monitor|sun|moon" value="{{appearance}}" on-change="{{setAppearance}}" aria-label="Appearance"></x-import></div>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="user" href="SettingsProfile.dc.html">Profile and signature</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="bell" href="SettingsNotifications.dc.html">Notifications</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="info" href="Shortcuts.dc.html" hint="?">Keyboard shortcuts</x-import>
+<x-import component-from-global-scope="Sheetbase.MenuSep"></x-import>
+<x-import component-from-global-scope="Sheetbase.MenuItem" icon="signOut" href="SignedOut.dc.html">Sign out</x-import></x-import></sc-if>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}"><div class="toast-stack"><x-import component-from-global-scope="Sheetbase.Toast" tone="{{toastTone}}" action="{{toastAction}}" on-action="{{dismissToast}}" on-close="{{dismissToast}}">{{toastMsg}}</x-import></div></sc-if>
+<!--/overlays-->
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":1840}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+v.itab = tabs("itab", ["properties", "comments"], "properties");
+return v;
+}
+}
+</script>
+</body>
+</html>

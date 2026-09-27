@@ -1,0 +1,20 @@
+Notifications
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications Notifications
+Save changes
+Choose where each kind of event reaches you
+| | Event | In app | Email | Daily digest
+| Review requested from you | | |
+| A review you requested is returned or signed | | |
+| Signature requested (witness, approval) | | |
+| Validation error in your data | | |
+| Comment or mention on your records | | |
+| Instrument booking confirmed or changed | | |
+| Material lot expiring in 7 days | | |
+| Protocol you use has a new version | | |
+Quiet hours
+Hold email between and
+Reviews due today and signature requests always come through.
+Digest
+Send at 08:00, weekdays ▾

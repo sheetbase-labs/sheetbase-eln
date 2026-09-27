@@ -1,0 +1,29 @@
+Working sheet on tablet
+AAV9 process transfer / Clarification Clarification working sheet
+Share
+SHT-0019 Saved 09:40
+Dataset columns are pinned to DS-0311 · S-15 and read-only. Local columns stay in this sheet until promoted.
+| | Condition DS-0311 · S-15
+| Turbidity (NTU) DS-0311 · S-15
+| Step yield (%) ƒx
+| Visual clarity Local
+| Adj. yield (%) Local
+| Capsid titre (cp/mL) DS-0311 · S-15
+| Filter train Material record
+| A-50 | 6.2 | 86.0 | Clear | 85 | 7.4 × 10¹¹ | MAT-0418 A
+| A-100 | 9.8 | 82.6 | Clear | 82 | 7.1 × 10¹¹ | MAT-0418 A
+| A-150 | 18.4 | 75.6 | Slight haze | — | 6.5 × 10¹¹ | MAT-0418 A
+| B-50 | 4.1 | 90.7 | Clear | 90 | 7.8 × 10¹¹ | MAT-0419 B
+| B-100 | 5.6 | 88.4 | Clear | 88 | 7.6 × 10¹¹ | MAT-0419 B
+| B-150 | 8.9 | 84.9 | Clear | 84 | 7.3 × 10¹¹ | MAT-0419 B
+| C-50 | 12.7 | 80.2 | Slight haze | 79 | 6.9 × 10¹¹ | MAT-0420 C
+| C-100 | 24.3 | 72.1 | Hazy | — | 6.2 × 10¹¹ | MAT-0420 C
+| C-150 | 61.5 | 62.8 | Hazy | — | 5.4 × 10¹¹ | MAT-0420 C
+9 rows · condition stays pinned · scroll sideways for 3 more columns
+Visual clarity
+Local · text · added 24 Sep
+Where it lives
+Only in this sheet. It can’t be cited as evidence and pipelines can’t read it.
+Make it lasting
+Promote it into DS-0311. The model change is reviewed first.
+Promote columns…

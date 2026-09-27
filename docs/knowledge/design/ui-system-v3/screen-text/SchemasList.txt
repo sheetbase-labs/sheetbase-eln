@@ -1,0 +1,35 @@
+Models
+Models
+9 Define the fields, units and rules for each kind of record New model
+All 9 Records 4 Measurements 5 Drafts 2
+Filter Sort: Name
+Search models
+| | ID | Name | Kind | Version | Fields | Records | Status | Owner | Updated
+| MDL-0012 | Clarification run | Measurement | v4 · v5 draft | 9 | 214 | Published | Gareth P. | Today
+| MDL-0009 | ELISA and turbidity | Measurement | v2 | 11 | 3,412 | Published | Mei L. | 2 Sep
+| MDL-0015 | Filtration run | Measurement | v1 | 9 | 540 | Published | Gareth P. | 14 Aug
+| MDL-0016 | ddPCR titre | Measurement | v1 | 9 | 624 | Published | Mei L. | 6 Aug
+| MDL-0017 | Ambr 250 daily reading | Measurement | v1 | 16 | 2,340 | Published | Tom H. | 1 Aug
+| MDL-0004 | Sample | Record | v6 | 14 | 12,880 | Published | Admin | 12 Jun
+| MDL-0019 | Cell bank | Record | v4 | 12 | 38 | Published | Mei L. | 19 Sep
+| MDL-0005 | Material lot | Record | v3 | 12 | 1,204 | Published | Admin | 12 Jun
+| MDL-0011 | Transfection condition | Record | v2 | 10 | 188 | Published | Priya S. | 18 Jul
+| MDL-0018 | TFF run | Measurement | — | 12 | 0 | Draft | Tom H. | 22 Sep
+MDL-0012
+Clarification run
+v4 published · v5 draft open
+Continue v5 draft
+Versions
+v5 Draft · 2 changes Today
+v4 Added Load (L/m²) 22 Sep
+v3 Linked turbidity to DS model 2 Sep
+v2 Units made required 14 Aug
+Used by
+Records
+214 on v4, 88 on older versions
+Experiments
+23 (3 open)
+Templates
+PRT-021 v3
+Publishing
+Publishing needs approval from a model owner and QA. Existing records keep their version unless migrated.

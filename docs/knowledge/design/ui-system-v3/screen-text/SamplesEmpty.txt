@@ -1,0 +1,10 @@
+Samples, empty tab
+Samples
+4,212 Scan label Register sample
+Quarantine 0 In stock 3,480 Mine 212 Awaiting measurement 6 Consumed 732
+Table Filter Sort Group
+Search
+| | ID | Name | Type | Project | Quantity | Location | Status
+No samples in quarantine
+Samples land here when a release check fails or a parent lot is quarantined. The last one, SMP-2188, was released by Mei L. on 12 Sep.
+Back to in stock

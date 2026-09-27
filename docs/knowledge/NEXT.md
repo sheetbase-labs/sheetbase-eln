@@ -33,7 +33,7 @@ Roadmap 1    RECORDED COMPLETE — CORE-01..06 and Core Hardening
 Roadmap 2    ACTIVE SCOPE CLOSED — GOV-02 deferred; known limits remain
 Roadmap 3    WAVES A–C MERGED — not a blanket acceptance/release sign-off
              WAVE D — 2 proposed decisions; 8 deferred implementation tasks
-Roadmap 4    PROPOSAL ONLY — not activated by this reconciliation
+Roadmap 4    PROPOSED 2026-09-27 — exact UI system v3 parity; not activated
 ```
 
 **Merged is not the same as accepted, deployed or production-ready.** This
@@ -97,7 +97,11 @@ for the deferral, not a fresh audit of deployment users or data.
    permission isolation and populated recovery. Record evidence and remaining
    gaps rather than automatically reopening or re-completing whole roadmaps.
 3. Agree which documented capability gaps become the next implementation tasks.
-   The Roadmap 4 proposal is not an assignment and is not activated here.
+   [Roadmap 4](roadmap-4/README.md) (27 September 2026) proposes adopting the
+   vendored UI system v3 design to exact parity with 86 tasks. It is not an
+   assignment and is not activated here; activating it
+   starts with its decision stream (DEC), beginning with
+   [ADR-0047](decisions/0047-ui-system-v3-adoption.md).
 4. Decide ADR-0044/0045 only when the relevant adoption/intended-use evidence is
    available. Earlier roadmaps landing does not remove their gates.
 

@@ -1,0 +1,20 @@
+Sample, phone
+SMP-2231
+Harvest lot HL-0934
+Released · Cell harvest · AAV9 process transfer
+Volume left
+4,600 mL
+of 15,000 mL
+Hold time
+9 days
+left, until 4 Oct
+Location
+Cold room CR-1, shelf 3
+Condition
+2–8 °C
+Capsid titre
+8.6 × 10¹¹ cp/mL
+Last used
+23 Sep · EXP-0142
+Withdraw volume Record reading Print label
+Today Scan Inbox {{toastMsg}}

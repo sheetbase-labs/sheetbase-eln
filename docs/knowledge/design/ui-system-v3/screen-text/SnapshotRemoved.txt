@@ -1,0 +1,26 @@
+Snapshot rows removed
+Datasets / DS-0188 LVV stability, 2–8 °C, lot 22-114
+Archived Jun 2024 Model Stability pull v1 Owner Tom H.
+Rows 48 Snapshots 6
+S-5 is due for row removal on 3 Oct. It isn’t cited by a signed record. Keep it if you still need it. Keep S-5
+| | Snapshot | Saved | Made by | Rows | Keeping | Cited by
+| S-6 | 3 Mar 2024 | Import · stability pull T12 | 48 | Kept to 2039 | EXP-0098 (signed)
+| S-5 | 1 Dec 2023 | Import · stability pull T9 | 40 | Rows removed 3 Oct | —
+| S-4 | 2 Sep 2023 | Import · stability pull T6 | 32 | Kept to 2038 | EXP-0091 (signed)
+| S-3 | 3 Jun 2023 | Import · stability pull T3 | 24 | Rows removed 12 Sep 2026 | —
+| S-2 | 2 Mar 2023 | Import · stability pull T0 | 16 | Rows removed 12 Sep 2026 | —
+| S-1 | 1 Mar 2023 | Created with model Stability pull v1 | 8 | Rows removed 12 Sep 2026 | —
+Snapshots cited by a signed record are kept 15 years from signing. Others lose their rows 2 years after the dataset is archived; their ID, hash and history stay.
+DS-0188 · S-3 Snapshot 3
+24 rows · saved 3 Jun 2023
+What’s left
+Rows
+Removed 12 Sep 2026
+SHA-256
+41be…90d3
+Made by
+Import, Tom H.
+Rule
+Uncited, 2 years after archive
+Why
+Nothing signed cited S-3, and DS-0188 was archived in Jun 2024. Links to S-3 still open this page, so nothing breaks; the data itself is gone.

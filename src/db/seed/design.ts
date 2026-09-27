@@ -441,6 +441,10 @@ export const designSteps: Array<SeedStep> = [
     name: 'design datasets',
     run: (db) => seedDesignDatasets(db),
   },
+  {
+    name: 'design work items',
+    run: (db) => seedDesignWorkItems(db),
+  },
 ]
 
 const DESIGN_EXPERIMENTS: ReadonlyArray<{
@@ -1182,4 +1186,110 @@ async function seedDesignDatasets(
       },
     )
   }
+}
+
+/**
+ * DSYS-05.2 — the Inbox work items the design shows for Gareth P.: a review
+ * assigned to him, the records he follows, and a failed pipeline run.
+ */
+async function seedDesignWorkItems(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  await db
+    .insert(schema.reviewWorkflowDefinitions)
+    .values({
+      definitionKey: 'default-review',
+      version: 1,
+      definition: { steps: [] },
+    })
+    .onConflictDoNothing()
+
+  // EXP-0138 waits for Gareth's review (submitted by Priya S.).
+  await db
+    .insert(schema.revisions)
+    .values({
+      id: '00000000-0000-4000-8000-000000000400',
+      recordId: DESIGN_EXPERIMENTS[0].id,
+      workspaceId: PROCESS,
+      structureVersion: 1,
+      metadataVersion: 2,
+      metadataSnapshot: {},
+      blockSnapshot: [],
+      integrityDigest: 'a'.repeat(64),
+      reason: 'submit',
+      createdByUserId: DESIGN_USER_IDS.priya,
+    })
+    .onConflictDoNothing()
+  await db
+    .insert(schema.reviewSubmissions)
+    .values({
+      id: '00000000-0000-4000-8000-000000000401',
+      workspaceId: PROCESS,
+      recordId: DESIGN_EXPERIMENTS[0].id,
+      revisionId: '00000000-0000-4000-8000-000000000400',
+      state: 'submitted',
+      workflowDefinitionKey: 'default-review',
+      workflowDefinitionVersion: 1,
+      assignedReviewerUserIds: [DESIGN_USER_IDS.gareth],
+      submittedByUserId: DESIGN_USER_IDS.priya,
+      submittedSessionId: 'design-seed',
+      submittedRole: 'authenticated',
+      submittedAt: new Date(DESIGN_CLOCK.getTime() - 3 * 3_600_000),
+      idempotencyKey: 'design-exp-0138-review',
+    })
+    .onConflictDoNothing()
+
+  // The records Gareth follows (they show as "Following").
+  for (const [index, recordId] of [
+    DESIGN_EXPERIMENTS[1]?.id,
+    DESIGN_EXPERIMENTS[0]?.id,
+  ]
+    .filter((id): id is string => Boolean(id))
+    .entries()) {
+    await db
+      .insert(schema.workItemFollows)
+      .values({
+        workspaceId: PROCESS,
+        userId: DESIGN_USER_IDS.gareth,
+        recordId,
+        createdAt: new Date(DESIGN_CLOCK.getTime() - (index + 1) * 600_000),
+      })
+      .onConflictDoNothing()
+  }
+
+  // A failed run of a pipeline Gareth owns (the Pipelines "1 failed" badge).
+  await db
+    .insert(schema.pipelineDefinitions)
+    .values({
+      id: '00000000-0000-4000-8000-000000000402',
+      workspaceId: PROCESS,
+      key: 'full_empty_ratio_from_auc',
+      name: 'Full/empty ratio from AUC traces',
+      createdByUserId: DESIGN_USER_IDS.gareth,
+    })
+    .onConflictDoNothing()
+  await db
+    .insert(schema.pipelineDefinitionVersions)
+    .values({
+      id: '00000000-0000-4000-8000-000000000403',
+      definitionId: '00000000-0000-4000-8000-000000000402',
+      workspaceId: PROCESS,
+      version: 1,
+      configuration: {},
+    })
+    .onConflictDoNothing()
+  await db
+    .insert(schema.pipelineRuns)
+    .values({
+      id: '00000000-0000-4000-8000-000000000404',
+      workspaceId: PROCESS,
+      definitionVersionId: '00000000-0000-4000-8000-000000000403',
+      status: 'failed',
+      errorCode: 'PL003',
+      errorMessage: 'Failed at step 3: out of temporary storage',
+      actorUserId: DESIGN_USER_IDS.gareth,
+      startedAt: new Date(DESIGN_CLOCK.getTime() - 45 * 60_000),
+      finishedAt: new Date(DESIGN_CLOCK.getTime() - 44 * 60_000),
+    })
+    .onConflictDoNothing()
 }

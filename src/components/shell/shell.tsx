@@ -53,6 +53,7 @@ import { cn } from '#/lib/utils'
 import { useTheme } from '#/components/theme-provider'
 import { createGlobalShortcuts } from '#/lib/global-shortcuts'
 import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
+import { OPEN_SHORTCUTS_EVENT } from '#/lib/shortcuts-dialog'
 import { ShortcutProvider } from '../shortcuts/shortcut-provider'
 import { ShortcutsDialog } from '../shortcuts/shortcuts-dialog'
 import { PageHeader } from './page-header'
@@ -493,6 +494,14 @@ export function AppShell({
     setCommandOpen(true)
   }, [capturePaletteFocus])
   const [helpOpen, setHelpOpen] = React.useState(false)
+
+  // SHELL-03: the Help page's "Keyboard shortcuts" button asks the shell to
+  // open the registry-generated dialog from outside the shell tree.
+  React.useEffect(() => {
+    const open = () => setHelpOpen(true)
+    window.addEventListener(OPEN_SHORTCUTS_EVENT, open)
+    return () => window.removeEventListener(OPEN_SHORTCUTS_EVENT, open)
+  }, [])
 
   React.useEffect(() => {
     let saved = false

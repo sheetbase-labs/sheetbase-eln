@@ -442,6 +442,11 @@ export const projects = api.table(
     customFields: jsonb('custom_fields')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /**
+     * WORK-01.1 — default review period in days for this project's
+     * submissions. Null falls back to 7 days.
+     */
+    defaultReviewPeriodDays: integer('default_review_period_days'),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
   },
@@ -450,6 +455,10 @@ export const projects = api.table(
     check(
       'chk_projects_status',
       sql`${table.status} IN ('active', 'archived')`,
+    ),
+    check(
+      'chk_projects_review_period',
+      sql`${table.defaultReviewPeriodDays} IS NULL OR (${table.defaultReviewPeriodDays} BETWEEN 1 AND 365)`,
     ),
     index('idx_projects_workspace_id').on(table.workspaceId),
   ],
@@ -908,6 +917,11 @@ export const reviewSubmissions = api.table(
       withTimezone: true,
       mode: 'date',
     }).notNull(),
+    /**
+     * WORK-01.1 — the review's due date, set from the project's default
+     * review period when the submission omits one (see the insert trigger).
+     */
+    dueAt: timestamp('due_at', { withTimezone: true, mode: 'date' }),
     idempotencyKey: text('idempotency_key').notNull(),
     ...timestamps,
   },

@@ -34,6 +34,7 @@ export interface ReviewSubmissionWire {
   submitted_session_id: string
   submitted_role: string
   submitted_at: string
+  due_at: string | null
   idempotency_key: string
   created_at: string
   updated_at: string
@@ -70,6 +71,7 @@ export interface ReviewItem {
   assignedReviewerUserIds: string[]
   submittedByUserId: string
   submittedAt: string
+  dueAt: string | null
   createdAt: string
   updatedAt: string
   recordIdentifier: string
@@ -160,19 +162,35 @@ export function inboxStatusFor(state: string): ReviewInboxStatus {
 }
 
 /**
- * Service-level ageing heuristic for the inbox. There is no stored due date,
- * so a pending review is flagged overdue once it has waited longer than
- * `OVERDUE_DAYS` without resolution. This is a display convention only — it
- * never mutates data and is documented in the inspector.
+ * WORK-01.1 — a pending review is overdue once its stored due date has
+ * passed. When no due date is recorded (pre-existing submissions) fall back to
+ * the ageing heuristic: overdue after `OVERDUE_DAYS`. Display only.
  */
 export const OVERDUE_DAYS = 14
 const OVERDUE_MS = OVERDUE_DAYS * 86_400_000
 
-export function isOverdueFor(state: string, submittedAt: string): boolean {
+export function isOverdueFor(
+  state: string,
+  submittedAt: string,
+  dueAt: string | null = null,
+): boolean {
   if (state !== 'submitted') return false
+  if (dueAt) {
+    const due = Date.parse(dueAt)
+    if (!Number.isNaN(due)) return Date.now() > due
+  }
   const ts = Date.parse(submittedAt)
   if (Number.isNaN(ts)) return false
   return Date.now() - ts > OVERDUE_MS
+}
+
+/** True when a submission's due date is within the given window. */
+export function isDueSoon(dueAt: string | null, days = 7): boolean {
+  if (!dueAt) return false
+  const due = Date.parse(dueAt)
+  if (Number.isNaN(due)) return false
+  const now = Date.now()
+  return due >= now && due - now <= days * 86_400_000
 }
 
 /**
@@ -186,12 +204,14 @@ const MEDIUM_MS = MEDIUM_DAYS * 86_400_000
 export function priorityFor(
   state: string,
   submittedAt: string,
+  dueAt: string | null = null,
 ): ReviewPriority {
   if (state !== 'submitted') return 'low'
+  if (isOverdueFor(state, submittedAt, dueAt)) return 'high'
+  if (dueAt && isDueSoon(dueAt)) return 'medium'
   const ts = Date.parse(submittedAt)
   if (Number.isNaN(ts)) return 'low'
   const age = Date.now() - ts
-  if (age > OVERDUE_MS) return 'high'
   if (age > MEDIUM_MS) return 'medium'
   return 'low'
 }
@@ -217,6 +237,7 @@ export function toReviewItem(
     assignedReviewerUserIds: submission.assigned_reviewer_user_ids,
     submittedByUserId: submission.submitted_by_user_id,
     submittedAt: submission.submitted_at,
+    dueAt: submission.due_at,
     createdAt: submission.created_at,
     updatedAt: submission.updated_at,
     recordIdentifier: record?.identifier ?? submission.record_id,
@@ -231,8 +252,8 @@ export function toReviewItem(
       workflowDefinitionKey: submission.workflow_definition_key,
     }),
     status: inboxStatusFor(state),
-    priority: priorityFor(state, submission.submitted_at),
-    isOverdue: isOverdueFor(state, submission.submitted_at),
+    priority: priorityFor(state, submission.submitted_at, submission.due_at),
+    isOverdue: isOverdueFor(state, submission.submitted_at, submission.due_at),
     isWithdrawn: state === 'withdrawn',
   }
 }
@@ -268,7 +289,7 @@ export async function fetchReviewSubmissions(
     // Select only fields consumed by toReviewItem and the dashboard
     // pending-review filter. Omit workspace_id, submitted_session_id,
     // submitted_role, and idempotency_key to reduce payload size.
-    `?select=id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at&order=submitted_at.desc&limit=${REVIEW_FETCH_LIMIT}`,
+    `?select=id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,due_at,created_at,updated_at&order=submitted_at.desc&limit=${REVIEW_FETCH_LIMIT}`,
   )
 }
 

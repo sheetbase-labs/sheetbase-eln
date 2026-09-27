@@ -2,7 +2,7 @@
 id: task-91
 title: SHELL-03 — Keyboard shortcuts and command palette frame
 type: task
-status: todo
+status: in-progress
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

@@ -2,7 +2,7 @@
 id: subtask-92
 title: SHELL-03.1 — src/lib/shortcuts.ts
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

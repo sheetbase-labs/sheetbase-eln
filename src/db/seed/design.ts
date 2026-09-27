@@ -445,6 +445,10 @@ export const designSteps: Array<SeedStep> = [
     name: 'design work items',
     run: (db) => seedDesignWorkItems(db),
   },
+  {
+    name: 'design bookings',
+    run: (db) => seedDesignBookings(db),
+  },
 ]
 
 const DESIGN_EXPERIMENTS: ReadonlyArray<{
@@ -1292,4 +1296,76 @@ async function seedDesignWorkItems(
       finishedAt: new Date(DESIGN_CLOCK.getTime() - 44 * 60_000),
     })
     .onConflictDoNothing()
+}
+
+/**
+ * DSYS-05.2 — today's schedule the design shows on Home: the Ambr 250 vessel
+ * sampling, the plate-reader export and the tech-transfer review.
+ */
+async function seedDesignBookings(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  await db
+    .insert(schema.calendarResources)
+    .values({
+      id: '00000000-0000-4000-8000-000000000500',
+      workspaceId: PROCESS,
+      name: 'Ambr 250',
+      code: 'AMB-250',
+      resourceType: 'instrument',
+      location: 'bay 2',
+      timezone: 'Europe/London',
+      createdByUserId: DESIGN_USER_IDS.gareth,
+    })
+    .onConflictDoNothing()
+
+  const at = (hours: number, minutes: number) => {
+    const date = new Date(DESIGN_CLOCK)
+    date.setHours(hours, minutes, 0, 0)
+    return date
+  }
+  const bookings = [
+    {
+      id: '00000000-0000-4000-8000-000000000501',
+      title: 'AMB-25-118 day 6 sampling',
+      starts: at(9, 0),
+      ends: at(9, 30),
+      location: 'Ambr 250 · bay 2',
+      linked: DESIGN_EXPERIMENTS[1]?.identifier ?? null,
+    },
+    {
+      id: '00000000-0000-4000-8000-000000000502',
+      title: 'ELISA plate 4, capsid titre',
+      starts: at(11, 30),
+      ends: at(12, 30),
+      location: 'Plate reader PR-01',
+      linked: DESIGN_EXPERIMENTS[1]?.identifier ?? null,
+    },
+    {
+      id: '00000000-0000-4000-8000-000000000503',
+      title: 'Tech-transfer review, CL-017',
+      starts: at(14, 0),
+      ends: at(15, 0),
+      location: null,
+      linked: null,
+    },
+  ]
+  for (const booking of bookings) {
+    await db
+      .insert(schema.calendarBookings)
+      .values({
+        id: booking.id,
+        workspaceId: PROCESS,
+        resourceId: '00000000-0000-4000-8000-000000000500',
+        title: booking.title,
+        status: 'confirmed',
+        startsAt: booking.starts,
+        endsAt: booking.ends,
+        timezone: 'Europe/London',
+        location: booking.location,
+        linkedExperimentIdentifier: booking.linked,
+        createdByUserId: DESIGN_USER_IDS.gareth,
+      })
+      .onConflictDoNothing()
+  }
 }

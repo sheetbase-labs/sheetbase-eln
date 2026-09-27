@@ -448,6 +448,74 @@ function AccountMenu({
   )
 }
 
+/**
+ * The pinned-projects group (SHELL-01.2): the caller's favourited projects, in
+ * the design's place under the navigation, with a status dot.
+ */
+function PinnedProjects({
+  collapsed,
+  onNavigate,
+}: {
+  collapsed: boolean
+  onNavigate: () => void
+}) {
+  const itemsQuery = useQuery({
+    queryKey: favouritesQueryKeys.items(),
+    queryFn: () => fetchFavouriteItems(notebookDataClient, FAVOURITES_LIMIT),
+    staleTime: 30_000,
+    retry: false,
+  })
+  const projects = (itemsQuery.data ?? [])
+    .filter((item) => item.kind === 'project')
+    .slice(0, 5)
+  if (projects.length === 0) return null
+  return (
+    <div className="mb-2">
+      {!collapsed ? (
+        <p className="px-2 pb-1 pt-3 text-caption text-muted-foreground">
+          Pinned projects
+        </p>
+      ) : null}
+      <ul className="space-y-0.5">
+        {projects.map((project) => (
+          <li key={project.id}>
+            <Link
+              to={project.destination}
+              onClick={onNavigate}
+              className={cn(
+                'flex items-center gap-2 rounded-md px-2 py-1.5 text-body text-sidebar-foreground no-underline hover:bg-sidebar-accent/60',
+                collapsed && 'justify-center',
+              )}
+            >
+              <span
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ background: pinnedProjectDot(project.status) }}
+                aria-hidden="true"
+              />
+              {!collapsed ? (
+                <span className="truncate">{project.label}</span>
+              ) : null}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function pinnedProjectDot(status?: string | null): string {
+  switch (status) {
+    case 'in_progress':
+      return 'var(--accent)'
+    case 'in_review':
+      return 'var(--review)'
+    case 'approved':
+      return 'var(--success)'
+    default:
+      return 'var(--neutral-dot)'
+  }
+}
+
 export function AppShell({
   context,
   breadcrumbs,
@@ -647,6 +715,11 @@ export function AppShell({
               </ul>
             </div>
           ))}
+
+          <PinnedProjects
+            collapsed={sidebarCollapsed}
+            onNavigate={() => setMobileOpen(false)}
+          />
 
           {projectTree && !sidebarCollapsed && (
             <div className="mb-2">

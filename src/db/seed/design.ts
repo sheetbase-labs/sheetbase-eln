@@ -201,6 +201,30 @@ export const designSteps: Array<SeedStep> = [
     },
   },
   {
+    name: 'design favourites',
+    run: async (db) => {
+      // The pinned projects the design shows in the navigation, most recently
+      // favourited first (the read path orders by created_at desc).
+      const pinned = [
+        '00000000-0000-4000-8000-000000000320',
+        '00000000-0000-4000-8000-000000000321',
+        '00000000-0000-4000-8000-000000000322',
+      ]
+      for (const [index, projectId] of pinned.entries()) {
+        await db
+          .insert(schema.userFavourites)
+          .values({
+            workspaceId: PROCESS,
+            userId: DESIGN_USER_IDS.gareth,
+            objectKind: 'project',
+            objectId: projectId,
+            createdAt: new Date(DESIGN_CLOCK.getTime() - index * 60_000),
+          })
+          .onConflictDoNothing()
+      }
+    },
+  },
+  {
     name: 'design sample fields',
     run: async (db) => {
       for (const field of DESIGN_SAMPLE_FIELDS) {
@@ -746,7 +770,13 @@ interface DesignDataset {
 
 const AMBR_FIELDS: ReadonlyArray<DesignDatasetField> = [
   { key: 'vessel', label: 'Vessel', logicalType: 'text', required: true },
-  { key: 'day', label: 'Day', logicalType: 'integer', unit: 'day', required: true },
+  {
+    key: 'day',
+    label: 'Day',
+    logicalType: 'integer',
+    unit: 'day',
+    required: true,
+  },
   { key: 'time', label: 'Time', logicalType: 'text', required: true },
   {
     key: 'vcd',
@@ -769,7 +799,12 @@ const AMBR_FIELDS: ReadonlyArray<DesignDatasetField> = [
     logicalType: 'decimal',
     unit: 'g/L',
   },
-  { key: 'osmolality', label: 'Osmolality', logicalType: 'decimal', required: true },
+  {
+    key: 'osmolality',
+    label: 'Osmolality',
+    logicalType: 'decimal',
+    required: true,
+  },
   { key: 'ph_value', label: 'pH', logicalType: 'decimal', required: true },
   { key: 'dissolved_oxygen', label: 'DO', logicalType: 'decimal', unit: '%' },
 ]
@@ -778,7 +813,12 @@ const ELISA_FIELDS: ReadonlyArray<DesignDatasetField> = [
   { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
   { key: 'plate', label: 'Plate', logicalType: 'text', required: true },
   { key: 'well', label: 'Well', logicalType: 'text', required: true },
-  { key: 'dilution', label: 'Dilution', logicalType: 'integer', required: true },
+  {
+    key: 'dilution',
+    label: 'Dilution',
+    logicalType: 'integer',
+    required: true,
+  },
   {
     key: 'capsid_titre',
     label: 'Capsid titre',
@@ -880,16 +920,23 @@ function ambrRows(): Array<Record<string, unknown>> {
           ? `08:${50 + vesselIndex * 2}`
           : `09:0${6 + vesselIndex * 2}`
         : `08:${String(40 + minute).padStart(2, '0')}`
-      const [vcd, viability, glucose, lactate, osmolality, ph, dissolvedOxygen] =
-        exact ?? [
-          Number((2.6 + day * 0.62 + vesselIndex * 0.15).toFixed(1)),
-          Number((96.6 - day * 0.07 - vesselIndex * 0.1).toFixed(1)),
-          Number((4.1 - day * 0.09).toFixed(1)),
-          Number((0.7 + day * 0.045).toFixed(1)),
-          284 + day * 3 + vesselIndex,
-          Number((7.11 - day * 0.005 + vesselIndex * 0.005).toFixed(2)),
-          38 + ((day + vesselIndex) % 4),
-        ]
+      const [
+        vcd,
+        viability,
+        glucose,
+        lactate,
+        osmolality,
+        ph,
+        dissolvedOxygen,
+      ] = exact ?? [
+        Number((2.6 + day * 0.62 + vesselIndex * 0.15).toFixed(1)),
+        Number((96.6 - day * 0.07 - vesselIndex * 0.1).toFixed(1)),
+        Number((4.1 - day * 0.09).toFixed(1)),
+        Number((0.7 + day * 0.045).toFixed(1)),
+        284 + day * 3 + vesselIndex,
+        Number((7.11 - day * 0.005 + vesselIndex * 0.005).toFixed(2)),
+        38 + ((day + vesselIndex) % 4),
+      ]
       rows.push({
         vessel,
         day,
@@ -910,8 +957,18 @@ function ambrRows(): Array<Record<string, unknown>> {
 function elisaRows(): Array<Record<string, unknown>> {
   const plates = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8']
   const wells = [
-    'A1', 'A2', 'A3', 'A4', 'A5', 'A6',
-    'B1', 'B2', 'B3', 'B4', 'B5', 'B6',
+    'A1',
+    'A2',
+    'A3',
+    'A4',
+    'A5',
+    'A6',
+    'B1',
+    'B2',
+    'B3',
+    'B4',
+    'B5',
+    'B6',
   ]
   const rows: Array<Record<string, unknown>> = []
   plates.forEach((plate, plateIndex) => {
@@ -988,7 +1045,11 @@ async function withDesignClaims<T>(
   try {
     await client.query('SET ROLE authenticated')
     await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
-      JSON.stringify({ sub: actorId, workspace_id: workspaceId, role: 'authenticated' }),
+      JSON.stringify({
+        sub: actorId,
+        workspace_id: workspaceId,
+        role: 'authenticated',
+      }),
     ])
     return await fn(client)
   } finally {
@@ -1001,104 +1062,124 @@ async function seedDesignDatasets(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
   for (const dataset of DESIGN_DATASETS) {
-    await withDesignClaims(db, dataset.actorId, dataset.workspaceId, async (client) => {
-      const existing = await client.query('select id from api.datasets where id = $1', [
-        dataset.id,
-      ])
-      if ((existing.rowCount ?? 0) > 0) return
-
-      const definition = await client.query(
-        'select id from api.dataset_schema_definitions where workspace_id = $1 and key = $2',
-        [dataset.workspaceId, dataset.schemaKey],
-      )
-      let schemaVersionId: string
-      if ((definition.rowCount ?? 0) > 0) {
-        const version = await client.query(
-          'select id, lifecycle from api.dataset_schema_versions where schema_id = $1 order by version desc limit 1',
-          [definition.rows[0].id],
+    await withDesignClaims(
+      db,
+      dataset.actorId,
+      dataset.workspaceId,
+      async (client) => {
+        const existing = await client.query(
+          'select id from api.datasets where id = $1',
+          [dataset.id],
         )
-        if (!(version.rowCount ?? 0)) {
-          throw new Error(`schema version missing for ${dataset.schemaKey}`)
-        }
-        schemaVersionId = version.rows[0].id
-        if (version.rows[0].lifecycle !== 'active') {
-          await client.query('select api.replace_dataset_schema_version_fields($1,$2::jsonb)', [
-            schemaVersionId,
-            JSON.stringify(datasetFieldsWire(dataset)),
-          ])
+        if ((existing.rowCount ?? 0) > 0) return
+
+        const definition = await client.query(
+          'select id from api.dataset_schema_definitions where workspace_id = $1 and key = $2',
+          [dataset.workspaceId, dataset.schemaKey],
+        )
+        let schemaVersionId: string
+        if ((definition.rowCount ?? 0) > 0) {
+          const version = await client.query(
+            'select id, lifecycle from api.dataset_schema_versions where schema_id = $1 order by version desc limit 1',
+            [definition.rows[0].id],
+          )
+          if (!(version.rowCount ?? 0)) {
+            throw new Error(`schema version missing for ${dataset.schemaKey}`)
+          }
+          schemaVersionId = version.rows[0].id
+          if (version.rows[0].lifecycle !== 'active') {
+            await client.query(
+              'select api.replace_dataset_schema_version_fields($1,$2::jsonb)',
+              [schemaVersionId, JSON.stringify(datasetFieldsWire(dataset))],
+            )
+            await client.query(
+              'select api.publish_dataset_schema_version($1)',
+              [schemaVersionId],
+            )
+          }
+        } else {
+          const created = await client.query(
+            'select api.create_dataset_schema_definition($1,$2,$3,$4,$5::jsonb) as result',
+            [
+              dataset.workspaceId,
+              dataset.schemaKey,
+              dataset.schemaName,
+              dataset.description,
+              JSON.stringify(datasetFieldsWire(dataset)),
+            ],
+          )
+          schemaVersionId = created.rows[0].result.schema_version_id
           await client.query('select api.publish_dataset_schema_version($1)', [
             schemaVersionId,
           ])
         }
-      } else {
-        const created = await client.query(
-          'select api.create_dataset_schema_definition($1,$2,$3,$4,$5::jsonb) as result',
-          [
-            dataset.workspaceId,
-            dataset.schemaKey,
-            dataset.schemaName,
-            dataset.description,
-            JSON.stringify(datasetFieldsWire(dataset)),
-          ],
-        )
-        schemaVersionId = created.rows[0].result.schema_version_id
-        await client.query('select api.publish_dataset_schema_version($1)', [
-          schemaVersionId,
-        ])
-      }
 
-      await client.query(
-        `insert into api.datasets
+        await client.query(
+          `insert into api.datasets
            (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id)
          values ($1,$2,$3,$4,$5,$6,$7)`,
-        [
-          dataset.id,
-          dataset.workspaceId,
-          schemaVersionId,
-          dataset.name,
-          dataset.description,
-          dataset.projectId,
-          dataset.actorId,
-        ],
-      )
+          [
+            dataset.id,
+            dataset.workspaceId,
+            schemaVersionId,
+            dataset.name,
+            dataset.description,
+            dataset.projectId,
+            dataset.actorId,
+          ],
+        )
 
-      const fields = await client.query(
-        'select field_id, key from api.dataset_schema_version_fields where schema_version_id = $1',
-        [schemaVersionId],
-      )
-      const fieldIdByKey = new Map<string, string>(
-        fields.rows.map((row: { field_id: string; key: string }) => [row.key, row.field_id]),
-      )
+        const fields = await client.query(
+          'select field_id, key from api.dataset_schema_version_fields where schema_version_id = $1',
+          [schemaVersionId],
+        )
+        const fieldIdByKey = new Map<string, string>(
+          fields.rows.map((row: { field_id: string; key: string }) => [
+            row.key,
+            row.field_id,
+          ]),
+        )
 
-      const rows = dataset.rows().map((row) => ({
-        rowId: randomUUID(),
-        operation: 'create',
-        values: Object.fromEntries(
-          Object.entries(row).map(([key, value]) => [fieldIdByKey.get(key), value]),
-        ),
-      }))
-      if (rows.length > 0) {
-        const revision = await client.query('select revision from api.datasets where id = $1', [
-          dataset.id,
-        ])
-        await client.query('select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4)', [
-          dataset.id,
-          revision.rows[0].revision,
-          JSON.stringify(rows),
-          `design-${dataset.schemaKey}`,
-        ])
-      }
+        const rows = dataset.rows().map((row) => ({
+          rowId: randomUUID(),
+          operation: 'create',
+          values: Object.fromEntries(
+            Object.entries(row).map(([key, value]) => [
+              fieldIdByKey.get(key),
+              value,
+            ]),
+          ),
+        }))
+        if (rows.length > 0) {
+          const revision = await client.query(
+            'select revision from api.datasets where id = $1',
+            [dataset.id],
+          )
+          await client.query(
+            'select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4)',
+            [
+              dataset.id,
+              revision.rows[0].revision,
+              JSON.stringify(rows),
+              `design-${dataset.schemaKey}`,
+            ],
+          )
+        }
 
-      const snapshotRevision = (
-        await client.query('select revision from api.datasets where id = $1', [dataset.id])
-      ).rows[0].revision
-      for (const label of dataset.snapshotLabels) {
-        await client.query('select api.snapshot_dataset($1,$2,$3)', [
-          dataset.id,
-          snapshotRevision,
-          label,
-        ])
-      }
-    })
+        const snapshotRevision = (
+          await client.query(
+            'select revision from api.datasets where id = $1',
+            [dataset.id],
+          )
+        ).rows[0].revision
+        for (const label of dataset.snapshotLabels) {
+          await client.query('select api.snapshot_dataset($1,$2,$3)', [
+            dataset.id,
+            snapshotRevision,
+            label,
+          ])
+        }
+      },
+    )
   }
 }

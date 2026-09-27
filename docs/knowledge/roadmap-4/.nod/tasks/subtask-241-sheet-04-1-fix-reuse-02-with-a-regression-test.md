@@ -18,3 +18,4 @@ Step 1 of 4 in [SHEET-04](../../tasks/SHEET.md#sheet-04--templates); the full st
 
 ## Work Log
 - 2026-09-27: Started: make declared scalar defaults render from derived state; add late-transition regression test.
+- 2026-09-27: PR #190: derive declared defaults for the open dialog; regression test for the late selected-version transition. CI blocked by account billing; local validate equivalent green.

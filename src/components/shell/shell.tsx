@@ -55,6 +55,7 @@ import { ShortcutProvider } from '../shortcuts/shortcut-provider'
 import { ShortcutsDialog } from '../shortcuts/shortcuts-dialog'
 import { PageHeader } from './page-header'
 import { createDataClient } from '#/lib/data-client'
+import { listRecentPipelineRuns } from '#/lib/pipelines/data'
 import { setActiveWorkspace } from '#/lib/user-preferences'
 import { TopBarActions } from './top-bar'
 import { ShellInspector, ShellInspectorSheet } from './inspector'
@@ -474,6 +475,41 @@ export function AppShell({
     [router],
   )
 
+  // SHELL-01.2: the Pipelines nav shows the count of recently failed runs.
+  const [failedRunCount, setFailedRunCount] = React.useState(0)
+  React.useEffect(() => {
+    if (!context) {
+      setFailedRunCount(0)
+      return
+    }
+    let cancelled = false
+    void listRecentPipelineRuns(createDataClient(), 50)
+      .then((runs) => {
+        if (!cancelled)
+          setFailedRunCount(
+            runs.filter((run) => run.status === 'failed').length,
+          )
+      })
+      .catch(() => {
+        if (!cancelled) setFailedRunCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [context])
+  const navSectionsWithBadges = React.useMemo(
+    () =>
+      navSections.map((section) => ({
+        ...section,
+        items: section.items.map((item) =>
+          item.to === '/pipelines' && failedRunCount > 0
+            ? { ...item, badge: failedRunCount }
+            : item,
+        ),
+      })),
+    [navSections, failedRunCount],
+  )
+
   const renderSidebarBody = (sidebarCollapsed: boolean) =>
     context ? (
       <div className="flex h-full flex-col">
@@ -580,7 +616,7 @@ export function AppShell({
             sidebarCollapsed && 'px-2',
           )}
         >
-          {navSections.map((section) => (
+          {navSectionsWithBadges.map((section) => (
             <div key={section.label ?? 'section'} className="mb-2">
               {section.label && !sidebarCollapsed && (
                 <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -815,7 +851,7 @@ export function AppShell({
             <CommandPalette
               open={commandOpen}
               onOpenChange={setCommandOpen}
-              navSections={navSections}
+              navSections={navSectionsWithBadges}
               onNavigate={() => setMobileOpen(false)}
               theme={theme}
               setTheme={setTheme}

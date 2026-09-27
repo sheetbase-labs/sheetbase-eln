@@ -24,3 +24,4 @@ Spec: [DEC-12 in tasks/DEC.md](../../tasks/DEC.md#dec-12--component-package-dist
 
 ## Work Log
 - 2026-09-27: DEC-12 decided by the product owner 2026-09-27: private, no public publish; consume locally until a private registry is needed; GitHub Packages deferred to COMP-05.
+- 2026-09-27: PR #194: DEC-12 private packages recorded.

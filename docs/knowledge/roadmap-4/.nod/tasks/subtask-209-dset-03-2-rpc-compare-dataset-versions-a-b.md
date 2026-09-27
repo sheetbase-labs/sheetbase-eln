@@ -2,7 +2,7 @@
 id: subtask-209
 title: DSET-03.2 — RPC compare_dataset_versions(a, b) returning added, changed
 type: subtask
-status: todo
+status: done
 priority: medium
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -17,3 +17,4 @@ tags:
 Step 2 of 3 in [DSET-03](../../tasks/DSET.md#dset-03--snapshots-and-comparison); the full step text is under “Steps” there.
 
 ## Work Log
+- 2026-09-27: PR #206: api.compare_dataset_versions (added/changed/removed rows, per-field changes incl. flag-only, column changes, paginated) + internal.dataset_version_row_values; tests/db/dataset-version-compare.test.ts.

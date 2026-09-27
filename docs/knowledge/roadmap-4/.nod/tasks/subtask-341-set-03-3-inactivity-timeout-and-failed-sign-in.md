@@ -2,7 +2,7 @@
 id: subtask-341
 title: SET-03.3 — Inactivity timeout and failed sign-in lockout
 type: subtask
-status: todo
+status: backlog
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -17,3 +17,4 @@ tags:
 Step 3 of 3 in [SET-03](../../tasks/SET.md#set-03--profile-sessions-and-sign-in-security); the full step text is under “Steps” there.
 
 ## Work Log
+- 2026-09-27: Blocked on a decision: DEC-04 (ADR-0045) specifies sign-re-authentication lockout (3 failed password attempts lock signing for 15 min with an audit entry), not sign-in lockout. The step's 'failed sign-in lockout' needs a separate decision before implementation; deferring rather than inventing a policy.

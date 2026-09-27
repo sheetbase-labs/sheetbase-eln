@@ -290,7 +290,9 @@ function mount(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  render(
+  const panel = (
+    panelProps: Partial<ComponentProps<typeof VersionedNotebookTemplatePanel>>,
+  ) => (
     <QueryClientProvider client={queryClient}>
       <VersionedNotebookTemplatePanel
         workspaceId="99999999-9999-4999-8999-999999999999"
@@ -302,10 +304,17 @@ function mount(
             title: 'Project one',
           },
         ]}
-        {...props}
+        {...panelProps}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
+  const view = render(panel(props))
+  return {
+    ...view,
+    rerenderWith: (
+      nextProps: Partial<ComponentProps<typeof VersionedNotebookTemplatePanel>>,
+    ) => view.rerender(panel(nextProps)),
+  }
 }
 
 describe('VersionedNotebookTemplatePanel', () => {
@@ -583,27 +592,42 @@ describe('REUSE-01 VersionedNotebookTemplatePanel — facets and requirement pre
 })
 
 describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => {
-  it(
-    'pre-fills declared defaults visibly on open',
-    // Worker-starvation flake (#165): under parallel CI workers the
-    // post-click render can be starved past even a 15s findBy budget —
-    // observed failing on main and on PR #176 with the dialog open and no
-    // element found. No product code is implicated, so the test retries
-    // with a fresh mount rather than growing the timeout again.
-    { timeout: 30000, retry: 2 },
-    async () => {
-      const user = userEvent.setup()
-      mount()
-      await screen.findByText('Alpha template')
-      await user.click(
-        screen.getAllByRole('button', { name: 'Create notebook' })[0],
-      )
-      expect(
-        await screen.findByDisplayValue('5', undefined, { timeout: 15000 }),
-      ).toBeTruthy()
-      expect(screen.getByPlaceholderText('Default: 5')).toBeTruthy()
-    },
-  )
+  it('pre-fills declared defaults visibly on open', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(
+      screen.getAllByRole('button', { name: 'Create notebook' })[0],
+    )
+    expect(await screen.findByDisplayValue('5')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Default: 5')).toBeTruthy()
+  })
+
+  // Regression: the default pre-fill used to be seeded from the "Create
+  // notebook" handler, so a selectedVersion transition that landed after the
+  // dialog opened reset the draft state and the declared default vanished.
+  // The default is now derived for the open dialog, so it survives that
+  // transition. See the REUSE-02 baseline failure in docs/knowledge/NEXT.md.
+  it('keeps declared defaults visible when the selected version changes while the dialog is open', async () => {
+    const user = userEvent.setup()
+    const { rerenderWith } = mount({
+      selectedTemplateId: '11111111-1111-4111-8111-111111111111',
+    })
+    await screen.findByText('Alpha template')
+    await user.click(
+      screen.getAllByRole('button', { name: 'Create notebook' })[0],
+    )
+    expect(await screen.findByDisplayValue('5')).toBeTruthy()
+
+    // Simulate the shared versions query settling after the dialog opened:
+    // the panel's selected version moves, but the open dialog must not lose
+    // the visible default.
+    rerenderWith({
+      selectedTemplateId: '22222222-2222-4222-8222-222222222222',
+    })
+    expect(screen.getByDisplayValue('5')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Default: 5')).toBeTruthy()
+  })
 
   it('names missing required parameters and blocks creation fail-closed', async () => {
     const user = userEvent.setup()

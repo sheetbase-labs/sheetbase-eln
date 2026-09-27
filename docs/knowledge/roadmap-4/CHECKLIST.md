@@ -289,7 +289,7 @@ Specification: [tasks/SHEET.md](tasks/SHEET.md) · nod `epic-226`
   - [ ] SHEET-03.1 New target kinds sheet_cell, sheet_row, sheet_range anchored to stable row… `subtask-238`
   - [ ] SHEET-03.2 Grid markers via the table annotations API; inspector thread `subtask-239`
 - [ ] **SHEET-04** Templates `task-240`
-  - [ ] SHEET-04.1 Fix REUSE-02 with a regression test `subtask-241`
+  - [ ] SHEET-04.1 Fix REUSE-02 with a regression test — **in progress** `subtask-241`
   - [ ] SHEET-04.2 Templates list (TemplatesList) across notebook, sheet and record kinds `subtask-242`
   - [ ] SHEET-04.3 Template editor (TemplateEditor) `subtask-243`
   - [ ] SHEET-04.4 Per-notebook update view (TemplateUpdate) on the existing upgrade APIs `subtask-244`

@@ -244,6 +244,20 @@ export function VersionedNotebookTemplatePanel({
     (versions.data ?? []).find((version) => version.id === createVersionId) ??
     null
 
+  // REUSE-02: declared scalar defaults are shown on open and are what gets
+  // instantiated unless overridden. Deriving them here (rather than seeding
+  // state in the "Create notebook" handler) keeps the display independent of
+  // effect ordering: a late selectedVersion transition used to reset the draft
+  // state and wipe the pre-fill. An explicit empty-string draft still
+  // overrides, so clearing a field behaves as before.
+  const resolvedParameterValues = useMemo(() => {
+    if (!instantiateVersion) return parameterValues
+    return {
+      ...defaultParameterDrafts(instantiateVersion.configuration.parameters),
+      ...parameterValues,
+    }
+  }, [instantiateVersion, parameterValues])
+
   // REUSE-02: client-side fail-closed gate mirroring the server contract —
   // a required parameter counts as resolved when it carries a visible draft
   // value or a declared scalar default (pre-filled on open, overridable).
@@ -251,7 +265,8 @@ export function VersionedNotebookTemplatePanel({
     if (!instantiateVersion) return []
     return instantiateVersion.configuration.parameters.filter((parameter) => {
       if (!parameter.required) return false
-      if ((parameterValues[parameter.id] ?? '').trim().length > 0) return false
+      if ((resolvedParameterValues[parameter.id] ?? '').trim().length > 0)
+        return false
       if (
         parameter.type.kind === 'scalar' &&
         parameter.defaultValue !== undefined
@@ -259,7 +274,7 @@ export function VersionedNotebookTemplatePanel({
         return false
       return true
     })
-  }, [instantiateVersion, parameterValues])
+  }, [instantiateVersion, resolvedParameterValues])
 
   useEffect(() => {
     const firstTemplateId = visibleTemplates[0]?.id ?? null
@@ -294,10 +309,8 @@ export function VersionedNotebookTemplatePanel({
 
   useEffect(() => {
     if (!selectedVersion) return
-    // The instantiate dialog owns the parameter drafts while open: the
-    // shared versions query routinely resolves after "Create notebook" is
-    // clicked, and resetting on that late selectedVersion transition would
-    // wipe the REUSE-02 default pre-fill (flake #165).
+    // The instantiate dialog owns the parameter drafts while open: changing
+    // the selected version must not discard edits the user is making in it.
     if (createOpen) return
     setBuilderConfigurationText(
       JSON.stringify(selectedVersion.configuration, null, 2),
@@ -408,7 +421,7 @@ export function VersionedNotebookTemplatePanel({
         throw new Error('Template version is no longer available.')
       const parameterInputs = buildParameterInputs(
         sourceVersion.configuration.parameters,
-        parameterValues,
+        resolvedParameterValues,
       )
       return instantiateNotebookTemplateVersion({
         versionId: createVersionId ?? '',
@@ -654,13 +667,8 @@ export function VersionedNotebookTemplatePanel({
                             setCreateVersionId(published.id)
                             setCreateTitle(template.name)
                             setCreateProjectId(projects[0]?.id ?? '')
-                            // REUSE-02: pre-fill declared defaults visibly so
-                            // what the user sees is what gets instantiated.
-                            setParameterValues(
-                              defaultParameterDrafts(
-                                published.configuration.parameters,
-                              ),
-                            )
+                            // REUSE-02: declared defaults are derived for the
+                            // open dialog, so there is nothing to seed here.
                             setCreateOpen(true)
                           }}
                         >
@@ -1254,7 +1262,7 @@ export function VersionedNotebookTemplatePanel({
               client={notebookTemplateDataClient}
               workspaceId={workspaceId}
               parameters={instantiateVersion.configuration.parameters}
-              values={parameterValues}
+              values={resolvedParameterValues}
               onChange={(parameterId, value) =>
                 setParameterValues((current) => ({
                   ...current,

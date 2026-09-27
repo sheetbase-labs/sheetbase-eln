@@ -2,7 +2,7 @@
 id: task-3
 title: DEC-02 — Sheet grid and formula authority
 type: task
-status: todo
+status: in-progress
 priority: critical
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -23,3 +23,4 @@ Spec: [DEC-02 in tasks/DEC.md](../../tasks/DEC.md#dec-02--sheet-grid-and-formula
 - Steps: 0 subtasks
 
 ## Work Log
+- 2026-09-27: ADR-0048 compatibility spike done: 146-formula run over both engines; 18 required functions absent; recommends option (a); owner choice pending.

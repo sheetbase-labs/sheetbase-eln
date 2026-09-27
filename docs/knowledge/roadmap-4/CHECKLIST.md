@@ -11,7 +11,7 @@ Each task links to its specification in [`tasks/`](tasks/README.md); the code in
 Specification: [tasks/DEC.md](tasks/DEC.md) · nod `epic-1`
 
 - [ ] **DEC-01** Adopt UI system v3 `task-2`
-- [ ] **DEC-02** Sheet grid and formula authority `task-3`
+- [ ] **DEC-02** Sheet grid and formula authority — **in progress** `task-3`
 - [ ] **DEC-03** Routes outside the design `task-4`
 - [ ] **DEC-04** Regulated signing and tamper-evident audit `task-5`
 - [ ] **DEC-05** Client users `task-6`

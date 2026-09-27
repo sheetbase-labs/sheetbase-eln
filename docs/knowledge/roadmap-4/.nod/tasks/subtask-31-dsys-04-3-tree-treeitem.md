@@ -2,7 +2,7 @@
 id: subtask-31
 title: DSYS-04.3 — Tree/TreeItem
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

@@ -115,7 +115,7 @@ is automatic and audited as System.
 
 ## LAB-03 — Sample record pages
 
-**Status:** proposed.
+**Status:** proposed. **DEC-03:** absorbs the `/lineage` provenance explorer into the Lineage tab and evidence pages; the standalone route retires.
 
 ### Design
 
@@ -159,7 +159,7 @@ link to their row; the seeded SMP-2231 matches the design.
 
 ## LAB-04 — Materials and lots
 
-**Status:** proposed; after [DEC-07](DEC.md), which decides whether materials are built-in or a workspace-defined model.
+**Status:** proposed; after [DEC-07](DEC.md), which decides whether materials are built-in or a workspace-defined model. **DEC-03:** absorbs `/storage` locations; the standalone route retires.
 
 ### Design
 
@@ -239,7 +239,7 @@ recorded in the sample's History.
 
 ## LAB-06 — Instruments: identity, calibration and qualification
 
-**Status:** proposed.
+**Status:** proposed. **DEC-03:** absorbs `/instrument-monitor`; the standalone route retires.
 
 ### Design
 

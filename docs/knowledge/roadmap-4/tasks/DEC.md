@@ -44,7 +44,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-03 — Routes outside the design
 
-**Status:** proposed. Owner decision recorded in [SHELL-04](SHELL.md).
+**Status:** accepted 2026-09-27; decisions recorded in [SHELL-04](SHELL.md#shell-04--decide-the-fate-of-surfaces-outside-the-design).
 **Unblocks:** SHELL-01.
 
 **How:** For each route listed in SHELL-04, record usage (who needs it, which roadmap task created it), then choose keep (and commission v3 screens for it), fold or retire; write the decisions into SHELL-04.

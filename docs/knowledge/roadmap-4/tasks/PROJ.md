@@ -76,7 +76,7 @@ state; archived projects are read-only and excluded unless asked for.
 
 ## PROJ-02 — Milestones
 
-**Status:** proposed.
+**Status:** proposed. **DEC-03:** absorbs `/planner` study tasks; the standalone route retires.
 
 ### Design
 

@@ -24,7 +24,7 @@ needs judgement.
 
 ## PIPE-01 — Pipeline screens
 
-**Status:** proposed.
+**Status:** proposed. **DEC-03:** absorbs the `/agent-operations` agent surface; the standalone route retires.
 
 ### Design
 

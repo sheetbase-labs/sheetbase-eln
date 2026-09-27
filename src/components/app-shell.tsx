@@ -29,7 +29,6 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
-  PanelRight,
   PlugZap,
   Search,
   Settings,
@@ -60,6 +59,7 @@ import { ShortcutProvider } from './shortcuts/shortcut-provider'
 import { ShortcutsDialog } from './shortcuts/shortcuts-dialog'
 import { ShellBreadcrumbs } from './shell/page-header'
 import { TopBarActions } from './shell/top-bar'
+import { ShellInspector, ShellInspectorSheet } from './shell/inspector'
 import {
   ShellContent,
   APP_SHELL_MAIN_ID,
@@ -748,56 +748,28 @@ export function AppShell({
                 </div>
               </main>
 
-              {context && inspector && (
-                <aside
-                  aria-label={inspectorLabel}
-                  data-slot="inspector"
-                  className={cn(
-                    'hidden shrink-0 border-l border-sidebar-border bg-background xl:block',
-                    inspectorCollapsible && inspectorCollapsed
-                      ? 'w-10'
-                      : 'w-inspector',
-                  )}
-                  data-inspector-collapsed={
-                    inspectorCollapsible && inspectorCollapsed
-                      ? 'true'
-                      : 'false'
-                  }
+              {context && inspector ? (
+                <ShellInspector
+                  label={inspectorLabel}
+                  collapsible={inspectorCollapsible}
+                  collapsed={inspectorCollapsed}
+                  onToggle={toggleInspectorCollapsed}
                 >
-                  {inspectorCollapsible && inspectorCollapsed ? (
-                    <div className="flex h-full flex-col items-center pt-3">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Show inspector"
-                        aria-expanded={false}
-                        onClick={toggleInspectorCollapsed}
-                      >
-                        <PanelRight className="size-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="sticky top-topbar h-[calc(100svh-var(--topbar-height))]">
-                      {inspector}
-                    </div>
-                  )}
-                </aside>
-              )}
+                  {inspector}
+                </ShellInspector>
+              ) : null}
             </div>
           </div>
 
-          {context && inspector && (
-            <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-              <SheetContent
-                side="right"
-                className="w-inspector border-l p-0 xl:hidden"
-                showClose={false}
-              >
-                <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
-                <div className="h-full">{inspector}</div>
-              </SheetContent>
-            </Sheet>
-          )}
+          {context && inspector ? (
+            <ShellInspectorSheet
+              open={inspectorOpen}
+              onOpenChange={setInspectorOpen}
+              label={inspectorLabel}
+            >
+              {inspector}
+            </ShellInspectorSheet>
+          ) : null}
 
           {context && (
             <CommandPalette

@@ -75,7 +75,7 @@ import { cn } from '#/lib/utils'
 
 /**
  * UI-001 visual review page. Shows the reconciled design tokens — colour,
- * typography, spacing, radius, focus rings — and the theme/density toggles
+ * typography, spacing, radius, focus rings — and the theme toggle
  * so a reviewer can compare production against DESIGN.md, the brand guide
  * mockup and the concept system without running Storybook.
  *
@@ -98,7 +98,7 @@ export const Route = createFileRoute('/foundations')({
 })
 
 function FoundationsPage() {
-  const { theme, setTheme, density, setDensity } = useTheme()
+  const { theme, setTheme } = useTheme()
   return (
     <div className="min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-6 py-10">
@@ -136,26 +136,6 @@ function FoundationsPage() {
                 label="Dark"
               >
                 <Moon className="size-3.5" /> Dark
-              </ToggleButton>
-            </div>
-            <div
-              role="group"
-              aria-label="Density"
-              className="flex items-center rounded-md border bg-card p-0.5"
-            >
-              <ToggleButton
-                active={density === 'comfortable'}
-                onClick={() => setDensity('comfortable')}
-                label="Comfortable"
-              >
-                Comfortable
-              </ToggleButton>
-              <ToggleButton
-                active={density === 'compact'}
-                onClick={() => setDensity('compact')}
-                label="Compact"
-              >
-                Compact
               </ToggleButton>
             </div>
           </div>
@@ -390,7 +370,7 @@ function FoundationsPage() {
         <Section
           id="shell"
           title="Application shell"
-          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/density/sign-out. The live shell wraps /projects; this is a framed taster, not a full re-render."
+          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/sign-out. The live shell wraps /projects; this is a framed taster, not a full re-render."
         >
           <AppShellPreview />
         </Section>
@@ -422,7 +402,7 @@ function FoundationsPage() {
         <footer className="mt-12 border-t pt-6 text-xs text-muted-foreground">
           Compare with <code>docs/knowledge/DESIGN.md</code>, the historical
           mockups and <code>docs/knowledge/design/ui-system-v2.md</code>. Toggle
-          theme and density in the header; preferences persist to localStorage.
+          theme in the header; preferences persist to localStorage.
         </footer>
       </div>
     </div>
@@ -1352,7 +1332,7 @@ function AppShellPreview() {
               The live shell wraps{' '}
               <code className="text-foreground">/projects</code> with a
               fixed/collapsible sidebar, mobile Sheet navigation, command
-              palette, theme/density/sign-out and an optional inspector pane.
+              palette, theme/sign-out and an optional inspector pane.
             </p>
           </div>
         </div>

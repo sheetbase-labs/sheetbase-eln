@@ -2,7 +2,7 @@
 id: subtask-45
 title: COMP-01.2 — Replace literals in the table CSS, one file per commit
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

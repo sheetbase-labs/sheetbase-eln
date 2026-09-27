@@ -2,7 +2,7 @@
 id: task-43
 title: COMP-01 — v3 theme contract (components repo)
 type: task
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -25,3 +25,4 @@ Spec: [COMP-01 in tasks/COMP.md](../../tasks/COMP.md#comp-01--v3-theme-contract-
 - Steps: 4 subtasks
 
 ## Work Log
+- 2026-09-27: COMP-01 complete in sheetbase-components (roadmap-4/comp): theme.css variables, v3.css preset, table/explorer literals replaced, check-colour-literals wired into lint.

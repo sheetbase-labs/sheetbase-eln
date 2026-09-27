@@ -2,7 +2,7 @@
 id: subtask-44
 title: COMP-01.1 — Extend theme.css with the full variable set
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

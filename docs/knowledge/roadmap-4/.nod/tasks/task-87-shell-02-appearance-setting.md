@@ -2,7 +2,7 @@
 id: task-87
 title: SHELL-02 — Appearance setting
 type: task
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -25,3 +25,4 @@ Spec: [SHELL-02 in tasks/SHELL.md](../../tasks/SHELL.md#shell-02--appearance-set
 - Steps: 3 subtasks
 
 ## Work Log
+- 2026-09-27: SHELL-02 complete: user_preferences table/RPC, ThemeProvider reads the server value and writes on change, appearance options in the account menu. Profile control lands with SET-03.

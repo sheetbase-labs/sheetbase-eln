@@ -2,7 +2,7 @@
 id: subtask-90
 title: SHELL-02.3 — Segmented control in the account menu and Profile (SET-03)
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

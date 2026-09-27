@@ -101,6 +101,16 @@ describe('user preferences', () => {
     })
   })
 
+  it('updates appearance without clobbering navigation state', async () => {
+    const a = await asUser(A)
+    await a.query(`SELECT api.set_user_preference('light', true)`)
+    await a.query(`SELECT api.set_user_appearance('dark')`)
+    const { rows } = await a.query(
+      `SELECT appearance, nav_collapsed FROM api.user_preferences`,
+    )
+    expect(rows[0]).toMatchObject({ appearance: 'dark', nav_collapsed: true })
+  })
+
   it('denies a direct insert', async () => {
     const a = await asUser(A)
     await expect(

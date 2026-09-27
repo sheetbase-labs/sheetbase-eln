@@ -28,7 +28,7 @@ export async function fetchUserPreferences(
     nav_collapsed: boolean
   }>('user_preferences', '?limit=1&select=appearance,nav_collapsed')
   const row = rows[0]
-  if (!row) return null
+  if (rows.length === 0) return null
   return {
     appearance: toAppearance(row.appearance),
     navCollapsed: row.nav_collapsed,
@@ -43,4 +43,12 @@ export async function setUserPreference(
     p_appearance: preferences.appearance,
     p_nav_collapsed: preferences.navCollapsed,
   })
+}
+
+/** Update only the appearance, leaving the navigation state untouched. */
+export async function setUserAppearance(
+  client: DataClient,
+  appearance: Appearance,
+): Promise<void> {
+  await client.rpc('set_user_appearance', { p_appearance: appearance })
 }

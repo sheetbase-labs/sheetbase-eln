@@ -13,13 +13,13 @@ function Probe() {
 }
 
 describe('ThemeProvider', () => {
-  it('provides a default light theme', () => {
+  it('provides a default system theme', () => {
     render(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     )
-    expect(screen.getByTestId('theme').textContent).toBe('light')
+    expect(screen.getByTestId('theme').textContent).toBe('system')
   })
 
   it('throws when useTheme is used without a provider', () => {

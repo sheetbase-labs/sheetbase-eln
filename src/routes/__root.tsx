@@ -104,17 +104,19 @@ function RootRouteComponent() {
     : null
 
   return (
-    <LiveEventProvider>
-      <CollaborationEnabledContext.Provider
-        value={auth?.collaborationEnabled ?? false}
-      >
-        <CollaborationProvider>
-          <ShellProvider initialContext={shellContext}>
-            <Outlet />
-          </ShellProvider>
-        </CollaborationProvider>
-      </CollaborationEnabledContext.Provider>
-    </LiveEventProvider>
+    <ThemeProvider authenticated={Boolean(auth)}>
+      <LiveEventProvider>
+        <CollaborationEnabledContext.Provider
+          value={auth?.collaborationEnabled ?? false}
+        >
+          <CollaborationProvider>
+            <ShellProvider initialContext={shellContext}>
+              <Outlet />
+            </ShellProvider>
+          </CollaborationProvider>
+        </CollaborationEnabledContext.Provider>
+      </LiveEventProvider>
+    </ThemeProvider>
   )
 }
 
@@ -134,7 +136,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeNoFlash }} />
       </head>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        {children}
         {import.meta.env.DEV ? (
           <TanStackDevtools
             config={{ position: 'bottom-right' }}

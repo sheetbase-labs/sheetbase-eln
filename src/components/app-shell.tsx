@@ -77,6 +77,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Sheet,
@@ -749,16 +751,22 @@ export function AppShell({
                   <Settings className="mr-2 size-4" /> Settings
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={theme}
+                onValueChange={(value) =>
+                  setTheme(value as 'system' | 'light' | 'dark')
+                }
               >
-                {theme === 'dark' ? (
-                  <Sun className="mr-2 size-4" />
-                ) : (
-                  <Moon className="mr-2 size-4" />
-                )}
-                Toggle colour mode
-              </DropdownMenuItem>
+                <DropdownMenuRadioItem value="system">
+                  System
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="light">
+                  Light
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={signOut}>
                 <LogOut className="mr-2 size-4" /> Sign out

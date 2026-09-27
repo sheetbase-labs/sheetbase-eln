@@ -2,7 +2,7 @@
 id: subtask-25
 title: DSYS-03.5 — Banner and Notice
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

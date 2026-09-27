@@ -59,6 +59,7 @@ import { ShortcutsDialog } from '../shortcuts/shortcuts-dialog'
 import { PageHeader } from './page-header'
 import { createDataClient } from '#/lib/data-client'
 import { listRecentPipelineRuns } from '#/lib/pipelines/data'
+import { fetchWorkItems } from '#/lib/work-items/data'
 import { setActiveWorkspace } from '#/lib/user-preferences'
 import { TopBarActions } from './top-bar'
 import { ShellInspector, ShellInspectorSheet } from './inspector'
@@ -671,17 +672,43 @@ export function AppShell({
       cancelled = true
     }
   }, [context])
+  // SHELL-01.2: the Inbox nav shows the caller's open work-item count.
+  const [inboxCount, setInboxCount] = React.useState(0)
+  React.useEffect(() => {
+    if (!context) {
+      setInboxCount(0)
+      return
+    }
+    let cancelled = false
+    void fetchWorkItems(notebookDataClient)
+      .then((items) => {
+        if (!cancelled)
+          setInboxCount(
+            items.filter(
+              (item) => item.state !== 'following' && item.kind !== 'following',
+            ).length,
+          )
+      })
+      .catch(() => {
+        if (!cancelled) setInboxCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [context])
   const navSectionsWithBadges = React.useMemo(
     () =>
       navSections.map((section) => ({
         ...section,
-        items: section.items.map((item) =>
-          item.to === '/pipelines' && failedRunCount > 0
-            ? { ...item, badge: failedRunCount }
-            : item,
-        ),
+        items: section.items.map((item) => {
+          if (item.to === '/pipelines' && failedRunCount > 0)
+            return { ...item, badge: failedRunCount }
+          if (item.to === '/inbox' && inboxCount > 0)
+            return { ...item, badge: inboxCount }
+          return item
+        }),
       })),
-    [navSections, failedRunCount],
+    [navSections, failedRunCount, inboxCount],
   )
 
   const renderSidebarBody = (sidebarCollapsed: boolean) =>

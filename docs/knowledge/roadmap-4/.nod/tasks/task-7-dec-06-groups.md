@@ -2,7 +2,7 @@
 id: task-7
 title: DEC-06 — Groups
 type: task
-status: todo
+status: done
 priority: critical
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -23,3 +23,4 @@ Spec: [DEC-06 in tasks/DEC.md](../../tasks/DEC.md#dec-06--groups)
 - Steps: 0 subtasks
 
 ## Work Log
+- 2026-09-27: DEC-06 decided by the product owner 2026-09-27: ADR-0050 accepted — workspace-scoped groups granting only through per-project access rules; organisation teams stay deferred (ADR-0044).

@@ -65,7 +65,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-06 — Groups
 
-**Status:** proposed. Decide the group/team part of ADR-0044 needed for group-based project access and member groups.
+**Status:** accepted 2026-09-27 ([ADR-0050](../../decisions/0050-workspace-groups-and-project-access.md)): groups are workspace-scoped and grant only through explicit per-project access rules (Edit/Review/View/Client portal); not organisation teams (ADR-0044 stays deferred).
 **Unblocks:** SET-02, PROJ-03 group members.
 
 **How:** Decide whether groups are workspace-scoped lists of members referenced by project access rules, reconciled with ADR-0044 teams; record in ADR-0044 or a new ADR.

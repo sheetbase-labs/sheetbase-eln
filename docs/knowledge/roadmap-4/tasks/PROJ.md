@@ -117,7 +117,7 @@ them where configured; the design's project overview renders from real data.
 
 ## PROJ-03 — Members, roles and project settings
 
-**Status:** proposed; client rows depend on PORTAL.
+**Status:** proposed; client rows depend on PORTAL. **DEC-06:** project access is by workspace groups ([ADR-0050](../../decisions/0050-workspace-groups-and-project-access.md), accepted 2026-09-27); **DEC-05:** client-portal access is a fourth rule column.
 
 ### Design
 

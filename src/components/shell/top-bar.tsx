@@ -1,6 +1,13 @@
-import { PanelRight, Search } from 'lucide-react'
+import { PanelRight, Plus, Search } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -10,6 +17,35 @@ import { ConnectionStatus, useLiveStatus } from '#/components/live'
 import { cn } from '#/lib/utils'
 
 import { NotificationInbox } from '../collaboration/notification-inbox'
+
+/**
+ * The global New menu (SHELL-01.5). Items whose route does not exist yet
+ * (Import data, Scan a label) are hidden until their task lands, per the
+ * delivery rule that a control which does nothing is not shipped.
+ */
+function NewMenu() {
+  const items: ReadonlyArray<{ to: string; label: string }> = [
+    { to: '/templates', label: 'Experiment' },
+    { to: '/samples', label: 'Sample' },
+    { to: '/projects', label: 'Project' },
+  ]
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="primary" size="md" className="max-sm:hidden">
+          <Plus className="size-4" /> New
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {items.map((item) => (
+          <DropdownMenuItem key={item.to} asChild>
+            <Link to={item.to}>{item.label}</Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
@@ -71,6 +107,8 @@ export function TopBarActions({
         <Search />
       </Button>
 
+      <NewMenu />
+
       {primaryAction}
 
       {hasInspector ? (
@@ -92,12 +130,17 @@ export function TopBarActions({
               variant="ghost"
               size="icon-sm"
               className="hidden xl:inline-flex"
-              aria-label={inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+              aria-label={
+                inspectorCollapsed ? 'Show inspector' : 'Hide inspector'
+              }
               aria-expanded={!inspectorCollapsed}
               onClick={onToggleInspector}
             >
               <PanelRight
-                className={cn('size-4', !inspectorCollapsed && 'text-foreground')}
+                className={cn(
+                  'size-4',
+                  !inspectorCollapsed && 'text-foreground',
+                )}
               />
             </Button>
           </TooltipTrigger>

@@ -100,7 +100,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-11 — Snapshot retention periods
 
-**Status:** proposed. Owner decision on the periods the design states (15 years for snapshots cited by signed records; row removal for uncited snapshots two years after archive) and who may keep a snapshot.
+**Status:** accepted 2026-09-27. Owner decision: the design's periods stand — snapshots cited by a signed record kept 15 years from signing (QA to confirm the period); uncited snapshot rows removed 2 years after the dataset is archived, keeping ID, hash and history; "Keep" requires a capability and a reason.
 **Unblocks:** DSET-04.
 
 **How:** Confirm retention periods with QA; record who may keep an uncited snapshot and for how long; record the decision in DSET-04.

@@ -170,7 +170,7 @@ value.
 
 ## DSET-04 — Snapshot retention
 
-**Status:** proposed; after [DEC-11](DEC.md).
+**Status:** proposed; [DEC-11](DEC.md) accepted 2026-09-27: snapshots cited by a signed record are kept 15 years from signing (QA to confirm); uncited snapshots lose their rows 2 years after the dataset is archived, keeping ID, hash and history.
 
 ### Design
 
@@ -179,7 +179,7 @@ value.
 ### Scope
 
 Workspace retention policy: snapshots cited by a signed record kept 15 years
-from signing; uncited snapshots lose their rows N years after the dataset is
+from signing; uncited snapshots lose their rows **2 years** after the dataset is
 archived; ID, hash and history are kept. Warning before removal with "Keep";
 a tombstone page for removed snapshots so links never break.
 

@@ -401,7 +401,7 @@ describe('ProjectQuickAccess', () => {
 })
 
 describe('MyWorkDashboard', () => {
-  it('greets the signed-in user by first name', () => {
+  it('shows the Home page frame with the workspace date line', () => {
     // The dashboard uses TanStack Query; render via a throwaway provider.
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -419,8 +419,8 @@ describe('MyWorkDashboard', () => {
       </QueryClientProvider>,
     )
 
-    // Greeting varies by time of day; assert it addresses "Gareth".
-    expect(screen.getByText(/Gareth$/)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Home' })).toBeTruthy()
+    expect(screen.getByText(/OXB Labs$/)).toBeTruthy()
   })
 })
 

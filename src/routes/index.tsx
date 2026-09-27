@@ -187,12 +187,6 @@ function Home() {
 // Dashboard query keys are now in src/lib/dashboard-data.ts (dashboardQueryKeys).
 // ---------------------------------------------------------------------------
 
-function greetingFor(hour: number): string {
-  if (hour < 12) return 'Good morning'
-  if (hour < 18) return 'Good afternoon'
-  return 'Good evening'
-}
-
 interface DashboardContext {
   userId: string
   user: { name: string; email: string }
@@ -214,12 +208,10 @@ interface DashboardContext {
  */
 export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   const now = new Date()
-  const greeting = greetingFor(now.getHours())
-  const todayLabel = now.toLocaleDateString(undefined, {
+  const todayLabel = now.toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+    month: 'long',
   })
   const userId = context.userId
 
@@ -350,15 +342,17 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   return (
     <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 md:p-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
-            {greeting}, {context.user.name.split(/\s+/)[0]}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Here&apos;s what&apos;s on your plate today.
+        <div className="space-y-0.5">
+          <h1 className="text-page-title text-foreground">Home</h1>
+          <p className="text-caption text-muted-foreground">
+            {todayLabel} · {context.workspace.name}
           </p>
         </div>
-        <p className="text-sm text-muted-foreground">{todayLabel}</p>
+        <Button asChild variant="secondary" size="md">
+          <Link to="/inbox" className="no-underline">
+            Open inbox
+          </Link>
+        </Button>
       </header>
 
       <QuickActionsGrid />

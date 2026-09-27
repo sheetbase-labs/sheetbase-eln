@@ -381,11 +381,17 @@ export function AppShell({
   const [helpOpen, setHelpOpen] = React.useState(false)
 
   React.useEffect(() => {
+    let saved = false
     try {
-      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1')
+      saved = localStorage.getItem(COLLAPSE_KEY) === '1'
     } catch {
       /* ignore: private mode / disabled storage */
     }
+    // SHELL-05: at laptop width (1024–1279) the design shows a 48px rail.
+    const laptop =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(min-width: 1024px) and (max-width: 1279px)').matches
+    setCollapsed(saved || laptop)
   }, [])
 
   // Collapsible inspector persistence — separate key from the left sidebar
@@ -648,8 +654,8 @@ export function AppShell({
               aria-label="Application navigation"
               data-slot="sidebar"
               className={cn(
-                'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
-                collapsed ? 'md:w-12' : 'md:w-nav',
+                'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar lg:flex',
+                collapsed ? 'lg:w-12' : 'lg:w-nav',
               )}
               data-collapsed={collapsed ? 'true' : 'false'}
             >
@@ -661,7 +667,7 @@ export function AppShell({
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetContent
                 side="left"
-                className="w-nav border-r border-sidebar-border bg-sidebar p-0 md:hidden"
+                className="w-nav border-r border-sidebar-border bg-sidebar p-0 lg:hidden"
               >
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                 {renderSidebarBody(false)}
@@ -674,7 +680,7 @@ export function AppShell({
               fullBleed
                 ? 'flex h-svh flex-col overflow-hidden'
                 : 'flex min-h-svh flex-col',
-              context && (collapsed ? 'md:pl-12' : 'md:pl-nav'),
+              context && (collapsed ? 'lg:pl-12' : 'lg:pl-nav'),
             )}
           >
             {context && (
@@ -682,7 +688,7 @@ export function AppShell({
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="md:hidden"
+                  className="lg:hidden"
                   aria-label="Open navigation"
                   onClick={() => {
                     captureMobileFocus()
@@ -843,7 +849,7 @@ function NavRow({
             aria-current={active ? 'page' : undefined}
             aria-label={collapsed ? item.label : undefined}
             className={cn(
-              'flex h-9 items-center gap-2 rounded-md px-3 text-sm no-underline transition-colors',
+              'flex h-8 items-center gap-2 rounded-md px-3 text-body no-underline transition-colors max-lg:min-h-11',
               active
                 ? 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground'
                 : 'font-medium text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground',

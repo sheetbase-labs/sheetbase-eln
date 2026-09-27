@@ -297,7 +297,7 @@ export const defaultNavSections: AppShellNavSection[] = [
   {
     items: [
       { to: '/', label: 'Home', icon: HomeIcon },
-      { to: '/reviews', label: 'Inbox', icon: Inbox },
+      { to: '/inbox', label: 'Inbox', icon: Inbox },
       { to: '/calendar', label: 'Schedule', icon: CalendarDays },
     ],
   },

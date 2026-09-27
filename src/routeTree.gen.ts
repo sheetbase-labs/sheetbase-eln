@@ -18,6 +18,7 @@ import { Route as ConfigureRouteImport } from './routes/configure'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as HelpRouteImport } from './routes/help'
+import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as LineageRouteImport } from './routes/lineage'
@@ -114,6 +115,11 @@ const FoundationsRoute = FoundationsRouteImport.update({
 const HelpRoute = HelpRouteImport.update({
   id: '/help',
   path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxRoute = InboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InstrumentMonitorRoute = InstrumentMonitorRouteImport.update({
@@ -394,6 +400,7 @@ export interface FileRoutesByFullPath {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
+  '/inbox': typeof InboxRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
   '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
@@ -457,6 +464,7 @@ export interface FileRoutesByTo {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
+  '/inbox': typeof InboxRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
   '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
@@ -521,6 +529,7 @@ export interface FileRoutesById {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
+  '/inbox': typeof InboxRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
   '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
@@ -586,6 +595,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/help'
+    | '/inbox'
     | '/instrument-monitor'
     | '/integrations'
     | '/lineage'
@@ -649,6 +659,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/help'
+    | '/inbox'
     | '/instrument-monitor'
     | '/integrations'
     | '/lineage'
@@ -712,6 +723,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/help'
+    | '/inbox'
     | '/instrument-monitor'
     | '/integrations'
     | '/lineage'
@@ -776,6 +788,7 @@ export interface RootRouteChildren {
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
   HelpRoute: typeof HelpRoute
+  InboxRoute: typeof InboxRoute
   InstrumentMonitorRoute: typeof InstrumentMonitorRoute
   IntegrationsRoute: typeof IntegrationsRouteWithChildren
   LineageRoute: typeof LineageRoute
@@ -886,6 +899,13 @@ declare module '@tanstack/react-router' {
       path: '/help'
       fullPath: '/help'
       preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox': {
+      id: '/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/instrument-monitor': {
@@ -1336,6 +1356,7 @@ const rootRouteChildren: RootRouteChildren = {
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
   HelpRoute: HelpRoute,
+  InboxRoute: InboxRoute,
   InstrumentMonitorRoute: InstrumentMonitorRoute,
   IntegrationsRoute: IntegrationsRouteWithChildren,
   LineageRoute: LineageRoute,

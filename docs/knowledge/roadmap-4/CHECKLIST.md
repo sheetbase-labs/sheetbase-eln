@@ -138,7 +138,7 @@ Specification: [tasks/WORK.md](tasks/WORK.md) · nod `epic-104`
 - [ ] **WORK-02** Home and Inbox pages `task-111`
   - [ ] WORK-02.1 Home (/) `subtask-112`
   - [ ] WORK-02.2 First-run state (HomeFirstRun) `subtask-113`
-  - [ ] WORK-02.3 Inbox route /inbox with tabs, type filter, J/K navigation `subtask-114`
+  - [ ] WORK-02.3 Inbox route /inbox with tabs, type filter, J/K navigation — **in progress** `subtask-114`
   - [x] WORK-02.4 Help page (HelpRecords) as a static route with the design copy `subtask-115`
 - [ ] **WORK-03** Notifications and preferences `task-116`
   - [ ] WORK-03.1 api.notification_preferences `subtask-117`

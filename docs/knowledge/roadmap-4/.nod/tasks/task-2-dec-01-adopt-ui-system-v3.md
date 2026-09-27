@@ -24,3 +24,4 @@ Spec: [DEC-01 in tasks/DEC.md](../../tasks/DEC.md#dec-01--adopt-ui-system-v3)
 
 ## Work Log
 - 2026-09-27: ADR-0047 review evidence recorded; ready for owner acceptance (status stays proposed).
+- 2026-09-27: PR #192: ADR-0047 review evidence; acceptance pending.

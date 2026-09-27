@@ -23,15 +23,35 @@ for (const state of DESIGN_STATES) {
     }
     await page.setViewportSize(size)
     await page.emulateMedia({ colorScheme: state.theme })
+    // The appearance setting persists in localStorage; force the screen's
+    // theme so the comparison is not decided by the seeded user's preference.
+    await page.addInitScript((theme) => {
+      try {
+        window.localStorage.setItem('sheetbase-theme', theme)
+      } catch {
+        /* ignore */
+      }
+    }, state.theme)
     const userId = DESIGN_USER_IDS[state.user]
     if (userId) {
       await signInAsDesignUser(page, userId)
     }
     await page.goto(state.route)
     // Per-route shell config (breadcrumbs, title) is applied during hydration.
-    // `networkidle` never settles (live-event streams stay open), so settle on
-    // a short delay before comparing.
-    await page.waitForTimeout(400)
+    // `networkidle` never settles (live-event streams stay open), so wait for
+    // the page header to fill in (pages without one resolve immediately).
+    await page
+      .waitForFunction(
+        () => {
+          const header = document.querySelector('[data-slot="page-header"]')
+          return !header || (header.textContent?.trim().length ?? 0) > 0
+        },
+        undefined,
+        { timeout: 5000 },
+      )
+      .catch(() => {
+        /* no header title to wait for */
+      })
     if (state.state) {
       throw new Error(
         `Unhandled state driver for ${state.screen}: ${state.state}`,

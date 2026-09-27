@@ -32,24 +32,22 @@ function HelpRoute() {
   })
 
   return (
-    <article className="flex max-w-[980px] flex-col gap-4">
-      <p className="text-prose text-foreground">
+    <article className="flex flex-col gap-4">
+      <p className="max-w-[680px] text-prose text-foreground">
         Every experiment, dataset and protocol moves through the same states.
         What you can change depends on the state, and every change is written to
         History with who, when, the old value and the reason.
       </p>
       <RecordLifecycleDiagram />
       <h2 className="text-doc-heading text-foreground">Signatures</h2>
-      <p className="text-prose text-foreground">
+      <p className="max-w-[680px] text-prose text-foreground">
         A signature is your password entered again at the moment of signing,
-        plus a meaning: Authored, Reviewed, Approved or Witnessed. It is bound to
-        one version of the record by its content hash, so any later change needs
-        an amendment and a new signature.
+        plus a meaning: Authored, Reviewed, Approved or Witnessed. It is bound
+        to one version of the record by its content hash, so any later change
+        needs an amendment and a new signature.
       </p>
-      <h2 className="text-doc-heading text-foreground">
-        What reviewers see
-      </h2>
-      <p className="text-prose text-foreground">
+      <h2 className="text-doc-heading text-foreground">What reviewers see</h2>
+      <p className="max-w-[680px] text-prose text-foreground">
         Reviewers see changes since their last review marked in the margin, can
         comment on any block or cell, and either sign or return the record with
         comments. They can&rsquo;t edit the author&rsquo;s content.
@@ -76,12 +74,54 @@ interface LifecycleStage {
 }
 
 const STAGES: LifecycleStage[] = [
-  { x: 10, y: 40, width: 160, label: 'Draft', detail: 'Only you can see it', dot: 'var(--neutral-dot)' },
-  { x: 230, y: 40, width: 170, label: 'In progress', detail: 'Team can edit; autosaves', dot: 'var(--accent)' },
-  { x: 460, y: 40, width: 170, label: 'In review', detail: 'Locked for the author', dot: 'var(--review)' },
-  { x: 700, y: 40, width: 250, label: 'Approved · signed', detail: 'Locked; PDF and hash kept', dot: 'var(--success)' },
-  { x: 460, y: 200, width: 170, label: 'Returned', detail: 'Comments to resolve', dot: 'var(--warning)' },
-  { x: 700, y: 200, width: 250, label: 'Amendment · version 2', detail: 'Copy with a reason; new review', dot: 'var(--accent)' },
+  {
+    x: 10,
+    y: 40,
+    width: 160,
+    label: 'Draft',
+    detail: 'Only you can see it',
+    dot: 'var(--neutral-dot)',
+  },
+  {
+    x: 230,
+    y: 40,
+    width: 170,
+    label: 'In progress',
+    detail: 'Team can edit; autosaves',
+    dot: 'var(--accent)',
+  },
+  {
+    x: 460,
+    y: 40,
+    width: 170,
+    label: 'In review',
+    detail: 'Locked for the author',
+    dot: 'var(--review)',
+  },
+  {
+    x: 700,
+    y: 40,
+    width: 250,
+    label: 'Approved · signed',
+    detail: 'Locked; PDF and hash kept',
+    dot: 'var(--success)',
+  },
+  {
+    x: 460,
+    y: 200,
+    width: 170,
+    label: 'Returned',
+    detail: 'Comments to resolve',
+    dot: 'var(--warning)',
+  },
+  {
+    x: 700,
+    y: 200,
+    width: 250,
+    label: 'Amendment · version 2',
+    detail: 'Copy with a reason; new review',
+    dot: 'var(--accent)',
+  },
 ]
 
 const FLOWS = [

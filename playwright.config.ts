@@ -46,6 +46,7 @@ export default defineConfig({
       timeout: 60_000,
       env: {
         SHEETBASE_DEV_AUTH_FREE: 'false',
+        VITE_PARITY: 'true',
         BETTER_AUTH_URL: 'http://127.0.0.1:3200',
       },
     },

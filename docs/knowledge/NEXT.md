@@ -128,7 +128,9 @@ not a substitute for implementation evidence.
 
 Update this file whenever merged reality materially changes what is active or
 next. Programme folders retain scope, task definitions and historical evidence;
-they do not own a competing current hand-off. Roadmap 1's retained local
+they do not own a competing current hand-off. Roadmap 4 is the exception: it
+is self-contained, with its own [`roadmap-4/NEXT.md`](roadmap-4/NEXT.md) and
+nod task tracker, which own its queue once this file activates it. Roadmap 1's retained local
 `NEXT.md` is historical, not an active work queue.
 
 For status changes, record the implementation ref, validation evidence, known

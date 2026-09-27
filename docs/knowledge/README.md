@@ -57,7 +57,7 @@ docs/knowledge/
 
 ## Current work
 
-[`NEXT.md`](NEXT.md) is the only current hand-off file. Programme folders contain scope, task definitions, prompts, audits and historical completion evidence, but they do not own competing current work queues. Roadmap 1's retained local `NEXT.md` is historical.
+[`NEXT.md`](NEXT.md) is the repository-wide hand-off: it decides which roadmap is active and what is next across roadmaps. Programme folders contain scope, task definitions, prompts, audits and historical completion evidence, but they do not own competing current work queues, with one deliberate exception: Roadmap 4 is self-contained, with its own [`roadmap-4/NEXT.md`](roadmap-4/NEXT.md) and task tracker, which own its queue once the root `NEXT.md` activates it. Roadmap 1's retained local `NEXT.md` is historical.
 
 The [7 September 2026 reconciliation](history/2026-09-07-roadmap-reconciliation.md)
 records the checked baseline, implementation dispositions, outstanding work and

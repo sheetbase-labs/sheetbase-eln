@@ -13,7 +13,8 @@ every PR must pass. The task files assume you have read it.
 
 ## 1. Before your first task
 
-1. Read, in order: [`../NEXT.md`](../NEXT.md), [`README.md`](README.md),
+1. Read, in order: [`NEXT.md`](NEXT.md) (this roadmap's hand-off),
+   [`CHECKLIST.md`](CHECKLIST.md), [`README.md`](README.md),
    [`DESIGN_ADOPTION.md`](DESIGN_ADOPTION.md), [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md),
    [`../product/core-concepts.md`](../product/core-concepts.md).
 2. Read the repository rules in `AGENTS.md` at the root and the development
@@ -23,6 +24,7 @@ every PR must pass. The task files assume you have read it.
 3. Get the app running locally:
 
    ```bash
+   curl -fsSL https://bun.sh/install | bash   # once: the task tracker (nod) runs on Bun
    pnpm install --frozen-lockfile
    git submodule update --init .agent/design
    cp .env.example .env.local        # fill in values; set SHEETBASE_DEV_AUTH_FREE=true locally
@@ -82,6 +84,8 @@ Rules that follow from this:
 Most tasks rebuild one or more design screens together with the capability
 behind them.
 
+0. **Claim it in the tracker** (section 9): set the task and its first step
+   to `in-progress`.
 1. **Read the task** and every design screen it lists. Render them
    (`pnpm design:render <Screen>`), open the PNGs, and open
    `docs/knowledge/design/ui-system-v3/screen-text/<Screen>.txt` for the exact
@@ -101,7 +105,9 @@ behind them.
    in light and dark.
 9. **Delete what you replaced** in the same PR: old components, routes,
    stories and tests that only covered them.
-10. **Run the PR checklist** (section 7) and open the PR with the task ID in the
+10. **Update the tracker** (section 9): mark the step done, add a note with the
+    PR link, run `pnpm roadmap:sync`, and commit the tracker changes with the PR.
+11. **Run the PR checklist** (section 7) and open the PR with the task ID in the
     title, for example `WORK-01: server-side work items`.
 
 ## 4. Where things are
@@ -256,6 +262,7 @@ Copy into the PR description and tick each line.
 
 ```markdown
 - [ ] Title starts with the task ID; description links the task and lists the design screens covered
+- [ ] Tracker updated in this PR (step status, a note with the PR link) and `pnpm roadmap:sync` run; `pnpm roadmap:check` passes
 - [ ] Every rule shown on screen is enforced in the database and covered by a DB test (success, denied, other workspace, stale/invalid)
 - [ ] New migrations apply to an empty database; `pnpm db:generate` produces nothing afterwards
 - [ ] Data changes emit change events; open screens update without reload
@@ -280,3 +287,68 @@ Copy into the PR description and tick each line.
   task file.
 - A test fails that your change did not touch: check whether it fails on
   `main`; report it rather than skipping or loosening it.
+
+## 9. Tracking work with nod
+
+Roadmap 4's status lives in a [nod](https://github.com/onmyway133/nod) tracker
+in `.nod/` inside this folder: one Markdown file per item, committed with the
+code. Streams are **epics** (17), roadmap tasks are **tasks** (86, titled with
+their roadmap ID such as `DSYS-02`), and each PR-sized step is a **subtask**
+(titled `DSYS-02.1` and so on). Each file links to its specification in
+`tasks/`; "Waits on" and the `related` field list the tasks that must be done
+first. nod IDs (`task-16`) are nod's own; the roadmap ID is always the first tag.
+
+### Setup
+
+nod is a pinned dev dependency (`@onmyway133/nod`) and runs on
+[Bun](https://bun.sh), which you install once. Run it through pnpm so it finds
+the tracker from anywhere in the repository:
+
+```bash
+pnpm roadmap available            # ready work, highest priority first
+pnpm roadmap tree epic-14         # a stream as a tree
+pnpm roadmap ui                   # Kanban board at http://localhost:7777
+```
+
+(`pnpm roadmap …` runs `nod …` inside `docs/knowledge/roadmap-4`. If you `cd`
+into this folder, plain `nod …` works too.)
+
+### Daily use
+
+| When                            | Command                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| Find work                       | `pnpm roadmap available` (skip items whose "Waits on" is not done)          |
+| Read an item                    | `pnpm roadmap get task-16`                                                  |
+| Start a task and its first step | `pnpm roadmap update task-16 --status in-progress` (and the subtask)        |
+| Record a decision or PR link    | `pnpm roadmap note subtask-17 "PR #201: tokens and contrast tests"`         |
+| Finish a step                   | `pnpm roadmap update subtask-17 --status done`, or tick it in the checklist |
+| Park or drop something          | `--status backlog` or `--status cancelled`, with a note saying why          |
+| Refresh the checklist and NEXT  | `pnpm roadmap:sync`                                                         |
+
+### The checklist
+
+[`CHECKLIST.md`](CHECKLIST.md) lists every task and step with a checkbox and is
+generated by `pnpm roadmap:sync` (`tools/tracker.ts`), which also rewrites the
+status block in [`NEXT.md`](NEXT.md). You can tick boxes directly: on the next
+sync, a box you ticked marks that item done, and a box you unticked reopens it.
+Boxes you did not touch follow nod, so a change made with nod always wins. When
+every step of a task becomes done, the sync closes the task; reopen it if its
+exit criterion is not really met. Do not edit anything else in the checklist,
+since the next sync regenerates it.
+
+### Keeping it current (required)
+
+- Every PR that advances a Roadmap 4 task updates the tracker in the same PR:
+  step status, a note with the PR link, then `pnpm roadmap:sync`. Commit
+  `.nod/`, `CHECKLIST.md` and `NEXT.md` with the code.
+- `pnpm test` fails when the checklist or the NEXT status block is out of date
+  (`tests/unit/roadmap-4-tracker.test.ts`); `pnpm roadmap:check` runs the same
+  check on its own.
+- Adding, splitting or dropping a task: change its stream file in `tasks/` and
+  the tracker in the same PR, for example
+  `pnpm roadmap create subtask "EXP-05.6 — Retention settings UI" --parent task-168 --tags EXP-05.6,EXP`
+  (the roadmap ID must be the first tag, and the title must start with it).
+- When a decision task is accepted, mark it done; tasks that waited on it
+  appear in "Ready to start" after the next sync.
+- Never edit the YAML header of a tracker file by hand; use nod. Notes and
+  descriptions below the header are free-form and can be edited in any editor.

@@ -1,0 +1,19 @@
+---
+id: subtask-120
+title: WORK-03.4 — Email outbox internal.email_deliveries + server worker
+type: subtask
+status: todo
+priority: high
+created: "2026-09-27"
+updated: "2026-09-27"
+parent: task-116
+tags:
+  - WORK-03.4
+  - WORK
+---
+
+# WORK-03.4 — Email outbox internal.email_deliveries + server worker
+
+Step 4 of 4 in [WORK-03](../../tasks/WORK.md#work-03--notifications-and-preferences); the full step text is under “Steps” there.
+
+## Work Log

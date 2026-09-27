@@ -14,6 +14,7 @@ Before substantial product, domain or roadmap work, read [`docs/knowledge/NEXT.m
 - `docs/knowledge/roadmap-1/` — recorded complete; local NEXT is historical
 - `docs/knowledge/roadmap-2/` — active scope recorded closed; GOV-02 deferred
 - `docs/knowledge/roadmap-3/` — Waves A–C implementation merged; Wave D proposed/deferred
+- `docs/knowledge/roadmap-4/` — proposed; self-contained, with its own `NEXT.md`, `CHECKLIST.md` and nod task tracker (`pnpm roadmap …`); read its `GUIDE.md` before taking a task
 - `docs/knowledge/decisions/` — ADRs; check proposed versus accepted status
 - `docs/knowledge/concepts/` — historical runnable concepts/prototypes
 - `docs/knowledge/mockups/` — historical visual design/product artefacts

@@ -9,8 +9,10 @@ last_reviewed: 2026-09-27
 > **Make Sheetbase look and work exactly like UI system v3: every screen,
 > every state, every capability.**
 
-**Status: proposal only.** Nothing here is assigned or activated; current
-priority remains defined by [`../NEXT.md`](../NEXT.md). This is the Roadmap 4
+**Status: proposal only.** Nothing here is assigned or activated until the
+repository-wide [`../NEXT.md`](../NEXT.md) activates it. Roadmap 4 is
+self-contained: once active, its own [`NEXT.md`](NEXT.md) and nod tracker own
+its queue. This is the Roadmap 4
 proposal that earlier status documents refer to; it had been discussed but not
 written up before 27 September 2026.
 
@@ -36,18 +38,21 @@ all of it.
 
 ## Start here
 
-1. [`GUIDE.md`](GUIDE.md) — **start here if you are picking up a task**: setup,
+1. [`NEXT.md`](NEXT.md) — what is active and next in Roadmap 4, and how to
+   pick up work; [`CHECKLIST.md`](CHECKLIST.md) — every task and step with a
+   checkbox, generated from the nod tracker in `.nod/`.
+2. [`GUIDE.md`](GUIDE.md) — **start here if you are picking up a task**: setup,
    how a task flows, recipes, glossary and the PR checklist.
-2. [`DESIGN_ADOPTION.md`](DESIGN_ADOPTION.md) — how the design gets into the
+3. [`DESIGN_ADOPTION.md`](DESIGN_ADOPTION.md) — how the design gets into the
    code and replaces the current UI: token map, component packages, route map,
    verification.
-3. [`tasks/DEC.md`](tasks/DEC.md) — the decisions taken first, including
+4. [`tasks/DEC.md`](tasks/DEC.md) — the decisions taken first, including
    proposed [ADR-0047](../decisions/0047-ui-system-v3-adoption.md) and
    [ADR-0048](../decisions/0048-sheet-grid-on-sheetbase-table.md).
-4. [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) — dependencies, waves and delivery
+5. [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) — dependencies, waves and delivery
    rules.
-5. [`tasks/README.md`](tasks/README.md) — 86 tasks in 17 streams.
-6. The design reference: render a screen, open its `.dc.html` for structure
+6. [`tasks/README.md`](tasks/README.md) — 86 tasks in 17 streams.
+7. The design reference: render a screen, open its `.dc.html` for structure
    and its `screen-text/*.txt` for copy.
 
 ## Programmes

@@ -8,9 +8,10 @@ and exit. Read [`../GUIDE.md`](../GUIDE.md) first. Design references are paths u
 
 ## Status — 27 September 2026
 
-**Proposal only.** DSYS-01 (the vendored design reference and its renderer) is
-delivered with this proposal; every other task is proposed and unassigned.
-Assignment is owned by [`../../NEXT.md`](../../NEXT.md).
+**Proposal only.** Live status for every task and step is in the nod tracker
+(`../.nod/`), shown in [`../CHECKLIST.md`](../CHECKLIST.md) and summarised in
+[`../NEXT.md`](../NEXT.md). The **Status** lines in the stream files record
+what a task waits on, not progress.
 
 | Programme                | Stream / tasks             | Count | Notes                                                                   |
 | ------------------------ | -------------------------- | ----: | ----------------------------------------------------------------------- |

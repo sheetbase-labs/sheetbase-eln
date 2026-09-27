@@ -24,6 +24,9 @@
     "test": "vitest run",
     "screenshot:gallery": "tsx scripts/screenshot-gallery.mts",
     "design:render": "tsx scripts/design-reference.mts",
+    "roadmap": "cd docs/knowledge/roadmap-4 && nod",
+    "roadmap:sync": "tsx docs/knowledge/roadmap-4/tools/tracker.ts sync",
+    "roadmap:check": "tsx docs/knowledge/roadmap-4/tools/tracker.ts check",
     "perf:seed": "tsx perf/fixtures.ts",
     "perf:db": "tsx perf/dataset.ts",
     "perf:pipelines": "tsx perf/pipelines.ts",
@@ -123,6 +126,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@onmyway133/nod": "1.0.6",
     "@storybook/react-vite": "^10.5.5",
     "@storybook/tanstack-react": "^10.5.5",
     "@tanstack/devtools-vite": "^0.8.1",

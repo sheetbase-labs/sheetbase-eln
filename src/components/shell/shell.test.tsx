@@ -118,17 +118,15 @@ describe('AppShell', () => {
     Element.prototype.scrollIntoView = vi.fn()
   })
 
-  it('keeps specialist tools out of default primary sections', () => {
-    const primaryHrefs = defaultNavSections
-      .filter((section) => section.label !== 'More')
-      .flatMap((section) => section.items.map((item) => item.to))
-    for (const href of SPECIALIST_NAV_HREFS) {
-      expect(primaryHrefs).not.toContain(href)
-    }
-    const more = defaultNavSections.find((section) => section.label === 'More')
-    expect(more?.items.map((item) => item.to)).toEqual(
-      expect.arrayContaining([...SPECIALIST_NAV_HREFS]),
+  it('keeps specialist tools out of the default navigation', () => {
+    const hrefs = defaultNavSections.flatMap((section) =>
+      section.items.map((item) => item.to),
     )
+    for (const href of SPECIALIST_NAV_HREFS) {
+      expect(hrefs).not.toContain(href)
+    }
+    expect(hrefs).not.toContain('/agent-operations')
+    expect(hrefs).not.toContain('/plate-designer')
   })
 
   it('gives every canonical destination one predictable product plane', () => {

@@ -10,16 +10,12 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import {
-  Bot,
-  CalendarDays,
   CheckCircle2,
   ChevronsUpDown,
   Database,
   FlaskConical,
   FolderOpen,
-  Gauge,
   GanttChart,
-  Grid3x3,
   Home as HomeIcon,
   Layers,
   LayoutTemplate,
@@ -34,7 +30,6 @@ import {
   Settings,
   Star,
   Sun,
-  Snowflake,
   Workflow,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -316,26 +311,13 @@ export const defaultNavSections: AppShellNavSection[] = [
   },
   {
     label: 'Automation',
-    items: [
-      { to: '/pipelines', label: 'Pipelines', icon: Workflow },
-      { to: '/agent-operations', label: 'Agent operations', icon: Bot },
-    ],
+    items: [{ to: '/pipelines', label: 'Pipelines', icon: Workflow }],
   },
   {
     label: 'Platform',
     items: [
       { to: '/integrations', label: 'Integrations', icon: PlugZap },
       { to: '/admin', label: 'Administration', icon: Settings },
-    ],
-  },
-  {
-    label: 'More',
-    items: [
-      { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
-      { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
-      { to: '/planner', label: 'Planner', icon: GanttChart },
-      { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
-      { to: '/storage', label: 'Storage', icon: Snowflake },
     ],
   },
 ]

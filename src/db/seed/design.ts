@@ -197,6 +197,175 @@ export const designSteps: Array<SeedStep> = [
       }
     },
   },
+  {
+    name: 'design sample fields',
+    run: async (db) => {
+      for (const field of DESIGN_SAMPLE_FIELDS) {
+        await db
+          .insert(schema.recordFieldDefinitions)
+          .values({
+            id: field.id,
+            workspaceId: PROCESS,
+            kind: 'sample',
+            fieldName: field.fieldName,
+            label: field.label,
+            displayOrder: field.displayOrder,
+            logicalType: field.logicalType,
+            nullable: field.nullable,
+            unit: field.unit ?? null,
+            validation: field.validation ?? {},
+            lifecycle: 'active',
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.recordFieldDefinitions.workspaceId,
+              schema.recordFieldDefinitions.kind,
+              schema.recordFieldDefinitions.fieldName,
+            ],
+            set: {
+              label: field.label,
+              displayOrder: field.displayOrder,
+              logicalType: field.logicalType,
+              nullable: field.nullable,
+              unit: field.unit ?? null,
+              validation: field.validation ?? {},
+              lifecycle: 'active',
+            },
+          })
+      }
+    },
+  },
+  {
+    name: 'design samples',
+    run: async (db) => {
+      for (const sample of DESIGN_SAMPLES) {
+        await db
+          .insert(schema.records)
+          .values({
+            id: sample.id,
+            workspaceId: PROCESS,
+            projectId: DESIGN_PROJECTS[0].id,
+            kind: 'sample',
+            identifier: sample.identifier,
+            title: sample.title,
+            status: sample.status,
+            customFields: sample.customFields,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: [schema.records.projectId, schema.records.identifier],
+            set: {
+              title: sample.title,
+              status: sample.status,
+              customFields: sample.customFields,
+              deletedAt: null,
+              archivedAt: null,
+            },
+          })
+      }
+    },
+  },
+]
+
+const DESIGN_SAMPLE_FIELDS: ReadonlyArray<{
+  id: string
+  fieldName: string
+  label: string
+  displayOrder: number
+  logicalType: 'text' | 'decimal' | 'category'
+  nullable: boolean
+  unit?: unknown
+  validation?: Record<string, unknown>
+}> = [
+  {
+    id: '00000000-0000-4000-8000-000000000330',
+    fieldName: 'construct',
+    label: 'Construct',
+    displayOrder: 1,
+    logicalType: 'text',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000331',
+    fieldName: 'batch',
+    label: 'Batch',
+    displayOrder: 2,
+    logicalType: 'text',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000332',
+    fieldName: 'concentration',
+    label: 'Concentration',
+    displayOrder: 3,
+    logicalType: 'decimal',
+    nullable: true,
+    unit: { symbol: 'vg/mL' },
+  },
+]
+
+const DESIGN_SAMPLES = [
+  {
+    id: '00000000-0000-4000-8000-000000000340',
+    identifier: 'SMP-2231',
+    title: 'Harvest lot HL-0934',
+    status: 'available',
+    customFields: {
+      construct: 'AAV9',
+      batch: 'HL-0934',
+      concentration: 4.6e12,
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000341',
+    identifier: 'SMP-2232',
+    title: 'R1.0 flask A',
+    status: 'available',
+    customFields: { construct: 'AAV9', batch: 'R1.0' },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000342',
+    identifier: 'SMP-2233',
+    title: 'R1.0 flask B',
+    status: 'available',
+    customFields: { construct: 'AAV9', batch: 'R1.0' },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000343',
+    identifier: 'SMP-2234',
+    title: 'R1.5 flask A',
+    status: 'available',
+    customFields: { construct: 'AAV9', batch: 'R1.5' },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000344',
+    identifier: 'SMP-2235',
+    title: 'R1.5 flask B',
+    status: 'available',
+    customFields: { construct: 'AAV9', batch: 'R1.5' },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000345',
+    identifier: 'SMP-2237',
+    title: 'R2.0 flask A',
+    status: 'consumed',
+    customFields: { construct: 'AAV9', batch: 'R2.0' },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000346',
+    identifier: 'SMP-2239',
+    title: 'R2.0 flask B',
+    status: 'consumed',
+    customFields: { construct: 'AAV9', batch: 'R2.0' },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000347',
+    identifier: 'SMP-2251',
+    title: 'R3.0 flask A',
+    status: 'quarantined',
+    customFields: { construct: 'AAV9', batch: 'R3.0' },
+  },
 ]
 
 /**

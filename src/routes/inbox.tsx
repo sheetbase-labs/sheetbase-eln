@@ -33,6 +33,12 @@ const KIND_LABEL: Record<WorkItemKind, string> = {
   following: 'Following',
 }
 
+const KIND_FILTER_LABEL: Record<WorkItemKind, string> = {
+  review_requested: 'Reviews',
+  run_failed: 'Runs',
+  following: 'Following',
+}
+
 type InboxTab = 'needs_action' | 'following' | 'done_today'
 
 const TABS: ReadonlyArray<{ id: InboxTab; label: string }> = [
@@ -187,7 +193,7 @@ function InboxRoute() {
             active={kindFilter === kind}
             onClick={() => setKindFilter(kind)}
           >
-            {KIND_LABEL[kind]} {counts[kind]}
+            {KIND_FILTER_LABEL[kind]} {counts[kind]}
           </FilterButton>
         ))}
       </div>

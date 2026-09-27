@@ -415,7 +415,7 @@ export function ReviewWorkspaceRoute() {
         context={shellContext(context)}
         breadcrumbs={[
           { label: 'Home', to: '/' },
-          { label: 'Reviews', to: '/reviews' },
+          { label: 'Inbox', to: '/inbox' },
         ]}
       >
         <PermissionDenied />
@@ -429,7 +429,7 @@ export function ReviewWorkspaceRoute() {
         context={shellContext(context)}
         breadcrumbs={[
           { label: 'Home', to: '/' },
-          { label: 'Reviews', to: '/reviews' },
+          { label: 'Inbox', to: '/inbox' },
           { label: 'Unknown revision' },
         ]}
       >
@@ -490,7 +490,7 @@ export function ReviewWorkspaceRoute() {
         context={shellContextValue}
         breadcrumbs={[
           { label: 'Home', to: '/' },
-          { label: 'Reviews', to: '/reviews' },
+          { label: 'Inbox', to: '/inbox' },
           { label: record?.identifier ?? revisionId },
         ]}
         inspector={inspector}
@@ -1190,7 +1190,7 @@ function ReviewInspector({
 
       <div className="space-y-2 border-t p-3">
         <Link
-          to="/reviews"
+          to="/inbox"
           className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-sm font-medium no-underline hover:bg-muted"
         >
           <ChevronLeft className="size-4" aria-hidden />

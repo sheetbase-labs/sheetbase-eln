@@ -96,6 +96,7 @@ function submission(
     submitted_session_id: 'session-owner-a',
     submitted_role: 'authenticated',
     submitted_at: new Date().toISOString(),
+    due_at: null,
     idempotency_key: 'idem-1',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

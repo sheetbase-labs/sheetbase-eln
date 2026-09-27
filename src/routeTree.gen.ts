@@ -28,7 +28,6 @@ import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ReagentsRouteImport } from './routes/reagents'
 import { Route as ReportBuilderRouteImport } from './routes/report-builder'
-import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -167,11 +166,6 @@ const ReportBuilderRoute = ReportBuilderRouteImport.update({
   path: '/report-builder',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReviewsRoute = ReviewsRouteImport.update({
-  id: '/reviews',
-  path: '/reviews',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SamplesRoute = SamplesRouteImport.update({
   id: '/samples',
   path: '/samples',
@@ -258,9 +252,9 @@ const RecordsRecordIdRoute = RecordsRecordIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReviewsRevisionIdRoute = ReviewsRevisionIdRouteImport.update({
-  id: '/$revisionId',
-  path: '/$revisionId',
-  getParentRoute: () => ReviewsRoute,
+  id: '/reviews/$revisionId',
+  path: '/reviews/$revisionId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const SheetsInstanceIdRoute = SheetsInstanceIdRouteImport.update({
   id: '/sheets/$instanceId',
@@ -410,7 +404,6 @@ export interface FileRoutesByFullPath {
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
   '/report-builder': typeof ReportBuilderRoute
-  '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -474,7 +467,6 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
   '/report-builder': typeof ReportBuilderRoute
-  '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -539,7 +531,6 @@ export interface FileRoutesById {
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
   '/report-builder': typeof ReportBuilderRoute
-  '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -605,7 +596,6 @@ export interface FileRouteTypes {
     | '/projects'
     | '/reagents'
     | '/report-builder'
-    | '/reviews'
     | '/samples'
     | '/search'
     | '/settings'
@@ -669,7 +659,6 @@ export interface FileRouteTypes {
     | '/projects'
     | '/reagents'
     | '/report-builder'
-    | '/reviews'
     | '/samples'
     | '/search'
     | '/settings'
@@ -733,7 +722,6 @@ export interface FileRouteTypes {
     | '/projects'
     | '/reagents'
     | '/report-builder'
-    | '/reviews'
     | '/samples'
     | '/search'
     | '/settings'
@@ -798,7 +786,6 @@ export interface RootRouteChildren {
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReagentsRoute: typeof ReagentsRoute
   ReportBuilderRoute: typeof ReportBuilderRoute
-  ReviewsRoute: typeof ReviewsRouteWithChildren
   SamplesRoute: typeof SamplesRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
@@ -812,6 +799,7 @@ export interface RootRouteChildren {
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   DocsNameRoute: typeof DocsNameRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
+  ReviewsRevisionIdRoute: typeof ReviewsRevisionIdRoute
   SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
@@ -971,13 +959,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportBuilderRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reviews': {
-      id: '/reviews'
-      path: '/reviews'
-      fullPath: '/reviews'
-      preLoaderRoute: typeof ReviewsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/samples': {
       id: '/samples'
       path: '/samples'
@@ -1099,10 +1080,10 @@ declare module '@tanstack/react-router' {
     }
     '/reviews/$revisionId': {
       id: '/reviews/$revisionId'
-      path: '/$revisionId'
+      path: '/reviews/$revisionId'
       fullPath: '/reviews/$revisionId'
       preLoaderRoute: typeof ReviewsRevisionIdRouteImport
-      parentRoute: typeof ReviewsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/sheets/$instanceId': {
       id: '/sheets/$instanceId'
@@ -1323,17 +1304,6 @@ const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
   ProjectsRouteChildren,
 )
 
-interface ReviewsRouteChildren {
-  ReviewsRevisionIdRoute: typeof ReviewsRevisionIdRoute
-}
-
-const ReviewsRouteChildren: ReviewsRouteChildren = {
-  ReviewsRevisionIdRoute: ReviewsRevisionIdRoute,
-}
-
-const ReviewsRouteWithChildren =
-  ReviewsRoute._addFileChildren(ReviewsRouteChildren)
-
 interface RecordsRecordIdRouteChildren {
   RecordsRecordIdOverviewRoute: typeof RecordsRecordIdOverviewRoute
 }
@@ -1366,7 +1336,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsRoute: ProjectsRouteWithChildren,
   ReagentsRoute: ReagentsRoute,
   ReportBuilderRoute: ReportBuilderRoute,
-  ReviewsRoute: ReviewsRouteWithChildren,
   SamplesRoute: SamplesRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
@@ -1380,6 +1349,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   DocsNameRoute: DocsNameRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
+  ReviewsRevisionIdRoute: ReviewsRevisionIdRoute,
   SheetsInstanceIdRoute: SheetsInstanceIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,

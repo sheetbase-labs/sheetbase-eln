@@ -514,7 +514,7 @@ export function computeMyWorkMetrics(args: {
     {
       label: 'Pending reviews',
       value: pendingReviews.length,
-      linkTo: '/reviews',
+      linkTo: '/inbox',
       timeBoundary: `Overdue after ${overdueDays} days`,
       hint:
         overdueReviews.length > 0
@@ -626,7 +626,7 @@ export function computeProjectMetrics(args: {
     {
       label: 'Pending reviews',
       value: pendingReviews.length,
-      linkTo: '/reviews',
+      linkTo: '/inbox',
       timeBoundary: `Overdue after ${overdueDays} days`,
       hint: pendingReviews.length > 0 ? 'Awaiting approval' : 'None pending',
       hintTone: pendingReviews.length > 0 ? 'urgent' : 'default',

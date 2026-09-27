@@ -119,6 +119,7 @@ const baseReview: ReviewItem = {
   assignedReviewerUserIds: ['u1'],
   submittedByUserId: 'u2',
   submittedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+  dueAt: null,
   createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
   updatedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
   recordIdentifier: 'EXP-2025-0001',

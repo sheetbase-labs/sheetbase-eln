@@ -65,6 +65,7 @@ function review(overrides: Partial<ReviewItem> = {}): ReviewItem {
     assignedReviewerUserIds: ['u1'],
     submittedByUserId: 'u2',
     submittedAt: new Date(NOW - 3 * DAY_MS).toISOString(),
+    dueAt: null,
     createdAt: new Date(NOW - 3 * DAY_MS).toISOString(),
     updatedAt: new Date(NOW - 3 * DAY_MS).toISOString(),
     recordIdentifier: 'EXP-2025-0001',
@@ -230,7 +231,7 @@ describe('computeMyWorkMetrics', () => {
     expect(metrics[0].hint).toBe('1 in progress') // 1 in_progress
     expect(metrics[1].label).toBe('Pending reviews')
     expect(metrics[1].value).toBe(2)
-    expect(metrics[1].linkTo).toBe('/reviews')
+    expect(metrics[1].linkTo).toBe('/inbox')
     expect(metrics[2].label).toBe('In progress')
     expect(metrics[2].value).toBe(1)
     expect(metrics[3].label).toBe('Recent activity')
@@ -257,6 +258,7 @@ describe('computeMyWorkMetrics', () => {
   it('flags overdue reviews with an urgent hint', () => {
     const oldReview = review({
       submittedAt: new Date(NOW - (OVERDUE_DAYS + 5) * DAY_MS).toISOString(),
+      dueAt: null,
     })
     const metrics = computeMyWorkMetrics({
       myRecords: [],
@@ -314,7 +316,7 @@ describe('computeProjectMetrics', () => {
     expect(metrics[3].value).toBe(1)
     expect(metrics[4].label).toBe('Pending reviews')
     expect(metrics[4].value).toBe(1) // 1 review status
-    expect(metrics[4].linkTo).toBe('/reviews')
+    expect(metrics[4].linkTo).toBe('/inbox')
   })
 
   it('produces all-zero metrics for an empty project', () => {
@@ -402,6 +404,7 @@ describe('nextDeadlineHint', () => {
   it('returns "Next: 1 day ago" for a 1-day-old review', () => {
     const r = review({
       submittedAt: new Date(NOW - 1 * DAY_MS).toISOString(),
+      dueAt: null,
     })
     expect(nextDeadlineHint([r], NOW)).toBe('Next: 1 day ago')
   })
@@ -409,6 +412,7 @@ describe('nextDeadlineHint', () => {
   it('returns "Next: 5d ago" for a 5-day-old review', () => {
     const r = review({
       submittedAt: new Date(NOW - 5 * DAY_MS).toISOString(),
+      dueAt: null,
     })
     expect(nextDeadlineHint([r], NOW)).toBe('Next: 5d ago')
   })
@@ -422,10 +426,12 @@ describe('nextDeadlineHint', () => {
       review({
         id: 'new',
         submittedAt: new Date(NOW - 1 * DAY_MS).toISOString(),
+        dueAt: null,
       }),
       review({
         id: 'old',
         submittedAt: new Date(NOW - 10 * DAY_MS).toISOString(),
+        dueAt: null,
       }),
     ]
     expect(nextDeadlineHint(reviews, NOW)).toBe('Next: 10d ago')

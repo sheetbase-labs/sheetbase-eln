@@ -570,7 +570,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   },
   {
     label: 'Review inbox',
-    to: '/reviews',
+    to: '/inbox',
     icon: Inbox,
     hint: 'Open the review and approvals queue',
   },
@@ -1258,7 +1258,7 @@ export function MyPrioritiesPanel({
                 <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
                   {i + 1}
                 </span>
-                <Link to="/reviews" className="min-w-0 flex-1 no-underline">
+                <Link to="/inbox" className="min-w-0 flex-1 no-underline">
                   <p className="truncate text-sm font-medium text-foreground">
                     Review {review.recordIdentifier}
                   </p>
@@ -1393,7 +1393,7 @@ export function UpcomingApprovalsPanel({
             const overdue = ageDays > OVERDUE_DAYS
             return (
               <li key={review.id} className="px-4 py-3">
-                <Link to="/reviews" className="block no-underline">
+                <Link to="/inbox" className="block no-underline">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs tabular-nums text-muted-foreground">
                       {review.recordIdentifier}

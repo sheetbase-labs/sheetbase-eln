@@ -19,21 +19,35 @@ export default defineConfig({
     },
     {
       // Visual parity against the DSYS-01 renders, which are the expected
-      // images (see tests/visual/parity.spec.ts).
+      // images (see tests/visual/parity.spec.ts). Runs on its own server with
+      // the auth-free development shortcut disabled so each screen can be
+      // signed in as its design user.
       name: 'parity',
       testDir: 'tests/visual',
       snapshotPathTemplate: '{testDir}/design-reference/{arg}{ext}',
-      use: { deviceScaleFactor: 1 },
+      use: { baseURL: 'http://127.0.0.1:3200', deviceScaleFactor: 1 },
     },
   ],
   use: {
     baseURL: 'http://127.0.0.1:3100',
     trace: 'retain-on-failure',
   },
-  webServer: {
-    command: 'pnpm exec vite dev --port 3100 --host 127.0.0.1',
-    url: 'http://127.0.0.1:3100',
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: 'pnpm exec vite dev --port 3100 --host 127.0.0.1',
+      url: 'http://127.0.0.1:3100',
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
+      command: 'pnpm exec vite dev --port 3200 --host 127.0.0.1',
+      url: 'http://127.0.0.1:3200',
+      reuseExistingServer: true,
+      timeout: 60_000,
+      env: {
+        SHEETBASE_DEV_AUTH_FREE: 'false',
+        BETTER_AUTH_URL: 'http://127.0.0.1:3200',
+      },
+    },
+  ],
 })

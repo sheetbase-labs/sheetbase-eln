@@ -1,6 +1,11 @@
 import { expect, test } from 'playwright/test'
 
-import { DESIGN_SCREEN_SIZES, DESIGN_STATES } from './design-states'
+import {
+  DESIGN_SCREEN_SIZES,
+  DESIGN_STATES,
+  DESIGN_USER_IDS,
+} from './design-states'
+import { signInAsDesignUser } from './sign-in'
 
 /**
  * Visual parity suite (DSYS-06). Each migrated design screen opens its route
@@ -18,6 +23,10 @@ for (const state of DESIGN_STATES) {
     }
     await page.setViewportSize(size)
     await page.emulateMedia({ colorScheme: state.theme })
+    const userId = DESIGN_USER_IDS[state.user]
+    if (userId) {
+      await signInAsDesignUser(page, userId)
+    }
     await page.goto(state.route)
     if (state.state) {
       throw new Error(

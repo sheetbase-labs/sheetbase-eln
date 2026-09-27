@@ -153,3 +153,18 @@ export const DESIGN_SCREEN_SIZES: Record<
 
 /** Screens with a route and state mapping, once migrated. */
 export const DESIGN_STATES: DesignState[] = []
+
+/**
+ * Seeded design users (DSYS-05.1). Kept here as plain IDs so the parity suite
+ * does not import the seed module (which opens a database connection).
+ */
+export const DESIGN_USER_IDS: Record<string, string> = {
+  gareth: '00000000-0000-4000-8000-000000000310',
+  priya: '00000000-0000-4000-8000-000000000311',
+  mei: '00000000-0000-4000-8000-000000000312',
+  tom: '00000000-0000-4000-8000-000000000313',
+  sam: '00000000-0000-4000-8000-000000000314',
+  anna: '00000000-0000-4000-8000-000000000315',
+  clientAna: '00000000-0000-4000-8000-000000000316',
+  clientBen: '00000000-0000-4000-8000-000000000317',
+}

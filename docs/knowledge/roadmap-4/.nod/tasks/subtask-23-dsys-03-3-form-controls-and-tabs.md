@@ -2,7 +2,7 @@
 id: subtask-23
 title: DSYS-03.3 — Form controls and tabs
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

@@ -19,12 +19,17 @@ describe('Button', () => {
 
   it('renders every documented variant without crashing', () => {
     const variants = [
+      'primary',
+      'secondary',
+      'quiet',
+      'danger',
+      'danger-fill',
+      'link',
+      // v2 aliases
       'default',
       'destructive',
       'outline',
-      'secondary',
       'ghost',
-      'link',
       'subtle',
     ] as const
     variants.forEach((variant, i) => {
@@ -35,7 +40,17 @@ describe('Button', () => {
   })
 
   it('renders every documented size', () => {
-    const sizes = ['default', 'sm', 'lg', 'icon', 'icon-sm'] as const
+    const sizes = [
+      'sm',
+      'md',
+      'lg',
+      'iconOnly',
+      // v2 aliases
+      'default',
+      'icon',
+      'icon-sm',
+      'icon-xs',
+    ] as const
     sizes.forEach((size, i) => {
       render(<Button size={size}>s{i}</Button>)
       expect(screen.getByRole('button', { name: `s${i}` })).toBeTruthy()
@@ -56,9 +71,9 @@ describe('Button', () => {
     expect(clicked).toBe(1)
   })
 
-  it('renders as its child when asChild is set', () => {
+  it('renders a primary button when asked, and as its child when asChild is set', () => {
     render(
-      <Button asChild>
+      <Button variant="primary" asChild>
         <a href="/x">Linked</a>
       </Button>,
     )
@@ -69,14 +84,21 @@ describe('Button', () => {
     expect(link.className).toContain('bg-primary')
   })
 
+  it('uses the secondary surface for an unqualified button', () => {
+    render(<Button>Neutral</Button>)
+    expect(screen.getByRole('button', { name: 'Neutral' }).className).toContain(
+      'bg-card',
+    )
+  })
+
   it('supports an icon-only button when given an aria-label', () => {
     render(
-      <Button size="icon" aria-label="Add row">
+      <Button size="iconOnly" aria-label="Add row">
         <Plus />
       </Button>,
     )
     const button = screen.getByRole('button', { name: 'Add row' })
-    expect(button.className).toContain('size-9')
+    expect(button.className).toContain('size-control')
   })
 
   it('does not suppress a native type attribute', () => {

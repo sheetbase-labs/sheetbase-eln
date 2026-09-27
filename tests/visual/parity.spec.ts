@@ -28,6 +28,10 @@ for (const state of DESIGN_STATES) {
       await signInAsDesignUser(page, userId)
     }
     await page.goto(state.route)
+    // Per-route shell config (breadcrumbs, title) is applied during hydration.
+    // `networkidle` never settles (live-event streams stay open), so settle on
+    // a short delay before comparing.
+    await page.waitForTimeout(400)
     if (state.state) {
       throw new Error(
         `Unhandled state driver for ${state.screen}: ${state.state}`,

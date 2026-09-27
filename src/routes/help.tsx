@@ -32,7 +32,7 @@ function HelpRoute() {
   })
 
   return (
-    <article className="flex max-w-[1120px] flex-col gap-4">
+    <article className="flex max-w-[980px] flex-col gap-4">
       <p className="text-prose text-foreground">
         Every experiment, dataset and protocol moves through the same states.
         What you can change depends on the state, and every change is written to

@@ -2,6 +2,8 @@ import * as React from 'react'
 import { Link } from '@tanstack/react-router'
 import { ChevronRight, Home as HomeIcon } from 'lucide-react'
 
+import { cn } from '#/lib/utils'
+
 import type { AppShellBreadcrumb } from './shell-context'
 
 /**
@@ -80,5 +82,60 @@ export function ShellBreadcrumbs({
         })}
       </span>
     </nav>
+  )
+}
+
+export interface PageHeaderProps {
+  breadcrumbs: AppShellBreadcrumb[]
+  title?: React.ReactNode
+  status?: React.ReactNode
+  actions?: React.ReactNode
+  tabs?: React.ReactNode
+  className?: string
+}
+
+/**
+ * The v3 page header (SHELL-01.3): breadcrumbs, the routine page title, an
+ * optional status line, actions and a tab slot. Routes provide the slots via
+ * useShell(); routes that provide none render their own header as before.
+ */
+export function PageHeader({
+  breadcrumbs,
+  title,
+  status,
+  actions,
+  tabs,
+  className,
+}: PageHeaderProps) {
+  return (
+    <div
+      data-slot="page-header"
+      className={cn(
+        'border-b border-border bg-background px-4 pt-3 md:px-6',
+        className,
+      )}
+    >
+      <ShellBreadcrumbs breadcrumbs={breadcrumbs} />
+      {title || actions ? (
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            {title ? (
+              <h1 className="truncate text-page-title text-foreground">
+                {title}
+              </h1>
+            ) : null}
+            {status ? (
+              <div className="mt-0.5 text-caption text-muted-foreground">
+                {status}
+              </div>
+            ) : null}
+          </div>
+          {actions ? (
+            <div className="flex items-center gap-2">{actions}</div>
+          ) : null}
+        </div>
+      ) : null}
+      {tabs ? <div className="mt-2">{tabs}</div> : null}
+    </div>
   )
 }

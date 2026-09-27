@@ -53,7 +53,7 @@ import { createGlobalShortcuts } from '#/lib/global-shortcuts'
 import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
 import { ShortcutProvider } from '../shortcuts/shortcut-provider'
 import { ShortcutsDialog } from '../shortcuts/shortcuts-dialog'
-import { ShellBreadcrumbs } from './page-header'
+import { PageHeader } from './page-header'
 import { createDataClient } from '#/lib/data-client'
 import { setActiveWorkspace } from '#/lib/user-preferences'
 import { TopBarActions } from './top-bar'
@@ -224,6 +224,10 @@ export function ShellProvider({
       inspectorCollapsible={config.inspectorCollapsible}
       fullBleed={config.fullBleed}
       primaryAction={config.primaryAction}
+      title={config.title}
+      status={config.status}
+      actions={config.actions}
+      tabs={config.tabs}
       projectTree={config.projectTree}
       navExtra={config.navExtra}
       extensionCommands={config.extensionCommands}
@@ -250,6 +254,11 @@ export interface AppShellProps {
   navExtra?: React.ReactNode
   /** Primary action rendered in the top bar (e.g. + New). */
   primaryAction?: React.ReactNode
+  /** Page header slots (SHELL-01.3). */
+  title?: React.ReactNode
+  status?: React.ReactNode
+  actions?: React.ReactNode
+  tabs?: React.ReactNode
   /** Optional right-inspector content. When omitted no inspector renders. */
   inspector?: React.ReactNode
   inspectorLabel?: string
@@ -347,6 +356,10 @@ export function AppShell({
   projectTree,
   navExtra,
   primaryAction,
+  title,
+  status,
+  actions,
+  tabs,
   extensionCommands = [],
   onExtensionCommand,
   inspector,
@@ -730,8 +743,6 @@ export function AppShell({
                   <Menu />
                 </Button>
 
-                <ShellBreadcrumbs breadcrumbs={breadcrumbs} />
-
                 <TopBarActions
                   onOpenPalette={openPalette}
                   primaryAction={primaryAction}
@@ -757,6 +768,15 @@ export function AppShell({
                 {/* Keep the route at the same React depth when its layout changes.
                   Remounting it runs useShell cleanup, which changes the layout
                   again and can repeatedly tear down the active route. */}
+                {!fullBleed ? (
+                  <PageHeader
+                    breadcrumbs={breadcrumbs}
+                    title={title}
+                    status={status}
+                    actions={actions}
+                    tabs={tabs}
+                  />
+                ) : null}
                 <div
                   className={
                     fullBleed

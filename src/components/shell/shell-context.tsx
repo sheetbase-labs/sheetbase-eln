@@ -56,6 +56,11 @@ export interface AppShellContext {
 export interface ShellConfig {
   context: AppShellContext | null
   breadcrumbs: AppShellBreadcrumb[]
+  /** Page header slots (SHELL-01.3). */
+  title?: React.ReactNode
+  status?: React.ReactNode
+  actions?: React.ReactNode
+  tabs?: React.ReactNode
   inspector?: React.ReactNode
   inspectorLabel?: string
   inspectorCollapsible?: boolean
@@ -132,6 +137,10 @@ export function useShell(config: Partial<ShellConfig>) {
         inspectorCollapsible: undefined,
         fullBleed: undefined,
         primaryAction: undefined,
+        title: undefined,
+        status: undefined,
+        actions: undefined,
+        tabs: undefined,
         projectTree: undefined,
         navExtra: undefined,
         extensionCommands: undefined,

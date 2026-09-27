@@ -24,3 +24,4 @@ Spec: [DEC-07 in tasks/DEC.md](../../tasks/DEC.md#dec-07--workspace-defined-reco
 
 ## Work Log
 - 2026-09-27: DEC-07 decided by the product owner 2026-09-27: ADR-0051 accepted — generic record host with versioned approvable workspace models; cell banks workspace-defined, materials built-in; no table-per-model.
+- 2026-09-27: PR #198: DEC-07 recorded (ADR-0051).

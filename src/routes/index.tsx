@@ -259,6 +259,9 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   })
   const favouriteMutation = useSetFavourite()
 
+  // WORK-01 — the caller's open work items, for the inbox count.
+  const workItemsQuery = useWorkItems()
+
   // All projects for quick access.
   const projectsQuery = useQuery({
     queryKey: notebookQueryKeys.projectsList(),
@@ -355,6 +358,17 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
           </Link>
         </Button>
       </header>
+
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-caption text-muted-foreground">
+        <span>{(myReviewsQuery.data ?? []).length} to review</span>
+        <span>
+          {myRecords.filter((record) => record.status === 'in_progress').length}{' '}
+          experiments in progress
+        </span>
+        <Link to="/inbox" className="text-primary no-underline hover:underline">
+          Open inbox · {(workItemsQuery.data ?? []).length} items
+        </Link>
+      </div>
 
       <QuickActionsGrid />
 

@@ -375,6 +375,13 @@ export const workspaceSettings = api.table(
     integrationSettings: jsonb('integration_settings')
       .notNull()
       .default(sql`'{}'`),
+    /** DSET-04 — snapshot retention periods in years (DEC-11). */
+    snapshotCitedRetentionYears: integer('snapshot_cited_retention_years')
+      .notNull()
+      .default(15),
+    snapshotUncitedRetentionYears: integer('snapshot_uncited_retention_years')
+      .notNull()
+      .default(2),
     createdByUserId: text('created_by_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
@@ -2852,6 +2859,8 @@ export const datasets = api.table(
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
       .default(sql`1`),
+    /** DSET-04 — when the dataset was archived, for snapshot retention. */
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',

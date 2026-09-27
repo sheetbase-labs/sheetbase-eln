@@ -154,3 +154,26 @@ describe('api.dataset_version_list', () => {
     expect(list[1]!.change).toBeNull()
   })
 })
+
+describe('api.dataset_version_retention', () => {
+  it('keeps an active dataset snapshot indefinitely', async () => {
+    const client = await asAuthenticated()
+    const { rows } = await client.query<{
+      result: { reason: string; keptUntil: string | null }
+    }>(`SELECT api.dataset_version_retention($1) AS result`, [VERSION_A])
+    expect(rows[0]!.result).toEqual({ reason: 'active', keptUntil: null })
+  })
+
+  it('dates uncited retention from the dataset archive time', async () => {
+    await migrator.query(
+      `UPDATE api.datasets SET archived_at = '2026-01-01T00:00:00Z', lifecycle = 'archived' WHERE id = $1`,
+      [DATASET],
+    )
+    const client = await asAuthenticated()
+    const { rows } = await client.query<{
+      result: { reason: string; keptUntil: string }
+    }>(`SELECT api.dataset_version_retention($1) AS result`, [VERSION_A])
+    expect(rows[0]!.result.reason).toBe('uncited_after_archive')
+    expect(rows[0]!.result.keptUntil).toBe('2028-01-01T00:00:00+00:00')
+  })
+})

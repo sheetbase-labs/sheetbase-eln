@@ -79,7 +79,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-08 — Pipelines that pause for a person
 
-**Status:** proposed. New ADR amending ADR-0046 for the `waiting` run state and resumption outside the original transaction (see [PIPE-02](PIPE.md)).
+**Status:** accepted 2026-09-27 ([ADR-0052](../../decisions/0052-pipelines-that-pause-for-a-person.md), amending ADR-0046): autonomy is the default; the confirm step is opt-in; resumption is a human session recorded under their name; the pipeline author configures the no-answer outcome per step (stop and re-ask, apply the proposal attributed to the pipeline, or fail); temporary data is bounded (default 24 h).
 **Unblocks:** PIPE-02.
 
 **How:** Read ADR-0042/0046 and `src/lib/pipeline-execute.server.ts`; design the `waiting` state, what is kept while waiting, how resumption re-establishes the run actor and pinned inputs, and timeouts; write the ADR.

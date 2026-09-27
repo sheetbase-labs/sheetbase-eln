@@ -22,3 +22,5 @@ Step 2 of 4 in [WORK-02](../../tasks/WORK.md#work-02--home-and-inbox-pages); the
 - 2026-09-27: PR #206: Home counts row (to review, experiments in progress, open inbox · N) from real queries; dataset-error and instrument-run counts wait for their data sources.
 - 2026-09-27: PR #206: Home 'Today' section from calendar_bookings for the current day.
 - 2026-09-27: PR #206: Awaiting your review is now the design's table (Record, Project, Submitted by, Due, Action) with resolved submitter names.
+- 2026-09-27: Correcting the tracker: the Home rebuild belongs to WORK-02.1 (subtask-112), not WORK-02.2. First-run state is still todo.
+- 2026-09-27: PR #206: first-run 'Get set up' checklist (account created, signature, first project, experiment from a protocol) with your-projects action and Help links, shown when the user has no recents, edits or reviews.

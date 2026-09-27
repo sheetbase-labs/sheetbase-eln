@@ -84,8 +84,9 @@ import {
   RECENTS_LIMIT,
 } from '#/lib/recents'
 import type { RecentItem } from '#/lib/recents'
-import { recordDestination, recordPath } from '#/lib/navigation'
+import { projectPath, recordDestination, recordPath } from '#/lib/navigation'
 import { cn } from '#/lib/utils'
+import { requestShortcutsDialog } from '#/lib/shortcuts-dialog'
 import { useUserNames } from '#/lib/user-names'
 import { fetchCalendarBookings, formatTimeInZone } from '#/lib/calendar'
 import { useWorkItems } from '#/lib/work-items/data'
@@ -314,6 +315,13 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   const myMentions = myMentionsQuery.data ?? []
   const recentActivity = activityQuery.data ?? []
   const projects = projectsQuery.data ?? []
+
+  // WORK-02.2 — first-run state: nothing viewed, edited or awaiting review.
+  const isFirstRun =
+    !recentsQuery.isLoading &&
+    (recentsQuery.data ?? []).length === 0 &&
+    !myRecordsQuery.isLoading &&
+    myRecords.length === 0
   const pinnedRecords = pinnedQuery.data ?? []
   const projectById = new Map(projects.map((p) => [p.id, p]))
 
@@ -371,6 +379,8 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
           Open inbox · {(workItemsQuery.data ?? []).length} items
         </Link>
       </div>
+
+      {isFirstRun ? <FirstRunSection projects={projects} /> : null}
 
       <QuickActionsGrid />
 
@@ -1243,6 +1253,110 @@ export function ActivityFeed({
 /**
  * WORK-02.1 — "Today": the workspace's bookings for the current day.
  */
+
+/**
+ * WORK-02.2 — the first-run guidance: a short setup checklist, shown when the
+ * user has nothing recently viewed, edited or awaiting their review.
+ */
+function FirstRunSection({
+  projects,
+}: {
+  projects: Array<{ id: string; title: string }>
+}) {
+  const firstProject: { id: string; title: string } | null =
+    projects.length > 0 ? projects[0] : null
+  const steps = [
+    {
+      title: 'Account created',
+      detail: 'You are signed in and ready.',
+      done: true,
+    },
+    {
+      title: 'Set up your electronic signature',
+      detail:
+        'Required before you can author, review or approve records. Takes about 2 minutes.',
+      action: { label: 'Set up signature', to: '/settings' },
+      done: false,
+    },
+    {
+      title: 'Open your first project',
+      detail: firstProject
+        ? `${firstProject.title} is ready when you are.`
+        : 'Projects you can access appear here.',
+      action: {
+        label: 'Open project',
+        to: firstProject ? projectPath(firstProject.id) : '/projects',
+      },
+      done: false,
+    },
+    {
+      title: 'Create an experiment from a protocol',
+      detail: 'Templates set up sections, sheets and required fields for you.',
+      action: { label: 'Browse templates', to: '/templates' },
+      done: false,
+    },
+  ]
+  const done = steps.filter((step) => step.done).length
+  return (
+    <section
+      aria-label="Get set up"
+      className="min-w-0 rounded-lg border border-border"
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <h2 className="text-section text-foreground">Get set up</h2>
+        <span className="text-caption text-muted-foreground">
+          {done} of {steps.length} done
+        </span>
+      </div>
+      <ol className="divide-y divide-border">
+        {steps.map((step) => (
+          <li key={step.title} className="flex items-start gap-3 px-4 py-3">
+            <span
+              aria-hidden="true"
+              className={cn(
+                'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px]',
+                step.done
+                  ? 'bg-success-wash text-success-text'
+                  : 'bg-muted text-muted-foreground',
+              )}
+            >
+              {step.done ? '✓' : ''}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">
+                {step.title}
+              </p>
+              <p className="text-caption text-muted-foreground">
+                {step.detail}
+              </p>
+            </div>
+            {step.action ? (
+              <Button asChild variant="secondary" size="sm">
+                <Link to={step.action.to} className="no-underline">
+                  {step.action.label}
+                </Link>
+              </Button>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-2 text-caption">
+        <span className="text-muted-foreground">Help</span>
+        <Link to="/help" className="text-primary no-underline hover:underline">
+          How records, reviews and signatures work
+        </Link>
+        <button
+          type="button"
+          onClick={requestShortcutsDialog}
+          className="text-primary hover:underline"
+        >
+          Keyboard shortcuts
+        </button>
+      </div>
+    </section>
+  )
+}
+
 function TodayScheduleSection({ workspaceId }: { workspaceId: string }) {
   const now = new Date()
   const start = new Date(now)

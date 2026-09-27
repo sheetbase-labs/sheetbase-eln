@@ -17,3 +17,4 @@ tags:
 Step 1 of 7 in [DSYS-03](../../tasks/DSYS.md#dsys-03--primitives-restyled-in-place); the full step text is under “Steps” there.
 
 ## Work Log
+- 2026-09-27: Icon component, 49-path name union, test and story landed; Lucide replacement proceeds folder by folder.

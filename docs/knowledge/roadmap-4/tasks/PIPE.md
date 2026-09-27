@@ -24,7 +24,7 @@ needs judgement.
 
 ## PIPE-01 — Pipeline screens
 
-**Status:** proposed.
+**Status:** proposed. **DEC-03:** absorbs the `/agent-operations` agent surface; the standalone route retires.
 
 ### Design
 
@@ -86,7 +86,7 @@ default and is stated on every run.
 
 ## PIPE-02 — Waiting for a person
 
-**Status:** proposed; after [DEC-08](DEC.md) (it changes the single-transaction run model).
+**Status:** proposed; [DEC-08](DEC.md) accepted 2026-09-27 ([ADR-0052](../../decisions/0052-pipelines-that-pause-for-a-person.md)): autonomy is the default, the confirm step is opt-in, and the pipeline author configures the no-answer behaviour per step.
 
 ### Design
 
@@ -97,9 +97,10 @@ default and is stated on every run.
 A "confirm" step kind that pauses a run in a new `waiting` status with a
 typed decision form (for example units per column with suggestions and a
 reason); named people asked through WORK-01 and email; confirm and continue,
-skip the dependent steps, or stop; timeout with a defined outcome; temporary
-data kept only while waiting (bounded); the decision is recorded under the
-person's name in the affected record's History.
+skip the dependent steps, or stop; the pipeline author configures the no-answer
+outcome per step (stop and re-ask, apply the proposal attributed to the
+pipeline, or fail); temporary data kept only while waiting (bounded); the
+decision is recorded under the person's name in the affected record's History.
 
 ### Start here
 

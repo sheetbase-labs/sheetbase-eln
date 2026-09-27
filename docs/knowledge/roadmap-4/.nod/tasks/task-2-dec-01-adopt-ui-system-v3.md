@@ -2,7 +2,7 @@
 id: task-2
 title: DEC-01 — Adopt UI system v3
 type: task
-status: todo
+status: done
 priority: critical
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -23,3 +23,7 @@ Spec: [DEC-01 in tasks/DEC.md](../../tasks/DEC.md#dec-01--adopt-ui-system-v3)
 - Steps: 0 subtasks
 
 ## Work Log
+- 2026-09-27: ADR-0047 review evidence recorded; ready for owner acceptance (status stays proposed).
+- 2026-09-27: PR #192: ADR-0047 review evidence; acceptance pending.
+- 2026-09-27: ADR-0047 accepted by the product owner 2026-09-27. DSYS-02 unblocked.
+- 2026-09-27: Consolidated into the wave-0 phase branch and PR #203.

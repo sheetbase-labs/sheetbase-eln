@@ -2,7 +2,7 @@
 id: task-9
 title: DEC-08 — Pipelines that pause for a person
 type: task
-status: todo
+status: done
 priority: critical
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -23,3 +23,6 @@ Spec: [DEC-08 in tasks/DEC.md](../../tasks/DEC.md#dec-08--pipelines-that-pause-f
 - Steps: 0 subtasks
 
 ## Work Log
+- 2026-09-27: DEC-08 decided by the product owner 2026-09-27: ADR-0052 accepted — autonomy default, opt-in confirm step, no-answer behaviour chosen by the pipeline author per step (stop and re-ask / apply proposal attributed to pipeline / fail).
+- 2026-09-27: PR #202: DEC-08 recorded (ADR-0052).
+- 2026-09-27: Consolidated into the wave-0 phase branch and PR #203.

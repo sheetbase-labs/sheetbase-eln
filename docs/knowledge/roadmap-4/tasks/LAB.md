@@ -115,7 +115,7 @@ is automatic and audited as System.
 
 ## LAB-03 — Sample record pages
 
-**Status:** proposed.
+**Status:** proposed. **DEC-03:** absorbs the `/lineage` provenance explorer into the Lineage tab and evidence pages; the standalone route retires.
 
 ### Design
 
@@ -159,7 +159,7 @@ link to their row; the seeded SMP-2231 matches the design.
 
 ## LAB-04 — Materials and lots
 
-**Status:** proposed; after [DEC-07](DEC.md), which decides whether materials are built-in or a workspace-defined model.
+**Status:** proposed; [DEC-07](DEC.md) accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): materials are built-in, not workspace-defined. **DEC-03:** absorbs `/storage` locations; the standalone route retires.
 
 ### Design
 
@@ -198,7 +198,7 @@ refused on the server; expiry reminders appear in WORK-01.
 
 ## LAB-05 — Labels and scanning
 
-**Status:** proposed; after [DEC-10](DEC.md).
+**Status:** proposed; [DEC-10](DEC.md) accepted 2026-09-27: the lab has no specific printers, so printing is browser print (no print gateway) and the 2D code payload is `https://<host>/r/<identifier>`.
 
 ### Design
 
@@ -221,8 +221,9 @@ Nothing exists. Storage positions (`src/lib/storage.ts`,
 
 1. Label template model and renderer (ID, name, condition, use-by, QR code of
    `https://<host>/r/<identifier>`), preview in the sample inspector.
-2. Print path per DEC-10 (print gateway service or browser print), print
-   event recorded on the sample; toast per design.
+2. Browser print (no print gateway; the lab has no specific printers), with the
+   label template rendered as a print document; print event recorded on the
+   sample; toast per design.
 3. `/r/<identifier>` resolver route to the right record page.
 4. Camera scanning component (`BarcodeDetector` where available, a
    WASM decoder fallback) with typed-ID fallback; used by MOB-02.
@@ -239,7 +240,7 @@ recorded in the sample's History.
 
 ## LAB-06 — Instruments: identity, calibration and qualification
 
-**Status:** proposed.
+**Status:** proposed. **DEC-03:** absorbs `/instrument-monitor`; the standalone route retires.
 
 ### Design
 

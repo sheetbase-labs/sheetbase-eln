@@ -207,7 +207,7 @@ where the design says otherwise.
 
 ## SHELL-04 — Decide the fate of surfaces outside the design
 
-**Status:** proposed; this is [DEC-03](DEC.md).
+**Status:** proposed; [DEC-03](DEC.md) decided 2026-09-27 (route decisions below).
 
 ### Goal
 
@@ -224,11 +224,37 @@ rendered like the rest) and then built to parity; there is no restyled
 exception. Record each decision in this file. Retiring a route removes its code
 and tests in the same change; folding updates NAV canonical URLs.
 
+### Route decisions (DEC-03)
+
+Gathered 2026-09-27 against `main` `9538f36` and the current shell
+(`src/components/app-shell.tsx`); decided by the product owner on 2026-09-27.
+
+- **Fold** moves the capability into the named task; the route, its components,
+  stories, tests and navigation entry are then deleted in that task's PR.
+- **Retire** deletes the route, components, stories, tests, navigation entry
+  and any SQL only it used.
+- **Keep internal** means no v3 screen and no parity: the route stays out of the
+  navigation as a development/review surface (ADR-0014).
+
+| Route                 | Today                                                                                                                     | Origin / who needs it                                                                      | Decision (2026-09-27)                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `/agent-operations`   | 412-line route, 5 components: agent-operation proposals, policies and workflow events. In the shell's Automation section. | Roadmap 2 AUTO-01..03, accepted ADR-0043; backed by `docs/subsystems/agent-operations.md`. | **Fold into PIPE-01 (`/pipelines`)** as the agent surface; retire the route. |
+| `/plate-designer`     | 433-line route, 4 components: plate maps and plate CSV import. In the shell's More section.                               | CORE-era specialist; Roadmap 1 froze it ("paused specialist"). No v3 design screen.        | **Retire.**                                                                  |
+| `/planner`            | 498-line route, 8 components: study/planner tasks. In the shell's More section.                                           | CORE-era specialist; Roadmap 1 froze it. PROJ-02 decides whether milestones reuse it.      | **Fold into PROJ-02 milestones; retire the standalone route.**               |
+| `/instrument-monitor` | 463-line route, 8 components: instrument run queue and simulation. In the shell's More section.                           | CORE-era specialist; LAB-06 introduces `/instruments/$instrumentId` (RecordInstrument).    | **Fold into LAB-06 (`/instruments`); retire.**                               |
+| `/storage`            | 565-line route, 10 components: freezer/storage hierarchy. In the shell's More section.                                    | CORE-era specialist; LAB-04 materials and sample storage locations cover the data.         | **Fold storage locations into LAB-04; retire.**                              |
+| `/report-builder`     | 551-line route, 13 components: report definitions and DOCX/PDF output. Not in the shell.                                  | CORE-era specialist; Roadmap 1 froze it. Evidence/results needs sit in REV and ExpResults. | **Retire.**                                                                  |
+| `/lineage`            | 1,236-line route: record provenance/lineage explorer. Not in the shell.                                                   | Roadmap 3 KNOW; ADR-0035 relationships. The design shows lineage in sample/project tabs.   | **Fold into the Sample/Project lineage tabs and evidence pages; retire.**    |
+| `/docs/$name`         | 88-line route: read-only viewer for repository documents. Not in the shell.                                               | Internal tooling; not a product surface.                                                   | **Keep internal, unlisted** (no parity).                                     |
+| `/foundations`        | 1,449-line route: design-token and component catalogue; production redirects home.                                        | ADR-0014 visual-review gate; ADR-0047 keeps it as the token/contrast review page.          | **Keep internal, unlisted** (token review gate, no parity).                  |
+
 ### Steps
 
-1. For each route, find its roadmap origin (`grep -rn "<route>" docs/knowledge`)
-   and current users; write one line per route in a table in this task.
-2. Product owner decides; record the decision and date in the table.
+1. **Done 2026-09-27.** For each route, find its roadmap origin
+   (`grep -rn "<route>" docs/knowledge`) and current users; the table above
+   records one line per route.
+2. **Done 2026-09-27.** Product owner decided; the decision and date are in the
+   table above.
 3. For each "keep": add v3 screens to the design, re-vendor, render, then add
    a screen-migration task to the relevant stream.
 4. For each "retire": one PR removing the route, its components, stories,

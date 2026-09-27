@@ -447,6 +447,16 @@ export const projects = api.table(
      * submissions. Null falls back to 7 days.
      */
     defaultReviewPeriodDays: integer('default_review_period_days'),
+    /** PROJ-03.2 — project governance settings (all default off). */
+    requireEffectiveProtocol: boolean('require_effective_protocol')
+      .notNull()
+      .default(false),
+    requireIndependentReviewer: boolean('require_independent_reviewer')
+      .notNull()
+      .default(false),
+    autoShareToClient: boolean('auto_share_to_client')
+      .notNull()
+      .default(false),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
   },

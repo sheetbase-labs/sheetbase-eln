@@ -164,7 +164,7 @@ Specification: [tasks/PROJ.md](tasks/PROJ.md) · nod `epic-124`
   - [ ] PROJ-02.3 Project Overview tab `subtask-133`
 - [ ] **PROJ-03** Members, roles and project settings `task-134`
   - [ ] PROJ-03.1 Add project_role `subtask-135`
-  - [ ] PROJ-03.2 Project settings columns `subtask-136`
+  - [ ] PROJ-03.2 Project settings columns — **in progress** `subtask-136`
   - [x] PROJ-03.3 Archive project RPC: sets archived_at `subtask-137`
   - [ ] PROJ-03.4 Members and Settings tabs matching ProjectMembers, ProjectSettings `subtask-138`
 - [ ] **PROJ-04** Folders and files `task-139`

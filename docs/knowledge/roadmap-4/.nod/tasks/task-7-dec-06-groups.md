@@ -24,3 +24,4 @@ Spec: [DEC-06 in tasks/DEC.md](../../tasks/DEC.md#dec-06--groups)
 
 ## Work Log
 - 2026-09-27: DEC-06 decided by the product owner 2026-09-27: ADR-0050 accepted — workspace-scoped groups granting only through per-project access rules; organisation teams stay deferred (ADR-0044).
+- 2026-09-27: PR #197: DEC-06 recorded (ADR-0050).

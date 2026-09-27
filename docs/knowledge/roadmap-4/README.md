@@ -36,16 +36,18 @@ all of it.
 
 ## Start here
 
-1. [`DESIGN_ADOPTION.md`](DESIGN_ADOPTION.md) — how the design gets into the
+1. [`GUIDE.md`](GUIDE.md) — **start here if you are picking up a task**: setup,
+   how a task flows, recipes, glossary and the PR checklist.
+2. [`DESIGN_ADOPTION.md`](DESIGN_ADOPTION.md) — how the design gets into the
    code and replaces the current UI: token map, component packages, route map,
    verification.
-2. [`tasks/DEC.md`](tasks/DEC.md) — the decisions taken first, including
+3. [`tasks/DEC.md`](tasks/DEC.md) — the decisions taken first, including
    proposed [ADR-0047](../decisions/0047-ui-system-v3-adoption.md) and
    [ADR-0048](../decisions/0048-sheet-grid-on-sheetbase-table.md).
-3. [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) — dependencies, waves and delivery
+4. [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) — dependencies, waves and delivery
    rules.
-4. [`tasks/README.md`](tasks/README.md) — 86 tasks in 17 streams.
-5. The design reference: render a screen, open its `.dc.html` for structure
+5. [`tasks/README.md`](tasks/README.md) — 86 tasks in 17 streams.
+6. The design reference: render a screen, open its `.dc.html` for structure
    and its `screen-text/*.txt` for copy.
 
 ## Programmes

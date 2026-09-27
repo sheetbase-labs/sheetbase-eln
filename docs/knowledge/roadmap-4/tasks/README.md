@@ -2,7 +2,8 @@
 
 Roadmap 4 proposes **86 numbered tasks across 17 capability streams**. Each
 stream file states the baseline, then each task's goal, design references,
-scope and exit. Design references are paths under
+scope, where to start in the code, PR-sized steps, how to check the work,
+and exit. Read [`../GUIDE.md`](../GUIDE.md) first. Design references are paths under
 [`../../design/ui-system-v3/`](../../design/ui-system-v3/README.md).
 
 ## Status — 27 September 2026

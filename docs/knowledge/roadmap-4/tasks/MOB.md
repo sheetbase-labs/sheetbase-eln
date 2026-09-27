@@ -28,6 +28,24 @@ Scan, Inbox); 44px minimum targets; Today shows your bookings and items that
 need you; Inbox lists WORK-01 items, with review and signing sending you to
 the full record on a larger screen. Same routes and data as desktop.
 
+### Start here
+
+The shell from SHELL-01 (`src/components/shell/`), WORK-01 data module,
+`src/lib/calendar.ts` (today's bookings). Design: render `PhoneHome`,
+`PhoneInbox` (390×844).
+
+### Steps (PRs)
+
+1. Phone layout below 600px in the shell: `phone-bar` header with back button,
+   bottom bar (Today, Scan, Inbox), 44px targets, no sidebar or inspector.
+2. `/` renders Today on phones (bookings, needs-you items); `/inbox` renders the
+   compact list; review and signing items link to the full record with a note
+   that they need a larger screen.
+
+### Check it
+
+Playwright with the iPhone-sized viewport; parity for both boards.
+
 ### Exit
 
 Today and Inbox match the design at 390×844 on seeded data and pass touch
@@ -49,6 +67,27 @@ numeric keypad, remaining volume and destination (LAB-01); record a reading
 into a planned sheet row with range check, dilution calculation and photo
 attachment (DSET-01); evidence summary (REV-04); record view for model records
 (MDL-04).
+
+### Start here
+
+LAB-01 (withdraw RPC), LAB-05 (scan and labels), DSET-01 (planned rows),
+REV-04 (evidence), MDL-04 (model records). Design: render `PhoneScan`,
+`PhoneSample`, `PhoneWithdraw`, `PhoneReading`, `RecordPhone`, `EvidencePhone`.
+
+### Steps (PRs)
+
+1. `/scan` route: camera scan (from LAB-05) and typed ID fallback; result card
+   with actions.
+2. Phone sample view and withdraw flow with numeric keypad component
+   (`src/components/phone/keypad.tsx`), remaining volume, destination.
+3. Record-a-reading: pick the planned row, enter value, range check,
+   dilution calculation shown, optional photo (upload via the file routes).
+4. Phone evidence and model record views.
+
+### Check it
+
+Browser tests at 390×844 for each flow writing through the same RPCs as
+desktop; parity for the six boards.
 
 ### Exit
 

@@ -48,6 +48,24 @@ Separate portal shell; projects with milestones (PROJ-02) and approved records
 with PDF and verification code; reports; messages to and from the CDMO team;
 "your access" explanation; invite and remove client users from the project.
 
+### Start here
+
+PORTAL-01's ADR; review approvals and signed PDFs (REV-02/04); project
+milestones (PROJ-02); `src/lib/auth.ts`.
+
+### Steps (PRs)
+
+1. Client identity and invitation per the ADR; client users table and RLS
+   policies granting only shared approved records of their client's projects.
+2. Share records (manual and automatic per PROJ-03) and reports; messages
+   between client and team (new table with RLS).
+3. Portal shell and route `/portal` per `ClientPortal`.
+
+### Check it
+
+RLS test matrix from the ADR (drafts, comments, datasets, files, other clients
+all invisible); parity for `ClientPortal`.
+
 ### Exit
 
 A client user can read and download only shared approved records of their own

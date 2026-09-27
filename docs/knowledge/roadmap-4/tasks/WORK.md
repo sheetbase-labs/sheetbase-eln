@@ -44,6 +44,48 @@ that they follow.
 - Change events keep the list live.
 - Liveblocks notifications remain for comment/mention delivery only.
 
+### Start here
+
+- Sources of work today: `api.review_submissions` (`assigned_reviewer_user_ids`,
+  `state`, `submitted_at`; **no due date**), `src/lib/reviews.ts`,
+  `src/lib/dashboard-data.ts` (`fetchMyPendingReviews`, `isReviewDueSoon`,
+  `fetchMyMentions`), validation state on sheets/datasets
+  (`src/lib/canonical-sheet-grid.ts`, dataset validation in `src/lib/`),
+  `api.pipeline_runs.status`, reagent expiry in `src/lib/reagent-data.ts`,
+  `api.change_events` for "done today".
+- Pattern for a derived, RLS-safe read: a `security_invoker` view in `api`
+  (see "Object conventions" in `docs/development/database-access.md`).
+- Design: render `HomeTriage`, `InboxEmpty`, `PhoneInbox`; read
+  `screen-text/HomeTriage.txt` for every item type and wording.
+
+### Steps (PRs)
+
+1. **Due dates.** Add `due_at` to review submissions (set from the project's
+   default review period, overridable at submit), expose it in the review RPCs
+   and `reviews.ts`. DB test.
+2. **Work item view.** `api.my_work_items` (security invoker) unioning the
+   sources that exist today: reviews assigned to me, validation errors on
+   records I own, failed runs of pipelines I own, reagents/materials expiring
+   in my projects. Columns: `kind`, `record_id`, `identifier`, `title`,
+   `project_id`, `reason`, `due_at`, `state` (`needs_action | following | done_today`).
+   DB tests: success, other workspace sees nothing, viewer sees only readable
+   records.
+3. **Follow and dismiss.** `api.work_item_follows` (user, record) with RLS
+   own-rows; RPCs `follow_record`, `unfollow_record`; following items appear in
+   the view.
+4. **Later kinds.** Signature requests (REV-02), data issues from flags
+   (DSET-01), runs waiting (PIPE-02), approvals (MDL-03, LAB-07), conflicts
+   (EXP-05) are added to the view by those tasks; each of their step lists
+   says so.
+5. **Data module.** `src/lib/work-items/data.ts` with query keys, grouping
+   (today, next 7 days, later) and type counts; invalidated by change events
+   (`src/lib/live-events.ts`).
+
+### Check it
+
+`pnpm test:db work-items`, `pnpm test src/lib/work-items`; the view returns
+Gareth P.'s items for the design seed.
+
 ### Exit
 
 For the seeded scenario the Inbox shows exactly the design's items for Gareth
@@ -70,6 +112,33 @@ dismiss; a user never sees an item for an object they cannot read.
   coming-up and done today.
 - Help page for records, reviews and signatures.
 
+### Start here
+
+`src/routes/index.tsx` (1,631 lines, current dashboard), `src/lib/dashboard-data.ts`,
+`src/routes/reviews.tsx` (982 lines, review inbox), `src/lib/recents.ts`
+(continue working), `src/lib/calendar.ts` (today's bookings),
+`tests/browser/reviews-inbox.test.ts`.
+
+### Steps (PRs)
+
+1. Home (`/`): rebuild against `Main` using WORK-01 counts and lists,
+   `recents.ts`, today's bookings and change events for recent activity.
+   Delete superseded dashboard code in `index.tsx` and unused
+   `dashboard-data.ts` functions.
+2. First-run state (`HomeFirstRun`): shown when the user has no recents; setup
+   checklist items read real state (signature certified, project membership,
+   experiments created).
+3. Inbox route `/inbox` with tabs, type filter, J/K navigation (SHELL-03),
+   inspector summary; empty state (`InboxEmpty`). Delete `/reviews` list and
+   point its links to `/inbox`.
+4. Help page (`HelpRecords`) as a static route with the design copy.
+
+### Check it
+
+Component tests for each state; update `tests/browser/reviews-inbox.test.ts`
+to the new route; parity for `Main`, `HomeFirstRun`, `HomeTriage`,
+`InboxEmpty`, `HelpRecords`.
+
 ### Exit
 
 Home, first-run and Inbox match their design screens on seeded data; the old
@@ -94,6 +163,34 @@ Notifications popover in `canvas/Main.dc.html`; `canvas/SettingsNotifications.dc
 - Email transport with templates and an outbox (reusing the webhook delivery
   retry model); per-workspace sender configuration.
 
+### Start here
+
+Bell today: `src/components/collaboration/notification-inbox.tsx` (Liveblocks
+inbox, 471 lines). Outbox pattern to copy: `api.webhook_deliveries` and
+`src/lib/webhook-delivery.ts` (attempts, backoff, `next_attempt_at`).
+Design: `SettingsNotifications`, the notifications popover in `Main`.
+
+### Steps (PRs)
+
+1. `api.notification_preferences` (user, event type, in_app, email, digest)
+   with own-row RLS, quiet hours and digest time on `user_preferences`
+   (SHELL-02); RPC to save; settings page `SettingsNotifications`.
+2. `internal.notifications` written by a trigger on `api.change_events` for
+   the eight design event types, addressed to the right people; read view
+   `api.my_notifications`; mark-read RPC.
+3. Bell popover reading `my_notifications` (unread dot, mark all read, rows
+   linking to records). Liveblocks stays only for comment threads.
+4. Email outbox `internal.email_deliveries` + server worker
+   (`src/lib/email-delivery.server.ts`) reusing backoff from
+   `webhook-delivery.ts`; SMTP settings from environment (`.env.example`
+   entries, no secrets committed); templates per event; quiet hours hold
+   non-urgent email; daily digest job.
+
+### Check it
+
+DB tests for addressing and preference filtering; unit tests for quiet-hours
+and digest scheduling; the email transport faked at the adapter in tests.
+
 ### Exit
 
 Each of the eight design event types can be routed to each channel; emails are
@@ -116,6 +213,28 @@ and unavailable hours hatched; my active experiments with next step and
 blocking issue; reviews due; materials for today. Booking dialog shows the
 clash and offers the next free slot, and shows qualification and calibration
 status (LAB-06).
+
+### Start here
+
+`src/routes/calendar.tsx`, `src/lib/calendar.ts`, `src/components/calendar/`
+(booking dialog, filters, inspector), `src/components/reui/event-calendar`,
+`tests/db/calendar.test.ts` (overlap detection exists).
+
+### Steps (PRs)
+
+1. `/schedule` route: day/week timeline (instrument rows, current-time line,
+   hatched unavailable hours from resource availability), my active
+   experiments, reviews due (WORK-01), materials for today. Delete `/calendar`
+   after moving any capability it has that the design keeps.
+2. Booking dialog: clash shown before booking with "next free slot" computed
+   server-side (`api.next_free_slot(resource, from, duration)`), qualification
+   and calibration status from LAB-06; booking refused on the server when the
+   user is not qualified or calibration has lapsed.
+
+### Check it
+
+DB tests for next-free-slot and refusal reasons; parity for `HomeBench`,
+`ScheduleEmpty` and the booking dialog in `DialogsRecord`.
 
 ### Exit
 

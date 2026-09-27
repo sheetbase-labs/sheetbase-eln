@@ -17,3 +17,4 @@ tags:
 Step 2 of 4 in [DSYS-05](../../tasks/DSYS.md#dsys-05--design-data-seed); the full step text is under “Steps” there.
 
 ## Work Log
+- 2026-09-27: PR #205: datasets screen group seeded (Ambr 250 daily readings 84 rows/7 snapshots; ELISA capsid titre and turbidity 96 rows/15 snapshots) through the canonical dataset RPCs.

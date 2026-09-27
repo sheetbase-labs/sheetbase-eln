@@ -6,8 +6,10 @@
  * ("09:32", "Yesterday") render as the design does. Per-screen data is added
  * by later steps; each step runs through the canonical data layer.
  */
-import * as schema from '../schema'
+import { randomUUID } from 'node:crypto'
+import { Client } from 'pg'
 import { eq } from 'drizzle-orm'
+import * as schema from '../schema'
 import type { SeedStep } from './run'
 
 /** Fixed clock for the design seed: Friday 25 Sep 2026, 09:40 Europe/London. */
@@ -411,6 +413,10 @@ export const designSteps: Array<SeedStep> = [
       }
     },
   },
+  {
+    name: 'design datasets',
+    run: (db) => seedDesignDatasets(db),
+  },
 ]
 
 const DESIGN_EXPERIMENTS: ReadonlyArray<{
@@ -709,3 +715,390 @@ const DESIGN_PROJECTS: ReadonlyArray<{
     title: 'Release testing, AAV9',
   },
 ]
+
+/**
+ * DSYS-05.2 — the datasets the design screens show. Datasets are created
+ * through the canonical capability RPCs (`create_dataset_schema_definition`,
+ * `publish_dataset_schema_version`, `commit_dataset_row_batch`,
+ * `snapshot_dataset`) on a claims-bearing connection, exactly as the app does.
+ */
+interface DesignDatasetField {
+  key: string
+  label: string
+  logicalType: 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'timestamp'
+  unit?: string
+  required?: boolean
+}
+
+interface DesignDataset {
+  id: string
+  workspaceId: string
+  actorId: string
+  projectId: string
+  schemaKey: string
+  schemaName: string
+  name: string
+  description: string
+  fields: ReadonlyArray<DesignDatasetField>
+  snapshotLabels: ReadonlyArray<string>
+  rows: () => Array<Record<string, unknown>>
+}
+
+const AMBR_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'vessel', label: 'Vessel', logicalType: 'text', required: true },
+  { key: 'day', label: 'Day', logicalType: 'integer', unit: 'day', required: true },
+  { key: 'time', label: 'Time', logicalType: 'text', required: true },
+  {
+    key: 'vcd',
+    label: 'VCD',
+    logicalType: 'decimal',
+    unit: '×10⁶ cells/mL',
+    required: true,
+  },
+  {
+    key: 'viability',
+    label: 'Viability',
+    logicalType: 'decimal',
+    unit: '%',
+    required: true,
+  },
+  { key: 'glucose', label: 'Glucose', logicalType: 'decimal', required: true },
+  {
+    key: 'lactate',
+    label: 'Lactate',
+    logicalType: 'decimal',
+    unit: 'g/L',
+  },
+  { key: 'osmolality', label: 'Osmolality', logicalType: 'decimal', required: true },
+  { key: 'ph_value', label: 'pH', logicalType: 'decimal', required: true },
+  { key: 'dissolved_oxygen', label: 'DO', logicalType: 'decimal', unit: '%' },
+]
+
+const ELISA_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
+  { key: 'plate', label: 'Plate', logicalType: 'text', required: true },
+  { key: 'well', label: 'Well', logicalType: 'text', required: true },
+  { key: 'dilution', label: 'Dilution', logicalType: 'integer', required: true },
+  {
+    key: 'capsid_titre',
+    label: 'Capsid titre',
+    logicalType: 'decimal',
+    unit: '×10¹⁰ vg/mL',
+    required: true,
+  },
+  {
+    key: 'turbidity',
+    label: 'Turbidity',
+    logicalType: 'decimal',
+    unit: 'NTU',
+    required: true,
+  },
+  { key: 'a260', label: 'A260', logicalType: 'decimal', unit: 'AU' },
+  { key: 'a280', label: 'A280', logicalType: 'decimal', unit: 'AU' },
+  { key: 'ratio', label: 'A260/A280', logicalType: 'decimal' },
+  { key: 'out_of_range', label: 'Out of range', logicalType: 'boolean' },
+  { key: 'note', label: 'Note', logicalType: 'text' },
+]
+
+const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
+  {
+    id: '00000000-0000-4000-8000-000000000380',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000322',
+    schemaKey: 'ambr_250_daily_reading',
+    schemaName: 'Ambr 250 daily reading',
+    name: 'Ambr 250 daily readings, AMB-25-118',
+    description: 'Imported daily from Ambr 250 export',
+    fields: AMBR_FIELDS,
+    snapshotLabels: [
+      'Import · AMB-25-118_day1_am.csv',
+      'Import · AMB-25-118_day2_am.csv',
+      'Import · AMB-25-118_day3_am.csv',
+      'Import · AMB-25-118_day4_pm.csv',
+      'Import · AMB-25-118_day5_am.csv',
+      'Import · AMB-25-118_day6_am.csv',
+      'Import · AMB-25-118_day7_am.csv',
+    ],
+    rows: ambrRows,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000381',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000320',
+    schemaKey: 'elisa_turbidity',
+    schemaName: 'ELISA and turbidity',
+    name: 'ELISA capsid titre and turbidity',
+    description: 'Plate-based capsid titre with harvest turbidity',
+    fields: ELISA_FIELDS,
+    snapshotLabels: [
+      'Import · ELISA plate 1',
+      'Import · ELISA plate 2',
+      'Import · ELISA plate 3',
+      'Import · ELISA plate 4',
+      'Import · ELISA plate 5',
+      'Gareth P. · saved by hand',
+      'Import · PR-01 plate 0 (controls)',
+      'Gareth P. · saved by hand',
+      'Import · PR-01 plates 1–3',
+      'Import · TB-02_turbidity_2026-09-24.csv',
+      'Import · TB-02_turbidity_2026-09-25.csv',
+      'Import · PR-01 plate 4',
+      'Import · PR-01 plate 5',
+      'Pipeline PL-0011 run #88 · plate 4 export',
+      'Pipeline PL-0011 run #88 · plate 4 export (final)',
+    ],
+    rows: elisaRows,
+  },
+]
+
+const AMBR_DAY = {
+  5: {
+    V01: [8.1, 96.4, 3.1, 1.2, 302, 7.05, 40],
+    V02: [7.8, 96.0, 3.3, 1.1, 299, 7.06, 41],
+    V03: [8.4, 96.8, 2.9, 1.3, 305, 7.04, 40],
+    V04: [7.5, 95.7, 3.4, 1.0, 298, 7.07, 39],
+  },
+  6: {
+    V01: [12.4, 95.1, 2.4, 1.6, 309, 7.02, 40],
+    V02: [11.9, 95.3, 2.6, 1.5, 306, 7.03, 40],
+    V03: [12.8, 94.8, 2.2, 1.7, 311, 7.01, 41],
+    V04: [11.2, 95.5, 2.7, 1.4, 304, 7.04, 40],
+  },
+} as const
+
+function ambrRows(): Array<Record<string, unknown>> {
+  const vessels = ['V01', 'V02', 'V03', 'V04'] as const
+  const rows: Array<Record<string, unknown>> = []
+  for (let day = 1; day <= 21; day += 1) {
+    vessels.forEach((vessel, vesselIndex) => {
+      const exact = day === 5 || day === 6 ? AMBR_DAY[day][vessel] : undefined
+      const minute = day >= 5 ? day * 2 - 2 : day
+      const time = exact
+        ? day === 5
+          ? `08:${50 + vesselIndex * 2}`
+          : `09:0${6 + vesselIndex * 2}`
+        : `08:${String(40 + minute).padStart(2, '0')}`
+      const [vcd, viability, glucose, lactate, osmolality, ph, dissolvedOxygen] =
+        exact ?? [
+          Number((2.6 + day * 0.62 + vesselIndex * 0.15).toFixed(1)),
+          Number((96.6 - day * 0.07 - vesselIndex * 0.1).toFixed(1)),
+          Number((4.1 - day * 0.09).toFixed(1)),
+          Number((0.7 + day * 0.045).toFixed(1)),
+          284 + day * 3 + vesselIndex,
+          Number((7.11 - day * 0.005 + vesselIndex * 0.005).toFixed(2)),
+          38 + ((day + vesselIndex) % 4),
+        ]
+      rows.push({
+        vessel,
+        day,
+        time,
+        vcd,
+        viability,
+        glucose,
+        lactate,
+        osmolality,
+        ph_value: ph,
+        dissolved_oxygen: dissolvedOxygen,
+      })
+    })
+  }
+  return rows
+}
+
+function elisaRows(): Array<Record<string, unknown>> {
+  const plates = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8']
+  const wells = [
+    'A1', 'A2', 'A3', 'A4', 'A5', 'A6',
+    'B1', 'B2', 'B3', 'B4', 'B5', 'B6',
+  ]
+  const rows: Array<Record<string, unknown>> = []
+  plates.forEach((plate, plateIndex) => {
+    wells.forEach((well, wellIndex) => {
+      const sample = `S-${String(plateIndex * 12 + wellIndex + 1).padStart(3, '0')}`
+      const dilution = [10, 100, 1000][wellIndex % 3]
+      const capsidTitre = Number(
+        (3.4 + ((plateIndex * 12 + wellIndex) % 17) * 0.18).toFixed(2),
+      )
+      const turbidity = Number(
+        (4.2 + ((plateIndex * 7 + wellIndex) % 9) * 0.9).toFixed(1),
+      )
+      const a260 = Number((0.52 + (wellIndex % 5) * 0.03).toFixed(3))
+      const a280 = Number((0.31 + (wellIndex % 4) * 0.02).toFixed(3))
+      const outOfRange = capsidTitre > 5.6
+      rows.push({
+        sample,
+        plate,
+        well,
+        dilution,
+        capsid_titre: capsidTitre,
+        turbidity,
+        a260,
+        a280,
+        ratio: Number((a260 / a280).toFixed(2)),
+        out_of_range: outOfRange,
+        note: outOfRange ? 'Above top standard' : null,
+      })
+    })
+  })
+  return rows
+}
+
+function datasetFieldsWire(dataset: DesignDataset) {
+  return dataset.fields.map((field, index) => ({
+    key: field.key,
+    label: field.label,
+    logical_type: field.logicalType,
+    nullable: !field.required,
+    ...(field.unit
+      ? {
+          quantity: {
+            kind: 'quantity',
+            dimension: field.unit,
+            storageUnit: field.unit,
+            symbol: field.unit,
+          },
+        }
+      : {}),
+    display_order: index + 1,
+  }))
+}
+
+/**
+ * Runs `fn` as `actorId` in `workspaceId` through the PostgREST role with JWT
+ * claims, the same write actor the app uses, so capability and RLS checks run.
+ */
+async function withDesignClaims<T>(
+  db: Parameters<SeedStep['run']>[0],
+  actorId: string,
+  workspaceId: string,
+  fn: (client: Client) => Promise<T>,
+): Promise<T> {
+  const poolCs = db.$client.options.connectionString
+  const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
+  if (!poolCs || !pgrst.username) {
+    throw new Error('PGRST_DB_URI and the pool connection string are required')
+  }
+  const authUrl = new URL(poolCs)
+  authUrl.username = pgrst.username
+  authUrl.password = pgrst.password
+  const client = new Client({ connectionString: authUrl.toString() })
+  await client.connect()
+  try {
+    await client.query('SET ROLE authenticated')
+    await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
+      JSON.stringify({ sub: actorId, workspace_id: workspaceId, role: 'authenticated' }),
+    ])
+    return await fn(client)
+  } finally {
+    await client.query('RESET ROLE').catch(() => {})
+    await client.end()
+  }
+}
+
+async function seedDesignDatasets(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  for (const dataset of DESIGN_DATASETS) {
+    await withDesignClaims(db, dataset.actorId, dataset.workspaceId, async (client) => {
+      const existing = await client.query('select id from api.datasets where id = $1', [
+        dataset.id,
+      ])
+      if ((existing.rowCount ?? 0) > 0) return
+
+      const definition = await client.query(
+        'select id from api.dataset_schema_definitions where workspace_id = $1 and key = $2',
+        [dataset.workspaceId, dataset.schemaKey],
+      )
+      let schemaVersionId: string
+      if ((definition.rowCount ?? 0) > 0) {
+        const version = await client.query(
+          'select id, lifecycle from api.dataset_schema_versions where schema_id = $1 order by version desc limit 1',
+          [definition.rows[0].id],
+        )
+        if (!(version.rowCount ?? 0)) {
+          throw new Error(`schema version missing for ${dataset.schemaKey}`)
+        }
+        schemaVersionId = version.rows[0].id
+        if (version.rows[0].lifecycle !== 'active') {
+          await client.query('select api.replace_dataset_schema_version_fields($1,$2::jsonb)', [
+            schemaVersionId,
+            JSON.stringify(datasetFieldsWire(dataset)),
+          ])
+          await client.query('select api.publish_dataset_schema_version($1)', [
+            schemaVersionId,
+          ])
+        }
+      } else {
+        const created = await client.query(
+          'select api.create_dataset_schema_definition($1,$2,$3,$4,$5::jsonb) as result',
+          [
+            dataset.workspaceId,
+            dataset.schemaKey,
+            dataset.schemaName,
+            dataset.description,
+            JSON.stringify(datasetFieldsWire(dataset)),
+          ],
+        )
+        schemaVersionId = created.rows[0].result.schema_version_id
+        await client.query('select api.publish_dataset_schema_version($1)', [
+          schemaVersionId,
+        ])
+      }
+
+      await client.query(
+        `insert into api.datasets
+           (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id)
+         values ($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          dataset.id,
+          dataset.workspaceId,
+          schemaVersionId,
+          dataset.name,
+          dataset.description,
+          dataset.projectId,
+          dataset.actorId,
+        ],
+      )
+
+      const fields = await client.query(
+        'select field_id, key from api.dataset_schema_version_fields where schema_version_id = $1',
+        [schemaVersionId],
+      )
+      const fieldIdByKey = new Map<string, string>(
+        fields.rows.map((row: { field_id: string; key: string }) => [row.key, row.field_id]),
+      )
+
+      const rows = dataset.rows().map((row) => ({
+        rowId: randomUUID(),
+        operation: 'create',
+        values: Object.fromEntries(
+          Object.entries(row).map(([key, value]) => [fieldIdByKey.get(key), value]),
+        ),
+      }))
+      if (rows.length > 0) {
+        const revision = await client.query('select revision from api.datasets where id = $1', [
+          dataset.id,
+        ])
+        await client.query('select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4)', [
+          dataset.id,
+          revision.rows[0].revision,
+          JSON.stringify(rows),
+          `design-${dataset.schemaKey}`,
+        ])
+      }
+
+      const snapshotRevision = (
+        await client.query('select revision from api.datasets where id = $1', [dataset.id])
+      ).rows[0].revision
+      for (const label of dataset.snapshotLabels) {
+        await client.query('select api.snapshot_dataset($1,$2,$3)', [
+          dataset.id,
+          snapshotRevision,
+          label,
+        ])
+      }
+    })
+  }
+}

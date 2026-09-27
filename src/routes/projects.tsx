@@ -182,13 +182,16 @@ function ProjectsIndexRoute() {
   }
 
   useShell({
-    fullBleed: true,
     context: {
       workspace: context.workspace ? { name: context.workspace.name } : null,
       user: { name: context.user.name, email: context.user.email },
     },
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Projects' }],
-    primaryAction: (
+    title: 'Projects',
+    status: isLoading
+      ? 'Loading workspace projects…'
+      : `${projects.length} project${projects.length === 1 ? '' : 's'}`,
+    actions: (
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
@@ -230,20 +233,7 @@ function ProjectsIndexRoute() {
 
   return (
     <>
-      <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto p-4 md:p-6">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 className="font-display text-2xl font-semibold tracking-tight">
-              Projects
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {isLoading
-                ? 'Loading workspace projects…'
-                : `${projects.length} project${projects.length === 1 ? '' : 's'}`}
-            </p>
-          </div>
-        </header>
-
+      <div className="space-y-4">
         <ProjectList
           projects={projects}
           isLoading={isLoading}

@@ -3003,6 +3003,37 @@ export const datasetVersionValues = api.table(
   ],
 )
 
+/**
+ * dataset_version_keeps (DSET-04.3) — a manual "Keep" on an immutable snapshot.
+ * The snapshot itself is frozen evidence, so the keep is stored beside it, one
+ * row per version, and read by the retention function.
+ */
+export const datasetVersionKeeps = api.table(
+  'dataset_version_keeps',
+  {
+    datasetVersionId: uuid('dataset_version_id')
+      .primaryKey()
+      .references(() => datasetVersions.id, { onDelete: 'cascade' }),
+    keptUntil: timestamp('kept_until', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    reason: text('reason').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_dataset_version_keeps_reason',
+      sql`length(btrim(${table.reason})) BETWEEN 1 AND 500`,
+    ),
+  ],
+)
+
 export const datasetRowValues = api.table(
   'dataset_row_values',
   {

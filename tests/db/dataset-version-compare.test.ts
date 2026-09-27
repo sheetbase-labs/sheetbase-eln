@@ -177,3 +177,27 @@ describe('api.dataset_version_retention', () => {
     expect(rows[0]!.result.keptUntil).toBe('2028-01-01T00:00:00+00:00')
   })
 })
+
+describe('api.keep_dataset_version', () => {
+  it('requires a reason', async () => {
+    const client = await asAuthenticated()
+    await expect(
+      client.query(`SELECT api.keep_dataset_version($1, '')`, [VERSION_A]),
+    ).rejects.toMatchObject({ code: '22023' })
+  })
+
+  it('records the keep and pushes retention out', async () => {
+    const client = await asAuthenticated()
+    await client.query(`SELECT api.keep_dataset_version($1, $2)`, [
+      VERSION_A,
+      'Legal hold pending review',
+    ])
+    const { rows } = await client.query<{
+      result: { reason: string; keptUntil: string }
+    }>(`SELECT api.dataset_version_retention($1) AS result`, [VERSION_A])
+    expect(rows[0]!.result.reason).toBe('kept')
+    expect(new Date(rows[0]!.result.keptUntil).getTime()).toBeGreaterThan(
+      Date.now(),
+    )
+  })
+})

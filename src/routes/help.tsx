@@ -114,7 +114,7 @@ function RecordLifecycleDiagram() {
           markerHeight={8}
           orient="auto"
         >
-          <path d="M0 0L8 4L0 8z" style={{ fill: 'var(--text-muted)' }} />
+          <path d="M0 0L8 4L0 8z" style={{ fill: 'var(--muted-foreground)' }} />
         </marker>
       </defs>
       {STAGES.map((stage) => (
@@ -125,7 +125,7 @@ function RecordLifecycleDiagram() {
             width={stage.width}
             height={56}
             rx={6}
-            style={{ fill: 'var(--surface)', stroke: 'var(--border-strong)' }}
+            style={{ fill: 'var(--card)', stroke: 'var(--border-strong)' }}
           />
           <circle
             cx={stage.x + 16}
@@ -138,7 +138,7 @@ function RecordLifecycleDiagram() {
             y={stage.y + 25}
             fontSize={13}
             fontWeight={600}
-            style={{ fill: 'var(--text)' }}
+            style={{ fill: 'var(--foreground)' }}
           >
             {stage.label}
           </text>
@@ -146,7 +146,7 @@ function RecordLifecycleDiagram() {
             x={stage.x + 16}
             y={stage.y + 44}
             fontSize={11}
-            style={{ fill: 'var(--text-muted)' }}
+            style={{ fill: 'var(--muted-foreground)' }}
           >
             {stage.detail}
           </text>
@@ -159,14 +159,14 @@ function RecordLifecycleDiagram() {
             markerEnd="url(#help-lifecycle-arrow)"
             strokeWidth={1.4}
             fill="none"
-            style={{ stroke: 'var(--text-muted)' }}
+            style={{ stroke: 'var(--muted-foreground)' }}
           />
           {flow.label ? (
             <text
               x={flow.lx}
               y={flow.ly}
               fontSize={11}
-              style={{ fill: 'var(--text-muted)' }}
+              style={{ fill: 'var(--muted-foreground)' }}
             >
               {flow.label}
             </text>

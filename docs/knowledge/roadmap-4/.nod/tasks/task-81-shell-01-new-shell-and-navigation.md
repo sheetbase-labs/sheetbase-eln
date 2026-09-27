@@ -26,3 +26,4 @@ Spec: [SHELL-01 in tasks/SHELL.md](../../tasks/SHELL.md#shell-01--new-shell-and-
 - Steps: 5 subtasks
 
 ## Work Log
+- 2026-09-27: Parity gap found while rendering /help as Gareth P.: the running shell is still the legacy 'Sheetbase ELN' layout (grouped nav, sidebar brand) rather than the v3 topbar + design nav. SHELL-01.2/.3 must land for shell parity.

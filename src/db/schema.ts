@@ -3730,6 +3730,38 @@ export const userFavourites = api.table(
 )
 
 /**
+ * user_preferences (SHELL-02) — one row per user holding their appearance
+ * choice (System/Light/Dark) and navigation state. Written exclusively through
+ * the `set_user_preference` SECURITY DEFINER RPC so the user id always comes
+ * from request claims; read back under RLS for the row owner only.
+ */
+export const userPreferences = api.table(
+  'user_preferences',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    appearance: text('appearance').notNull().default('system'),
+    navCollapsed: boolean('nav_collapsed').notNull().default(false),
+    preferences: jsonb('preferences').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_user_preferences_user').on(table.userId),
+    check(
+      'chk_user_preferences_appearance',
+      sql`${table.appearance} IN ('system', 'light', 'dark')`,
+    ),
+  ],
+)
+
+/**
  * reagent_movements (REG-003) — the auditable inventory ledger for reagents.
  * One row per receive/consume/quarantine/restore movement, written exclusively
  * by the `record_reagent_movement` SECURITY DEFINER RPC (no direct INSERT

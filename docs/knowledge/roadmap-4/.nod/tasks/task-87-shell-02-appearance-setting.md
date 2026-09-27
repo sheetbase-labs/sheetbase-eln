@@ -2,7 +2,7 @@
 id: task-87
 title: SHELL-02 — Appearance setting
 type: task
-status: todo
+status: in-progress
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

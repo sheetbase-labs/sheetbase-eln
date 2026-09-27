@@ -101,7 +101,7 @@ Specification: [tasks/COMP.md](tasks/COMP.md) · nod `epic-42`
 
 Specification: [tasks/SHELL.md](tasks/SHELL.md) · nod `epic-80`
 
-- [ ] **SHELL-01** New shell and navigation `task-81`
+- [ ] **SHELL-01** New shell and navigation — **in progress** `task-81`
   - [ ] SHELL-01.1 Shell skeleton `subtask-82`
   - [ ] SHELL-01.2 Navigation `subtask-83`
   - [ ] SHELL-01.3 Page header and inspector `subtask-84`

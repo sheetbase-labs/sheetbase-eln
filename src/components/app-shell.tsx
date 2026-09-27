@@ -62,6 +62,18 @@ import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
 import { ShortcutProvider } from './shortcuts/shortcut-provider'
 import { ShortcutsDialog } from './shortcuts/shortcuts-dialog'
 import {
+  ShellContent,
+  APP_SHELL_MAIN_ID,
+  APP_SHELL_NAV_ID,
+} from './shell/shell-context'
+import type {
+  AppShellBreadcrumb,
+  AppShellNavItem,
+  AppShellNavSection,
+  AppShellContext,
+  ShellConfig,
+} from './shell/shell-context'
+import {
   Badge,
   Button,
   Command,
@@ -148,61 +160,20 @@ function useFocusRestore(open: boolean): () => void {
   }, [open])
   return capture
 }
-export const APP_SHELL_MAIN_ID = 'app-shell-main'
-export const APP_SHELL_NAV_ID = 'app-shell-nav'
-
-// ---------------------------------------------------------------------------
-// ShellProvider — renders <AppShell> once at the root so it persists across
-// route changes.  Each route calls useShell() to set its breadcrumbs,
-// inspector, and other per-route shell props.  This prevents the full
-// unmount/remount of the sidebar, header, and inspector on every navigation.
-// ---------------------------------------------------------------------------
-
-/** Per-route shell configuration set via useShell(). */
-interface ShellConfig {
-  context: AppShellContext | null
-  breadcrumbs: AppShellBreadcrumb[]
-  inspector?: React.ReactNode
-  inspectorLabel?: string
-  inspectorCollapsible?: boolean
-  fullBleed?: boolean
-  primaryAction?: React.ReactNode
-  projectTree?: React.ReactNode
-  navExtra?: React.ReactNode
-  /**
-   * EXT-02: resolved palette commands for the current route. Rendered as
-   * an additive "Extensions" group in the ⌘K palette (absent while
-   * empty); cleared with the other per-route slots on unmount.
-   */
-  extensionCommands?: ResolvedExtensionContribution[]
-  onExtensionCommand?: (command: ResolvedExtensionContribution) => void
-}
-
-const ShellContext = React.createContext<{
-  setConfig: (c: Partial<ShellConfig>) => void
-}>({ setConfig: () => {} })
-
-/**
- * Memoized wrapper that provides the stable `setConfig` via context and
- * renders children.  Because it is memoized and `setConfig` is a stable
- * callback, React skips re-rendering this subtree when the parent
- * `ShellProvider` updates its config state — only `AppShell` re-renders.
- * This breaks the feedback loop where a config update → provider re-render
- * → route re-render → useShell → setConfig → …
- */
-const ShellContent = React.memo(function ShellContentView({
-  children,
-  setConfig,
-}: {
-  children: React.ReactNode
-  setConfig: (c: Partial<ShellConfig>) => void
-}) {
-  return (
-    <ShellContext.Provider value={{ setConfig }}>
-      {children}
-    </ShellContext.Provider>
-  )
-})
+// The shell context, its types and the useShell() hook live in
+// ./shell/shell-context so the chrome can be rebuilt without changing the
+// contract routes depend on.
+export { APP_SHELL_MAIN_ID, APP_SHELL_NAV_ID }
+export { useShell } from './shell/shell-context'
+export type {
+  AppShellBreadcrumb,
+  AppShellNavItem,
+  AppShellNavSection,
+  AppShellWorkspace,
+  AppShellUser,
+  AppShellContext,
+  ShellConfig,
+} from './shell/shell-context'
 
 /**
  * Render <AppShell> once for the whole session.  When no auth context has
@@ -264,92 +235,6 @@ export function ShellProvider({
       <ShellContent setConfig={setConfig}>{children}</ShellContent>
     </AppShell>
   )
-}
-
-/**
- * Hook called by each route to set its per-route shell configuration
- * (breadcrumbs, inspector, primary action, etc.).  Uses useLayoutEffect
- * so the shell updates synchronously before paint, avoiding flashes.
- *
- * The layout effect compares each config field against the last values
- * sent to the provider and only calls `setConfig` when something actually
- * changed.  This avoids redundant state updates while still catching real
- * prop/data-driven config changes.
- */
-export function useShell(config: Partial<ShellConfig>) {
-  const { setConfig } = React.useContext(ShellContext)
-  const prevRef = React.useRef<Partial<ShellConfig> | undefined>(undefined)
-
-  React.useLayoutEffect(() => {
-    const prev = prevRef.current
-    if (prev !== undefined) {
-      let changed = false
-      for (const key of Object.keys(config) as (keyof ShellConfig)[]) {
-        if (config[key] !== prev[key]) {
-          changed = true
-          break
-        }
-      }
-      if (!changed) return
-    }
-    prevRef.current = config
-    setConfig(config)
-  })
-
-  // Clear per-route shell slots on unmount.  Using useLayoutEffect (not
-  // useEffect) ensures the cleanup runs synchronously BEFORE the next
-  // route's useLayoutEffect sets its config — otherwise the cleanup
-  // fires after the new route has already set the inspector, clearing it.
-  React.useLayoutEffect(() => {
-    return () => {
-      prevRef.current = undefined
-      setConfig({
-        inspector: undefined,
-        inspectorLabel: undefined,
-        inspectorCollapsible: undefined,
-        fullBleed: undefined,
-        primaryAction: undefined,
-        projectTree: undefined,
-        navExtra: undefined,
-        extensionCommands: undefined,
-        onExtensionCommand: undefined,
-        breadcrumbs: [],
-      })
-    }
-  }, [])
-}
-
-export interface AppShellBreadcrumb {
-  label: string
-  to?: string
-}
-
-export interface AppShellNavItem {
-  to: string
-  label: string
-  icon: LucideIcon
-  badge?: string | number
-  disabled?: boolean
-}
-
-export interface AppShellNavSection {
-  label?: string
-  items: AppShellNavItem[]
-}
-
-export interface AppShellWorkspace {
-  name: string
-}
-
-export interface AppShellUser {
-  name: string
-  email: string
-  role?: string
-}
-
-export interface AppShellContext {
-  workspace: AppShellWorkspace | null
-  user: AppShellUser
 }
 
 export interface AppShellProps {

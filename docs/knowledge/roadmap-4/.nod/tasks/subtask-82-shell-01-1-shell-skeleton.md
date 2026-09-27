@@ -17,3 +17,4 @@ tags:
 Step 1 of 5 in [SHELL-01](../../tasks/SHELL.md#shell-01--new-shell-and-navigation); the full step text is under “Steps” there.
 
 ## Work Log
+- 2026-09-27: Extracted the shell contract (types, ShellContext, ShellContent, useShell) into src/components/shell/shell-context.tsx; app-shell re-exports it for routes. New v3 chrome components land next.

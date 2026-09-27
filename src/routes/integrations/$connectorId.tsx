@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Pause, Play } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { ConnectorCredentialsCard } from '#/components/integrations/credentials-card'
 import { EnterpriseSourcePanel } from '#/components/integrations/enterprise-source-panel'
 import { IngestPanel } from '#/components/integrations/ingest-panel'

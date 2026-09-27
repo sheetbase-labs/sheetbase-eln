@@ -18,7 +18,7 @@ import {
   Plus,
 } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import {
   EMPTY_PLANNER_FILTERS,
   PlannerFilters,

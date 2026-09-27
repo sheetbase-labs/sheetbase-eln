@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { Plus, Plug } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { RegisterConnectorDialog } from '#/components/integrations/register-connector-dialog'
 import {
   Badge,

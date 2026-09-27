@@ -29,7 +29,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { CreateBlankExperimentDialog } from '#/components/notebook/create-blank-experiment-dialog'
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import { CheckList, InspectorSection } from '#/components/record'

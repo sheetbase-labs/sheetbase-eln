@@ -50,7 +50,7 @@ vi.mock('@tanstack/react-query', () => ({
   },
 }))
 
-vi.mock('#/components/app-shell', () => ({
+vi.mock('#/components/shell', () => ({
   ShellProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useShell: () => {},
 }))

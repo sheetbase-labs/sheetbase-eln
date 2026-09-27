@@ -47,7 +47,7 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
-vi.mock('#/components/app-shell', () => ({
+vi.mock('#/components/shell', () => ({
   useShell: () => null,
 }))
 

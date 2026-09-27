@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { KeyRound } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { SettingsApiTokens } from '#/components/settings/settings-api-tokens'
 import { Button } from '#/components/ui'
 import {

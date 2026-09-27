@@ -40,7 +40,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { RegistryComposition } from '#/components/registry/registry-composition'
 import type { DataGridField } from '#/components/data-grid'
 import type { RegistrySummary } from '#/components/registry/registry-composition'

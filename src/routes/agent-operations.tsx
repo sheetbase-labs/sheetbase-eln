@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AgentOperationPolicyPanel } from '#/components/agent-operations/policy-panel'
 import { ProposalWorkbench } from '#/components/agent-operations/proposal-workbench'
 import { WorkflowWorkbench } from '#/components/agent-operations/workflow-workbench'
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import {
   PageHeader,
   Skeleton,

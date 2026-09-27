@@ -14,7 +14,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { PackagePlus, Upload } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { ImportWizard } from '#/components/import/import-wizard'
 import { RegistryComposition } from '#/components/registry/registry-composition'
 import type { DataGridField } from '#/components/data-grid'

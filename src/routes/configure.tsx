@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { ConfigurationWorkspace } from '#/components/configuration/configuration-workspace'
 import type { ConfigurationKind } from '#/components/configuration/configuration-workspace'
 import { createDataClient } from '#/lib/data-client'

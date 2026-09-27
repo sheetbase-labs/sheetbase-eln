@@ -3,7 +3,7 @@
  */
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { PipelineRunDetail } from '#/components/pipelines/pipeline-run-detail'
 import { PageHeader } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'

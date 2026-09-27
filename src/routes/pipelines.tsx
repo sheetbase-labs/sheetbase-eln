@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-router'
 import { Plus, Workflow } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { CreatePipelineDefinitionDialog } from '#/components/pipelines/create-pipeline-definition-dialog'
 import {
   Badge,

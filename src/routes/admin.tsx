@@ -25,7 +25,7 @@ import {
   Workflow,
 } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import {
   AdminApiCredentials,
   AdminAuditExplorer,

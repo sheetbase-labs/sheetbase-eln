@@ -13,7 +13,7 @@ import { Archive, FileWarning, Lock } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import {
   ExtensionObjectActions,
   toExtensionPanelTabs,

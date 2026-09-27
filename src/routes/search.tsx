@@ -56,7 +56,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { Inspector } from '#/components/record/inspector'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusDomain } from '#/components/scientific/status-badge'

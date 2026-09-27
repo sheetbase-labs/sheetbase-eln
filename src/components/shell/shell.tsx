@@ -55,23 +55,23 @@ import { cn } from '#/lib/utils'
 import { useTheme } from '#/components/theme-provider'
 import { createGlobalShortcuts } from '#/lib/global-shortcuts'
 import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
-import { ShortcutProvider } from './shortcuts/shortcut-provider'
-import { ShortcutsDialog } from './shortcuts/shortcuts-dialog'
-import { ShellBreadcrumbs } from './shell/page-header'
-import { TopBarActions } from './shell/top-bar'
-import { ShellInspector, ShellInspectorSheet } from './shell/inspector'
+import { ShortcutProvider } from '../shortcuts/shortcut-provider'
+import { ShortcutsDialog } from '../shortcuts/shortcuts-dialog'
+import { ShellBreadcrumbs } from './page-header'
+import { TopBarActions } from './top-bar'
+import { ShellInspector, ShellInspectorSheet } from './inspector'
 import {
   ShellContent,
   APP_SHELL_MAIN_ID,
   APP_SHELL_NAV_ID,
-} from './shell/shell-context'
+} from './shell-context'
 import type {
   AppShellBreadcrumb,
   AppShellNavItem,
   AppShellNavSection,
   AppShellContext,
   ShellConfig,
-} from './shell/shell-context'
+} from './shell-context'
 import {
   Badge,
   Button,
@@ -163,7 +163,7 @@ function useFocusRestore(open: boolean): () => void {
 // ./shell/shell-context so the chrome can be rebuilt without changing the
 // contract routes depend on.
 export { APP_SHELL_MAIN_ID, APP_SHELL_NAV_ID }
-export { useShell } from './shell/shell-context'
+export { useShell } from './shell-context'
 export type {
   AppShellBreadcrumb,
   AppShellNavItem,
@@ -172,7 +172,7 @@ export type {
   AppShellUser,
   AppShellContext,
   ShellConfig,
-} from './shell/shell-context'
+} from './shell-context'
 
 /**
  * Render <AppShell> once for the whole session.  When no auth context has

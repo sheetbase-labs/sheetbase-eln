@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import {
   CollaborationRoom,
   safeBuildRoomId,

@@ -36,7 +36,7 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import type { ChartSelection } from '#/components/viz/chart-plots'
 import { AnalysisPanel } from '#/components/viz/analysis-panel'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'

@@ -34,7 +34,7 @@ import {
 } from 'lucide-react'
 
 import { ExportMenu } from '#/components/export/export-menu'
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { ExtensionObjectActions } from '#/components/extensions/extension-slots'
 import { useExtensionPoints } from '#/components/extensions/use-extension-points'
 import {

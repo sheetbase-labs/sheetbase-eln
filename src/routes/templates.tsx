@@ -3,7 +3,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import {
   TemplateFilters,
   TemplateInspector,

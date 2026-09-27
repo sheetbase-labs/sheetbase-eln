@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ShellProvider } from '#/components/app-shell'
+import { ShellProvider } from '#/components/shell'
 
 import { CAPABILITIES, hasCapability } from '#/lib/capability'
 import { ADMIN_SECTIONS, Route } from './admin'
@@ -162,7 +162,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
 
-vi.mock('#/components/app-shell', async () => {
+vi.mock('#/components/shell', async () => {
   const React = await import('react')
   const ctx = React.createContext({ setConfig: (_c: any) => {} })
   const AppShell = ({

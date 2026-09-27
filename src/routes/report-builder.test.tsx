@@ -5,7 +5,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ShellProvider } from '#/components/app-shell'
+import { ShellProvider } from '#/components/shell'
 import type { ReportDefinition, ReportSection } from '#/lib/report-builder'
 import { Route } from './report-builder'
 
@@ -64,7 +64,7 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
 
-vi.mock('#/components/app-shell', async () => {
+vi.mock('#/components/shell', async () => {
   const React = await import('react')
   const ctx = React.createContext({ setConfig: (_c: any) => {} })
   const AppShell = ({

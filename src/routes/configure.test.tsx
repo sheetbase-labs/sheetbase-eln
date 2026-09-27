@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ShellProvider } from '#/components/app-shell'
+import { ShellProvider } from '#/components/shell'
 import { Route } from './configure'
 
 const ConfigureRoute = Route.options.component as React.ComponentType
@@ -61,7 +61,7 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
 
-vi.mock('#/components/app-shell', async () => {
+vi.mock('#/components/shell', async () => {
   const React = await import('react')
   const ctx = React.createContext({ setConfig: (_c: any) => {} })
   const AppShell = ({ children }: { children: React.ReactNode }) => (

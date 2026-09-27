@@ -31,7 +31,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { CreateBlankExperimentDialog } from '#/components/notebook/create-blank-experiment-dialog'
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import {
   Button,
   Skeleton,

@@ -3,7 +3,7 @@ import { createFileRoute, Link, useSearch } from '@tanstack/react-router'
 import { FileWarning } from 'lucide-react'
 import type { ReactNode } from 'react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import {
   CollaborationRoom,
   safeBuildRoomId,

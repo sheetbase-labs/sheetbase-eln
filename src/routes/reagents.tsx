@@ -31,7 +31,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { Archive, FlaskConical } from 'lucide-react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { CreateReagentDialog } from '#/components/reagents/create-reagent-dialog'
 import { ReagentInspector } from '#/components/reagents/reagent-inspector'
 import { RegistryComposition } from '#/components/registry'

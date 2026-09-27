@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { PipelineVersionEditor } from '#/components/pipelines/pipeline-version-editor'
 import { PipelineRunHistory } from '#/components/pipelines/pipeline-run-history'
 import { PipelineWebhookTrigger } from '#/components/pipelines/pipeline-webhook-trigger'

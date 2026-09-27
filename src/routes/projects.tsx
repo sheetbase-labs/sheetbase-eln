@@ -9,7 +9,7 @@ import {
 import { FolderPlus } from 'lucide-react'
 import { useState } from 'react'
 
-import { useShell } from '#/components/app-shell'
+import { useShell } from '#/components/shell'
 import { ProjectList } from '#/components/projects/project-list'
 import {
   Button,

@@ -6,7 +6,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ShellProvider } from '#/components/app-shell'
+import { ShellProvider } from '#/components/shell'
 import { Route } from './plate-designer'
 
 const PlateDesignerRoute = Route.options.component as React.ComponentType
@@ -52,7 +52,7 @@ vi.mock('@tanstack/react-query', () => ({
 
 // Keep these route tests focused on the designer rather than AppShell's
 // router and responsive-panel integration.
-vi.mock('#/components/app-shell', async () => {
+vi.mock('#/components/shell', async () => {
   const React = await import('react')
   const ctx = React.createContext({ setConfig: (_c: any) => {} })
   const AppShell = ({

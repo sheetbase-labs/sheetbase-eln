@@ -18,8 +18,8 @@ import {
   SPECIALIST_NAV_HREFS,
   defaultNavSections,
   useShell,
-} from './app-shell'
-import type { AppShellNavItem } from './app-shell'
+} from '#/components/shell'
+import type { AppShellNavItem } from '#/components/shell'
 import type { FavouriteItem } from '#/lib/favourites'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { currentPlatform } from '#/lib/shortcuts'

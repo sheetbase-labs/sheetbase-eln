@@ -25,7 +25,7 @@ import * as React from 'react'
 import type { ReactNode } from 'react'
 
 import { ReviewWorkspaceRoute } from './$revisionId'
-import * as appShell from '#/components/app-shell'
+import * as appShell from '#/components/shell'
 
 // ---------------------------------------------------------------------------
 // Hoisted state the mocks read per test.
@@ -110,7 +110,7 @@ h.routeContext = {
 // The real AppShell renders the route's `inspector` slot in the persistent
 // shell tree, outside the route subtree. Mirror that: useShell records the
 // latest inspector and TestShellOutlet re-renders whenever it changes.
-vi.mock('#/components/app-shell', () => {
+vi.mock('#/components/shell', () => {
   const listeners = new Set<() => void>()
   let currentInspector: React.ReactNode = null
   return {

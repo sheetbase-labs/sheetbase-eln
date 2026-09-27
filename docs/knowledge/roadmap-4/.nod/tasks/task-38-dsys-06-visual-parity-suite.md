@@ -2,7 +2,7 @@
 id: task-38
 title: DSYS-06 — Visual parity suite
 type: task
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -25,3 +25,4 @@ Spec: [DSYS-06 in tasks/DSYS.md](../../tasks/DSYS.md#dsys-06--visual-parity-suit
 - Steps: 3 subtasks
 
 ## Work Log
+- 2026-09-27: DSYS-06 suite built: parity project, spec and CI job; screens migrate as they are rebuilt.

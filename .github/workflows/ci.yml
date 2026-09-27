@@ -164,3 +164,67 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # DSYS-06: exact-parity gate. Renders the vendored design with the same
+  # Chromium the parity project uses, seeds the design data, and compares each
+  # migrated screen with its render. Blocked while account billing is
+  # unresolved, like every job here, but kept as the intended gate.
+  parity:
+    name: Visual parity
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
+      MIGRATION_DATABASE_URL: postgresql://migrator:sheetbase-ci@localhost:5432/sheetbase
+      PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
+      BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
+      PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Start PostgreSQL and PostgREST
+        run: docker compose -f compose.yaml up -d postgres postgrest
+
+      - name: Wait for PostgreSQL
+        run: |
+          for _ in $(seq 1 30); do
+            if docker compose -f compose.yaml exec -T postgres pg_isready -U sheetbase >/dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          echo "PostgreSQL did not become ready" >&2
+          exit 1
+
+      - name: Migrate and seed the design data
+        run: |
+          pnpm db:migrate
+          pnpm db:seed:design
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Render the design reference
+        run: pnpm design:render
+
+      - name: Run parity
+        run: pnpm test:parity
+
+      - name: Upload visual diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-diffs
+          path: tests/visual/**/test-results/**
+          if-no-files-found: ignore

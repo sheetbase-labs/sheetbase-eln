@@ -2,7 +2,7 @@
 id: subtask-41
 title: DSYS-06.3 — CI job in .github/workflows/ using the same Chromium build as the renders
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

@@ -2,7 +2,7 @@
 id: subtask-83
 title: SHELL-01.2 — Navigation
 type: subtask
-status: todo
+status: in-progress
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"
@@ -17,3 +17,4 @@ tags:
 Step 2 of 5 in [SHELL-01](../../tasks/SHELL.md#shell-01--new-shell-and-navigation); the full step text is under “Steps” there.
 
 ## Work Log
+- 2026-09-27: PR #205: v3 navigation order/labels (Home, Inbox, Schedule; Projects…Models; Settings at the foot) and chrome moved to a full-width top bar (brand, workspace switcher, centred search, New, bell, account).

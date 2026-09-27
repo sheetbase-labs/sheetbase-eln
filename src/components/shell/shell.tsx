@@ -10,24 +10,26 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import {
+  CalendarDays,
   Check,
-  CheckCircle2,
   ChevronsUpDown,
   Database,
   FlaskConical,
   FolderOpen,
   GanttChart,
   Home as HomeIcon,
+  Inbox,
   Layers,
+  LayoutGrid,
   LayoutTemplate,
   LineChart as LineChartIcon,
   LogOut,
   Menu,
   Moon,
+  Package,
   PanelLeftClose,
   PanelLeftOpen,
   PlugZap,
-  Search,
   Settings,
   Star,
   Sun,
@@ -285,7 +287,6 @@ export interface AppShellProps {
 /** Specialist tools kept reachable but out of the default product nav. */
 export const SPECIALIST_NAV_HREFS = [
   '/plate-designer',
-  '/calendar',
   '/planner',
   '/instrument-monitor',
   '/storage',
@@ -293,42 +294,22 @@ export const SPECIALIST_NAV_HREFS = [
 
 export const defaultNavSections: AppShellNavSection[] = [
   {
-    label: 'Workspace',
     items: [
       { to: '/', label: 'Home', icon: HomeIcon },
-      { to: '/projects', label: 'Projects', icon: FolderOpen },
-      { to: '/search', label: 'Search', icon: Search },
+      { to: '/reviews', label: 'Inbox', icon: Inbox },
+      { to: '/calendar', label: 'Schedule', icon: CalendarDays },
     ],
   },
   {
-    label: 'Scientific work',
     items: [
+      { to: '/projects', label: 'Projects', icon: FolderOpen },
+      { to: '/templates', label: 'Templates', icon: LayoutTemplate },
       { to: '/samples', label: 'Samples', icon: FlaskConical },
-      { to: '/reagents', label: 'Reagents', icon: FlaskConical },
+      { to: '/reagents', label: 'Materials', icon: Package },
       { to: '/datasets', label: 'Datasets', icon: Database },
       { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
-      {
-        to: '/reviews',
-        label: 'Reviews',
-        icon: CheckCircle2,
-        badge: 0,
-      },
-    ],
-  },
-  {
-    label: 'Configuration',
-    items: [
-      { to: '/templates', label: 'Templates', icon: LayoutTemplate },
-      { to: '/configure', label: 'Models & schemas', icon: Layers },
-    ],
-  },
-  {
-    label: 'Automation',
-    items: [{ to: '/pipelines', label: 'Pipelines', icon: Workflow }],
-  },
-  {
-    label: 'Platform',
-    items: [
+      { to: '/pipelines', label: 'Pipelines', icon: Workflow },
+      { to: '/configure', label: 'Models', icon: Layers },
       { to: '/integrations', label: 'Integrations', icon: PlugZap },
       { to: '/admin', label: 'Administration', icon: Settings },
     ],
@@ -348,6 +329,122 @@ function isActive(pathname: string, to: string): boolean {
   return to === '/'
     ? pathname === '/'
     : pathname === to || pathname.startsWith(to + '/')
+}
+
+/**
+ * The top-bar workspace switcher (SHELL-01). Lists the caller's memberships;
+ * selecting one sets the active workspace for the session.
+ */
+function WorkspaceSwitcher({
+  context,
+  onSwitch,
+}: {
+  context: AppShellContext
+  onSwitch: (workspaceId: string) => void
+}) {
+  const workspaces =
+    context.workspaces ?? (context.workspace ? [context.workspace] : [])
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="quiet"
+          size="sm"
+          className="max-w-52 gap-1.5 text-muted-foreground"
+        >
+          <span className="truncate">
+            {context.workspace ? context.workspace.name : 'No workspace'}
+          </span>
+          <ChevronsUpDown className="size-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+        {workspaces.map((workspace) => (
+          <DropdownMenuItem
+            key={workspace.id ?? workspace.name}
+            onSelect={() => {
+              if (workspace.id) onSwitch(workspace.id)
+            }}
+          >
+            {workspace.id && workspace.id === context.workspace?.id ? (
+              <Check className="mr-2 size-4" />
+            ) : (
+              <span className="mr-2 size-4" />
+            )}
+            {workspace.name}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** The top-bar account menu (SHELL-01): identity, appearance, sign out. */
+function AccountMenu({
+  context,
+  theme,
+  setTheme,
+  onSignOut,
+}: {
+  context: AppShellContext
+  theme: 'light' | 'dark' | 'system'
+  setTheme: (t: 'light' | 'dark' | 'system') => void
+  onSignOut: () => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="quiet"
+          size="icon-sm"
+          className="rounded-full border border-border"
+          aria-label={`Account: ${context.user.name}`}
+        >
+          <span className="text-xs font-semibold">
+            {initials(context.user.name) || 'U'}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>
+          <span className="block font-medium text-foreground">
+            {context.user.name}
+          </span>
+          <span className="block font-normal text-muted-foreground">
+            {context.workspace?.name}
+            {context.user.role ? ` · ${context.user.role}` : ''}
+          </span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/settings">
+            <Settings className="mr-2 size-4" /> Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={theme}
+          onValueChange={(value) =>
+            setTheme(value as 'system' | 'light' | 'dark')
+          }
+        >
+          <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onSignOut}>
+          <LogOut className="mr-2 size-4" /> Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 export function AppShell({
@@ -513,101 +610,6 @@ export function AppShell({
   const renderSidebarBody = (sidebarCollapsed: boolean) =>
     context ? (
       <div className="flex h-full flex-col">
-        <div className="flex h-topbar items-center border-b border-sidebar-border px-3">
-          <Link
-            to="/"
-            aria-label="Sheetbase ELN home"
-            className="flex items-center gap-2 no-underline"
-            onClick={() => setMobileOpen(false)}
-          >
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-              <span className="font-display text-sm font-semibold">S</span>
-            </span>
-            {!sidebarCollapsed && (
-              <span className="font-display text-sm font-semibold leading-none text-sidebar-foreground">
-                Sheetbase ELN
-              </span>
-            )}
-          </Link>
-          {!sidebarCollapsed ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="ml-auto hidden md:inline-flex"
-              aria-label="Collapse sidebar"
-              aria-pressed="false"
-              onClick={toggleCollapsed}
-            >
-              <PanelLeftClose />
-            </Button>
-          ) : null}
-        </div>
-
-        <div className={cn('px-2 py-3', sidebarCollapsed && 'hidden')}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                className="flex h-9 w-full items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-2 text-left text-sm shadow-xs hover:bg-sidebar-accent/60"
-              >
-                <span className="flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                  {context.workspace
-                    ? context.workspace.name.slice(0, 2).toUpperCase()
-                    : 'WS'}
-                </span>
-                <span className="flex-1 truncate font-medium text-sidebar-foreground">
-                  {context.workspace ? context.workspace.name : 'No workspace'}
-                </span>
-                <ChevronsUpDown className="size-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-              {(
-                context.workspaces ??
-                (context.workspace ? [context.workspace] : [])
-              ).map((workspace) => (
-                <DropdownMenuItem
-                  key={workspace.id ?? workspace.name}
-                  onSelect={() => {
-                    if (workspace.id) void switchWorkspace(workspace.id)
-                  }}
-                >
-                  {workspace.id && workspace.id === context.workspace?.id ? (
-                    <Check className="mr-2 size-4" />
-                  ) : (
-                    <span className="mr-2 size-4" />
-                  )}
-                  {workspace.name}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {sidebarCollapsed ? (
-          <div className="px-2 py-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="w-full"
-                  aria-label="Expand sidebar"
-                  aria-pressed="true"
-                  onClick={toggleCollapsed}
-                >
-                  <PanelLeftOpen />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Expand sidebar</TooltipContent>
-            </Tooltip>
-          </div>
-        ) : null}
-
         <nav
           id={APP_SHELL_NAV_ID}
           aria-label="Primary"
@@ -616,8 +618,8 @@ export function AppShell({
             sidebarCollapsed && 'px-2',
           )}
         >
-          {navSectionsWithBadges.map((section) => (
-            <div key={section.label ?? 'section'} className="mb-2">
+          {navSectionsWithBadges.map((section, index) => (
+            <div key={section.label ?? `section-${index}`} className="mb-2">
               {section.label && !sidebarCollapsed && (
                 <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   {section.label}
@@ -652,67 +654,33 @@ export function AppShell({
         </nav>
 
         <div className="border-t border-sidebar-border p-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <ul className="space-y-0.5">
+            <NavRow
+              item={{ to: '/settings', label: 'Settings', icon: Settings }}
+              active={isActive(pathname, '/settings')}
+              collapsed={sidebarCollapsed}
+              onNavigate={() => setMobileOpen(false)}
+            />
+          </ul>
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button
-                type="button"
                 variant="ghost"
-                className={cn(
-                  'flex h-auto w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sidebar-accent/60',
-                  sidebarCollapsed && 'justify-center',
-                )}
-                aria-label={`Account: ${context.user.name}`}
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-xs font-semibold text-primary">
-                  {initials(context.user.name) || 'U'}
-                </span>
-                {!sidebarCollapsed && (
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-sidebar-foreground">
-                      {context.user.name}
-                    </span>
-                    {context.user.role ? (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {context.user.role}
-                      </span>
-                    ) : null}
-                  </span>
-                )}
-                {!sidebarCollapsed && (
-                  <ChevronsUpDown className="size-4 text-muted-foreground" />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="top">
-              <DropdownMenuLabel>{context.user.email}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/settings">
-                  <Settings className="mr-2 size-4" /> Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Appearance</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={theme}
-                onValueChange={(value) =>
-                  setTheme(value as 'system' | 'light' | 'dark')
+                size="icon-sm"
+                className={cn('mt-1 w-full', sidebarCollapsed && 'mx-auto')}
+                aria-label={
+                  sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
                 }
+                aria-pressed={sidebarCollapsed}
+                onClick={toggleCollapsed}
               >
-                <DropdownMenuRadioItem value="system">
-                  System
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="light">
-                  Light
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={signOut}>
-                <LogOut className="mr-2 size-4" /> Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
     ) : null
@@ -731,11 +699,67 @@ export function AppShell({
           )}
 
           {context && (
+            <header className="sticky top-0 z-30 flex h-topbar items-center gap-2 border-b border-sidebar-border bg-background px-4">
+              <TopBarActions
+                leading={
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="lg:hidden"
+                      aria-label="Open navigation"
+                      onClick={() => {
+                        captureMobileFocus()
+                        setMobileOpen(true)
+                      }}
+                    >
+                      <Menu />
+                    </Button>
+                    <Link
+                      to="/"
+                      aria-label="Sheetbase home"
+                      className="flex items-center gap-2 no-underline"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <span className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                        <LayoutGrid className="size-3.5" />
+                      </span>
+                      <span className="hidden font-display text-sm font-semibold leading-none text-foreground sm:inline">
+                        Sheetbase
+                      </span>
+                    </Link>
+                    <WorkspaceSwitcher
+                      context={context}
+                      onSwitch={(workspaceId) => {
+                        void switchWorkspace(workspaceId)
+                      }}
+                    />
+                  </>
+                }
+                onOpenPalette={openPalette}
+                primaryAction={primaryAction}
+                hasInspector={Boolean(inspector)}
+                inspectorLabel={inspectorLabel}
+                inspectorCollapsible={inspectorCollapsible}
+                inspectorCollapsed={inspectorCollapsed}
+                onOpenInspector={() => setInspectorOpen(true)}
+                onToggleInspector={toggleInspectorCollapsed}
+              />
+              <AccountMenu
+                context={context}
+                theme={theme}
+                setTheme={setTheme}
+                onSignOut={signOut}
+              />
+            </header>
+          )}
+
+          {context && (
             <aside
               aria-label="Application navigation"
               data-slot="sidebar"
               className={cn(
-                'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar lg:flex',
+                'fixed bottom-0 left-0 top-topbar z-40 hidden flex-col border-r border-sidebar-border bg-sidebar lg:flex',
                 collapsed ? 'lg:w-12' : 'lg:w-nav',
               )}
               data-collapsed={collapsed ? 'true' : 'false'}
@@ -764,34 +788,6 @@ export function AppShell({
               context && (collapsed ? 'lg:pl-12' : 'lg:pl-nav'),
             )}
           >
-            {context && (
-              <header className="sticky top-0 z-30 flex h-topbar items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="lg:hidden"
-                  aria-label="Open navigation"
-                  onClick={() => {
-                    captureMobileFocus()
-                    setMobileOpen(true)
-                  }}
-                >
-                  <Menu />
-                </Button>
-
-                <TopBarActions
-                  onOpenPalette={openPalette}
-                  primaryAction={primaryAction}
-                  hasInspector={Boolean(inspector)}
-                  inspectorLabel={inspectorLabel}
-                  inspectorCollapsible={inspectorCollapsible}
-                  inspectorCollapsed={inspectorCollapsed}
-                  onOpenInspector={() => setInspectorOpen(true)}
-                  onToggleInspector={toggleInspectorCollapsed}
-                />
-              </header>
-            )}
-
             <div className="flex flex-1 overflow-hidden">
               <main
                 id={APP_SHELL_MAIN_ID}

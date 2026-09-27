@@ -103,7 +103,7 @@ Specification: [tasks/SHELL.md](tasks/SHELL.md) · nod `epic-80`
 
 - [ ] **SHELL-01** New shell and navigation — **in progress** `task-81`
   - [x] SHELL-01.1 Shell skeleton `subtask-82`
-  - [ ] SHELL-01.2 Navigation `subtask-83`
+  - [ ] SHELL-01.2 Navigation — **in progress** `subtask-83`
   - [ ] SHELL-01.3 Page header and inspector `subtask-84`
   - [x] SHELL-01.4 Active workspace `subtask-85`
   - [ ] SHELL-01.5 New menu actions `subtask-86`

@@ -136,14 +136,14 @@ describe('AppShell', () => {
     expect(new Set(destinations.map((item) => item.to)).size).toBe(
       destinations.length,
     )
-    expect(destinations.find((item) => item.to === '/samples')?.section).toBe(
-      'Scientific work',
+    expect(destinations.find((item) => item.to === '/samples')?.label).toBe(
+      'Samples',
     )
-    expect(destinations.find((item) => item.to === '/templates')?.section).toBe(
-      'Configuration',
+    expect(destinations.find((item) => item.to === '/templates')?.label).toBe(
+      'Templates',
     )
     expect(destinations.find((item) => item.to === '/configure')?.label).toBe(
-      'Models & schemas',
+      'Models',
     )
   })
 

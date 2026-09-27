@@ -24,3 +24,4 @@ Spec: [DEC-03 in tasks/DEC.md](../../tasks/DEC.md#dec-03--routes-outside-the-des
 
 ## Work Log
 - 2026-09-27: Route evidence table written into SHELL-04 (step 1); owner decision pending (step 2).
+- 2026-09-27: PR #191: route evidence table in SHELL-04; owner decision pending.

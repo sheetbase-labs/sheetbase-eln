@@ -281,6 +281,8 @@
 
   --color-inverse-bg: var(--inverse-bg);
   --color-inverse-text: var(--inverse-text);
+  --color-scrim: var(--scrim);
+  --color-hatch: var(--hatch);
 
   /* Deprecated aliases; usages migrate in DSYS-02.3. */
   --color-violet: var(--violet);

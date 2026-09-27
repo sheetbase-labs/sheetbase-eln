@@ -2,7 +2,7 @@
 id: subtask-24
 title: DSYS-03.4 — Menus, dialogs, tooltips, toasts
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

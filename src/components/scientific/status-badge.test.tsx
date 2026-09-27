@@ -31,11 +31,11 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Failed')).toBeTruthy()
   })
 
-  it('keeps warning statuses legible in dark mode', () => {
+  it('keeps warning statuses legible in both themes', () => {
     render(<StatusBadge domain="sample" status="quarantined" />)
     expect(
       screen.getByText('Quarantined').closest('[data-slot="badge"]')?.className,
-    ).toContain('dark:text-warning')
+    ).toContain('text-warning-text')
   })
 
   it('uses a custom vocabulary when provided', () => {

@@ -17,6 +17,12 @@ a CORE-03 ad-hoc Sheet Instance with six local fields and 32 stability rows,
 created through `insert_sheet_instance_block` and
 `mutate_sheet_instance_local_state`. It is not a scientific table.
 
+**Design data** (`pnpm db:seed:design`) — the people, workspaces, projects,
+records and values the UI system v3 design screens show, used by the visual
+parity suite (Roadmap 4, DSYS-05). Lives in `src/db/seed/design.ts` as
+`designSteps`, on a fixed clock (Friday 25 September 2026, Europe/London) so
+relative times render as the design does. Only applied with `--design`.
+
 Rules:
 
 - Tests never assert against demonstration data. Tests create the rows they

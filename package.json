@@ -48,6 +48,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed/run.ts",
     "db:seed:demo": "tsx src/db/seed/run.ts --demo",
+    "db:seed:design": "tsx src/db/seed/run.ts --design",
     "db:seed:month": "tsx src/db/seed/run.ts --month",
     "db:reset": "tsx src/db/reset.ts",
     "db:fresh": "tsx src/db/fresh.ts",

@@ -2,7 +2,7 @@
 id: task-33
 title: DSYS-05 — Design-data seed
 type: task
-status: todo
+status: in-progress
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

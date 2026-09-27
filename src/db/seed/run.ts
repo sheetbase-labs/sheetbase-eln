@@ -20,6 +20,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import * as schema from '../schema'
 import { resolveDevUserIdentity } from '#/lib/dev-identity'
 import { monthSteps } from './month'
+import { designSteps } from './design'
 import {
   seedNotebookSheetGrid,
   virusStabilitySheetFields,
@@ -2874,8 +2875,10 @@ async function main() {
 
   const withDemo = process.argv.includes('--demo')
   const withMonth = process.argv.includes('--month')
+  const withDesign = process.argv.includes('--design')
   const steps = [
     ...fixtureSteps,
+    ...(withDesign ? designSteps : []),
     ...(withDemo ? demoSteps : []),
     ...(withMonth ? monthSteps : []),
   ]

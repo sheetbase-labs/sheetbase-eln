@@ -1,0 +1,181 @@
+/**
+ * UI system v3 design seed (DSYS-05). See docs/development/seeds.md.
+ *
+ * This frame creates the people and workspaces the design screens show, on a
+ * fixed clock (Friday 25 September 2026, Europe/London) so relative times
+ * ("09:32", "Yesterday") render as the design does. Per-screen data is added
+ * by later steps; each step runs through the canonical data layer.
+ */
+import * as schema from '../schema'
+import type { SeedStep } from './run'
+
+/** Fixed clock for the design seed: Friday 25 Sep 2026, 09:40 Europe/London. */
+export const DESIGN_CLOCK = new Date('2026-09-25T09:40:00+01:00')
+
+export const DESIGN_WORKSPACE_IDS = {
+  processDevelopment: '00000000-0000-4000-8000-000000000300',
+  analyticalDevelopment: '00000000-0000-4000-8000-000000000301',
+  gmpManufacturing: '00000000-0000-4000-8000-000000000302',
+  qualityControl: '00000000-0000-4000-8000-000000000303',
+} as const
+
+export const DESIGN_USER_IDS = {
+  gareth: '00000000-0000-4000-8000-000000000310',
+  priya: '00000000-0000-4000-8000-000000000311',
+  mei: '00000000-0000-4000-8000-000000000312',
+  tom: '00000000-0000-4000-8000-000000000313',
+  sam: '00000000-0000-4000-8000-000000000314',
+  anna: '00000000-0000-4000-8000-000000000315',
+  clientAna: '00000000-0000-4000-8000-000000000316',
+  clientBen: '00000000-0000-4000-8000-000000000317',
+} as const
+
+const DESIGN_USERS = [
+  {
+    id: DESIGN_USER_IDS.gareth,
+    name: 'Gareth P.',
+    email: 'gareth.p@design.sheetbase.dev',
+  },
+  {
+    id: DESIGN_USER_IDS.priya,
+    name: 'Priya S.',
+    email: 'priya.s@design.sheetbase.dev',
+  },
+  {
+    id: DESIGN_USER_IDS.mei,
+    name: 'Mei L.',
+    email: 'mei.l@design.sheetbase.dev',
+  },
+  {
+    id: DESIGN_USER_IDS.tom,
+    name: 'Tom H.',
+    email: 'tom.h@design.sheetbase.dev',
+  },
+  {
+    id: DESIGN_USER_IDS.sam,
+    name: 'Sam R.',
+    email: 'sam.r@design.sheetbase.dev',
+  },
+  {
+    id: DESIGN_USER_IDS.anna,
+    name: 'Anna B.',
+    email: 'anna.b@design.sheetbase.dev',
+  },
+  {
+    id: DESIGN_USER_IDS.clientAna,
+    name: 'Ana C. (CL-017)',
+    email: 'ana.c@client017.example',
+  },
+  {
+    id: DESIGN_USER_IDS.clientBen,
+    name: 'Ben D. (CL-017)',
+    email: 'ben.d@client017.example',
+  },
+] as const
+
+const DESIGN_WORKSPACES = [
+  {
+    id: DESIGN_WORKSPACE_IDS.processDevelopment,
+    slug: 'process-development',
+    name: 'Process Development',
+  },
+  {
+    id: DESIGN_WORKSPACE_IDS.analyticalDevelopment,
+    slug: 'analytical-development',
+    name: 'Analytical Development',
+  },
+  {
+    id: DESIGN_WORKSPACE_IDS.gmpManufacturing,
+    slug: 'gmp-manufacturing',
+    name: 'GMP Manufacturing',
+  },
+  {
+    id: DESIGN_WORKSPACE_IDS.qualityControl,
+    slug: 'quality-control',
+    name: 'Quality Control',
+  },
+] as const
+
+const PROCESS = DESIGN_WORKSPACE_IDS.processDevelopment
+
+/**
+ * The people and workspaces the design shows. Memberships make the switcher
+ * and the members/access screens real; per-screen project, record and dataset
+ * data lands in later DSYS-05 steps.
+ */
+export const designSteps: Array<SeedStep> = [
+  {
+    name: 'design people',
+    run: async (db) => {
+      for (const user of DESIGN_USERS) {
+        await db
+          .insert(schema.user)
+          .values({ ...user, emailVerified: true })
+          .onConflictDoUpdate({
+            target: schema.user.id,
+            set: { name: user.name, email: user.email },
+          })
+      }
+    },
+  },
+  {
+    name: 'design workspaces',
+    run: async (db) => {
+      for (const workspace of DESIGN_WORKSPACES) {
+        await db
+          .insert(schema.workspaces)
+          .values(workspace)
+          .onConflictDoUpdate({
+            target: schema.workspaces.id,
+            set: { slug: workspace.slug, name: workspace.name },
+          })
+      }
+    },
+  },
+  {
+    name: 'design memberships',
+    run: async (db) => {
+      const roles: Array<{
+        userId: string
+        workspaceId?: string
+        role: 'owner' | 'admin' | 'member' | 'steward' | 'reviewer' | 'viewer'
+      }> = [
+        { userId: DESIGN_USER_IDS.gareth, role: 'owner' },
+        { userId: DESIGN_USER_IDS.priya, role: 'member' },
+        {
+          userId: DESIGN_USER_IDS.mei,
+          workspaceId: DESIGN_WORKSPACE_IDS.analyticalDevelopment,
+          role: 'admin',
+        },
+        { userId: DESIGN_USER_IDS.mei, role: 'reviewer' },
+        { userId: DESIGN_USER_IDS.tom, role: 'member' },
+        { userId: DESIGN_USER_IDS.sam, role: 'member' },
+        {
+          userId: DESIGN_USER_IDS.anna,
+          workspaceId: DESIGN_WORKSPACE_IDS.qualityControl,
+          role: 'admin',
+        },
+        { userId: DESIGN_USER_IDS.anna, role: 'viewer' },
+        { userId: DESIGN_USER_IDS.clientAna, role: 'viewer' },
+        { userId: DESIGN_USER_IDS.clientBen, role: 'viewer' },
+      ]
+      for (const membership of roles) {
+        const workspaceId = membership.workspaceId ?? PROCESS
+        await db
+          .insert(schema.workspaceMemberships)
+          .values({
+            workspaceId,
+            userId: membership.userId,
+            role: membership.role,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.workspaceMemberships.workspaceId,
+              schema.workspaceMemberships.userId,
+            ],
+            set: { role: membership.role },
+          })
+      }
+    },
+  },
+]

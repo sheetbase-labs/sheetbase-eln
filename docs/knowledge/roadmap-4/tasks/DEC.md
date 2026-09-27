@@ -93,7 +93,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-10 — Labels, printers and scanning
 
-**Status:** proposed. Owner decision: printer integration (ZPL over a print gateway or browser printing), label template and 2D code content.
+**Status:** accepted 2026-09-27. Owner decision: the lab has no specific printers, so labels print from the browser (no print gateway / ZPL); the 2D code payload is `https://<host>/r/<identifier>` resolving through the LAB-05.3 route.
 **Unblocks:** LAB-05, MOB-02.
 
 **How:** Confirm the lab's printers (models, network access) and label stock; choose print path (print gateway sending ZPL, or browser printing) and the 2D code payload (a URL containing the record ID); record the decision in LAB-05.

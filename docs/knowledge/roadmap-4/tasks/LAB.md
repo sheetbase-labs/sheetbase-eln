@@ -198,7 +198,7 @@ refused on the server; expiry reminders appear in WORK-01.
 
 ## LAB-05 — Labels and scanning
 
-**Status:** proposed; after [DEC-10](DEC.md).
+**Status:** proposed; [DEC-10](DEC.md) accepted 2026-09-27: the lab has no specific printers, so printing is browser print (no print gateway) and the 2D code payload is `https://<host>/r/<identifier>`.
 
 ### Design
 
@@ -221,8 +221,9 @@ Nothing exists. Storage positions (`src/lib/storage.ts`,
 
 1. Label template model and renderer (ID, name, condition, use-by, QR code of
    `https://<host>/r/<identifier>`), preview in the sample inspector.
-2. Print path per DEC-10 (print gateway service or browser print), print
-   event recorded on the sample; toast per design.
+2. Browser print (no print gateway; the lab has no specific printers), with the
+   label template rendered as a print document; print event recorded on the
+   sample; toast per design.
 3. `/r/<identifier>` resolver route to the right record page.
 4. Camera scanning component (`BarcodeDetector` where available, a
    WASM decoder fallback) with typed-ID fallback; used by MOB-02.

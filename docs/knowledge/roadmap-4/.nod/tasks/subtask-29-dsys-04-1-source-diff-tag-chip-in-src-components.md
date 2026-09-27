@@ -2,7 +2,7 @@
 id: subtask-29
 title: DSYS-04.1 — Source, Diff, Tag, Chip in src/components/scientific/ and src/components/ui/
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

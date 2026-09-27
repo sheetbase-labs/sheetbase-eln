@@ -2,7 +2,7 @@
 id: task-28
 title: DSYS-04 — New design components
 type: task
-status: todo
+status: in-progress
 priority: high
 created: "2026-09-27"
 updated: "2026-09-27"

@@ -87,6 +87,7 @@ import type { RecentItem } from '#/lib/recents'
 import { recordDestination, recordPath } from '#/lib/navigation'
 import { cn } from '#/lib/utils'
 import { useUserNames } from '#/lib/user-names'
+import { fetchCalendarBookings, formatTimeInZone } from '#/lib/calendar'
 import { useWorkItems } from '#/lib/work-items/data'
 
 function RouteShell({
@@ -174,6 +175,7 @@ function Home() {
           userId: context.user.id,
           user: { name: context.user.name, email: context.user.email },
           workspace: {
+            id: context.workspace.id,
             name: context.workspace.name,
             slug: context.workspace.slug,
             role: context.workspace.role,
@@ -191,7 +193,7 @@ function Home() {
 interface DashboardContext {
   userId: string
   user: { name: string; email: string }
-  workspace: { name: string; slug: string; role: string }
+  workspace: { id: string; name: string; slug: string; role: string }
 }
 
 /**
@@ -411,6 +413,8 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
           isLoading={myReviewsQuery.isLoading}
         />
       </div>
+
+      <TodayScheduleSection workspaceId={context.workspace.id} />
 
       <NeedsAttentionSection />
 
@@ -1235,6 +1239,75 @@ export function ActivityFeed({
  * WORK-02.1 — "Needs attention": the caller's open work items (assigned
  * reviews, failed runs and followed records), from api.my_work_items.
  */
+
+/**
+ * WORK-02.1 — "Today": the workspace's bookings for the current day.
+ */
+function TodayScheduleSection({ workspaceId }: { workspaceId: string }) {
+  const now = new Date()
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 1)
+  const query = useQuery({
+    queryKey: [
+      'calendar',
+      'today-bookings',
+      workspaceId,
+      start.toISOString(),
+      end.toISOString(),
+    ],
+    queryFn: () =>
+      fetchCalendarBookings(
+        notebookDataClient,
+        workspaceId,
+        start.toISOString(),
+        end.toISOString(),
+      ),
+  })
+  const bookings = query.data ?? []
+  return (
+    <section aria-label="Today" className="min-w-0 border-t border-border">
+      <SectionHeader title="Today" />
+      {query.isLoading ? (
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
+      ) : bookings.length === 0 ? (
+        <EmptyState
+          icon={GanttChart}
+          title="Nothing booked today"
+          body="Today's instrument and meeting bookings show here."
+        />
+      ) : (
+        <ul className="divide-y divide-border">
+          {bookings.map((booking) => (
+            <li key={booking.id} className="flex items-center gap-3 px-4 py-3">
+              <span className="w-12 shrink-0 text-caption text-muted-foreground">
+                {formatTimeInZone(
+                  new Date(booking.starts_at),
+                  booking.timezone,
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {booking.title}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {booking.status}
+                  {booking.location ? ` · ${booking.location}` : ''}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 function NeedsAttentionSection() {
   const query = useWorkItems()
   const items = (query.data ?? []).filter(

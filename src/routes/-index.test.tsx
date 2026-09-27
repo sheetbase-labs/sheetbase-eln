@@ -413,7 +413,12 @@ describe('MyWorkDashboard', () => {
           context={{
             userId: 'u1',
             user: { name: 'Gareth Price', email: 'gareth@oxb.dev' },
-            workspace: { name: 'OXB Labs', slug: 'oxb', role: 'Scientist' },
+            workspace: {
+              id: 'ws-1',
+              name: 'OXB Labs',
+              slug: 'oxb',
+              role: 'Scientist',
+            },
           }}
         />
       </QueryClientProvider>,

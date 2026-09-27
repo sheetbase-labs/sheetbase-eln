@@ -107,7 +107,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-12 — Component package distribution
 
-**Status:** proposed. Owner decision: private registry for `sheetbase-components` (GitHub Packages or a private npm scope).
+**Status:** accepted 2026-09-27. Owner decision: private, no public npm publication now. Packages stay private and are consumed locally (`link:`/workspace override) until a private registry is needed; the registry choice (GitHub Packages scoped to `sheetbase-labs`) is deferred to [COMP-05](COMP.md#comp-05--releases-and-consumption).
 **Unblocks:** COMP-05.
 
 **How:** Choose GitHub Packages (scoped to `sheetbase-labs`) or a private npm scope; confirm CI access tokens for both repositories; record in COMP-05.

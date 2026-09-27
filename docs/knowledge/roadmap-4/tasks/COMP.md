@@ -272,13 +272,15 @@ The design's filter builder and chip row are reproduced from the package.
 
 ## COMP-05 — Releases and consumption
 
-**Status:** proposed; registry per [DEC-12](DEC.md).
+**Status:** proposed; [DEC-12](DEC.md) decided 2026-09-27 — private, no public publish.
 
 ### Scope
 
-- Publish the packages to a private registry (GitHub Packages under
-  `sheetbase-labs`, or a private npm scope) using the existing lockstep
-  release flow and pack smoke test.
+- Keep the packages private; do not publish them to public npm. Until a private
+  registry is needed, consume them in the ELN through a local `link:`/workspace
+  override (never committed). When a registry is needed, use GitHub Packages
+  scoped to `sheetbase-labs`, using the existing lockstep release flow and pack
+  smoke test.
 - The ELN depends on exact versions; upgrades are ordinary PRs that run the
   ELN's visual parity suite.
 - A documented local-development path to test unreleased package changes in
@@ -292,12 +294,15 @@ ELN, `package.json` and `pnpm-workspace.yaml`.
 
 ### Steps (PRs)
 
-1. Components repo: point `publishConfig` at the registry chosen in DEC-12,
-   add the registry token secret, release `0.2.0` with the COMP-01..04 work.
-2. ELN: add `.npmrc` registry scope (no token committed; CI reads it from a
-   secret), add `sheetbase-shared`, `sheetbase-table`, `sheetbase-explorer`,
-   `sheetbase-advanced-search` at exact versions, import `v3.css` from
-   `src/styles.css` mapped onto the ELN variables.
+1. Components repo: when a private registry is needed, point `publishConfig` at
+   GitHub Packages, add the registry token secret and release in lockstep.
+   Until then, keep the public `bun publish --access public` flow unused.
+2. ELN: consume the packages privately. Add `.npmrc` registry scope only when
+   the registry exists (no token committed; CI reads it from a secret), then add
+   `sheetbase-shared`, `sheetbase-table`, `sheetbase-explorer`,
+   `sheetbase-advanced-search` at exact versions and import `v3.css` from
+   `src/styles.css` mapped onto the ELN variables. Before then, a local
+   `link:`/override.
 3. Document the upgrade flow in `docs/development/sheetbase-components.md`.
 
 ### Check it

@@ -1,6 +1,6 @@
 # PORTAL — Client Portal
 
-**Status (2026-09-27):** Proposed; not assigned. Follows [DEC-05](DEC.md) (client users, reconciled with [ADR-0044](../../decisions/0044-organisation-team-domain-model.md)).
+**Status (2026-09-27):** Proposed; not assigned. Follows [DEC-05](DEC.md), accepted 2026-09-27 as [ADR-0049](../../decisions/0049-client-users.md).
 
 ## Programme goal
 
@@ -15,7 +15,7 @@ access" in admin covers connectors and extensions, not people.
 
 ## PORTAL-01 — Client identity and access decision
 
-**Status:** proposed; this task is [DEC-05](DEC.md)'s ADR.
+**Status:** accepted 2026-09-27 as [ADR-0049](../../decisions/0049-client-users.md).
 
 ### Design
 
@@ -36,7 +36,7 @@ An accepted ADR with an RLS test plan.
 
 ## PORTAL-02 — Portal
 
-**Status:** proposed; depends on PORTAL-01, REV-02.
+**Status:** proposed; depends on PORTAL-01 ([ADR-0049](../../decisions/0049-client-users.md), accepted 2026-09-27), REV-02.
 
 ### Design
 

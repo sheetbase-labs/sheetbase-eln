@@ -58,7 +58,7 @@ assigned to a junior developer. Each follows the same steps:
 
 ## DEC-05 — Client users
 
-**Status:** proposed. New ADR: how CDMO clients are represented, authenticate and are isolated (see [PORTAL-01](PORTAL.md)), reconciled with [ADR-0044](../../decisions/0044-organisation-team-domain-model.md).
+**Status:** accepted 2026-09-27 ([ADR-0049](../../decisions/0049-client-users.md)): `client_viewer` role in the same workspace, explicit per-object sharing (manual or automatic-for-approved per PROJ-03), per-project portal off by default, email invite sign-in, RLS-isolated to shared approved records/reports.
 **Unblocks:** PORTAL-02, client rows in PROJ-03 and SET-02.
 
 **How:** Read ADR-0044 and PORTAL-01; decide same-workspace client role vs separate client organisation, authentication (invite + email sign-in or SSO), sharing model and the RLS test plan; write a new ADR.

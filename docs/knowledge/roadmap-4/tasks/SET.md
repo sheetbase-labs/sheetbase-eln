@@ -59,7 +59,7 @@ IDs and is audited.
 
 ## SET-02 — Members, roles, groups and project access
 
-**Status:** proposed; groups after [DEC-06](DEC.md), client rows after [DEC-05](DEC.md).
+**Status:** proposed; groups after [DEC-06](DEC.md); client rows after [DEC-05](DEC.md), accepted 2026-09-27 ([ADR-0049](../../decisions/0049-client-users.md)).
 
 ### Design
 

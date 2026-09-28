@@ -89,15 +89,20 @@ function Instruments() {
           title="Instruments and parsers"
           count={instruments.length}
           actions={
-            canManage ? (
-              <Button
-                variant="primary"
-                icon="plus"
-                onClick={() => setRegisterOpen(true)}
-              >
-                Add instrument
+            <>
+              <Button nativeButton={false} render={<Link to="/instruments" />}>
+                Open instruments
               </Button>
-            ) : null
+              {canManage ? (
+                <Button
+                  variant="primary"
+                  icon="plus"
+                  onClick={() => setRegisterOpen(true)}
+                >
+                  Add instrument
+                </Button>
+              ) : null}
+            </>
           }
         >
           Instruments import through a parser; nothing is imported until the

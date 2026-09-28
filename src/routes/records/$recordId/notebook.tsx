@@ -2481,9 +2481,8 @@ export function NotebookInspector({
             />
           )}
           {/* KNOW-02: per-object lineage — the existing traversal BFS seeded
-              from this record at a bounded depth, with an `Open full lineage`
-              deep-link to the explorer. Historical revisions show pinned
-              evidence only, so the live traversal stays hidden there. */}
+              from this record at a bounded depth. Historical revisions show
+              pinned evidence only, so the live traversal stays hidden there. */}
           {isHistorical ? null : <RecordLineageSection recordId={record.id} />}
 
           <InspectorSection title="Files">

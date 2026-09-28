@@ -67,7 +67,15 @@ while (queue.length && seen.size < max) {
       over: document.documentElement.scrollWidth > window.innerWidth + 1,
       links: [...document.querySelectorAll('a[href]')]
         .map((a) => a.getAttribute('href'))
-        .filter((h) => h && h.startsWith('/') && !h.startsWith('//')),
+        .filter(
+          (h) =>
+            h &&
+            h.startsWith('/') &&
+            !h.startsWith('//') &&
+            // API endpoints are not pages; file downloads also start a
+            // download that navigation cannot follow.
+            !h.startsWith('/api/'),
+        ),
     }))
     .catch(() => ({ h1: [], over: false, links: [] }))
   const problems = []

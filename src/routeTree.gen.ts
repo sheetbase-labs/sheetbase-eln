@@ -21,7 +21,7 @@ import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as InboxRouteImport } from './routes/inbox'
-import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
+import { Route as InstrumentsRouteImport } from './routes/instruments'
 import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
@@ -46,6 +46,7 @@ import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datase
 import { Route as DocsNameRouteImport } from './routes/docs/$name'
 import { Route as EvidenceRevisionIdRouteImport } from './routes/evidence/$revisionId'
 import { Route as ExperimentsExpIdRouteImport } from './routes/experiments/$expId'
+import { Route as InstrumentsInstrumentIdRouteImport } from './routes/instruments/$instrumentId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
@@ -186,9 +187,9 @@ const InboxRoute = InboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InstrumentMonitorRoute = InstrumentMonitorRouteImport.update({
-  id: '/instrument-monitor',
-  path: '/instrument-monitor',
+const InstrumentsRoute = InstrumentsRouteImport.update({
+  id: '/instruments',
+  path: '/instruments',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaterialsRoute = MaterialsRouteImport.update({
@@ -310,6 +311,11 @@ const ExperimentsExpIdRoute = ExperimentsExpIdRouteImport.update({
   id: '/$expId',
   path: '/$expId',
   getParentRoute: () => ExperimentsRoute,
+} as any)
+const InstrumentsInstrumentIdRoute = InstrumentsInstrumentIdRouteImport.update({
+  id: '/$instrumentId',
+  path: '/$instrumentId',
+  getParentRoute: () => InstrumentsRoute,
 } as any)
 const ModelsModelIdRoute = ModelsModelIdRouteImport.update({
   id: '/$modelId',
@@ -745,7 +751,7 @@ export interface FileRoutesByFullPath {
   '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
-  '/instrument-monitor': typeof InstrumentMonitorRoute
+  '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
@@ -770,6 +776,7 @@ export interface FileRoutesByFullPath {
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
+  '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
@@ -863,7 +870,7 @@ export interface FileRoutesByTo {
   '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
-  '/instrument-monitor': typeof InstrumentMonitorRoute
+  '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
@@ -885,6 +892,7 @@ export interface FileRoutesByTo {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
+  '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
@@ -973,7 +981,7 @@ export interface FileRoutesById {
   '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
-  '/instrument-monitor': typeof InstrumentMonitorRoute
+  '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
@@ -998,6 +1006,7 @@ export interface FileRoutesById {
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
+  '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
@@ -1093,7 +1102,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/import'
     | '/inbox'
-    | '/instrument-monitor'
+    | '/instruments'
     | '/materials'
     | '/models'
     | '/pipelines'
@@ -1118,6 +1127,7 @@ export interface FileRouteTypes {
     | '/docs/$name'
     | '/evidence/$revisionId'
     | '/experiments/$expId'
+    | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
     | '/projects/$projectId'
@@ -1211,7 +1221,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/import'
     | '/inbox'
-    | '/instrument-monitor'
+    | '/instruments'
     | '/materials'
     | '/models'
     | '/pipelines'
@@ -1233,6 +1243,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/docs/$name'
     | '/evidence/$revisionId'
+    | '/instruments/$instrumentId'
     | '/protocols/$protocolId'
     | '/review/$revisionId'
     | '/settings/access'
@@ -1320,7 +1331,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/import'
     | '/inbox'
-    | '/instrument-monitor'
+    | '/instruments'
     | '/materials'
     | '/models'
     | '/pipelines'
@@ -1345,6 +1356,7 @@ export interface FileRouteTypes {
     | '/docs/$name'
     | '/evidence/$revisionId'
     | '/experiments/$expId'
+    | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
     | '/projects/$projectId'
@@ -1439,7 +1451,7 @@ export interface RootRouteChildren {
   HelpRoute: typeof HelpRoute
   ImportRoute: typeof ImportRoute
   InboxRoute: typeof InboxRoute
-  InstrumentMonitorRoute: typeof InstrumentMonitorRoute
+  InstrumentsRoute: typeof InstrumentsRouteWithChildren
   MaterialsRoute: typeof MaterialsRoute
   ModelsRoute: typeof ModelsRouteWithChildren
   PipelinesRoute: typeof PipelinesRouteWithChildren
@@ -1573,11 +1585,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/instrument-monitor': {
-      id: '/instrument-monitor'
-      path: '/instrument-monitor'
-      fullPath: '/instrument-monitor'
-      preLoaderRoute: typeof InstrumentMonitorRouteImport
+    '/instruments': {
+      id: '/instruments'
+      path: '/instruments'
+      fullPath: '/instruments'
+      preLoaderRoute: typeof InstrumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/materials': {
@@ -1747,6 +1759,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/experiments/$expId'
       preLoaderRoute: typeof ExperimentsExpIdRouteImport
       parentRoute: typeof ExperimentsRoute
+    }
+    '/instruments/$instrumentId': {
+      id: '/instruments/$instrumentId'
+      path: '/$instrumentId'
+      fullPath: '/instruments/$instrumentId'
+      preLoaderRoute: typeof InstrumentsInstrumentIdRouteImport
+      parentRoute: typeof InstrumentsRoute
     }
     '/models/$modelId': {
       id: '/models/$modelId'
@@ -2392,6 +2411,18 @@ const ExperimentsRouteWithChildren = ExperimentsRoute._addFileChildren(
   ExperimentsRouteChildren,
 )
 
+interface InstrumentsRouteChildren {
+  InstrumentsInstrumentIdRoute: typeof InstrumentsInstrumentIdRoute
+}
+
+const InstrumentsRouteChildren: InstrumentsRouteChildren = {
+  InstrumentsInstrumentIdRoute: InstrumentsInstrumentIdRoute,
+}
+
+const InstrumentsRouteWithChildren = InstrumentsRoute._addFileChildren(
+  InstrumentsRouteChildren,
+)
+
 interface ModelsModelIdRouteChildren {
   ModelsModelIdDatasetsRoute: typeof ModelsModelIdDatasetsRoute
   ModelsModelIdFieldsRoute: typeof ModelsModelIdFieldsRoute
@@ -2623,7 +2654,7 @@ const rootRouteChildren: RootRouteChildren = {
   HelpRoute: HelpRoute,
   ImportRoute: ImportRoute,
   InboxRoute: InboxRoute,
-  InstrumentMonitorRoute: InstrumentMonitorRoute,
+  InstrumentsRoute: InstrumentsRouteWithChildren,
   MaterialsRoute: MaterialsRoute,
   ModelsRoute: ModelsRouteWithChildren,
   PipelinesRoute: PipelinesRouteWithChildren,

@@ -286,11 +286,7 @@ export interface AppShellProps {
 
 /** Default workspace navigation shared by every authenticated route. */
 /** Specialist tools kept reachable but out of the default product nav. */
-export const SPECIALIST_NAV_HREFS = [
-  '/planner',
-  '/instrument-monitor',
-  '/storage',
-] as const
+export const SPECIALIST_NAV_HREFS = ['/planner', '/storage'] as const
 
 export const defaultNavSections: AppShellNavSection[] = [
   {

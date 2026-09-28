@@ -53,6 +53,7 @@ async function discover() {
       protocols,
       revisions,
       sheets,
+      instruments,
     ] = await Promise.all([
       get('/api/db/rpc/project_list_summary?limit=1'),
       get('/api/db/records?kind=eq.experiment&limit=1&select=id'),
@@ -67,6 +68,7 @@ async function discover() {
       get('/api/db/records?kind=eq.protocol_template&limit=1&select=id'),
       get('/api/db/revisions?limit=1&select=id'),
       get('/api/db/sheet_instances?limit=1&select=id'),
+      get('/api/db/instruments?limit=1&select=id'),
     ])
     return {
       project: projects[0]?.id,
@@ -82,6 +84,7 @@ async function discover() {
       protocol: protocols[0]?.id,
       revision: revisions[0]?.id,
       sheet: sheets[0]?.id,
+      instrument: instruments[0]?.id,
     }
   })
   await page.close()
@@ -101,6 +104,7 @@ function routes(ids) {
     '/datasets',
     '/import',
     '/sheets/new',
+    '/instruments',
     '/templates',
     '/models',
     '/pipelines',
@@ -169,6 +173,7 @@ function routes(ids) {
   if (ids.revision) list.push(`/review/${ids.revision}`)
   if (ids.revision) list.push(`/evidence/${ids.revision}`)
   if (ids.sheet) list.push(`/sheets/${ids.sheet}`)
+  if (ids.instrument) list.push(`/instruments/${ids.instrument}`)
   return list
 }
 

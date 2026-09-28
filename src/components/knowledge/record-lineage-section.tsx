@@ -7,8 +7,8 @@
  * Nodes link out via `lineageNodeDestination`: submitted/frozen evidence
  * nodes to the frozen evidence workspace, live nodes to their canonical
  * surface; restricted/missing nodes render as honest plain text, never links.
- * `Open full lineage` deep-links to the `/lineage` explorer with the same
- * seed at full depth.
+ * The standalone `/lineage` explorer was retired (SHELL-04 DEC-03); this
+ * miniature is the lineage view.
  *
  * No second graph authority: every read goes through the RLS-filtered
  * `fetchLineageGraph` boundary, and pinned evidence is never mutated.
@@ -92,12 +92,6 @@ export function RecordLineageList({
           )
         })}
       </ul>
-      <a
-        href={`/lineage?seed=${encodeURIComponent(seedRecordId)}`}
-        className="mt-2 inline-block text-xs font-medium underline-offset-4 hover:underline"
-      >
-        Open full lineage
-      </a>
     </div>
   )
 }

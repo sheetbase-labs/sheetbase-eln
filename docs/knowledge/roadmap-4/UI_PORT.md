@@ -118,6 +118,25 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Instruments area added (LAB-06)**: `/instruments` lists the workspace
+  instrument registry (ID, name, type, model, connection) with search and an
+  inspector, and `/instruments/$instrumentId` shows an instrument with its run
+  queue. Both read the real `instruments` / `instrument_runs` tables; calibration
+  is stated as a gap. The settings Instruments section links here. DEC-03's
+  `/instrument-monitor` is retired: its route, components, stories, tests and the
+  now-unused instrument-monitor library are deleted. The screens suite covers
+  `/instruments` (53 routes × 2 widths clean).
+
+- **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
+  "Open full lineage" link on the legacy record notebook; it is removed, so the
+  crawl reports 0 404s. The crawl also skips `/api/*` hrefs (file downloads
+  start a download that navigation cannot follow), keeping the crawl at
+  284 pages, 0 problems, 0 404s. Full acceptance is green: `test:crawl`
+  (284/0/0), `test:screens` (53 routes × 2 widths), `test:areas`,
+  `test:interactions`. Acceptance runs raise `SHEETBASE_RATE_LIMIT_MAX` because
+  the PLAT-03 proxy limiter otherwise trips on the suite's request burst; that
+  is an acceptance-time env override, not a code change.
+
 - **Review area suite ported**: `tests/browser-scripts/areas/review-interact.mjs`
   opens the real revision's review workspace, asserts the header and inspector,
   and activates Diff, Comments, Checks and History. It stays read-only because
@@ -128,15 +147,14 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 - **Retired the two pure-retire legacy routes (DEC-03)**: `/plate-designer` and
   `/report-builder` and their components, stories, tests and (for the report
   builder) the now-unused report-builder libraries are deleted, and
-  `/plate-designer` is removed from the legacy specialist nav. The fold routes
-  (`/planner`→PROJ-02, `/instrument-monitor`→LAB-06, `/storage`→LAB-04,
-  `/lineage`→lineage tabs, `/agent-operations`→PIPE-01) are deleted with their
-  fold task, as DEC-03 specifies; `/docs/$name` and `/foundations` stay internal
-  and unlisted. `/lineage` is retired too: the standalone explorer is deleted and
-  the lineage home is the sample lineage tab and the evidence page (both ported;
-  their lineage data is still a gap). `/planner`, `/instrument-monitor`,
-  `/storage` and `/agent-operations` remain until PROJ-02, LAB-06, LAB-04 and the
-  pipeline agent surface exist.
+  `/plate-designer` is removed from the legacy specialist nav. `/lineage` is
+  retired: the standalone explorer, its route and tests are deleted, and the
+  lineage home is the sample lineage tab and the evidence page (both ported;
+  their lineage data is still a gap). `/instrument-monitor` is retired into the
+  new `/instruments` area (LAB-06). The remaining fold routes
+  (`/planner`→PROJ-02, `/storage`→LAB-04, `/agent-operations`→PIPE-01) are
+  deleted with their fold task, as DEC-03 specifies; `/docs/$name` and
+  `/foundations` stay internal and unlisted.
 
 - **Portal messaging ported**: `client_portal_messages` (RLS: internal members
   or the client whose portal it is) with `post_client_portal_message` (a client

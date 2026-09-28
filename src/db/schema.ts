@@ -450,6 +450,36 @@ export const projectAccess = api.table(
   ],
 )
 
+/**
+ * PROJ-01.1 / DEC-05 — a client organisation a project can belong to. `code` is
+ * the stable workspace-scoped display id (CL-nnn), assigned on insert.
+ */
+export const clients = api.table(
+  'clients',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_clients_workspace_code').on(table.workspaceId, table.code),
+    check('chk_clients_code', sql`${table.code} ~ '^CL-[0-9]{3,}$'`),
+    check(
+      'chk_clients_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    index('idx_clients_workspace').on(table.workspaceId),
+  ],
+)
+
 export const projects = api.table(
   'projects',
   {
@@ -478,6 +508,26 @@ export const projects = api.table(
       .notNull()
       .default(false),
     autoShareToClient: boolean('auto_share_to_client').notNull().default(false),
+    /** PROJ-01.1 — stable workspace display id, assigned on insert. */
+    displayId: text('display_id'),
+    clientId: uuid('client_id').references(() => clients.id, {
+      onDelete: 'set null',
+    }),
+    modality: text('modality'),
+    stage: text('stage'),
+    leadUserId: text('lead_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    defaultReviewerUserId: text('default_reviewer_user_id').references(
+      () => user.id,
+      { onDelete: 'set null' },
+    ),
+    agreementReference: text('agreement_reference'),
+    startedOn: date('started_on'),
+    /** PROJ-01.1 — optimistic token for update_project_details. */
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
   },
@@ -490,6 +540,15 @@ export const projects = api.table(
     check(
       'chk_projects_review_period',
       sql`${table.defaultReviewPeriodDays} IS NULL OR (${table.defaultReviewPeriodDays} BETWEEN 1 AND 365)`,
+    ),
+    check(
+      'chk_projects_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^PRJ-[0-9]{4,}$'`,
+    ),
+    check('chk_projects_revision', sql`${table.revision} > 0`),
+    unique('uq_projects_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
     ),
     index('idx_projects_workspace_id').on(table.workspaceId),
   ],

@@ -1644,6 +1644,20 @@
       "when": 1790577755787,
       "tag": "0236_workspace_name",
       "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "7",
+      "when": 1790578094137,
+      "tag": "0237_black_ender_wiggin",
+      "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1790578137359,
+      "tag": "0238_project_details_clients",
+      "breakpoints": true
     }
   ]
 }

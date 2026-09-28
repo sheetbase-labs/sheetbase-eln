@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -27,10 +32,9 @@ import {
 } from '#/components/v3/inventory/list'
 import {
   datasetValidation,
-  useDatasetSummaries
-  
+  useDatasetSummaries,
 } from '#/components/v3/datasets/datasets-data'
-import type {DatasetListRow} from '#/components/v3/datasets/datasets-data';
+import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
 
 const tabs = ['all', 'mine', 'issues', 'locked'] as const
 type DatasetTab = (typeof tabs)[number]
@@ -178,7 +182,13 @@ function DatasetsList() {
                         d.uuid === sel?.uuid ? 'font-medium' : undefined
                       }
                     >
-                      {d.name}
+                      <Link
+                        to="/datasets/$datasetId/snapshots"
+                        params={{ datasetId: d.uuid }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {d.name}
+                      </Link>
                     </TableCell>
                     <TableCell>{d.model}</TableCell>
                     <TableCell align="right">{d.rows}</TableCell>

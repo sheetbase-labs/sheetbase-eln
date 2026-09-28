@@ -118,6 +118,11 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Dataset detail frame + Snapshots ported**: `/datasets/$datasetId` shows the
+  header (status, model, rows) with a Snapshots tab wired to
+  `dataset_version_list`; the index redirects to Snapshots. Rows and Compare
+  tabs follow.
+
 - **Datasets list ported** with a DB-first summary: `api.dataset_list_summary`
   (rows + active issue counts, RLS-invoker, DB test) backs `/datasets` — tabs
   All/Mine/Issues/Locked, search, table + mobile, summary inspector. The old

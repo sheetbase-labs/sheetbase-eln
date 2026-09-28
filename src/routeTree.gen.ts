@@ -41,6 +41,7 @@ import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
 import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
+import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 import { Route as DocsNameRouteImport } from './routes/docs/$name'
 import { Route as IntegrationsConnectorIdRouteImport } from './routes/integrations/$connectorId'
 import { Route as PipelinesDefinitionIdRouteImport } from './routes/pipelines/$definitionId'
@@ -60,6 +61,8 @@ import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
+import { Route as DatasetsDatasetIdIndexRouteImport } from './routes/datasets/$datasetId/index'
+import { Route as DatasetsDatasetIdSnapshotsRouteImport } from './routes/datasets/$datasetId/snapshots'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
 import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
 import { Route as ProjectsProjectIdFoldersRouteImport } from './routes/projects/$projectId/folders'
@@ -244,6 +247,11 @@ const ApiSheetCalculationsRoute = ApiSheetCalculationsRouteImport.update({
   path: '/api/sheet-calculations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
+  id: '/$datasetId',
+  path: '/$datasetId',
+  getParentRoute: () => DatasetsRoute,
+} as any)
 const DocsNameRoute = DocsNameRouteImport.update({
   id: '/docs/$name',
   path: '/docs/$name',
@@ -340,6 +348,17 @@ const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   path: '/api/token/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatasetsDatasetIdIndexRoute = DatasetsDatasetIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DatasetsDatasetIdRoute,
+} as any)
+const DatasetsDatasetIdSnapshotsRoute =
+  DatasetsDatasetIdSnapshotsRouteImport.update({
+    id: '/snapshots',
+    path: '/snapshots',
+    getParentRoute: () => DatasetsDatasetIdRoute,
+  } as any)
 const PipelinesRunsRunIdRoute = PipelinesRunsRunIdRouteImport.update({
   id: '/runs/$runId',
   path: '/runs/$runId',
@@ -472,7 +491,7 @@ export interface FileRoutesByFullPath {
   '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRoute
   '/configure': typeof ConfigureRoute
-  '/datasets': typeof DatasetsRoute
+  '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRoute
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
@@ -499,6 +518,7 @@ export interface FileRoutesByFullPath {
   '/api/formulas': typeof ApiFormulasRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
@@ -517,6 +537,7 @@ export interface FileRoutesByFullPath {
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
@@ -528,6 +549,7 @@ export interface FileRoutesByFullPath {
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/datasets/$datasetId/': typeof DatasetsDatasetIdIndexRoute
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
@@ -548,7 +570,7 @@ export interface FileRoutesByTo {
   '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRoute
   '/configure': typeof ConfigureRoute
-  '/datasets': typeof DatasetsRoute
+  '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRoute
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
@@ -590,6 +612,7 @@ export interface FileRoutesByTo {
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
@@ -601,6 +624,7 @@ export interface FileRoutesByTo {
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/api/token': typeof ApiTokenIndexRoute
+  '/datasets/$datasetId': typeof DatasetsDatasetIdIndexRoute
   '/projects/$projectId': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId': typeof SamplesSampleIdIndexRoute
@@ -622,7 +646,7 @@ export interface FileRoutesById {
   '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRoute
   '/configure': typeof ConfigureRoute
-  '/datasets': typeof DatasetsRoute
+  '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRoute
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
@@ -649,6 +673,7 @@ export interface FileRoutesById {
   '/api/formulas': typeof ApiFormulasRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
@@ -667,6 +692,7 @@ export interface FileRoutesById {
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
@@ -678,6 +704,7 @@ export interface FileRoutesById {
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/datasets/$datasetId/': typeof DatasetsDatasetIdIndexRoute
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
@@ -727,6 +754,7 @@ export interface FileRouteTypes {
     | '/api/formulas'
     | '/api/metrics'
     | '/api/sheet-calculations'
+    | '/datasets/$datasetId'
     | '/docs/$name'
     | '/integrations/$connectorId'
     | '/pipelines/$definitionId'
@@ -745,6 +773,7 @@ export interface FileRouteTypes {
     | '/api/health/ready'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/datasets/$datasetId/snapshots'
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
@@ -756,6 +785,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/measurements'
     | '/samples/$sampleId/usage'
     | '/api/token/'
+    | '/datasets/$datasetId/'
     | '/projects/$projectId/'
     | '/records/$recordId/'
     | '/samples/$sampleId/'
@@ -818,6 +848,7 @@ export interface FileRouteTypes {
     | '/api/health/ready'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/datasets/$datasetId/snapshots'
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
@@ -829,6 +860,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/measurements'
     | '/samples/$sampleId/usage'
     | '/api/token'
+    | '/datasets/$datasetId'
     | '/projects/$projectId'
     | '/records/$recordId'
     | '/samples/$sampleId'
@@ -876,6 +908,7 @@ export interface FileRouteTypes {
     | '/api/formulas'
     | '/api/metrics'
     | '/api/sheet-calculations'
+    | '/datasets/$datasetId'
     | '/docs/$name'
     | '/integrations/$connectorId'
     | '/pipelines/$definitionId'
@@ -894,6 +927,7 @@ export interface FileRouteTypes {
     | '/api/health/ready'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/datasets/$datasetId/snapshots'
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
@@ -905,6 +939,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/measurements'
     | '/samples/$sampleId/usage'
     | '/api/token/'
+    | '/datasets/$datasetId/'
     | '/projects/$projectId/'
     | '/records/$recordId/'
     | '/samples/$sampleId/'
@@ -926,7 +961,7 @@ export interface RootRouteChildren {
   AgentOperationsRoute: typeof AgentOperationsRoute
   AnalysisRoute: typeof AnalysisRoute
   ConfigureRoute: typeof ConfigureRoute
-  DatasetsRoute: typeof DatasetsRoute
+  DatasetsRoute: typeof DatasetsRouteWithChildren
   ExperimentsRoute: typeof ExperimentsRoute
   FoundationsRoute: typeof FoundationsRoute
   HelpRoute: typeof HelpRoute
@@ -1205,6 +1240,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSheetCalculationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/datasets/$datasetId': {
+      id: '/datasets/$datasetId'
+      path: '/$datasetId'
+      fullPath: '/datasets/$datasetId'
+      preLoaderRoute: typeof DatasetsDatasetIdRouteImport
+      parentRoute: typeof DatasetsRoute
+    }
     '/docs/$name': {
       id: '/docs/$name'
       path: '/docs/$name'
@@ -1337,6 +1379,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/token/'
       preLoaderRoute: typeof ApiTokenIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/datasets/$datasetId/': {
+      id: '/datasets/$datasetId/'
+      path: '/'
+      fullPath: '/datasets/$datasetId/'
+      preLoaderRoute: typeof DatasetsDatasetIdIndexRouteImport
+      parentRoute: typeof DatasetsDatasetIdRoute
+    }
+    '/datasets/$datasetId/snapshots': {
+      id: '/datasets/$datasetId/snapshots'
+      path: '/snapshots'
+      fullPath: '/datasets/$datasetId/snapshots'
+      preLoaderRoute: typeof DatasetsDatasetIdSnapshotsRouteImport
+      parentRoute: typeof DatasetsDatasetIdRoute
     }
     '/pipelines/runs/$runId': {
       id: '/pipelines/runs/$runId'
@@ -1512,6 +1568,31 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface DatasetsDatasetIdRouteChildren {
+  DatasetsDatasetIdSnapshotsRoute: typeof DatasetsDatasetIdSnapshotsRoute
+  DatasetsDatasetIdIndexRoute: typeof DatasetsDatasetIdIndexRoute
+}
+
+const DatasetsDatasetIdRouteChildren: DatasetsDatasetIdRouteChildren = {
+  DatasetsDatasetIdSnapshotsRoute: DatasetsDatasetIdSnapshotsRoute,
+  DatasetsDatasetIdIndexRoute: DatasetsDatasetIdIndexRoute,
+}
+
+const DatasetsDatasetIdRouteWithChildren =
+  DatasetsDatasetIdRoute._addFileChildren(DatasetsDatasetIdRouteChildren)
+
+interface DatasetsRouteChildren {
+  DatasetsDatasetIdRoute: typeof DatasetsDatasetIdRouteWithChildren
+}
+
+const DatasetsRouteChildren: DatasetsRouteChildren = {
+  DatasetsDatasetIdRoute: DatasetsDatasetIdRouteWithChildren,
+}
+
+const DatasetsRouteWithChildren = DatasetsRoute._addFileChildren(
+  DatasetsRouteChildren,
+)
+
 interface IntegrationsRouteChildren {
   IntegrationsConnectorIdRoute: typeof IntegrationsConnectorIdRoute
 }
@@ -1620,7 +1701,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentOperationsRoute: AgentOperationsRoute,
   AnalysisRoute: AnalysisRoute,
   ConfigureRoute: ConfigureRoute,
-  DatasetsRoute: DatasetsRoute,
+  DatasetsRoute: DatasetsRouteWithChildren,
   ExperimentsRoute: ExperimentsRoute,
   FoundationsRoute: FoundationsRoute,
   HelpRoute: HelpRoute,

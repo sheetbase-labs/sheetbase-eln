@@ -97,8 +97,11 @@ describe('api.plan_dataset_row', () => {
       `SELECT id FROM api.dataset_rows WHERE dataset_id = $1 AND status = 'planned' LIMIT 1`,
       [DATASET],
     )
+    // Direct writes are RPC-only, so insert as the migrator: the guard
+    // trigger still fires for a planned row.
+    await migrator.query('RESET ROLE')
     await expect(
-      member.query(
+      migrator.query(
         `INSERT INTO api.dataset_row_values (row_id, field_id, ordinal, numeric_value)
          VALUES ($1, $2, 0, 1.0)`,
         [planned.rows[0]!.id, FIELD],

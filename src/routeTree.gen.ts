@@ -22,7 +22,6 @@ import { Route as HelpRouteImport } from './routes/help'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
-import { Route as LineageRouteImport } from './routes/lineage'
 import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
@@ -190,11 +189,6 @@ const InboxRoute = InboxRouteImport.update({
 const InstrumentMonitorRoute = InstrumentMonitorRouteImport.update({
   id: '/instrument-monitor',
   path: '/instrument-monitor',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LineageRoute = LineageRouteImport.update({
-  id: '/lineage',
-  path: '/lineage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaterialsRoute = MaterialsRouteImport.update({
@@ -752,7 +746,6 @@ export interface FileRoutesByFullPath {
   '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
-  '/lineage': typeof LineageRoute
   '/materials': typeof MaterialsRoute
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
@@ -871,7 +864,6 @@ export interface FileRoutesByTo {
   '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
-  '/lineage': typeof LineageRoute
   '/materials': typeof MaterialsRoute
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
@@ -982,7 +974,6 @@ export interface FileRoutesById {
   '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
-  '/lineage': typeof LineageRoute
   '/materials': typeof MaterialsRoute
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
@@ -1103,7 +1094,6 @@ export interface FileRouteTypes {
     | '/import'
     | '/inbox'
     | '/instrument-monitor'
-    | '/lineage'
     | '/materials'
     | '/models'
     | '/pipelines'
@@ -1222,7 +1212,6 @@ export interface FileRouteTypes {
     | '/import'
     | '/inbox'
     | '/instrument-monitor'
-    | '/lineage'
     | '/materials'
     | '/models'
     | '/pipelines'
@@ -1332,7 +1321,6 @@ export interface FileRouteTypes {
     | '/import'
     | '/inbox'
     | '/instrument-monitor'
-    | '/lineage'
     | '/materials'
     | '/models'
     | '/pipelines'
@@ -1452,7 +1440,6 @@ export interface RootRouteChildren {
   ImportRoute: typeof ImportRoute
   InboxRoute: typeof InboxRoute
   InstrumentMonitorRoute: typeof InstrumentMonitorRoute
-  LineageRoute: typeof LineageRoute
   MaterialsRoute: typeof MaterialsRoute
   ModelsRoute: typeof ModelsRouteWithChildren
   PipelinesRoute: typeof PipelinesRouteWithChildren
@@ -1591,13 +1578,6 @@ declare module '@tanstack/react-router' {
       path: '/instrument-monitor'
       fullPath: '/instrument-monitor'
       preLoaderRoute: typeof InstrumentMonitorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/lineage': {
-      id: '/lineage'
-      path: '/lineage'
-      fullPath: '/lineage'
-      preLoaderRoute: typeof LineageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/materials': {
@@ -2644,7 +2624,6 @@ const rootRouteChildren: RootRouteChildren = {
   ImportRoute: ImportRoute,
   InboxRoute: InboxRoute,
   InstrumentMonitorRoute: InstrumentMonitorRoute,
-  LineageRoute: LineageRoute,
   MaterialsRoute: MaterialsRoute,
   ModelsRoute: ModelsRouteWithChildren,
   PipelinesRoute: PipelinesRouteWithChildren,

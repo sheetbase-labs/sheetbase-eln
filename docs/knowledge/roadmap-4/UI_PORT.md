@@ -125,7 +125,11 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   (`/planner`→PROJ-02, `/instrument-monitor`→LAB-06, `/storage`→LAB-04,
   `/lineage`→lineage tabs, `/agent-operations`→PIPE-01) are deleted with their
   fold task, as DEC-03 specifies; `/docs/$name` and `/foundations` stay internal
-  and unlisted.
+  and unlisted. `/lineage` is retired too: the standalone explorer is deleted and
+  the lineage home is the sample lineage tab and the evidence page (both ported;
+  their lineage data is still a gap). `/planner`, `/instrument-monitor`,
+  `/storage` and `/agent-operations` remain until PROJ-02, LAB-06, LAB-04 and the
+  pipeline agent surface exist.
 
 - **Portal messaging ported**: `client_portal_messages` (RLS: internal members
   or the client whose portal it is) with `post_client_portal_message` (a client

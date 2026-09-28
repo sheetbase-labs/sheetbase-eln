@@ -621,9 +621,17 @@ async function loadInputVersion(
   conn: ExecConnection,
   workspaceId: string,
   versionId: string,
-): Promise<{ id: string; schema_version_id: string } | null> {
-  const { rows } = await conn.query<{ id: string; schema_version_id: string }>(
-    `SELECT id, schema_version_id FROM api.dataset_versions
+): Promise<{
+  id: string
+  schema_version_id: string
+  dataset_id: string
+} | null> {
+  const { rows } = await conn.query<{
+    id: string
+    schema_version_id: string
+    dataset_id: string
+  }>(
+    `SELECT id, schema_version_id, dataset_id FROM api.dataset_versions
       WHERE id = $1 AND workspace_id = $2`,
     [versionId, workspaceId],
   )
@@ -747,6 +755,13 @@ async function materializeInputRows(
       JOIN api.dataset_version_values v
         ON v.dataset_version_id = r.dataset_version_id
        AND v.row_id = r.row_id
+       -- DSET-01.2: a flagged value is excluded from the pipeline input.
+       AND NOT EXISTS (
+         SELECT 1 FROM api.dataset_version_flags f
+          WHERE f.dataset_version_id = v.dataset_version_id
+            AND f.row_id = v.row_id
+            AND f.field_id = v.field_id
+       )
      WHERE r.dataset_version_id = $1
      GROUP BY r.row_id, r.revision
      ORDER BY r.row_id`

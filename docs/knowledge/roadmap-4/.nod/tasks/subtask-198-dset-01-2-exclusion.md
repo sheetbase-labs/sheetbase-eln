@@ -21,3 +21,4 @@ Step 2 of 5 in [DSET-01](../../tasks/DSET.md#dset-01--value-flags-and-repeats); 
 - 2026-09-28: PR #206: live charts exclude rows whose charted field is flagged — resolveChartDataset attaches active flags and materialiseLiveChart drops them (unit test). Analyses, fx criteria and pipeline inputs remain.
 - 2026-09-28: PR #206: analyses exclude flagged values — runAnalysis takes flags, RepresentationTableInput carries them and the Analysis Studio attaches the dataset's active flags (unit test). fx criteria, pipeline inputs and the representations chart path remain.
 - 2026-09-28: PR #206: shared filterRowsByFlags; live charts and the representations chart path both exclude flagged values. Server-side fx criteria and pipeline inputs remain.
+- 2026-09-28: PR #206: pipeline inputs exclude flagged values — the version-row materialiser skips a (row, field) present in dataset_version_flags. Server-side; fx criteria remain.

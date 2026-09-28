@@ -33,6 +33,7 @@ import {
   adminQueryKeys,
   changeMemberRole,
   createInvitation,
+  fetchClients,
   fetchInvitations,
   fetchWorkspaceMembers,
   reinstateMember,
@@ -61,7 +62,13 @@ function Members() {
   const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
   const [dialog, setDialog] = useState<
     | { kind: 'invite' }
-    | { kind: 'role'; userId: string; name: string; role: WorkspaceRole }
+    | {
+        kind: 'role'
+        userId: string
+        name: string
+        role: WorkspaceRole
+        clientId: string | null
+      }
     | { kind: 'remove'; userId: string; name: string }
     | null
   >(null)
@@ -76,6 +83,13 @@ function Members() {
     queryFn: () => fetchInvitations(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+  const clients = useQuery({
+    queryKey: ['ui-port', 'settings', 'clients', workspaceId],
+    queryFn: () => fetchClients(dataClient, workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+  const clientName = (clientId: string | null | undefined) =>
+    (clients.data ?? []).find((c) => c.id === clientId)?.name ?? '—'
   const rows = members.data ?? []
   const names = useUserNames(
     rows.map((m) => m.userId),
@@ -97,6 +111,7 @@ function Members() {
       kind: 'role' | 'suspend' | 'reinstate' | 'remove'
       userId: string
       role?: WorkspaceRole
+      clientId?: string | null
     }) => {
       switch (input.kind) {
         case 'role':
@@ -104,6 +119,7 @@ function Members() {
             workspaceId,
             userId: input.userId,
             newRole: input.role as WorkspaceRole,
+            clientId: input.clientId ?? null,
           })
         case 'suspend':
           return suspendMember(dataClient, {
@@ -140,12 +156,17 @@ function Members() {
   })
 
   const invite = useMutation({
-    mutationFn: (input: { email: string; role: WorkspaceRole }) =>
+    mutationFn: (input: {
+      email: string
+      role: WorkspaceRole
+      clientId: string | null
+    }) =>
       createInvitation(dataClient, {
         workspaceId,
         email: input.email,
         role: input.role,
         expiresAfterDays: 7,
+        clientId: input.clientId,
       }),
     onSuccess: () => {
       invalidate()
@@ -218,7 +239,15 @@ function Members() {
                     <span className="text-fg-muted"> · you</span>
                   ) : null}
                 </TableCell>
-                <TableCell>{WORKSPACE_ROLE_LABELS[m.role]}</TableCell>
+                <TableCell>
+                  {WORKSPACE_ROLE_LABELS[m.role]}
+                  {m.role === 'client_viewer' ? (
+                    <span className="text-fg-muted">
+                      {' '}
+                      · {clientName(m.clientId)}
+                    </span>
+                  ) : null}
+                </TableCell>
                 <TableCell>
                   <Status tone={m.suspendedAt ? 'warn' : 'ok'}>
                     {m.suspendedAt ? 'Suspended' : 'Active'}
@@ -238,6 +267,7 @@ function Members() {
                             userId: m.userId,
                             name: names.userLabel(m.userId),
                             role: m.role,
+                            clientId: m.clientId ?? null,
                           })
                         }
                       >
@@ -310,7 +340,15 @@ function Members() {
                   {pending.map((i) => (
                     <TableRow key={i.id}>
                       <TableCell>{i.email}</TableCell>
-                      <TableCell>{WORKSPACE_ROLE_LABELS[i.role]}</TableCell>
+                      <TableCell>
+                        {WORKSPACE_ROLE_LABELS[i.role]}
+                        {i.role === 'client_viewer' ? (
+                          <span className="text-fg-muted">
+                            {' '}
+                            · {clientName(i.clientId)}
+                          </span>
+                        ) : null}
+                      </TableCell>
                       <TableCell className="text-fg-muted">
                         {i.expiresAt.slice(0, 10)}
                       </TableCell>
@@ -342,18 +380,23 @@ function Members() {
 
       {dialog?.kind === 'invite' ? (
         <InviteDialog
+          clients={clients.data ?? []}
           busy={invite.isPending}
           onClose={() => setDialog(null)}
-          onSubmit={(email, role) => invite.mutate({ email, role })}
+          onSubmit={(email, role, clientId) =>
+            invite.mutate({ email, role, clientId })
+          }
         />
       ) : dialog?.kind === 'role' ? (
         <RoleDialog
+          clients={clients.data ?? []}
           name={dialog.name}
           current={dialog.role}
+          currentClientId={dialog.clientId}
           busy={act.isPending}
           onClose={() => setDialog(null)}
-          onSubmit={(role) =>
-            act.mutate({ kind: 'role', userId: dialog.userId, role })
+          onSubmit={(role, clientId) =>
+            act.mutate({ kind: 'role', userId: dialog.userId, role, clientId })
           }
         />
       ) : dialog?.kind === 'remove' ? (
@@ -383,19 +426,28 @@ function Members() {
 }
 
 function InviteDialog({
+  clients,
   busy,
   onClose,
   onSubmit,
 }: {
+  clients: { id: string; code: string; name: string }[]
   busy: boolean
   onClose: () => void
-  onSubmit: (email: string, role: WorkspaceRole) => void
+  onSubmit: (
+    email: string,
+    role: WorkspaceRole,
+    clientId: string | null,
+  ) => void
 }) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<WorkspaceRole>('viewer')
+  const [clientId, setClientId] = useState(clients.at(0)?.id ?? '')
   const error = /.+@.+\..+/.test(email.trim())
     ? undefined
     : 'Enter an email address.'
+  const clientError =
+    role === 'client_viewer' && !clientId ? 'Choose a client.' : undefined
   return (
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -425,14 +477,36 @@ function InviteDialog({
               ))}
             </select>
           </Field>
+          {role === 'client_viewer' ? (
+            <Field label="Client" required error={clientError}>
+              <select
+                className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+              >
+                <option value="">Choose a client…</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} · {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
           <Muted>{WORKSPACE_ROLE_DESCRIPTIONS[role]}</Muted>
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
             variant="primary"
-            disabled={busy || Boolean(error)}
-            onClick={() => onSubmit(email.trim(), role)}
+            disabled={busy || Boolean(error) || Boolean(clientError)}
+            onClick={() =>
+              onSubmit(
+                email.trim(),
+                role,
+                role === 'client_viewer' ? clientId : null,
+              )
+            }
           >
             Send invitation
           </Button>
@@ -443,19 +517,28 @@ function InviteDialog({
 }
 
 function RoleDialog({
+  clients,
   name,
   current,
+  currentClientId,
   busy,
   onClose,
   onSubmit,
 }: {
+  clients: { id: string; code: string; name: string }[]
   name: string
   current: WorkspaceRole
+  currentClientId: string | null
   busy: boolean
   onClose: () => void
-  onSubmit: (role: WorkspaceRole) => void
+  onSubmit: (role: WorkspaceRole, clientId: string | null) => void
 }) {
   const [role, setRole] = useState<WorkspaceRole>(current)
+  const [clientId, setClientId] = useState(
+    currentClientId ?? clients.at(0)?.id ?? '',
+  )
+  const clientError =
+    role === 'client_viewer' && !clientId ? 'Choose a client.' : undefined
   return (
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -477,14 +560,37 @@ function RoleDialog({
               ))}
             </select>
           </Field>
+          {role === 'client_viewer' ? (
+            <Field label="Client" required error={clientError}>
+              <select
+                className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+              >
+                <option value="">Choose a client…</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} · {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
           <Muted>{WORKSPACE_ROLE_DESCRIPTIONS[role]}</Muted>
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
             variant="primary"
-            disabled={busy || role === current}
-            onClick={() => onSubmit(role)}
+            disabled={
+              busy ||
+              Boolean(clientError) ||
+              (role === current &&
+                (role !== 'client_viewer' || clientId === currentClientId))
+            }
+            onClick={() =>
+              onSubmit(role, role === 'client_viewer' ? clientId : null)
+            }
           >
             Change role
           </Button>

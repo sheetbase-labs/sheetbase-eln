@@ -35,6 +35,7 @@ export interface WorkspaceMemberWire {
   workspace_id: string
   user_id: string
   role: WorkspaceRole
+  client_id?: string | null
   suspended_at: string | null
   created_at: string
   updated_at: string
@@ -45,6 +46,7 @@ export interface WorkspaceInvitationWire {
   workspace_id: string
   email: string
   role: WorkspaceRole
+  client_id?: string | null
   status: InvitationStatus
   expires_at: string
   accepted_at: string | null
@@ -110,6 +112,7 @@ export interface WorkspaceMember {
   workspaceId: string
   userId: string
   role: WorkspaceRole
+  clientId?: string | null
   suspendedAt: string | null
   createdAt: string
   updatedAt: string
@@ -120,6 +123,7 @@ export interface WorkspaceInvitation {
   workspaceId: string
   email: string
   role: WorkspaceRole
+  clientId?: string | null
   status: InvitationStatus
   expiresAt: string
   acceptedAt: string | null
@@ -185,6 +189,7 @@ export const toWorkspaceMember = (w: WorkspaceMemberWire): WorkspaceMember => ({
   workspaceId: w.workspace_id,
   userId: w.user_id,
   role: w.role,
+  clientId: w.client_id ?? null,
   suspendedAt: w.suspended_at,
   createdAt: w.created_at,
   updatedAt: w.updated_at,
@@ -197,6 +202,7 @@ export const toWorkspaceInvitation = (
   workspaceId: w.workspace_id,
   email: w.email,
   role: w.role,
+  clientId: w.client_id ?? null,
   status: w.status,
   expiresAt: w.expires_at,
   acceptedAt: w.accepted_at,
@@ -285,9 +291,26 @@ export async function fetchWorkspaceMembers(
 ): Promise<WorkspaceMember[]> {
   const rows = await c.list<WorkspaceMemberWire>(
     'workspace_memberships',
-    filter('workspace_id', workspaceId, 'created_at.asc'),
+    `${filter('workspace_id', workspaceId, 'created_at.asc')}&select=id,workspace_id,user_id,role,client_id,suspended_at,created_at,updated_at`,
   )
   return rows.map(toWorkspaceMember)
+}
+
+export interface ClientSummary {
+  id: string
+  code: string
+  name: string
+}
+
+export async function fetchClients(
+  c: DataClient,
+  workspaceId: string,
+): Promise<ClientSummary[]> {
+  const rows = await c.list<{ id: string; code: string; name: string }>(
+    'clients',
+    `${filter('workspace_id', workspaceId, 'code.asc')}&select=id,code,name`,
+  )
+  return rows
 }
 
 export async function fetchInvitations(
@@ -352,6 +375,7 @@ export async function createInvitation(
     email: string
     role: WorkspaceRole
     expiresAfterDays: number
+    clientId?: string | null
   },
 ): Promise<{ invitation: WorkspaceInvitation; token: string }> {
   const result = await c.rpc<WorkspaceInvitationWire & { token: string }>(
@@ -361,6 +385,7 @@ export async function createInvitation(
       p_email: input.email,
       p_role: input.role,
       p_expires_after_days: input.expiresAfterDays,
+      p_client_id: input.clientId ?? null,
     },
   )
   return { invitation: toWorkspaceInvitation(result), token: result.token }
@@ -400,12 +425,18 @@ async function memberRpc(
 
 export async function changeMemberRole(
   c: DataClient,
-  input: { workspaceId: string; userId: string; newRole: WorkspaceRole },
+  input: {
+    workspaceId: string
+    userId: string
+    newRole: WorkspaceRole
+    clientId?: string | null
+  },
 ): Promise<WorkspaceMemberWire> {
   return c.rpc('change_member_role', {
     p_workspace_id: input.workspaceId,
     p_user_id: input.userId,
     p_new_role: input.newRole,
+    p_client_id: input.clientId ?? null,
   })
 }
 

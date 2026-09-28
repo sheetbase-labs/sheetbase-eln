@@ -336,6 +336,10 @@ export const workspaceInvitations = api.table(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
     role: text('role').notNull().default('member'),
+    /** ADR-0049: set when the invited role is `client_viewer`. */
+    clientId: uuid('client_id').references(() => clients.id, {
+      onDelete: 'set null',
+    }),
     tokenHash: text('token_hash').notNull(),
     status: text('status').notNull().default('pending'),
     expiresAt: timestamp('expires_at', {
@@ -359,7 +363,11 @@ export const workspaceInvitations = api.table(
     ),
     check(
       'chk_workspace_invitations_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer', 'client_viewer')`,
+    ),
+    check(
+      'chk_workspace_invitations_client',
+      sql`(${table.role} = 'client_viewer') = (${table.clientId} IS NOT NULL)`,
     ),
     check(
       'chk_workspace_invitations_email',

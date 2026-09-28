@@ -118,6 +118,14 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Client invitations ported**: invitations carry a client; `create_invitation`
+  accepts a `client_viewer` role only with a client of the same workspace,
+  `accept_invitation` stamps the membership's `client_id`, and
+  `workspace_members_list` / `change_member_role` carry the client. The members
+  screen invites a **Client viewer** with a client picker and shows the client
+  next to the role. A DB test covers invite → accept → the new client reading
+  only Acme's shared project, and the missing-client refusal.
+
 - **Client portal added (ADR-0049 capability)**: a `client_viewer` role with a
   `client_id` on membership, a `client_portal_shares` table (RLS: internal
   members read, writes through RPCs only) and the `share_record_with_client` /

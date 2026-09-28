@@ -22,6 +22,7 @@ const ADMIN = 'cp-admin'
 const VIEWER_A = 'cp-viewer-a'
 const VIEWER_B = 'cp-viewer-b'
 const OUTSIDER = 'cp-outsider'
+const INVITEE = 'cp-invitee'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -34,7 +35,8 @@ beforeAll(async () => {
       ('${ADMIN}', 'Ada Admin', 'cp-admin@sheetbase.test', true),
       ('${VIEWER_A}', 'Cleo Client', 'cp-viewer-a@sheetbase.test', true),
       ('${VIEWER_B}', 'Ben Buyer', 'cp-viewer-b@sheetbase.test', true),
-      ('${OUTSIDER}', 'Olive Outsider', 'cp-outsider@sheetbase.test', true)`,
+      ('${OUTSIDER}', 'Olive Outsider', 'cp-outsider@sheetbase.test', true),
+      ('${INVITEE}', 'Ivy Invitee', 'cp-invitee@sheetbase.test', true)`,
   )
   await migrator.query(
     `INSERT INTO api.workspaces (id, slug, name) VALUES
@@ -157,7 +159,9 @@ describe('client portal', () => {
     expect(blocks.rows).toEqual([])
     const projects = await viewerA.query(`SELECT id FROM api.projects`)
     expect(projects.rows).toEqual([])
-    const shares = await viewerA.query(`SELECT id FROM api.client_portal_shares`)
+    const shares = await viewerA.query(
+      `SELECT id FROM api.client_portal_shares`,
+    )
     expect(shares.rows).toEqual([])
 
     // An internal member is unaffected.
@@ -172,11 +176,54 @@ describe('client portal', () => {
     ])
   })
 
+  it('invites a client viewer with a client and stamps it on accept', async () => {
+    const admin = await asAuthenticated(ADMIN, WS)
+    // A client viewer invitation needs a client.
+    await expect(
+      admin.query(
+        `SELECT api.create_invitation($1, $2, 'client_viewer', 7, NULL)`,
+        [WS, 'new-client@sheetbase.test'],
+      ),
+    ).rejects.toMatchObject({ code: 'SB061' })
+
+    const created = await admin.query<{ token: string }>(
+      `SELECT api.create_invitation($1, $2, 'client_viewer', 7, $3) ->> 'token' AS token`,
+      [WS, 'new-client@sheetbase.test', CLIENT_A],
+    )
+    const token = created.rows[0]?.token as string
+    expect(token).toBeTruthy()
+
+    const invitee = await asAuthenticated(INVITEE, WS)
+    await invitee.query(`SELECT api.accept_invitation($1, $2)`, [
+      token,
+      INVITEE,
+    ])
+    const membership = await migrator.query<{
+      role: string
+      client_id: string
+    }>(
+      `SELECT role, client_id FROM api.workspace_memberships WHERE workspace_id = $1 AND user_id = $2`,
+      [WS, INVITEE],
+    )
+    expect(membership.rows[0]?.role).toBe('client_viewer')
+    expect(membership.rows[0]?.client_id).toBe(CLIENT_A)
+
+    // And the new client reads Acme's shared project.
+    const projects = await invitee.query<{ title: string }>(
+      `SELECT * FROM api.client_portal_projects()`,
+    )
+    expect(projects.rows.map((r) => r.title)).toEqual(['Acme AAV9 transfer'])
+  })
+
   it('keeps workspaces and clients isolated', async () => {
     const outsider = await asAuthenticated(OUTSIDER, OTHER_WS)
-    const projects = await outsider.query(`SELECT * FROM api.client_portal_projects()`)
+    const projects = await outsider.query(
+      `SELECT * FROM api.client_portal_projects()`,
+    )
     expect(projects.rows).toEqual([])
-    const records = await outsider.query(`SELECT * FROM api.client_portal_records()`)
+    const records = await outsider.query(
+      `SELECT * FROM api.client_portal_records()`,
+    )
     expect(records.rows).toEqual([])
   })
 })

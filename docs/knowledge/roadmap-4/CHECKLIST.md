@@ -49,7 +49,7 @@ Specification: [tasks/DSYS.md](tasks/DSYS.md) · nod `epic-14`
   - [x] DSYS-05.1 Frame `subtask-34`
   - [ ] DSYS-05.2 One PR per screen group `subtask-35`
   - [ ] DSYS-05.3 Screen states `subtask-36`
-  - [ ] DSYS-05.4 Coverage check `subtask-37`
+  - [ ] DSYS-05.4 Coverage check — **in progress** `subtask-37`
 - [x] **DSYS-06** Visual parity suite `task-38`
   - [x] DSYS-06.1 Add a parity project to playwright.config.ts with testDir `subtask-39`
   - [x] DSYS-06.2 tests/visual/parity.spec.ts that loops over design-states.ts `subtask-40`

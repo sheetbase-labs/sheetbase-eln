@@ -118,6 +118,15 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Models ported**: `/models` (Models board), `/models/$modelId` with Fields,
+  Versions and Datasets tabs, on the canonical dataset schema registry
+  (`dataset_schema_definitions` / `dataset_schema_versions` /
+  `dataset_schema_version_fields`). New version and Publish run the existing
+  RPCs, so the rules stay in the database. A model is a schema; its instances
+  are datasets, which is why app-3's Records tab is the Datasets tab here. The
+  app-3 Record/Measurement kind, owner and MDL display id are gaps. `nav.ts`
+  now points Models at `/models`.
+
 - **Acceptance crawl ported**: `pnpm test:crawl [baseUrl] [maxPages]` follows
   every internal link from Home and fails on page errors, horizontal overflow,
   missing visible h1 or 404s (adapted from app-3's crawl to wait for

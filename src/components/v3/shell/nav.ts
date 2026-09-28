@@ -27,5 +27,5 @@ export const recordNav: NavItem[] = [
   { label: 'Datasets', icon: 'table', link: { to: '/datasets' } },
   { label: 'Analysis', icon: 'chart', link: { to: '/analysis' } },
   { label: 'Pipelines', icon: 'pipeline', link: { to: '/pipelines' } },
-  { label: 'Models', icon: 'schema', link: { to: '/configure' } },
+  { label: 'Models', icon: 'schema', link: { to: '/models' } },
 ]

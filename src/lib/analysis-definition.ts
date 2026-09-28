@@ -16,6 +16,9 @@
  */
 
 import { fitQuality, olsFit, polyEval, summaryStats } from './stats'
+import { buildFlagIndex, isValueFlagged } from './dataset-flags'
+import type { DatasetValueFlag } from './dataset-flags'
+import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 import type { SummaryStats } from './stats'
 
 import type { ChartColumn } from './chart-spec'
@@ -294,7 +297,28 @@ export function runAnalysis(
   definition: AnalysisDefinition,
   columns: ChartColumn[],
   rows: Record<string, unknown>[],
+  flags: readonly DatasetValueFlag[] = [],
 ): { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError } {
+  // DSET-01.2 — a row whose analysed field is flagged is excluded by default.
+  if (flags.length > 0) {
+    const usedFields = (
+      definition.kind === 'descriptive'
+        ? [definition.value, definition.group]
+        : [definition.outcome, definition.predictor, definition.group]
+    )
+      .map((binding) => binding?.fieldId)
+      .filter((fieldId): fieldId is string => typeof fieldId === 'string')
+    if (usedFields.length > 0) {
+      const index = buildFlagIndex(flags)
+      rows = rows.filter((row) => {
+        const rowId = row[CHART_ROW_ID_KEY]
+        if (typeof rowId !== 'string') return true
+        return !usedFields.some((fieldId) =>
+          isValueFlagged(index, rowId, fieldId),
+        )
+      })
+    }
+  }
   if (rows.length === 0) return { ok: false, error: { code: 'empty_dataset' } }
 
   // The stable fieldId is the only key that resolves a binding; a missing

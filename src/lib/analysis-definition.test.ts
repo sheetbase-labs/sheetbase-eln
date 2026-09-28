@@ -367,3 +367,30 @@ describe('regressionFitCurve', () => {
     expect(regressionFitCurve([1, 2], { min: 3, max: 3 }, 4)).toHaveLength(4)
   })
 })
+
+describe('flagged-value exclusion (DSET-01.2)', () => {
+  it('excludes a value whose field is flagged from descriptive stats', () => {
+    const rows = [
+      { ...row(0, 1, '20C'), __sheetbaseRowId: 'r1' },
+      { ...row(1, 3, '20C'), __sheetbaseRowId: 'r2' },
+    ]
+    const result = runAnalysis(descriptive, COLUMNS, rows, [
+      {
+        id: 'f1',
+        datasetId: DATASET_ID,
+        rowId: 'r2',
+        fieldId: COL_Y,
+        kind: 'out_of_range',
+        reason: 'Above top standard',
+        comment: null,
+        setAt: '2026-09-25T09:40:00Z',
+      },
+    ])
+    expect(result.ok).toBe(true)
+    if (result.ok && result.result.kind === 'descriptive') {
+      const group = result.result.rows.find((entry) => entry.group === '20C')
+      expect(group?.stats.n).toBe(1)
+      expect(group?.stats.mean).toBe(1)
+    }
+  })
+})

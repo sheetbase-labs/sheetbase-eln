@@ -61,6 +61,7 @@ import {
 import { PLATE_MAP_SPEC_VERSION, validatePlateMapSpec } from './plate-map'
 import type { PlateMapSpec, PlateMapSpecError } from './plate-map'
 import { sampleSeriesForRender } from './visualisation-pipeline'
+import type { DatasetValueFlag } from './dataset-flags'
 
 // ---------------------------------------------------------------------------
 // VIEW-04 — stable embed config, metadata, compare hand-off, export stamps
@@ -267,6 +268,8 @@ export function representationSourceIdentity(
 export interface RepresentationTableInput {
   columns: ChartColumn[]
   rows: Record<string, unknown>[]
+  /** DSET-01.2 — active value flags; flagged values are excluded by default. */
+  flags?: DatasetValueFlag[]
 }
 
 export type RepresentationMaterialised =
@@ -315,7 +318,12 @@ export function materialiseRepresentation(
       const { config: definition } = requireConfigKind(handle, 'analysis')
       return {
         kind: 'analysis',
-        outcome: runAnalysis(definition, input.columns, input.rows),
+        outcome: runAnalysis(
+          definition,
+          input.columns,
+          input.rows,
+          input.flags ?? [],
+        ),
       }
     }
     case 'plate_map': {
@@ -421,7 +429,12 @@ export function reconstructFrozenRepresentation(
       }
       return {
         kind: 'analysis',
-        outcome: runAnalysis(frozen.definition, input.columns, input.rows),
+        outcome: runAnalysis(
+          frozen.definition,
+          input.columns,
+          input.rows,
+          input.flags ?? [],
+        ),
       }
     }
     case 'plate_map': {

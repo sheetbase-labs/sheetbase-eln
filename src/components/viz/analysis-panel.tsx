@@ -52,6 +52,7 @@ import {
   sciDataClient,
 } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import { fetchActiveDatasetFlags } from '#/lib/dataset-flags'
 
 /**
  * SCI-02 — reusable analysis definitions in the Analysis Studio.
@@ -112,8 +113,11 @@ export function AnalysisPanel({
         selectedDatasetId,
       )
       if (!source) return null
-      const paged = await fetchDatasetRows(sciDataClient, source.datasetId)
-      return { source, ...paged }
+      const [paged, flags] = await Promise.all([
+        fetchDatasetRows(sciDataClient, source.datasetId),
+        fetchActiveDatasetFlags(sciDataClient, source.datasetId),
+      ])
+      return { source, ...paged, flags }
     },
     enabled: Boolean(selectedDatasetId),
     staleTime: 10_000,
@@ -140,7 +144,12 @@ export function AnalysisPanel({
     // Over-ceiling datasets refuse execution honestly instead of computing
     // statistics over a truncated sample.
     if (resolved.truncated) return null
-    return runAnalysis(draft.definition, resolved.source.columns, resolved.rows)
+    return runAnalysis(
+      draft.definition,
+      resolved.source.columns,
+      resolved.rows,
+      resolved.flags,
+    )
   }, [runnable, draft.definition, rowsQuery.data])
 
   function updateDefinition(patch: Partial<AnalysisDefinition>) {

@@ -1,7 +1,7 @@
-import { Link  } from '@tanstack/react-router'
-import type {LinkProps} from '@tanstack/react-router';
-import { Status  } from '#/components/v3/ui/status'
-import type {Tone} from '#/components/v3/ui/status';
+import { Link } from '@tanstack/react-router'
+import type { LinkProps } from '@tanstack/react-router'
+import { Status } from '#/components/v3/ui/status'
+import type { Tone } from '#/components/v3/ui/status'
 import { Icon } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
 

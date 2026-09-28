@@ -115,3 +115,20 @@ Delete/replace on the ELN side: `src/routes/projects.tsx`,
 
 Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 `tests/screens.mjs` pass against the ELN dev server.
+
+## Progress
+
+- Foundations staged under `src/components/v3/`: UI kit, icons, shared types,
+  Projects pieces, shell + nav + theme, token-name bridge, `@base-ui/react`.
+- Root chrome switch: `__root.tsx` renders app-3's `AppShell` for routes listed
+  in `v3RouteIds` and the ELN shell for everything else, so areas can be ported
+  without regressing unported screens. The list shrinks as areas move; at the
+  end the branch and the ELN shell are deleted.
+- **Projects list ported**: `/projects` renders app-3's screen wired to
+  `project_list_summary` + `create_project`, inside app-3's shell. The ELN's
+  `projects.tsx` list, `components/projects/project-list.tsx`, its story and the
+  old list tests are deleted. Known gaps (design data the backend does not carry
+  yet): project milestone, member summary and started date; the New dialog maps
+  client (code → id) and stage, not lead (needs a member-name list).
+- Still to port for the area: `/projects/$projectId` and its
+  `folders`/`members`/`settings` tabs (they add routes the list links to).

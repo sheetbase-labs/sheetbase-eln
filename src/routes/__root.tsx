@@ -3,12 +3,14 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  useMatches,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/shell'
+import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { CollaborationProvider } from '../components/collaboration/collaboration-provider'
@@ -110,6 +112,34 @@ function RootRouteComponent() {
       }
     : null
 
+  // UI port (roadmap-4/ui-app3): routes already ported from sheetbase-app-3
+  // render inside app-3's shell; every other route keeps the ELN shell until it
+  // is ported. The list grows area by area, then this branch and the ELN shell
+  // are deleted.
+  const v3RouteIds = ['/projects']
+  const portedToV3 = useMatches().some((match) =>
+    v3RouteIds.includes(match.routeId),
+  )
+  const appShellData = auth
+    ? {
+        me: {
+          name: auth.user.name,
+          initials: initialsOf(auth.user.name),
+          role: auth.workspace?.role ?? 'Member',
+        },
+        notifications: [],
+        pinned: [] as {
+          id: string
+          name: string
+          tone: 'progress' | 'review'
+        }[],
+      }
+    : {
+        me: { name: '', initials: '', role: '' },
+        notifications: [],
+        pinned: [],
+      }
+
   return (
     <ThemeProvider authenticated={Boolean(auth)}>
       <LiveEventProvider>
@@ -117,14 +147,29 @@ function RootRouteComponent() {
           value={auth?.collaborationEnabled ?? false}
         >
           <CollaborationProvider>
-            <ShellProvider initialContext={shellContext}>
-              <Outlet />
-            </ShellProvider>
+            {portedToV3 ? (
+              <V3AppShell data={appShellData}>
+                <Outlet />
+              </V3AppShell>
+            ) : (
+              <ShellProvider initialContext={shellContext}>
+                <Outlet />
+              </ShellProvider>
+            )}
           </CollaborationProvider>
         </CollaborationEnabledContext.Provider>
       </LiveEventProvider>
     </ThemeProvider>
   )
+}
+
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('')
 }
 
 /**

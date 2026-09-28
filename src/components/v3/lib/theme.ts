@@ -1,32 +1,46 @@
 import { useSyncExternalStore } from 'react'
 
-// One appearance setting (System, Light, Dark) stored in a cookie so the server-rendered page and the
-// first paint agree. The inline script in <head> resolves "system" before anything is drawn.
+/**
+ * UI port: the appearance setting is unified with the ELN's theme provider —
+ * the same `sheetbase-theme` localStorage key and the same `.dark` class on
+ * <html> (the no-flash script in the root already applies it). `data-theme` is
+ * set too so any ported markup that keys off it agrees.
+ */
 export type ThemePref = 'system' | 'light' | 'dark'
-export const THEME_COOKIE = 'sb-theme'
-
-export const themeScript = `(function(){try{var m=document.cookie.match(/(?:^|; )${THEME_COOKIE}=(light|dark|system)/);var p=m?m[1]:'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.dataset.theme=d?'dark':'light';e.dataset.themePref=p;}catch(e){}})();`
+export const THEME_STORAGE_KEY = 'sheetbase-theme'
 
 const listeners = new Set<() => void>()
-// Snapshot is "pref|resolved". During hydration React uses the server snapshot, then re-renders with the
-// real one, so the toggle icon never causes a hydration mismatch.
-function read() {
-  const el = document.documentElement
-  return `${el.dataset.themePref || 'system'}|${el.dataset.theme || 'light'}`
+
+function read(): string {
+  try {
+    return (
+      localStorage.getItem(THEME_STORAGE_KEY) ??
+      document.documentElement.dataset.themePref ??
+      'system'
+    )
+  } catch {
+    return 'system'
+  }
 }
+
 function apply(pref: ThemePref) {
   const dark =
     pref === 'dark' ||
     (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
   const el = document.documentElement
+  el.classList.toggle('dark', dark)
   el.dataset.theme = dark ? 'dark' : 'light'
   el.dataset.themePref = pref
-  document.cookie = `${THEME_COOKIE}=${pref}; path=/; max-age=31536000; samesite=lax`
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, pref)
+  } catch {
+    /* private mode / disabled storage */
+  }
   listeners.forEach((l) => l())
 }
 
 export function useTheme() {
-  const snap = useSyncExternalStore(
+  const pref = useSyncExternalStore(
     (cb) => {
       listeners.add(cb)
       return () => {
@@ -34,13 +48,11 @@ export function useTheme() {
       }
     },
     read,
-    () => 'system|light',
-  )
-  const [pref, resolved] = snap.split('|') as [ThemePref, 'light' | 'dark']
+    () => 'system',
+  ) as ThemePref
   return {
     pref,
-    resolved,
     setPref: apply,
-    toggle: () => apply(resolved === 'dark' ? 'light' : 'dark'),
+    toggle: () => apply(pref === 'dark' ? 'light' : 'dark'),
   }
 }

@@ -1,5 +1,5 @@
-import { Link  } from '@tanstack/react-router'
-import type {LinkProps} from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router'
+import type { LinkProps } from '@tanstack/react-router'
 import { cn } from '#/lib/utils'
 
 const tabCls =

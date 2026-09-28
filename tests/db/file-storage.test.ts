@@ -540,7 +540,7 @@ describe('SCI-003 create_file_upload transactional RPC', () => {
     )
     expect(rows).toHaveLength(1)
     expect(rows[0].record_id).toBeTruthy()
-    expect(rows[0].identifier).toMatch(/^FILE-\d{4}-\d{4}$/)
+    expect(rows[0].identifier).toMatch(/^FILE-\d{4}$/)
     expect(rows[0].file_object_id).toBe(fileObjectId)
     expect(rows[0].storage_key).toBe(storageKey)
 

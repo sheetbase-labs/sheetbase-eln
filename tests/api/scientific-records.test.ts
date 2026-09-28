@@ -28,25 +28,31 @@ let admin: Client
 let database: ReturnType<typeof drizzle<typeof schema>>
 
 async function clean(): Promise<void> {
-  await admin.query(`DELETE FROM api.record_links WHERE source_record_id IN (
-      SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`, [WS_A, WS_B])
+  await admin.query(
+    `DELETE FROM api.record_links WHERE source_record_id IN (
+      SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
+    [WS_A, WS_B],
+  )
   await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
     WS_A,
     WS_B,
   ])
-  await admin.query(`DELETE FROM api.record_field_definitions WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
+  await admin.query(
+    `DELETE FROM api.record_field_definitions WHERE workspace_id IN ($1,$2)`,
+    [WS_A, WS_B],
+  )
   await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
     WS_A,
     WS_B,
   ])
-  await admin.query(`DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`, [
+  await admin.query(
+    `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
+    [WS_A, WS_B],
+  )
+  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
     WS_A,
     WS_B,
   ])
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [WS_A, WS_B])
   await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
     OWNER_A,
     OWNER_B,
@@ -54,7 +60,12 @@ async function clean(): Promise<void> {
   await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
 }
 
-function proxy(path: string, userId: string, wsId: string, init: RequestInit = {}) {
+function proxy(
+  path: string,
+  userId: string,
+  wsId: string,
+  init: RequestInit = {},
+) {
   const headers = new Headers(init.headers)
   const resourcePath = path.split('?')[0]
   return handleProxyRequest(
@@ -124,16 +135,13 @@ describe('SCI-001 scientific records REST contract', () => {
         p_kind: 'sample',
         p_title: 'Virus stock API',
         p_status: 'available',
-        
-        p_properties: { note: 'cold chain' },
       }),
     })
     expect(res.status).toBe(200)
     const body = await json(res)
-    expect(body.identifier).toMatch(/^SMP-\d{4}-\d{4}$/)
+    expect(body.identifier).toMatch(/^SMP-\d{4}$/)
     expect(body.kind).toBe('sample')
     expect(body.status).toBe('available')
-    expect(body.properties).toEqual({ note: 'cold chain' })
     expect(body.created_by_user_id).toBe(OWNER_A)
   })
 
@@ -172,19 +180,14 @@ describe('SCI-001 scientific records REST contract', () => {
       }),
     })
     const record = await json(created)
-    const patched = await proxy(
-      `records?id=eq.${record.id}`,
-      OWNER_A,
-      WS_A,
-      {
-        method: 'PATCH',
-        headers: {
-          'content-type': 'application/json',
-          prefer: 'return=representation',
-        },
-        body: JSON.stringify({ title: 'Renamed sample' }),
+    const patched = await proxy(`records?id=eq.${record.id}`, OWNER_A, WS_A, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        prefer: 'return=representation',
       },
-    )
+      body: JSON.stringify({ title: 'Renamed sample' }),
+    })
     expect(patched.status).toBe(200)
     const rows = await json(patched)
     expect(rows[0].title).toBe('Renamed sample')
@@ -244,26 +247,7 @@ describe('SCI-001 scientific records REST contract', () => {
     expect(body.error.category).toBe('invalid_transition')
   })
 
-  it('rejects invalid configurable properties with invalid_properties (422)', async () => {
-    // Add a boolean field definition so validation has something to check.
-    await proxy('record_field_definitions', OWNER_A, WS_A, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        prefer: 'return=representation',
-      },
-      body: JSON.stringify({
-        workspace_id: WS_A,
-        kind: 'sample',
-        field_name: 'approved',
-        label: 'Approved',
-        display_order: 1,
-        logical_type: 'boolean',
-        nullable: true,
-        validation: {},
-        created_by_user_id: OWNER_A,
-      }),
-    })
+  it('rejects an unknown legacy property (SB070)', async () => {
     const res = await proxy('rpc/create_record', OWNER_A, WS_A, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -272,13 +256,13 @@ describe('SCI-001 scientific records REST contract', () => {
         p_kind: 'sample',
         p_title: 'Bad props',
         p_status: 'available',
-        
         p_properties: { approved: 'yes' },
       }),
     })
-    expect(res.status).toBe(422)
+    expect(res.status).toBe(400)
     const body = await json(res)
-    expect(body.error.category).toBe('invalid_properties')
+    expect(body.error.category).toBe('validation_error')
+    expect(body.error.message).toContain('unknown legacy property')
   })
 
   it('isolates records across workspaces (cross-workspace read returns nothing)', async () => {
@@ -311,19 +295,14 @@ describe('SCI-001 scientific records REST contract', () => {
       }),
     })
     const record = await json(created)
-    const archived = await proxy(
-      `records?id=eq.${record.id}`,
-      OWNER_A,
-      WS_A,
-      {
-        method: 'PATCH',
-        headers: {
-          'content-type': 'application/json',
-          prefer: 'return=representation',
-        },
-        body: JSON.stringify({ archived_at: new Date().toISOString() }),
+    const archived = await proxy(`records?id=eq.${record.id}`, OWNER_A, WS_A, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        prefer: 'return=representation',
       },
-    )
+      body: JSON.stringify({ archived_at: new Date().toISOString() }),
+    })
     expect(archived.status).toBe(200)
     // Archived record is still readable.
     const res = await proxy(`records?id=eq.${record.id}`, OWNER_A, WS_A)

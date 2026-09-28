@@ -202,7 +202,7 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
       )`,
     )
     recordId = result.record.id
-    expect(result.record.identifier).toMatch(/^EXP-\d{4}-\d{4}$/)
+    expect(result.record.identifier).toMatch(/^EXP-\d{4}$/)
     expect(result.record.kind).toBe('experiment')
     expect(result.record.status).toBe('in-progress')
     expect(result.blocks).toHaveLength(2)

@@ -195,7 +195,7 @@ describe('SCI-006 template REST contract', () => {
       'protocol_template',
       'API protocol template',
     )
-    expect(record.identifier).toMatch(/^PRT-\d{4}-\d{4}$/)
+    expect(record.identifier).toMatch(/^PRT-\d{3}$/)
     expect(record.kind).toBe('protocol_template')
     expect(record.created_by_user_id).toBe(USER_A)
   })

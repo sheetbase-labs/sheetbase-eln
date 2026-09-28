@@ -12,7 +12,7 @@ export function Toaster() {
           toast:
             'flex min-h-9 items-center gap-3 whitespace-nowrap rounded-lg bg-inverse py-1.5 pl-3.5 pr-2 text-body text-inverse-foreground shadow-overlay before:size-[7px] before:shrink-0 before:rounded-full before:bg-success data-[type=error]:before:bg-danger',
           actionButton:
-            'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2 text-label font-semibold text-inverse-foreground hover:bg-[rgba(127,127,127,.25)]',
+            'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2 text-label font-semibold text-inverse-foreground hover:bg-inverse-foreground/20',
           closeButton: 'text-inverse-foreground',
         },
       }}

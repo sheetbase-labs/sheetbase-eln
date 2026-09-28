@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
-import { Banner, Notice  } from '#/components/v3/ui/alert'
+import { Banner, Notice } from '#/components/v3/ui/alert'
 import {
   DescriptionList,
   Inspector,

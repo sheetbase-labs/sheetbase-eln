@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { LinkTabs } from '#/components/v3/projects/search-tabs'
-import { Status  } from '#/components/v3/ui/status'
-import type {Tone} from '#/components/v3/ui/status';
+import { Status } from '#/components/v3/ui/status'
+import type { Tone } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { toast } from '#/components/v3/ui/sonner'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'

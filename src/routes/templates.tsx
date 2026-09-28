@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Badge } from '#/components/v3/ui/badge'
-import { Status  } from '#/components/v3/ui/status'
-import type {Tone} from '#/components/v3/ui/status';
+import { Status } from '#/components/v3/ui/status'
+import type { Tone } from '#/components/v3/ui/status'
 import { Input } from '#/components/v3/ui/input'
 import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
 import {
@@ -17,8 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { notebookDataClient  } from '#/lib/notebook-data'
-import type {NotebookRecord} from '#/lib/notebook-data';
+import { notebookDataClient } from '#/lib/notebook-data'
+import type { NotebookRecord } from '#/lib/notebook-data'
 import { fetchTemplates } from '#/lib/templates'
 
 /** UI port (roadmap-4/ui-app3): the Templates board on real protocol

@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
-import { Dot, Status  } from '#/components/v3/ui/status'
-import type {Tone} from '#/components/v3/ui/status';
+import { Dot, Status } from '#/components/v3/ui/status'
+import type { Tone } from '#/components/v3/ui/status'
 import {
   Inspector,
   InspectorSection,

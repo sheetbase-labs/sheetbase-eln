@@ -33,10 +33,9 @@ import {
   createProjectFolder,
   fetchProjectFolders,
   moveRecordsToFolder,
-  useProjectSummary
-  
+  useProjectSummary,
 } from '#/components/v3/projects/project-data'
-import type {ProjectFolder} from '#/components/v3/projects/project-data';
+import type { ProjectFolder } from '#/components/v3/projects/project-data'
 import { statusLabel, statusTone } from '../$projectId'
 import {
   fetchRecordsForProject,

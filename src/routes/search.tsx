@@ -6,20 +6,15 @@ import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { Radio, RadioGroup } from '#/components/v3/ui/radio-group'
-import { Status  } from '#/components/v3/ui/status'
-import type {Tone} from '#/components/v3/ui/status';
+import { Status } from '#/components/v3/ui/status'
+import type { Tone } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import { Sheet, SheetContent, SheetTrigger } from '#/components/v3/ui/sheet'
 import { Highlight } from '#/components/v3/search/highlight'
 import { cn } from '#/lib/utils'
-import {
-  executeSearch,
-  searchDidYouMean,
-  searchQueryKeys
-  
-} from '#/lib/search'
-import type {SearchResult} from '#/lib/search';
+import { executeSearch, searchDidYouMean, searchQueryKeys } from '#/lib/search'
+import type { SearchResult } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /** UI port (roadmap-4/ui-app3): the Search results page, wired to the real

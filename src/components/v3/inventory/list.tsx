@@ -1,5 +1,5 @@
-import { Link  } from '@tanstack/react-router'
-import type {LinkProps} from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router'
+import type { LinkProps } from '@tanstack/react-router'
 import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { cn } from '#/lib/utils'

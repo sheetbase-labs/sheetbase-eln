@@ -5,7 +5,8 @@ import {
   Inspector,
   InspectorSection,
   Muted,
-  Section, DescriptionList 
+  Section,
+  DescriptionList,
 } from '#/components/v3/ui/layout'
 import {
   fetchBlocksForRecord,

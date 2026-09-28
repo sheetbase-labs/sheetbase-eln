@@ -63,7 +63,7 @@ function bookingTone(status: string): Tone {
 
 function Home() {
   const { context } = Route.useRouteContext()
-  const workspaceId = context?.workspace?.id
+  const workspaceId = context.workspace?.id
   const workItemsQuery = useWorkItems()
   const workItems = workItemsQuery.data ?? []
 
@@ -96,7 +96,7 @@ function Home() {
   const bookings = (bookingsQuery.data ?? []).filter(
     (b: CalendarBookingWire) => !b.cancelled_at,
   )
-  const name = context?.user.name ?? 'there'
+  const name = context.user.name
   const today = new Date().toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',

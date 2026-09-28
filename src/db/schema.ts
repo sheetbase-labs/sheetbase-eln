@@ -535,7 +535,7 @@ export const projects = api.table(
     unique('uq_projects_workspace_key').on(table.workspaceId, table.key),
     check(
       'chk_projects_status',
-      sql`${table.status} IN ('active', 'archived')`,
+      sql`${table.status} IN ('active', 'in_progress', 'in_review', 'complete', 'on_hold', 'archived')`,
     ),
     check(
       'chk_projects_review_period',

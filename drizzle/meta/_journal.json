@@ -1658,6 +1658,20 @@
       "when": 1790578137359,
       "tag": "0238_project_details_clients",
       "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1790578621464,
+      "tag": "0239_project_list_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1790578730048,
+      "tag": "0240_sad_pestilence",
+      "breakpoints": true
     }
   ]
 }

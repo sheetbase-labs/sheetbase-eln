@@ -1,0 +1,2 @@
+ALTER TABLE "api"."projects" DROP CONSTRAINT "chk_projects_status";--> statement-breakpoint
+ALTER TABLE "api"."projects" ADD CONSTRAINT "chk_projects_status" CHECK ("api"."projects"."status" IN ('active', 'in_progress', 'in_review', 'complete', 'on_hold', 'archived'));

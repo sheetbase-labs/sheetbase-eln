@@ -155,7 +155,7 @@ Specification: [tasks/PROJ.md](tasks/PROJ.md) · nod `epic-124`
 
 - [ ] **PROJ-01** Project properties and list `task-125`
   - [x] PROJ-01.1 Schema `subtask-126`
-  - [ ] PROJ-01.2 Summary `subtask-127`
+  - [ ] PROJ-01.2 Summary — **in progress** `subtask-127`
   - [ ] PROJ-01.3 List UI `subtask-128`
   - [ ] PROJ-01.4 New project dialog `subtask-129`
 - [ ] **PROJ-02** Milestones `task-130`

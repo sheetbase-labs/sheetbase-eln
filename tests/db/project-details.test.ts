@@ -126,6 +126,34 @@ describe('PROJ-01.1 project details and clients', () => {
     ).rejects.toMatchObject({ code: 'SB001' })
   })
 
+  it('lists client, stage and lead in the project summary', async () => {
+    const member = await asAuthenticated(MEMBER, WS)
+    const { rows: clientRows } = await member.query<{ id: string }>(
+      `INSERT INTO api.clients (workspace_id, name) VALUES ($1, 'Summary Co') RETURNING id`,
+      [WS],
+    )
+    await member.query(
+      `SELECT * FROM api.create_project('Summary target', $1, 'AAV9', 'QC', $2)`,
+      [clientRows[0]!.id, MEMBER],
+    )
+    const { rows } = await member.query<{
+      display_id: string
+      client_code: string
+      client_name: string
+      stage: string
+      lead_user_id: string
+    }>(
+      `SELECT * FROM api.project_list_summary() WHERE title = 'Summary target'`,
+    )
+    expect(rows[0]).toMatchObject({
+      display_id: expect.stringMatching(/^PRJ-\d{4}$/),
+      client_code: expect.stringMatching(/^CL-\d{3}$/),
+      client_name: 'Summary Co',
+      stage: 'QC',
+      lead_user_id: MEMBER,
+    })
+  })
+
   it('denies a viewer writes to clients and projects', async () => {
     const viewer = await asAuthenticated(VIEWER, WS)
     await expectDenied(

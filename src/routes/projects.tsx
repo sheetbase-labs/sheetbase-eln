@@ -35,6 +35,11 @@ interface ProjectWire {
   key: string
   title: string
   status: string
+  display_id?: string | null
+  client_code?: string | null
+  client_name?: string | null
+  stage?: string | null
+  lead_user_id?: string | null
   created_at: string
   updated_at: string
   archived_at: string | null
@@ -48,6 +53,11 @@ interface Project {
   key: string
   title: string
   status: string
+  displayId?: string | null
+  clientCode?: string | null
+  clientName?: string | null
+  stage?: string | null
+  leadUserId?: string | null
   createdAt: string
   updatedAt: string | null
   recordCount?: number
@@ -61,6 +71,11 @@ function toProject(row: ProjectWire): Project {
     key: row.key,
     title: row.title,
     status: row.status,
+    displayId: row.display_id,
+    clientCode: row.client_code,
+    clientName: row.client_name,
+    stage: row.stage,
+    leadUserId: row.lead_user_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     recordCount:

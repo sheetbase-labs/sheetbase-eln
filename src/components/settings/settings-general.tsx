@@ -8,12 +8,14 @@ import {
   fetchWorkspaceGeneral,
   updateWorkspaceGeneral,
   updateWorkspaceIdPrefixes,
+  updateWorkspaceName,
   workspaceGeneralQueryKey,
   ID_PREFIX_KINDS,
 } from '#/lib/workspace-general'
 import type { WorkspaceGeneral } from '#/lib/workspace-general'
 
 const DEFAULTS: WorkspaceGeneral = {
+  name: null,
   site: null,
   timezone: 'Europe/London',
   dateFormat: 'd MMM yyyy',
@@ -40,6 +42,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (form.name) await updateWorkspaceName(workspaceId, form.name)
       await updateWorkspaceGeneral(workspaceId, form)
       await updateWorkspaceIdPrefixes(workspaceId, form.idPrefixes)
     },
@@ -70,6 +73,19 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
       ) : null}
 
       <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
+        <label className="flex flex-col gap-1 text-label text-muted-foreground">
+          Name
+          <Input
+            aria-label="Workspace name"
+            value={form.name ?? ''}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                name: event.target.value || null,
+              }))
+            }
+          />
+        </label>
         <label className="flex flex-col gap-1 text-label text-muted-foreground">
           Site
           <Input

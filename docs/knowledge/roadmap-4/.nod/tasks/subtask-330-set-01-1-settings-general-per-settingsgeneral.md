@@ -19,3 +19,4 @@ Step 1 of 3 in [SET-01](../../tasks/SET.md#set-01--workspace-general-settings); 
 ## Work Log
 - 2026-09-28: PR #206: workspace_settings gains site/timezone/date_format/number_format with the admin-only update_workspace_general RPC; DB tests. The /settings/general page follows.
 - 2026-09-28: PR #206: /settings now shows the workspace general settings form (site, time zone, date/number format) with Save; component test.
+- 2026-09-28: PR #206: the general settings page now edits the workspace Name through the admin-only api.update_workspace_name (with DB tests for admin, non-admin and an invalid name) alongside site, time zone and formats. Consolidating the scattered format helpers in notebook-data/calendar/planner/workspace-admin onto log format-numbers remains.

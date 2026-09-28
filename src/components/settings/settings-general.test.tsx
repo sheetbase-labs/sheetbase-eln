@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { SettingsGeneral } from './settings-general'
-import { updateWorkspaceGeneral } from '#/lib/workspace-general'
+import {
+  updateWorkspaceGeneral,
+  updateWorkspaceName,
+} from '#/lib/workspace-general'
 import type * as workspaceGeneralModule from '#/lib/workspace-general'
 
 vi.mock('#/lib/workspace-general', async (importOriginal) => {
@@ -12,6 +15,7 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
   return {
     ...actual,
     fetchWorkspaceGeneral: vi.fn(async () => ({
+      name: 'Process Development',
       site: 'Cambridge',
       timezone: 'Europe/London',
       dateFormat: 'd MMM yyyy',
@@ -20,6 +24,7 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
     })),
     updateWorkspaceGeneral: vi.fn(async () => {}),
     updateWorkspaceIdPrefixes: vi.fn(async () => {}),
+    updateWorkspaceName: vi.fn(async () => {}),
   }
 })
 
@@ -39,13 +44,18 @@ describe('SettingsGeneral', () => {
   it('loads the workspace settings and saves them', async () => {
     const user = userEvent.setup()
     renderSection()
-    expect(await screen.findByDisplayValue('Cambridge')).toBeTruthy()
+    expect(await screen.findByDisplayValue('Process Development')).toBeTruthy()
+    expect(screen.getByDisplayValue('Cambridge')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
       expect(vi.mocked(updateWorkspaceGeneral)).toHaveBeenCalledWith(
         'ws-1',
         expect.objectContaining({ site: 'Cambridge' }),
       ),
+    )
+    expect(vi.mocked(updateWorkspaceName)).toHaveBeenCalledWith(
+      'ws-1',
+      'Process Development',
     )
   })
 })

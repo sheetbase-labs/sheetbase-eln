@@ -1637,6 +1637,13 @@
       "when": 1790576692166,
       "tag": "0235_study_identifier",
       "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1790577755787,
+      "tag": "0236_workspace_name",
+      "breakpoints": true
     }
   ]
 }

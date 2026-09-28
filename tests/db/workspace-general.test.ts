@@ -108,3 +108,26 @@ describe('api.update_workspace_id_prefixes', () => {
     )
   })
 })
+
+describe('api.update_workspace_name', () => {
+  it('renames the workspace for an admin', async () => {
+    const admin = await asAuthenticated(ADMIN)
+    const { rows } = await admin.query<{ name: string }>(
+      `SELECT * FROM api.update_workspace_name($1, 'Process Development')`,
+      [WS],
+    )
+    expect(rows[0]?.name).toBe('Process Development')
+  })
+
+  it('refuses a non-admin and an invalid name', async () => {
+    const member = await asAuthenticated(MEMBER)
+    await expectDenied(
+      member.query(`SELECT api.update_workspace_name($1, 'Nope')`, [WS]),
+      '42501',
+    )
+    const admin = await asAuthenticated(ADMIN)
+    await expect(
+      admin.query(`SELECT api.update_workspace_name($1, '   ')`, [WS]),
+    ).rejects.toMatchObject({ code: '22023' })
+  })
+})

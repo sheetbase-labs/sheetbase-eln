@@ -146,6 +146,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   reviewer, planned end, protocol-to-follow and copy-materials fields are
   stated as gaps. Acceptance: screens 55 routes, crawl 300 pages/0/0.
 
+- **⌘K search palette (SHELL-03)**: the shell mounts app-3's search palette;
+  ⌘K / Ctrl+K and the top-bar search box open it, results come from the real
+  `search` RPC with grouped records, files, datasets, sheets and templates,
+  arrow keys move, Enter opens the first result, ⌘↵ opens a new tab and "See
+  all results" goes to /search. The interactions suite checks it against real
+  data.
+
 - **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
   "Open full lineage" link on the legacy record notebook; it is removed, so the
   crawl reports 0 404s. The crawl also skips `/api/*` hrefs (file downloads

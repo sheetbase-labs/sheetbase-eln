@@ -1,9 +1,10 @@
 // Shell interaction suite (ported from sheetbase-app-3 tests/interactions.mjs):
 // the New menu, the account appearance switch (and its persistence) and the
 // search shortcut, against the ELN's real shell and routes.
-import { check, done, go, launch } from './helpers.mjs'
+import { check, discover, done, go, launch } from './helpers.mjs'
 
 const { browser, page, errors } = await launch()
+const ids = await discover()
 
 await go(page, '/')
 await page.getByRole('button', { name: 'New', exact: true }).click()
@@ -50,7 +51,22 @@ await page.keyboard.press('Escape')
 
 await go(page, '/')
 await page.keyboard.press('Control+k')
-await page.waitForTimeout(800)
-check(page.url().includes('/search'), 'Ctrl+K opens the search screen')
+await page.waitForTimeout(400)
+check(
+  await page.getByRole('dialog', { name: 'Search' }).isVisible(),
+  'Ctrl+K opens the search palette',
+)
+if (ids.sampleIdentifier) {
+  await page.keyboard.type(ids.sampleIdentifier)
+  await page.waitForTimeout(900)
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(1200)
+  check(
+    /\/(records|samples|datasets|templates|sheets)\//.test(page.url()),
+    'Search palette: Enter opens the first result',
+  )
+} else {
+  check(false, 'Search palette: no sample identifier discovered')
+}
 
 await done(browser, errors, 'interactions')

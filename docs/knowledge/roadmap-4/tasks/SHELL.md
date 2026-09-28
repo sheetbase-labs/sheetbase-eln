@@ -155,7 +155,7 @@ devices; there is no other theme control.
 
 ## SHELL-03 — Keyboard shortcuts and command palette frame
 
-**Status:** proposed.
+**Status:** proposed. The ⌘K search palette is ported and reads the real `search` RPC; the single shortcut registry, the `?` shortcuts dialog and the remaining shortcuts remain.
 
 ### Goal
 

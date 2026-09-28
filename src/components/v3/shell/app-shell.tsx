@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { Icon } from '#/components/v3/icons'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Avatar } from '#/components/v3/ui/avatar'
@@ -29,6 +29,7 @@ import { primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
 import { Tooltip } from '#/components/v3/ui/tooltip'
+import { SearchPalette } from '#/components/v3/search/search-palette'
 
 type ShellData = {
   me: { name: string; initials: string; role: string }
@@ -38,8 +39,7 @@ type ShellData = {
 
 /**
  * UI port (branch roadmap-4/ui-app3): sheetbase-app-3's shell, adapted to the
- * ELN's route tree. The ⌘K results palette from app-3 is not ported yet; the
- * search box opens the existing /search screen until the Search area lands.
+ * ELN's route tree. The ⌘K search palette reads the real search RPC.
  */
 export function AppShell({
   data,
@@ -49,6 +49,17 @@ export function AppShell({
   children: React.ReactNode
 }) {
   const [menu, setMenu] = useState(false)
+  const [search, setSearch] = useState(false)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setSearch((open) => !open)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   return (
     <div className="flex h-dvh flex-col">
       <a
@@ -57,7 +68,11 @@ export function AppShell({
       >
         Skip to content
       </a>
-      <TopBar data={data} onMenu={() => setMenu(true)} />
+      <TopBar
+        data={data}
+        onMenu={() => setMenu(true)}
+        onSearch={() => setSearch(true)}
+      />
       <div className="flex min-h-0 flex-1">
         <SideNav pinned={data.pinned} className="hidden xl:flex" />
         <NavRail className="hidden lg:flex xl:hidden" />
@@ -78,6 +93,7 @@ export function AppShell({
           />
         </SheetContent>
       </Sheet>
+      <SearchPalette open={search} onOpenChange={setSearch} />
     </div>
   )
 }
@@ -181,21 +197,15 @@ function BottomTabs({
   )
 }
 
-function TopBar({ data, onMenu }: { data: ShellData; onMenu: () => void }) {
-  const navigate = useNavigate()
-  const openSearch = () => {
-    void navigate({ to: '/search', search: {} })
-  }
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        void navigate({ to: '/search', search: {} })
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [navigate])
+function TopBar({
+  data,
+  onMenu,
+  onSearch,
+}: {
+  data: ShellData
+  onMenu: () => void
+  onSearch: () => void
+}) {
   return (
     <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
       <Button
@@ -230,12 +240,12 @@ function TopBar({ data, onMenu }: { data: ShellData; onMenu: () => void }) {
           size="icon"
           icon="search"
           aria-label="Search"
-          onClick={openSearch}
+          onClick={onSearch}
           className="md:hidden"
         />
         <button
           type="button"
-          onClick={openSearch}
+          onClick={onSearch}
           aria-keyshortcuts="Meta+K Control+K"
           className="flex h-[30px] w-[460px] max-w-full max-md:hidden cursor-pointer items-center gap-2 rounded-md border border-border bg-surface-muted pl-2.5 pr-2 text-left font-[inherit] text-body text-fg-muted hover:border-border-strong"
         >

@@ -2,10 +2,10 @@
 id: subtask-348
 title: REV-01.1 — Review mode inside /records/$recordId/notebook
 type: subtask
-status: todo
+status: in-progress
 priority: medium
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-347
 tags:
   - REV-01.1

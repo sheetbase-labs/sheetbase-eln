@@ -5,7 +5,7 @@ type: task
 status: todo
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: epic-104
 related:
   - task-2
@@ -25,3 +25,4 @@ Spec: [WORK-02 in tasks/WORK.md](../../tasks/WORK.md#work-02--home-and-inbox-pag
 - Steps: 4 subtasks
 
 ## Work Log
+- 2026-09-28: UI port: Home and Inbox are ported on my_work_items, calendar bookings, dataset flags and notifications; first-run and remaining WORK-01 kinds follow.

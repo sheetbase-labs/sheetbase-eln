@@ -2,10 +2,10 @@
 id: subtask-128
 title: PROJ-01.3 — List UI
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-125
 tags:
   - PROJ-01.3

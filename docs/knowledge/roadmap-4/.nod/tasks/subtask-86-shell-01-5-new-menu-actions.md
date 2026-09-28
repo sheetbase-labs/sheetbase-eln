@@ -2,10 +2,10 @@
 id: subtask-86
 title: SHELL-01.5 — New menu actions
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-81
 tags:
   - SHELL-01.5

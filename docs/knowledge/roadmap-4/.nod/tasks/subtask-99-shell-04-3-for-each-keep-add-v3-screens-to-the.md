@@ -2,10 +2,10 @@
 id: subtask-99
 title: "SHELL-04.3 — For each \"keep\": add v3 screens to the design, re-vendor, render"
 type: subtask
-status: todo
+status: cancelled
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-96
 tags:
   - SHELL-04.3

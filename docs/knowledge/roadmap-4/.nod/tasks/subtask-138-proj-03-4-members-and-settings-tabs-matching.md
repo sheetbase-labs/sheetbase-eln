@@ -2,10 +2,10 @@
 id: subtask-138
 title: PROJ-03.4 — Members and Settings tabs matching ProjectMembers, ProjectSettings
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-134
 tags:
   - PROJ-03.4

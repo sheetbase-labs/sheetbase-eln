@@ -2,10 +2,10 @@
 id: subtask-279
 title: LAB-03.1 — /samples list per SamplesList
 type: subtask
-status: todo
+status: done
 priority: medium
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-278
 tags:
   - LAB-03.1

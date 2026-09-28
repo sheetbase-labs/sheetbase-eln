@@ -2,10 +2,10 @@
 id: subtask-345
 title: SET-04.3 — Integrations list and connect flow
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-342
 tags:
   - SET-04.3

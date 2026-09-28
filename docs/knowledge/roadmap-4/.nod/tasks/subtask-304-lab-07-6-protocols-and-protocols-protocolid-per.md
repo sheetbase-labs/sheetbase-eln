@@ -2,10 +2,10 @@
 id: subtask-304
 title: LAB-07.6 — /protocols and /protocols/$protocolId per design
 type: subtask
-status: todo
+status: done
 priority: medium
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-298
 tags:
   - LAB-07.6

@@ -2,7 +2,7 @@
 id: subtask-210
 title: DSET-03.3 — Snapshots and Compare tabs per design
 type: subtask
-status: in-progress
+status: done
 priority: medium
 created: "2026-09-27"
 updated: "2026-09-28"

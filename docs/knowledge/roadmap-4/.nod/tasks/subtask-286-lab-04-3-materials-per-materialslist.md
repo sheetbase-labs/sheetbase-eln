@@ -2,10 +2,10 @@
 id: subtask-286
 title: LAB-04.3 — /materials per MaterialsList
 type: subtask
-status: todo
+status: done
 priority: medium
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-283
 tags:
   - LAB-04.3

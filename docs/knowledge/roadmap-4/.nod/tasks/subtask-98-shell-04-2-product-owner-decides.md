@@ -2,10 +2,10 @@
 id: subtask-98
 title: SHELL-04.2 — Product owner decides
 type: subtask
-status: todo
+status: cancelled
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-96
 tags:
   - SHELL-04.2

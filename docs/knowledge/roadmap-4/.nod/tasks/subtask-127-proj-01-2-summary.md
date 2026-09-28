@@ -2,7 +2,7 @@
 id: subtask-127
 title: PROJ-01.2 — Summary
 type: subtask
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-28"

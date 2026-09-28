@@ -2,10 +2,10 @@
 id: subtask-280
 title: LAB-03.2 — Details and Lineage tabs
 type: subtask
-status: todo
+status: done
 priority: medium
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-278
 tags:
   - LAB-03.2

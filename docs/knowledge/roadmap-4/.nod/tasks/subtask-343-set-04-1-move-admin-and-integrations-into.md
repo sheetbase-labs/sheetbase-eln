@@ -2,10 +2,10 @@
 id: subtask-343
 title: SET-04.1 — Move /admin/* and /integrations into /settings/* routes with the v3 settings…
 type: subtask
-status: todo
+status: in-progress
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-342
 tags:
   - SET-04.1

@@ -2,10 +2,10 @@
 id: task-125
 title: PROJ-01 — Project properties and list
 type: task
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: epic-124
 related:
   - task-2
@@ -25,3 +25,5 @@ Spec: [PROJ-01 in tasks/PROJ.md](../../tasks/PROJ.md#proj-01--project-properties
 - Steps: 4 subtasks
 
 ## Work Log
+- 2026-09-28: UI port: /projects list, detail and Overview/Folders/Members/Settings tabs are ported on project_list_summary, project_members and folders, with create/edit/archive through the RPCs.
+- 2026-09-28: All steps done; closed by roadmap sync.

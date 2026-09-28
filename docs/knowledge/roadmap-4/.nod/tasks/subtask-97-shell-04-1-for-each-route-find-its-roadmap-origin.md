@@ -2,10 +2,10 @@
 id: subtask-97
 title: SHELL-04.1 — For each route, find its roadmap origin
 type: subtask
-status: todo
+status: cancelled
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-96
 tags:
   - SHELL-04.1

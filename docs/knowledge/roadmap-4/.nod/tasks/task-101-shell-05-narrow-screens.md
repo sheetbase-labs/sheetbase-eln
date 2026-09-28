@@ -2,10 +2,10 @@
 id: task-101
 title: SHELL-05 — Narrow screens
 type: task
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: epic-80
 related:
   - task-2
@@ -25,3 +25,4 @@ Spec: [SHELL-05 in tasks/SHELL.md](../../tasks/SHELL.md#shell-05--narrow-screens
 - Steps: 2 subtasks
 
 ## Work Log
+- 2026-09-28: All steps done; closed by roadmap sync.

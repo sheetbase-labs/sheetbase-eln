@@ -2,10 +2,10 @@
 id: subtask-149
 title: EXP-01.4 — Datasets tab
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-145
 tags:
   - EXP-01.4

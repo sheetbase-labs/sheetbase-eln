@@ -2,10 +2,10 @@
 id: subtask-243
 title: SHEET-04.3 — Template editor (TemplateEditor)
 type: subtask
-status: todo
+status: in-progress
 priority: medium
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-240
 tags:
   - SHEET-04.3

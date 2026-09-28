@@ -2,7 +2,7 @@
 id: subtask-330
 title: SET-01.1 — /settings/general per SettingsGeneral
 type: subtask
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-28"

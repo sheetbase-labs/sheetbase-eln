@@ -2,10 +2,10 @@
 id: subtask-100
 title: "SHELL-04.4 — For each \"retire\": one PR removing the route"
 type: subtask
-status: todo
+status: cancelled
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-96
 tags:
   - SHELL-04.4

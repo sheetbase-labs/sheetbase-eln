@@ -2,7 +2,7 @@
 id: subtask-146
 title: EXP-01.1 — Route split
 type: subtask
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-28"

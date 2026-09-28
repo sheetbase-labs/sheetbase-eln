@@ -2,10 +2,10 @@
 id: task-207
 title: DSET-03 — Snapshots and comparison
 type: task
-status: todo
+status: done
 priority: medium
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: epic-195
 related:
   - task-2
@@ -25,3 +25,4 @@ Spec: [DSET-03 in tasks/DSET.md](../../tasks/DSET.md#dset-03--snapshots-and-comp
 - Steps: 3 subtasks
 
 ## Work Log
+- 2026-09-28: All steps done; closed by roadmap sync.

@@ -2,10 +2,10 @@
 id: subtask-242
 title: SHEET-04.2 — Templates list (TemplatesList) across notebook, sheet and record kinds
 type: subtask
-status: todo
+status: in-progress
 priority: medium
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-240
 tags:
   - SHEET-04.2

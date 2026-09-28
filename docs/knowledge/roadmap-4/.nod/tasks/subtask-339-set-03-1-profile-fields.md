@@ -2,10 +2,10 @@
 id: subtask-339
 title: SET-03.1 — Profile fields
 type: subtask
-status: todo
+status: in-progress
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-338
 tags:
   - SET-03.1

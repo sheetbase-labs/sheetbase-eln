@@ -2,10 +2,10 @@
 id: subtask-176
 title: EXP-06.2 — History tab
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-174
 tags:
   - EXP-06.2

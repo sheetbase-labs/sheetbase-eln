@@ -2,10 +2,10 @@
 id: subtask-103
 title: SHELL-05.2 — Add the five boards to design-states.ts with their routes once those routes…
 type: subtask
-status: todo
+status: cancelled
 priority: high
 created: "2026-09-27"
-updated: "2026-09-27"
+updated: "2026-09-28"
 parent: task-101
 tags:
   - SHELL-05.2

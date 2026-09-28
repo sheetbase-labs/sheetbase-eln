@@ -70,7 +70,8 @@ describe('api.archive_project', () => {
     const { rows } = await admin.query<{ status: string; archived_at: string }>(
       `SELECT * FROM api.archive_project('${PROJECT}')`,
     )
-    expect(rows[0]?.status).toBe('archived')
+    // Status is preserved: archived is a filter, not a lifecycle status.
+    expect(rows[0]?.status).toBe('active')
     expect(rows[0]?.archived_at).not.toBeNull()
 
     // Records stay readable.
@@ -99,7 +100,7 @@ describe('api.archive_project', () => {
   it('records the archive as a change event', async () => {
     const events = await migrator.query<{
       operation: string
-      payload: { status?: string }
+      payload: { archivedAt?: string | null }
     }>(
       `SELECT operation, payload FROM api.change_events
         WHERE entity_type = 'project' AND entity_uuid = $1
@@ -109,7 +110,7 @@ describe('api.archive_project', () => {
     expect(
       events.rows.some(
         (row) =>
-          row.operation === 'update' && row.payload.status === 'archived',
+          row.operation === 'update' && row.payload.archivedAt != null,
       ),
     ).toBe(true)
   })

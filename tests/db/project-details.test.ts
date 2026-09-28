@@ -142,6 +142,7 @@ describe('PROJ-01.1 project details and clients', () => {
       client_name: string
       stage: string
       lead_user_id: string
+      lead_name: string
     }>(
       `SELECT * FROM api.project_list_summary() WHERE title = 'Summary target'`,
     )
@@ -151,6 +152,7 @@ describe('PROJ-01.1 project details and clients', () => {
       client_name: 'Summary Co',
       stage: 'QC',
       lead_user_id: MEMBER,
+      lead_name: 'PD Member',
     })
   })
 

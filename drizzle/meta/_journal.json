@@ -1672,6 +1672,27 @@
       "when": 1790578730048,
       "tag": "0240_sad_pestilence",
       "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1790579966036,
+      "tag": "0241_project_archive_preserves_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 242,
+      "version": "7",
+      "when": 1790580092732,
+      "tag": "0242_project_change_event_archived_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 243,
+      "version": "7",
+      "when": 1790580140402,
+      "tag": "0243_workspace_member_label",
+      "breakpoints": true
     }
   ]
 }

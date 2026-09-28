@@ -22,3 +22,4 @@ Step 4 of 4 in [DSYS-05](../../tasks/DSYS.md#dsys-05--design-data-seed); the ful
 - 2026-09-28: PR #206: recorded the display-id data-model gap (DS/PL/SHT/MDL/CAL/CL/PRJ/…) in docs/knowledge/roadmap-4/DISPLAY_IDS.md with its owning tasks; coverage reports these separately. Do not fake display ids in titles.
 - 2026-09-28: PR #206: datasets now carry a stable per-workspace display id (DS-nnnn) — assigned on insert, immutable once set, seeded DS-0298/DS-0311, shown in the dataset header; DS added to the stored coverage families.
 - 2026-09-28: PR #206: pipeline definitions now carry a stable per-workspace display id (PL-nnnn) — assigned on insert, immutable, seeded PL-0014; PL added to stored coverage families.
+- 2026-09-28: PR #206: calendar bookings carry a stable per-workspace display id (CAL-nnnn; seeded CAL-0911/0912/0913, one on the plate-reader booking) — CAL is now a stored coverage family.

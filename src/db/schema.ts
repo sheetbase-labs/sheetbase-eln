@@ -4878,6 +4878,8 @@ export const calendarBookings = api.table(
       onDelete: 'set null',
     }),
     title: text('title').notNull(),
+    /** Stable per-workspace display id, e.g. CAL-0913. Assigned on insert. */
+    displayId: text('display_id'),
     status: text('status').notNull().default('tentative'),
     allDay: boolean('all_day').notNull().default(false),
     startsAt: timestamp('starts_at', {
@@ -4912,6 +4914,14 @@ export const calendarBookings = api.table(
     check(
       'chk_calendar_bookings_title',
       sql`length(btrim(${table.title})) BETWEEN 1 AND 200`,
+    ),
+    unique('uq_calendar_bookings_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
+    ),
+    check(
+      'chk_calendar_bookings_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^CAL-[0-9]{4,}$'`,
     ),
     check(
       'chk_calendar_bookings_status',

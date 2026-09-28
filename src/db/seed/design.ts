@@ -1823,6 +1823,7 @@ async function seedDesignBookings(
   const bookings = [
     {
       id: '00000000-0000-4000-8000-000000000501',
+      displayId: 'CAL-0911',
       title: 'AMB-25-118 day 6 sampling',
       starts: at(9, 0),
       ends: at(9, 30),
@@ -1831,6 +1832,7 @@ async function seedDesignBookings(
     },
     {
       id: '00000000-0000-4000-8000-000000000502',
+      displayId: 'CAL-0913',
       title: 'ELISA plate 4, capsid titre',
       starts: at(11, 30),
       ends: at(12, 30),
@@ -1839,6 +1841,7 @@ async function seedDesignBookings(
     },
     {
       id: '00000000-0000-4000-8000-000000000503',
+      displayId: 'CAL-0912',
       title: 'Tech-transfer review, CL-017',
       starts: at(14, 0),
       ends: at(15, 0),
@@ -1859,6 +1862,7 @@ async function seedDesignBookings(
         endsAt: booking.ends,
         timezone: 'Europe/London',
         location: booking.location,
+        displayId: booking.displayId,
         linkedExperimentIdentifier: booking.linked,
         createdByUserId: DESIGN_USER_IDS.gareth,
       })

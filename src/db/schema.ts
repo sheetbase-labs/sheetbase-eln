@@ -2898,10 +2898,20 @@ export const datasetRows = api.table(
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
       .default(sql`1`),
+    /** DSET-01.3 — a planned row (repeat requested) holds no values yet. */
+    status: text('status').notNull().default('recorded'),
+    scheduledAt: timestamp('scheduled_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     ...timestamps,
   },
   (table) => [
     check('chk_dataset_rows_revision', sql`${table.revision} > 0`),
+    check(
+      'chk_dataset_rows_status',
+      sql`${table.status} IN ('planned', 'recorded')`,
+    ),
     index('idx_dataset_rows_dataset').on(table.datasetId),
     index('idx_dataset_rows_workspace').on(table.workspaceId),
   ],

@@ -42,6 +42,13 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   },
 })
 
+/** Full-text search vectors (PostgreSQL `tsvector`). */
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return 'tsvector'
+  },
+})
+
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
     .notNull()
@@ -1296,6 +1303,10 @@ export const comments = api.table(
       .notNull()
       .default(sql`'{}'`),
     body: text('body').notNull(),
+    // Generated full-text vector for comment search (SRCH-01.1).
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(body, ''))`,
+    ),
     mentions: text('mentions')
       .array()
       .notNull()
@@ -1337,6 +1348,7 @@ export const comments = api.table(
       table.createdAt,
     ),
     index('idx_comments_record').on(table.workspaceId, table.recordId),
+    index('idx_comments_search_vector').using('gin', table.searchVector),
   ],
 )
 

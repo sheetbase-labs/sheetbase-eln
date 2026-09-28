@@ -20,6 +20,7 @@ import type * as definitionsData from '#/lib/analysis-definitions-data'
 import { fetchAnalysisDefinitions } from '#/lib/analysis-definitions-data'
 import type * as chartData from '#/lib/chart-data'
 import { fetchCanonicalDataset, fetchDatasetRows } from '#/lib/chart-data'
+import type * as flagsModule from '#/lib/dataset-flags'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
@@ -31,6 +32,13 @@ vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
       .fn()
       .mockResolvedValue({ id: 'saved', version: 1 }),
     deleteAnalysisDefinition: vi.fn().mockResolvedValue(undefined),
+  }
+})
+vi.mock('#/lib/dataset-flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof flagsModule>()
+  return {
+    ...actual,
+    fetchActiveDatasetFlags: vi.fn().mockResolvedValue([]),
   }
 })
 vi.mock('#/lib/chart-data', async (importOriginal) => {

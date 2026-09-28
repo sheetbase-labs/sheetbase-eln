@@ -118,6 +118,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Experiment detail frame ported**: `/experiments/$expId` shows the header
+  (status, owner, started) and tabs Overview, Notebook, Samples, Datasets,
+  Results, Files, History. Overview reads the record's notes; Samples/Datasets/
+  Files read `record_links`; History reads `revisions`; Notebook points at the
+  working record notebook; Results and protocol progress state their unbuilt
+  capabilities. The list's experiments link here.
+
 - **Dataset detail frame + Snapshots ported**: `/datasets/$datasetId` shows the
   header (status, model, rows) with a Snapshots tab wired to
   `dataset_version_list`; the index redirects to Snapshots. Rows and Compare

@@ -43,6 +43,7 @@ import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 import { Route as DocsNameRouteImport } from './routes/docs/$name'
+import { Route as ExperimentsExpIdRouteImport } from './routes/experiments/$expId'
 import { Route as IntegrationsConnectorIdRouteImport } from './routes/integrations/$connectorId'
 import { Route as PipelinesDefinitionIdRouteImport } from './routes/pipelines/$definitionId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
@@ -63,6 +64,14 @@ import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 import { Route as DatasetsDatasetIdIndexRouteImport } from './routes/datasets/$datasetId/index'
 import { Route as DatasetsDatasetIdSnapshotsRouteImport } from './routes/datasets/$datasetId/snapshots'
+import { Route as ExperimentsExpIdIndexRouteImport } from './routes/experiments/$expId/index'
+import { Route as ExperimentsExpIdDatasetsRouteImport } from './routes/experiments/$expId/datasets'
+import { Route as ExperimentsExpIdFilesRouteImport } from './routes/experiments/$expId/files'
+import { Route as ExperimentsExpIdHistoryRouteImport } from './routes/experiments/$expId/history'
+import { Route as ExperimentsExpIdNotebookRouteImport } from './routes/experiments/$expId/notebook'
+import { Route as ExperimentsExpIdOverviewRouteImport } from './routes/experiments/$expId/overview'
+import { Route as ExperimentsExpIdResultsRouteImport } from './routes/experiments/$expId/results'
+import { Route as ExperimentsExpIdSamplesRouteImport } from './routes/experiments/$expId/samples'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
 import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
 import { Route as ProjectsProjectIdFoldersRouteImport } from './routes/projects/$projectId/folders'
@@ -257,6 +266,11 @@ const DocsNameRoute = DocsNameRouteImport.update({
   path: '/docs/$name',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExperimentsExpIdRoute = ExperimentsExpIdRouteImport.update({
+  id: '/$expId',
+  path: '/$expId',
+  getParentRoute: () => ExperimentsRoute,
+} as any)
 const IntegrationsConnectorIdRoute = IntegrationsConnectorIdRouteImport.update({
   id: '/$connectorId',
   path: '/$connectorId',
@@ -359,6 +373,49 @@ const DatasetsDatasetIdSnapshotsRoute =
     path: '/snapshots',
     getParentRoute: () => DatasetsDatasetIdRoute,
   } as any)
+const ExperimentsExpIdIndexRoute = ExperimentsExpIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
+const ExperimentsExpIdDatasetsRoute =
+  ExperimentsExpIdDatasetsRouteImport.update({
+    id: '/datasets',
+    path: '/datasets',
+    getParentRoute: () => ExperimentsExpIdRoute,
+  } as any)
+const ExperimentsExpIdFilesRoute = ExperimentsExpIdFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
+const ExperimentsExpIdHistoryRoute = ExperimentsExpIdHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
+const ExperimentsExpIdNotebookRoute =
+  ExperimentsExpIdNotebookRouteImport.update({
+    id: '/notebook',
+    path: '/notebook',
+    getParentRoute: () => ExperimentsExpIdRoute,
+  } as any)
+const ExperimentsExpIdOverviewRoute =
+  ExperimentsExpIdOverviewRouteImport.update({
+    id: '/overview',
+    path: '/overview',
+    getParentRoute: () => ExperimentsExpIdRoute,
+  } as any)
+const ExperimentsExpIdResultsRoute = ExperimentsExpIdResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
+const ExperimentsExpIdSamplesRoute = ExperimentsExpIdSamplesRouteImport.update({
+  id: '/samples',
+  path: '/samples',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
 const PipelinesRunsRunIdRoute = PipelinesRunsRunIdRouteImport.update({
   id: '/runs/$runId',
   path: '/runs/$runId',
@@ -492,7 +549,7 @@ export interface FileRoutesByFullPath {
   '/analysis': typeof AnalysisRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
-  '/experiments': typeof ExperimentsRoute
+  '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
   '/inbox': typeof InboxRoute
@@ -520,6 +577,7 @@ export interface FileRoutesByFullPath {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
+  '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
@@ -538,6 +596,13 @@ export interface FileRoutesByFullPath {
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
+  '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
+  '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
+  '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
+  '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
+  '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
+  '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
+  '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
@@ -550,6 +615,7 @@ export interface FileRoutesByFullPath {
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/datasets/$datasetId/': typeof DatasetsDatasetIdIndexRoute
+  '/experiments/$expId/': typeof ExperimentsExpIdIndexRoute
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
@@ -571,7 +637,7 @@ export interface FileRoutesByTo {
   '/analysis': typeof AnalysisRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
-  '/experiments': typeof ExperimentsRoute
+  '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
   '/inbox': typeof InboxRoute
@@ -613,6 +679,13 @@ export interface FileRoutesByTo {
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
+  '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
+  '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
+  '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
+  '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
+  '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
+  '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
+  '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
@@ -625,6 +698,7 @@ export interface FileRoutesByTo {
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/api/token': typeof ApiTokenIndexRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdIndexRoute
+  '/experiments/$expId': typeof ExperimentsExpIdIndexRoute
   '/projects/$projectId': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId': typeof SamplesSampleIdIndexRoute
@@ -647,7 +721,7 @@ export interface FileRoutesById {
   '/analysis': typeof AnalysisRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
-  '/experiments': typeof ExperimentsRoute
+  '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
   '/inbox': typeof InboxRoute
@@ -675,6 +749,7 @@ export interface FileRoutesById {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
+  '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
@@ -693,6 +768,13 @@ export interface FileRoutesById {
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
+  '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
+  '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
+  '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
+  '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
+  '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
+  '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
+  '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
@@ -705,6 +787,7 @@ export interface FileRoutesById {
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/datasets/$datasetId/': typeof DatasetsDatasetIdIndexRoute
+  '/experiments/$expId/': typeof ExperimentsExpIdIndexRoute
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
@@ -756,6 +839,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/datasets/$datasetId'
     | '/docs/$name'
+    | '/experiments/$expId'
     | '/integrations/$connectorId'
     | '/pipelines/$definitionId'
     | '/projects/$projectId'
@@ -774,6 +858,13 @@ export interface FileRouteTypes {
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/datasets/$datasetId/snapshots'
+    | '/experiments/$expId/datasets'
+    | '/experiments/$expId/files'
+    | '/experiments/$expId/history'
+    | '/experiments/$expId/notebook'
+    | '/experiments/$expId/overview'
+    | '/experiments/$expId/results'
+    | '/experiments/$expId/samples'
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
@@ -786,6 +877,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/usage'
     | '/api/token/'
     | '/datasets/$datasetId/'
+    | '/experiments/$expId/'
     | '/projects/$projectId/'
     | '/records/$recordId/'
     | '/samples/$sampleId/'
@@ -849,6 +941,13 @@ export interface FileRouteTypes {
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/datasets/$datasetId/snapshots'
+    | '/experiments/$expId/datasets'
+    | '/experiments/$expId/files'
+    | '/experiments/$expId/history'
+    | '/experiments/$expId/notebook'
+    | '/experiments/$expId/overview'
+    | '/experiments/$expId/results'
+    | '/experiments/$expId/samples'
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
@@ -861,6 +960,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/usage'
     | '/api/token'
     | '/datasets/$datasetId'
+    | '/experiments/$expId'
     | '/projects/$projectId'
     | '/records/$recordId'
     | '/samples/$sampleId'
@@ -910,6 +1010,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/datasets/$datasetId'
     | '/docs/$name'
+    | '/experiments/$expId'
     | '/integrations/$connectorId'
     | '/pipelines/$definitionId'
     | '/projects/$projectId'
@@ -928,6 +1029,13 @@ export interface FileRouteTypes {
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/datasets/$datasetId/snapshots'
+    | '/experiments/$expId/datasets'
+    | '/experiments/$expId/files'
+    | '/experiments/$expId/history'
+    | '/experiments/$expId/notebook'
+    | '/experiments/$expId/overview'
+    | '/experiments/$expId/results'
+    | '/experiments/$expId/samples'
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
@@ -940,6 +1048,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/usage'
     | '/api/token/'
     | '/datasets/$datasetId/'
+    | '/experiments/$expId/'
     | '/projects/$projectId/'
     | '/records/$recordId/'
     | '/samples/$sampleId/'
@@ -962,7 +1071,7 @@ export interface RootRouteChildren {
   AnalysisRoute: typeof AnalysisRoute
   ConfigureRoute: typeof ConfigureRoute
   DatasetsRoute: typeof DatasetsRouteWithChildren
-  ExperimentsRoute: typeof ExperimentsRoute
+  ExperimentsRoute: typeof ExperimentsRouteWithChildren
   FoundationsRoute: typeof FoundationsRoute
   HelpRoute: typeof HelpRoute
   InboxRoute: typeof InboxRoute
@@ -1254,6 +1363,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsNameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/experiments/$expId': {
+      id: '/experiments/$expId'
+      path: '/$expId'
+      fullPath: '/experiments/$expId'
+      preLoaderRoute: typeof ExperimentsExpIdRouteImport
+      parentRoute: typeof ExperimentsRoute
+    }
     '/integrations/$connectorId': {
       id: '/integrations/$connectorId'
       path: '/$connectorId'
@@ -1393,6 +1509,62 @@ declare module '@tanstack/react-router' {
       fullPath: '/datasets/$datasetId/snapshots'
       preLoaderRoute: typeof DatasetsDatasetIdSnapshotsRouteImport
       parentRoute: typeof DatasetsDatasetIdRoute
+    }
+    '/experiments/$expId/': {
+      id: '/experiments/$expId/'
+      path: '/'
+      fullPath: '/experiments/$expId/'
+      preLoaderRoute: typeof ExperimentsExpIdIndexRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/datasets': {
+      id: '/experiments/$expId/datasets'
+      path: '/datasets'
+      fullPath: '/experiments/$expId/datasets'
+      preLoaderRoute: typeof ExperimentsExpIdDatasetsRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/files': {
+      id: '/experiments/$expId/files'
+      path: '/files'
+      fullPath: '/experiments/$expId/files'
+      preLoaderRoute: typeof ExperimentsExpIdFilesRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/history': {
+      id: '/experiments/$expId/history'
+      path: '/history'
+      fullPath: '/experiments/$expId/history'
+      preLoaderRoute: typeof ExperimentsExpIdHistoryRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/notebook': {
+      id: '/experiments/$expId/notebook'
+      path: '/notebook'
+      fullPath: '/experiments/$expId/notebook'
+      preLoaderRoute: typeof ExperimentsExpIdNotebookRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/overview': {
+      id: '/experiments/$expId/overview'
+      path: '/overview'
+      fullPath: '/experiments/$expId/overview'
+      preLoaderRoute: typeof ExperimentsExpIdOverviewRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/results': {
+      id: '/experiments/$expId/results'
+      path: '/results'
+      fullPath: '/experiments/$expId/results'
+      preLoaderRoute: typeof ExperimentsExpIdResultsRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/samples': {
+      id: '/experiments/$expId/samples'
+      path: '/samples'
+      fullPath: '/experiments/$expId/samples'
+      preLoaderRoute: typeof ExperimentsExpIdSamplesRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
     }
     '/pipelines/runs/$runId': {
       id: '/pipelines/runs/$runId'
@@ -1593,6 +1765,43 @@ const DatasetsRouteWithChildren = DatasetsRoute._addFileChildren(
   DatasetsRouteChildren,
 )
 
+interface ExperimentsExpIdRouteChildren {
+  ExperimentsExpIdDatasetsRoute: typeof ExperimentsExpIdDatasetsRoute
+  ExperimentsExpIdFilesRoute: typeof ExperimentsExpIdFilesRoute
+  ExperimentsExpIdHistoryRoute: typeof ExperimentsExpIdHistoryRoute
+  ExperimentsExpIdNotebookRoute: typeof ExperimentsExpIdNotebookRoute
+  ExperimentsExpIdOverviewRoute: typeof ExperimentsExpIdOverviewRoute
+  ExperimentsExpIdResultsRoute: typeof ExperimentsExpIdResultsRoute
+  ExperimentsExpIdSamplesRoute: typeof ExperimentsExpIdSamplesRoute
+  ExperimentsExpIdIndexRoute: typeof ExperimentsExpIdIndexRoute
+}
+
+const ExperimentsExpIdRouteChildren: ExperimentsExpIdRouteChildren = {
+  ExperimentsExpIdDatasetsRoute: ExperimentsExpIdDatasetsRoute,
+  ExperimentsExpIdFilesRoute: ExperimentsExpIdFilesRoute,
+  ExperimentsExpIdHistoryRoute: ExperimentsExpIdHistoryRoute,
+  ExperimentsExpIdNotebookRoute: ExperimentsExpIdNotebookRoute,
+  ExperimentsExpIdOverviewRoute: ExperimentsExpIdOverviewRoute,
+  ExperimentsExpIdResultsRoute: ExperimentsExpIdResultsRoute,
+  ExperimentsExpIdSamplesRoute: ExperimentsExpIdSamplesRoute,
+  ExperimentsExpIdIndexRoute: ExperimentsExpIdIndexRoute,
+}
+
+const ExperimentsExpIdRouteWithChildren =
+  ExperimentsExpIdRoute._addFileChildren(ExperimentsExpIdRouteChildren)
+
+interface ExperimentsRouteChildren {
+  ExperimentsExpIdRoute: typeof ExperimentsExpIdRouteWithChildren
+}
+
+const ExperimentsRouteChildren: ExperimentsRouteChildren = {
+  ExperimentsExpIdRoute: ExperimentsExpIdRouteWithChildren,
+}
+
+const ExperimentsRouteWithChildren = ExperimentsRoute._addFileChildren(
+  ExperimentsRouteChildren,
+)
+
 interface IntegrationsRouteChildren {
   IntegrationsConnectorIdRoute: typeof IntegrationsConnectorIdRoute
 }
@@ -1702,7 +1911,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnalysisRoute: AnalysisRoute,
   ConfigureRoute: ConfigureRoute,
   DatasetsRoute: DatasetsRouteWithChildren,
-  ExperimentsRoute: ExperimentsRoute,
+  ExperimentsRoute: ExperimentsRouteWithChildren,
   FoundationsRoute: FoundationsRoute,
   HelpRoute: HelpRoute,
   InboxRoute: InboxRoute,

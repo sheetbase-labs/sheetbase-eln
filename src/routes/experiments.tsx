@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import {
   Link,
+  Outlet,
   createFileRoute,
   redirect,
   useNavigate,
+  useRouterState,
 } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
@@ -30,10 +32,9 @@ import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
 import {
   toExperimentListRow,
   useExperimentRecords,
-  useProjectNameMap
-  
+  useProjectNameMap,
 } from '#/components/v3/experiments/experiments-data'
-import type {ExperimentListRow} from '#/components/v3/experiments/experiments-data';
+import type { ExperimentListRow } from '#/components/v3/experiments/experiments-data'
 import { useUserNames } from '#/lib/user-names'
 
 const tabs = [
@@ -82,8 +83,15 @@ export const Route = createFileRoute('/experiments')({
     }
     return { context }
   },
-  component: Experiments,
+  component: ExperimentsRoute,
 })
+
+function ExperimentsRoute() {
+  const isIndex = useRouterState({
+    select: (state) => state.location.pathname === '/experiments',
+  })
+  return isIndex ? <Experiments /> : <Outlet />
+}
 
 function Experiments() {
   const { context } = Route.useRouteContext()
@@ -285,7 +293,7 @@ function Experiments() {
               </>
             ),
             status: e.status,
-            link: { to: '/records/$recordId', params: { recordId: e.uuid } },
+            link: { to: '/experiments/$expId', params: { expId: e.uuid } },
           }))}
         />
         <Table aria-label="Experiments" className="max-md:hidden">
@@ -321,8 +329,8 @@ function Experiments() {
                     className={`${stickyCol} max-xl:h-auto max-xl:py-1`}
                   >
                     <Link
-                      to="/records/$recordId"
-                      params={{ recordId: e.uuid }}
+                      to="/experiments/$expId"
+                      params={{ expId: e.uuid }}
                       className="text-fg hover:text-link"
                     >
                       {e.title}

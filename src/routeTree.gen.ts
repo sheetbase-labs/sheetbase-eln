@@ -53,6 +53,7 @@ import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
 import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
+import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
 import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
@@ -95,6 +96,10 @@ import { Route as SamplesSampleIdHistoryRouteImport } from './routes/samples/$sa
 import { Route as SamplesSampleIdLineageRouteImport } from './routes/samples/$sampleId/lineage'
 import { Route as SamplesSampleIdMeasurementsRouteImport } from './routes/samples/$sampleId/measurements'
 import { Route as SamplesSampleIdUsageRouteImport } from './routes/samples/$sampleId/usage'
+import { Route as TemplatesTemplateIdIndexRouteImport } from './routes/templates/$templateId/index'
+import { Route as TemplatesTemplateIdInUseRouteImport } from './routes/templates/$templateId/in-use'
+import { Route as TemplatesTemplateIdUpdateRouteImport } from './routes/templates/$templateId/update'
+import { Route as TemplatesTemplateIdVersionsRouteImport } from './routes/templates/$templateId/versions'
 import { Route as ApiCollaborationResolveRoomsRouteImport } from './routes/api/collaboration/resolve.rooms'
 import { Route as ApiCollaborationResolveUsersRouteImport } from './routes/api/collaboration/resolve.users'
 import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/export/dataset-version/$id'
@@ -328,6 +333,11 @@ const SheetsInstanceIdRoute = SheetsInstanceIdRouteImport.update({
   path: '/sheets/$instanceId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TemplatesTemplateIdRoute = TemplatesTemplateIdRouteImport.update({
+  id: '/$templateId',
+  path: '/$templateId',
+  getParentRoute: () => TemplatesRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -550,6 +560,30 @@ const SamplesSampleIdUsageRoute = SamplesSampleIdUsageRouteImport.update({
   path: '/usage',
   getParentRoute: () => SamplesSampleIdRoute,
 } as any)
+const TemplatesTemplateIdIndexRoute =
+  TemplatesTemplateIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => TemplatesTemplateIdRoute,
+  } as any)
+const TemplatesTemplateIdInUseRoute =
+  TemplatesTemplateIdInUseRouteImport.update({
+    id: '/in-use',
+    path: '/in-use',
+    getParentRoute: () => TemplatesTemplateIdRoute,
+  } as any)
+const TemplatesTemplateIdUpdateRoute =
+  TemplatesTemplateIdUpdateRouteImport.update({
+    id: '/update',
+    path: '/update',
+    getParentRoute: () => TemplatesTemplateIdRoute,
+  } as any)
+const TemplatesTemplateIdVersionsRoute =
+  TemplatesTemplateIdVersionsRouteImport.update({
+    id: '/versions',
+    path: '/versions',
+    getParentRoute: () => TemplatesTemplateIdRoute,
+  } as any)
 const ApiCollaborationResolveRoomsRoute =
   ApiCollaborationResolveRoomsRouteImport.update({
     id: '/api/collaboration/resolve/rooms',
@@ -646,7 +680,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
-  '/templates': typeof TemplatesRoute
+  '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
@@ -664,6 +698,7 @@ export interface FileRoutesByFullPath {
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -698,6 +733,9 @@ export interface FileRoutesByFullPath {
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
+  '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
+  '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
+  '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/datasets/$datasetId/': typeof DatasetsDatasetIdIndexRoute
   '/experiments/$expId/': typeof ExperimentsExpIdIndexRoute
@@ -706,6 +744,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
+  '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
@@ -746,7 +785,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
-  '/templates': typeof TemplatesRoute
+  '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
@@ -791,6 +830,9 @@ export interface FileRoutesByTo {
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
+  '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
+  '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
+  '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
   '/api/token': typeof ApiTokenIndexRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdIndexRoute
   '/experiments/$expId': typeof ExperimentsExpIdIndexRoute
@@ -799,6 +841,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId': typeof SamplesSampleIdIndexRoute
+  '/templates/$templateId': typeof TemplatesTemplateIdIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
@@ -840,7 +883,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
-  '/templates': typeof TemplatesRoute
+  '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
@@ -858,6 +901,7 @@ export interface FileRoutesById {
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -892,6 +936,9 @@ export interface FileRoutesById {
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
+  '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
+  '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
+  '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/datasets/$datasetId/': typeof DatasetsDatasetIdIndexRoute
   '/experiments/$expId/': typeof ExperimentsExpIdIndexRoute
@@ -900,6 +947,7 @@ export interface FileRoutesById {
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
+  '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
@@ -960,6 +1008,7 @@ export interface FileRouteTypes {
     | '/reviews/$revisionId'
     | '/samples/$sampleId'
     | '/sheets/$instanceId'
+    | '/templates/$templateId'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -994,6 +1043,9 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/lineage'
     | '/samples/$sampleId/measurements'
     | '/samples/$sampleId/usage'
+    | '/templates/$templateId/in-use'
+    | '/templates/$templateId/update'
+    | '/templates/$templateId/versions'
     | '/api/token/'
     | '/datasets/$datasetId/'
     | '/experiments/$expId/'
@@ -1002,6 +1054,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/'
     | '/records/$recordId/'
     | '/samples/$sampleId/'
+    | '/templates/$templateId/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -1087,6 +1140,9 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/lineage'
     | '/samples/$sampleId/measurements'
     | '/samples/$sampleId/usage'
+    | '/templates/$templateId/in-use'
+    | '/templates/$templateId/update'
+    | '/templates/$templateId/versions'
     | '/api/token'
     | '/datasets/$datasetId'
     | '/experiments/$expId'
@@ -1095,6 +1151,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/records/$recordId'
     | '/samples/$sampleId'
+    | '/templates/$templateId'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -1153,6 +1210,7 @@ export interface FileRouteTypes {
     | '/reviews/$revisionId'
     | '/samples/$sampleId'
     | '/sheets/$instanceId'
+    | '/templates/$templateId'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -1187,6 +1245,9 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/lineage'
     | '/samples/$sampleId/measurements'
     | '/samples/$sampleId/usage'
+    | '/templates/$templateId/in-use'
+    | '/templates/$templateId/update'
+    | '/templates/$templateId/versions'
     | '/api/token/'
     | '/datasets/$datasetId/'
     | '/experiments/$expId/'
@@ -1195,6 +1256,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/'
     | '/records/$recordId/'
     | '/samples/$sampleId/'
+    | '/templates/$templateId/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -1236,7 +1298,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SignInRoute: typeof SignInRoute
   StorageRoute: typeof StorageRoute
-  TemplatesRoute: typeof TemplatesRoute
+  TemplatesRoute: typeof TemplatesRouteWithChildren
   ApiCalculationsRoute: typeof ApiCalculationsRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiFormulasRoute: typeof ApiFormulasRoute
@@ -1579,6 +1641,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SheetsInstanceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/templates/$templateId': {
+      id: '/templates/$templateId'
+      path: '/$templateId'
+      fullPath: '/templates/$templateId'
+      preLoaderRoute: typeof TemplatesTemplateIdRouteImport
+      parentRoute: typeof TemplatesRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -1872,6 +1941,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/samples/$sampleId/usage'
       preLoaderRoute: typeof SamplesSampleIdUsageRouteImport
       parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/templates/$templateId/': {
+      id: '/templates/$templateId/'
+      path: '/'
+      fullPath: '/templates/$templateId/'
+      preLoaderRoute: typeof TemplatesTemplateIdIndexRouteImport
+      parentRoute: typeof TemplatesTemplateIdRoute
+    }
+    '/templates/$templateId/in-use': {
+      id: '/templates/$templateId/in-use'
+      path: '/in-use'
+      fullPath: '/templates/$templateId/in-use'
+      preLoaderRoute: typeof TemplatesTemplateIdInUseRouteImport
+      parentRoute: typeof TemplatesTemplateIdRoute
+    }
+    '/templates/$templateId/update': {
+      id: '/templates/$templateId/update'
+      path: '/update'
+      fullPath: '/templates/$templateId/update'
+      preLoaderRoute: typeof TemplatesTemplateIdUpdateRouteImport
+      parentRoute: typeof TemplatesTemplateIdRoute
+    }
+    '/templates/$templateId/versions': {
+      id: '/templates/$templateId/versions'
+      path: '/versions'
+      fullPath: '/templates/$templateId/versions'
+      preLoaderRoute: typeof TemplatesTemplateIdVersionsRouteImport
+      parentRoute: typeof TemplatesTemplateIdRoute
     }
     '/api/collaboration/resolve/rooms': {
       id: '/api/collaboration/resolve/rooms'
@@ -2168,6 +2265,35 @@ const SamplesRouteChildren: SamplesRouteChildren = {
 const SamplesRouteWithChildren =
   SamplesRoute._addFileChildren(SamplesRouteChildren)
 
+interface TemplatesTemplateIdRouteChildren {
+  TemplatesTemplateIdInUseRoute: typeof TemplatesTemplateIdInUseRoute
+  TemplatesTemplateIdUpdateRoute: typeof TemplatesTemplateIdUpdateRoute
+  TemplatesTemplateIdVersionsRoute: typeof TemplatesTemplateIdVersionsRoute
+  TemplatesTemplateIdIndexRoute: typeof TemplatesTemplateIdIndexRoute
+}
+
+const TemplatesTemplateIdRouteChildren: TemplatesTemplateIdRouteChildren = {
+  TemplatesTemplateIdInUseRoute: TemplatesTemplateIdInUseRoute,
+  TemplatesTemplateIdUpdateRoute: TemplatesTemplateIdUpdateRoute,
+  TemplatesTemplateIdVersionsRoute: TemplatesTemplateIdVersionsRoute,
+  TemplatesTemplateIdIndexRoute: TemplatesTemplateIdIndexRoute,
+}
+
+const TemplatesTemplateIdRouteWithChildren =
+  TemplatesTemplateIdRoute._addFileChildren(TemplatesTemplateIdRouteChildren)
+
+interface TemplatesRouteChildren {
+  TemplatesTemplateIdRoute: typeof TemplatesTemplateIdRouteWithChildren
+}
+
+const TemplatesRouteChildren: TemplatesRouteChildren = {
+  TemplatesTemplateIdRoute: TemplatesTemplateIdRouteWithChildren,
+}
+
+const TemplatesRouteWithChildren = TemplatesRoute._addFileChildren(
+  TemplatesRouteChildren,
+)
+
 interface RecordsRecordIdRouteChildren {
   RecordsRecordIdNotebookRoute: typeof RecordsRecordIdNotebookRoute
   RecordsRecordIdOverviewRoute: typeof RecordsRecordIdOverviewRoute
@@ -2211,7 +2337,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SignInRoute: SignInRoute,
   StorageRoute: StorageRoute,
-  TemplatesRoute: TemplatesRoute,
+  TemplatesRoute: TemplatesRouteWithChildren,
   ApiCalculationsRoute: ApiCalculationsRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiFormulasRoute: ApiFormulasRoute,

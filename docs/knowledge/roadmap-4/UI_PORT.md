@@ -118,6 +118,17 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Templates area completed on the real catalogue**: the board now reads
+  CORE-06 `notebook_templates` (not protocol-template records), with latest and
+  published versions, section and in-use counts. `/templates/$templateId` frames
+  the template with Sections (the stored configuration's placements and
+  parameters), Versions (Publish/Retire via the CORE-06 RPCs, revision-checked)
+  and In use (records pinned to a version). `/templates/$templateId/update`
+  previews `preview_notebook_template_upgrade` and applies through
+  `apply_notebook_template_upgrade` with the record's structure version; conflicts
+  that need per-sheet decisions are stated rather than guessed. The old
+  protocol-template board is replaced.
+
 - **Pipelines ported**: `/pipelines` (board with All/Active/Drafts/Retired),
   `/pipelines/$pipelineId` with Overview, Runs and Triggers tabs,
   `/pipelines/$pipelineId/runs` and `/pipelines/$pipelineId/runs/$runId`, wired

@@ -118,6 +118,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Settings — integrations moved in**: `/settings/integrations` lists the real
+  connector registry and `/settings/integrations/$connectorId` shows config, run
+  history and instrument ingestion with pause/activate through the connector
+  RPCs. The standalone `/integrations` routes and their test are deleted, the
+  admin links retarget, and the settings nav now includes Integrations.
+  Signatures and instruments still need their capability models.
+
 - **Settings — access and audit ported**: `/settings/access` lists project
   access grants (project, person, level) and grants/revokes through
   `grant_project_access` / `revoke_project_access`, gated on `workspace.admin`;

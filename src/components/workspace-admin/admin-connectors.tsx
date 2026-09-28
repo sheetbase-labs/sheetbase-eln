@@ -143,7 +143,7 @@ export function AdminConnectors({
                 <TableRow key={connector.id}>
                   <TableCell className="font-medium">
                     <Link
-                      to="/integrations/$connectorId"
+                      to="/settings/integrations/$connectorId"
                       params={{ connectorId: connector.id }}
                       className="hover:underline"
                     >
@@ -202,7 +202,7 @@ export function AdminConnectors({
                     {canManage ? (
                       <Button size="sm" variant="ghost" asChild>
                         <Link
-                          to="/integrations/$connectorId"
+                          to="/settings/integrations/$connectorId"
                           params={{ connectorId: connector.id }}
                         >
                           Details

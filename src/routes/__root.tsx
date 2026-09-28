@@ -125,6 +125,8 @@ function RootRouteComponent() {
     '/settings/',
     '/settings/members',
     '/settings/access',
+    '/settings/integrations',
+    '/settings/integrations/$connectorId',
     '/settings/audit',
     '/settings/api',
     '/settings/profile',

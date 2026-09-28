@@ -41,6 +41,11 @@ const workspace: Item[] = [
     match: (p) => p.startsWith('/settings/members'),
   },
   {
+    label: 'Integrations',
+    link: { to: '/settings/integrations' },
+    match: (p) => p.startsWith('/settings/integrations'),
+  },
+  {
     label: 'Project access',
     link: { to: '/settings/access' },
     match: (p) => p.startsWith('/settings/access'),

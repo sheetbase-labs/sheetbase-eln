@@ -1,6 +1,6 @@
 /**
- * INT-01 integrations route tests: connector cards and steward-only
- * registration affordance.
+ * INT-01 integrations route tests: the connector registry lists registered
+ * connectors and shows the steward-only registration affordance.
  */
 import { cleanup, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -33,6 +33,9 @@ vi.mock('@tanstack/react-router', () => ({
     options: config,
   }),
   redirect: (options: unknown) => options,
+  useRouterState: ({ select }: { select: (s: unknown) => unknown }) =>
+    select({ location: { pathname: '/settings/integrations' } }),
+  Outlet: () => null,
   Link: ({
     to,
     children,
@@ -45,10 +48,6 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
-}))
-
-vi.mock('#/components/shell', () => ({
-  useShell: () => null,
 }))
 
 vi.mock('@tanstack/react-query', async () => {
@@ -84,8 +83,9 @@ describe('INT-01 integrations route', () => {
   it('lists registered connectors with identity and status', () => {
     renderRoute()
     expect(screen.getByText('Plate reader bench')).toBeTruthy()
-    expect(screen.getByText(/instrument · inbound/)).toBeTruthy()
     expect(screen.getByText('plate-reader-bench')).toBeTruthy()
+    expect(screen.getByText('instrument')).toBeTruthy()
+    expect(screen.getByText('inbound')).toBeTruthy()
   })
 
   it('offers connector registration to governed roles', () => {

@@ -24,3 +24,4 @@ Step 4 of 4 in [DSYS-05](../../tasks/DSYS.md#dsys-05--design-data-seed); the ful
 - 2026-09-28: PR #206: pipeline definitions now carry a stable per-workspace display id (PL-nnnn) — assigned on insert, immutable, seeded PL-0014; PL added to stored coverage families.
 - 2026-09-28: PR #206: calendar bookings carry a stable per-workspace display id (CAL-nnnn; seeded CAL-0911/0912/0913, one on the plate-reader booking) — CAL is now a stored coverage family.
 - 2026-09-28: PR #206: instruments carry a stable per-workspace display id (INS-nnnn; seeded INS-0007 plate reader and INS-0008 Ambr 250) and count as a stored coverage family.
+- 2026-09-28: PR #206: next_record_identifier remains the single sequence; create_record reads it.

@@ -3990,6 +3990,7 @@ export const userPreferences = api.table(
       .defaultNow(),
     /** WORK-03.1 — notification quiet hours (HH:MM) and daily digest time (HH:MM). */
     quietHoursStart: text('quiet_hours_start'),
+    digestLastSentOn: date('digest_last_sent_on'),
     quietHoursEnd: text('quiet_hours_end'),
     digestTime: text('digest_time'),
   },

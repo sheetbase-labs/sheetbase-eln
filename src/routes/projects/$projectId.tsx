@@ -1,9 +1,13 @@
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { LinkTabs } from '#/components/v3/projects/search-tabs'
 import { Status } from '#/components/v3/ui/status'
-import { useProjectSummary } from '#/components/v3/projects/project-data'
+import {
+  fetchProjectMembers,
+  useProjectSummary,
+} from '#/components/v3/projects/project-data'
 
 /** UI port (roadmap-4/ui-app3): the project detail frame. Overview and
  * Settings are ported; Folders and Members tabs land with theirs. */
@@ -23,6 +27,11 @@ const metaItemClass = ''
 function ProjectLayout() {
   const { projectId } = Route.useParams()
   const { project, query } = useProjectSummary(projectId)
+  const membersQuery = useQuery({
+    queryKey: ['project-members', projectId],
+    queryFn: () => fetchProjectMembers(projectId),
+    enabled: Boolean(project),
+  })
 
   if (!project) {
     return (
@@ -77,6 +86,11 @@ function ProjectLayout() {
                   params,
                   activeOptions: { exact: true },
                 },
+              },
+              {
+                label: 'Members',
+                count: membersQuery.data?.length,
+                link: { to: '/projects/$projectId/members', params },
               },
               {
                 label: 'Settings',

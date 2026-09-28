@@ -1693,6 +1693,13 @@
       "when": 1790580140402,
       "tag": "0243_workspace_member_label",
       "breakpoints": true
+    },
+    {
+      "idx": 244,
+      "version": "7",
+      "when": 1790585573346,
+      "tag": "0244_project_members",
+      "breakpoints": true
     }
   ]
 }

@@ -97,3 +97,57 @@ export function useProjectSummary(projectId: string) {
   const project = query.data?.find((p) => p.id === projectId) ?? null
   return { project, query }
 }
+
+export interface ProjectMember {
+  user_id: string
+  name: string
+  access_level: string
+  workspace_role: string | null
+  is_lead: boolean
+  added_at: string
+}
+
+export interface WorkspaceMemberIdentity {
+  user_id: string
+  name: string
+  role: string
+}
+
+export async function fetchProjectMembers(
+  projectId: string,
+): Promise<ProjectMember[]> {
+  return projectDataClient.rpc<ProjectMember[]>('project_members', {
+    p_project_id: projectId,
+  })
+}
+
+export async function fetchWorkspaceMemberIdentities(): Promise<
+  WorkspaceMemberIdentity[]
+> {
+  return projectDataClient.rpc<WorkspaceMemberIdentity[]>(
+    'workspace_members_list',
+    {},
+  )
+}
+
+export async function setProjectMember(
+  projectId: string,
+  userId: string,
+  accessLevel: string,
+): Promise<void> {
+  await projectDataClient.rpc('set_project_member', {
+    p_project_id: projectId,
+    p_user_id: userId,
+    p_access_level: accessLevel,
+  })
+}
+
+export async function removeProjectMember(
+  projectId: string,
+  userId: string,
+): Promise<void> {
+  await projectDataClient.rpc('remove_project_member', {
+    p_project_id: projectId,
+    p_user_id: userId,
+  })
+}

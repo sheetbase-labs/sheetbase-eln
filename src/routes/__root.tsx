@@ -120,6 +120,7 @@ function RootRouteComponent() {
     '/projects',
     '/projects/$projectId',
     '/projects/$projectId/',
+    '/projects/$projectId/members',
     '/projects/$projectId/settings',
   ]
   const portedToV3 = useMatches().some((match) =>

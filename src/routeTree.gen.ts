@@ -60,6 +60,7 @@ import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
 import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
+import { Route as ProjectsProjectIdMembersRouteImport } from './routes/projects/$projectId/members'
 import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId/settings'
 import { Route as RecordsRecordIdIndexRouteImport } from './routes/records/$recordId/index'
 import { Route as RecordsRecordIdNotebookRouteImport } from './routes/records/$recordId/notebook'
@@ -331,6 +332,12 @@ const ProjectsProjectIdIndexRoute = ProjectsProjectIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProjectsProjectIdRoute,
 } as any)
+const ProjectsProjectIdMembersRoute =
+  ProjectsProjectIdMembersRouteImport.update({
+    id: '/members',
+    path: '/members',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
 const ProjectsProjectIdSettingsRoute =
   ProjectsProjectIdSettingsRouteImport.update({
     id: '/settings',
@@ -459,6 +466,7 @@ export interface FileRoutesByFullPath {
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
@@ -524,6 +532,7 @@ export interface FileRoutesByTo {
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
@@ -592,6 +601,7 @@ export interface FileRoutesById {
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
@@ -661,6 +671,7 @@ export interface FileRouteTypes {
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/members'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/records/$recordId/overview'
@@ -726,6 +737,7 @@ export interface FileRouteTypes {
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/members'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/records/$recordId/overview'
@@ -793,6 +805,7 @@ export interface FileRouteTypes {
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/members'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/records/$recordId/overview'
@@ -1228,6 +1241,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdIndexRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
+    '/projects/$projectId/members': {
+      id: '/projects/$projectId/members'
+      path: '/members'
+      fullPath: '/projects/$projectId/members'
+      preLoaderRoute: typeof ProjectsProjectIdMembersRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
     '/projects/$projectId/settings': {
       id: '/projects/$projectId/settings'
       path: '/settings'
@@ -1366,11 +1386,13 @@ const PipelinesRouteWithChildren = PipelinesRoute._addFileChildren(
 )
 
 interface ProjectsProjectIdRouteChildren {
+  ProjectsProjectIdMembersRoute: typeof ProjectsProjectIdMembersRoute
   ProjectsProjectIdSettingsRoute: typeof ProjectsProjectIdSettingsRoute
   ProjectsProjectIdIndexRoute: typeof ProjectsProjectIdIndexRoute
 }
 
 const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
+  ProjectsProjectIdMembersRoute: ProjectsProjectIdMembersRoute,
   ProjectsProjectIdSettingsRoute: ProjectsProjectIdSettingsRoute,
   ProjectsProjectIdIndexRoute: ProjectsProjectIdIndexRoute,
 }

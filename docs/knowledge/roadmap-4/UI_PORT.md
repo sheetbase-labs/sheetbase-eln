@@ -118,6 +118,11 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Home ported**: `/` renders app-3's Home wired to the real work items
+  (reviews awaiting you), today's calendar bookings and active dataset flags.
+  The old 1988-line Home and its test are deleted; the root chrome switch now
+  includes `/`.
+
 - Foundations staged under `src/components/v3/`: UI kit, icons, shared types,
   Projects pieces, shell + nav + theme, token-name bridge, `@base-ui/react`.
 - Root chrome switch: `__root.tsx` renders app-3's `AppShell` for routes listed

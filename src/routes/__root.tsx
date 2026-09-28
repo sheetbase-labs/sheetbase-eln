@@ -117,6 +117,7 @@ function RootRouteComponent() {
   // is ported. The list grows area by area, then this branch and the ELN shell
   // are deleted.
   const v3RouteIds = [
+    '/',
     '/projects',
     '/projects/$projectId',
     '/projects/$projectId/',

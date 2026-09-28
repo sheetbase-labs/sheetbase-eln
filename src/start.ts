@@ -25,6 +25,13 @@ const pipelineSchedulerMiddleware = createMiddleware().server(
   },
 )
 
+// WORK-03.4: email outbox + daily digest sweep.
+const emailSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startEmailScheduler } = await import('#/lib/email-scheduler.server')
+  startEmailScheduler()
+  return next()
+})
+
 // API-06: webhook delivery engine. LISTENs for change events, matches
 // active subscriptions, and attempts signed HTTP POST delivery with
 // retries and auto-disablement. Started lazily per-process.
@@ -81,6 +88,7 @@ export const startInstance = createStart(() => ({
   requestMiddleware: [
     securityHeadersMiddleware,
     pipelineSchedulerMiddleware,
+    emailSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,
   ],

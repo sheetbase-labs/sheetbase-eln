@@ -85,3 +85,38 @@ describe('email outbox', () => {
     expect(dead.rows[0]?.status).toBe('dead')
   })
 })
+
+describe('quiet hours', () => {
+  it('holds non-urgent email but always delivers signature requests', async () => {
+    await migrator.query(`DELETE FROM internal.email_deliveries`)
+    await migrator.query(
+      `INSERT INTO api.user_preferences (user_id, quiet_hours_start, quiet_hours_end)
+       VALUES ('${USER}',
+               to_char(now() AT TIME ZONE 'UTC' - interval '1 hour', 'HH24:MI'),
+               to_char(now() AT TIME ZONE 'UTC' + interval '1 hour', 'HH24:MI'))`,
+    )
+    const heldFlag = await migrator.query<{ h: boolean }>(
+      `SELECT internal.email_held_for_quiet_hours($1, 'material_expiring') AS h`,
+      [USER],
+    )
+    expect(heldFlag.rows[0]?.h).toBe(true)
+
+    await migrator.query(
+      `SELECT internal.enqueue_email_delivery($1, $2, 'material_expiring', 'Lot expiring', 'body')`,
+      [WS, USER],
+    )
+    const held = await migrator.query(
+      `SELECT * FROM internal.claim_due_email_deliveries(10)`,
+    )
+    expect(held.rows).toHaveLength(0)
+
+    const urgent = await migrator.query<{ id: string }>(
+      `SELECT internal.enqueue_email_delivery($1, $2, 'signature_requested', 'Signature requested', 'body') AS id`,
+      [WS, USER],
+    )
+    const claimed = await migrator.query<{ id: string }>(
+      `SELECT * FROM internal.claim_due_email_deliveries(10)`,
+    )
+    expect(claimed.rows.map((row) => row.id)).toEqual([urgent.rows[0]!.id])
+  })
+})

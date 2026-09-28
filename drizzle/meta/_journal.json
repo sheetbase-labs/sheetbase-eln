@@ -1434,6 +1434,13 @@
       "when": 1790565153111,
       "tag": "0206_daily_digest",
       "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1790565673604,
+      "tag": "0207_email_quiet_hours",
+      "breakpoints": true
     }
   ]
 }

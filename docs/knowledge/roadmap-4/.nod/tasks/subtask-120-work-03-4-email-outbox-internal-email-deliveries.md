@@ -2,7 +2,7 @@
 id: subtask-120
 title: WORK-03.4 — Email outbox internal.email_deliveries + server worker
 type: subtask
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-28"
@@ -22,3 +22,4 @@ Step 4 of 4 in [WORK-03](../../tasks/WORK.md#work-03--notifications-and-preferen
 - 2026-09-28: PR #206: internal.enqueue_daily_digests — one digest email per user per day at their digest time (idempotent via digest_last_sent_on); DB test. Only the SMTP transport (needs a mail dependency/env) remains.
 - 2026-09-28: PR #206: SMTP transport factory (readSmtpConfig + createSmtpTransport via optional nodemailer) and .env.example entries; unit test. Only wiring the worker/digest to a scheduled invocation remains.
 - 2026-09-28: PR #206: email scheduler driver (unref interval: enqueue digests, then send due deliveries when SMTP configured) wired into the server start middleware like the pipeline scheduler. Remaining: apply quiet-hours nextSendAt when enqueuing non-urgent email.
+- 2026-09-28: PR #206: quiet hours now enforced when claiming deliveries (internal.email_held_for_quiet_hours; reviews/signatures always delivered); DB test. WORK-03.4 complete: outbox, worker, templates, quiet hours, digest, SMTP transport, scheduled driver.

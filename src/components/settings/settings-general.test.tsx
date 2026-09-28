@@ -16,8 +16,10 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
       timezone: 'Europe/London',
       dateFormat: 'd MMM yyyy',
       numberFormat: 'decimal' as const,
+      idPrefixes: { experiment: 'EXP' },
     })),
     updateWorkspaceGeneral: vi.fn(async () => {}),
+    updateWorkspaceIdPrefixes: vi.fn(async () => {}),
   }
 })
 

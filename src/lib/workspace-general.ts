@@ -9,13 +9,27 @@ export interface WorkspaceGeneral {
   timezone: string
   dateFormat: string
   numberFormat: 'decimal' | 'scientific'
+  /** SET-01.2 — identifier prefix per record kind. */
+  idPrefixes: Record<string, string>
 }
+
+/** Record kinds whose identifier prefix the workspace can configure. */
+export const ID_PREFIX_KINDS = [
+  'experiment',
+  'sample',
+  'reagent',
+  'protocol_template',
+  'report',
+  'file',
+  'notebook_template',
+] as const
 
 interface WorkspaceSettingsWire {
   site: string | null
   timezone: string
   date_format: string
   number_format: string
+  id_prefixes: Record<string, string> | null
 }
 
 export const workspaceGeneralQueryKey = ['workspace-general'] as const
@@ -36,7 +50,7 @@ export async function fetchWorkspaceGeneral(
 ): Promise<WorkspaceGeneral | null> {
   const rows = await client.list<WorkspaceSettingsWire>(
     'workspace_settings',
-    '?select=site,timezone,date_format,number_format&limit=1',
+    '?select=site,timezone,date_format,number_format,id_prefixes&limit=1',
   )
   if (rows.length === 0) return null
   const row = rows[0]
@@ -45,6 +59,7 @@ export async function fetchWorkspaceGeneral(
     timezone: row.timezone,
     dateFormat: row.date_format,
     numberFormat: row.number_format === 'scientific' ? 'scientific' : 'decimal',
+    idPrefixes: row.id_prefixes ?? {},
   }
 }
 
@@ -59,5 +74,16 @@ export async function updateWorkspaceGeneral(
     p_timezone: input.timezone,
     p_date_format: input.dateFormat,
     p_number_format: input.numberFormat,
+  })
+}
+
+export async function updateWorkspaceIdPrefixes(
+  workspaceId: string,
+  prefixes: Record<string, string>,
+  client: DataClient = notebookDataClient,
+): Promise<void> {
+  await client.rpc('update_workspace_id_prefixes', {
+    p_workspace_id: workspaceId,
+    p_prefixes: prefixes,
   })
 }

@@ -80,3 +80,31 @@ describe('api.update_workspace_general', () => {
     ).rejects.toMatchObject({ code: '22023' })
   })
 })
+
+describe('api.update_workspace_id_prefixes', () => {
+  it('sets the prefixes for an admin and refuses a bad one', async () => {
+    const admin = await asAuthenticated(ADMIN)
+    const { rows } = await admin.query<{ id_prefixes: Record<string, string> }>(
+      `SELECT * FROM api.update_workspace_id_prefixes($1, '{"experiment":"EXP","sample":"SMP"}'::jsonb)`,
+      [WS],
+    )
+    expect(rows[0]?.id_prefixes).toEqual({ experiment: 'EXP', sample: 'SMP' })
+
+    await expect(
+      admin.query(
+        `SELECT api.update_workspace_id_prefixes($1, '{"experiment":"exp"}'::jsonb)`,
+        [WS],
+      ),
+    ).rejects.toMatchObject({ code: '22023' })
+  })
+
+  it('refuses a non-admin', async () => {
+    const member = await asAuthenticated(MEMBER)
+    await expectDenied(
+      member.query(`SELECT api.update_workspace_id_prefixes($1, '{}'::jsonb)`, [
+        WS,
+      ]),
+      '42501',
+    )
+  })
+})

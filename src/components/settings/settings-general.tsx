@@ -7,7 +7,9 @@ import {
   NUMBER_FORMATS,
   fetchWorkspaceGeneral,
   updateWorkspaceGeneral,
+  updateWorkspaceIdPrefixes,
   workspaceGeneralQueryKey,
+  ID_PREFIX_KINDS,
 } from '#/lib/workspace-general'
 import type { WorkspaceGeneral } from '#/lib/workspace-general'
 
@@ -16,6 +18,7 @@ const DEFAULTS: WorkspaceGeneral = {
   timezone: 'Europe/London',
   dateFormat: 'd MMM yyyy',
   numberFormat: 'decimal',
+  idPrefixes: {},
 }
 
 /**
@@ -36,7 +39,10 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
   }, [query.data])
 
   const save = useMutation({
-    mutationFn: () => updateWorkspaceGeneral(workspaceId, form),
+    mutationFn: async () => {
+      await updateWorkspaceGeneral(workspaceId, form)
+      await updateWorkspaceIdPrefixes(workspaceId, form.idPrefixes)
+    },
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: workspaceGeneralQueryKey }),
   })
@@ -131,6 +137,37 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
             ))}
           </select>
         </label>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-label text-foreground">Identifier prefixes</h4>
+        <p className="text-caption text-muted-foreground">
+          Prefix for each kind. Numbers continue from the last used and are
+          never reused.
+        </p>
+        <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
+          {ID_PREFIX_KINDS.map((kind) => (
+            <label
+              key={kind}
+              className="flex items-center gap-2 text-label text-muted-foreground"
+            >
+              <span className="w-40 truncate">{kind.replace(/_/g, ' ')}</span>
+              <Input
+                aria-label={`${kind} prefix`}
+                value={form.idPrefixes[kind] ?? ''}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    idPrefixes: {
+                      ...current.idPrefixes,
+                      [kind]: event.target.value.toUpperCase(),
+                    },
+                  }))
+                }
+              />
+            </label>
+          ))}
+        </div>
       </div>
     </section>
   )

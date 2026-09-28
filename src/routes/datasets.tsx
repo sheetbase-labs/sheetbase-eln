@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   DescriptionList,
@@ -133,6 +134,16 @@ function DatasetsList() {
         <ListHeader
           title="Datasets"
           total={rows.length}
+          actions={
+            <Button
+              variant="primary"
+              icon="upload"
+              nativeButton={false}
+              render={<Link to="/import" />}
+            >
+              Import data
+            </Button>
+          }
           tabs={
             <SearchTabs
               label="Dataset lists"

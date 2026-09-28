@@ -118,6 +118,14 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Import entry point added**: `/import` lists the datasets a file can be
+  imported into and runs the existing import wizard for the chosen target
+  (client-side parse → column mapping → row check → commit through the canonical
+  RPC). app-3 walks those steps across `/import` and `/import/$importId`; the ELN
+  keeps one route because there is no server-side import-job model to page
+  through, and the wizard is the tested engine. The datasets list header links
+  to it. The screens suite covers `/import` (45 routes × 2 widths clean).
+
 - **Electronic signatures ported (new capability)**: SIGN-003 adds
   `api.user_signature_certifications` (one row per workspace/user) with RLS and
   the `certify_signature` / `withdraw_signature_certification` /

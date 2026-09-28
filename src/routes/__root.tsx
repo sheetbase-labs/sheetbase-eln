@@ -166,6 +166,7 @@ function RootRouteComponent() {
     '/pipelines/$pipelineId/runs/',
     '/pipelines/$pipelineId/runs/$runId',
     '/pipelines/$pipelineId/triggers',
+    '/import',
     '/datasets',
     '/datasets/$datasetId',
     '/datasets/$datasetId/',

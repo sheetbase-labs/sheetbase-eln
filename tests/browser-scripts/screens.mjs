@@ -93,6 +93,7 @@ function routes(ids) {
     '/samples',
     '/materials',
     '/datasets',
+    '/import',
     '/templates',
     '/models',
     '/pipelines',

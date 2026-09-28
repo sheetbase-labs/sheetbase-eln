@@ -1256,6 +1256,7 @@ interface DesignDatasetField {
 
 interface DesignDataset {
   id: string
+  displayId: string
   workspaceId: string
   actorId: string
   projectId: string
@@ -1346,6 +1347,7 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
     workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
     actorId: DESIGN_USER_IDS.gareth,
     projectId: '00000000-0000-4000-8000-000000000322',
+    displayId: 'DS-0298',
     schemaKey: 'ambr_250_daily_reading',
     schemaName: 'Ambr 250 daily reading',
     name: 'Ambr 250 daily readings, AMB-25-118',
@@ -1367,6 +1369,7 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
     workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
     actorId: DESIGN_USER_IDS.gareth,
     projectId: '00000000-0000-4000-8000-000000000320',
+    displayId: 'DS-0311',
     schemaKey: 'elisa_turbidity',
     schemaName: 'ELISA and turbidity',
     name: 'ELISA capsid titre and turbidity',
@@ -1616,8 +1619,8 @@ async function seedDesignDatasets(
 
         await client.query(
           `insert into api.datasets
-           (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id)
-         values ($1,$2,$3,$4,$5,$6,$7)`,
+           (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id, display_id)
+         values ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [
             dataset.id,
             dataset.workspaceId,

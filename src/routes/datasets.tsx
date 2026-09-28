@@ -1930,8 +1930,8 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Live revision {datasetRevision(table)}. Snapshots never change after
-          capture.
+          {table.display_id ? `${table.display_id} · ` : ''}Live revision{' '}
+          {datasetRevision(table)}. Snapshots never change after capture.
         </p>
         <Dialog open={snapshotOpen} onOpenChange={setSnapshotOpen}>
           <DialogContent className="max-w-md">

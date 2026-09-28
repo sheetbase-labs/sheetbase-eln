@@ -84,6 +84,8 @@ export const datasetExplorerQueryKeys = {
 
 export interface CanonicalDatasetWire extends ScientificTableWire {
   workspace_id?: string
+  /** Stable per-workspace display id, e.g. DS-0298. */
+  display_id?: string | null
   schema_version_id?: string
   description?: string | null
   revision?: number
@@ -93,6 +95,7 @@ export interface CanonicalDatasetWire extends ScientificTableWire {
 
 interface DatasetResourceWire {
   id: string
+  display_id?: string | null
   workspace_id: string
   schema_version_id: string
   name: string

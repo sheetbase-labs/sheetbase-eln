@@ -2855,6 +2855,8 @@ export const datasets = api.table(
       .references(() => datasetSchemaVersions.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     description: text('description'),
+    /** Stable per-workspace display id, e.g. DS-0298. Assigned on insert. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('active'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
@@ -2871,6 +2873,14 @@ export const datasets = api.table(
     ),
   },
   (table) => [
+    unique('uq_datasets_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
+    ),
+    check(
+      'chk_datasets_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^DS-[0-9]{4,}$'`,
+    ),
     check(
       'chk_datasets_created_by_actor',
       sql`NOT (${table.createdByUserId} IS NOT NULL AND ${table.createdByCredentialId} IS NOT NULL)`,

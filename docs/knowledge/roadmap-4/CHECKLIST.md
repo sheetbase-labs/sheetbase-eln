@@ -308,7 +308,7 @@ Specification: [tasks/MDL.md](tasks/MDL.md) · nod `epic-251`
   - [ ] MDL-01.1 Workspace-owned model kinds `subtask-253`
   - [ ] MDL-01.2 Records of a workspace model created through create_model_record with field… `subtask-254`
   - [ ] MDL-01.3 Public API and SDK exposure `subtask-255`
-- [ ] **MDL-02** Model editor `task-256`
+- [ ] **MDL-02** Model editor — **in progress** `task-256`
   - [ ] MDL-02.1 Routes /models `subtask-257`
   - [ ] MDL-02.2 Rules `subtask-258`
   - [ ] MDL-02.3 Field editor with reason-for-change, impact `subtask-259`
@@ -366,7 +366,7 @@ Specification: [tasks/LAB.md](tasks/LAB.md) · nod `epic-269`
 
 Specification: [tasks/PIPE.md](tasks/PIPE.md) · nod `epic-305`
 
-- [ ] **PIPE-01** Pipeline screens `task-306`
+- [ ] **PIPE-01** Pipeline screens — **in progress** `task-306`
   - [ ] PIPE-01.1 List per PipelinesList `subtask-307`
   - [ ] PIPE-01.2 Editor per PipelineEditor `subtask-308`
   - [ ] PIPE-01.3 Triggers and outputs per PipelineTriggers `subtask-309`

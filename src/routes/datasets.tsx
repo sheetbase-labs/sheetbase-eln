@@ -1,2259 +1,268 @@
-/**
- * PC-02 Dataset product route (`/datasets`).
- *
- * Catalogue, Schema selection, live edit through `commit_dataset_row_batch`,
- * immutable Versions, query/filter/sort/page, dependency inspection, and
- * deep links into existing Sheet routes. PostgreSQL and RLS remain
- * authoritative; this UI does not add a second Dataset writer.
- */
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query'
-import {
-  createFileRoute,
-  Link,
-  redirect,
-  useNavigate,
-} from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import { flexRender } from '@tanstack/react-table'
-import type { ColumnDef, useReactTable } from '@tanstack/react-table'
-import {
-  BarChart3,
-  Check,
-  ChevronsUpDown,
-  Database,
-  History,
-  Layers,
-  Table as TableIcon,
-  Workflow,
-} from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
-import { ExportMenu } from '#/components/export/export-menu'
-import { useShell } from '#/components/shell'
-import { ExtensionObjectActions } from '#/components/extensions/extension-slots'
-import { useExtensionPoints } from '#/components/extensions/use-extension-points'
+import { Status } from '#/components/v3/ui/status'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
-  describeExtensionInvocationError,
-  invokeExtensionContribution,
-} from '#/lib/extensions/registry'
-import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
-import { SampleExtensionPanel } from '#/lib/extensions/sample/panel'
-import { PipelineDatasetTab } from '#/components/pipelines/pipeline-dataset-tab'
-import {
-  CollaborationRoom,
-  safeBuildRoomId,
-} from '#/components/collaboration/collaboration-room'
-import { ThreadPanel } from '#/components/collaboration/thread-panel'
-import { PresenceStack } from '#/components/collaboration/presence-avatars'
-import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
-import { canCommentInRoom } from '#/lib/collaboration/permissions'
-import { DatasetProductActions } from '#/components/datasets/dataset-product-controls'
-import { ObjectHistoryTimeline } from '#/components/audit'
-import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
-import { DataClientError } from '#/lib/data-client'
-import { useRecentViewTracking } from '#/lib/recents'
-import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { RegistryComposition } from '#/components/registry'
-import type { DataGridField } from '#/components/data-grid'
-import {
-  EmptyHint,
+  DescriptionList,
   Inspector,
   InspectorSection,
-  LinkedRecordList,
-} from '#/components/record'
-import { Property, PropertyList } from '#/components/scientific'
-import { ChartConfigurator } from '#/components/viz/chart-configurator'
-import { ChartRenderer } from '#/components/viz/chart-renderer'
+} from '#/components/v3/ui/layout'
 import {
-  Badge,
-  Button,
-  Input,
-  Label,
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Skeleton,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
 import {
-  materialiseLiveChart,
-  toCanonicalDatasetSource,
-  useLiveChartDataset,
-} from '#/lib/chart-data'
-import { formatCount } from '#/lib/format-numbers'
+  ListFooter,
+  ListHeader,
+  ListToolbar,
+  MobileList,
+  SearchTabs,
+  stickyCell,
+  stickyHead,
+} from '#/components/v3/inventory/list'
 import {
-  fetchLinksForRecord,
-  formatRelativeTime,
-  notebookDataClient,
-} from '#/lib/notebook-data'
-import {
-  buildDefaultChartSpec,
-  DATASET_DEFAULT_PAGE_SIZE,
-  DATASET_MAX_FILTERS,
-  datasetExplorerDataClient,
-  datasetExplorerQueryKeys,
-  fetchDatasetLifecycleById,
-  fetchDatasetLineage,
-  fetchDatasetRelationshipsFor,
-  fetchDatasetRowPage,
-  fetchDatasetSummaries,
-  compareDatasetVersions,
-  listDatasetVersionSummaries,
-  getNextDatasetPageParam,
-  resolveDatasetDeepLinkSelection,
-  validateTransformations,
-} from '#/lib/dataset-explorer-data'
-import type {
-  CanonicalDatasetWire,
-  DatasetDensity,
-  DatasetRowQuery,
-} from '#/lib/dataset-explorer-data'
-import type {
-  FormulaDefinitionWire,
-  FormulaDependencyWire,
-  ScientificColumnWire,
-  ScientificRowWire,
-  ScientificTableWire,
-} from '#/lib/scientific-sheet-data'
-import type { ChartSpec } from '#/lib/chart-spec'
-import type { RegistryQuery } from '#/lib/registry'
-import { cn } from '#/lib/utils'
-import {
-  coerceDatasetCellValue,
-  columnsForPinnedSchemaVersion,
-  commitDatasetRowBatch,
-  datasetRevision,
-  describeDatasetCommitError,
-  fetchDatasetDependencies,
-  listDatasetVersions,
-  queryDatasetVersionRows,
-  sheetLinksFromDependencies,
-} from '#/lib/dataset-product'
-import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
+  datasetValidation,
+  useDatasetSummaries
+  
+} from '#/components/v3/datasets/datasets-data'
+import type {DatasetListRow} from '#/components/v3/datasets/datasets-data';
 
+const tabs = ['all', 'mine', 'issues', 'locked'] as const
+type DatasetTab = (typeof tabs)[number]
+const tabLabel: Record<DatasetTab, string> = {
+  all: 'All',
+  mine: 'Mine',
+  issues: 'Issues',
+  locked: 'Locked',
+}
+
+/** UI port (roadmap-4/ui-app3): the dataset registry list, wired to
+ * dataset_list_summary. The explorer/rows/snapshots/compare child routes and
+ * the import flow follow. */
 export const Route = createFileRoute('/datasets')({
   validateSearch: (
     search: Record<string, unknown>,
   ): {
-    dataset: string
-    /**
-     * Optional in the input so canonical deep links (Sheet provenance)
-     * carry only the stable Dataset ID; the explorer resolves the
-     * Dataset's lifecycle itself and flips this to `true` when the
-     * requested Dataset is archived or retired. Always boolean in output.
-     */
+    q?: string
+    tab?: DatasetTab | 'pipelines' | 'versions'
+    dataset?: string
     archived?: boolean
-    tab?: 'pipelines' | 'versions'
   } => ({
-    dataset: typeof search.dataset === 'string' ? search.dataset : '',
-    archived: search.archived === '1' || search.archived === true,
+    q: typeof search.q === 'string' ? search.q : undefined,
+    dataset: typeof search.dataset === 'string' ? search.dataset : undefined,
+    archived: search.archived === true || search.archived === '1' || undefined,
     tab:
-      search.tab === 'pipelines'
-        ? 'pipelines'
-        : search.tab === 'versions'
-          ? 'versions'
-          : undefined,
+      search.tab === 'mine' ||
+      search.tab === 'issues' ||
+      search.tab === 'locked' ||
+      search.tab === 'all' ||
+      search.tab === 'pipelines' ||
+      search.tab === 'versions'
+        ? search.tab
+        : undefined,
   }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) {
+      throw redirect({ to: '/sign-in' })
+    }
     return { context }
   },
-  component: DatasetExplorerRoute,
+  component: DatasetsList,
 })
 
-const DEFAULT_DATASET_QUERY: DatasetRowQuery = {
-  pageIndex: 0,
-  pageSize: DATASET_DEFAULT_PAGE_SIZE,
-  sorting: [],
-  filters: [],
-}
-
-function queryIdentity(query: DatasetRowQuery): string {
-  return [
-    query.pageSize,
-    query.sorting.map((s) => `${s.id}:${s.desc}`).join(','),
-    query.filters
-      .map((f) => `${f.fieldId}:${f.operator}=${f.values.join(',')}`)
-      .join(','),
-  ].join('|')
-}
-
-function rowCellValue(row: ScientificRowWire, column: ScientificColumnWire) {
-  const value = row[column.field_name]
-  if (value === null || value === undefined || value === '') return '—'
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
-  if (typeof value === 'number') return formatCount(value)
-  return String(value)
-}
-
-function toColumnDefs(
-  columns: ScientificColumnWire[],
-): ColumnDef<ScientificRowWire, unknown>[] {
-  return columns.map((column) => {
-    const numeric = ['decimal', 'integer'].includes(column.logical_type)
-    return {
-      id: column.field_name,
-      accessorKey: column.field_name,
-      header: column.label,
-      cell: ({ row }) => (
-        <span
-          className={cn(
-            numeric && 'scientific-nums tabular-nums',
-            /sample id/i.test(column.label) && 'font-medium text-primary',
-          )}
-        >
-          {rowCellValue(row.original, column)}
-        </span>
-      ),
-      meta: numeric
-        ? {
-            dataGridFormat: {
-              kind: 'scientific' as const,
-              unit: describeUnit(column.unit).replace('—', '') || undefined,
-            },
-          }
-        : undefined,
-      enableSorting: true,
-      enableHiding: true,
-    }
-  })
-}
-
-// ---------------------------------------------------------------------------
-// Route component
-// ---------------------------------------------------------------------------
-
-function DatasetExplorerRoute() {
+function DatasetsList() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
-  // validateSearch always materialises `archived`; typed optional so deep
-  // links may omit it and let the explorer's lifecycle resolution decide.
-  const archivedView = search.archived ?? false
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const query = useDatasetSummaries()
+  const rows = query.data ?? []
+  const tab: DatasetTab =
+    search.tab === 'mine' || search.tab === 'issues' || search.tab === 'locked'
+      ? search.tab
+      : 'all'
+  const [selected, setSelected] = useState<string | null>(null)
 
-  // FIND-01: a selected dataset counts as a "view" for the Recent surface;
-  // browsing the explorer without a selection (empty search param) does not.
-  useRecentViewTracking('dataset', search.dataset || null)
-
-  const summariesQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.summaries(archivedView),
-    queryFn: () =>
-      fetchDatasetSummaries(datasetExplorerDataClient, {
-        includeArchived: archivedView,
-      }),
-    staleTime: 30_000,
-  })
-
-  const datasets = summariesQuery.data ?? []
-  // EXT-02: enabled-install object-actions for this caller, mounted in the
-  // explorer header actions slot. Same resolve path as the record surface.
-  const extensionPoints = useExtensionPoints(
-    datasetExplorerDataClient,
-    context.workspace?.id ?? null,
-    context.workspace?.role ?? null,
-  )
-  const [samplePanelOpen, setSamplePanelOpen] = useState(false)
-  const [extensionError, setExtensionError] = useState<string | null>(null)
-  const runExtensionContribution = (
-    contribution: ResolvedExtensionContribution,
-  ) => {
-    const workspaceId = context.workspace?.id
-    if (!workspaceId) return
-    setExtensionError(null)
-    void invokeExtensionContribution(
-      datasetExplorerDataClient,
-      workspaceId,
-      contribution,
-      async () => undefined,
-    )
-      .then(() => setSamplePanelOpen(true))
-      .catch((cause: unknown) =>
-        setExtensionError(describeExtensionInvocationError(cause)),
-      )
-  }
-  const [activeTab, setActiveTab] = useState<
-    | 'data'
-    | 'chart'
-    | 'schema'
-    | 'versions'
-    | 'compare'
-    | 'history'
-    | 'pipelines'
-  >(
-    search.tab === 'pipelines'
-      ? 'pipelines'
-      : search.tab === 'versions'
-        ? 'versions'
-        : 'data',
-  )
-
-  const requestedTableId = search.dataset || null
-  // NAV-02 review fix: a deep link (e.g. Sheet provenance) carries only the
-  // stable Dataset ID. When it is absent from the current list — which is
-  // active-only unless `archived` is set — resolve the requested Dataset's
-  // lifecycle directly and flip the explorer to the archived view instead
-  // of falling back to a different active Dataset.
-  const requestedInList = useMemo(
-    () => datasets.some((dataset) => dataset.id === requestedTableId),
-    [datasets, requestedTableId],
-  )
-  const resolveRequestedLifecycle = useQuery({
-    queryKey: datasetExplorerQueryKeys.lifecycle(requestedTableId ?? ''),
-    queryFn: () =>
-      fetchDatasetLifecycleById(
-        datasetExplorerDataClient,
-        requestedTableId as string,
-      ),
-    enabled:
-      Boolean(requestedTableId) && summariesQuery.isSuccess && !requestedInList,
-  })
-  const selection = resolveDatasetDeepLinkSelection({
-    datasets,
-    requestedDatasetId: requestedTableId,
-    requestedLifecycle: resolveRequestedLifecycle.data,
-    summariesLoaded: summariesQuery.isSuccess,
-  })
-  const selectedTable = useMemo(
+  const inTab = (r: DatasetListRow, t: DatasetTab): boolean =>
+    t === 'all'
+      ? true
+      : t === 'mine'
+        ? r.createdByUserId === context.user.id
+        : t === 'issues'
+          ? r.issues > 0
+          : false
+  const counts = useMemo(
     () =>
-      datasets.find((dataset) => dataset.id === selection.selectedDatasetId) ??
-      null,
-    [datasets, selection.selectedDatasetId],
+      Object.fromEntries(
+        tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
+      ) as Record<DatasetTab, number>,
+    [rows, context.user.id],
   )
-  const selectedTableId = selectedTable?.id ?? null
-  // EXT-02 sample panel content: ordinary public reads already on this
-  // route (explorer summaries + selection). The panel gets only this
-  // loader — no data import of its own.
-  const loadSampleSummary = useCallback(
-    async () => ({
-      heading: selectedTable?.name ?? 'No dataset selected',
-      subheading: selectedTable
-        ? `Dataset · ${selectedTable.lifecycle}`
-        : undefined,
-      rows: [
-        { label: 'Datasets in view', value: String(datasets.length) },
-        ...(selectedTable
-          ? [
-              { label: 'Status', value: selectedTable.lifecycle },
-              { label: 'ID', value: selectedTable.id },
-            ]
-          : []),
-      ],
-    }),
-    [datasets.length, selectedTable],
-  )
-
-  function selectDataset(dataset: string) {
-    void navigate({
-      to: '/datasets',
-      search: { dataset, archived: archivedView },
-      replace: false,
-    })
-  }
-
-  useEffect(() => {
-    if (!selectedTableId || selectedTableId === requestedTableId) return
-    void navigate({
-      to: '/datasets',
-      search: { dataset: selectedTableId, archived: archivedView },
-      replace: true,
-    })
-  }, [navigate, requestedTableId, archivedView, selectedTableId])
-
-  useEffect(() => {
-    if (!selection.flipToArchived || !requestedTableId) return
-    void navigate({
-      to: '/datasets',
-      search: { dataset: requestedTableId, archived: true },
-      replace: true,
-    })
-  }, [navigate, requestedTableId, selection.flipToArchived])
-
-  const shellContext = {
-    workspace: context.workspace ? { name: context.workspace.name } : null,
-    user: {
-      name: context.user.name,
-      email: context.user.email,
-      role: context.workspace?.role,
-    },
-  }
-
-  // COLLAB-02: one dataset room per selected dataset; null when the
-  // deployment has collaboration disabled or there is no workspace.
-  const collaborationEnabled = useCollaborationEnabled()
-  const collaborationRoomId =
-    collaborationEnabled && selectedTableId
-      ? safeBuildRoomId(context.workspace?.id, 'dataset', selectedTableId)
-      : null
-
-  useShell({
-    context: shellContext,
-    breadcrumbs: [
-      { label: 'Home', to: '/' },
-      { label: 'Datasets', to: '/datasets' },
-      // NAV-02: the selected dataset is context, resolved from the stable
-      // `?dataset=` ID — never from browser history.
-      ...(selectedTable ? [{ label: selectedTable.name }] : []),
-    ],
-    fullBleed: true,
-  })
-
-  function refreshDatasets() {
-    void queryClient.invalidateQueries({
-      queryKey: ['dataset-explorer-summaries'],
-    })
-    if (selectedTableId) {
-      void queryClient.invalidateQueries({
-        queryKey: datasetExplorerQueryKeys.rows(selectedTableId, ''),
-        exact: false,
-      })
-      void queryClient.invalidateQueries({
-        queryKey: datasetExplorerQueryKeys.versions(selectedTableId),
-      })
-    }
-  }
+  const q = (search.q ?? '').trim().toLowerCase()
+  const visible = rows
+    .filter((r) => inTab(r, tab))
+    .filter(
+      (r) =>
+        !q || [r.id, r.name, r.model].some((v) => v.toLowerCase().includes(q)),
+    )
+  const sel =
+    visible.find((r) => r.uuid === (selected ?? search.dataset)) ??
+    visible.at(0)
 
   return (
-    <>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
-        <DatasetExplorerHeader
-          datasets={datasets}
-          loading={summariesQuery.isLoading}
-          error={summariesQuery.error}
-          selectedTableId={selectedTableId}
-          includeArchived={archivedView}
-          onToggleArchived={(archived) => {
+    <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ListHeader
+          title="Datasets"
+          total={rows.length}
+          tabs={
+            <SearchTabs
+              label="Dataset lists"
+              current={tab}
+              items={tabs.map((t) => ({
+                key: t,
+                label: tabLabel[t],
+                count: counts[t],
+                link: {
+                  to: '/datasets',
+                  search: { tab: t === 'all' ? undefined : t, q: search.q },
+                },
+              }))}
+            />
+          }
+        />
+        <ListToolbar
+          q={search.q}
+          label="Search datasets"
+          placeholder="Search datasets"
+          onSearch={(next) =>
             void navigate({
               to: '/datasets',
-              search: { dataset: selectedTableId ?? '', archived },
-              replace: false,
+              search: (s) => ({ ...s, q: next || undefined }),
+              replace: true,
             })
-          }}
-          onSelect={selectDataset}
-          actions={
-            <>
-              {/* FIND-02: deliberate pin for the selected dataset. */}
-              <FavouriteToggle kind="dataset" objectId={selectedTableId} />
-              {/* EXT-02: enabled extensions' object-actions for the selected
-                  dataset. Absent while empty; failures surface inline. */}
-              <ExtensionObjectActions
-                actions={selectedTable ? extensionPoints.objectActions : []}
-                onSelect={runExtensionContribution}
-              />
-              <DatasetProductActions
-                table={selectedTable}
-                client={datasetExplorerDataClient}
-                archived={selectedTable?.lifecycle === 'archived'}
-                workspaceId={context.workspace?.id ?? ''}
-                onRefresh={refreshDatasets}
-                onCreate={selectDataset}
-              />
-              {extensionError ? (
-                <span role="alert" className="text-xs text-destructive">
-                  {extensionError}
-                </span>
-              ) : null}
-            </>
           }
         />
-        {selectedTable ? (
-          // COLLAB-02: the whole detail area (tabs + inspector) lives inside
-          // the dataset room; CollaborationRoom renders children unchanged
-          // until the provider is ready, so SSR markup is unaffected.
-          <CollaborationRoom roomId={collaborationRoomId}>
-            {/* COLLAB-01: who else is in this dataset's room. Renders null
-                before the room mounts and when nobody else is present. */}
-            <PresenceStack className="justify-end pb-1" />
-            <DatasetTabs
-              key={selectedTable.id}
-              table={selectedTable}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              onRefresh={refreshDatasets}
-              collaborationWorkspaceId={
-                collaborationEnabled ? (context.workspace?.id ?? null) : null
-              }
-              collaborationRole={context.workspace?.role ?? 'viewer'}
-            />
-          </CollaborationRoom>
-        ) : (
-          <EmptyDatasetState
-            loading={summariesQuery.isLoading}
-            error={summariesQuery.error}
-          />
-        )}
-        {/* EXT-02 sample panel dialog, shared with the record surface. */}
-        <Dialog open={samplePanelOpen} onOpenChange={setSamplePanelOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Sample panel</DialogTitle>
-            </DialogHeader>
-            <SampleExtensionPanel loadSummary={loadSampleSummary} />
-          </DialogContent>
-        </Dialog>
-      </div>
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Header + dataset selector
-// ---------------------------------------------------------------------------
-
-interface DatasetExplorerHeaderProps {
-  datasets: CanonicalDatasetWire[]
-  loading: boolean
-  error: unknown
-  selectedTableId: string | null
-  includeArchived: boolean
-  onToggleArchived: (archived: boolean) => void
-  onSelect: (id: string) => void
-  actions?: ReactNode
-}
-
-export function DatasetExplorerHeader({
-  datasets,
-  loading,
-  error,
-  selectedTableId,
-  includeArchived,
-  onToggleArchived,
-  onSelect,
-  actions,
-}: DatasetExplorerHeaderProps) {
-  const selected = datasets.find((dataset) => dataset.id === selectedTableId)
-  const fieldCount = selected?.columns.length ?? 0
-
-  return (
-    <header
-      className="flex shrink-0 flex-wrap items-center justify-between gap-3"
-      aria-labelledby="datasets-title"
-    >
-      <div className="flex min-w-0 items-start gap-2.5">
-        <div className="min-w-0">
-          <h1
-            id="datasets-title"
-            className="break-words text-base font-semibold leading-5 tracking-tight"
-          >
-            {selected?.name ?? 'Scientific datasets'}
-          </h1>
-          <p className="text-xs leading-4 text-muted-foreground">
-            {selected
-              ? `${formatCount(fieldCount)} ${fieldCount === 1 ? 'field' : 'fields'}${selected.dataset_schema ? ` · ${selected.dataset_schema.name} v${selected.schema_version}` : ''}${selected.lifecycle === 'archived' ? ' · archived' : ' · live'}`
-              : 'Create datasets, explore rows and save versions'}
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {actions}
-        <Button
-          size="sm"
-          variant={includeArchived ? 'secondary' : 'outline'}
-          onClick={() => onToggleArchived(!includeArchived)}
-        >
-          {includeArchived ? 'Hide archived' : 'Show archived'}
-        </Button>
-        {error ? (
-          <Badge variant="danger">Could not load datasets</Badge>
-        ) : loading ? (
-          <Skeleton className="h-8 w-56" />
-        ) : datasets.length === 0 ? (
-          <Badge variant="outline">No datasets</Badge>
-        ) : (
-          <DatasetPicker
-            datasets={datasets}
-            selectedTableId={selectedTableId}
-            onSelect={onSelect}
-          />
-        )}
-      </div>
-    </header>
-  )
-}
-
-interface DatasetPickerProps {
-  datasets: ScientificTableWire[]
-  selectedTableId: string | null
-  onSelect: (id: string) => void
-}
-
-function DatasetPicker({
-  datasets,
-  selectedTableId,
-  onSelect,
-}: DatasetPickerProps) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span>Dataset</span>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            role="combobox"
-            aria-label="Select dataset"
-            aria-expanded={open}
-            className="h-7 w-56 justify-between bg-background px-2.5 text-xs font-normal"
-          >
-            <span className="truncate text-foreground">
-              Browse {formatCount(datasets.length)}{' '}
-              {datasets.length === 1 ? 'dataset' : 'datasets'}
-            </span>
-            <ChevronsUpDown
-              className="shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-72 p-0">
-          <Command label="Search datasets" loop>
-            <CommandInput
-              aria-label="Search datasets"
-              placeholder="Search datasets…"
-              className="h-9 py-2 text-xs"
-            />
-            <CommandList className="max-h-64">
-              <CommandEmpty>No datasets match your search.</CommandEmpty>
-              <CommandGroup
-                heading={`${formatCount(datasets.length)} ${datasets.length === 1 ? 'dataset' : 'datasets'}`}
-              >
-                {datasets.map((dataset) => {
-                  const schema = dataset.dataset_schema
-                  return (
-                    <CommandItem
-                      key={dataset.id}
-                      value={`${dataset.name} ${schema?.name ?? ''} ${schema?.slug ?? ''}`}
-                      onSelect={() => {
-                        onSelect(dataset.id)
-                        setOpen(false)
-                      }}
-                      className="py-1.5 text-xs"
-                    >
-                      <Check
-                        className={cn(
-                          'shrink-0',
-                          dataset.id === selectedTableId
-                            ? 'opacity-100'
-                            : 'opacity-0',
-                        )}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-foreground">
-                          {dataset.name}
-                        </span>
-                        {schema ? (
-                          <span className="block truncate text-[0.65rem] text-muted-foreground">
-                            {schema.name}
-                          </span>
-                        ) : null}
-                      </span>
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Tabs
-// ---------------------------------------------------------------------------
-
-interface DatasetTabsProps {
-  table: CanonicalDatasetWire
-  activeTab:
-    | 'data'
-    | 'chart'
-    | 'schema'
-    | 'versions'
-    | 'compare'
-    | 'history'
-    | 'pipelines'
-  onTabChange: (
-    tab:
-      | 'data'
-      | 'chart'
-      | 'schema'
-      | 'versions'
-      | 'compare'
-      | 'history'
-      | 'pipelines',
-  ) => void
-  onRefresh: () => void
-  /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
-  collaborationWorkspaceId?: string | null
-  /** COLLAB-02: workspace role hint for the discussion composer. */
-  collaborationRole?: string
-}
-
-function DatasetTabs({
-  table,
-  activeTab,
-  onTabChange,
-  onRefresh,
-  collaborationWorkspaceId,
-  collaborationRole = 'viewer',
-}: DatasetTabsProps) {
-  const workspaceId = collaborationWorkspaceId ?? ''
-  return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(v) =>
-        onTabChange(
-          v as
-            | 'data'
-            | 'chart'
-            | 'schema'
-            | 'versions'
-            | 'compare'
-            | 'history'
-            | 'pipelines',
-        )
-      }
-      className="relative min-h-0 flex-1 overflow-hidden"
-    >
-      <TabsList className="h-8 w-full justify-start gap-5 rounded-none border-b bg-transparent p-0">
-        <TabsTrigger
-          value="data"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-          <TableIcon className="size-3.5" aria-hidden="true" /> Live data
-        </TabsTrigger>
-        <TabsTrigger
-          value="versions"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-          <Layers className="size-3.5" aria-hidden="true" /> Versions
-        </TabsTrigger>
-        <TabsTrigger
-          value="compare"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-          <BarChart3 className="size-3.5" aria-hidden="true" /> Compare
-        </TabsTrigger>
-        <TabsTrigger
-          value="schema"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-          <Layers className="size-3.5" aria-hidden="true" /> Schema
-        </TabsTrigger>
-        <TabsTrigger
-          value="chart"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-          <BarChart3 className="size-3.5" aria-hidden="true" /> Chart
-        </TabsTrigger>
-        <TabsTrigger
-          value="history"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-          <History className="size-3.5" aria-hidden="true" /> History
-        </TabsTrigger>
-        <TabsTrigger
-          value="pipelines"
-          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-          <Workflow className="size-3.5" aria-hidden="true" /> Pipelines
-        </TabsTrigger>
-      </TabsList>
-      <TabsContent
-        value="data"
-        className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col"
-      >
-        <DatasetDataTab
-          table={table}
-          onRefresh={onRefresh}
-          collaborationWorkspaceId={collaborationWorkspaceId}
-          collaborationRole={collaborationRole}
-        />
-      </TabsContent>
-      <TabsContent
-        value="compare"
-        className="absolute inset-x-0 bottom-0 top-8 overflow-auto"
-      >
-        <DatasetCompareTab table={table} />
-      </TabsContent>
-      <TabsContent
-        value="versions"
-        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-auto p-3"
-      >
-        <DatasetVersionsTab table={table} />
-      </TabsContent>
-      <TabsContent
-        value="schema"
-        className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col overflow-auto"
-      >
-        <DatasetSchemaTab table={table} />
-      </TabsContent>
-      <TabsContent
-        value="chart"
-        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-hidden p-3"
-      >
-        <UnsupportedCanonicalView name="Chart" />
-      </TabsContent>
-      <TabsContent
-        value="history"
-        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-auto p-3"
-      >
-        <DatasetHistoryTab datasetId={table.id} />
-      </TabsContent>
-      <TabsContent
-        value="pipelines"
-        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-auto p-3"
-      >
-        <PipelineDatasetTab
-          dataClient={datasetExplorerDataClient}
-          workspaceId={workspaceId}
-          datasetId={table.id}
-        />
-      </TabsContent>
-    </Tabs>
-  )
-}
-
-function UnsupportedCanonicalView({ name }: { name: string }) {
-  return (
-    <EmptyHint>
-      {name} is not yet available for canonical Datasets. The Explorer will not
-      read legacy physical sheet resources as a fallback.
-    </EmptyHint>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// History tab — GOV-03. Authoritative change_events for the Dataset and its
-// Versions, correlated through the RPC's object filter; frozen snapshot rows
-// stay in the Versions tab.
-// ---------------------------------------------------------------------------
-
-function DatasetHistoryTab({ datasetId }: { datasetId: string }) {
-  const historyQuery = useInfiniteQuery({
-    queryKey: ['audit-events', 'dataset', datasetId],
-    initialPageParam: undefined as number | undefined,
-    queryFn: ({ pageParam }) =>
-      fetchAuditEvents(auditHistoryDataClient, {
-        object: datasetId,
-        limit: 50,
-        ...(pageParam === undefined ? {} : { beforeSequence: pageParam }),
-      }),
-    getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined,
-  })
-
-  const events = historyQuery.data?.pages.flatMap((page) => page.events) ?? []
-  const denied =
-    historyQuery.error instanceof DataClientError &&
-    (historyQuery.error.code === 'permission_denied' ||
-      historyQuery.error.code === 'unauthenticated')
-
-  return (
-    <ObjectHistoryTimeline
-      events={events}
-      loading={historyQuery.isLoading}
-      error={
-        historyQuery.isError
-          ? denied
-            ? 'History is not available for this dataset.'
-            : 'History could not be loaded.'
-          : null
-      }
-      hasMore={Boolean(historyQuery.hasNextPage)}
-      onLoadMore={() => void historyQuery.fetchNextPage()}
-      loadingMore={historyQuery.isFetchingNextPage}
-      maxHeight="48rem"
-    />
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Data tab — virtualised incremental query, filters, sorting and inspector.
-// ---------------------------------------------------------------------------
-
-export interface DatasetDataTabProps {
-  table: CanonicalDatasetWire
-  onRefresh?: () => void
-  /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
-  collaborationWorkspaceId?: string | null
-  /** COLLAB-02: workspace role hint for the discussion composer. */
-  collaborationRole?: string
-}
-
-export function DatasetDataTab({
-  table,
-  onRefresh,
-  collaborationWorkspaceId,
-  collaborationRole = 'viewer',
-}: DatasetDataTabProps) {
-  const [query, setQuery] = useState<RegistryQuery>({
-    ...DEFAULT_DATASET_QUERY,
-    grouping: [],
-  })
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
-
-  const rowQuery: DatasetRowQuery = {
-    pageIndex: 0,
-    pageSize: query.pageSize,
-    sorting: query.sorting,
-    filters: query.filters,
-  }
-  const qid = queryIdentity(rowQuery)
-  const rowsQuery = useInfiniteQuery({
-    queryKey: datasetExplorerQueryKeys.rows(table.id, qid),
-    initialPageParam: 0,
-    queryFn: ({ pageParam }) =>
-      fetchDatasetRowPage(
-        datasetExplorerDataClient,
-        table,
-        { ...rowQuery, pageIndex: pageParam },
-        pageParam === 0,
-      ),
-    getNextPageParam: (lastPage, pages) =>
-      getNextDatasetPageParam(lastPage, pages, rowQuery.pageSize),
-    staleTime: 0,
-  })
-
-  const rows = useMemo(() => {
-    const byId = new Map<string, ScientificRowWire>()
-    for (const page of rowsQuery.data?.pages ?? []) {
-      for (const row of page.rows) byId.set(row.id, row)
-    }
-    return Array.from(byId.values())
-  }, [rowsQuery.data])
-
-  const lineageQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.lineage(table.id),
-    queryFn: () => fetchDatasetLineage(datasetExplorerDataClient, table.id),
-    staleTime: 30_000,
-  })
-
-  const recordId = table.record_id ?? null
-  const linksQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.links(recordId ?? 'none'),
-    queryFn: () => fetchLinksForRecord(notebookDataClient, recordId as string),
-    enabled: Boolean(selectedRowId) && Boolean(recordId),
-    staleTime: 30_000,
-  })
-
-  const fields = useMemo<DataGridField<ScientificRowWire>[]>(() => {
-    const defs = toColumnDefs(table.columns)
-    return table.columns.map((column, index) => ({
-      id: column.field_name,
-      label: column.label,
-      column: defs[index],
-      filter:
-        index < DATASET_MAX_FILTERS
-          ? {
-              type: 'text',
-              placeholder: 'Exact value',
-              operators: [{ value: 'eq', label: 'is' }],
-            }
-          : undefined,
-      groupable: ['category', 'text', 'reference'].includes(
-        column.logical_type,
-      ),
-    }))
-  }, [table.columns])
-  const totalCount = rowsQuery.data?.pages[0]?.totalCount ?? 0
-
-  useEffect(() => setSelectedRowId(null), [qid])
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 justify-end px-1 py-1">
-        <ExportMenu path={`/api/export/dataset/${table.id}`} />
-      </div>
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <RegistryComposition
-          registryId={`dataset-${table.id}`}
-          title={table.name}
-          hideHeader
-          rows={rows}
-          totalCount={totalCount}
-          fields={fields}
-          query={query}
-          onQueryChange={setQuery}
-          getRowId={(row) => row.id}
-          selectedId={selectedRowId}
-          onSelectedIdChange={setSelectedRowId}
-          inspectorLabel="Dataset inspector"
-          loading={rowsQuery.isLoading}
-          error={
-            rowsQuery.isLoadingError || rowsQuery.isRefetchError
-              ? rowsQuery.error
-              : null
-          }
-          onRetry={() => void rowsQuery.refetch()}
-          incrementalRows={{
-            hasMore: rowsQuery.hasNextPage,
-            loadingMore: rowsQuery.isFetchingNextPage,
-            onLoadMore: () =>
-              void rowsQuery.fetchNextPage({ cancelRefetch: false }),
-            loadError: rowsQuery.isFetchNextPageError
-              ? rowsQuery.error
-              : undefined,
-          }}
-          searchDebounceMs={300}
-          emptyTitle="No rows yet"
-          noResultsTitle="No matching rows"
-          renderInspector={(row) => (
-            <DatasetInspector
-              table={table}
-              row={row}
-              formulas={lineageQuery.data?.formulas ?? []}
-              dependencies={lineageQuery.data?.dependencies ?? []}
-              links={linksQuery.data ?? []}
-              lineageLoading={lineageQuery.isLoading}
-              lineageError={lineageQuery.error}
-              collaborationWorkspaceId={collaborationWorkspaceId}
-              collaborationRole={collaborationRole}
-              onSaved={() => {
-                void rowsQuery.refetch()
-                onRefresh?.()
-              }}
-            />
-          )}
-        />
-      </div>
-    </div>
-  )
-}
-
-function DatasetRowEditor({
-  table,
-  row,
-  onSaved,
-}: {
-  table: CanonicalDatasetWire
-  row: ScientificRowWire
-  onSaved?: () => void
-}) {
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      table.columns.map((column) => [
-        column.id,
-        row[column.field_name] == null ? '' : String(row[column.field_name]),
-      ]),
-    ),
-  )
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const next: Record<string, unknown> = {}
-      for (const column of table.columns) {
-        const raw = values[column.id] ?? ''
-        next[column.id] = coerceDatasetCellValue(column, raw)
-      }
-      const result = await commitDatasetRowBatch(datasetExplorerDataClient, {
-        datasetId: table.id,
-        expectedRevision: datasetRevision(table),
-        idempotencyKey: crypto.randomUUID(),
-        rows: [
-          {
-            operation: 'update',
-            rowId: row.id,
-            expectedRevision: Number(row.version),
-            values: next,
-          },
-        ],
-      })
-      if (!result.ok) throw new Error(describeDatasetCommitError(result))
-      return result
-    },
-    onSuccess: () => onSaved?.(),
-  })
-  return (
-    <div className="grid gap-2">
-      {table.columns.map((column) => (
-        <Label key={column.id} className="text-xs text-muted-foreground">
-          {column.label}
-          <Input
-            className="mt-1 h-8"
-            aria-label={`Edit ${column.label}`}
-            value={values[column.id] ?? ''}
-            onChange={(event) =>
-              setValues((current) => ({
-                ...current,
-                [column.id]: event.target.value,
-              }))
-            }
-          />
-        </Label>
-      ))}
-      {mutation.error instanceof Error ? (
-        <p role="alert" className="text-xs text-destructive">
-          {mutation.error.message}
-        </p>
-      ) : null}
-      <Button
-        size="sm"
-        onClick={() => mutation.mutate()}
-        disabled={mutation.isPending}
-      >
-        {mutation.isPending ? 'Saving…' : 'Save row'}
-      </Button>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Data table view
-// ---------------------------------------------------------------------------
-
-interface DataTableViewProps {
-  table: ReturnType<typeof useReactTable<ScientificRowWire>>
-  density: DatasetDensity
-  loading: boolean
-  error: unknown
-  rowCount: number
-  selectedRowId: string | null
-  onSelectRow: (id: string | null) => void
-  emptyTitle: string
-}
-
-export function DataTableView({
-  table,
-  density,
-  loading,
-  error,
-  rowCount,
-  selectedRowId,
-  onSelectRow,
-  emptyTitle,
-}: DataTableViewProps) {
-  if (error) {
-    return (
-      <div
-        role="alert"
-        className="flex min-h-40 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-destructive"
-      >
-        Could not load rows. Try again.
-      </div>
-    )
-  }
-  if (loading && rowCount === 0) {
-    return (
-      <div aria-busy="true" aria-label="Loading dataset rows">
-        <p className="sr-only">Loading dataset rows</p>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="flex gap-4 border-b px-3 py-3 last:border-0">
-            {Array.from({ length: 4 }).map((__, j) => (
-              <Skeleton key={j} className="h-4 flex-1" />
-            ))}
-          </div>
-        ))}
-      </div>
-    )
-  }
-  if (rowCount === 0) {
-    return (
-      <div className="flex min-h-40 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-muted-foreground">
-        {emptyTitle}
-      </div>
-    )
-  }
-  return (
-    <Table aria-label="Dataset rows" data-density={density}>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id} className="hover:bg-transparent">
-            {headerGroup.headers.map((header) => {
-              const sorted = header.column.getIsSorted()
-              const label =
-                typeof header.column.columnDef.header === 'string'
-                  ? header.column.columnDef.header
-                  : header.column.id
-              return (
-                <TableHead
-                  key={header.id}
-                  aria-sort={
-                    sorted === 'asc'
-                      ? 'ascending'
-                      : sorted === 'desc'
-                        ? 'descending'
-                        : 'none'
-                  }
-                >
-                  {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={header.column.getToggleSortingHandler()}
-                      aria-label={`Sort by ${label} ${sorted === 'asc' ? 'descending' : 'ascending'}`}
-                    >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                      <span aria-hidden>
-                        {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
-                      </span>
-                    </button>
-                  ) : (
-                    flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )
-                  )}
-                </TableHead>
-              )
-            })}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((row) => {
-          const id = row.original.id
-          const selected = id === selectedRowId
-          return (
-            <TableRow
-              key={id}
-              data-state={selected ? 'selected' : undefined}
-              aria-selected={selected}
-              className="cursor-pointer"
-              onClick={() => onSelectRow(selected ? null : id)}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <TableCell
-                  key={cell.id}
-                  className={cn(
-                    density === 'compact' && 'py-1.5',
-                    typeof cell.getValue() === 'number' &&
-                      'scientific-nums text-right tabular-nums',
-                  )}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Chart tab
-// ---------------------------------------------------------------------------
-
-export function DatasetChartTab({ table }: { table: ScientificTableWire }) {
-  const defaultSpec = useMemo(() => {
-    const spec = buildDefaultChartSpec(table)
-    if (!spec) return null
-    const xColumn = table.columns.find(
-      (column) => column.id === spec.fields.x?.fieldId,
-    )
-    return /time|day|date/i.test(xColumn?.label ?? '')
-      ? { ...spec, type: 'line' as const }
-      : spec
-  }, [table])
-  const [chartSpec, setChartSpec] = useState(defaultSpec)
-
-  useEffect(() => setChartSpec(defaultSpec), [defaultSpec])
-
-  return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      {chartSpec ? (
-        <ChartConfigurator
-          source={toCanonicalDatasetSource(table)}
-          spec={chartSpec}
-          onSpecChange={setChartSpec}
-          idPrefix="dataset-chart"
-        />
-      ) : null}
-      <div className="min-h-0 flex-1">
-        <ChartPreview table={table} chartSpec={chartSpec} />
-      </div>
-    </div>
-  )
-}
-
-interface ChartPreviewProps {
-  table: ScientificTableWire
-  chartSpec: ChartSpec | null
-}
-
-function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const [plotHeight, setPlotHeight] = useState(240)
-  const transformCheck = chartSpec
-    ? validateTransformations(chartSpec.transformations)
-    : { ok: true as const }
-
-  // Resolve the chart dataset via the shared SCI data layer so the preview
-  // stays reproducible from the same ChartSpec model.
-  const { datasetQuery } = useLiveChartDataset(chartSpec)
-  const materialised = useMemo(
-    () =>
-      chartSpec
-        ? materialiseLiveChart(chartSpec, datasetQuery.data ?? null)
-        : null,
-    [chartSpec, datasetQuery.data],
-  )
-
-  const chartTitle = chartSpec
-    ? `${chartSpec.display.axes.y.label} over ${chartSpec.display.axes.x.label}${
-        chartSpec.fields.series
-          ? ` by ${
-              table.columns.find(
-                (column) => column.id === chartSpec.fields.series?.fieldId,
-              )?.label ?? 'series'
-            }`
-          : ''
-      }`
-    : 'Chart preview'
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    const updatePlotHeight = () => {
-      const nextHeight = Math.max(
-        100,
-        container.getBoundingClientRect().height - 48,
-      )
-      setPlotHeight(nextHeight)
-    }
-    updatePlotHeight()
-    const observer = new ResizeObserver(updatePlotHeight)
-    observer.observe(container)
-    return () => observer.disconnect()
-  }, [])
-
-  return (
-    <div
-      ref={containerRef}
-      className="flex h-full min-h-0 flex-col"
-      data-chart-plot-height={Math.round(plotHeight)}
-    >
-      {!chartSpec ? (
-        <p className="py-6 text-center text-xs text-muted-foreground">
-          No numeric column to plot. Add a decimal or integer column to this
-          dataset to see a chart preview.
-        </p>
-      ) : !transformCheck.ok ? (
-        <p role="alert" className="py-4 text-center text-xs text-destructive">
-          {transformCheck.errors.join(' ')}
-        </p>
-      ) : materialised ? (
-        <ChartRenderer
-          title={chartTitle}
-          spec={chartSpec}
-          materialised={materialised}
-          frozen={null}
-          loading={datasetQuery.isLoading}
-          hideTitle
-          plotHeight={plotHeight}
-          showTableAlternative={false}
-          className="flex h-full min-h-0 flex-col rounded-none border-0 bg-transparent shadow-none [&>div:first-of-type]:min-h-0 [&>div:first-of-type]:flex-1"
-        />
-      ) : null}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Inspector — selected row, lineage, linked records, transformations
-// ---------------------------------------------------------------------------
-
-interface DatasetInspectorProps {
-  table: CanonicalDatasetWire
-  row: ScientificRowWire | null
-  formulas: FormulaDefinitionWire[]
-  dependencies: FormulaDependencyWire[]
-  links: Array<{
-    id: string
-    targetKind: string
-    targetIdentifier: string
-    linkType: string
-  }>
-  lineageLoading: boolean
-  lineageError: unknown
-  onSaved?: () => void
-  /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
-  collaborationWorkspaceId?: string | null
-  /** COLLAB-02: workspace role hint for the discussion composer. */
-  collaborationRole?: string
-}
-
-export function DatasetInspector({
-  table,
-  row,
-  formulas,
-  dependencies,
-  links,
-  lineageLoading,
-  lineageError,
-  onSaved,
-  collaborationWorkspaceId,
-  collaborationRole = 'viewer',
-}: DatasetInspectorProps) {
-  const rowFormulas = useMemo(
-    () => (row ? formulas.filter((f) => f.target_row_id === row.id) : []),
-    [formulas, row],
-  )
-  const rowDependencies = useMemo(
-    () => (row ? dependencies.filter((d) => d.source_row_id === row.id) : []),
-    [dependencies, row],
-  )
-
-  // Build a short label from the first text/category column, falling back to
-  // a row number so the inspector title is meaningful (not a raw UUID).
-  const rowTitle = useMemo(() => {
-    if (!row) return 'No row selected'
-    const labelCol = table.columns.find(
-      (c) => c.logical_type === 'text' || c.logical_type === 'category',
-    )
-    if (labelCol && row[labelCol.field_name]) {
-      return String(row[labelCol.field_name])
-    }
-    const firstCol = table.columns[0]
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (firstCol && row[firstCol.field_name] != null) {
-      return String(row[firstCol.field_name])
-    }
-    return `Row ${row.version}`
-  }, [row, table.columns])
-
-  // Show at most 3 key column values as a quick summary, not every column.
-  const summaryColumns = useMemo(
-    () => table.columns.slice(0, 3),
-    [table.columns],
-  )
-  const objectDepsQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.dependencies(table.id),
-    queryFn: () =>
-      fetchDatasetDependencies(datasetExplorerDataClient, table.id),
-    staleTime: 30_000,
-  })
-  const sheetLinks = sheetLinksFromDependencies(objectDepsQuery.data ?? [])
-
-  return (
-    <Inspector
-      recordType="Dataset row"
-      title={rowTitle}
-      status={
-        row ? <Badge variant="success">Version {row.version}</Badge> : null
-      }
-      state={row ? 'loaded' : 'no-selection'}
-      tabs={[
-        {
-          id: 'values',
-          label: 'Details',
-          content: row ? (
-            <div className="space-y-4">
-              <InspectorSection title="Row summary">
-                <PropertyList>
-                  {summaryColumns.map((column) => (
-                    <Property
-                      key={column.id}
-                      label={column.label}
-                      mono={['decimal', 'integer'].includes(
-                        column.logical_type,
-                      )}
-                    >
-                      {rowCellValue(row, column)}
-                    </Property>
-                  ))}
-                </PropertyList>
-              </InspectorSection>
-              {table.lifecycle !== 'archived' ? (
-                <InspectorSection title="Live edit">
-                  <DatasetRowEditor table={table} row={row} onSaved={onSaved} />
-                </InspectorSection>
-              ) : null}
-              <InspectorSection title="Open in Sheet">
-                {objectDepsQuery.isLoading ? (
-                  <Skeleton className="h-10 w-full" />
-                ) : sheetLinks.length === 0 ? (
-                  <EmptyHint>
-                    No Sheet Instance currently binds this Dataset. Open an
-                    existing composed Sheet to bind it there.
-                  </EmptyHint>
-                ) : (
-                  <ul className="space-y-1.5 text-xs">
-                    {sheetLinks.map((link) => (
-                      <li key={link.instanceId}>
-                        <Link
-                          to="/sheets/$instanceId"
-                          params={{ instanceId: link.instanceId }}
-                          search={{ projectId: undefined }}
-                          className="text-primary hover:underline"
-                        >
-                          {link.name}
-                        </Link>
-                        {link.historical ? ' · historical' : ''}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </InspectorSection>
-              <InspectorSection title="Dependencies">
-                {(objectDepsQuery.data ?? []).length === 0 ? (
-                  <EmptyHint>No recorded consumers</EmptyHint>
-                ) : (
-                  <PropertyList>
-                    {(objectDepsQuery.data ?? []).map((item) => (
-                      <Property
-                        key={`${item.kind}-${item.id}`}
-                        label={item.kind}
-                        stacked
-                      >
-                        {item.label} · {item.relation} · {item.liveness}
-                      </Property>
-                    ))}
-                  </PropertyList>
-                )}
-              </InspectorSection>
-              <InspectorSection title="Downstream uses">
-                {lineageError ? (
-                  <p role="alert" className="text-xs text-destructive">
-                    Could not load formula usage.
-                  </p>
-                ) : lineageLoading ? (
-                  <Skeleton className="h-16 w-full" />
-                ) : rowDependencies.length === 0 ? (
-                  <EmptyHint>
-                    This row is not used by a calculated column
-                  </EmptyHint>
-                ) : (
-                  <PropertyList>
-                    {rowDependencies.map((dependency, index) => (
-                      <Property
-                        key={`${dependency.formula_id}-${index}`}
-                        label={`Calculated formula ${index + 1}`}
-                        stacked
-                      >
-                        {`Uses ${
-                          table.columns.find(
-                            (column) =>
-                              column.id === dependency.source_column_id,
-                          )?.label ?? 'a field in this dataset'
-                        } as an input`}
-                      </Property>
-                    ))}
-                  </PropertyList>
-                )}
-              </InspectorSection>
-              <InspectorSection title="Transformations">
-                {rowFormulas.length === 0 ? (
-                  <EmptyHint>No calculated columns for this row</EmptyHint>
-                ) : (
-                  <PropertyList>
-                    {rowFormulas.map((formula) => (
-                      <Property
-                        key={formula.id}
-                        label="Calculated column"
-                        mono
-                        stacked
-                      >
-                        {formula.source_expression}
-                      </Property>
-                    ))}
-                  </PropertyList>
-                )}
-              </InspectorSection>
-            </div>
-          ) : null,
-        },
-        {
-          id: 'links',
-          label: 'Links',
-          badge: links.length,
-          content: (
-            <InspectorSection title="Linked records">
-              <LinkedRecordList
-                items={links.map((link) => ({
-                  id: link.id,
-                  type: link.targetKind,
-                  title: link.targetIdentifier,
-                  meta: link.linkType,
-                }))}
-              />
-            </InspectorSection>
-          ),
-        },
-        ...(collaborationWorkspaceId
-          ? [
-              {
-                id: 'discussion',
-                label: 'Discussion',
-                content: (
-                  <ThreadPanel
-                    anchor={{
-                      anchorType: 'dataset',
-                      workspaceId: collaborationWorkspaceId,
-                      datasetId: table.id,
-                    }}
-                    currentRole={collaborationRole}
-                    canComment={canCommentInRoom(collaborationRole)}
-                  />
-                ),
-              },
-            ]
-          : []),
-      ]}
-    />
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Schema tab
-// ---------------------------------------------------------------------------
-
-interface DatasetSchemaTabProps {
-  table: CanonicalDatasetWire
-}
-
-export function DatasetSchemaTab({ table }: DatasetSchemaTabProps) {
-  return (
-    <div className="max-w-5xl space-y-4 py-3">
-      <section aria-labelledby="dataset-structure-title">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 id="dataset-structure-title" className="text-sm font-semibold">
-              Schema Version
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {table.dataset_schema
-                ? `This live Dataset is pinned to “${table.dataset_schema.name}” v${table.schema_version}. Historical Versions keep the Schema they were snapshotted with.`
-                : 'Fields on this Dataset come from the pinned Schema Version.'}
-            </p>
-          </div>
-          <Badge variant="outline">
-            {table.lifecycle === 'archived' ? 'Archived' : 'Live'}
-          </Badge>
-        </div>
-      </section>
-      <section className="border-t pt-4" aria-labelledby="dataset-fields-title">
-        <h3 id="dataset-fields-title" className="text-sm font-semibold">
-          Pinned fields
-        </h3>
-        <div className="mt-2 overflow-x-auto rounded-md border">
-          <Table aria-label="Dataset fields">
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Label</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Required</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {table.columns.map((column) => (
-                <TableRow key={column.id}>
-                  <TableCell>{column.label}</TableCell>
-                  <TableCell>{column.logical_type}</TableCell>
-                  <TableCell>{column.nullable ? 'No' : 'Yes'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </section>
-    </div>
-  )
-}
-
-export function HistoricalDatasetVersionTable({
-  columns,
-  rows,
-}: {
-  columns: Array<{ id: string; label: string }>
-  rows: Array<{ rowId: string; values: Record<string, unknown> }>
-}) {
-  return (
-    <Table aria-label="Historical Dataset rows" className="mt-2">
-      <TableHeader>
-        <TableRow>
-          {columns.map((column) => (
-            <TableHead key={column.id}>{column.label}</TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => (
-          <TableRow key={row.rowId}>
-            {columns.map((column) => (
-              <TableCell key={column.id}>
-                {row.values[column.id] == null
-                  ? '—'
-                  : String(row.values[column.id])}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  )
-}
-
-/**
- * DSET-03.3 — compare two snapshots. Pick A and B, then read the server's
- * added / changed / removed rows (per field) and column changes.
- */
-function DatasetCompareTab({ table }: { table: CanonicalDatasetWire }) {
-  const summariesQuery = useQuery({
-    queryKey: ['dataset-version-summaries', table.id],
-    queryFn: () =>
-      listDatasetVersionSummaries(datasetExplorerDataClient, table.id),
-  })
-  const summaries = summariesQuery.data ?? []
-  const [versionA, setVersionA] = useState<string | null>(null)
-  const [versionB, setVersionB] = useState<string | null>(null)
-
-  useEffect(() => {
-    setVersionB(
-      (current) => current ?? (summaries.length > 0 ? summaries[0].id : null),
-    )
-    setVersionA(
-      (current) => current ?? (summaries.length > 1 ? summaries[1].id : null),
-    )
-  }, [summaries])
-
-  const compareQuery = useQuery({
-    queryKey: ['dataset-version-compare', versionA, versionB],
-    queryFn: () =>
-      compareDatasetVersions(
-        datasetExplorerDataClient,
-        versionA as string,
-        versionB as string,
-      ),
-    enabled: Boolean(versionA && versionB),
-  })
-
-  return (
-    <div className="space-y-4 p-2">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Compare</span>
-          <select
-            aria-label="Snapshot A"
-            className="h-8 rounded-md border border-input bg-card px-2 text-xs"
-            value={versionA ?? ''}
-            onChange={(event) => setVersionA(event.target.value)}
-          >
-            <option value="">Select…</option>
-            {summaries.map((summary) => (
-              <option key={summary.id} value={summary.id}>
-                {summary.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="pb-1.5 text-xs text-muted-foreground">with</span>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Snapshot B</span>
-          <select
-            aria-label="Snapshot B"
-            className="h-8 rounded-md border border-input bg-card px-2 text-xs"
-            value={versionB ?? ''}
-            onChange={(event) => setVersionB(event.target.value)}
-          >
-            <option value="">Select…</option>
-            {summaries.map((summary) => (
-              <option key={summary.id} value={summary.id}>
-                {summary.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {!versionA || !versionB ? (
-        <EmptyHint>Pick two snapshots to compare</EmptyHint>
-      ) : compareQuery.isLoading ? (
-        <Skeleton className="h-32 w-full" />
-      ) : !compareQuery.data ? (
-        <EmptyHint>Nothing to compare</EmptyHint>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            +{compareQuery.data.counts.added} added · ~
-            {compareQuery.data.counts.changed} changed · −
-            {compareQuery.data.counts.removed} removed
-            {compareQuery.data.columns.length > 0
-              ? ` · ${compareQuery.data.columns.length} column change(s)`
-              : ''}
-          </p>
-          <Table>
+        <div className="min-h-0 flex-1 overflow-auto">
+          <Table aria-label="Datasets" className="max-md:hidden">
             <TableHeader>
               <TableRow>
-                <TableHead>Row</TableHead>
-                <TableHead>Change</TableHead>
-                <TableHead>Fields</TableHead>
+                <TableHead className={stickyHead}>ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Model</TableHead>
+                <TableHead align="right">Rows</TableHead>
+                <TableHead>Validation</TableHead>
+                <TableHead align="right">Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {compareQuery.data.rows.map((row) => (
-                <TableRow key={row.rowId}>
-                  <TableCell className="font-mono text-caption">
-                    {row.rowId.slice(0, 8)}
-                  </TableCell>
-                  <TableCell className="text-caption">{row.kind}</TableCell>
-                  <TableCell className="text-caption">
-                    {row.fields.length > 0
-                      ? row.fields
-                          .map(
-                            (field) =>
-                              `${field.fieldId.slice(0, 8)}: ${JSON.stringify(field.from)} → ${JSON.stringify(field.to)}`,
-                          )
-                          .join('; ')
-                      : '—'}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {visible.map((d) => {
+                const v = datasetValidation(d)
+                return (
+                  <TableRow
+                    key={d.uuid}
+                    selected={d.uuid === sel?.uuid}
+                    className="cursor-pointer"
+                    onClick={() => setSelected(d.uuid)}
+                  >
+                    <TableCell className={stickyCell}>
+                      <span className="mono">{d.id}</span>
+                    </TableCell>
+                    <TableCell
+                      className={
+                        d.uuid === sel?.uuid ? 'font-medium' : undefined
+                      }
+                    >
+                      {d.name}
+                    </TableCell>
+                    <TableCell>{d.model}</TableCell>
+                    <TableCell align="right">{d.rows}</TableCell>
+                    <TableCell>
+                      <Status tone={v.tone}>{v.label}</Status>
+                    </TableCell>
+                    <TableCell align="right" className="text-fg-muted">
+                      {d.updated}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
-    null,
-  )
-  const queryClient = useQueryClient()
-  const [snapshotOpen, setSnapshotOpen] = useState(false)
-  const [snapshotLabel, setSnapshotLabel] = useState('')
-  const snapshotMutation = useMutation({
-    mutationFn: async (label: string) => {
-      await datasetExplorerDataClient.rpc('snapshot_dataset', {
-        p_dataset_id: table.id,
-        p_expected_dataset_revision: datasetRevision(table),
-        p_label: label,
-      })
-    },
-    onSuccess: () => {
-      setSnapshotOpen(false)
-      setSnapshotLabel('')
-      void queryClient.invalidateQueries({
-        queryKey: datasetExplorerQueryKeys.versions(table.id),
-      })
-      void queryClient.invalidateQueries({
-        queryKey: ['dataset-version-summaries', table.id],
-      })
-    },
-  })
-  const versionsQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.versions(table.id),
-    queryFn: () => listDatasetVersions(datasetExplorerDataClient, table.id),
-  })
-  const versions = versionsQuery.data ?? []
-  const selected =
-    versions.find((item) => item.id === selectedVersionId) ?? null
-  // DSET-03.1/03.2 — the snapshot read model adds who made it, its row count,
-  // the change against the previous snapshot and the retention.
-  const summariesQuery = useQuery({
-    queryKey: ['dataset-version-summaries', table.id],
-    queryFn: () =>
-      listDatasetVersionSummaries(datasetExplorerDataClient, table.id),
-  })
-  const summaries = summariesQuery.data ?? []
-  const summaryById = new Map(summaries.map((summary) => [summary.id, summary]))
-  const selectedIndex = summaries.findIndex(
-    (summary) => summary.id === selectedVersionId,
-  )
-  const previousId =
-    selectedIndex >= 0 ? (summaries[selectedIndex + 1]?.id ?? null) : null
-  const compareQuery = useQuery({
-    queryKey: ['dataset-version-compare', previousId, selectedVersionId],
-    queryFn: () =>
-      compareDatasetVersions(
-        datasetExplorerDataClient,
-        previousId as string,
-        selectedVersionId as string,
-      ),
-    enabled: Boolean(previousId && selectedVersionId),
-  })
-  const historicalQuery = useQuery({
-    queryKey: ['dataset-version-rows', selected?.id ?? 'none'],
-    queryFn: () =>
-      queryDatasetVersionRows(datasetExplorerDataClient, selected!.id),
-    enabled: Boolean(selected),
-  })
-  const schemaQuery = useQuery({
-    queryKey: ['dataset-version-schema', selected?.schema_version_id ?? 'none'],
-    queryFn: () =>
-      listCanonicalDatasetSchemaVersionFields(
-        datasetExplorerDataClient,
-        selected!.schema_version_id,
-      ),
-    enabled: Boolean(selected?.schema_version_id),
-  })
-  const historicalColumns = columnsForPinnedSchemaVersion(
-    schemaQuery.data ?? [],
-  )
-
-  return (
-    <div className="grid gap-4 md:grid-cols-[16rem_1fr]">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold">Immutable Versions</h2>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setSnapshotOpen(true)}
-          >
-            Save a snapshot now
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {table.display_id ? `${table.display_id} · ` : ''}Live revision{' '}
-          {datasetRevision(table)}. Snapshots never change after capture.
-        </p>
-        <Dialog open={snapshotOpen} onOpenChange={setSnapshotOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Save a snapshot</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <Input
-                aria-label="Snapshot label"
-                value={snapshotLabel}
-                onChange={(event) => setSnapshotLabel(event.target.value)}
-                placeholder="e.g. Before editing"
-              />
-              <Button
-                onClick={() => snapshotMutation.mutate(snapshotLabel.trim())}
-                disabled={
-                  snapshotMutation.isPending || snapshotLabel.trim() === ''
+          <MobileList
+            label="Datasets"
+            items={visible.map((d) => {
+              const v = datasetValidation(d)
+              return {
+                key: d.uuid,
+                id: d.id,
+                title: d.name,
+                sub: `${d.rows} rows · ${d.model}`,
+                status: <Status tone={v.tone}>{v.label}</Status>,
+                onSelect: () => setSelected(d.uuid),
+                selected: d.uuid === sel?.uuid,
+              }
+            })}
+          />
+          {!query.isLoading && visible.length === 0 ? (
+            <div role="status" className="flex justify-center px-6">
+              <EmptyState
+                icon={q ? 'search' : 'table'}
+                className="items-center py-14 text-center"
+                title={
+                  q
+                    ? `No datasets match “${search.q}”`
+                    : tab === 'issues'
+                      ? 'No datasets have issues'
+                      : `No datasets in ${tabLabel[tab].toLowerCase()}`
                 }
-              >
-                {snapshotMutation.isPending ? 'Saving…' : 'Save snapshot'}
-              </Button>
-              {snapshotMutation.isError ? (
-                <p role="alert" className="text-caption text-danger-text">
-                  {snapshotMutation.error instanceof Error
-                    ? snapshotMutation.error.message
-                    : 'Could not save the snapshot.'}
-                </p>
-              ) : null}
-            </div>
-          </DialogContent>
-        </Dialog>
-        {versionsQuery.isLoading ? (
-          <Skeleton className="h-24 w-full" />
-        ) : versions.length === 0 ? (
-          <EmptyHint>No snapshots yet</EmptyHint>
-        ) : (
-          <ul className="space-y-1">
-            {versions.map((version) => (
-              <li key={version.id}>
-                <Button
-                  size="sm"
-                  variant={
-                    version.id === selectedVersionId ? 'secondary' : 'outline'
-                  }
-                  className="w-full justify-start"
-                  onClick={() => setSelectedVersionId(version.id)}
-                >
-                  <span className="flex w-full flex-col items-start">
-                    <span>
-                      {version.label} · r
-                      {String(version.source_dataset_revision)}
-                    </span>
-                    {summaryById.get(version.id) ? (
-                      <span className="text-caption text-muted-foreground">
-                        {summaryById.get(version.id)!.rowCount} rows
-                        {summaryById.get(version.id)!.change
-                          ? ` · +${summaryById.get(version.id)!.change!.added} −${summaryById.get(version.id)!.change!.removed} ~${summaryById.get(version.id)!.change!.changed}`
-                          : ''}
-                      </span>
-                    ) : null}
-                  </span>
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <div className="min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">Historical rows</h3>
-          {selected ? (
-            <div className="flex items-center gap-2">
-              {compareQuery.data ? (
-                <span className="text-caption text-muted-foreground">
-                  vs previous +{compareQuery.data.counts.added} −
-                  {compareQuery.data.counts.removed} ~
-                  {compareQuery.data.counts.changed}
-                </span>
-              ) : null}
-              <ExportMenu
-                path={`/api/export/dataset-version/${selected.id}`}
-                label="Export version"
+                body={
+                  q
+                    ? 'Search looks at ID, name and model.'
+                    : 'Datasets appear here when an import or a check puts them in this list.'
+                }
               />
             </div>
           ) : null}
         </div>
-        {!selected ? (
-          <EmptyHint>Select a Version to inspect frozen rows</EmptyHint>
-        ) : historicalQuery.isLoading || schemaQuery.isLoading ? (
-          <Skeleton className="mt-2 h-32 w-full" />
-        ) : (
-          <HistoricalDatasetVersionTable
-            columns={historicalColumns}
-            rows={historicalQuery.data?.rows ?? []}
-          />
-        )}
+        <ListFooter right={sel ? '1 selected' : undefined}>
+          {visible.length} of {counts[tab]}{' '}
+          {tab === 'all' ? 'datasets' : tabLabel[tab].toLowerCase()}
+        </ListFooter>
       </div>
-    </div>
-  )
-}
 
-function describeUnit(unit: unknown) {
-  if (!unit || typeof unit !== 'object') return '—'
-  const value = unit as { symbol?: unknown; code?: unknown }
-  const symbol = typeof value.symbol === 'string' ? value.symbol : null
-  const code = typeof value.code === 'string' ? value.code : null
-  return symbol ?? code ?? '—'
-}
-
-// ---------------------------------------------------------------------------
-// Relationships tab
-// ---------------------------------------------------------------------------
-
-interface DatasetRelationshipsTabProps {
-  table: ScientificTableWire
-}
-
-export function DatasetRelationshipsTab({
-  table,
-}: DatasetRelationshipsTabProps) {
-  const schemaId = table.dataset_schema_id ?? null
-  const relationshipsQuery = useQuery({
-    queryKey: [...datasetExplorerQueryKeys.relationships, table.id],
-    queryFn: () =>
-      fetchDatasetRelationshipsFor(datasetExplorerDataClient, schemaId),
-    enabled: Boolean(schemaId),
-    staleTime: 30_000,
-  })
-  const lineageQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.lineage(table.id),
-    queryFn: () => fetchDatasetLineage(datasetExplorerDataClient, table.id),
-    staleTime: 30_000,
-  })
-
-  const relationships = relationshipsQuery.data ?? []
-  const dependencies = lineageQuery.data?.dependencies ?? []
-  const formulas = lineageQuery.data?.formulas ?? []
-
-  if (relationshipsQuery.isLoading || lineageQuery.isLoading) {
-    return <Skeleton className="h-32 w-full" />
-  }
-  if (relationshipsQuery.error || lineageQuery.error) {
-    return (
-      <div
-        role="alert"
-        className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive"
-      >
-        Could not load relationships.
-      </div>
-    )
-  }
-  if (
-    relationships.length === 0 &&
-    dependencies.length === 0 &&
-    formulas.length === 0
-  ) {
-    return (
-      <div className="max-w-3xl px-1 py-3">
-        <InspectorSection title="Column relationships">
-          <EmptyHint>
-            This dataset has no relationships defined. Relationships are created
-            when you join columns or add calculated columns that reference other
-            datasets.
-          </EmptyHint>
-        </InspectorSection>
-      </div>
-    )
-  }
-  return (
-    <div className="max-w-3xl space-y-4 px-1 py-3">
-      <div className="space-y-4">
-        <InspectorSection title="Joined datasets">
-          <LinkedRecordList
-            items={relationships.map((relationship) => ({
-              id: relationship.id,
-              type: relationship.relationship_type.replaceAll('_', ' '),
-              title: relationship.label || 'Schema relationship',
-              meta: `${relationship.cardinality.replaceAll('_', ' ')} · ${formatRelativeTime(relationship.created_at)}`,
-            }))}
-          />
-        </InspectorSection>
-        <InspectorSection title="Calculated column dependencies">
-          <LinkedRecordList
-            items={dependencies.map((dependency, index) => ({
-              id: `${dependency.formula_id}-${index}`,
-              type: 'Calculated column dependency',
-              title: `Input ${index + 1}`,
-              meta: 'Cross-dataset source',
-            }))}
-          />
-        </InspectorSection>
-        <InspectorSection title="Relationship summary">
-          <PropertyList>
-            <Property label="Schema joins">{relationships.length}</Property>
-            <Property label="Calculated columns">{formulas.length}</Property>
-            <Property label="Cross-dataset dependencies">
-              {dependencies.length}
-            </Property>
-          </PropertyList>
-        </InspectorSection>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Lineage tab
-// ---------------------------------------------------------------------------
-
-interface DatasetLineageTabProps {
-  table: ScientificTableWire
-}
-
-export function DatasetLineageTab({ table }: DatasetLineageTabProps) {
-  const lineageQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.lineage(table.id),
-    queryFn: () => fetchDatasetLineage(datasetExplorerDataClient, table.id),
-    staleTime: 30_000,
-  })
-
-  const formulas = lineageQuery.data?.formulas ?? []
-  const dependencies = lineageQuery.data?.dependencies ?? []
-
-  if (lineageQuery.isLoading) {
-    return <Skeleton className="h-32 w-full" />
-  }
-  if (lineageQuery.error) {
-    return (
-      <div
-        role="alert"
-        className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive"
-      >
-        Could not load lineage.
-      </div>
-    )
-  }
-  if (formulas.length === 0 && dependencies.length === 0) {
-    return (
-      <div className="max-w-3xl px-1 py-3">
-        <InspectorSection title="Transformation lineage">
-          <EmptyHint>
-            No transformations applied yet. Formula calculations and column
-            transforms will appear here.
-          </EmptyHint>
-        </InspectorSection>
-      </div>
-    )
-  }
-  return (
-    <div className="max-w-3xl space-y-4 px-1 py-3">
-      <div className="space-y-4">
-        <InspectorSection title={`Transformations (${formulas.length})`}>
-          {formulas.length === 0 ? (
-            <EmptyHint>No formula calculations</EmptyHint>
-          ) : (
-            <PropertyList>
-              {formulas.map((f) => (
-                <Property key={f.id} label="Formula calculation" mono stacked>
-                  {f.source_expression}
-                </Property>
-              ))}
-            </PropertyList>
-          )}
-        </InspectorSection>
-        <InspectorSection
-          title={`Cross-dataset dependencies (${dependencies.length})`}
-        >
-          {dependencies.length === 0 ? (
-            <EmptyHint>No cross-dataset dependencies</EmptyHint>
-          ) : (
-            <LinkedRecordList
-              items={dependencies.map((dependency, index) => ({
-                id: `${dependency.formula_id}-${index}`,
-                type: 'Formula input',
-                title: `Input ${index + 1}`,
-                meta: 'Cross-dataset source',
-              }))}
-            />
-          )}
-        </InspectorSection>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-
-function EmptyDatasetState({
-  loading,
-  error,
-}: {
-  loading: boolean
-  error: unknown
-}) {
-  if (error) {
-    return (
-      <div
-        role="alert"
-        className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-8 text-center text-sm text-destructive"
-      >
-        Could not load datasets. Check the connection and try again.
-      </div>
-    )
-  }
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border bg-card p-10 text-center">
-      {loading ? (
-        <Skeleton className="h-8 w-48" />
-      ) : (
-        <>
-          <Database
-            className="size-8 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <p className="max-w-md text-sm text-muted-foreground">
-            No datasets yet. Choose New Dataset to create one from a published
-            schema.
-          </p>
-        </>
-      )}
+      {sel ? (
+        <Inspector aria-label="Dataset summary" className="w-[300px] gap-0 p-0">
+          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
+            <span className="mono text-fg-muted">{sel.id}</span>
+            <div className="font-heading text-doc font-semibold">
+              {sel.name}
+            </div>
+            <div className="text-label">
+              <Status tone={datasetValidation(sel).tone}>
+                {datasetValidation(sel).label}
+              </Status>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4 px-4 py-3.5">
+            <InspectorSection title="Details">
+              <DescriptionList
+                labelWidth={80}
+                items={[
+                  ['Model', sel.model],
+                  ['Rows', String(sel.rows)],
+                  ['Issues', String(sel.issues)],
+                  ['Updated', sel.updated],
+                ]}
+              />
+            </InspectorSection>
+          </div>
+        </Inspector>
+      ) : null}
     </div>
   )
 }

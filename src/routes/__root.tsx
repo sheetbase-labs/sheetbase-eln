@@ -122,6 +122,7 @@ function RootRouteComponent() {
     '/schedule',
     '/search',
     '/experiments',
+    '/datasets',
     '/samples',
     '/materials',
     '/samples/$sampleId',

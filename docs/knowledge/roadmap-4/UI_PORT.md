@@ -118,6 +118,12 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Datasets list ported** with a DB-first summary: `api.dataset_list_summary`
+  (rows + active issue counts, RLS-invoker, DB test) backs `/datasets` — tabs
+  All/Mine/Issues/Locked, search, table + mobile, summary inspector. The old
+  dataset explorer page is replaced; the `$datasetId` explorer/rows/snapshots/
+  compare child routes and the import flow follow.
+
 - **Experiments list ported**: `/experiments` renders app-3's list (tabs
   All/Mine/In progress/In review/Approved/Drafts, filter to last 30 days, sort,
   table + mobile) on real experiment records; rows open the record. Protocol

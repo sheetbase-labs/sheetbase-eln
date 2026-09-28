@@ -122,6 +122,7 @@ function RootRouteComponent() {
     '/review/$revisionId',
     '/evidence/$revisionId',
     '/sheets/$sheetId',
+    '/sheets/new',
     '/schedule',
     '/search',
     '/settings',

@@ -118,6 +118,14 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **New sheet flow added**: `/sheets/new` mirrors app-3's empty-sheet chooser —
+  dataset, template and import starts plus a project picker and a name — and
+  creates the blank sheet through the canonical `create_sheet_instance` RPC,
+  opening it at `/sheets/$sheetId?projectId=…` where it is editable. The shell's
+  New menu gains "Working sheet". Verified end to end (create → navigate → the
+  new sheet renders). The screens suite covers `/sheets/new` (49 routes × 2
+  widths clean).
+
 - **Working sheet moved into app-3's shell**: `/sheets/$instanceId` becomes
   `/sheets/$sheetId` with an app-3 header (project/owning-notebook crumbs, the
   instance name, revision, Share) instead of the legacy useShell wrapper; the

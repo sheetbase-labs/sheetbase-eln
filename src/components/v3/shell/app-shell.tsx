@@ -269,6 +269,9 @@ function NewMenu() {
         <DropdownMenuLinkItem icon="folder" render={<Link to="/projects" />}>
           Project
         </DropdownMenuLinkItem>
+        <DropdownMenuLinkItem icon="table" render={<Link to="/sheets/new" />}>
+          Working sheet
+        </DropdownMenuLinkItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

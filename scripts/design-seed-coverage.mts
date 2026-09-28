@@ -7,6 +7,9 @@
  * reaches zero at the end of Roadmap 4; until then this is a report, not a
  * gate.
  *
+ * Display identifiers with no stored column yet are reported separately; see
+ * docs/knowledge/roadmap-4/DISPLAY_IDS.md.
+ *
  * Run: pnpm tsx scripts/design-seed-coverage.mts
  */
 import { readdirSync, readFileSync } from 'node:fs'

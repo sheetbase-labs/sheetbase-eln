@@ -7,15 +7,15 @@ model does not store yet. The seed reproduces every stored family (`EXP-`,
 `SMP-`, `PRT-`, `MAT-`, `DS-`, `PL-`, `CAL-`, `INS-`, `PRJ-`, `CL-`), but
 these families have no column:
 
-| Family                                                                        | Design use                                   | Owning task           |
-| ----------------------------------------------------------------------------- | -------------------------------------------- | --------------------- |
-| `SHT-nnnn`                                                                    | working sheets (`SHT-0019`)                  | SHEET (sheets)        |
-| `MDL-nnnn`                                                                    | models (`MDL-0012`)                          | MDL (models)          |
-| `CB-nnnn`                                                                     | cell banks                                   | LAB (cell banks)      |
-| `AN-nnnn`                                                                     | analyses                                     | Analysis stream       |
-| `TPL-nnnn`                                                                    | notebook templates                           | SHEET/REUSE           |
-| `HL-nnnn`                                                                     | harvest lots                                 | LAB (samples)         |
-| `LT-nn`, `TB-nn`, `PR-nn`, `EM-…`, `MSA-…`, `QC-…`, `SIG-…`, `SOW-…`, `AMB-…` | fixtures, plates, media, samples, signatures | their owning tasks    |
+| Family                                                                        | Design use                                   | Owning task        |
+| ----------------------------------------------------------------------------- | -------------------------------------------- | ------------------ |
+| `SHT-nnnn`                                                                    | working sheets (`SHT-0019`)                  | SHEET (sheets)     |
+| `MDL-nnnn`                                                                    | models (`MDL-0012`)                          | MDL (models)       |
+| `CB-nnnn`                                                                     | cell banks                                   | LAB (cell banks)   |
+| `AN-nnnn`                                                                     | analyses                                     | Analysis stream    |
+| `TPL-nnnn`                                                                    | notebook templates                           | SHEET/REUSE        |
+| `HL-nnnn`                                                                     | harvest lots                                 | LAB (samples)      |
+| `LT-nn`, `TB-nn`, `PR-nn`, `EM-…`, `MSA-…`, `QC-…`, `SIG-…`, `SOW-…`, `AMB-…` | fixtures, plates, media, samples, signatures | their owning tasks |
 
 Resolved: `DS-`, `PL-`, `CAL-`, `INS-` (earlier tasks); `PRJ-` and `CL-`
 (PROJ-01.1 — `api.projects.display_id`, `api.clients.code`).

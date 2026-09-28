@@ -3054,6 +3054,55 @@ export const datasetVersionPrunes = api.table(
   },
 )
 
+/**
+ * dataset_value_flags (DSET-01.1) — a flag on a recorded value (out of range,
+ * missing unit, above curve, high replicate CV). The value stays as recorded;
+ * a flag excludes it from criteria and analyses until cleared. Written through
+ * `flag_dataset_value` / `clear_dataset_value_flag`.
+ */
+export const datasetValueFlags = api.table(
+  'dataset_value_flags',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    rowId: uuid('row_id').notNull(),
+    fieldId: uuid('field_id').notNull(),
+    kind: text('kind').notNull(),
+    reason: text('reason').notNull(),
+    comment: text('comment'),
+    setByUserId: text('set_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    setAt: timestamp('set_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    clearedAt: timestamp('cleared_at', { withTimezone: true, mode: 'date' }),
+    clearedByUserId: text('cleared_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_dataset_value_flags_kind',
+      sql`${table.kind} IN ('out_of_range', 'missing_unit', 'above_curve', 'high_cv')`,
+    ),
+    check(
+      'chk_dataset_value_flags_reason',
+      sql`length(btrim(${table.reason})) BETWEEN 1 AND 200`,
+    ),
+    index('idx_dataset_value_flags_value').on(
+      table.datasetId,
+      table.rowId,
+      table.fieldId,
+    ),
+  ],
+)
+
 export const datasetRowValues = api.table(
   'dataset_row_values',
   {

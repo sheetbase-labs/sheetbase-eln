@@ -241,7 +241,7 @@ Specification: [tasks/MOB.md](tasks/MOB.md) · nod `epic-186`
 Specification: [tasks/DSET.md](tasks/DSET.md) · nod `epic-195`
 
 - [ ] **DSET-01** Value flags and repeats `task-196`
-  - [ ] DSET-01.1 Flags `subtask-197`
+  - [ ] DSET-01.1 Flags — **in progress** `subtask-197`
   - [ ] DSET-01.2 Exclusion `subtask-198`
   - [ ] DSET-01.3 Planned rows `subtask-199`
   - [ ] DSET-01.4 Request repeat `subtask-200`

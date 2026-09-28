@@ -21,3 +21,4 @@ Step 2 of 4 in [DSYS-05](../../tasks/DSYS.md#dsys-05--design-data-seed); the ful
 - 2026-09-27: PR #206: work-items screen group seeded — Gareth's EXP-0138 review (due +7 days), two followed records and a failed pipeline run; verified via api.my_work_items as Gareth P.
 - 2026-09-27: PR #206: bookings screen slice — Ambr 250 resource and today's three design bookings (sampling, plate reader, tech-transfer review) for the Home Today section.
 - 2026-09-28: PR #206: samples screen slice — added the design's remaining sample identifiers (SMP-2190..2250). design:coverage rose 196→249 of 765.
+- 2026-09-28: PR #206: protocols screen slice — added PRT-009/012/017/019/020/021/022/025. design:coverage 249→287.

@@ -586,6 +586,54 @@ const DESIGN_PROTOCOLS: ReadonlyArray<{
     title: 'PEI:DNA transfection',
     status: 'under_review',
   },
+  {
+    id: '00000000-0000-4000-8000-000000000390',
+    identifier: 'PRT-009',
+    title: 'HEK293 WCB viability panel',
+    status: 'active',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000391',
+    identifier: 'PRT-012',
+    title: 'AAV full/empty ratio by AUC',
+    status: 'active',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000392',
+    identifier: 'PRT-017',
+    title: 'Seeding density at transfection',
+    status: 'active',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000393',
+    identifier: 'PRT-019',
+    title: 'Day 7 stability pull',
+    status: 'active',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000394',
+    identifier: 'PRT-020',
+    title: 'Expansion media screen',
+    status: 'active',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000395',
+    identifier: 'PRT-021',
+    title: 'Harvest clarification: depth filter screening',
+    status: 'active',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000396',
+    identifier: 'PRT-022',
+    title: 'AEX resin screen',
+    status: 'active',
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000397',
+    identifier: 'PRT-025',
+    title: 'TFF concentration',
+    status: 'draft',
+  },
 ]
 
 const DESIGN_SAMPLE_FIELDS: ReadonlyArray<{

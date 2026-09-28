@@ -810,7 +810,11 @@ export async function compareDatasetVersions(
 ): Promise<{
   counts: DatasetVersionChange
   columns: Array<{ fieldId: string; kind: string }>
-  rows: Array<{ rowId: string; kind: string }>
+  rows: Array<{
+    rowId: string
+    kind: string
+    fields: Array<{ fieldId: string; from: unknown; to: unknown }>
+  }>
 }> {
   return client.rpc('compare_dataset_versions', {
     p_version_a: versionA,

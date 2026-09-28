@@ -298,7 +298,13 @@ function DatasetExplorerRoute() {
       )
   }
   const [activeTab, setActiveTab] = useState<
-    'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines'
+    | 'data'
+    | 'chart'
+    | 'schema'
+    | 'versions'
+    | 'compare'
+    | 'history'
+    | 'pipelines'
   >(
     search.tab === 'pipelines'
       ? 'pipelines'
@@ -687,9 +693,23 @@ function DatasetPicker({
 
 interface DatasetTabsProps {
   table: CanonicalDatasetWire
-  activeTab: 'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines'
+  activeTab:
+    | 'data'
+    | 'chart'
+    | 'schema'
+    | 'versions'
+    | 'compare'
+    | 'history'
+    | 'pipelines'
   onTabChange: (
-    tab: 'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines',
+    tab:
+      | 'data'
+      | 'chart'
+      | 'schema'
+      | 'versions'
+      | 'compare'
+      | 'history'
+      | 'pipelines',
   ) => void
   onRefresh: () => void
   /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
@@ -713,7 +733,13 @@ function DatasetTabs({
       onValueChange={(v) =>
         onTabChange(
           v as
-            'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines',
+            | 'data'
+            | 'chart'
+            | 'schema'
+            | 'versions'
+            | 'compare'
+            | 'history'
+            | 'pipelines',
         )
       }
       className="relative min-h-0 flex-1 overflow-hidden"
@@ -730,6 +756,12 @@ function DatasetTabs({
           className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
           <Layers className="size-3.5" aria-hidden="true" /> Versions
+        </TabsTrigger>
+        <TabsTrigger
+          value="compare"
+          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
+          <BarChart3 className="size-3.5" aria-hidden="true" /> Compare
         </TabsTrigger>
         <TabsTrigger
           value="schema"
@@ -766,6 +798,12 @@ function DatasetTabs({
           collaborationWorkspaceId={collaborationWorkspaceId}
           collaborationRole={collaborationRole}
         />
+      </TabsContent>
+      <TabsContent
+        value="compare"
+        className="absolute inset-x-0 bottom-0 top-8 overflow-auto"
+      >
+        <DatasetCompareTab table={table} />
       </TabsContent>
       <TabsContent
         value="versions"
@@ -1676,6 +1714,129 @@ export function HistoricalDatasetVersionTable({
         ))}
       </TableBody>
     </Table>
+  )
+}
+
+/**
+ * DSET-03.3 — compare two snapshots. Pick A and B, then read the server's
+ * added / changed / removed rows (per field) and column changes.
+ */
+function DatasetCompareTab({ table }: { table: CanonicalDatasetWire }) {
+  const summariesQuery = useQuery({
+    queryKey: ['dataset-version-summaries', table.id],
+    queryFn: () =>
+      listDatasetVersionSummaries(datasetExplorerDataClient, table.id),
+  })
+  const summaries = summariesQuery.data ?? []
+  const [versionA, setVersionA] = useState<string | null>(null)
+  const [versionB, setVersionB] = useState<string | null>(null)
+
+  useEffect(() => {
+    setVersionB(
+      (current) => current ?? (summaries.length > 0 ? summaries[0].id : null),
+    )
+    setVersionA(
+      (current) => current ?? (summaries.length > 1 ? summaries[1].id : null),
+    )
+  }, [summaries])
+
+  const compareQuery = useQuery({
+    queryKey: ['dataset-version-compare', versionA, versionB],
+    queryFn: () =>
+      compareDatasetVersions(
+        datasetExplorerDataClient,
+        versionA as string,
+        versionB as string,
+      ),
+    enabled: Boolean(versionA && versionB),
+  })
+
+  return (
+    <div className="space-y-4 p-2">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">Compare</span>
+          <select
+            aria-label="Snapshot A"
+            className="h-8 rounded-md border border-input bg-card px-2 text-xs"
+            value={versionA ?? ''}
+            onChange={(event) => setVersionA(event.target.value)}
+          >
+            <option value="">Select…</option>
+            {summaries.map((summary) => (
+              <option key={summary.id} value={summary.id}>
+                {summary.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="pb-1.5 text-xs text-muted-foreground">with</span>
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">Snapshot B</span>
+          <select
+            aria-label="Snapshot B"
+            className="h-8 rounded-md border border-input bg-card px-2 text-xs"
+            value={versionB ?? ''}
+            onChange={(event) => setVersionB(event.target.value)}
+          >
+            <option value="">Select…</option>
+            {summaries.map((summary) => (
+              <option key={summary.id} value={summary.id}>
+                {summary.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {!versionA || !versionB ? (
+        <EmptyHint>Pick two snapshots to compare</EmptyHint>
+      ) : compareQuery.isLoading ? (
+        <Skeleton className="h-32 w-full" />
+      ) : !compareQuery.data ? (
+        <EmptyHint>Nothing to compare</EmptyHint>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            +{compareQuery.data.counts.added} added · ~
+            {compareQuery.data.counts.changed} changed · −
+            {compareQuery.data.counts.removed} removed
+            {compareQuery.data.columns.length > 0
+              ? ` · ${compareQuery.data.columns.length} column change(s)`
+              : ''}
+          </p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Row</TableHead>
+                <TableHead>Change</TableHead>
+                <TableHead>Fields</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {compareQuery.data.rows.map((row) => (
+                <TableRow key={row.rowId}>
+                  <TableCell className="font-mono text-caption">
+                    {row.rowId.slice(0, 8)}
+                  </TableCell>
+                  <TableCell className="text-caption">{row.kind}</TableCell>
+                  <TableCell className="text-caption">
+                    {row.fields.length > 0
+                      ? row.fields
+                          .map(
+                            (field) =>
+                              `${field.fieldId.slice(0, 8)}: ${JSON.stringify(field.from)} → ${JSON.stringify(field.to)}`,
+                          )
+                          .join('; ')
+                      : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   )
 }
 

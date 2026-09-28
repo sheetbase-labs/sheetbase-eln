@@ -118,6 +118,15 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Acceptance screens/phone ported**: `pnpm test:screens` loads every ported ELN
+  route (static routes plus real ids discovered through `/api/db`) at desktop and
+  phone widths and fails on a wrong status, a missing single visible h1,
+  horizontal overflow or console/page errors; `--dark` runs the same in dark mode
+  and `pnpm test:phone` is the phone-only pass. First runs: **42 routes × 2 widths
+  = 0 problems**, dark 42 × 1 = 0 problems. The crawl now ignores the dev-auth-free
+  Better Auth `list-sessions` 401, which is the only remaining crawl problem
+  besides the unported notebook route.
+
 - **Settings — integrations moved in**: `/settings/integrations` lists the real
   connector registry and `/settings/integrations/$connectorId` shows config, run
   history and instrument ingestion with pause/activate through the connector

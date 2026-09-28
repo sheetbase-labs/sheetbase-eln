@@ -1,0 +1,221 @@
+// Structural screens check: for each ported ELN route, load it at the given
+// widths and assert one visible h1, no horizontal overflow, no console/page
+// errors and a 200. Optionally run in dark mode.
+//
+// Usage:
+//   node tests/browser-scripts/screens.mjs [baseUrl] [--widths 1440,390] [--dark]
+//   pnpm test:screens
+//   pnpm test:phone        (widths 390 only)
+//
+// This is the ELN port of sheetbase-app-3's tests/screens.mjs and tests/phone.mjs:
+// the fixture route ids are replaced by real ids discovered through the
+// same-origin /api/db proxy, so the check runs against the app's own data.
+import { chromium } from 'playwright'
+
+const base = process.argv[2]?.startsWith('http')
+  ? process.argv[2]
+  : 'http://localhost:3000'
+const arg = (k) => {
+  const i = process.argv.indexOf(k)
+  return i > 0 ? process.argv[i + 1] : undefined
+}
+const widths = (arg('--widths') || '1440,390').split(',').map(Number)
+const dark = process.argv.includes('--dark')
+
+const browser = await chromium.launch()
+
+async function discover() {
+  const page = await browser.newPage()
+  await page.goto(base + '/', { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(1200)
+  const ids = await page.evaluate(async () => {
+    const get = async (path) => {
+      try {
+        const r = await fetch(path)
+        if (!r.ok) return []
+        const body = await r.json()
+        return Array.isArray(body) ? body : []
+      } catch {
+        return []
+      }
+    }
+    const [
+      projects,
+      experiments,
+      samples,
+      datasets,
+      models,
+      pipelines,
+      templates,
+      reagents,
+      connectors,
+    ] = await Promise.all([
+      get('/api/db/rpc/project_list_summary?limit=1'),
+      get('/api/db/records?kind=eq.experiment&limit=1&select=id'),
+      get('/api/db/records?kind=eq.sample&limit=1&select=id'),
+      get('/api/db/datasets?limit=1&select=id'),
+      get('/api/db/dataset_schema_definitions?limit=1&select=id'),
+      get('/api/db/pipeline_definitions?limit=1&select=id'),
+      get('/api/db/notebook_templates?limit=1&select=id'),
+      get('/api/db/records?kind=eq.reagent&limit=1&select=id'),
+      get('/api/db/connectors?limit=1&select=id'),
+    ])
+    return {
+      project: projects[0]?.id,
+      experiment: experiments[0]?.id,
+      sample: samples[0]?.id,
+      dataset: datasets[0]?.id,
+      model: models[0]?.id,
+      pipeline: pipelines[0]?.id,
+      template: templates[0]?.id,
+      reagent: reagents[0]?.id,
+      connector: connectors[0]?.id,
+    }
+  })
+  await page.close()
+  return ids
+}
+
+function routes(ids) {
+  const list = [
+    '/',
+    '/inbox',
+    '/schedule',
+    '/search',
+    '/projects',
+    '/experiments',
+    '/samples',
+    '/materials',
+    '/datasets',
+    '/templates',
+    '/models',
+    '/pipelines',
+    '/settings',
+    '/settings/members',
+    '/settings/api',
+    '/settings/profile',
+    '/settings/notifications',
+    '/settings/access',
+    '/settings/audit',
+    '/settings/integrations',
+  ]
+  if (ids.project)
+    list.push(
+      `/projects/${ids.project}`,
+      `/projects/${ids.project}/folders`,
+      `/projects/${ids.project}/members`,
+      `/projects/${ids.project}/settings`,
+    )
+  if (ids.experiment)
+    list.push(
+      `/experiments/${ids.experiment}`,
+      `/experiments/${ids.experiment}/overview`,
+      `/experiments/${ids.experiment}/samples`,
+      `/experiments/${ids.experiment}/datasets`,
+    )
+  if (ids.sample)
+    list.push(
+      `/samples/${ids.sample}`,
+      `/samples/${ids.sample}/usage`,
+      `/samples/${ids.sample}/history`,
+    )
+  if (ids.dataset)
+    list.push(
+      `/datasets/${ids.dataset}`,
+      `/datasets/${ids.dataset}/snapshots`,
+      `/datasets/${ids.dataset}/rows`,
+    )
+  if (ids.model)
+    list.push(
+      `/models/${ids.model}`,
+      `/models/${ids.model}/fields`,
+      `/models/${ids.model}/versions`,
+      `/models/${ids.model}/datasets`,
+    )
+  if (ids.pipeline)
+    list.push(
+      `/pipelines/${ids.pipeline}`,
+      `/pipelines/${ids.pipeline}/runs`,
+      `/pipelines/${ids.pipeline}/triggers`,
+    )
+  if (ids.template)
+    list.push(
+      `/templates/${ids.template}`,
+      `/templates/${ids.template}/versions`,
+      `/templates/${ids.template}/in-use`,
+    )
+  if (ids.reagent) list.push(`/materials?q=`)
+  if (ids.connector) list.push(`/settings/integrations/${ids.connector}`)
+  return list
+}
+
+const ids = await discover()
+const paths = routes(ids)
+const failures = []
+
+for (const width of widths) {
+  const context = await browser.newContext({
+    viewport: { width, height: 900 },
+  })
+  if (dark) {
+    await context.addInitScript(() => {
+      try {
+        localStorage.setItem('sheetbase-theme', 'dark')
+      } catch {
+        /* storage unavailable */
+      }
+    })
+  }
+  let n = 0
+  let page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
+  const onConsole = (m) => {
+    if (m.type() !== 'error' || m.text().includes('hydrated')) return
+    // Dev auth-free mode: Better Auth's list-sessions has no session store and
+    // answers 401. It is a demo artifact, not a screen regression.
+    const url = m.location()?.url ?? ''
+    if (url.includes('/api/auth/list-sessions')) return
+    errors.push(m.text())
+  }
+  page.on('console', onConsole)
+  for (const path of paths) {
+    errors.length = 0
+    if (++n % 25 === 0) {
+      await page.close()
+      page = await context.newPage()
+      page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
+      page.on('console', onConsole)
+    }
+    const res = await page
+      .goto(base + path, { waitUntil: 'domcontentloaded' })
+      .catch((e) => ({ status: () => String(e) }))
+    await page.waitForTimeout(900)
+    const info = await page
+      .evaluate(() => ({
+        h1: [...document.querySelectorAll('h1')].filter((h) =>
+          h.checkVisibility(),
+        ).length,
+        over: document.documentElement.scrollWidth > window.innerWidth + 1,
+      }))
+      .catch(() => ({ h1: 0, over: false }))
+    const problems = []
+    if (res.status() !== 200) problems.push('status ' + res.status())
+    if (info.h1 !== 1) problems.push(`${info.h1} h1`)
+    if (info.over) problems.push('horizontal overflow')
+    if (errors.length)
+      problems.push('errors: ' + errors.join(' | ').slice(0, 200))
+    if (problems.length)
+      failures.push(
+        `${width}${dark ? '/dark' : ''}  ${path}  : ${problems.join(', ')}`,
+      )
+  }
+  await context.close()
+}
+
+await browser.close()
+console.log(
+  `${widths.join(',')}${dark ? ' dark' : ''}: ${paths.length} routes × ${widths.length} widths, ${failures.length} with problems`,
+)
+failures.forEach((f) => console.log('  PROBLEM ' + f))
+process.exit(failures.length ? 1 : 0)

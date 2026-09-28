@@ -67,7 +67,9 @@
     "check": "prettier --check src scripts docs package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts eslint.config.js prettier.config.js pnpm-workspace.yaml compose.yaml compose.deploy.yaml compose.dev.yaml README.md && tsx scripts/check-colours.mts",
     "check:colours": "tsx scripts/check-colours.mts",
     "design:coverage": "tsx scripts/design-seed-coverage.mts",
-    "test:crawl": "node tests/browser-scripts/crawl.mjs"
+    "test:crawl": "node tests/browser-scripts/crawl.mjs",
+    "test:screens": "node tests/browser-scripts/screens.mjs",
+    "test:phone": "node tests/browser-scripts/screens.mjs http://localhost:3000 --widths 390"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1119.0",

@@ -163,6 +163,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   restricted or missing neighbours render as text. The inventory area suite
   checks the tab.
 
+- **Unused legacy components removed**: the ported areas' superseded
+  components are deleted now that nothing imports them — sample inspector,
+  dataset product controls (create/snapshot/add-row dialogs and actions),
+  reagent inspector and create dialog, schema picker dialog, registry
+  composition and the unused metric-card / linked-records-graph scientific
+  components (with their stories and barrel exports).
+
 - **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
   "Open full lineage" link on the legacy record notebook; it is removed, so the
   crawl reports 0 404s. The crawl also skips `/api/*` hrefs (file downloads

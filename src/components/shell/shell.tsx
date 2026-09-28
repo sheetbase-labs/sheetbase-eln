@@ -135,7 +135,7 @@ const G_SEQUENCE_DESTINATIONS: GlobalShortcutDestination[] = [
   { key: 's', to: '/sheets', label: 'Sheets' },
   { key: 't', to: '/templates', label: 'Templates' },
   { key: 'a', to: '/samples', label: 'Samples' },
-  { key: 'r', to: '/reagents', label: 'Reagents' },
+  { key: 'r', to: '/materials', label: 'Materials' },
 ]
 
 /**
@@ -306,7 +306,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/projects', label: 'Projects', icon: FolderOpen },
       { to: '/templates', label: 'Templates', icon: LayoutTemplate },
       { to: '/samples', label: 'Samples', icon: FlaskConical },
-      { to: '/reagents', label: 'Materials', icon: Package },
+      { to: '/materials', label: 'Materials', icon: Package },
       { to: '/datasets', label: 'Datasets', icon: Database },
       { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/pipelines', label: 'Pipelines', icon: Workflow },

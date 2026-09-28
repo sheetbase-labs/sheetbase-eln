@@ -21,11 +21,11 @@ import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as LineageRouteImport } from './routes/lineage'
+import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
 import { Route as ProjectsRouteImport } from './routes/projects'
-import { Route as ReagentsRouteImport } from './routes/reagents'
 import { Route as ReportBuilderRouteImport } from './routes/report-builder'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as ScheduleRouteImport } from './routes/schedule'
@@ -137,6 +137,11 @@ const LineageRoute = LineageRouteImport.update({
   path: '/lineage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MaterialsRoute = MaterialsRouteImport.update({
+  id: '/materials',
+  path: '/materials',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PipelinesRoute = PipelinesRouteImport.update({
   id: '/pipelines',
   path: '/pipelines',
@@ -155,11 +160,6 @@ const PlateDesignerRoute = PlateDesignerRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReagentsRoute = ReagentsRouteImport.update({
-  id: '/reagents',
-  path: '/reagents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportBuilderRoute = ReportBuilderRouteImport.update({
@@ -436,11 +436,11 @@ export interface FileRoutesByFullPath {
   '/instrument-monitor': typeof InstrumentMonitorRoute
   '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
+  '/materials': typeof MaterialsRoute
   '/pipelines': typeof PipelinesRouteWithChildren
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
-  '/reagents': typeof ReagentsRoute
   '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRoute
   '/schedule': typeof ScheduleRoute
@@ -505,11 +505,11 @@ export interface FileRoutesByTo {
   '/instrument-monitor': typeof InstrumentMonitorRoute
   '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
+  '/materials': typeof MaterialsRoute
   '/pipelines': typeof PipelinesRouteWithChildren
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
-  '/reagents': typeof ReagentsRoute
   '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRoute
   '/schedule': typeof ScheduleRoute
@@ -573,11 +573,11 @@ export interface FileRoutesById {
   '/instrument-monitor': typeof InstrumentMonitorRoute
   '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
+  '/materials': typeof MaterialsRoute
   '/pipelines': typeof PipelinesRouteWithChildren
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
-  '/reagents': typeof ReagentsRoute
   '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRoute
   '/schedule': typeof ScheduleRoute
@@ -644,11 +644,11 @@ export interface FileRouteTypes {
     | '/instrument-monitor'
     | '/integrations'
     | '/lineage'
+    | '/materials'
     | '/pipelines'
     | '/planner'
     | '/plate-designer'
     | '/projects'
-    | '/reagents'
     | '/report-builder'
     | '/samples'
     | '/schedule'
@@ -713,11 +713,11 @@ export interface FileRouteTypes {
     | '/instrument-monitor'
     | '/integrations'
     | '/lineage'
+    | '/materials'
     | '/pipelines'
     | '/planner'
     | '/plate-designer'
     | '/projects'
-    | '/reagents'
     | '/report-builder'
     | '/samples'
     | '/schedule'
@@ -780,11 +780,11 @@ export interface FileRouteTypes {
     | '/instrument-monitor'
     | '/integrations'
     | '/lineage'
+    | '/materials'
     | '/pipelines'
     | '/planner'
     | '/plate-designer'
     | '/projects'
-    | '/reagents'
     | '/report-builder'
     | '/samples'
     | '/schedule'
@@ -850,11 +850,11 @@ export interface RootRouteChildren {
   InstrumentMonitorRoute: typeof InstrumentMonitorRoute
   IntegrationsRoute: typeof IntegrationsRouteWithChildren
   LineageRoute: typeof LineageRoute
+  MaterialsRoute: typeof MaterialsRoute
   PipelinesRoute: typeof PipelinesRouteWithChildren
   PlannerRoute: typeof PlannerRoute
   PlateDesignerRoute: typeof PlateDesignerRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
-  ReagentsRoute: typeof ReagentsRoute
   ReportBuilderRoute: typeof ReportBuilderRoute
   SamplesRoute: typeof SamplesRoute
   ScheduleRoute: typeof ScheduleRoute
@@ -981,6 +981,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LineageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/materials': {
+      id: '/materials'
+      path: '/materials'
+      fullPath: '/materials'
+      preLoaderRoute: typeof MaterialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pipelines': {
       id: '/pipelines'
       path: '/pipelines'
@@ -1007,13 +1014,6 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reagents': {
-      id: '/reagents'
-      path: '/reagents'
-      fullPath: '/reagents'
-      preLoaderRoute: typeof ReagentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/report-builder': {
@@ -1463,11 +1463,11 @@ const rootRouteChildren: RootRouteChildren = {
   InstrumentMonitorRoute: InstrumentMonitorRoute,
   IntegrationsRoute: IntegrationsRouteWithChildren,
   LineageRoute: LineageRoute,
+  MaterialsRoute: MaterialsRoute,
   PipelinesRoute: PipelinesRouteWithChildren,
   PlannerRoute: PlannerRoute,
   PlateDesignerRoute: PlateDesignerRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
-  ReagentsRoute: ReagentsRoute,
   ReportBuilderRoute: ReportBuilderRoute,
   SamplesRoute: SamplesRoute,
   ScheduleRoute: ScheduleRoute,

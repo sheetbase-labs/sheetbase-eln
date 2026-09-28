@@ -22,7 +22,7 @@ export const recordNav: NavItem[] = [
   { label: 'Projects', icon: 'folder', link: { to: '/projects' } },
   { label: 'Templates', icon: 'template', link: { to: '/templates' } },
   { label: 'Samples', icon: 'tube', link: { to: '/samples' } },
-  { label: 'Materials', icon: 'box', link: { to: '/reagents' } },
+  { label: 'Materials', icon: 'box', link: { to: '/materials' } },
   { label: 'Datasets', icon: 'table', link: { to: '/datasets' } },
   { label: 'Analysis', icon: 'chart', link: { to: '/analysis' } },
   { label: 'Pipelines', icon: 'pipeline', link: { to: '/pipelines' } },

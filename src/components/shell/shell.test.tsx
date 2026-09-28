@@ -393,7 +393,7 @@ describe('AppShell', () => {
     ['s', '/sheets'],
     ['t', '/templates'],
     ['a', '/samples'],
-    ['r', '/reagents'],
+    ['r', '/materials'],
   ])('navigates on the g-then-%s sequence (NAV-03)', async (letter, to) => {
     const { user } = renderShell({
       context: baseContext,

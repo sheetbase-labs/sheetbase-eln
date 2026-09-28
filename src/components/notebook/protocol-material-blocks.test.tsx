@@ -272,7 +272,7 @@ describe('SCI-002 materials preview', () => {
     const openLinks = screen.getAllByRole('link', { name: 'Open' })
     expect(openLinks).toHaveLength(2)
     expect(openLinks.map((link) => link.getAttribute('href'))).toEqual([
-      '/reagents?selected=record-1',
+      '/materials?selected=record-1',
       '/samples?selected=record-2',
     ])
   })

@@ -118,6 +118,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Materials list ported**: `/materials` (renamed from `/reagents`) renders
+  app-3's materials registry (tabs In stock/Expiring/Quarantine/Expired, search,
+  table + mobile list, footer, lot inspector) wired to real reagent records
+  (`fetchReagentsPage` + `reagentAttention`); Receive lot writes through
+  `record_reagent_movement`. `reagentPath`, nav and the legacy shell point at
+  `/materials`; the old reagents page is deleted.
+
 - **Samples list ported**: `/samples` renders app-3's registry list (header,
   tabs In stock/Mine/Awaiting/Quarantine/Consumed, search toolbar, table,
   mobile list, footer, summary inspector) wired to real sample records through

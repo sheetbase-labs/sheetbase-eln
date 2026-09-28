@@ -25,7 +25,7 @@ export function samplePath(sampleId: string): string {
 }
 
 export function reagentPath(reagentId: string): string {
-  return `/reagents?selected=${encodeURIComponent(reagentId)}`
+  return `/materials?selected=${encodeURIComponent(reagentId)}`
 }
 
 export function notebookTemplatePath(templateId: string): string {

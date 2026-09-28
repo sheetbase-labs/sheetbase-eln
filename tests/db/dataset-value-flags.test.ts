@@ -125,3 +125,26 @@ describe('api.flag_dataset_value', () => {
     )
   })
 })
+
+describe('snapshot flags', () => {
+  it('freezes active flags into a snapshot', async () => {
+    const member = await asAuthenticated(MEMBER)
+    await member.query(
+      `SELECT api.flag_dataset_value($1, $2, $3, 'missing_unit', 'Unit not recorded')`,
+      [DATASET, ROW, FIELD],
+    )
+    const revision = await migrator.query<{ revision: string }>(
+      `SELECT revision FROM api.datasets WHERE id = $1`,
+      [DATASET],
+    )
+    const snapshot = await member.query<{ id: string }>(
+      `SELECT (api.snapshot_dataset($1, $2, 'with flag')).id AS id`,
+      [DATASET, revision.rows[0]!.revision],
+    )
+    const flags = await migrator.query<{ kind: string }>(
+      `SELECT kind FROM api.dataset_version_flags WHERE dataset_version_id = $1`,
+      [snapshot.rows[0]!.id],
+    )
+    expect(flags.rows.map((row) => row.kind)).toContain('missing_unit')
+  })
+})

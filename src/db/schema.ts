@@ -3103,6 +3103,33 @@ export const datasetValueFlags = api.table(
   ],
 )
 
+/**
+ * dataset_version_flags (DSET-01.1) — the active value flags frozen into a
+ * snapshot at capture, so a review sees the flags as they were.
+ */
+export const datasetVersionFlags = api.table(
+  'dataset_version_flags',
+  {
+    datasetVersionId: uuid('dataset_version_id')
+      .notNull()
+      .references(() => datasetVersions.id, { onDelete: 'cascade' }),
+    rowId: uuid('row_id').notNull(),
+    fieldId: uuid('field_id').notNull(),
+    kind: text('kind').notNull(),
+    reason: text('reason').notNull(),
+    comment: text('comment'),
+    setByUserId: text('set_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    setAt: timestamp('set_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.datasetVersionId, table.rowId, table.fieldId, table.kind],
+    }),
+  ],
+)
+
 export const datasetRowValues = api.table(
   'dataset_row_values',
   {

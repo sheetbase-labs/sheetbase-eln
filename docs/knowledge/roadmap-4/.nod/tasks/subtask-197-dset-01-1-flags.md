@@ -18,3 +18,4 @@ Step 1 of 5 in [DSET-01](../../tasks/DSET.md#dset-01--value-flags-and-repeats); 
 
 ## Work Log
 - 2026-09-28: PR #206: api.dataset_value_flags table + flag_dataset_value / clear_dataset_value_flag RPCs (writer-gated, row/field validated, duplicate active flag upserts) with RLS and DB tests. Copying flags into the next snapshot remains.
+- 2026-09-28: PR #206: snapshot_dataset now freezes active value flags into dataset_version_flags; DB test proves a flag is captured. System-written validation flags remain.

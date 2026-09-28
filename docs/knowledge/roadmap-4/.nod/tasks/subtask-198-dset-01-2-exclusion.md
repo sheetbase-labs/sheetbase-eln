@@ -18,3 +18,4 @@ Step 2 of 5 in [DSET-01](../../tasks/DSET.md#dset-01--value-flags-and-repeats); 
 
 ## Work Log
 - 2026-09-28: PR #206: src/lib/dataset-flags.ts — active-flag fetch plus the shared exclusion predicate (buildFlagIndex / isValueFlagged / excludeFlaggedValues) with unit tests. Wiring it into chart-data, analysis, ƒx criteria and pipeline inputs remains.
+- 2026-09-28: PR #206: live charts exclude rows whose charted field is flagged — resolveChartDataset attaches active flags and materialiseLiveChart drops them (unit test). Analyses, fx criteria and pipeline inputs remain.

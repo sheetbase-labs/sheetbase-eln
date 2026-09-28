@@ -27,6 +27,12 @@ import { toBlock } from './notebook-data'
 import type { BlockWire, NotebookBlock } from './notebook-data'
 import { materialiseChart, materialiseFacetedCharts } from './chart-spec'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
+import {
+  buildFlagIndex,
+  fetchActiveDatasetFlags,
+  isValueFlagged,
+} from './dataset-flags'
+import type { DatasetValueFlag } from './dataset-flags'
 import type {
   ChartColumn,
   ChartSpec,
@@ -122,6 +128,8 @@ export interface ResolvedDataset {
   /** True when totalCount exceeded SCI_ANALYSIS_ROW_LIMIT and rows were cut. */
   truncated: boolean
   totalCount: number
+  /** DSET-01.2 — active value flags; flagged values are excluded by default. */
+  flags?: DatasetValueFlag[]
 }
 
 /**
@@ -247,8 +255,11 @@ export async function resolveChartDataset(
   if (!spec || spec.datasets.length === 0) return null
   const source = await fetchCanonicalDataset(client, spec.datasets[0].datasetId)
   if (!source) return null
-  const paged = await fetchDatasetRows(client, source.datasetId)
-  return { source, ...paged }
+  const [paged, flags] = await Promise.all([
+    fetchDatasetRows(client, source.datasetId),
+    fetchActiveDatasetFlags(client, source.datasetId),
+  ])
+  return { source, ...paged, flags }
 }
 
 /**
@@ -291,7 +302,22 @@ export function materialiseLiveChart(
       droppedPoints: 0,
     }
   }
-  return materialiseChart(spec, dataset.source.columns, dataset.rows)
+  // DSET-01.2 — exclude a row when any field the chart uses is flagged.
+  const usedFields = Object.values(spec.fields)
+    .map((binding) => binding?.fieldId)
+    .filter((fieldId): fieldId is string => typeof fieldId === 'string')
+  let rows = dataset.rows
+  if (dataset.flags && dataset.flags.length > 0 && usedFields.length > 0) {
+    const index = buildFlagIndex(dataset.flags)
+    rows = rows.filter((row) => {
+      const rowId = row[CHART_ROW_ID_KEY]
+      if (typeof rowId !== 'string') return true
+      return !usedFields.some((fieldId) =>
+        isValueFlagged(index, rowId, fieldId),
+      )
+    })
+  }
+  return materialiseChart(spec, dataset.source.columns, rows)
 }
 
 /**

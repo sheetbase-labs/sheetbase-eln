@@ -52,6 +52,8 @@ const STORED_PREFIXES = new Set([
   'PL',
   'CAL',
   'INS',
+  'PRJ',
+  'CL',
 ])
 
 function prefixOf(token: string): string {
@@ -73,6 +75,8 @@ async function seededStrings(): Promise<string[]> {
       ['templates', 'select key, name from api.notebook_templates'],
       ['bookings', 'select title, display_id from api.calendar_bookings'],
       ['instruments', 'select name, display_id from api.instruments'],
+      ['projects', 'select title, display_id from api.projects'],
+      ['clients', 'select name, code from api.clients'],
     ]
     for (const [, sql] of queries) {
       const { rows } = await client.query<Record<string, unknown>>(sql)

@@ -8,7 +8,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 
@@ -368,7 +368,7 @@ export const designSteps: Array<SeedStep> = [
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
           .onConflictDoUpdate({
-            target: [schema.records.projectId, schema.records.identifier],
+            target: schema.records.id,
             set: {
               title: experiment.title,
               status: experiment.status,
@@ -500,6 +500,10 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design bookings',
     run: (db) => seedDesignBookings(db),
+  },
+  {
+    name: 'design project details',
+    run: (db) => seedDesignProjectDetails(db),
   },
 ]
 
@@ -1921,5 +1925,496 @@ async function seedDesignBookings(
         createdByUserId: DESIGN_USER_IDS.gareth,
       })
       .onConflictDoNothing()
+  }
+}
+
+/**
+ * DSYS-05 / PROJ-01 — the Projects screen's clients and project details, and
+ * the per-project experiment counts the list shows. Display ids and client
+ * codes match the design verbatim; the extra experiments that reach the exact
+ * counts are deterministic and never shown (the list shows the most recent).
+ */
+interface DesignProjectDetail {
+  id: string
+  key: string
+  title: string
+  displayId: string
+  clientCode: string | null
+  modality: string | null
+  stage: string
+  lead: string
+  status: string
+  experiments: number
+  archived?: boolean
+}
+
+const DESIGN_PROJECT_DETAILS: ReadonlyArray<DesignProjectDetail> = [
+  {
+    id: '00000000-0000-4000-8000-000000000320',
+    key: 'aav9-process-transfer',
+    title: 'AAV9 process transfer',
+    displayId: 'PRJ-0217',
+    clientCode: 'CL-017',
+    modality: 'AAV9',
+    stage: 'Tech transfer',
+    lead: DESIGN_USER_IDS.gareth,
+    status: 'in_progress',
+    experiments: 14,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000321',
+    key: 'lvv-stability-2-8c',
+    title: 'LVV stability, 2–8 °C hold',
+    displayId: 'PRJ-0214',
+    clientCode: 'CL-009',
+    modality: 'LVV',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.priya,
+    status: 'in_review',
+    experiments: 9,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000323',
+    key: 'car-t-expansion-media-screen',
+    title: 'CAR-T expansion media screen',
+    displayId: 'PRJ-0211',
+    clientCode: 'CL-022',
+    modality: 'CAR-T',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.tom,
+    status: 'in_progress',
+    experiments: 21,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000328',
+    key: 'aav-full-empty-assay-qualification',
+    title: 'AAV full/empty assay qualification',
+    displayId: 'PRJ-0209',
+    clientCode: null,
+    modality: 'AAV',
+    stage: 'Analytical development',
+    lead: DESIGN_USER_IDS.mei,
+    status: 'complete',
+    experiments: 6,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000322',
+    key: 'ambr-250-perfusion-scale-down',
+    title: 'Ambr 250 perfusion scale-down',
+    displayId: 'PRJ-0205',
+    clientCode: null,
+    modality: 'AAV9',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.gareth,
+    status: 'in_progress',
+    experiments: 18,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000329',
+    key: 'lvv-transfection-optimisation',
+    title: 'LVV transfection optimisation',
+    displayId: 'PRJ-0203',
+    clientCode: 'CL-009',
+    modality: 'LVV',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.priya,
+    status: 'on_hold',
+    experiments: 11,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000324',
+    key: 'hek293-cell-bank-characterisation',
+    title: 'HEK293 cell bank characterisation',
+    displayId: 'PRJ-0198',
+    clientCode: 'CL-014',
+    modality: 'HEK293',
+    stage: 'Analytical development',
+    lead: DESIGN_USER_IDS.mei,
+    status: 'in_review',
+    experiments: 7,
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000032a',
+    key: 'aav8-tff-concentration',
+    title: 'AAV8 TFF concentration',
+    displayId: 'PRJ-0196',
+    clientCode: 'CL-017',
+    modality: 'AAV8',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.tom,
+    status: 'in_progress',
+    experiments: 12,
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000032b',
+    key: 'capsid-elisa-method-transfer',
+    title: 'Capsid ELISA method transfer',
+    displayId: 'PRJ-0192',
+    clientCode: 'CL-011',
+    modality: 'AAV',
+    stage: 'Tech transfer',
+    lead: DESIGN_USER_IDS.mei,
+    status: 'complete',
+    experiments: 5,
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000032c',
+    key: 't-cell-activation-reagent-comparison',
+    title: 'T-cell activation reagent comparison',
+    displayId: 'PRJ-0188',
+    clientCode: 'CL-022',
+    modality: 'CAR-T',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.tom,
+    status: 'complete',
+    experiments: 8,
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000032d',
+    key: 'plasmid-lot-release-panel',
+    title: 'Plasmid lot release panel',
+    displayId: 'PRJ-0185',
+    clientCode: null,
+    modality: 'Plasmid',
+    stage: 'QC',
+    lead: DESIGN_USER_IDS.priya,
+    status: 'in_progress',
+    experiments: 4,
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000032e',
+    key: 'lvv-downstream-chromatography',
+    title: 'LVV downstream chromatography',
+    displayId: 'PRJ-0181',
+    clientCode: 'CL-009',
+    modality: 'LVV',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.gareth,
+    status: 'on_hold',
+    experiments: 15,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000330',
+    key: 'legacy-aav1-vector-design',
+    title: 'AAV1 vector design',
+    displayId: 'PRJ-0170',
+    clientCode: 'CL-009',
+    modality: 'AAV1',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.gareth,
+    status: 'archived',
+    experiments: 2,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000331',
+    key: 'legacy-lentiviral-titration',
+    title: 'Lentiviral titration, old panel',
+    displayId: 'PRJ-0168',
+    clientCode: null,
+    modality: 'LVV',
+    stage: 'Analytical development',
+    lead: DESIGN_USER_IDS.gareth,
+    status: 'archived',
+    experiments: 1,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000332',
+    key: 'legacy-gareth-aav9-old',
+    title: 'AAV9 process transfer, first campaign',
+    displayId: 'PRJ-0165',
+    clientCode: 'CL-017',
+    modality: 'AAV9',
+    stage: 'Tech transfer',
+    lead: DESIGN_USER_IDS.gareth,
+    status: 'archived',
+    experiments: 2,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000333',
+    key: 'legacy-hek293-expansion-old',
+    title: 'HEK293 expansion, old media',
+    displayId: 'PRJ-0161',
+    clientCode: 'CL-014',
+    modality: 'HEK293',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.mei,
+    status: 'archived',
+    experiments: 1,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000334',
+    key: 'legacy-capsid-qc-old',
+    title: 'Capsid QC panel, retired',
+    displayId: 'PRJ-0159',
+    clientCode: 'CL-011',
+    modality: 'AAV',
+    stage: 'QC',
+    lead: DESIGN_USER_IDS.mei,
+    status: 'archived',
+    experiments: 2,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000335',
+    key: 'legacy-tcell-old',
+    title: 'T-cell activation, first screen',
+    displayId: 'PRJ-0155',
+    clientCode: 'CL-022',
+    modality: 'CAR-T',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.tom,
+    status: 'archived',
+    experiments: 1,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000336',
+    key: 'legacy-plasmid-old',
+    title: 'Plasmid release, old lots',
+    displayId: 'PRJ-0150',
+    clientCode: null,
+    modality: 'Plasmid',
+    stage: 'QC',
+    lead: DESIGN_USER_IDS.priya,
+    status: 'archived',
+    experiments: 2,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000337',
+    key: 'legacy-lvv-chromatography-old',
+    title: 'LVV chromatography, first resin',
+    displayId: 'PRJ-0146',
+    clientCode: 'CL-009',
+    modality: 'LVV',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.gareth,
+    status: 'archived',
+    experiments: 1,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000338',
+    key: 'legacy-ambr-old',
+    title: 'Ambr 15 scale-down, retired',
+    displayId: 'PRJ-0142',
+    clientCode: null,
+    modality: 'AAV9',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.priya,
+    status: 'archived',
+    experiments: 2,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000339',
+    key: 'legacy-aav8-old',
+    title: 'AAV8 TFF, pilot',
+    displayId: 'PRJ-0138',
+    clientCode: 'CL-017',
+    modality: 'AAV8',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.tom,
+    status: 'archived',
+    experiments: 1,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000033a',
+    key: 'legacy-elisa-old',
+    title: 'ELISA method, retired',
+    displayId: 'PRJ-0134',
+    clientCode: 'CL-011',
+    modality: 'AAV',
+    stage: 'Analytical development',
+    lead: DESIGN_USER_IDS.mei,
+    status: 'archived',
+    experiments: 2,
+    archived: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000033b',
+    key: 'legacy-car-t-old',
+    title: 'CAR-T expansion, old media',
+    displayId: 'PRJ-0130',
+    clientCode: 'CL-022',
+    modality: 'CAR-T',
+    stage: 'Process development',
+    lead: DESIGN_USER_IDS.tom,
+    status: 'archived',
+    experiments: 1,
+    archived: true,
+  },
+]
+
+const DESIGN_CLIENTS = [
+  { code: 'CL-009', name: 'Lentigen Therapeutics' },
+  { code: 'CL-011', name: 'Capsid Analytics Ltd' },
+  { code: 'CL-014', name: 'HEK Biologics' },
+  { code: 'CL-017', name: 'AAV Vector Partners' },
+  { code: 'CL-022', name: 'T-Cell Engineering Co' },
+]
+
+/** Experiments shown by the design's Experiments list, by project. */
+const DESIGN_EXPERIMENT_PROJECTS: Record<string, string> = {
+  'EXP-0138': '00000000-0000-4000-8000-000000000320',
+  'EXP-0142': '00000000-0000-4000-8000-000000000320',
+  'EXP-0136': '00000000-0000-4000-8000-000000000320',
+  'EXP-0133': '00000000-0000-4000-8000-000000000320',
+  'EXP-0145': '00000000-0000-4000-8000-000000000320',
+  'EXP-0131': '00000000-0000-4000-8000-000000000321',
+  'EXP-0128': '00000000-0000-4000-8000-000000000323',
+  'EXP-0126': '00000000-0000-4000-8000-000000000323',
+  'EXP-0127': '00000000-0000-4000-8000-000000000323',
+  'EXP-0129': '00000000-0000-4000-8000-000000000323',
+  'EXP-0132': '00000000-0000-4000-8000-000000000323',
+  'EXP-0134': '00000000-0000-4000-8000-000000000323',
+  'EXP-0137': '00000000-0000-4000-8000-000000000323',
+  'EXP-0141': '00000000-0000-4000-8000-000000000323',
+  'EXP-0146': '00000000-0000-4000-8000-000000000323',
+  'EXP-0125': '00000000-0000-4000-8000-000000000328',
+  'EXP-0140': '00000000-0000-4000-8000-000000000322',
+  'EXP-0091': '00000000-0000-4000-8000-000000000322',
+  'EXP-0098': '00000000-0000-4000-8000-000000000322',
+  'EXP-0117': '00000000-0000-4000-8000-000000000322',
+  'EXP-0119': '00000000-0000-4000-8000-000000000322',
+  'EXP-0121': '00000000-0000-4000-8000-000000000322',
+  'EXP-0123': '00000000-0000-4000-8000-000000000322',
+  'EXP-0124': '00000000-0000-4000-8000-000000000322',
+  'EXP-0130': '00000000-0000-4000-8000-000000000324',
+  'EXP-0144': '00000000-0000-4000-8000-00000000032a',
+  'EXP-0139': '00000000-0000-4000-8000-00000000032e',
+}
+
+function designPaddingId(projectIndex: number, run: number): string {
+  const n = 0x900000 + projectIndex * 100 + run
+  return `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
+}
+
+async function seedDesignProjectDetails(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const clientIds = new Map<string, string>()
+  for (const client of DESIGN_CLIENTS) {
+    const inserted = await db
+      .insert(schema.clients)
+      .values({
+        workspaceId: PROCESS,
+        code: client.code,
+        name: client.name,
+        createdByUserId: DESIGN_USER_IDS.gareth,
+      })
+      .onConflictDoUpdate({
+        target: [schema.clients.workspaceId, schema.clients.code],
+        set: { name: client.name },
+      })
+      .returning({ id: schema.clients.id, code: schema.clients.code })
+    for (const row of inserted) clientIds.set(row.code, row.id)
+  }
+
+  for (const project of DESIGN_PROJECT_DETAILS) {
+    const clientId = project.clientCode
+      ? (clientIds.get(project.clientCode) ?? null)
+      : null
+    await db
+      .insert(schema.projects)
+      .values({
+        id: project.id,
+        workspaceId: PROCESS,
+        key: project.key,
+        title: project.title,
+        displayId: project.displayId,
+        clientId,
+        modality: project.modality,
+        stage: project.stage,
+        leadUserId: project.lead,
+        status: project.archived ? 'active' : project.status,
+        archivedAt: null,
+      })
+      .onConflictDoUpdate({
+        target: [schema.projects.workspaceId, schema.projects.key],
+        set: {
+          title: project.title,
+          displayId: project.displayId,
+          clientId,
+          modality: project.modality,
+          stage: project.stage,
+          leadUserId: project.lead,
+          status: project.archived ? 'active' : project.status,
+          archivedAt: null,
+        },
+      })
+  }
+
+  for (const [identifier, projectId] of Object.entries(
+    DESIGN_EXPERIMENT_PROJECTS,
+  )) {
+    await db
+      .update(schema.records)
+      .set({ projectId })
+      .where(
+        and(
+          eq(schema.records.workspaceId, PROCESS),
+          eq(schema.records.identifier, identifier),
+        ),
+      )
+  }
+
+  for (const [projectIndex, project] of DESIGN_PROJECT_DETAILS.entries()) {
+    const existing = await db
+      .select({ id: schema.records.id })
+      .from(schema.records)
+      .where(
+        and(
+          eq(schema.records.workspaceId, PROCESS),
+          eq(schema.records.projectId, project.id),
+          eq(schema.records.kind, 'experiment'),
+        ),
+      )
+    let missing = project.experiments - existing.length
+    let run = 0
+    while (missing > 0) {
+      run += 1
+      missing -= 1
+      const status =
+        project.status === 'complete'
+          ? 'approved'
+          : project.status === 'in_review'
+            ? 'in_review'
+            : project.status === 'archived'
+              ? 'approved'
+              : 'in_progress'
+      await db
+        .insert(schema.records)
+        .values({
+          id: designPaddingId(projectIndex, run),
+          workspaceId: PROCESS,
+          projectId: project.id,
+          kind: 'experiment',
+          identifier: `EXP-${String(2000 + projectIndex * 100 + run).padStart(4, '0')}`,
+          title: `${project.title} · run ${missing + 1}`,
+          status,
+          createdByUserId: project.lead,
+        })
+        .onConflictDoNothing()
+    }
+  }
+
+  // Archive last: records cannot be added to an archived project.
+  for (const project of DESIGN_PROJECT_DETAILS) {
+    if (!project.archived) continue
+    await db
+      .update(schema.projects)
+      .set({ status: 'archived', archivedAt: DESIGN_CLOCK })
+      .where(
+        and(
+          eq(schema.projects.workspaceId, PROCESS),
+          eq(schema.projects.id, project.id),
+        ),
+      )
   }
 }

@@ -121,6 +121,7 @@ function RootRouteComponent() {
     '/inbox',
     '/review/$revisionId',
     '/evidence/$revisionId',
+    '/sheets/$sheetId',
     '/schedule',
     '/search',
     '/settings',

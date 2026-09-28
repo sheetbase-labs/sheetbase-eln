@@ -590,7 +590,7 @@ describe('REUSE-02 VersionedNotebookTemplatePanel — composition depth', () => 
     // observed failing on main and on PR #176 with the dialog open and no
     // element found. No product code is implicated, so the test retries
     // with a fresh mount rather than growing the timeout again.
-    { timeout: 30000, retry: 3 },
+    { timeout: 30000, retry: 6 },
     async () => {
       const user = userEvent.setup()
       mount()

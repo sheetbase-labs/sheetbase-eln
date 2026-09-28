@@ -395,8 +395,8 @@ export function SubmitNotebookDialog({
                   <span key={instanceId}>
                     {index > 0 ? ', ' : null}
                     <Link
-                      to="/sheets/$instanceId"
-                      params={{ instanceId }}
+                      to="/sheets/$sheetId"
+                      params={{ sheetId: instanceId }}
                       search={{ projectId }}
                       className="underline underline-offset-2 hover:text-foreground"
                     >

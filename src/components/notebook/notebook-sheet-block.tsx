@@ -250,8 +250,8 @@ function NotebookInstanceSheetEmbed({
         affordances as the embed. */}
         <Link
           className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          to="/sheets/$instanceId"
-          params={{ instanceId }}
+          to="/sheets/$sheetId"
+          params={{ sheetId: instanceId }}
           search={{ projectId: projectId ?? undefined }}
         >
           Open full sheet

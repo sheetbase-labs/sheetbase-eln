@@ -65,7 +65,7 @@ import { Route as SettingsMembersRouteImport } from './routes/settings/members'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsSignaturesRouteImport } from './routes/settings/signatures'
-import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
+import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
@@ -407,9 +407,9 @@ const SettingsSignaturesRoute = SettingsSignaturesRouteImport.update({
   path: '/signatures',
   getParentRoute: () => SettingsRoute,
 } as any)
-const SheetsInstanceIdRoute = SheetsInstanceIdRouteImport.update({
-  id: '/sheets/$instanceId',
-  path: '/sheets/$instanceId',
+const SheetsSheetIdRoute = SheetsSheetIdRouteImport.update({
+  id: '/sheets/$sheetId',
+  path: '/sheets/$sheetId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TemplatesTemplateIdRoute = TemplatesTemplateIdRouteImport.update({
@@ -794,7 +794,7 @@ export interface FileRoutesByFullPath {
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
-  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -905,7 +905,7 @@ export interface FileRoutesByTo {
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
-  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/settings': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -1024,7 +1024,7 @@ export interface FileRoutesById {
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
-  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -1145,7 +1145,7 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/signatures'
-    | '/sheets/$instanceId'
+    | '/sheets/$sheetId'
     | '/templates/$templateId'
     | '/settings/'
     | '/api/auth/$'
@@ -1256,7 +1256,7 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/signatures'
-    | '/sheets/$instanceId'
+    | '/sheets/$sheetId'
     | '/settings'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -1374,7 +1374,7 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/signatures'
-    | '/sheets/$instanceId'
+    | '/sheets/$sheetId'
     | '/templates/$templateId'
     | '/settings/'
     | '/api/auth/$'
@@ -1476,7 +1476,7 @@ export interface RootRouteChildren {
   EvidenceRevisionIdRoute: typeof EvidenceRevisionIdRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
   ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
-  SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
+  SheetsSheetIdRoute: typeof SheetsSheetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
@@ -1894,11 +1894,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSignaturesRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/sheets/$instanceId': {
-      id: '/sheets/$instanceId'
-      path: '/sheets/$instanceId'
-      fullPath: '/sheets/$instanceId'
-      preLoaderRoute: typeof SheetsInstanceIdRouteImport
+    '/sheets/$sheetId': {
+      id: '/sheets/$sheetId'
+      path: '/sheets/$sheetId'
+      fullPath: '/sheets/$sheetId'
+      preLoaderRoute: typeof SheetsSheetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/templates/$templateId': {
@@ -2668,7 +2668,7 @@ const rootRouteChildren: RootRouteChildren = {
   EvidenceRevisionIdRoute: EvidenceRevisionIdRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
   ReviewRevisionIdRoute: ReviewRevisionIdRoute,
-  SheetsInstanceIdRoute: SheetsInstanceIdRoute,
+  SheetsSheetIdRoute: SheetsSheetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,

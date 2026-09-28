@@ -118,6 +118,16 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Working sheet moved into app-3's shell**: `/sheets/$instanceId` becomes
+  `/sheets/$sheetId` with an app-3 header (project/owning-notebook crumbs, the
+  instance name, revision, Share) instead of the legacy useShell wrapper; the
+  canonical sheet engine and collaboration room are unchanged, and the notebook
+  links retarget. Fixed a real data bug found here: the sheet-instance wire
+  schema was `.strict()` and had drifted from the table (display_id, credential
+  ids), so `fetchSheetInstance` threw and the old page silently fell back — the
+  schema now matches and the title renders. The screens suite covers
+  `/sheets/$sheetId` (48 routes × 2 widths clean). `/sheets/new` follows.
+
 - **Evidence view added**: `/evidence/$revisionId` shows a frozen revision as
   submitted evidence — title and identifier from the revision's metadata
   snapshot, its blocks read-only, the integrity digest, and a warning when the

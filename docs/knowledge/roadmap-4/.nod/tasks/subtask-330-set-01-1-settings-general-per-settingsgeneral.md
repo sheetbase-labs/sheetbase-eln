@@ -18,3 +18,4 @@ Step 1 of 3 in [SET-01](../../tasks/SET.md#set-01--workspace-general-settings); 
 
 ## Work Log
 - 2026-09-28: PR #206: workspace_settings gains site/timezone/date_format/number_format with the admin-only update_workspace_general RPC; DB tests. The /settings/general page follows.
+- 2026-09-28: PR #206: /settings now shows the workspace general settings form (site, time zone, date/number format) with Save; component test.

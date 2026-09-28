@@ -7,6 +7,7 @@ import { useShell } from '#/components/shell'
 import { SettingsApiTokens } from '#/components/settings/settings-api-tokens'
 import { SettingsSessions } from '#/components/settings/settings-sessions'
 import { SettingsNotifications } from '#/components/settings/settings-notifications'
+import { SettingsGeneral } from '#/components/settings/settings-general'
 import { Button } from '#/components/ui'
 import {
   createPersonalTokenFn,
@@ -147,6 +148,8 @@ function SettingsRoute() {
           Retry
         </Button>
       ) : null}
+
+      <SettingsGeneral workspaceId={workspaceId} />
 
       <SettingsSessions />
 

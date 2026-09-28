@@ -124,6 +124,8 @@ function RootRouteComponent() {
     '/settings',
     '/settings/',
     '/settings/members',
+    '/settings/access',
+    '/settings/audit',
     '/settings/api',
     '/settings/profile',
     '/settings/notifications',

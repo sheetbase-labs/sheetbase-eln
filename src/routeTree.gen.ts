@@ -53,7 +53,9 @@ import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
+import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
 import { Route as SettingsMembersRouteImport } from './routes/settings/members'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
@@ -338,9 +340,19 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsAccessRoute = SettingsAccessRouteImport.update({
+  id: '/access',
+  path: '/access',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsApiRoute = SettingsApiRouteImport.update({
   id: '/api',
   path: '/api',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAuditRoute = SettingsAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsMembersRoute = SettingsMembersRouteImport.update({
@@ -727,7 +739,9 @@ export interface FileRoutesByFullPath {
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
+  '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
+  '/settings/audit': typeof SettingsAuditRoute
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -829,7 +843,9 @@ export interface FileRoutesByTo {
   '/docs/$name': typeof DocsNameRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
+  '/settings/audit': typeof SettingsAuditRoute
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -939,7 +955,9 @@ export interface FileRoutesById {
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
+  '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
+  '/settings/audit': typeof SettingsAuditRoute
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
@@ -1051,7 +1069,9 @@ export interface FileRouteTypes {
     | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/samples/$sampleId'
+    | '/settings/access'
     | '/settings/api'
+    | '/settings/audit'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
@@ -1153,7 +1173,9 @@ export interface FileRouteTypes {
     | '/docs/$name'
     | '/integrations/$connectorId'
     | '/reviews/$revisionId'
+    | '/settings/access'
     | '/settings/api'
+    | '/settings/audit'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
@@ -1262,7 +1284,9 @@ export interface FileRouteTypes {
     | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/samples/$sampleId'
+    | '/settings/access'
     | '/settings/api'
+    | '/settings/audit'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
@@ -1699,11 +1723,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/access': {
+      id: '/settings/access'
+      path: '/access'
+      fullPath: '/settings/access'
+      preLoaderRoute: typeof SettingsAccessRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/api': {
       id: '/settings/api'
       path: '/api'
       fullPath: '/settings/api'
       preLoaderRoute: typeof SettingsApiRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/audit': {
+      id: '/settings/audit'
+      path: '/audit'
+      fullPath: '/settings/audit'
+      preLoaderRoute: typeof SettingsAuditRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/members': {
@@ -2359,7 +2397,9 @@ const SamplesRouteWithChildren =
   SamplesRoute._addFileChildren(SamplesRouteChildren)
 
 interface SettingsRouteChildren {
+  SettingsAccessRoute: typeof SettingsAccessRoute
   SettingsApiRoute: typeof SettingsApiRoute
+  SettingsAuditRoute: typeof SettingsAuditRoute
   SettingsMembersRoute: typeof SettingsMembersRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
@@ -2367,7 +2407,9 @@ interface SettingsRouteChildren {
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsAccessRoute: SettingsAccessRoute,
   SettingsApiRoute: SettingsApiRoute,
+  SettingsAuditRoute: SettingsAuditRoute,
   SettingsMembersRoute: SettingsMembersRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsProfileRoute: SettingsProfileRoute,

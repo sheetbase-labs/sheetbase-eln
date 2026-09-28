@@ -118,6 +118,14 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Settings — access and audit ported**: `/settings/access` lists project
+  access grants (project, person, level) and grants/revokes through
+  `grant_project_access` / `revoke_project_access`, gated on `workspace.admin`;
+  `/settings/audit` reads the append-only change events with an operation filter,
+  search and CSV export of the rows shown. The settings nav now lists General,
+  Members and roles, Project access, Audit and retention, API and SDK, Profile
+  and Notifications; signatures, instruments and integrations follow.
+
 - **Settings shell ported**: `/settings` now uses app-3's workspace/account nav
   with sub-routes. General (`/settings`), API and SDK (`/settings/api`), Profile
   (`/settings/profile`) and Notifications (`/settings/notifications`) reuse the

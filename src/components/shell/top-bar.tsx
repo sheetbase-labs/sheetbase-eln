@@ -16,7 +16,7 @@ import {
 import { ConnectionStatus, useLiveStatus } from '#/components/live'
 import { cn } from '#/lib/utils'
 
-import { NotificationInbox } from '../collaboration/notification-inbox'
+import { NotificationsBell } from '../collaboration/notifications-bell'
 
 /**
  * The global New menu (SHELL-01.5). Items whose route does not exist yet
@@ -115,7 +115,7 @@ export function TopBarActions({
           lastAppliedSeq={liveStatus.lastAppliedSeq}
         />
         <NewMenu />
-        <NotificationInbox />
+        <NotificationsBell />
 
         {primaryAction}
 

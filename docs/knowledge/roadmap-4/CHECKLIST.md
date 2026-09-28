@@ -178,7 +178,7 @@ Specification: [tasks/PROJ.md](tasks/PROJ.md) · nod `epic-124`
 Specification: [tasks/EXP.md](tasks/EXP.md) · nod `epic-144`
 
 - [ ] **EXP-01** Experiment page frame and tabs `task-145`
-  - [ ] EXP-01.1 Route split `subtask-146`
+  - [ ] EXP-01.1 Route split — **in progress** `subtask-146`
   - [ ] EXP-01.2 Experiments list `subtask-147`
   - [ ] EXP-01.3 Samples tab `subtask-148`
   - [ ] EXP-01.4 Datasets tab `subtask-149`

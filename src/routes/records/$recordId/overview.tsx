@@ -54,7 +54,7 @@ import {
   toOverviewRevision,
 } from '#/lib/overview'
 import type { OverviewMode } from '#/lib/overview'
-import { StickyRecordHeader } from '../$recordId'
+import { StickyRecordHeader } from './notebook'
 
 function RouteShell({
   children,

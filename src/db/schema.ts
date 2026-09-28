@@ -477,9 +477,7 @@ export const projects = api.table(
     requireIndependentReviewer: boolean('require_independent_reviewer')
       .notNull()
       .default(false),
-    autoShareToClient: boolean('auto_share_to_client')
-      .notNull()
-      .default(false),
+    autoShareToClient: boolean('auto_share_to_client').notNull().default(false),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
   },
@@ -3127,21 +3125,18 @@ export const datasetVersionKeeps = api.table(
  * dataset_version_prunes (DSET-04.2) — records that a snapshot's row data was
  * removed by the retention job, keeping the snapshot's identity and history.
  */
-export const datasetVersionPrunes = api.table(
-  'dataset_version_prunes',
-  {
-    datasetVersionId: uuid('dataset_version_id')
-      .primaryKey()
-      .references(() => datasetVersions.id, { onDelete: 'cascade' }),
-    rowsRemovedAt: timestamp('rows_removed_at', {
-      withTimezone: true,
-      mode: 'date',
-    })
-      .notNull()
-      .defaultNow(),
-    prunedRowCount: integer('pruned_row_count').notNull().default(0),
-  },
-)
+export const datasetVersionPrunes = api.table('dataset_version_prunes', {
+  datasetVersionId: uuid('dataset_version_id')
+    .primaryKey()
+    .references(() => datasetVersions.id, { onDelete: 'cascade' }),
+  rowsRemovedAt: timestamp('rows_removed_at', {
+    withTimezone: true,
+    mode: 'date',
+  })
+    .notNull()
+    .defaultNow(),
+  prunedRowCount: integer('pruned_row_count').notNull().default(0),
+})
 
 /**
  * dataset_value_flags (DSET-01.1) — a flag on a recorded value (out of range,

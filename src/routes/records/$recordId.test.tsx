@@ -19,7 +19,7 @@ import {
   NotebookUnavailableState,
   PermissionRestrictedState,
   StickyRecordHeader,
-} from './$recordId'
+} from './$recordId/notebook'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
 // Record router Link invocations so tests can assert canonical destinations.

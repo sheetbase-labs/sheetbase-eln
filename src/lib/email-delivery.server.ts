@@ -111,9 +111,10 @@ export async function createSmtpTransport(
   config: SmtpConfig,
 ): Promise<EmailTransport> {
   // Loaded by a variable specifier: nodemailer is an optional dependency, so
-  // it is present only when email delivery is configured.
+  // it is present only when email delivery is configured. @vite-ignore keeps
+  // the bundler from trying to resolve it at build time.
   const moduleName = 'nodemailer'
-  const { createTransport } = (await import(moduleName)) as {
+  const { createTransport } = (await import(/* @vite-ignore */ moduleName)) as {
     createTransport: (options: Record<string, unknown>) => {
       sendMail: (message: Record<string, unknown>) => Promise<unknown>
     }

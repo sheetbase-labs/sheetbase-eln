@@ -618,9 +618,11 @@ describe('ShellProvider + useShell', () => {
     // If the provider/hook loops, React throws "Maximum update depth
     // exceeded" and this render will fail.
     const result = render(
-      <QueryClientProvider client={new QueryClient()}><ShellProvider>
-        <FakeRoute label="Home" />
-      </ShellProvider></QueryClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <ShellProvider>
+          <FakeRoute label="Home" />
+        </ShellProvider>
+      </QueryClientProvider>,
     )
     await waitFor(() => {
       expect(result.getByTestId('route-content').textContent).toBe('Home')
@@ -631,9 +633,11 @@ describe('ShellProvider + useShell', () => {
 
   it('passes config through to AppShell (sidebar, breadcrumbs, inspector)', async () => {
     render(
-      <QueryClientProvider client={new QueryClient()}><ShellProvider>
-        <FakeRoute label="Projects" inspectorContent="Details" />
-      </ShellProvider></QueryClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <ShellProvider>
+          <FakeRoute label="Projects" inspectorContent="Details" />
+        </ShellProvider>
+      </QueryClientProvider>,
     )
     // Wait for the layout effect to fire and AppShell to render
     await waitFor(() => {
@@ -650,9 +654,11 @@ describe('ShellProvider + useShell', () => {
 
   it('clears per-route shell slots on unmount', async () => {
     const { rerender } = render(
-      <QueryClientProvider client={new QueryClient()}><ShellProvider>
-        <FakeRoute label="Page A" inspectorContent="Inspector A" />
-      </ShellProvider></QueryClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <ShellProvider>
+          <FakeRoute label="Page A" inspectorContent="Inspector A" />
+        </ShellProvider>
+      </QueryClientProvider>,
     )
     await waitFor(() => {
       expect(screen.getByText('Inspector A')).toBeTruthy()
@@ -662,9 +668,11 @@ describe('ShellProvider + useShell', () => {
     // The old FakeRoute unmounts → useShell cleanup clears inspector.
     // The new FakeRoute mounts → useShell sets new breadcrumbs, no inspector.
     rerender(
-      <QueryClientProvider client={new QueryClient()}><ShellProvider>
-        <FakeRoute label="Page B" />
-      </ShellProvider></QueryClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <ShellProvider>
+          <FakeRoute label="Page B" />
+        </ShellProvider>
+      </QueryClientProvider>,
     )
     await waitFor(() => {
       expect(screen.getByTestId('route-content').textContent).toBe('Page B')
@@ -688,18 +696,22 @@ describe('ShellProvider + useShell', () => {
     }
     const user = userEvent.setup()
     const { rerender } = render(
-      <QueryClientProvider client={new QueryClient()}><ShellProvider>
-        <ActionRoute />
-      </ShellProvider></QueryClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <ShellProvider>
+          <ActionRoute />
+        </ShellProvider>
+      </QueryClientProvider>,
     )
 
     await user.click(await screen.findByRole('button', { name: 'New project' }))
     expect(onAction).toHaveBeenCalledOnce()
 
     rerender(
-      <QueryClientProvider client={new QueryClient()}><ShellProvider>
-        <ActionRoute pending />
-      </ShellProvider></QueryClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <ShellProvider>
+          <ActionRoute pending />
+        </ShellProvider>
+      </QueryClientProvider>,
     )
     expect(screen.queryByRole('button', { name: 'New project' })).toBeNull()
     expect(
@@ -710,9 +722,11 @@ describe('ShellProvider + useShell', () => {
 
     // A different route omits primaryAction entirely; cleanup must remove it.
     rerender(
-      <QueryClientProvider client={new QueryClient()}><ShellProvider>
-        <FakeRoute label="Next route" />
-      </ShellProvider></QueryClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <ShellProvider>
+          <FakeRoute label="Next route" />
+        </ShellProvider>
+      </QueryClientProvider>,
     )
     expect(screen.getByTestId('route-content').textContent).toBe('Next route')
     expect(screen.queryByRole('button', { name: 'Creating…' })).toBeNull()

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { OPEN_SHORTCUTS_EVENT, requestShortcutsDialog } from '#/lib/shortcuts-dialog'
+import {
+  OPEN_SHORTCUTS_EVENT,
+  requestShortcutsDialog,
+} from '#/lib/shortcuts-dialog'
 
 import { Route } from './help'
 

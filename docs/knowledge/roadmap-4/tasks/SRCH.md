@@ -61,6 +61,7 @@ matching line; include-archived option; "did you mean" for near-miss IDs.
    the index holds 0 rows at 48 kB; `pnpm db:seed:month` targets the production
    workspace (`798f250c-…`) and cannot run against the design/demo seed, so the
    month-scale size is not measurable here.
+
 3. File contents: at upload, extract text for CSV/TXT (and PDF text when a
    text layer exists) into a searchable column with line numbers; results show
    the matching line.
@@ -72,6 +73,7 @@ matching line; include-archived option; "did you mean" for near-miss IDs.
    member, a viewer and an outsider, and the upload test proves extraction.
    PDF text needs a text-layer parser dependency (`pdf-lib` only writes); that
    half is tracked separately so the format is not faked.
+
 4. "Did you mean": trigram similarity (`pg_trgm`) on identifiers when there are
    no results; include-archived flag.
 

@@ -516,3 +516,55 @@
   /* Text-selection highlight inside comments follows the primary hue. */
   --lb-selection: var(--selection);
 }
+
+/*
+ * sheetbase-app-3 compatibility bridge (UI port, branch roadmap-4/ui-app3).
+ *
+ * app-3 components address tokens by different names (`bg-surface`, `text-fg`,
+ * `bg-bg`, …) and rely on a few utilities. Alias them onto the ELN tokens so
+ * the ported components render correctly while the existing screens keep
+ * working. Additive only — the ELN theme stays the source.
+ */
+@theme inline {
+  --color-bg: var(--background);
+  --color-surface: var(--card);
+  --color-surface-muted: var(--muted);
+  --color-surface-hover: var(--accent);
+  --color-fg: var(--foreground);
+  --color-fg-muted: var(--muted-foreground);
+  --color-fg-faint: var(--faint-foreground);
+  --color-danger: var(--destructive);
+  --color-on-accent: var(--primary-foreground);
+  --color-accent-strong: var(--primary);
+  --color-accent-strong-hover: var(--primary-hover);
+  --color-focus: var(--ring);
+  --color-series-a: var(--chart-1);
+  --color-series-b: var(--chart-2);
+  --color-series-c: var(--chart-3);
+  --color-inverse: var(--inverse-bg);
+  --color-inverse-foreground: var(--inverse-text);
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+@utility text-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+}
+
+@utility text-doc {
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}

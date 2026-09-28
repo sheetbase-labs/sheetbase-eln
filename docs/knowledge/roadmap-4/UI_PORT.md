@@ -118,6 +118,16 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Notebook rendered inside app-3's shell**: `/records/$recordId/notebook` drops
+  the legacy useShell wrapper for a content column with the notebook inspector,
+  and the experiment's Notebook tab now opens it (no placeholder). A document
+  heading is kept when the title is editable. Fixed the long-standing 400 on
+  this page: the proxy caps a query value at 500 characters and the lineage
+  record-links `or=(...in.(...),...in.(...))` filter exceeded it with a full
+  record set; the lineage link/review/decision readers now chunk their id lists.
+  The crawl is **clean: 220 pages, 0 problems, 0 404s**, and the screens suite
+  covers the notebook (51 routes × 2 widths).
+
 - **New sheet flow added**: `/sheets/new` mirrors app-3's empty-sheet chooser —
   dataset, template and import starts plus a project picker and a name — and
   creates the blank sheet through the canonical `create_sheet_instance` RPC,

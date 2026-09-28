@@ -12,7 +12,6 @@ import { Archive, FileWarning, Lock } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { useShell } from '#/components/shell'
 import {
   ExtensionObjectActions,
   toExtensionPanelTabs,
@@ -76,6 +75,7 @@ import {
   Input,
   SearchableSelect,
 } from '#/components/ui'
+import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import {
@@ -168,12 +168,31 @@ import {
 import { NotebookOutlinePanel } from '#/components/notebook/notebook-outline-panel'
 import type { NotebookOutlineControls } from '#/components/notebook/notebook-outline-panel'
 
+/**
+ * UI port (roadmap-4/ui-app3): the notebook renders inside app-3's shell, so
+ * the old shell wrapper is replaced by a content column with the notebook
+ * inspector beside it. Extra shell props callers pass are accepted and ignored.
+ */
 function RouteShell({
   children,
-  ...configuration
-}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
-  useShell(configuration)
-  return <>{children}</>
+  inspector,
+}: {
+  children: ReactNode
+  inspector?: ReactNode
+  [key: string]: unknown
+}) {
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
+      {inspector ? (
+        <InspectorPanel aria-label="Notebook" className="w-[340px] gap-0 p-0">
+          <div className="flex flex-col gap-5 overflow-auto p-4">
+            {inspector}
+          </div>
+        </InspectorPanel>
+      ) : null}
+    </div>
+  )
 }
 
 /**
@@ -867,20 +886,25 @@ export function StickyRecordHeader({
       </div>
 
       {canEditTitle ? (
-        <Input
-          className="mt-1.5 h-auto border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
-          value={titleDraft}
-          aria-label="Notebook title"
-          onChange={(event) => setTitleDraft(event.target.value)}
-          onBlur={() => {
-            const next = titleDraft.trim()
-            if (!next || next === record.title) {
-              setTitleDraft(record.title)
-              return
-            }
-            saveTitle.mutate(next)
-          }}
-        />
+        <>
+          {/* The title is editable, so the document heading is kept for
+              assistive tech and the page-level h1 contract. */}
+          <h1 className="sr-only">{record.title}</h1>
+          <Input
+            className="mt-1.5 h-auto border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
+            value={titleDraft}
+            aria-label="Notebook title"
+            onChange={(event) => setTitleDraft(event.target.value)}
+            onBlur={() => {
+              const next = titleDraft.trim()
+              if (!next || next === record.title) {
+                setTitleDraft(record.title)
+                return
+              }
+              saveTitle.mutate(next)
+            }}
+          />
+        </>
       ) : (
         <h1 className="mt-1.5 font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
           {record.title}

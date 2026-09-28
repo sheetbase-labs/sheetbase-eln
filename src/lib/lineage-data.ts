@@ -351,6 +351,35 @@ export const lineageQueryKeys = {
 // ---------------------------------------------------------------------------
 
 /**
+ * The proxy caps a single query value at 500 characters, so a bulk `in.(...)`
+ * filter must be split into chunks. `prefixLength` is the fixed part of the
+ * value (for example the surrounding `or=(...)`).
+ */
+const QUERY_VALUE_BUDGET = 480
+
+function chunkIdsForQuery(
+  ids: string[],
+  prefixLength: number,
+  weight = 1,
+): string[][] {
+  const chunks: string[][] = []
+  let current: string[] = []
+  let length = prefixLength
+  for (const id of ids) {
+    const piece = (encodeURIComponent(id).length + 1) * weight
+    if (current.length > 0 && length + piece > QUERY_VALUE_BUDGET) {
+      chunks.push(current)
+      current = []
+      length = prefixLength
+    }
+    current.push(id)
+    length += piece
+  }
+  if (current.length > 0) chunks.push(current)
+  return chunks
+}
+
+/**
  * Fetch all records visible to the caller (RLS-filtered). When a seed record
  * id is provided, fetches only that record plus the records referenced by
  * its links (and their links, up to maxDepth). Otherwise fetches all
@@ -382,10 +411,21 @@ export async function fetchLineageLinks(
   recordIds: string[] | null = null,
 ): Promise<RecordLinkWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<RecordLinkWire>(
-      'record_links',
-      `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id`,
+    const select =
+      'id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id'
+    const pages = await Promise.all(
+      chunkIdsForQuery(recordIds, 60, 2).map((chunk) => {
+        const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+        return client.list<RecordLinkWire>(
+          'record_links',
+          `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=${select}`,
+        )
+      }),
+    )
+    const byId = new Map<string, RecordLinkWire>()
+    for (const page of pages) for (const link of page) byId.set(link.id, link)
+    return [...byId.values()].sort((a, b) =>
+      String(b.created_at).localeCompare(String(a.created_at)),
     )
   }
   return client.list<RecordLinkWire>(
@@ -402,11 +442,18 @@ export async function fetchLineageReviews(
   recordIds: string[] | null = null,
 ): Promise<ReviewSubmissionWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<ReviewSubmissionWire>(
-      'review_submissions',
-      `?record_id=in.(${filter})&order=submitted_at.desc&select=id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at`,
+    const select =
+      'id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at'
+    const pages = await Promise.all(
+      chunkIdsForQuery(recordIds, 30).map((chunk) => {
+        const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+        return client.list<ReviewSubmissionWire>(
+          'review_submissions',
+          `?record_id=in.(${filter})&order=submitted_at.desc&select=${select}`,
+        )
+      }),
     )
+    return pages.flat()
   }
   return client.list<ReviewSubmissionWire>(
     'review_submissions',
@@ -422,11 +469,18 @@ export async function fetchLineageDecisions(
   recordIds: string[] | null = null,
 ): Promise<ReviewDecisionWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<ReviewDecisionWire>(
-      'review_decisions',
-      `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at`,
+    const select =
+      'id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at'
+    const pages = await Promise.all(
+      chunkIdsForQuery(recordIds, 30).map((chunk) => {
+        const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+        return client.list<ReviewDecisionWire>(
+          'review_decisions',
+          `?record_id=in.(${filter})&order=created_at.desc&select=${select}`,
+        )
+      }),
     )
+    return pages.flat()
   }
   return client.list<ReviewDecisionWire>(
     'review_decisions',

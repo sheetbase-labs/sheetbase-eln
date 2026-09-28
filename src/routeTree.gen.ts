@@ -13,7 +13,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AgentOperationsRouteImport } from './routes/agent-operations'
 import { Route as AnalysisRouteImport } from './routes/analysis'
-import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as ConfigureRouteImport } from './routes/configure'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
@@ -29,6 +28,7 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ReagentsRouteImport } from './routes/reagents'
 import { Route as ReportBuilderRouteImport } from './routes/report-builder'
 import { Route as SamplesRouteImport } from './routes/samples'
+import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignInRouteImport } from './routes/sign-in'
@@ -95,11 +95,6 @@ const AgentOperationsRoute = AgentOperationsRouteImport.update({
 const AnalysisRoute = AnalysisRouteImport.update({
   id: '/analysis',
   path: '/analysis',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CalendarRoute = CalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfigureRoute = ConfigureRouteImport.update({
@@ -175,6 +170,11 @@ const ReportBuilderRoute = ReportBuilderRouteImport.update({
 const SamplesRoute = SamplesRouteImport.update({
   id: '/samples',
   path: '/samples',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScheduleRoute = ScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -428,7 +428,6 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRoute
-  '/calendar': typeof CalendarRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
@@ -444,6 +443,7 @@ export interface FileRoutesByFullPath {
   '/reagents': typeof ReagentsRoute
   '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRoute
+  '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
@@ -497,7 +497,6 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRouteWithChildren
   '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRoute
-  '/calendar': typeof CalendarRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
@@ -513,6 +512,7 @@ export interface FileRoutesByTo {
   '/reagents': typeof ReagentsRoute
   '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRoute
+  '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
@@ -565,7 +565,6 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRoute
-  '/calendar': typeof CalendarRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
@@ -581,6 +580,7 @@ export interface FileRoutesById {
   '/reagents': typeof ReagentsRoute
   '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRoute
+  '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
@@ -636,7 +636,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agent-operations'
     | '/analysis'
-    | '/calendar'
     | '/configure'
     | '/datasets'
     | '/foundations'
@@ -652,6 +651,7 @@ export interface FileRouteTypes {
     | '/reagents'
     | '/report-builder'
     | '/samples'
+    | '/schedule'
     | '/search'
     | '/settings'
     | '/sign-in'
@@ -705,7 +705,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agent-operations'
     | '/analysis'
-    | '/calendar'
     | '/configure'
     | '/datasets'
     | '/foundations'
@@ -721,6 +720,7 @@ export interface FileRouteTypes {
     | '/reagents'
     | '/report-builder'
     | '/samples'
+    | '/schedule'
     | '/search'
     | '/settings'
     | '/sign-in'
@@ -772,7 +772,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agent-operations'
     | '/analysis'
-    | '/calendar'
     | '/configure'
     | '/datasets'
     | '/foundations'
@@ -788,6 +787,7 @@ export interface FileRouteTypes {
     | '/reagents'
     | '/report-builder'
     | '/samples'
+    | '/schedule'
     | '/search'
     | '/settings'
     | '/sign-in'
@@ -842,7 +842,6 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AgentOperationsRoute: typeof AgentOperationsRoute
   AnalysisRoute: typeof AnalysisRoute
-  CalendarRoute: typeof CalendarRoute
   ConfigureRoute: typeof ConfigureRoute
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
@@ -858,6 +857,7 @@ export interface RootRouteChildren {
   ReagentsRoute: typeof ReagentsRoute
   ReportBuilderRoute: typeof ReportBuilderRoute
   SamplesRoute: typeof SamplesRoute
+  ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SignInRoute: typeof SignInRoute
@@ -923,13 +923,6 @@ declare module '@tanstack/react-router' {
       path: '/analysis'
       fullPath: '/analysis'
       preLoaderRoute: typeof AnalysisRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/calendar': {
-      id: '/calendar'
-      path: '/calendar'
-      fullPath: '/calendar'
-      preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/configure': {
@@ -1035,6 +1028,13 @@ declare module '@tanstack/react-router' {
       path: '/samples'
       fullPath: '/samples'
       preLoaderRoute: typeof SamplesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/schedule': {
+      id: '/schedule'
+      path: '/schedule'
+      fullPath: '/schedule'
+      preLoaderRoute: typeof ScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -1455,7 +1455,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AgentOperationsRoute: AgentOperationsRoute,
   AnalysisRoute: AnalysisRoute,
-  CalendarRoute: CalendarRoute,
   ConfigureRoute: ConfigureRoute,
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
@@ -1471,6 +1470,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReagentsRoute: ReagentsRoute,
   ReportBuilderRoute: ReportBuilderRoute,
   SamplesRoute: SamplesRoute,
+  ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SignInRoute: SignInRoute,

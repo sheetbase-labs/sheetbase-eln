@@ -118,6 +118,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Schedule ported**: `/schedule` renders app-3's day/week instrument grid and
+  phone day list, wired to `calendar_resources` (instruments) and
+  `calendar_bookings`; "Book instrument" writes through `create_booking`. The
+  old `/calendar` route and its test are deleted; nav and Home point at
+  `/schedule`. Gaps: the wire has no booking creator, so `mine`/who styling is
+  omitted; the "Materials for today" section waits on the materials capability.
+
 - **Inbox ported**: `/inbox` renders app-3's list with Needs action / Following
   / Done today tabs, type filters and a details panel, wired to `my_work_items`
   (`useWorkItems` + `groupWorkItems`). Data-issue, signature and material kinds

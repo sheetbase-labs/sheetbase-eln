@@ -15,7 +15,7 @@ export type NavItem = {
 export const primaryNav: NavItem[] = [
   { label: 'Home', icon: 'home', link: { to: '/' } },
   { label: 'Inbox', icon: 'inbox', link: { to: '/inbox' } },
-  { label: 'Schedule', icon: 'calendar', link: { to: '/calendar' } },
+  { label: 'Schedule', icon: 'calendar', link: { to: '/schedule' } },
 ]
 
 export const recordNav: NavItem[] = [

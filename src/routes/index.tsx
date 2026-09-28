@@ -5,8 +5,8 @@ import { useMemo } from 'react'
 import { Button } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
 import { Section } from '#/components/v3/ui/layout'
-import { Status  } from '#/components/v3/ui/status'
-import type {Tone} from '#/components/v3/ui/status';
+import { Status } from '#/components/v3/ui/status'
+import type { Tone } from '#/components/v3/ui/status'
 import {
   Table,
   TableBody,
@@ -17,8 +17,8 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { fetchCalendarBookings  } from '#/lib/calendar'
-import type {CalendarBookingWire} from '#/lib/calendar';
+import { fetchCalendarBookings } from '#/lib/calendar'
+import type { CalendarBookingWire } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useWorkItems } from '#/lib/work-items/data'
 import type { WorkItem } from '#/lib/work-items/data'
@@ -119,7 +119,7 @@ function Home() {
           <Section
             title="Today"
             action={
-              <Link to="/calendar" className="text-label">
+              <Link to="/schedule" className="text-label">
                 Full schedule
               </Link>
             }

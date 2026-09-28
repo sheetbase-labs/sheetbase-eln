@@ -118,6 +118,15 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Per-project client portal switch ported**: `projects.auto_share_to_client`
+  (set through `update_project_settings` by an owner/admin) is the portal
+  switch. `client_portal_projects` lists only portal-enabled projects of the
+  caller's client, and `client_portal_records` returns explicit shares plus the
+  approved records of portal-enabled projects — drafts are never returned. The
+  project Settings tab gains a Client portal section (enable/disable) when the
+  project has a client. DB tests cover auto-share, drafts staying hidden, and the
+  switch turning the project back off. Portal Reports and Messages remain gaps.
+
 - **Client invitations ported**: invitations carry a client; `create_invitation`
   accepts a `client_viewer` role only with a client of the same workspace,
   `accept_invitation` stamps the membership's `client_id`, and

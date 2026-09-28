@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Section } from '#/components/v3/ui/layout'
+import { Muted, Section } from '#/components/v3/ui/layout'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
@@ -78,6 +78,39 @@ function ProjectSettings() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
       toast('Project settings saved')
+    },
+  })
+
+  const portal = useQuery({
+    queryKey: ['ui-port', 'project-client-portal', projectId],
+    queryFn: () =>
+      projectDataClient
+        .list<{
+          id: string
+          client_id: string | null
+          auto_share_to_client: boolean
+        }>(
+          'projects',
+          `?id=eq.${encodeURIComponent(projectId)}&select=id,client_id,auto_share_to_client`,
+        )
+        .then((rows) => rows[0] ?? null),
+  })
+
+  const setPortal = useMutation({
+    mutationFn: (enabled: boolean) =>
+      projectDataClient.rpc('update_project_settings', {
+        p_project_id: projectId,
+        p_auto_share_to_client: enabled,
+      }),
+    onSuccess: (_data, enabled) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'project-client-portal', projectId],
+      })
+      toast(enabled ? 'Client portal enabled' : 'Client portal disabled', {
+        description: enabled
+          ? 'Approved records of this project are shared with its client.'
+          : 'The client sees only records explicitly shared to them.',
+      })
     },
   })
 
@@ -182,6 +215,37 @@ function ProjectSettings() {
               {saving ? 'Saving…' : 'Save changes'}
             </Button>
           </div>
+        </Section>
+
+        <Section title="Client portal">
+          {project.clientCode || project.clientName ? (
+            <div className="flex max-w-[640px] flex-col gap-2.5">
+              <Muted>
+                {portal.data?.auto_share_to_client
+                  ? `Approved records of this project are shared with ${project.clientName ?? 'the client'}. Drafts and unapproved revisions are never shared.`
+                  : `Off. ${project.clientName ?? 'The client'} sees only records you share to them individually.`}
+              </Muted>
+              <div>
+                <Button
+                  variant={
+                    portal.data?.auto_share_to_client ? 'secondary' : 'primary'
+                  }
+                  disabled={setPortal.isPending || portal.isLoading}
+                  onClick={() =>
+                    setPortal.mutate(!portal.data?.auto_share_to_client)
+                  }
+                >
+                  {portal.data?.auto_share_to_client
+                    ? 'Turn the client portal off'
+                    : 'Turn the client portal on'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Muted>
+              This project has no client. Set one above to open a client portal.
+            </Muted>
+          )}
         </Section>
 
         <Section title="Archive project">

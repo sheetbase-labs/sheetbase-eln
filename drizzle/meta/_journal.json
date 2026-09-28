@@ -1749,6 +1749,13 @@
       "when": 1790619880444,
       "tag": "0251_client_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1790620804801,
+      "tag": "0252_client_portal_project_switch",
+      "breakpoints": true
     }
   ]
 }

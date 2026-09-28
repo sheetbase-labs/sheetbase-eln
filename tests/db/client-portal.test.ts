@@ -133,11 +133,12 @@ describe('client portal', () => {
 
   it('shows a client only their own shared approved records', async () => {
     const viewerA = await asAuthenticated(VIEWER_A, WS)
-    const projects = await viewerA.query<{ display_id: string }>(
+    // The portal is off by default, so no project is listed …
+    const projectsOff = await viewerA.query<{ title: string }>(
       `SELECT * FROM api.client_portal_projects()`,
     )
-    expect(projects.rows.map((r) => r.display_id ?? r.title)).toHaveLength(1)
-
+    expect(projectsOff.rows).toEqual([])
+    // … but an explicitly shared approved record is still visible.
     const records = await viewerA.query<{ identifier: string }>(
       `SELECT * FROM api.client_portal_records()`,
     )
@@ -176,6 +177,34 @@ describe('client portal', () => {
     ])
   })
 
+  it('shares approved records automatically when the project portal is on', async () => {
+    const admin = await asAuthenticated(ADMIN, WS)
+    await admin.query(
+      `SELECT api.update_project_settings($1, NULL, NULL, true)`,
+      [PROJECT_A],
+    )
+    const viewerA = await asAuthenticated(VIEWER_A, WS)
+    const projects = await viewerA.query<{ title: string }>(
+      `SELECT * FROM api.client_portal_projects()`,
+    )
+    expect(projects.rows.map((r) => r.title)).toEqual(['Acme AAV9 transfer'])
+    // The approved record is shared automatically; the draft is never shown.
+    const records = await viewerA.query<{ identifier: string }>(
+      `SELECT * FROM api.client_portal_records()`,
+    )
+    expect(records.rows.map((r) => r.identifier)).toEqual(['EXP-A1'])
+
+    // Turning it off hides the project again.
+    await admin.query(
+      `SELECT api.update_project_settings($1, NULL, NULL, false)`,
+      [PROJECT_A],
+    )
+    const afterOff = await viewerA.query(
+      `SELECT * FROM api.client_portal_projects()`,
+    )
+    expect(afterOff.rows).toEqual([])
+  })
+
   it('invites a client viewer with a client and stamps it on accept', async () => {
     const admin = await asAuthenticated(ADMIN, WS)
     // A client viewer invitation needs a client.
@@ -192,6 +221,12 @@ describe('client portal', () => {
     )
     const token = created.rows[0]?.token as string
     expect(token).toBeTruthy()
+
+    // Turn on the project portal so the new client has a project to see.
+    await admin.query(
+      `SELECT api.update_project_settings($1, NULL, NULL, true)`,
+      [PROJECT_A],
+    )
 
     const invitee = await asAuthenticated(INVITEE, WS)
     await invitee.query(`SELECT api.accept_invitation($1, $2)`, [

@@ -538,6 +538,50 @@ export const clientPortalShares = api.table(
   ],
 )
 
+/**
+ * client_portal_messages (ADR-0049) — the shared message thread between a client
+ * and the CDMO team for that client's portal. Written only through
+ * `post_client_portal_message`; read under RLS by internal members and by the
+ * client whose portal it belongs to.
+ */
+export const clientPortalMessages = api.table(
+  'client_portal_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    authorUserId: text('author_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    authorKind: text('author_kind').notNull(),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_client_portal_messages_author_kind',
+      sql`${table.authorKind} IN ('team', 'client')`,
+    ),
+    check(
+      'chk_client_portal_messages_body',
+      sql`length(btrim(${table.body})) BETWEEN 1 AND 4000`,
+    ),
+    index('idx_client_portal_messages_client').on(
+      table.clientId,
+      table.createdAt,
+    ),
+  ],
+)
+
 export const projects = api.table(
   'projects',
   {

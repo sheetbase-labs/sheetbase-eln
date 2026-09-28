@@ -46,9 +46,72 @@ interface RecordWire {
 
 export const clientPortalDataClient = createDataClient()
 
+export interface ClientPortalMessage {
+  id: string
+  clientId: string
+  projectId: string | null
+  authorKind: 'team' | 'client'
+  authorUserId: string
+  body: string
+  createdAt: string
+}
+
+interface MessageWire {
+  id: string
+  client_id: string
+  project_id: string | null
+  author_kind: 'team' | 'client'
+  author_user_id: string
+  body: string
+  created_at: string
+}
+
+export interface ClientPortalIdentity {
+  clientId: string
+  clientName: string
+  clientCode: string
+}
+
 export const clientPortalQueryKeys = {
+  identity: ['ui-port', 'client-portal', 'identity'] as const,
   projects: ['ui-port', 'client-portal', 'projects'] as const,
   records: ['ui-port', 'client-portal', 'records'] as const,
+  messages: ['ui-port', 'client-portal', 'messages'] as const,
+}
+
+export async function fetchClientPortalIdentity(
+  client: DataClient = clientPortalDataClient,
+): Promise<ClientPortalIdentity | null> {
+  return client.rpc<ClientPortalIdentity | null>('client_portal_identity', {})
+}
+
+export async function fetchClientPortalMessages(
+  client: DataClient = clientPortalDataClient,
+): Promise<ClientPortalMessage[]> {
+  const rows = await client.rpc<MessageWire[]>('client_portal_messages', {
+    p_client_id: null,
+  })
+  return rows.map((r) => ({
+    id: r.id,
+    clientId: r.client_id,
+    projectId: r.project_id,
+    authorKind: r.author_kind,
+    authorUserId: r.author_user_id,
+    body: r.body,
+    createdAt: r.created_at,
+  }))
+}
+
+export async function postClientPortalMessage(
+  body: string,
+  projectId: string | null = null,
+  client: DataClient = clientPortalDataClient,
+): Promise<void> {
+  await client.rpc('post_client_portal_message', {
+    p_client_id: null,
+    p_project_id: projectId,
+    p_body: body,
+  })
 }
 
 export async function fetchClientPortalProjects(

@@ -250,6 +250,53 @@ describe('client portal', () => {
     expect(projects.rows.map((r) => r.title)).toEqual(['Acme AAV9 transfer'])
   })
 
+  it('lets the client and the team message on the portal', async () => {
+    const viewerA = await asAuthenticated(VIEWER_A, WS)
+    await viewerA.query(`SELECT api.post_client_portal_message($1, NULL, $2)`, [
+      CLIENT_A,
+      'When is the next batch released?',
+    ])
+
+    // The client reads their own thread.
+    const asClient = await viewerA.query<{ author_kind: string; body: string }>(
+      `SELECT * FROM api.client_portal_messages()`,
+    )
+    expect(asClient.rows.map((r) => r.author_kind)).toEqual(['client'])
+
+    // The team posts and reads the same thread.
+    const admin = await asAuthenticated(ADMIN, WS)
+    await admin.query(`SELECT api.post_client_portal_message($1, NULL, $2)`, [
+      CLIENT_A,
+      'Thursday, after the review.',
+    ])
+    const asTeam = await admin.query<{ author_kind: string }>(
+      `SELECT * FROM api.client_portal_messages($1)`,
+      [CLIENT_A],
+    )
+    expect(asTeam.rows.map((r) => r.author_kind)).toEqual(['client', 'team'])
+
+    // Empty messages and the wrong client are refused.
+    await expect(
+      viewerA.query(`SELECT api.post_client_portal_message($1, NULL, $2)`, [
+        CLIENT_A,
+        '   ',
+      ]),
+    ).rejects.toMatchObject({ code: '22023' })
+
+    const viewerB = await asAuthenticated(VIEWER_B, WS)
+    await expectDenied(
+      viewerB.query(`SELECT api.post_client_portal_message($1, NULL, $2)`, [
+        CLIENT_A,
+        'Not mine',
+      ]),
+      '42501',
+    )
+    const otherThread = await viewerB.query(
+      `SELECT * FROM api.client_portal_messages()`,
+    )
+    expect(otherThread.rows).toEqual([])
+  })
+
   it('keeps workspaces and clients isolated', async () => {
     const outsider = await asAuthenticated(OUTSIDER, OTHER_WS)
     const projects = await outsider.query(

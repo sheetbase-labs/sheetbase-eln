@@ -118,6 +118,16 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Portal messaging ported**: `client_portal_messages` (RLS: internal members
+  or the client whose portal it is) with `post_client_portal_message` (a client
+  posts as `client`, an internal writer as `team`) and `client_portal_messages`
+  (a client reads their own; an internal member reads the client they name), plus
+  `client_portal_identity` so the portal knows whether the caller is a client.
+  The portal Messages tab lists the shared thread and, for a client, a composer.
+  DB tests cover client and team posting to the same thread, empty-body refusal,
+  the wrong client and other clients' isolation. Portal Reports (a report-only
+  view) remains the last gap.
+
 - **Per-project client portal switch ported**: `projects.auto_share_to_client`
   (set through `update_project_settings` by an owner/admin) is the portal
   switch. `client_portal_projects` lists only portal-enabled projects of the

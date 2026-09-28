@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
 import { Muted } from '#/components/v3/ui/layout'
@@ -14,11 +14,16 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
+import { Button } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
+import { Textarea } from '#/components/v3/inventory/list'
 import {
   clientPortalQueryKeys,
+  fetchClientPortalIdentity,
+  fetchClientPortalMessages,
   fetchClientPortalProjects,
   fetchClientPortalRecords,
+  postClientPortalMessage,
 } from '#/lib/client-portal'
 
 /** UI port (roadmap-4/ui-app3): the client portal (ADR-0049). A client viewer
@@ -59,6 +64,27 @@ function ClientPortal() {
   const records = useQuery({
     queryKey: clientPortalQueryKeys.records,
     queryFn: () => fetchClientPortalRecords(),
+  })
+  const identity = useQuery({
+    queryKey: clientPortalQueryKeys.identity,
+    queryFn: () => fetchClientPortalIdentity(),
+  })
+  const isClient = Boolean(identity.data)
+  const messages = useQuery({
+    queryKey: clientPortalQueryKeys.messages,
+    queryFn: () => fetchClientPortalMessages(),
+    enabled: isClient,
+  })
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState('')
+  const send = useMutation({
+    mutationFn: () => postClientPortalMessage(draft.trim()),
+    onSuccess: () => {
+      setDraft('')
+      void queryClient.invalidateQueries({
+        queryKey: clientPortalQueryKeys.messages,
+      })
+    },
   })
   const client = projects.data?.[0]
 
@@ -212,16 +238,75 @@ function ClientPortal() {
               )}
             </div>
           ) : (
-            <div className="flex flex-col gap-3 p-4 md:p-6">
+            <div className="flex max-w-[720px] flex-col gap-3 p-4 md:p-6">
               <h1 className="text-title max-md:text-[18px]">Messages</h1>
-              <EmptyState
-                icon="inbox"
-                title="Messaging is not built yet"
-                body="A shared message thread with your CDMO team is a later capability. Contact your project lead by email in the meantime."
-              />
-              <Muted className="flex items-center gap-2">
-                <Status tone="review">Portal access is read-only</Status>
-              </Muted>
+              {messages.isLoading ? (
+                <Muted>Loading…</Muted>
+              ) : (messages.data ?? []).length ? (
+                <ul className="m-0 flex list-none flex-col gap-3 p-0">
+                  {(messages.data ?? []).map((m) => (
+                    <li
+                      key={m.id}
+                      className="flex flex-col gap-1 rounded-md border border-border p-3"
+                    >
+                      <div className="flex items-center gap-2 text-label text-fg-muted">
+                        <b className="font-medium text-fg">
+                          {m.authorKind === 'team' ? 'CDMO team' : 'You'}
+                        </b>
+                        <span>
+                          {m.createdAt.slice(0, 16).replace('T', ' ')}
+                        </span>
+                      </div>
+                      <p className="m-0 whitespace-pre-wrap text-body">
+                        {m.body}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState
+                  icon="inbox"
+                  title="No messages yet"
+                  body="Send your CDMO team a message; the thread is shared with your project team only."
+                />
+              )}
+              {isClient ? (
+                <div className="flex flex-col gap-2">
+                  <Textarea
+                    rows={3}
+                    value={draft}
+                    aria-label="Message your CDMO team"
+                    placeholder="Write a message to your CDMO team"
+                    onChange={(e) => setDraft(e.target.value)}
+                  />
+                  {send.isError ? (
+                    <p role="alert" className="m-0 text-label text-danger-text">
+                      {send.error instanceof Error
+                        ? send.error.message
+                        : 'Could not send the message.'}
+                    </p>
+                  ) : null}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="primary"
+                      disabled={!draft.trim() || send.isPending}
+                      onClick={() => send.mutate()}
+                    >
+                      Send
+                    </Button>
+                    <Muted className="flex items-center gap-2">
+                      <Status tone="review">
+                        Shared with your project team only
+                      </Status>
+                    </Muted>
+                  </div>
+                </div>
+              ) : (
+                <Muted>
+                  Messaging is for client portal accounts. Internal members use
+                  the project&rsquo;s own threads.
+                </Muted>
+              )}
             </div>
           )}
         </main>

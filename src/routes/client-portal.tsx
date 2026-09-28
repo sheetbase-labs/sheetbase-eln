@@ -41,16 +41,18 @@ export const Route = createFileRoute('/client-portal')({
   component: ClientPortal,
 })
 
-const tabs = ['projects', 'reports', 'messages'] as const
+const tabs = ['projects', 'reports', 'records', 'messages'] as const
 type PortalTab = (typeof tabs)[number]
 const tabLabel: Record<PortalTab, string> = {
   projects: 'Projects',
   reports: 'Reports',
+  records: 'Records',
   messages: 'Messages',
 }
-const tabIcon: Record<PortalTab, 'folder' | 'protocol' | 'inbox'> = {
+const tabIcon: Record<PortalTab, 'folder' | 'protocol' | 'table' | 'inbox'> = {
   projects: 'folder',
   reports: 'protocol',
+  records: 'table',
   messages: 'inbox',
 }
 
@@ -197,12 +199,17 @@ function ClientPortal() {
                 />
               )}
             </div>
-          ) : tab === 'reports' ? (
+          ) : tab === 'reports' || tab === 'records' ? (
             <div className="flex flex-col gap-3 p-4 md:p-6">
-              <h1 className="text-title max-md:text-[18px]">Shared records</h1>
+              <h1 className="text-title max-md:text-[18px]">
+                {tab === 'reports' ? 'Reports' : 'Records'}
+              </h1>
               {records.isLoading ? (
                 <Muted>Loading…</Muted>
-              ) : (records.data ?? []).length ? (
+              ) : (tab === 'reports'
+                  ? (records.data ?? []).filter((r) => r.kind === 'report')
+                  : (records.data ?? []).filter((r) => r.kind !== 'report')
+                ).length ? (
                 <TableBox className="max-w-[900px]">
                   <Table aria-label="Shared records">
                     <TableHeader>
@@ -214,7 +221,14 @@ function ClientPortal() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(records.data ?? []).map((r) => (
+                      {(tab === 'reports'
+                        ? (records.data ?? []).filter(
+                            (r) => r.kind === 'report',
+                          )
+                        : (records.data ?? []).filter(
+                            (r) => r.kind !== 'report',
+                          )
+                      ).map((r) => (
                         <TableRow key={r.recordId}>
                           <TableCell className="mono">{r.identifier}</TableCell>
                           <TableCell className="font-medium">
@@ -231,9 +245,13 @@ function ClientPortal() {
                 </TableBox>
               ) : (
                 <EmptyState
-                  icon="protocol"
-                  title="No shared records yet"
-                  body="Approved records appear here once your CDMO team shares them."
+                  icon={tab === 'reports' ? 'protocol' : 'table'}
+                  title={
+                    tab === 'reports'
+                      ? 'No shared reports yet'
+                      : 'No shared records yet'
+                  }
+                  body="Approved items appear here once your CDMO team shares them."
                 />
               )}
             </div>

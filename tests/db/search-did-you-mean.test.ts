@@ -71,6 +71,21 @@ describe('api.search_did_you_mean', () => {
     expect(rows.map((row) => row.identifier)).not.toContain('EXP-0935')
   })
 
+  it('hides archived records unless asked for them', async () => {
+    const member = await asAuthenticated(WS)
+    await migrator.query(
+      `UPDATE api.records SET archived_at = now() WHERE identifier = 'EXP-0934'`,
+    )
+    const hidden = await member.query(
+      `SELECT identifier FROM api.search_did_you_mean('EXP-0943', 5)`,
+    )
+    expect(hidden.rows).toEqual([])
+    const shown = await member.query(
+      `SELECT identifier FROM api.search_did_you_mean('EXP-0943', 5, true)`,
+    )
+    expect(shown.rows.map((row) => row.identifier)).toContain('EXP-0934')
+  })
+
   it('returns nothing in another workspace', async () => {
     const other = await asAuthenticated(OTHER_WS)
     const { rows } = await other.query(

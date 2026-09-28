@@ -153,6 +153,14 @@ function BottomTabs({
         Today
       </Link>
       <Link
+        to="/scan"
+        className={cls}
+        activeProps={{ className: 'text-link!', 'aria-current': 'page' }}
+      >
+        <Icon name="scan" size={22} />
+        Scan
+      </Link>
+      <Link
         to="/inbox"
         className={cn(cls, 'relative')}
         activeProps={{ className: 'text-link!', 'aria-current': 'page' }}

@@ -14,7 +14,7 @@ phone layout, no camera scanning and no bench-specific flow.
 
 ## MOB-01 — Phone shell
 
-**Status:** proposed.
+**Status:** proposed. The UI port added the phone bottom bar (Today, Scan, Inbox, Menu), the drawer, and the inspector/dialog bottom sheets; `tests/browser-scripts/phone.mjs` checks them at 390, 834 and 1100. Today/Inbox compact content and the 600px phone-bar back button remain.
 
 ### Design
 
@@ -53,7 +53,7 @@ target and contrast checks.
 
 ## MOB-02 — Bench flows
 
-**Status:** proposed.
+**Status:** proposed. The UI port added `/scan` (typed and camera lookup of canonical identifiers, result card with an open action); withdraw, record reading and the evidence/model record phone views remain.
 
 ### Design
 

@@ -105,6 +105,7 @@ function routes(ids) {
     '/import',
     '/sheets/new',
     '/instruments',
+    '/scan',
     '/templates',
     '/models',
     '/pipelines',

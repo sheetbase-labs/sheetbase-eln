@@ -198,7 +198,7 @@ refused on the server; expiry reminders appear in WORK-01.
 
 ## LAB-05 — Labels and scanning
 
-**Status:** proposed; [DEC-10](DEC.md) accepted 2026-09-27: the lab has no specific printers, so printing is browser print (no print gateway) and the 2D code payload is `https://<host>/r/<identifier>`.
+**Status:** proposed; [DEC-10](DEC.md) accepted 2026-09-27: the lab has no specific printers, so printing is browser print (no print gateway) and the 2D code payload is `https://<host>/r/<identifier>`. The UI port added `/scan`, resolving canonical identifiers (records and instruments) with a typed fallback and camera BarcodeDetector; label templates, printing, the `/r/<identifier>` resolver and aliases remain.
 
 ### Design
 

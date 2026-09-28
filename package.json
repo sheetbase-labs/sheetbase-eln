@@ -69,7 +69,7 @@
     "design:coverage": "tsx scripts/design-seed-coverage.mts",
     "test:crawl": "node tests/browser-scripts/crawl.mjs",
     "test:screens": "node tests/browser-scripts/screens.mjs",
-    "test:phone": "node tests/browser-scripts/screens.mjs http://localhost:3000 --widths 390",
+    "test:phone": "node tests/browser-scripts/phone.mjs",
     "test:areas": "for f in tests/browser-scripts/areas/*.mjs; do node $f || exit 1; done",
     "test:interactions": "node tests/browser-scripts/interactions.mjs"
   },

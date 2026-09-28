@@ -29,6 +29,7 @@ import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as SamplesRouteImport } from './routes/samples'
+import { Route as ScanRouteImport } from './routes/scan'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -225,6 +226,11 @@ const ProtocolsRoute = ProtocolsRouteImport.update({
 const SamplesRoute = SamplesRouteImport.update({
   id: '/samples',
   path: '/samples',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScanRoute = ScanRouteImport.update({
+  id: '/scan',
+  path: '/scan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScheduleRoute = ScheduleRouteImport.update({
@@ -759,6 +765,7 @@ export interface FileRoutesByFullPath {
   '/projects': typeof ProjectsRouteWithChildren
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
+  '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -878,6 +885,7 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsRouteWithChildren
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
+  '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
@@ -989,6 +997,7 @@ export interface FileRoutesById {
   '/projects': typeof ProjectsRouteWithChildren
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
+  '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -1110,6 +1119,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/protocols'
     | '/samples'
+    | '/scan'
     | '/schedule'
     | '/search'
     | '/settings'
@@ -1229,6 +1239,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/protocols'
     | '/samples'
+    | '/scan'
     | '/schedule'
     | '/search'
     | '/sign-in'
@@ -1339,6 +1350,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/protocols'
     | '/samples'
+    | '/scan'
     | '/schedule'
     | '/search'
     | '/settings'
@@ -1459,6 +1471,7 @@ export interface RootRouteChildren {
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
   SamplesRoute: typeof SamplesRouteWithChildren
+  ScanRoute: typeof ScanRoute
   ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRouteWithChildren
@@ -1639,6 +1652,13 @@ declare module '@tanstack/react-router' {
       path: '/samples'
       fullPath: '/samples'
       preLoaderRoute: typeof SamplesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scan': {
+      id: '/scan'
+      path: '/scan'
+      fullPath: '/scan'
+      preLoaderRoute: typeof ScanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/schedule': {
@@ -2662,6 +2682,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsRoute: ProjectsRouteWithChildren,
   ProtocolsRoute: ProtocolsRouteWithChildren,
   SamplesRoute: SamplesRouteWithChildren,
+  ScanRoute: ScanRoute,
   ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRouteWithChildren,

@@ -71,8 +71,8 @@ export async function discover() {
       instruments,
     ] = await Promise.all([
       get('/api/db/rpc/project_list_summary?limit=1'),
-      get('/api/db/records?kind=eq.experiment&limit=1&select=id'),
-      get('/api/db/records?kind=eq.sample&limit=1&select=id'),
+      get('/api/db/records?kind=eq.experiment&limit=1&select=id,identifier'),
+      get('/api/db/records?kind=eq.sample&limit=1&select=id,identifier'),
       get('/api/db/datasets?limit=1&select=id'),
       get('/api/db/dataset_schema_definitions?limit=1&select=id'),
       get('/api/db/pipeline_definitions?limit=1&select=id'),
@@ -92,7 +92,9 @@ export async function discover() {
     return {
       project: projects[0]?.id,
       experiment: experiments[0]?.id,
+      experimentIdentifier: experiments[0]?.identifier,
       sample: samples[0]?.id,
+      sampleIdentifier: samples[0]?.identifier,
       dataset: datasets[0]?.id,
       model: models[0]?.id,
       pipeline: pipelines[0]?.id,

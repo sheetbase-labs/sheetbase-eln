@@ -123,6 +123,7 @@ function RootRouteComponent() {
     '/evidence/$revisionId',
     '/instruments',
     '/instruments/$instrumentId',
+    '/scan',
     '/sheets/$sheetId',
     '/sheets/new',
     '/records/$recordId/notebook',

@@ -125,17 +125,30 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   is stated as a gap. The settings Instruments section links here. DEC-03's
   `/instrument-monitor` is retired: its route, components, stories, tests and the
   now-unused instrument-monitor library are deleted. The screens suite covers
-  `/instruments` (53 routes × 2 widths clean).
+  `/instruments` (54 routes × 2 widths clean).
+
+- **Scan and the phone suite (MOB-01 / MOB-02 / LAB-05)**: the phone bottom
+  bar now matches app-3 (Today, Scan, Inbox, Menu) and `/scan` resolves a typed
+  or camera-scanned code to a real record or instrument by its stable
+  identifier, with a result card, suggestions and recent scans. Aliases are not
+  modelled yet, so only canonical identifiers resolve and the screen says so.
+  app-3's `tests/phone.mjs` is ported as `tests/browser-scripts/phone.mjs` and
+  `pnpm test:phone` runs it: phone bottom bar and hidden side nav, Scan
+  resolving a discovered sample, the navigation drawer, the inspector and
+  dialogs as full-width bottom sheets, the tablet drawer and the laptop rail —
+  all green against real data. The bench reading leg (scan → record reading into
+  a planned sheet row, MOB-02) still lands with that capability.
 
 - **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
   "Open full lineage" link on the legacy record notebook; it is removed, so the
   crawl reports 0 404s. The crawl also skips `/api/*` hrefs (file downloads
   start a download that navigation cannot follow), keeping the crawl at
-  284 pages, 0 problems, 0 404s. Full acceptance is green: `test:crawl`
-  (284/0/0), `test:screens` (53 routes × 2 widths), `test:areas`,
-  `test:interactions`. Acceptance runs raise `SHEETBASE_RATE_LIMIT_MAX` because
-  the PLAT-03 proxy limiter otherwise trips on the suite's request burst; that
-  is an acceptance-time env override, not a code change.
+  285 pages, 0 problems, 0 404s. Full acceptance is green: `test:crawl`
+  (285/0/0), `test:screens` (54 routes × 2 widths), `test:phone`,
+  `test:areas`, `test:interactions`. Acceptance runs raise
+  `SHEETBASE_RATE_LIMIT_MAX` because the PLAT-03 proxy limiter otherwise trips
+  on the suite's request burst; that is an acceptance-time env override, not a
+  code change.
 
 - **Review area suite ported**: `tests/browser-scripts/areas/review-interact.mjs`
   opens the real revision's review workspace, asserts the header and inspector,

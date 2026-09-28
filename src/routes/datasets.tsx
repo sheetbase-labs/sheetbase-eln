@@ -1683,6 +1683,28 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
     null,
   )
+  const queryClient = useQueryClient()
+  const [snapshotOpen, setSnapshotOpen] = useState(false)
+  const [snapshotLabel, setSnapshotLabel] = useState('')
+  const snapshotMutation = useMutation({
+    mutationFn: async (label: string) => {
+      await datasetExplorerDataClient.rpc('snapshot_dataset', {
+        p_dataset_id: table.id,
+        p_expected_dataset_revision: datasetRevision(table),
+        p_label: label,
+      })
+    },
+    onSuccess: () => {
+      setSnapshotOpen(false)
+      setSnapshotLabel('')
+      void queryClient.invalidateQueries({
+        queryKey: datasetExplorerQueryKeys.versions(table.id),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ['dataset-version-summaries', table.id],
+      })
+    },
+  })
   const versionsQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.versions(table.id),
     queryFn: () => listDatasetVersions(datasetExplorerDataClient, table.id),
@@ -1736,11 +1758,50 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
   return (
     <div className="grid gap-4 md:grid-cols-[16rem_1fr]">
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold">Immutable Versions</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">Immutable Versions</h2>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSnapshotOpen(true)}
+          >
+            Save a snapshot now
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground">
           Live revision {datasetRevision(table)}. Snapshots never change after
           capture.
         </p>
+        <Dialog open={snapshotOpen} onOpenChange={setSnapshotOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Save a snapshot</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Input
+                aria-label="Snapshot label"
+                value={snapshotLabel}
+                onChange={(event) => setSnapshotLabel(event.target.value)}
+                placeholder="e.g. Before editing"
+              />
+              <Button
+                onClick={() => snapshotMutation.mutate(snapshotLabel.trim())}
+                disabled={
+                  snapshotMutation.isPending || snapshotLabel.trim() === ''
+                }
+              >
+                {snapshotMutation.isPending ? 'Saving…' : 'Save snapshot'}
+              </Button>
+              {snapshotMutation.isError ? (
+                <p role="alert" className="text-caption text-danger-text">
+                  {snapshotMutation.error instanceof Error
+                    ? snapshotMutation.error.message
+                    : 'Could not save the snapshot.'}
+                </p>
+              ) : null}
+            </div>
+          </DialogContent>
+        </Dialog>
         {versionsQuery.isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : versions.length === 0 ? (

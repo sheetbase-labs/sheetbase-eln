@@ -18,3 +18,4 @@ Step 3 of 3 in [DSET-03](../../tasks/DSET.md#dset-03--snapshots-and-comparison);
 
 ## Work Log
 - 2026-09-28: PR #206: the dataset Versions tab now shows each snapshot's row count and change against the previous one, with a compare summary, from api.dataset_version_list / compare_dataset_versions. The full Compare tab and 'Save a snapshot now' remain.
+- 2026-09-28: PR #206: 'Save a snapshot now' dialog in the Versions tab (api.snapshot_dataset with the live revision and a label); the full Compare tab remains.

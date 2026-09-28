@@ -32,6 +32,27 @@ contract; do not ship them.
 
 Do the shared layer **once**, freeze the shell, then port areas.
 
+### Ordering constraint (learned porting Projects)
+
+app-3 areas render their **own page header and toolbar** and assume app-3's
+shell (top bar + nav + `_app` layout). ELN pages currently get their header from
+`useShell()` via the old shell, so rendering an app-3 area inside the old shell
+double-headers. Therefore the **shell must land before any area**, and an area
+only later deletes its old ELN counterpart. The shell port means:
+
+1. Vendor `shell/{app-shell,not-found}.tsx`, `shell/nav.ts`, `lib/theme.ts` into
+   `v3/`, rewriting imports.
+2. Wire `search-palette` to the ELN's real search (drop the fixture `search`
+   server fn).
+3. Render `AppShell` from `__root.tsx` (ELN keeps its flat route tree; app-3's
+   `_app` grouping is not required) and feed it session/workspace/notification
+   data from the ELN.
+4. Retire ELN's `useShell()` page-header mechanism as each area supplies its own
+   header; the two must not both render.
+
+Consequence: the first deliverable is the **shell**, then Projects. Trying to port
+an area first forces either a double header or a temporary adapter.
+
 ## Route map (app-3 → ELN)
 
 | app-3                                                      | ELN today                                           | Action                                         |

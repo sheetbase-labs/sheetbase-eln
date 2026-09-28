@@ -118,6 +118,18 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Pipelines ported**: `/pipelines` (board with All/Active/Drafts/Retired),
+  `/pipelines/$pipelineId` with Overview, Runs and Triggers tabs,
+  `/pipelines/$pipelineId/runs` and `/pipelines/$pipelineId/runs/$runId`, wired
+  to the AUTO-01/02/03 registry (definitions, versions, runs, logs, outputs,
+  schedules). Run now starts through `api.start_pipeline_run` and executes via
+  the same-origin execute route; Publish and trigger enable/disable/delete use
+  the api RPCs, so capability checks stay server-side. The app-3 step editor is
+  deferred: Overview shows the stored configuration read-only. The old
+  `/pipelines/$definitionId`, `/pipelines/runs/$runId` detail UI and the legacy
+  `components/pipelines` tree (with its tests) are deleted; `/pipelines/runs/$runId`
+  remains as a redirect alias for existing notebook/admin links.
+
 - **Models ported**: `/models` (Models board), `/models/$modelId` with Fields,
   Versions and Datasets tabs, on the canonical dataset schema registry
   (`dataset_schema_definitions` / `dataset_schema_versions` /

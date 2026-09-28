@@ -1,240 +1,382 @@
-/**
- * AUTO-03 — Pipelines workspace surface (`/pipelines`).
- */
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 import {
-  createFileRoute,
   Link,
+  Outlet,
+  createFileRoute,
   redirect,
   useNavigate,
   useRouterState,
-  Outlet,
 } from '@tanstack/react-router'
-import { Plus, Workflow } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { useShell } from '#/components/shell'
-import { CreatePipelineDefinitionDialog } from '#/components/pipelines/create-pipeline-definition-dialog'
+import { Status } from '#/components/v3/ui/status'
+import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Button } from '#/components/v3/ui/button'
 import {
-  Badge,
-  Button,
-  Input,
-  Skeleton,
+  DescriptionList,
+  Inspector,
+  InspectorSection,
+  Muted,
+} from '#/components/v3/ui/layout'
+import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Empty,
-  EmptyActions,
-  EmptyDescription,
-  EmptyIcon,
-  EmptyTitle,
-  PageHeader,
-} from '#/components/ui'
-import { createDataClient } from '#/lib/data-client'
-import { hasCapability } from '#/lib/capability'
+} from '#/components/v3/ui/table'
 import {
-  listPipelineDefinitions,
-  pipelineQueryKeys,
-} from '#/lib/pipelines/data'
-import type { PipelineDefinitionWire } from '#/lib/pipelines/types'
+  ListFooter,
+  ListHeader,
+  ListToolbar,
+  MobileList,
+  SearchTabs,
+  stickyCell,
+  stickyHead,
+} from '#/components/v3/inventory/list'
+import { toast } from '#/components/v3/ui/sonner'
+import { startPipelineRun } from '#/lib/pipelines/data'
+import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  pipelineDataQueryKeys,
+  runStatus,
+  usePipelineRows,
+  versionStatus,
+} from '#/components/v3/pipelines/pipelines-data'
+import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
 
+const tabs = ['all', 'active', 'drafts', 'retired'] as const
+type PipelineTab = (typeof tabs)[number]
+const tabLabel: Record<PipelineTab, string> = {
+  all: 'All',
+  active: 'Active',
+  drafts: 'Drafts',
+  retired: 'Retired',
+}
+
+/** UI port (roadmap-4/ui-app3): the Pipelines board on the AUTO-01/02/03
+ * registry. Runs start through api.start_pipeline_run. */
 export const Route = createFileRoute('/pipelines')({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { q?: string; tab?: PipelineTab; selected?: string } => ({
+    q: typeof search.q === 'string' ? search.q : undefined,
+    selected: typeof search.selected === 'string' ? search.selected : undefined,
+    tab:
+      search.tab === 'active' ||
+      search.tab === 'drafts' ||
+      search.tab === 'retired' ||
+      search.tab === 'all'
+        ? search.tab
+        : undefined,
+  }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) {
+      throw redirect({ to: '/sign-in' })
+    }
     return { context }
   },
   component: PipelinesRoute,
 })
 
-const dataClient = createDataClient()
-
 function PipelinesRoute() {
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
+  const isIndex = useRouterState({
+    select: (state) => state.location.pathname === '/pipelines',
   })
-  return pathname.replace(/\/$/, '') === '/pipelines' ? (
-    <PipelinesIndexRoute />
-  ) : (
-    <Outlet />
-  )
+  return isIndex ? <PipelinesList /> : <Outlet />
 }
 
-function PipelinesIndexRoute() {
+function inTab(p: PipelineListRow, tab: PipelineTab): boolean {
+  if (tab === 'all') return true
+  if (tab === 'active') return !p.draft && p.lifecycle === 'active'
+  if (tab === 'drafts') return Boolean(p.draft)
+  return p.lifecycle === 'retired'
+}
+
+function PipelinesList() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
-  const navigate = useNavigate()
-  const [createOpen, setCreateOpen] = useState(false)
-  const [filter, setFilter] = useState('')
+  const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const queryClient = useQueryClient()
+  const query = usePipelineRows()
+  const rows = query.data ?? []
+  const tab: PipelineTab = search.tab ?? 'all'
+  const [selected, setSelected] = useState<string | null>(null)
 
-  const definitionsQuery = useQuery({
-    queryKey: pipelineQueryKeys.definitions,
-    queryFn: () => listPipelineDefinitions(dataClient),
-    enabled: Boolean(workspaceId),
-  })
-
-  const definitions = definitionsQuery.data ?? []
-  const filtered = definitions.filter((definition) =>
-    `${definition.name} ${definition.key} ${definition.description ?? ''}`
-      .toLowerCase()
-      .includes(filter.trim().toLowerCase()),
+  const counts = useMemo(
+    () =>
+      Object.fromEntries(
+        tabs.map((t) => [t, rows.filter((p) => inTab(p, t)).length]),
+      ) as Record<PipelineTab, number>,
+    [rows],
   )
-  const canManage = hasCapability(context.workspace?.role, 'pipelines.manage')
+  const q = (search.q ?? '').trim().toLowerCase()
+  const visible = rows
+    .filter((p) => inTab(p, tab))
+    .filter((p) => !q || `${p.key} ${p.name}`.toLowerCase().includes(q))
+  const sel =
+    visible.find((p) => p.id === (selected ?? search.selected)) ?? visible.at(0)
 
-  useShell({
-    context: {
-      workspace: context.workspace ? { name: context.workspace.name } : null,
-      user: {
-        name: context.user.name,
-        email: context.user.email,
-        role: context.workspace?.role,
-      },
+  const run = useMutation({
+    mutationFn: (row: PipelineListRow) => {
+      const version = row.current
+      if (!version) throw new Error('This pipeline has no version to run.')
+      return startPipelineRun(notebookDataClient, {
+        workspaceId,
+        definitionVersionId: version.id,
+        triggerKind: 'manual',
+      })
     },
-    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Pipelines' }],
-    fullBleed: true,
+    onSuccess: (started, row) => {
+      void queryClient.invalidateQueries({
+        queryKey: pipelineDataQueryKeys.list,
+      })
+      toast(`Run of ${row.key} started`, {
+        description:
+          'Inputs are pinned to the latest snapshots. It keeps nothing unless its outputs say so.',
+      })
+      void started
+    },
+    onError: (error: unknown) => {
+      toast('Could not start the run', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      })
+    },
   })
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="px-4 pt-4 md:px-6 md:pt-6">
-        <PageHeader
-          compact
+    <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ListHeader
           title="Pipelines"
-          description="Automate analysis and repeatable lab workflows."
-          className="border-0 pb-4"
-        >
-          {canManage && (
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" /> Create pipeline
-            </Button>
-          )}
-        </PageHeader>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-6 md:px-6">
-        {!canManage && (
-          <p className="text-muted-foreground mb-4 text-sm">
-            You can view Pipelines and their runs; only owners, admins and
-            stewards create or configure them.
-          </p>
-        )}
-        {definitionsQuery.error instanceof Error && (
-          <p role="alert" className="text-destructive mb-4 text-sm">
-            {definitionsQuery.error.message}
-          </p>
-        )}
-        {definitionsQuery.isLoading ? (
-          <Skeleton className="h-32" />
-        ) : definitionsQuery.isError && definitions.length === 0 ? (
-          <Button variant="outline" onClick={() => definitionsQuery.refetch()}>
-            Try again
-          </Button>
-        ) : definitions.length === 0 ? (
-          <Empty>
-            <EmptyIcon>
-              <Workflow className="size-8" />
-            </EmptyIcon>
-            <EmptyTitle>No pipelines yet</EmptyTitle>
-            <EmptyDescription>
-              Build repeatable analysis or ELN actions. Publish a version, then
-              run it manually, on a schedule or from a webhook.
-            </EmptyDescription>
-            {canManage && (
-              <EmptyActions>
-                <Button onClick={() => setCreateOpen(true)}>
-                  <Plus className="size-4" /> Create pipeline
-                </Button>
-              </EmptyActions>
-            )}
-          </Empty>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <Input
-                aria-label="Find pipelines"
-                placeholder="Find pipelines…"
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                className="w-full sm:max-w-xs"
-              />
-              <span role="status" className="text-sm text-muted-foreground">
-                {filtered.length} of {definitions.length} pipelines
-              </span>
-              {filter && (
-                <Button size="sm" variant="ghost" onClick={() => setFilter('')}>
-                  Clear filter
-                </Button>
-              )}
-            </div>
-            <div className="overflow-x-auto border-y">
-              <Table variant="quiet" className="min-w-[36rem]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pipeline</TableHead>
-                    <TableHead className="w-44">Key</TableHead>
-                    <TableHead className="w-28">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((definition) => (
-                    <PipelineRow key={definition.id} definition={definition} />
-                  ))}
-                  {filtered.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        className="py-8 text-center text-muted-foreground"
+          total={rows.length}
+          tabs={
+            <SearchTabs
+              label="Pipeline lists"
+              current={tab}
+              items={tabs.map((t) => ({
+                key: t,
+                label: tabLabel[t],
+                count: counts[t],
+                link: {
+                  to: '/pipelines',
+                  search: { tab: t === 'all' ? undefined : t, q: search.q },
+                },
+              }))}
+            />
+          }
+        />
+        <ListToolbar
+          q={search.q}
+          label="Search pipelines"
+          placeholder="Search pipelines"
+          onSearch={(next) =>
+            void navigate({
+              to: '/pipelines',
+              search: (s) => ({ ...s, q: next || undefined }),
+              replace: true,
+            })
+          }
+        />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <Table aria-label="Pipelines" className="max-lg:hidden">
+            <TableHeader>
+              <TableRow>
+                <TableHead className={stickyHead}>Key</TableHead>
+                <TableHead>Pipeline</TableHead>
+                <TableHead>Version</TableHead>
+                <TableHead align="right">Runs</TableHead>
+                <TableHead>Last run</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((p) => {
+                const last = p.lastRun
+                const lastStatus = last ? runStatus(last.status) : null
+                return (
+                  <TableRow
+                    key={p.id}
+                    selected={p.id === sel?.id}
+                    className="cursor-pointer"
+                    onClick={() => setSelected(p.id)}
+                  >
+                    <TableCell className={stickyCell}>
+                      <span className="mono">{p.key}</span>
+                    </TableCell>
+                    <TableCell
+                      className={p.id === sel?.id ? 'font-medium' : undefined}
+                    >
+                      <Link
+                        to="/pipelines/$pipelineId"
+                        params={{ pipelineId: p.id }}
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        No pipelines match your search.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                        {p.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      {p.current ? `v${p.current.version}` : '—'}
+                      {p.draft && p.current?.lifecycle === 'published' ? (
+                        <span className="text-fg-muted">
+                          {' '}
+                          · v{p.draft.version} draft
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell align="right">{p.runCount}</TableCell>
+                    <TableCell>
+                      {lastStatus ? (
+                        <Status tone={lastStatus.tone}>
+                          {lastStatus.label}
+                        </Status>
+                      ) : (
+                        <Status tone="draft">Never run</Status>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Status tone={p.lifecycle === 'active' ? 'ok' : 'stored'}>
+                        {p.lifecycle === 'active' ? 'Active' : 'Retired'}
+                      </Status>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+          <MobileList
+            label="Pipelines"
+            items={visible.map((p) => {
+              const lastStatus = p.lastRun ? runStatus(p.lastRun.status) : null
+              return {
+                key: p.id,
+                id: p.key,
+                title: p.name,
+                sub: `${p.current ? `v${p.current.version}` : 'no version'} · ${p.runCount} runs`,
+                status: lastStatus ? (
+                  <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
+                ) : (
+                  <Status tone="draft">Never run</Status>
+                ),
+                link: {
+                  to: '/pipelines/$pipelineId',
+                  params: { pipelineId: p.id },
+                },
+              }
+            })}
+          />
+          {!query.isLoading && visible.length === 0 ? (
+            <div role="status" className="flex justify-center px-6">
+              <EmptyState
+                icon="pipeline"
+                className="items-center py-14 text-center"
+                title={
+                  q
+                    ? `No pipelines match “${search.q}”`
+                    : `No pipelines in ${tabLabel[tab].toLowerCase()}`
+                }
+                body="Search looks at pipeline keys and names."
+              />
             </div>
-          </div>
-        )}
+          ) : null}
+        </div>
+        <ListFooter right={sel ? '1 selected' : undefined}>
+          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()} · a
+          pipeline keeps nothing unless its outputs say so
+        </ListFooter>
       </div>
 
-      <CreatePipelineDefinitionDialog
-        dataClient={dataClient}
-        workspaceId={workspaceId}
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={(definitionId) =>
-          navigate({ to: '/pipelines/$definitionId', params: { definitionId } })
-        }
-      />
-    </div>
-  )
-}
-
-function PipelineRow({ definition }: { definition: PipelineDefinitionWire }) {
-  return (
-    <TableRow>
-      <TableCell>
-        <Link
-          className="font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-          to="/pipelines/$definitionId"
-          params={{ definitionId: definition.id }}
+      {sel ? (
+        <Inspector
+          aria-label="Pipeline details"
+          className="w-[320px] gap-0 p-0"
         >
-          {definition.name}
-        </Link>
-        {definition.description && (
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
-            {definition.description}
-          </p>
-        )}
-      </TableCell>
-      <TableCell className="font-mono text-xs text-muted-foreground">
-        {definition.key}
-      </TableCell>
-      <TableCell>
-        <Badge variant="secondary">{definition.lifecycle}</Badge>
-      </TableCell>
-    </TableRow>
+          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
+            <span className="mono text-fg-muted">
+              {sel.key} ·{' '}
+              {sel.current ? `v${sel.current.version}` : 'no version'}
+            </span>
+            <div className="font-heading text-doc font-semibold">
+              {sel.name}
+            </div>
+            {sel.description ? (
+              <p className="m-0 text-label leading-[18px]">{sel.description}</p>
+            ) : null}
+            <div className="mt-1.5 flex gap-1.5">
+              <Button
+                variant="primary"
+                size="sm"
+                icon="play"
+                disabled={
+                  !sel.current ||
+                  sel.current.lifecycle === 'draft' ||
+                  run.isPending
+                }
+                onClick={() => run.mutate(sel)}
+              >
+                Run now
+              </Button>
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/pipelines/$pipelineId"
+                    params={{ pipelineId: sel.id }}
+                  />
+                }
+              >
+                Open
+              </Button>
+            </div>
+            {sel.current?.lifecycle === 'draft' ? (
+              <Muted className="mt-1">
+                Drafts have no published version to run yet.
+              </Muted>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-4 px-4 py-3.5">
+            <InspectorSection title="Details">
+              <DescriptionList
+                labelWidth={80}
+                items={[
+                  ['Key', sel.key],
+                  [
+                    'Current',
+                    sel.current
+                      ? `v${sel.current.version} · ${versionStatus(sel.current.lifecycle).label}`
+                      : '—',
+                  ],
+                  ['Versions', String(sel.versions.length)],
+                  ['Runs', String(sel.runCount)],
+                ]}
+              />
+            </InspectorSection>
+            <InspectorSection title="Recent runs">
+              {sel.lastRun ? (
+                <Link
+                  to="/pipelines/$pipelineId/runs/$runId"
+                  params={{ pipelineId: sel.id, runId: sel.lastRun.id }}
+                  className="text-label"
+                >
+                  <Status tone={runStatus(sel.lastRun.status).tone}>
+                    {runStatus(sel.lastRun.status).label}
+                  </Status>{' '}
+                  <span className="num text-fg-muted">
+                    {sel.lastRun.started_at.slice(0, 16).replace('T', ' ')}
+                  </span>
+                </Link>
+              ) : (
+                <Muted>Never run.</Muted>
+              )}
+            </InspectorSection>
+          </div>
+        </Inspector>
+      ) : null}
+    </div>
   )
 }

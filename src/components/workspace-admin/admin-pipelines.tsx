@@ -122,8 +122,8 @@ export function AdminPipelines({
                   <TableCell>
                     <Button size="sm" variant="ghost" asChild>
                       <Link
-                        to="/pipelines/$definitionId"
-                        params={{ definitionId: definition.id }}
+                        to="/pipelines/$pipelineId"
+                        params={{ pipelineId: definition.id }}
                       >
                         Details
                       </Link>

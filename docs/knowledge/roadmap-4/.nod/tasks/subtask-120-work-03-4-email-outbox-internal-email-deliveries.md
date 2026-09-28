@@ -18,3 +18,4 @@ Step 4 of 4 in [WORK-03](../../tasks/WORK.md#work-03--notifications-and-preferen
 
 ## Work Log
 - 2026-09-28: PR #206: internal.email_deliveries outbox (enqueue/claim/finish with exponential backoff and dead-letter) + src/lib/email-delivery.server.ts worker with an injected transport; DB and unit tests. SMTP transport, templates, quiet-hours hold and the digest job remain.
+- 2026-09-28: PR #206: per-event email templates (renderEmail) and quiet-hours scheduling (nextSendAt; reviews/signatures always delivered) with unit tests. SMTP transport wiring and the digest job remain.

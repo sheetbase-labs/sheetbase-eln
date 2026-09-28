@@ -41,10 +41,9 @@ import {
 import {
   materialListQueryKeys,
   toMaterialListRow,
-  useReagentPage
-  
+  useReagentPage,
 } from '#/components/v3/materials/materials-data'
-import type {MaterialListRow} from '#/components/v3/materials/materials-data';
+import type { MaterialListRow } from '#/components/v3/materials/materials-data'
 import { recordReagentMovement } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -62,8 +61,9 @@ const tabLabel: Record<MaterialTab, string> = {
 export const Route = createFileRoute('/materials')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { q?: string; tab?: MaterialTab } => ({
+  ): { q?: string; tab?: MaterialTab; selected?: string } => ({
     q: typeof search.q === 'string' ? search.q : undefined,
+    selected: typeof search.selected === 'string' ? search.selected : undefined,
     tab:
       search.tab === 'expiring' ||
       search.tab === 'quarantine' ||
@@ -111,7 +111,9 @@ function MaterialsList() {
           v.toLowerCase().includes(q),
         ),
     )
-  const sel = visible.find((r) => r.uuid === selected) ?? visible.at(0)
+  const sel =
+    visible.find((r) => r.uuid === (selected ?? search.selected)) ??
+    visible.at(0)
 
   const receive = useMutation({
     mutationFn: (input: { quantity: number; reason?: string }) =>

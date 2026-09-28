@@ -42,10 +42,9 @@ import {
   sampleListQueryKeys,
   toSampleListRow,
   useProjectNames,
-  useSamplePage
-  
+  useSamplePage,
 } from '#/components/v3/samples/samples-data'
-import type {SampleListRow} from '#/components/v3/samples/samples-data';
+import type { SampleListRow } from '#/components/v3/samples/samples-data'
 import { createSample } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -64,8 +63,9 @@ const tabLabel: Record<SampleTab, string> = {
 export const Route = createFileRoute('/samples')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { q?: string; tab?: SampleTab; new?: boolean } => ({
+  ): { q?: string; tab?: SampleTab; new?: boolean; selected?: string } => ({
     q: typeof search.q === 'string' ? search.q : undefined,
+    selected: typeof search.selected === 'string' ? search.selected : undefined,
     tab:
       search.tab === 'mine' ||
       search.tab === 'awaiting' ||
@@ -119,7 +119,9 @@ function SamplesList() {
           v.toLowerCase().includes(q),
         ),
     )
-  const sel = visible.find((r) => r.uuid === selected) ?? visible.at(0)
+  const sel =
+    visible.find((r) => r.uuid === (selected ?? search.selected)) ??
+    visible.at(0)
 
   const create = useMutation({
     mutationFn: (input: {

@@ -521,7 +521,7 @@ describe('SCI-008 search — deep links', () => {
       `/samples?selected=${sample.id}`,
     )
     expect(byId.get(reagent.id)?.deep_link).toBe(
-      `/reagents?selected=${reagent.id}`,
+      `/materials?selected=${reagent.id}`,
     )
     expect(byId.get(protocol.id)?.deep_link).toBe(
       `/templates?protocol=${protocol.id}`,

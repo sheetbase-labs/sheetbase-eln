@@ -1707,6 +1707,13 @@
       "when": 1790586310994,
       "tag": "0245_project_folders",
       "breakpoints": true
+    },
+    {
+      "idx": 246,
+      "version": "7",
+      "when": 1790590973143,
+      "tag": "0246_search_materials_destination",
+      "breakpoints": true
     }
   ]
 }

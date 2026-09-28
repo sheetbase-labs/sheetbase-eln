@@ -217,7 +217,7 @@ Specification: [tasks/SRCH.md](tasks/SRCH.md) · nod `epic-177`
 - [ ] **SRCH-01** Search coverage `task-178`
   - [x] SRCH-01.1 Comments `subtask-179`
   - [ ] SRCH-01.2 Cell values — **in progress** `subtask-180`
-  - [ ] SRCH-01.3 File contents `subtask-181`
+  - [ ] SRCH-01.3 File contents — **in progress** `subtask-181`
   - [x] SRCH-01.4 "Did you mean": trigram similarity `subtask-182`
 - [ ] **SRCH-02** ⌘K palette and results page `task-183`
   - [ ] SRCH-02.1 Palette content `subtask-184`

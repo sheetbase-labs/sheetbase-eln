@@ -804,6 +804,13 @@ export const fileObjects = api.table(
     byteSize: bigint('byte_size', { mode: 'bigint' }).notNull(),
     checksum: text('checksum'),
     checksumAlgorithm: text('checksum_algorithm').notNull().default('sha256'),
+    // SRCH-01.3 — extracted text for CSV, TXT and JSON uploads, with the
+    // original newlines so search results can name the matching line.
+    extractedText: text('extracted_text'),
+    extractedAt: timestamp('extracted_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     status: text('status').notNull().default('active'),
     statusReason: text('status_reason'),
     storageBackend: text('storage_backend').notNull().default('local'),

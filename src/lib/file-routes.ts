@@ -16,6 +16,10 @@ import {
   OversizeError,
 } from '#/lib/file-storage'
 import { FILE_MAX_BYTES, validateUploadRequest } from '#/lib/file-policy'
+import {
+  extractTextFromStream,
+  isTextExtractableMediaType,
+} from '#/lib/file-text'
 import { env } from '#/env.server'
 
 import {
@@ -127,6 +131,37 @@ interface FileObjectWire {
 function asRow<T>(body: T | { error: unknown }): T | undefined {
   if (Array.isArray(body)) return (body as T[])[0]
   return body as T
+}
+
+/**
+ * SRCH-01.3 — after a successful upload, extract text for the text formats and
+ * store it on the file object through the membership-checked RPC. Best effort:
+ * an extraction failure must not fail the upload.
+ */
+async function persistExtractedFileText(
+  storage: ObjectStorage,
+  storageKey: string,
+  mediaType: string,
+  fileId: string,
+  token: string,
+  request: Request,
+): Promise<void> {
+  if (!isTextExtractableMediaType(mediaType)) return
+  try {
+    const { stream } = await storage.getStream(storageKey)
+    const text = await extractTextFromStream(stream)
+    if (text.trim().length === 0) return
+    await postgrestRpc(
+      'record_file_text',
+      { p_file_id: fileId, p_text: text },
+      token,
+    )
+  } catch (error) {
+    logger.warn('file text extraction failed', {
+      request_id: resolveRequestId(request.headers),
+      error: error instanceof Error ? error.message : 'unknown',
+    })
+  }
 }
 
 /** `POST /api/files/upload-authorize`. */
@@ -256,7 +291,7 @@ export async function handleUpload(
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(
     'file_objects',
-    `record_id=eq.${fileRecordId}&select=id,storage_key,status,version,checksum,byte_size,workspace_id&limit=1`,
+    `record_id=eq.${fileRecordId}&select=id,storage_key,status,version,checksum,byte_size,workspace_id,media_type&limit=1`,
     context.token,
   )
   if (selectRes.status >= 400) {
@@ -354,6 +389,15 @@ export async function handleUpload(
   // The database pointer has moved atomically. The old object was never
   // retained (otherwise finalization failed), so it is now safe to remove.
   await storage.delete(previousStorageKey)
+
+  await persistExtractedFileText(
+    storage,
+    candidateStorageKey,
+    fileObject.media_type,
+    fileObject.id,
+    context.token,
+    request,
+  )
 
   recordFileOperation('upload', 'ok', uploadStartedAt, Number(result.byteSize))
 

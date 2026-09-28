@@ -285,6 +285,14 @@ describe('SCI-003 file upload, download and isolation', () => {
     )
     const body = await dlRes.text()
     expect(body).toBe(new TextDecoder().decode(bytes))
+
+    // SRCH-01.3 — CSV uploads are text-extracted for search.
+    const { rows: extracted } = await admin.query<{
+      extracted_text: string | null
+    }>(`SELECT extracted_text FROM api.file_objects WHERE record_id=$1`, [
+      meta.fileRecordId,
+    ])
+    expect(extracted[0]?.extracted_text).toContain('virus stability run 07')
   })
 
   it('rejects an oversized upload and marks the file missing', async () => {

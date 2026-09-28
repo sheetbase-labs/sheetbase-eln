@@ -789,3 +789,51 @@ export async function searchDidYouMean(
     p_include_archived: includeArchived,
   })
 }
+
+// ---------------------------------------------------------------------------
+// Cell and file-content search (SRCH-01.2, SRCH-01.3)
+// ---------------------------------------------------------------------------
+
+export interface CellMatch {
+  dataset_id: string
+  dataset_version_id: string
+  dataset_name: string
+  row_id: string
+  field_label: string
+  value_text: string
+  snippet: string
+  rank: number
+}
+
+export async function searchCells(
+  client: DataClient,
+  query: string,
+  limit = 20,
+): Promise<CellMatch[]> {
+  return client.rpc<CellMatch[]>('search_cells', {
+    p_query: query,
+    p_limit: limit,
+  })
+}
+
+export interface FileContentHit {
+  file_id: string
+  record_id: string
+  identifier: string
+  display_name: string
+  line_number: number
+  line_text: string
+  snippet: string
+  rank: number
+}
+
+export async function searchFileContents(
+  client: DataClient,
+  query: string,
+  limit = 20,
+): Promise<FileContentHit[]> {
+  return client.rpc<FileContentHit[]>('search_file_contents', {
+    p_query: query,
+    p_limit: limit,
+  })
+}

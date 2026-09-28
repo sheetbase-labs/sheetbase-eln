@@ -64,6 +64,14 @@ matching line; include-archived option; "did you mean" for near-miss IDs.
 3. File contents: at upload, extract text for CSV/TXT (and PDF text when a
    text layer exists) into a searchable column with line numbers; results show
    the matching line.
+
+   Progress: CSV, TXT and JSON uploads are extracted into
+   `file_objects.extracted_text` (with original newlines), folded into the
+   maintained record search vector, and searched by `api.search_file_contents`,
+   which returns the file, the matching line and its number; DB tests cover a
+   member, a viewer and an outsider, and the upload test proves extraction.
+   PDF text needs a text-layer parser dependency (`pdf-lib` only writes); that
+   half is tracked separately so the format is not faked.
 4. "Did you mean": trigram similarity (`pg_trgm`) on identifiers when there are
    no results; include-archived flag.
 

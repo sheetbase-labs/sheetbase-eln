@@ -7026,6 +7026,8 @@ export const pipelineDefinitions = api.table(
     key: text('key').notNull(),
     name: text('name').notNull(),
     description: text('description'),
+    /** Stable per-workspace display id, e.g. PL-0014. Assigned on insert. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('active'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
@@ -7042,6 +7044,14 @@ export const pipelineDefinitions = api.table(
     unique('uq_pipeline_definitions_workspace_key').on(
       table.workspaceId,
       table.key,
+    ),
+    unique('uq_pipeline_definitions_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
+    ),
+    check(
+      'chk_pipeline_definitions_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^PL-[0-9]{4,}$'`,
     ),
     unique('uq_pipeline_definitions_workspace_id').on(
       table.workspaceId,

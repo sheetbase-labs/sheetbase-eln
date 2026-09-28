@@ -1764,6 +1764,7 @@ async function seedDesignWorkItems(
       workspaceId: PROCESS,
       key: 'full_empty_ratio_from_auc',
       name: 'Full/empty ratio from AUC traces',
+      displayId: 'PL-0014',
       createdByUserId: DESIGN_USER_IDS.gareth,
     })
     .onConflictDoNothing()

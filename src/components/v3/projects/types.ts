@@ -7,6 +7,9 @@ import type { Tone } from '#/components/v3/ui/status'
  * started date) are optional and render as gaps until their capabilities land.
  */
 export type ProjectRow = {
+  /** UUID, for links to /projects/$projectId. */
+  uuid: string
+  /** Display id (PRJ-nnnn) or key when the backend has none yet. */
   id: string
   name: string
   client: string

@@ -14,6 +14,7 @@ afterEach(cleanup)
 
 function row(overrides: Partial<ProjectRow> = {}): ProjectRow {
   return {
+    uuid: '00000000-0000-4000-8000-000000000320',
     id: 'PRJ-0217',
     name: 'AAV9 process transfer',
     client: 'CL-017',

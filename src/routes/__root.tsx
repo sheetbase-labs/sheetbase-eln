@@ -116,7 +116,12 @@ function RootRouteComponent() {
   // render inside app-3's shell; every other route keeps the ELN shell until it
   // is ported. The list grows area by area, then this branch and the ELN shell
   // are deleted.
-  const v3RouteIds = ['/projects']
+  const v3RouteIds = [
+    '/projects',
+    '/projects/$projectId',
+    '/projects/$projectId/',
+    '/projects/$projectId/settings',
+  ]
   const portedToV3 = useMatches().some((match) =>
     v3RouteIds.includes(match.routeId),
   )

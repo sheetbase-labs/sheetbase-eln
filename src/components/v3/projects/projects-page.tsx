@@ -407,7 +407,7 @@ export function ProjectsPage({
                   status: p.status,
                   link: {
                     to: '/projects/$projectId',
-                    params: { projectId: p.id },
+                    params: { projectId: p.uuid },
                   },
                 }))}
               />
@@ -677,7 +677,7 @@ function ProjectPeek({ p, onClose }: { p: ProjectRow; onClose: () => void }) {
           <Status tone={p.status.tone}>{p.status.label}</Status>
           <Link
             to="/projects/$projectId"
-            params={{ projectId: p.id }}
+            params={{ projectId: p.uuid }}
             className="ml-auto"
           >
             Open project

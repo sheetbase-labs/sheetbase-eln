@@ -64,6 +64,7 @@ function statusOf(status: string): ProjectRow['status'] {
 
 export function toProjectRow(row: ProjectSummaryWire): ProjectRow {
   return {
+    uuid: row.id,
     id: row.display_id ?? row.key,
     name: row.title,
     client: row.client_code ?? 'Internal',

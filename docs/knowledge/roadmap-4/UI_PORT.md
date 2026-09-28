@@ -130,5 +130,12 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   old list tests are deleted. Known gaps (design data the backend does not carry
   yet): project milestone, member summary and started date; the New dialog maps
   client (code → id) and stage, not lead (needs a member-name list).
-- Still to port for the area: `/projects/$projectId` and its
-  `folders`/`members`/`settings` tabs (they add routes the list links to).
+- **Project detail ported**: `/projects/$projectId` is app-3's frame (crumbs,
+  title, status/client/modality/stage/lead meta) with Overview and Settings
+  tabs, wired to `project_list_summary`, `fetchRecordsForProject`,
+  `update_project_details`, `archive_project`/`unarchive_project`. The list and
+  detail share `project-data.ts`; rows carry the UUID so links resolve.
+  Old detail page and its test deleted.
+- Still to port for the area: the `folders` and `members` tabs (they need the
+  folder tree port and a member list with names) and the design fields the
+  backend lacks (milestones, member summary, started date).

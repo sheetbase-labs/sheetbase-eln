@@ -142,7 +142,7 @@ Specification: [tasks/WORK.md](tasks/WORK.md) · nod `epic-104`
   - [x] WORK-02.4 Help page (HelpRecords) as a static route with the design copy `subtask-115`
 - [ ] **WORK-03** Notifications and preferences `task-116`
   - [x] WORK-03.1 api.notification_preferences `subtask-117`
-  - [ ] WORK-03.2 internal.notifications written by a trigger on api.change_events for the… `subtask-118`
+  - [ ] WORK-03.2 internal.notifications written by a trigger on api.change_events for the… — **in progress** `subtask-118`
   - [ ] WORK-03.3 Bell popover reading my_notifications `subtask-119`
   - [ ] WORK-03.4 Email outbox internal.email_deliveries + server worker `subtask-120`
 - [ ] **WORK-04** Schedule `task-121`

@@ -22,3 +22,4 @@ Step 2 of 4 in [DSYS-05](../../tasks/DSYS.md#dsys-05--design-data-seed); the ful
 - 2026-09-27: PR #206: bookings screen slice — Ambr 250 resource and today's three design bookings (sampling, plate reader, tech-transfer review) for the Home Today section.
 - 2026-09-28: PR #206: samples screen slice — added the design's remaining sample identifiers (SMP-2190..2250). design:coverage rose 196→249 of 765.
 - 2026-09-28: PR #206: protocols screen slice — added PRT-009/012/017/019/020/021/022/025. design:coverage 249→287.
+- 2026-09-28: PR #206: materials screen slice — design materials MAT-0342..0421 as reagent records with supplier/lot/expiry. design:coverage 287→334.

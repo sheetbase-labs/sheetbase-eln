@@ -294,6 +294,36 @@ export const designSteps: Array<SeedStep> = [
     },
   },
   {
+    name: 'design materials',
+    run: async (db) => {
+      for (const material of DESIGN_MATERIALS) {
+        await db
+          .insert(schema.records)
+          .values({
+            id: material.id,
+            workspaceId: PROCESS,
+            projectId: DESIGN_PROJECTS[0].id,
+            kind: 'reagent',
+            identifier: material.identifier,
+            title: material.title,
+            status: material.status,
+            properties: material.properties,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: [schema.records.projectId, schema.records.identifier],
+            set: {
+              title: material.title,
+              status: material.status,
+              properties: material.properties,
+              deletedAt: null,
+              archivedAt: null,
+            },
+          })
+      }
+    },
+  },
+  {
     name: 'design protocols',
     run: async (db) => {
       for (const protocol of DESIGN_PROTOCOLS) {
@@ -559,6 +589,101 @@ const DESIGN_TEMPLATES: ReadonlyArray<{
     name: 'Stability pull',
     description: 'Routine stability timepoint pull with assay capture.',
     configuration: { formatVersion: 1, parameters: [], placements: [] },
+  },
+]
+
+const DESIGN_MATERIALS: ReadonlyArray<{
+  id: string
+  identifier: string
+  title: string
+  status: string
+  properties: Record<string, unknown>
+}> = [
+  {
+    id: '00000000-0000-4000-8000-0000000003a0',
+    identifier: 'MAT-0342',
+    title: 'Filter train C',
+    status: 'available',
+    properties: { supplier: 'Sartorius', lot: 'L-77310', expiry: '2026-10-01' },
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003a1',
+    identifier: 'MAT-0355',
+    title: 'Depth filter SD-1',
+    status: 'available',
+    properties: { supplier: 'Pall', lot: 'L-77105', expiry: '2027-03-15' },
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003a2',
+    identifier: 'MAT-0366',
+    title: 'PEI MAX 40K',
+    status: 'available',
+    properties: {
+      supplier: 'Polysciences',
+      lot: 'L-76420',
+      expiry: '2027-01-20',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003a3',
+    identifier: 'MAT-0371',
+    title: 'Opti-MEM',
+    status: 'available',
+    properties: {
+      supplier: 'Thermo Fisher',
+      lot: 'L-75211',
+      expiry: '2027-08-30',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003a4',
+    identifier: 'MAT-0377',
+    title: 'HEK293F suspension',
+    status: 'available',
+    properties: {
+      supplier: 'Thermo Fisher',
+      lot: 'L-75980',
+      expiry: '2026-12-05',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003a5',
+    identifier: 'MAT-0402',
+    title: 'rProtein A resin',
+    status: 'available',
+    properties: { supplier: 'Cytiva', lot: 'L-78012', expiry: '2027-06-18' },
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003a6',
+    identifier: 'MAT-0418',
+    title: 'DiI labelling reagent',
+    status: 'available',
+    properties: {
+      supplier: 'Thermo Fisher',
+      lot: 'L-78801',
+      expiry: '2027-02-28',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003a7',
+    identifier: 'MAT-0419',
+    title: 'Lentivirus titration kit',
+    status: 'available',
+    properties: { supplier: 'Miltenyi', lot: 'L-78812', expiry: '2027-04-10' },
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003a8',
+    identifier: 'MAT-0420',
+    title: 'Filter train C lot L-77310',
+    status: 'available',
+    properties: { supplier: 'Sartorius', lot: 'L-77310', expiry: '2026-10-01' },
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003a9',
+    identifier: 'MAT-0421',
+    title: 'TFF membrane cassette',
+    status: 'available',
+    properties: { supplier: 'Repligen', lot: 'L-78903', expiry: '2027-09-01' },
   },
 ]
 

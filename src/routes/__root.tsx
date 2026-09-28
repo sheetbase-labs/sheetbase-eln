@@ -193,6 +193,12 @@ function RootRouteComponent() {
     '/projects/$projectId/members',
     '/projects/$projectId/settings',
   ]
+  // Routes with their own chrome (the client portal, ADR-0049) render without
+  // either shell: no internal navigation and no workspace data.
+  const bareRouteIds = ['/client-portal']
+  const bareRoute = useMatches().some((match) =>
+    bareRouteIds.includes(match.routeId),
+  )
   const portedToV3 = useMatches().some((match) =>
     v3RouteIds.includes(match.routeId),
   )
@@ -223,7 +229,9 @@ function RootRouteComponent() {
           value={auth?.collaborationEnabled ?? false}
         >
           <CollaborationProvider>
-            {portedToV3 ? (
+            {bareRoute ? (
+              <Outlet />
+            ) : portedToV3 ? (
               <V3AppShell data={appShellData}>
                 <Outlet />
               </V3AppShell>

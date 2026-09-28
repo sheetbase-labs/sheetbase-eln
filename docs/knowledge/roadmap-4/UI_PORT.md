@@ -118,6 +118,20 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Client portal added (ADR-0049 capability)**: a `client_viewer` role with a
+  `client_id` on membership, a `client_portal_shares` table (RLS: internal
+  members read, writes through RPCs only) and the `share_record_with_client` /
+  `unshare_record_with_client` / `client_portal_projects` /
+  `client_portal_records` RPCs. `api.is_workspace_member` now means an internal
+  member, so a client viewer is denied the whole internal read surface (records,
+  blocks, projects, datasets, files, comments, revisions) and reads only through
+  the portal RPCs. DB contract tests prove: only approved records share, only
+  internal writers share, a client sees only their own shared records, the
+  internal surface and shares are denied, and workspaces/clients stay isolated.
+  `/client-portal` renders app-3's shell-less portal (Projects, Reports and a
+  stated Messages gap) via a new bare-route branch in `__root.tsx`. Reports and
+  messages remain gaps; the portal UI for inviting clients follows.
+
 - **Acceptance suites fully green**: crawl (220 pages, 0 problems, 0 404s),
   screens (51 routes × 2 widths, light and dark), phone, areas and interactions.
   The live-event coordinator now coalesces its subscriber notification per

@@ -113,6 +113,7 @@ function routes(ids) {
     '/settings/access',
     '/settings/audit',
     '/settings/integrations',
+    '/client-portal',
   ]
   if (ids.project)
     list.push(

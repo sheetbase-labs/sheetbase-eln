@@ -24,6 +24,8 @@ export type WorkspaceRole =
   | 'analyst'
   | 'reviewer'
   | 'viewer'
+  /** ADR-0049: an external client viewer, scoped to one client's portal. */
+  | 'client_viewer'
 export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired'
 export type RegistrationMode = 'open' | 'invitation_only'
 export type ProjectAccessLevel = 'owner' | 'editor' | 'viewer'
@@ -518,6 +520,7 @@ export const WORKSPACE_ROLE_LABELS: Record<WorkspaceRole, string> = {
   analyst: 'Analyst',
   reviewer: 'Reviewer',
   viewer: 'Viewer',
+  client_viewer: 'Client viewer',
 }
 
 /** Invitation and member-role copy. Viewer is read-only (GOV-01). */
@@ -535,6 +538,8 @@ export const WORKSPACE_ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
     'Member-class scientific work. Same data capabilities as Member; review assignment is separate from this role.',
   viewer:
     'Read-only. Cannot create, link or upgrade records, Sheets or Datasets.',
+  client_viewer:
+    'External client. Sees only approved records explicitly shared to their client portal; never drafts, comments, raw data or files.',
 }
 
 export const WORKSPACE_ROLE_TOKENS: Record<WorkspaceRole, string> = {
@@ -545,6 +550,7 @@ export const WORKSPACE_ROLE_TOKENS: Record<WorkspaceRole, string> = {
   scientist: 'bg-success-wash text-success-text',
   analyst: 'bg-selection text-info',
   reviewer: 'bg-warning-wash text-warning-text',
+  client_viewer: 'bg-review-wash text-review',
   viewer: 'bg-muted text-muted-foreground',
 }
 

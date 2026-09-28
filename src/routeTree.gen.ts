@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AgentOperationsRouteImport } from './routes/agent-operations'
 import { Route as AnalysisRouteImport } from './routes/analysis'
+import { Route as ClientPortalRouteImport } from './routes/client-portal'
 import { Route as ConfigureRouteImport } from './routes/configure'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as ExperimentsRouteImport } from './routes/experiments'
@@ -146,6 +147,11 @@ const AgentOperationsRoute = AgentOperationsRouteImport.update({
 const AnalysisRoute = AnalysisRouteImport.update({
   id: '/analysis',
   path: '/analysis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientPortalRoute = ClientPortalRouteImport.update({
+  id: '/client-portal',
+  path: '/client-portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfigureRoute = ConfigureRouteImport.update({
@@ -749,6 +755,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRouteWithChildren
+  '/client-portal': typeof ClientPortalRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
@@ -869,6 +876,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRouteWithChildren
   '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRouteWithChildren
+  '/client-portal': typeof ClientPortalRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
@@ -981,6 +989,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRouteWithChildren
+  '/client-portal': typeof ClientPortalRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
@@ -1103,6 +1112,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agent-operations'
     | '/analysis'
+    | '/client-portal'
     | '/configure'
     | '/datasets'
     | '/experiments'
@@ -1223,6 +1233,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agent-operations'
     | '/analysis'
+    | '/client-portal'
     | '/configure'
     | '/datasets'
     | '/experiments'
@@ -1334,6 +1345,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agent-operations'
     | '/analysis'
+    | '/client-portal'
     | '/configure'
     | '/datasets'
     | '/experiments'
@@ -1455,6 +1467,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AgentOperationsRoute: typeof AgentOperationsRoute
   AnalysisRoute: typeof AnalysisRouteWithChildren
+  ClientPortalRoute: typeof ClientPortalRoute
   ConfigureRoute: typeof ConfigureRoute
   DatasetsRoute: typeof DatasetsRouteWithChildren
   ExperimentsRoute: typeof ExperimentsRouteWithChildren
@@ -1541,6 +1554,13 @@ declare module '@tanstack/react-router' {
       path: '/analysis'
       fullPath: '/analysis'
       preLoaderRoute: typeof AnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client-portal': {
+      id: '/client-portal'
+      path: '/client-portal'
+      fullPath: '/client-portal'
+      preLoaderRoute: typeof ClientPortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/configure': {
@@ -2655,6 +2675,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AgentOperationsRoute: AgentOperationsRoute,
   AnalysisRoute: AnalysisRouteWithChildren,
+  ClientPortalRoute: ClientPortalRoute,
   ConfigureRoute: ConfigureRoute,
   DatasetsRoute: DatasetsRouteWithChildren,
   ExperimentsRoute: ExperimentsRouteWithChildren,

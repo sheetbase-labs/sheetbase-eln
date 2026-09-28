@@ -292,6 +292,13 @@ export const workspaceMemberships = api.table(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
+    /**
+     * ADR-0049 (client users): when the role is `client_viewer`, the client
+     * whose portal this person belongs to. Null for internal members.
+     */
+    clientId: uuid('client_id').references(() => clients.id, {
+      onDelete: 'set null',
+    }),
     suspendedAt: timestamp('suspended_at', {
       withTimezone: true,
       mode: 'date',
@@ -305,7 +312,11 @@ export const workspaceMemberships = api.table(
     ),
     check(
       'chk_workspace_memberships_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer', 'client_viewer')`,
+    ),
+    check(
+      'chk_workspace_memberships_client',
+      sql`(${table.role} = 'client_viewer') = (${table.clientId} IS NOT NULL)`,
     ),
     index('idx_workspace_memberships_user_id').on(table.userId),
     index('idx_workspace_memberships_suspended_at').on(table.suspendedAt),
@@ -477,6 +488,45 @@ export const clients = api.table(
       sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
     ),
     index('idx_clients_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * client_portal_shares (ADR-0049) — an explicit share of one approved record to
+ * one client's portal. A client viewer reads only records shared here (through
+ * the portal RPCs); direct record/block reads are denied for the role. Written
+ * by the project lead or a workspace admin.
+ */
+export const clientPortalShares = api.table(
+  'client_portal_shares',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    sharedAt: timestamp('shared_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    sharedByUserId: text('shared_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_client_portal_shares_client_record').on(
+      table.clientId,
+      table.recordId,
+    ),
+    index('idx_client_portal_shares_client').on(table.clientId),
+    index('idx_client_portal_shares_workspace').on(table.workspaceId),
   ],
 )
 

@@ -1735,6 +1735,13 @@
       "when": 1790609684298,
       "tag": "0249_signature_certification_gov01_exemption",
       "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1790618334459,
+      "tag": "0250_client_portal",
+      "breakpoints": true
     }
   ]
 }

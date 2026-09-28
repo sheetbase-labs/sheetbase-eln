@@ -1,0 +1,1 @@
+ALTER TABLE "api"."workspace_settings" ADD COLUMN "id_prefixes" jsonb DEFAULT '{}'::jsonb NOT NULL;

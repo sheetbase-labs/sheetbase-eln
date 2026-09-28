@@ -82,7 +82,7 @@ describe('Study domain', () => {
       workspace_id: WS_A,
       project_id: PROJECT_A,
       kind: 'study',
-      identifier: expect.stringMatching(/^STD-\d{4}-\d{4}$/),
+      identifier: expect.stringMatching(/^STD-\d{4}$/),
       title: 'Stability study',
       custom_fields: { programme_code: 'AUTO' },
     })

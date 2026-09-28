@@ -29,7 +29,6 @@ import {
   Package,
   PanelLeftClose,
   PanelLeftOpen,
-  PlugZap,
   Settings,
   Star,
   Sun,
@@ -312,8 +311,6 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/pipelines', label: 'Pipelines', icon: Workflow },
       { to: '/configure', label: 'Models', icon: Layers },
-      { to: '/integrations', label: 'Integrations', icon: PlugZap },
-      { to: '/admin', label: 'Administration', icon: Settings },
     ],
   },
 ]

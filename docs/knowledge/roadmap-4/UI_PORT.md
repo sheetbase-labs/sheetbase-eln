@@ -118,6 +118,15 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Retired the two pure-retire legacy routes (DEC-03)**: `/plate-designer` and
+  `/report-builder` and their components, stories, tests and (for the report
+  builder) the now-unused report-builder libraries are deleted, and
+  `/plate-designer` is removed from the legacy specialist nav. The fold routes
+  (`/planner`→PROJ-02, `/instrument-monitor`→LAB-06, `/storage`→LAB-04,
+  `/lineage`→lineage tabs, `/agent-operations`→PIPE-01) are deleted with their
+  fold task, as DEC-03 specifies; `/docs/$name` and `/foundations` stay internal
+  and unlisted.
+
 - **Portal messaging ported**: `client_portal_messages` (RLS: internal members
   or the client whose portal it is) with `post_client_portal_message` (a client
   posts as `client`, an internal writer as `team`) and `client_portal_messages`

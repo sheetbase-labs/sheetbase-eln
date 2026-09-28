@@ -287,7 +287,6 @@ export interface AppShellProps {
 /** Default workspace navigation shared by every authenticated route. */
 /** Specialist tools kept reachable but out of the default product nav. */
 export const SPECIALIST_NAV_HREFS = [
-  '/plate-designer',
   '/planner',
   '/instrument-monitor',
   '/storage',

@@ -27,10 +27,8 @@ import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as PlannerRouteImport } from './routes/planner'
-import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
-import { Route as ReportBuilderRouteImport } from './routes/report-builder'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SearchRouteImport } from './routes/search'
@@ -219,11 +217,6 @@ const PlannerRoute = PlannerRouteImport.update({
   path: '/planner',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PlateDesignerRoute = PlateDesignerRouteImport.update({
-  id: '/plate-designer',
-  path: '/plate-designer',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
@@ -232,11 +225,6 @@ const ProjectsRoute = ProjectsRouteImport.update({
 const ProtocolsRoute = ProtocolsRouteImport.update({
   id: '/protocols',
   path: '/protocols',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReportBuilderRoute = ReportBuilderRouteImport.update({
-  id: '/report-builder',
-  path: '/report-builder',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SamplesRoute = SamplesRouteImport.update({
@@ -769,10 +757,8 @@ export interface FileRoutesByFullPath {
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/planner': typeof PlannerRoute
-  '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/protocols': typeof ProtocolsRouteWithChildren
-  '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
@@ -890,10 +876,8 @@ export interface FileRoutesByTo {
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/planner': typeof PlannerRoute
-  '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/protocols': typeof ProtocolsRouteWithChildren
-  '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
@@ -1003,10 +987,8 @@ export interface FileRoutesById {
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/planner': typeof PlannerRoute
-  '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/protocols': typeof ProtocolsRouteWithChildren
-  '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
@@ -1126,10 +1108,8 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/planner'
-    | '/plate-designer'
     | '/projects'
     | '/protocols'
-    | '/report-builder'
     | '/samples'
     | '/schedule'
     | '/search'
@@ -1247,10 +1227,8 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/planner'
-    | '/plate-designer'
     | '/projects'
     | '/protocols'
-    | '/report-builder'
     | '/samples'
     | '/schedule'
     | '/search'
@@ -1359,10 +1337,8 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/planner'
-    | '/plate-designer'
     | '/projects'
     | '/protocols'
-    | '/report-builder'
     | '/samples'
     | '/schedule'
     | '/search'
@@ -1481,10 +1457,8 @@ export interface RootRouteChildren {
   ModelsRoute: typeof ModelsRouteWithChildren
   PipelinesRoute: typeof PipelinesRouteWithChildren
   PlannerRoute: typeof PlannerRoute
-  PlateDesignerRoute: typeof PlateDesignerRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
-  ReportBuilderRoute: typeof ReportBuilderRoute
   SamplesRoute: typeof SamplesRouteWithChildren
   ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
@@ -1654,13 +1628,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlannerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/plate-designer': {
-      id: '/plate-designer'
-      path: '/plate-designer'
-      fullPath: '/plate-designer'
-      preLoaderRoute: typeof PlateDesignerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/projects': {
       id: '/projects'
       path: '/projects'
@@ -1673,13 +1640,6 @@ declare module '@tanstack/react-router' {
       path: '/protocols'
       fullPath: '/protocols'
       preLoaderRoute: typeof ProtocolsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/report-builder': {
-      id: '/report-builder'
-      path: '/report-builder'
-      fullPath: '/report-builder'
-      preLoaderRoute: typeof ReportBuilderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/samples': {
@@ -2689,10 +2649,8 @@ const rootRouteChildren: RootRouteChildren = {
   ModelsRoute: ModelsRouteWithChildren,
   PipelinesRoute: PipelinesRouteWithChildren,
   PlannerRoute: PlannerRoute,
-  PlateDesignerRoute: PlateDesignerRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ProtocolsRoute: ProtocolsRouteWithChildren,
-  ReportBuilderRoute: ReportBuilderRoute,
   SamplesRoute: SamplesRouteWithChildren,
   ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,

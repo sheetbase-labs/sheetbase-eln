@@ -27,6 +27,7 @@ import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as ReportBuilderRouteImport } from './routes/report-builder'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as ScheduleRouteImport } from './routes/schedule'
@@ -48,6 +49,7 @@ import { Route as ExperimentsExpIdRouteImport } from './routes/experiments/$expI
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
+import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$protocolId'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
@@ -212,6 +214,11 @@ const ProjectsRoute = ProjectsRouteImport.update({
   path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProtocolsRoute = ProtocolsRouteImport.update({
+  id: '/protocols',
+  path: '/protocols',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportBuilderRoute = ReportBuilderRouteImport.update({
   id: '/report-builder',
   path: '/report-builder',
@@ -316,6 +323,11 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/$projectId',
   path: '/$projectId',
   getParentRoute: () => ProjectsRoute,
+} as any)
+const ProtocolsProtocolIdRoute = ProtocolsProtocolIdRouteImport.update({
+  id: '/$protocolId',
+  path: '/$protocolId',
+  getParentRoute: () => ProtocolsRoute,
 } as any)
 const RecordsRecordIdRoute = RecordsRecordIdRouteImport.update({
   id: '/records/$recordId',
@@ -727,6 +739,7 @@ export interface FileRoutesByFullPath {
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/protocols': typeof ProtocolsRouteWithChildren
   '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
@@ -748,6 +761,7 @@ export interface FileRoutesByFullPath {
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
@@ -841,6 +855,7 @@ export interface FileRoutesByTo {
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/protocols': typeof ProtocolsRouteWithChildren
   '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
@@ -856,6 +871,7 @@ export interface FileRoutesByTo {
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/docs/$name': typeof DocsNameRoute
+  '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
@@ -947,6 +963,7 @@ export interface FileRoutesById {
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/protocols': typeof ProtocolsRouteWithChildren
   '/report-builder': typeof ReportBuilderRoute
   '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
@@ -968,6 +985,7 @@ export interface FileRoutesById {
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
@@ -1063,6 +1081,7 @@ export interface FileRouteTypes {
     | '/planner'
     | '/plate-designer'
     | '/projects'
+    | '/protocols'
     | '/report-builder'
     | '/samples'
     | '/schedule'
@@ -1084,6 +1103,7 @@ export interface FileRouteTypes {
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
     | '/projects/$projectId'
+    | '/protocols/$protocolId'
     | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/samples/$sampleId'
@@ -1177,6 +1197,7 @@ export interface FileRouteTypes {
     | '/planner'
     | '/plate-designer'
     | '/projects'
+    | '/protocols'
     | '/report-builder'
     | '/samples'
     | '/schedule'
@@ -1192,6 +1213,7 @@ export interface FileRouteTypes {
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/docs/$name'
+    | '/protocols/$protocolId'
     | '/reviews/$revisionId'
     | '/settings/access'
     | '/settings/api'
@@ -1282,6 +1304,7 @@ export interface FileRouteTypes {
     | '/planner'
     | '/plate-designer'
     | '/projects'
+    | '/protocols'
     | '/report-builder'
     | '/samples'
     | '/schedule'
@@ -1303,6 +1326,7 @@ export interface FileRouteTypes {
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
     | '/projects/$projectId'
+    | '/protocols/$protocolId'
     | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/samples/$sampleId'
@@ -1397,6 +1421,7 @@ export interface RootRouteChildren {
   PlannerRoute: typeof PlannerRoute
   PlateDesignerRoute: typeof PlateDesignerRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
+  ProtocolsRoute: typeof ProtocolsRouteWithChildren
   ReportBuilderRoute: typeof ReportBuilderRoute
   SamplesRoute: typeof SamplesRouteWithChildren
   ScheduleRoute: typeof ScheduleRoute
@@ -1565,6 +1590,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/protocols': {
+      id: '/protocols'
+      path: '/protocols'
+      fullPath: '/protocols'
+      preLoaderRoute: typeof ProtocolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/report-builder': {
       id: '/report-builder'
       path: '/report-builder'
@@ -1711,6 +1743,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/projects/$projectId'
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof ProjectsRoute
+    }
+    '/protocols/$protocolId': {
+      id: '/protocols/$protocolId'
+      path: '/$protocolId'
+      fullPath: '/protocols/$protocolId'
+      preLoaderRoute: typeof ProtocolsProtocolIdRouteImport
+      parentRoute: typeof ProtocolsRoute
     }
     '/records/$recordId': {
       id: '/records/$recordId'
@@ -2403,6 +2442,18 @@ const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
   ProjectsRouteChildren,
 )
 
+interface ProtocolsRouteChildren {
+  ProtocolsProtocolIdRoute: typeof ProtocolsProtocolIdRoute
+}
+
+const ProtocolsRouteChildren: ProtocolsRouteChildren = {
+  ProtocolsProtocolIdRoute: ProtocolsProtocolIdRoute,
+}
+
+const ProtocolsRouteWithChildren = ProtocolsRoute._addFileChildren(
+  ProtocolsRouteChildren,
+)
+
 interface SamplesSampleIdRouteChildren {
   SamplesSampleIdHistoryRoute: typeof SamplesSampleIdHistoryRoute
   SamplesSampleIdLineageRoute: typeof SamplesSampleIdLineageRoute
@@ -2537,6 +2588,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlannerRoute: PlannerRoute,
   PlateDesignerRoute: PlateDesignerRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
+  ProtocolsRoute: ProtocolsRouteWithChildren,
   ReportBuilderRoute: ReportBuilderRoute,
   SamplesRoute: SamplesRouteWithChildren,
   ScheduleRoute: ScheduleRoute,

@@ -132,6 +132,8 @@ function RootRouteComponent() {
     '/settings/api',
     '/settings/profile',
     '/settings/notifications',
+    '/protocols',
+    '/protocols/$protocolId',
     '/templates',
     '/templates/$templateId',
     '/templates/$templateId/',

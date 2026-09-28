@@ -1,6 +1,5 @@
 import { Link, useLocation, useMatches } from '@tanstack/react-router'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { parseSearchUrl } from '#/lib/search'
 
 // Record layouts that already render a page header (and its h1) above their tabs.
 const LAYOUTS = [
@@ -37,7 +36,7 @@ export function NotFound() {
       }
     >
       <Link to="/">Go to Home</Link>
-      <Link to="/search" search={parseSearchUrl({})}>
+      <Link to="/search" search={{}}>
         Search
       </Link>
     </EmptyState>

@@ -19,14 +19,13 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from '#/components/v3/ui/popover'
-import { useTheme  } from '#/components/v3/lib/theme'
-import type {ThemePref} from '#/components/v3/lib/theme';
+import { useTheme } from '#/components/v3/lib/theme'
+import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 import type { Notification } from '#/components/v3/types'
-import { primaryNav, recordNav  } from './nav'
-import type {NavItem} from './nav';
+import { primaryNav, recordNav } from './nav'
+import type { NavItem } from './nav'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
-import { parseSearchUrl } from '#/lib/search'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 
 type ShellData = {
@@ -175,13 +174,13 @@ function BottomTabs({
 function TopBar({ data, onMenu }: { data: ShellData; onMenu: () => void }) {
   const navigate = useNavigate()
   const openSearch = () => {
-    void navigate({ to: '/search', search: parseSearchUrl({}) })
+    void navigate({ to: '/search', search: {} })
   }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
-        void navigate({ to: '/search', search: parseSearchUrl({}) })
+        void navigate({ to: '/search', search: {} })
       }
     }
     window.addEventListener('keydown', onKey)

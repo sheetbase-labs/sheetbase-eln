@@ -118,6 +118,12 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Search ported**: `/search` renders app-3's results page (filter aside, type
+  facets, updated/archived filters, grouped results) wired to the real `search`
+  RPC and `search_did_you_mean` for "Did you mean". The old Search page and its
+  test are deleted. Gaps: multi-type filtering is client-side over the top 100
+  results; the ⌘K palette is still the ELN's own (app-3's palette lands next).
+
 - **Schedule ported**: `/schedule` renders app-3's day/week instrument grid and
   phone day list, wired to `calendar_resources` (instruments) and
   `calendar_bookings`; "Book instrument" writes through `create_booking`. The

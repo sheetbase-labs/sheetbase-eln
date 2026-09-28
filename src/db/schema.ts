@@ -3933,6 +3933,35 @@ export const workItemFollows = api.table(
 )
 
 /**
+ * notification_preferences (WORK-03.1) — per-user preferences per event type
+ * and channel. Rows are own-row; written through `save_notification_preference`.
+ */
+export const notificationPreferences = api.table(
+  'notification_preferences',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    eventType: text('event_type').notNull(),
+    inApp: boolean('in_app').notNull().default(true),
+    email: boolean('email').notNull().default(true),
+    digest: boolean('digest').notNull().default(false),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_notification_preferences_user_event').on(
+      table.userId,
+      table.eventType,
+    ),
+    check(
+      'chk_notification_preferences_event',
+      sql`${table.eventType} IN ('review_requested', 'signature_requested', 'data_issue', 'run_waiting', 'run_failed', 'material_expiring', 'approval_required', 'conflict')`,
+    ),
+  ],
+)
+
+/**
  * user_preferences (SHELL-02) — one row per user holding their appearance
  * choice (System/Light/Dark) and navigation state. Written exclusively through
  * the `set_user_preference` SECURITY DEFINER RPC so the user id always comes
@@ -3959,6 +3988,10 @@ export const userPreferences = api.table(
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
+    /** WORK-03.1 — notification quiet hours (HH:MM) and daily digest time (HH:MM). */
+    quietHoursStart: text('quiet_hours_start'),
+    quietHoursEnd: text('quiet_hours_end'),
+    digestTime: text('digest_time'),
   },
   (table) => [
     unique('uq_user_preferences_user').on(table.userId),

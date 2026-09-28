@@ -1413,6 +1413,13 @@
       "when": 1790564304096,
       "tag": "0203_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1790564676733,
+      "tag": "0204_email_outbox",
+      "breakpoints": true
     }
   ]
 }

@@ -167,8 +167,12 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   components are deleted now that nothing imports them — sample inspector,
   dataset product controls (create/snapshot/add-row dialogs and actions),
   reagent inspector and create dialog, schema picker dialog, registry
-  composition and the unused metric-card / linked-records-graph scientific
-  components (with their stories and barrel exports).
+  composition, the unused metric-card / linked-records-graph scientific
+  components, the legacy data-grid views, the calendar (booking dialog,
+  filters, inspector), the blank-experiment dialog, model properties and
+  FormSection / NotificationInbox (with their stories, tests and barrel
+  exports). The `data-grid-types` type augmentation stays, since registry code
+  reads it.
 
 - **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
   "Open full lineage" link on the legacy record notebook; it is removed, so the

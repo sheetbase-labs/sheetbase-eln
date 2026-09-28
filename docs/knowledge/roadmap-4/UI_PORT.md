@@ -118,6 +118,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Review area suite ported**: `tests/browser-scripts/areas/review-interact.mjs`
+  opens the real revision's review workspace, asserts the header and inspector,
+  and activates Diff, Comments, Checks and History. It stays read-only because
+  signing and return are destructive and are covered by the review contract
+  tests. `pnpm test:areas` now runs analysis, datasets, inventory, pipelines,
+  projects, protocols, review and settings — all green.
+
 - **Retired the two pure-retire legacy routes (DEC-03)**: `/plate-designer` and
   `/report-builder` and their components, stories, tests and (for the report
   builder) the now-unused report-builder libraries are deleted, and

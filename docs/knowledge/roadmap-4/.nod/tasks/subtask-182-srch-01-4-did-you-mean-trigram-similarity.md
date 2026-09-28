@@ -2,7 +2,7 @@
 id: subtask-182
 title: "SRCH-01.4 — \"Did you mean\": trigram similarity"
 type: subtask
-status: todo
+status: in-progress
 priority: high
 created: "2026-09-27"
 updated: "2026-09-28"

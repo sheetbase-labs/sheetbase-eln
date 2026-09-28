@@ -41,6 +41,11 @@ const workspace: Item[] = [
     match: (p) => p.startsWith('/settings/members'),
   },
   {
+    label: 'Instruments and parsers',
+    link: { to: '/settings/instruments' },
+    match: (p) => p.startsWith('/settings/instruments'),
+  },
+  {
     label: 'Integrations',
     link: { to: '/settings/integrations' },
     match: (p) => p.startsWith('/settings/integrations'),

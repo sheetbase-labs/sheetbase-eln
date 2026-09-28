@@ -55,6 +55,7 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
 import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
+import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
 import { Route as SettingsMembersRouteImport } from './routes/settings/members'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
@@ -349,6 +350,11 @@ const SettingsApiRoute = SettingsApiRouteImport.update({
 const SettingsAuditRoute = SettingsAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsInstrumentsRoute = SettingsInstrumentsRouteImport.update({
+  id: '/instruments',
+  path: '/instruments',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
@@ -748,6 +754,7 @@ export interface FileRoutesByFullPath {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
@@ -853,6 +860,7 @@ export interface FileRoutesByTo {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
@@ -966,6 +974,7 @@ export interface FileRoutesById {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
@@ -1081,6 +1090,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
     | '/settings/notifications'
@@ -1186,6 +1196,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
     | '/settings/notifications'
@@ -1298,6 +1309,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
     | '/settings/notifications'
@@ -1747,6 +1759,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/settings/audit'
       preLoaderRoute: typeof SettingsAuditRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/instruments': {
+      id: '/settings/instruments'
+      path: '/instruments'
+      fullPath: '/settings/instruments'
+      preLoaderRoute: typeof SettingsInstrumentsRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/integrations': {
@@ -2430,6 +2449,7 @@ interface SettingsRouteChildren {
   SettingsAccessRoute: typeof SettingsAccessRoute
   SettingsApiRoute: typeof SettingsApiRoute
   SettingsAuditRoute: typeof SettingsAuditRoute
+  SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRouteWithChildren
   SettingsMembersRoute: typeof SettingsMembersRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
@@ -2441,6 +2461,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAccessRoute: SettingsAccessRoute,
   SettingsApiRoute: SettingsApiRoute,
   SettingsAuditRoute: SettingsAuditRoute,
+  SettingsInstrumentsRoute: SettingsInstrumentsRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRouteWithChildren,
   SettingsMembersRoute: SettingsMembersRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,

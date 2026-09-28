@@ -118,6 +118,15 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Settings — instruments and parsers ported**: `/settings/instruments` lists
+  the inbound instrument connectors and the registered parser catalogue
+  (label + identity), links each instrument to its connector detail ("Test with
+  a file") and adds instruments through the register-connector dialog. The
+  parser catalogue renders after mount because the registry is module-level and
+  can differ between the server and client bundles. Calibration has no model yet
+  and is stated as a gap. Settings sections remaining: electronic signatures
+  (needs a certification model).
+
 - **Analysis view ported**: `/analysis/$analysisId` rebuilds a saved view from
   its stored ChartSpec through `resolveChartDataset` + `materialiseLiveChart`
   and renders it with the real chart renderer, with source/staleness

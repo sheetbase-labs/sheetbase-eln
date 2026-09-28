@@ -14,7 +14,7 @@ import {
   collectSheetDefinitionUpgradeInputs,
   SheetDefinitionUpgradeForm,
 } from '#/components/stewardship/sheet-definition-upgrade-form'
-import type { TemplateProject } from '#/components/templates/template-library'
+import type { TemplateProject } from '#/components/templates/template-project'
 import {
   Badge,
   Button,

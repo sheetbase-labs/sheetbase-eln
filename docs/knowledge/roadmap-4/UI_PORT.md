@@ -118,6 +118,12 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Templates board ported**: `/templates` renders app-3's list on real protocol
+  templates (Template, Kind, Identifier, Status, Updated) with a selected-row
+  inspector and Copy link; `?template=`/`?protocol=` deep links select the row.
+  Versioning, sheet/notebook template kinds and the TPL display id are gaps. The
+  old template library component, its story and test are deleted.
+
 - **Dataset Compare ported**: `/datasets/$datasetId/compare` diffs two snapshots
   through `compare_dataset_versions` (row counters, columns changed, per-field
   add/change/remove). The dataset area is now Rows · Snapshots · Compare; the

@@ -25,7 +25,7 @@ import {
   TableRow,
   Textarea,
 } from '#/components/ui'
-import type { TemplateProject } from '#/components/templates/template-library'
+import type { TemplateProject } from '#/components/templates/template-project'
 import { TemplateParameterInputs } from '#/components/templates/template-parameter-inputs'
 import { formatDate } from '#/lib/notebook-data'
 import { discoverObjectDependencies } from '#/lib/object-dependencies'

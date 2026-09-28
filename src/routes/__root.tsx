@@ -121,6 +121,7 @@ function RootRouteComponent() {
     '/inbox',
     '/schedule',
     '/search',
+    '/templates',
     '/experiments',
     '/experiments/$expId',
     '/experiments/$expId/',

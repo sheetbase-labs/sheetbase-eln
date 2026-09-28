@@ -119,6 +119,7 @@ function RootRouteComponent() {
   const v3RouteIds = [
     '/',
     '/inbox',
+    '/review/$revisionId',
     '/schedule',
     '/search',
     '/settings',

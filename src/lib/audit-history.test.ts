@@ -164,7 +164,7 @@ describe('auditLinkFor deep links', () => {
         payload: { revisionId: 'rev-9' },
       }),
     )
-    expect(link).toEqual({ href: '/reviews/rev-9', label: 'Open review' })
+    expect(link).toEqual({ href: '/review/rev-9', label: 'Open review' })
   })
 
   it('links sheet instances to their canonical surface', () => {
@@ -209,6 +209,6 @@ describe('timelineToAuditEvents adapter', () => {
     expect(mapped[0].payload.revisionId).toBe('r-1')
     expect(mapped[1].entityType).toBe('revision')
     expect(mapped[1].payload.reason).toBe('amend')
-    expect(auditLinkFor(mapped[1])?.href).toBe('/reviews/rev-1')
+    expect(auditLinkFor(mapped[1])?.href).toBe('/review/rev-1')
   })
 })

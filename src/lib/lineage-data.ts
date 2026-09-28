@@ -1370,7 +1370,7 @@ const EVIDENCE_ENTITY_TYPES: Partial<Record<LineageEntityType, true>> = {
  *
  * - Submitted/frozen evidence nodes (review, approval/rejection, signature
  *   carrying a `revisionId`) link to the frozen evidence workspace
- *   (`/reviews/<revisionId>`) — the existing evidence route, never a live
+ *   (`/review/<revisionId>`) — the existing evidence route, never a live
  *   page.
  * - Live record nodes link to their canonical surface via
  *   `recordDestination` (stable UUID, kind-aware).
@@ -1380,7 +1380,7 @@ const EVIDENCE_ENTITY_TYPES: Partial<Record<LineageEntityType, true>> = {
 export function lineageNodeDestination(node: LineageNode): string | null {
   if (!node.accessible || !node.recordId) return null
   if (node.revisionId && EVIDENCE_ENTITY_TYPES[node.entityType]) {
-    return `/reviews/${encodeURIComponent(node.revisionId)}`
+    return `/review/${encodeURIComponent(node.revisionId)}`
   }
   return recordDestination(node.kind, node.recordId)
 }

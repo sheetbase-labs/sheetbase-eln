@@ -3,7 +3,7 @@
  *
  * Combines the REV-002 submission + revision, REV-003 version diffs, REV-004
  * anchored comments, REV-005 check results and the REV-007 review-decision
- * transition RPCs into the single data surface the `/reviews/$revisionId`
+ * transition RPCs into the single data surface the `/review/$revisionId`
  * workspace route renders. Reads go through the same-origin `/api/db`
  * boundary and RLS; the four transition RPCs are SECURITY DEFINER and enforce
  * the active / not-superseded / digest / permission guards server-side, so

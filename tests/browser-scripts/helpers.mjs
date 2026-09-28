@@ -66,6 +66,7 @@ export async function discover() {
       templates,
       analyses,
       protocols,
+      revisions,
     ] = await Promise.all([
       get('/api/db/rpc/project_list_summary?limit=1'),
       get('/api/db/records?kind=eq.experiment&limit=1&select=id'),
@@ -76,6 +77,7 @@ export async function discover() {
       get('/api/db/notebook_templates?limit=1&select=id'),
       get('/api/db/analysis_views?limit=1&select=id'),
       get('/api/db/records?kind=eq.protocol_template&limit=1&select=id'),
+      get('/api/db/revisions?limit=1&select=id'),
     ])
     let versions = []
     if (datasets[0]?.id) {
@@ -93,6 +95,7 @@ export async function discover() {
       template: templates[0]?.id,
       analysis: analyses[0]?.id,
       protocol: protocols[0]?.id,
+      revision: revisions[0]?.id,
       versions,
     }
   })

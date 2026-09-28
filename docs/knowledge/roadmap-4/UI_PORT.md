@@ -118,6 +118,16 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Review moved into app-3's shell**: the review workspace is now
+  `/review/$revisionId` (was `/reviews/$revisionId`) and renders inside app-3's
+  chrome — the legacy `useShell`/`RouteShell` wrapper is replaced by a content
+  column with the review inspector beside it, so there is no double header. All
+  links retarget (`submit-notebook-dialog`, the record notebook, lineage,
+  audit history and the assist guide), the route tests move with it, and the
+  screens suite covers `/review/$revisionId` (46 routes × 2 widths clean). The
+  workspace keeps its real diff, comments, checks, history, approval stepper and
+  signing.
+
 - **Import entry point added**: `/import` lists the datasets a file can be
   imported into and runs the existing import wizard for the chosen target
   (client-side parse → column mapping → row check → commit through the canonical

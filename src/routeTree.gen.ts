@@ -52,7 +52,7 @@ import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pip
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$protocolId'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
-import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
+import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionId'
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAccessRouteImport } from './routes/settings/access'
@@ -341,9 +341,9 @@ const RecordsRecordIdRoute = RecordsRecordIdRouteImport.update({
   path: '/records/$recordId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReviewsRevisionIdRoute = ReviewsRevisionIdRouteImport.update({
-  id: '/reviews/$revisionId',
-  path: '/reviews/$revisionId',
+const ReviewRevisionIdRoute = ReviewRevisionIdRouteImport.update({
+  id: '/review/$revisionId',
+  path: '/review/$revisionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SamplesSampleIdRoute = SamplesSampleIdRouteImport.update({
@@ -776,7 +776,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
-  '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
@@ -887,7 +887,7 @@ export interface FileRoutesByTo {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/docs/$name': typeof DocsNameRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
-  '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
@@ -1004,7 +1004,7 @@ export interface FileRoutesById {
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
-  '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
@@ -1124,7 +1124,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/protocols/$protocolId'
     | '/records/$recordId'
-    | '/reviews/$revisionId'
+    | '/review/$revisionId'
     | '/samples/$sampleId'
     | '/settings/access'
     | '/settings/api'
@@ -1235,7 +1235,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/docs/$name'
     | '/protocols/$protocolId'
-    | '/reviews/$revisionId'
+    | '/review/$revisionId'
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
@@ -1351,7 +1351,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/protocols/$protocolId'
     | '/records/$recordId'
-    | '/reviews/$revisionId'
+    | '/review/$revisionId'
     | '/samples/$sampleId'
     | '/settings/access'
     | '/settings/api'
@@ -1462,7 +1462,7 @@ export interface RootRouteChildren {
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   DocsNameRoute: typeof DocsNameRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
-  ReviewsRevisionIdRoute: typeof ReviewsRevisionIdRoute
+  ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
   SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
@@ -1790,11 +1790,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecordsRecordIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reviews/$revisionId': {
-      id: '/reviews/$revisionId'
-      path: '/reviews/$revisionId'
-      fullPath: '/reviews/$revisionId'
-      preLoaderRoute: typeof ReviewsRevisionIdRouteImport
+    '/review/$revisionId': {
+      id: '/review/$revisionId'
+      path: '/review/$revisionId'
+      fullPath: '/review/$revisionId'
+      preLoaderRoute: typeof ReviewRevisionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/samples/$sampleId': {
@@ -2646,7 +2646,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   DocsNameRoute: DocsNameRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
-  ReviewsRevisionIdRoute: ReviewsRevisionIdRoute,
+  ReviewRevisionIdRoute: ReviewRevisionIdRoute,
   SheetsInstanceIdRoute: SheetsInstanceIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,

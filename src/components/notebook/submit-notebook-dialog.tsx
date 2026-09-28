@@ -244,7 +244,7 @@ export function SubmitNotebookDialog({
     onSuccess: (result) => {
       onOpenChange(false)
       void navigate({
-        to: '/reviews/$revisionId',
+        to: '/review/$revisionId',
         params: { revisionId: result.revision.id },
       })
     },

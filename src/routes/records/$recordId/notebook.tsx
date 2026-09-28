@@ -847,7 +847,7 @@ export function StickyRecordHeader({
           ) : null}
           {canOpenReview && reviewRevisionId ? (
             <Link
-              to="/reviews/$revisionId"
+              to="/review/$revisionId"
               params={{ revisionId: reviewRevisionId }}
               className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
             >

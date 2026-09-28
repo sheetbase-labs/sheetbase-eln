@@ -51,6 +51,7 @@ async function discover() {
       connectors,
       analyses,
       protocols,
+      revisions,
     ] = await Promise.all([
       get('/api/db/rpc/project_list_summary?limit=1'),
       get('/api/db/records?kind=eq.experiment&limit=1&select=id'),
@@ -63,6 +64,7 @@ async function discover() {
       get('/api/db/connectors?limit=1&select=id'),
       get('/api/db/analysis_views?limit=1&select=id'),
       get('/api/db/records?kind=eq.protocol_template&limit=1&select=id'),
+      get('/api/db/revisions?limit=1&select=id'),
     ])
     return {
       project: projects[0]?.id,
@@ -76,6 +78,7 @@ async function discover() {
       connector: connectors[0]?.id,
       analysis: analyses[0]?.id,
       protocol: protocols[0]?.id,
+      revision: revisions[0]?.id,
     }
   })
   await page.close()
@@ -156,6 +159,7 @@ function routes(ids) {
   if (ids.connector) list.push(`/settings/integrations/${ids.connector}`)
   if (ids.analysis) list.push(`/analysis/${ids.analysis}`)
   if (ids.protocol) list.push(`/protocols/${ids.protocol}`)
+  if (ids.revision) list.push(`/review/${ids.revision}`)
   return list
 }
 

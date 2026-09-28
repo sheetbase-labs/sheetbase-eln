@@ -301,7 +301,9 @@ describe('review workspace collaboration gating', () => {
     renderWorkspace()
 
     // The review surface itself is untouched.
-    expect(await screen.findByText('Titration curve')).toBeTruthy()
+    expect(
+      (await screen.findAllByText('Titration curve')).length,
+    ).toBeGreaterThan(0)
 
     // No presence area and no discussion section anywhere.
     expect(screen.queryByRole('region', { name: 'Discussion' })).toBeNull()
@@ -313,7 +315,7 @@ describe('review workspace collaboration gating', () => {
 
     renderWorkspace()
 
-    await screen.findByText('Titration curve')
+    await screen.findAllByText('Titration curve')
 
     const stack = await screen.findByRole('group', { name: '1 here' })
     expect(within(stack).getByTitle('Ada Analyst')).toBeTruthy()
@@ -336,7 +338,7 @@ describe('review workspace collaboration gating', () => {
 
     renderWorkspace()
 
-    await screen.findByText('Titration curve')
+    await screen.findAllByText('Titration curve')
     // Both coordination surfaces are live at the same time once the room
     // provider mounts: who is reviewing (header) and the shared record
     // discussion (inspector).

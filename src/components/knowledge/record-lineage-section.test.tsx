@@ -124,7 +124,7 @@ describe('RecordLineageList', () => {
     render(<RecordLineageList graph={makeGraph()} seedRecordId={SEED_ID} />)
 
     expect(screen.getByText('REV-sub-9').getAttribute('href')).toBe(
-      '/reviews/rev-9',
+      '/review/rev-9',
     )
   })
 

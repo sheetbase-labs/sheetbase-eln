@@ -460,13 +460,13 @@ export function auditLinkFor(event: AuditEventWire): AuditLink | null {
     case 'review_decision': {
       const revisionId = event.payload['revisionId']
       return typeof revisionId === 'string'
-        ? { href: `/reviews/${revisionId}`, label: 'Open review' }
+        ? { href: `/review/${revisionId}`, label: 'Open review' }
         : null
     }
     case 'revision': {
       const revisionId = event.payload['revisionId']
       return {
-        href: `/reviews/${typeof revisionId === 'string' ? revisionId : event.entityUuid}`,
+        href: `/review/${typeof revisionId === 'string' ? revisionId : event.entityUuid}`,
         label: 'Open review',
       }
     }

@@ -1,7 +1,7 @@
 /**
  * REV-007 — Review & Approvals workspace route.
  *
- * `/reviews/$revisionId` combines the REV-003 version diff, REV-004 anchored
+ * `/review/$revisionId` combines the REV-003 version diff, REV-004 anchored
  * comments, REV-005 reviewer check results and the REV-007 review-decision
  * transition RPCs into one cohesive workspace for a submitted revision. The
  * left/main region is a tabbed view (Diff · Comments · Checks · History); the
@@ -53,7 +53,6 @@ import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { ThreadPanel } from '#/components/collaboration/thread-panel'
 import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { canCommentInRoom } from '#/lib/collaboration/permissions'
-import { useShell } from '#/components/shell'
 import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
@@ -141,14 +140,37 @@ import {
   deriveReviewLifecycle,
   deriveSignatureApplicability,
 } from '#/lib/review-lifecycle'
+import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
 import { cn } from '#/lib/utils'
 
+/**
+ * UI port (roadmap-4/ui-app3): the route renders inside app-3's shell, so the
+ * old shell wrapper is replaced by a content column with the review inspector
+ * beside it. Extra shell props callers pass are accepted and ignored.
+ */
 function RouteShell({
   children,
-  ...configuration
-}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
-  useShell(configuration)
-  return <>{children}</>
+  inspector,
+}: {
+  children: ReactNode
+  inspector?: ReactNode
+  // The legacy call sites pass shell configuration we no longer use.
+  [key: string]: unknown
+}) {
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto">
+        {children}
+      </div>
+      {inspector ? (
+        <InspectorPanel aria-label="Review" className="w-[340px] gap-0 p-0">
+          <div className="flex flex-col gap-5 overflow-auto p-4">
+            {inspector}
+          </div>
+        </InspectorPanel>
+      ) : null}
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +186,7 @@ const workspaceSearchSchema = z.object({
 
 type WorkspaceSearch = z.infer<typeof workspaceSearchSchema>
 
-export const Route = createFileRoute('/reviews/$revisionId')({
+export const Route = createFileRoute('/review/$revisionId')({
   validateSearch: workspaceSearchSchema,
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -226,8 +248,8 @@ export function ReviewWorkspaceRoute() {
   const { context } = Route.useRouteContext()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { revisionId } = useParams({ from: '/reviews/$revisionId' })
-  const search = useSearch({ from: '/reviews/$revisionId' })
+  const { revisionId } = useParams({ from: '/review/$revisionId' })
+  const search = useSearch({ from: '/review/$revisionId' })
 
   const currentUserId = context.user.id
   const currentUserName = context.user.name
@@ -383,7 +405,7 @@ export function ReviewWorkspaceRoute() {
 
   function navigateTab(tab: WorkspaceSearch['tab']) {
     void navigate({
-      to: '/reviews/$revisionId',
+      to: '/review/$revisionId',
       params: { revisionId },
       search: { ...search, tab },
       replace: true,
@@ -392,7 +414,7 @@ export function ReviewWorkspaceRoute() {
 
   function navigateComparison(id: string | null) {
     void navigate({
-      to: '/reviews/$revisionId',
+      to: '/review/$revisionId',
       params: { revisionId },
       search: {
         ...search,
@@ -412,7 +434,6 @@ export function ReviewWorkspaceRoute() {
   if (permissionDenied) {
     return (
       <RouteShell
-        context={shellContext(context)}
         breadcrumbs={[
           { label: 'Home', to: '/' },
           { label: 'Inbox', to: '/inbox' },
@@ -426,7 +447,6 @@ export function ReviewWorkspaceRoute() {
   if (!loading && !revision) {
     return (
       <RouteShell
-        context={shellContext(context)}
         breadcrumbs={[
           { label: 'Home', to: '/' },
           { label: 'Inbox', to: '/inbox' },
@@ -478,8 +498,6 @@ export function ReviewWorkspaceRoute() {
     />
   )
 
-  const shellContextValue = shellContext(context)
-
   // COLLAB-04: the whole workspace shares the record's collaboration room;
   // CollaborationRoom renders children unchanged until the provider is
   // mounted, so SSR markup is unaffected.
@@ -487,7 +505,6 @@ export function ReviewWorkspaceRoute() {
     <CollaborationRoom roomId={collaborationRoomId}>
       <RouteShell
         fullBleed
-        context={shellContextValue}
         breadcrumbs={[
           { label: 'Home', to: '/' },
           { label: 'Inbox', to: '/inbox' },
@@ -620,20 +637,6 @@ export function ReviewWorkspaceRoute() {
 // ---------------------------------------------------------------------------
 // Helpers shared by the route component.
 // ---------------------------------------------------------------------------
-
-function shellContext(context: {
-  user: { name: string; email: string }
-  workspace: { name: string; role: string } | null
-}) {
-  return {
-    workspace: context.workspace ? { name: context.workspace.name } : null,
-    user: {
-      name: context.user.name,
-      email: context.user.email,
-      role: context.workspace?.role,
-    },
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Workspace header — record identity, status, stale/superseded banners.
@@ -1967,7 +1970,7 @@ export function RevisionChainSection({
               className="flex items-center justify-between gap-2 text-xs"
             >
               <Link
-                to="/reviews/$revisionId"
+                to="/review/$revisionId"
                 params={{ revisionId: entry.id }}
                 className="min-w-0 truncate font-mono no-underline hover:underline"
               >

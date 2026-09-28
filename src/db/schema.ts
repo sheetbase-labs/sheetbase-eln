@@ -5500,6 +5500,8 @@ export const instruments = api.table(
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    /** Stable per-workspace display id, e.g. INS-0007. Assigned on insert. */
+    displayId: text('display_id'),
     instrumentType: text('instrument_type').notNull().default('qpcr'),
     model: text('model'),
     serialNumber: text('serial_number'),
@@ -5527,6 +5529,14 @@ export const instruments = api.table(
     }),
   },
   (table) => [
+    unique('uq_instruments_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
+    ),
+    check(
+      'chk_instruments_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^INS-[0-9]{4,}$'`,
+    ),
     check(
       'chk_instruments_name',
       sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,

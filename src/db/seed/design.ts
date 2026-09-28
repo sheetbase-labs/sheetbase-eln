@@ -476,6 +476,28 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignWorkItems(db),
   },
   {
+    name: 'design instruments',
+    run: async (db) => {
+      for (const instrument of DESIGN_INSTRUMENTS) {
+        await db
+          .insert(schema.instruments)
+          .values({
+            id: instrument.id,
+            workspaceId: PROCESS,
+            name: instrument.name,
+            instrumentType: instrument.instrumentType,
+            model: instrument.model,
+            serialNumber: instrument.serialNumber,
+            vendor: instrument.vendor,
+            displayId: instrument.displayId,
+            position: instrument.position,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoNothing()
+      }
+    },
+  },
+  {
     name: 'design bookings',
     run: (db) => seedDesignBookings(db),
   },
@@ -727,6 +749,38 @@ const DESIGN_TEMPLATES: ReadonlyArray<{
     name: 'Stability pull',
     description: 'Routine stability timepoint pull with assay capture.',
     configuration: { formatVersion: 1, parameters: [], placements: [] },
+  },
+]
+
+const DESIGN_INSTRUMENTS: ReadonlyArray<{
+  id: string
+  displayId: string
+  name: string
+  instrumentType: string
+  model: string
+  serialNumber: string
+  vendor: string
+  position: number
+}> = [
+  {
+    id: '00000000-0000-4000-8000-0000000003e0',
+    displayId: 'INS-0007',
+    name: 'Plate reader PR-01',
+    instrumentType: 'spectrophotometer',
+    model: 'SpectraMax i3x',
+    serialNumber: 'PR01-2291',
+    vendor: 'Molecular Devices',
+    position: 0,
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003e1',
+    displayId: 'INS-0008',
+    name: 'Ambr 250',
+    instrumentType: 'other',
+    model: 'Ambr 250',
+    serialNumber: 'AMB-118',
+    vendor: 'Sartorius',
+    position: 1,
   },
 ]
 

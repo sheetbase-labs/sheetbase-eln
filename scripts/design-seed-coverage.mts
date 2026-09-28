@@ -43,7 +43,16 @@ const ALLOWLIST = new Set<string>([
  * display identifiers with no stored column yet, so they are reported
  * separately as a data-model gap rather than counted as seed misses.
  */
-const STORED_PREFIXES = new Set(['EXP', 'SMP', 'PRT', 'MAT', 'DS', 'PL', 'CAL'])
+const STORED_PREFIXES = new Set([
+  'EXP',
+  'SMP',
+  'PRT',
+  'MAT',
+  'DS',
+  'PL',
+  'CAL',
+  'INS',
+])
 
 function prefixOf(token: string): string {
   return token.split('-')[0] ?? ''
@@ -63,6 +72,7 @@ async function seededStrings(): Promise<string[]> {
       ],
       ['templates', 'select key, name from api.notebook_templates'],
       ['bookings', 'select title, display_id from api.calendar_bookings'],
+      ['instruments', 'select name, display_id from api.instruments'],
     ]
     for (const [, sql] of queries) {
       const { rows } = await client.query<Record<string, unknown>>(sql)

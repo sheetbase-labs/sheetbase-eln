@@ -49,6 +49,7 @@ async function discover() {
       templates,
       reagents,
       connectors,
+      analyses,
     ] = await Promise.all([
       get('/api/db/rpc/project_list_summary?limit=1'),
       get('/api/db/records?kind=eq.experiment&limit=1&select=id'),
@@ -59,6 +60,7 @@ async function discover() {
       get('/api/db/notebook_templates?limit=1&select=id'),
       get('/api/db/records?kind=eq.reagent&limit=1&select=id'),
       get('/api/db/connectors?limit=1&select=id'),
+      get('/api/db/analysis_views?limit=1&select=id'),
     ])
     return {
       project: projects[0]?.id,
@@ -70,6 +72,7 @@ async function discover() {
       template: templates[0]?.id,
       reagent: reagents[0]?.id,
       connector: connectors[0]?.id,
+      analysis: analyses[0]?.id,
     }
   })
   await page.close()
@@ -146,6 +149,7 @@ function routes(ids) {
     )
   if (ids.reagent) list.push(`/materials?q=`)
   if (ids.connector) list.push(`/settings/integrations/${ids.connector}`)
+  if (ids.analysis) list.push(`/analysis/${ids.analysis}`)
   return list
 }
 

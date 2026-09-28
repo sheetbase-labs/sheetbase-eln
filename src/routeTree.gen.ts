@@ -36,6 +36,7 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StorageRouteImport } from './routes/storage'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as AdminSectionRouteImport } from './routes/admin/$section'
+import { Route as AnalysisAnalysisIdRouteImport } from './routes/analysis/$analysisId'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
@@ -254,6 +255,11 @@ const AdminSectionRoute = AdminSectionRouteImport.update({
   id: '/$section',
   path: '/$section',
   getParentRoute: () => AdminRoute,
+} as any)
+const AnalysisAnalysisIdRoute = AnalysisAnalysisIdRouteImport.update({
+  id: '/$analysisId',
+  path: '/$analysisId',
+  getParentRoute: () => AnalysisRoute,
 } as any)
 const ApiCalculationsRoute = ApiCalculationsRouteImport.update({
   id: '/api/calculations',
@@ -700,7 +706,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/agent-operations': typeof AgentOperationsRoute
-  '/analysis': typeof AnalysisRoute
+  '/analysis': typeof AnalysisRouteWithChildren
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
@@ -724,6 +730,7 @@ export interface FileRoutesByFullPath {
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
+  '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
@@ -812,7 +819,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/agent-operations': typeof AgentOperationsRoute
-  '/analysis': typeof AnalysisRoute
+  '/analysis': typeof AnalysisRouteWithChildren
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
@@ -835,6 +842,7 @@ export interface FileRoutesByTo {
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
+  '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
@@ -916,7 +924,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/agent-operations': typeof AgentOperationsRoute
-  '/analysis': typeof AnalysisRoute
+  '/analysis': typeof AnalysisRouteWithChildren
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
@@ -940,6 +948,7 @@ export interface FileRoutesById {
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
+  '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
@@ -1054,6 +1063,7 @@ export interface FileRouteTypes {
     | '/storage'
     | '/templates'
     | '/admin/$section'
+    | '/analysis/$analysisId'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
@@ -1165,6 +1175,7 @@ export interface FileRouteTypes {
     | '/storage'
     | '/templates'
     | '/admin/$section'
+    | '/analysis/$analysisId'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
@@ -1269,6 +1280,7 @@ export interface FileRouteTypes {
     | '/storage'
     | '/templates'
     | '/admin/$section'
+    | '/analysis/$analysisId'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
@@ -1358,7 +1370,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   AgentOperationsRoute: typeof AgentOperationsRoute
-  AnalysisRoute: typeof AnalysisRoute
+  AnalysisRoute: typeof AnalysisRouteWithChildren
   ConfigureRoute: typeof ConfigureRoute
   DatasetsRoute: typeof DatasetsRouteWithChildren
   ExperimentsRoute: typeof ExperimentsRouteWithChildren
@@ -1603,6 +1615,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/$section'
       preLoaderRoute: typeof AdminSectionRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/analysis/$analysisId': {
+      id: '/analysis/$analysisId'
+      path: '/$analysisId'
+      fullPath: '/analysis/$analysisId'
+      preLoaderRoute: typeof AnalysisAnalysisIdRouteImport
+      parentRoute: typeof AnalysisRoute
     }
     '/api/calculations': {
       id: '/api/calculations'
@@ -2198,6 +2217,18 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface AnalysisRouteChildren {
+  AnalysisAnalysisIdRoute: typeof AnalysisAnalysisIdRoute
+}
+
+const AnalysisRouteChildren: AnalysisRouteChildren = {
+  AnalysisAnalysisIdRoute: AnalysisAnalysisIdRoute,
+}
+
+const AnalysisRouteWithChildren = AnalysisRoute._addFileChildren(
+  AnalysisRouteChildren,
+)
+
 interface DatasetsDatasetIdRouteChildren {
   DatasetsDatasetIdCompareRoute: typeof DatasetsDatasetIdCompareRoute
   DatasetsDatasetIdRowsRoute: typeof DatasetsDatasetIdRowsRoute
@@ -2470,7 +2501,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   AgentOperationsRoute: AgentOperationsRoute,
-  AnalysisRoute: AnalysisRoute,
+  AnalysisRoute: AnalysisRouteWithChildren,
   ConfigureRoute: ConfigureRoute,
   DatasetsRoute: DatasetsRouteWithChildren,
   ExperimentsRoute: ExperimentsRouteWithChildren,

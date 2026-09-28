@@ -20,7 +20,13 @@
 import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { CompareView } from '#/components/viz/compare-view'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import {
+  Outlet,
+  createFileRoute,
+  Link,
+  redirect,
+  useRouterState,
+} from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
@@ -129,6 +135,13 @@ export const Route = createFileRoute('/analysis')({
 // ---------------------------------------------------------------------------
 
 function AnalysisStudioRoute() {
+  const isIndex = useRouterState({
+    select: (state) => state.location.pathname === '/analysis',
+  })
+  return isIndex ? <AnalysisStudio /> : <Outlet />
+}
+
+function AnalysisStudio() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const workspaceId = context.workspace?.id ?? 'no-workspace'

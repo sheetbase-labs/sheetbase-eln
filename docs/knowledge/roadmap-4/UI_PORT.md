@@ -118,6 +118,15 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Analysis view ported**: `/analysis/$analysisId` rebuilds a saved view from
+  its stored ChartSpec through `resolveChartDataset` + `materialiseLiveChart`
+  and renders it with the real chart renderer, with source/staleness
+  diagnostics, the spec validity check and a link back to the studio. The studio
+  at `/analysis` gains an Outlet so the child route renders inside app-3's shell
+  (the studio still authoring). A malformed stored spec renders a diagnostics
+  notice instead of crashing. The screens/areas suites discover a saved view
+  when one exists.
+
 - **Acceptance area/interaction suites ported**: `pnpm test:areas` runs the
   ported area suites (`tests/browser-scripts/areas/*.mjs` — datasets, inventory,
   pipelines, projects, settings) that discover real ids through `/api/db` and

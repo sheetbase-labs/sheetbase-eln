@@ -64,7 +64,7 @@ export async function discover() {
       models,
       pipelines,
       templates,
-      snapshots,
+      analyses,
     ] = await Promise.all([
       get('/api/db/rpc/project_list_summary?limit=1'),
       get('/api/db/records?kind=eq.experiment&limit=1&select=id'),
@@ -73,7 +73,7 @@ export async function discover() {
       get('/api/db/dataset_schema_definitions?limit=1&select=id'),
       get('/api/db/pipeline_definitions?limit=1&select=id'),
       get('/api/db/notebook_templates?limit=1&select=id'),
-      get('/api/db/datasets?limit=1&select=id'),
+      get('/api/db/analysis_views?limit=1&select=id'),
     ])
     let versions = []
     if (datasets[0]?.id) {
@@ -85,10 +85,11 @@ export async function discover() {
       project: projects[0]?.id,
       experiment: experiments[0]?.id,
       sample: samples[0]?.id,
-      dataset: snapshots[0]?.id,
+      dataset: datasets[0]?.id,
       model: models[0]?.id,
       pipeline: pipelines[0]?.id,
       template: templates[0]?.id,
+      analysis: analyses[0]?.id,
       versions,
     }
   })

@@ -9,13 +9,23 @@ const ids = await discover()
 await go(page, '/')
 await page.getByRole('button', { name: 'New', exact: true }).click()
 await page.waitForTimeout(300)
+const menuItems = await page.getByRole('menuitem').allTextContents()
 check(
-  (await page.getByRole('menuitem', { name: /Sample/ }).count()) > 0 &&
-    (await page.getByRole('menuitem', { name: /Project/ }).count()) > 0,
-  'New menu opens with Sample and Project',
+  ['Experiment', 'Sample', 'Project', 'Working sheet', 'Import data'].every(
+    (label) => menuItems.some((text) => text.includes(label)),
+  ),
+  'New menu lists Experiment, Sample, Project, Working sheet and Import data',
+)
+await page.getByRole('menuitem', { name: /Sample/ }).click()
+await page.waitForURL(/\/samples/, { timeout: 5000 }).catch(() => undefined)
+await page.waitForTimeout(600)
+check(
+  (await page.getByRole('dialog').count()) > 0,
+  'New menu Sample opens the register dialog',
 )
 await page.keyboard.press('Escape')
 
+await go(page, '/')
 const account = page.getByRole('button', { name: /^Account:/ })
 await account.click()
 await page.waitForTimeout(300)

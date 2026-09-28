@@ -287,15 +287,26 @@ function NewMenu() {
         <DropdownMenuLinkItem
           icon="tube"
           hint="S"
-          render={<Link to="/samples" search={{}} />}
+          render={<Link to="/samples" search={{ new: true }} />}
         >
           Sample
         </DropdownMenuLinkItem>
-        <DropdownMenuLinkItem icon="folder" render={<Link to="/projects" />}>
+        <DropdownMenuLinkItem
+          icon="folder"
+          render={<Link to="/projects" search={{ new: true }} />}
+        >
           Project
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem icon="table" render={<Link to="/sheets/new" />}>
           Working sheet
+        </DropdownMenuLinkItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLinkItem
+          icon="upload"
+          hint="I"
+          render={<Link to="/import" />}
+        >
+          Import data
         </DropdownMenuLinkItem>
       </DropdownMenuContent>
     </DropdownMenu>

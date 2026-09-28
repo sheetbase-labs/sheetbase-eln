@@ -146,6 +146,10 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   reviewer, planned end, protocol-to-follow and copy-materials fields are
   stated as gaps. Acceptance: screens 55 routes, crawl 300 pages/0/0.
 
+- **Shell New menu aligned with app-3**: Experiment, Working sheet, Sample
+  (`/samples?new=true`, which opens the register dialog), Project
+  (`/projects?new=true`, which opens the New project dialog) and Import data.
+
 - **⌘K search palette (SHELL-03)**: the shell mounts app-3's search palette;
   ⌘K / Ctrl+K and the top-bar search box open it, results come from the real
   `search` RPC with grouped records, files, datasets, sheets and templates,

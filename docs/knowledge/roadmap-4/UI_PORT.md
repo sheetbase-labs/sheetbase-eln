@@ -118,6 +118,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Acceptance crawl ported**: `pnpm test:crawl [baseUrl] [maxPages]` follows
+  every internal link from Home and fails on page errors, horizontal overflow,
+  missing visible h1 or 404s (adapted from app-3's crawl to wait for
+  DOMContentLoaded because the ELN holds an SSE connection). First run over 120
+  pages: no 404s; the only problems are unported legacy routes (`/settings`,
+  `/records/$id/notebook`).
+
 - **Templates board ported**: `/templates` renders app-3's list on real protocol
   templates (Template, Kind, Identifier, Status, Updated) with a selected-row
   inspector and Copy link; `?template=`/`?protocol=` deep links select the row.

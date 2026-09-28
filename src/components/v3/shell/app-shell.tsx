@@ -1,0 +1,498 @@
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { Icon } from '#/components/v3/icons'
+import { Button, buttonVariants } from '#/components/v3/ui/button'
+import { Avatar } from '#/components/v3/ui/avatar'
+import { Dot } from '#/components/v3/ui/status'
+import { Kbd } from '#/components/v3/ui/kbd'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLinkItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from '#/components/v3/ui/popover'
+import { useTheme  } from '#/components/v3/lib/theme'
+import type {ThemePref} from '#/components/v3/lib/theme';
+import { cn } from '#/lib/utils'
+import type { Notification } from '#/components/v3/types'
+import { primaryNav, recordNav  } from './nav'
+import type {NavItem} from './nav';
+import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
+import { parseSearchUrl } from '#/lib/search'
+import { Tooltip } from '#/components/v3/ui/tooltip'
+
+type ShellData = {
+  me: { name: string; initials: string; role: string }
+  notifications: Notification[]
+  pinned: { id: string; name: string; tone: 'progress' | 'review' }[]
+}
+
+/**
+ * UI port (branch roadmap-4/ui-app3): sheetbase-app-3's shell, adapted to the
+ * ELN's route tree. The ⌘K results palette from app-3 is not ported yet; the
+ * search box opens the existing /search screen until the Search area lands.
+ */
+export function AppShell({
+  data,
+  children,
+}: {
+  data: ShellData
+  children: React.ReactNode
+}) {
+  const [menu, setMenu] = useState(false)
+  return (
+    <div className="flex h-dvh flex-col">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
+      >
+        Skip to content
+      </a>
+      <TopBar data={data} onMenu={() => setMenu(true)} />
+      <div className="flex min-h-0 flex-1">
+        <SideNav pinned={data.pinned} className="hidden xl:flex" />
+        <NavRail className="hidden lg:flex xl:hidden" />
+        <main id="main" className="flex min-w-0 flex-1 bg-surface">
+          {children}
+        </main>
+      </div>
+      <BottomTabs
+        onMenu={() => setMenu(true)}
+        unread={data.notifications.filter((n) => n.unread).length}
+      />
+      <Sheet open={menu} onOpenChange={setMenu}>
+        <SheetContent side="left" title="Sheetbase">
+          <SideNav
+            pinned={data.pinned}
+            onNavigate={() => setMenu(false)}
+            className="h-full border-r-0"
+          />
+        </SheetContent>
+      </Sheet>
+    </div>
+  )
+}
+
+function NavRail({ className }: { className?: string }) {
+  return (
+    <nav
+      aria-label="Main"
+      className={cn(
+        'w-12 shrink-0 flex-col items-center gap-0.5 overflow-y-auto border-r border-border bg-surface py-2',
+        className,
+      )}
+    >
+      {[...primaryNav, null, ...recordNav].map((i, n) =>
+        i === null ? (
+          <div key={n} className="my-1 h-px w-6 bg-border-subtle" />
+        ) : (
+          <Tooltip key={i.label} content={i.label}>
+            <Link
+              {...i.link}
+              aria-label={i.label}
+              activeOptions={{ exact: i.label === 'Home' }}
+              className="flex size-8 shrink-0 items-center justify-center rounded-md text-fg-muted hover:bg-surface-hover hover:text-fg"
+              activeProps={{
+                className: 'bg-selection text-fg!',
+                'aria-current': 'page',
+              }}
+            >
+              <Icon name={i.icon} size={16} />
+            </Link>
+          </Tooltip>
+        ),
+      )}
+      <div className="flex-1" />
+      <Tooltip content="Settings">
+        <Link
+          to="/settings"
+          aria-label="Settings"
+          className="flex size-8 items-center justify-center rounded-md text-fg-muted hover:bg-surface-hover hover:text-fg"
+          activeProps={{
+            className: 'bg-selection text-fg!',
+            'aria-current': 'page',
+          }}
+        >
+          <Icon name="settings" size={16} />
+        </Link>
+      </Tooltip>
+    </nav>
+  )
+}
+
+function BottomTabs({
+  onMenu,
+  unread,
+}: {
+  onMenu: () => void
+  unread: number
+}) {
+  const cls =
+    'flex min-h-14 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-transparent text-[11px] font-medium text-fg-muted no-underline hover:text-fg hover:no-underline'
+  return (
+    <nav
+      aria-label="Main"
+      className="flex shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+    >
+      <Link
+        to="/"
+        className={cls}
+        activeOptions={{ exact: true }}
+        activeProps={{ className: 'text-link!', 'aria-current': 'page' }}
+      >
+        <Icon name="calendar" size={22} />
+        Today
+      </Link>
+      <Link
+        to="/inbox"
+        className={cn(cls, 'relative')}
+        activeProps={{ className: 'text-link!', 'aria-current': 'page' }}
+      >
+        <Icon name="inbox" size={22} />
+        Inbox
+        {unread ? (
+          <span className="absolute right-[calc(50%-18px)] top-2 min-w-4 rounded-full bg-link px-1 text-[10px] leading-4 text-on-accent">
+            {unread}
+          </span>
+        ) : null}
+      </Link>
+      <button type="button" onClick={onMenu} className={cls}>
+        <Icon name="more" size={22} />
+        Menu
+      </button>
+    </nav>
+  )
+}
+
+function TopBar({ data, onMenu }: { data: ShellData; onMenu: () => void }) {
+  const navigate = useNavigate()
+  const openSearch = () => {
+    void navigate({ to: '/search', search: parseSearchUrl({}) })
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        void navigate({ to: '/search', search: parseSearchUrl({}) })
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navigate])
+  return (
+    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
+      <Button
+        variant="quiet"
+        size="icon"
+        icon="schema"
+        aria-label="Open navigation"
+        onClick={onMenu}
+        className="lg:hidden max-md:hidden"
+      />
+      <Link
+        to="/"
+        className="flex shrink-0 items-center gap-2 max-md:pl-1 xl:w-[208px] font-heading text-[15px] font-semibold text-fg no-underline hover:text-fg hover:no-underline"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          aria-hidden="true"
+        >
+          <rect x="2.5" y="2.5" width="15" height="15" rx="3" />
+          <path d="M2.5 8h15M8 8v9.5" />
+        </svg>
+        Sheetbase
+      </Link>
+      <div className="flex min-w-0 flex-1 justify-end md:justify-center">
+        <Button
+          variant="quiet"
+          size="icon"
+          icon="search"
+          aria-label="Search"
+          onClick={openSearch}
+          className="md:hidden"
+        />
+        <button
+          type="button"
+          onClick={openSearch}
+          aria-keyshortcuts="Meta+K Control+K"
+          className="flex h-[30px] w-[460px] max-w-full max-md:hidden cursor-pointer items-center gap-2 rounded-md border border-border bg-surface-muted pl-2.5 pr-2 text-left font-[inherit] text-body text-fg-muted hover:border-border-strong"
+        >
+          <Icon name="search" size={14} />
+          <span className="flex-1">Search experiments, samples, datasets</span>
+          <Kbd>⌘K</Kbd>
+        </button>
+      </div>
+      <NewMenu />
+      <Notifications items={data.notifications} />
+      <AccountMenu me={data.me} />
+    </header>
+  )
+}
+
+function NewMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="primary"
+            icon="plus"
+            aria-label="New"
+            className="max-md:size-10 max-md:px-0"
+          />
+        }
+      >
+        <span className="max-md:hidden">New</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[240px]">
+        <DropdownMenuLinkItem
+          icon="tube"
+          hint="S"
+          render={
+            <Link
+              to="/samples"
+              search={{
+                page: undefined,
+                size: undefined,
+                sort: undefined,
+                group: 'sampleType',
+                filters: undefined,
+                selected: undefined,
+                rq: undefined,
+              }}
+            />
+          }
+        >
+          Sample
+        </DropdownMenuLinkItem>
+        <DropdownMenuLinkItem icon="folder" render={<Link to="/projects" />}>
+          Project
+        </DropdownMenuLinkItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function Notifications({ items }: { items: Notification[] }) {
+  const [read, setRead] = useState(false)
+  const unread = read ? 0 : items.filter((n) => n.unread).length
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="quiet"
+            size="icon"
+            aria-label={
+              unread ? `Notifications, ${unread} unread` : 'Notifications'
+            }
+            className="relative"
+          />
+        }
+      >
+        <Icon name="bell" size={14} />
+        {unread ? (
+          <span
+            aria-hidden="true"
+            className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-link ring-2 ring-surface"
+          />
+        ) : null}
+      </PopoverTrigger>
+      <PopoverContent className="w-[380px]">
+        <div className="flex items-center border-b border-border px-3 py-2.5">
+          <PopoverTitle className="flex-1 font-heading text-[14px] font-semibold">
+            Notifications
+          </PopoverTitle>
+          <Button
+            variant="quiet"
+            size="sm"
+            disabled={!unread}
+            onClick={() => setRead(true)}
+          >
+            Mark all read
+          </Button>
+        </div>
+        {items.map((n) => (
+          <Link
+            key={n.id}
+            to="/inbox"
+            className="grid grid-cols-[8px_1fr_auto] gap-2.5 border-b border-border-subtle px-3 py-2.5 text-label leading-[17px] text-fg no-underline hover:bg-row-hover hover:text-fg hover:no-underline"
+          >
+            {n.unread && !read ? (
+              <span
+                aria-label="Unread"
+                className="mt-[5px] size-[7px] rounded-full bg-link"
+              />
+            ) : (
+              <span />
+            )}
+            <span dangerouslySetInnerHTML={{ __html: n.html }} />
+            <span className="whitespace-nowrap text-fg-muted">{n.when}</span>
+          </Link>
+        ))}
+        <div className="bg-surface-muted px-3 py-2 text-label">
+          <Link to="/inbox">Open inbox</Link> ·{' '}
+          <Link to="/settings">Notification settings</Link>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function AccountMenu({ me }: { me: ShellData['me'] }) {
+  const { pref, setPref } = useTheme()
+  const opts: [ThemePref, string][] = [
+    ['system', 'System'],
+    ['light', 'Light'],
+    ['dark', 'Dark'],
+  ]
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`Account: ${me.name}`}
+            className="cursor-pointer rounded-full border-0 bg-transparent p-0"
+          />
+        }
+      >
+        <Avatar initials={me.initials} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[272px]">
+        <div className="flex items-center gap-2.5 p-2">
+          <Avatar initials={me.initials} />
+          <div className="text-label leading-[17px]">
+            <div className="text-body font-semibold">{me.name}</div>
+            <div className="text-fg-muted">{me.role}</div>
+          </div>
+        </div>
+        <DropdownMenuSeparator />
+        <div className="px-2 py-1.5">
+          <div className="mb-1 text-[11px] font-medium text-fg-muted">
+            Appearance
+          </div>
+          <div
+            role="radiogroup"
+            aria-label="Appearance"
+            className="grid grid-cols-3 gap-0.5 rounded-md bg-surface-muted p-0.5"
+          >
+            {opts.map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={pref === v}
+                onClick={() => setPref(v)}
+                className={cn(
+                  'h-6 cursor-pointer rounded-sm border-0 bg-transparent text-label text-fg-muted',
+                  pref === v &&
+                    'bg-surface font-medium text-fg shadow-[0_0_0_1px_var(--border)]',
+                )}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuLinkItem icon="settings" render={<Link to="/settings" />}>
+          Settings
+        </DropdownMenuLinkItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem icon="signOut">Sign out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function NavLink({ item }: { item: NavItem }) {
+  return (
+    <Link
+      {...item.link}
+      activeOptions={{ exact: item.label === 'Home' }}
+      className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-lg:h-11 [&_svg]:text-fg-muted"
+      activeProps={{
+        className: 'bg-selection font-medium hover:bg-selection',
+        'aria-current': 'page',
+      }}
+    >
+      <Icon name={item.icon} size={16} />
+      {item.label}
+      {item.count ? (
+        <span className="ml-auto text-label font-normal text-fg-muted">
+          {item.count}
+        </span>
+      ) : null}
+    </Link>
+  )
+}
+
+function SideNav({
+  pinned,
+  onNavigate,
+  className,
+}: {
+  pinned: ShellData['pinned']
+  onNavigate?: () => void
+  className?: string
+}) {
+  return (
+    <nav
+      aria-label="Main"
+      onClick={(e) => {
+        if (onNavigate && (e.target as HTMLElement).closest('a')) onNavigate()
+      }}
+      className={cn(
+        'flex w-nav shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-surface p-2.5 max-lg:w-full',
+        className,
+      )}
+    >
+      {primaryNav.map((i) => (
+        <NavLink key={i.label} item={i} />
+      ))}
+      <div className="mx-2 my-1.5 h-px shrink-0 bg-border-subtle" />
+      {recordNav.map((i) => (
+        <NavLink key={i.label} item={i} />
+      ))}
+      <div className="shrink-0 px-2 pb-1 pt-3.5 text-label font-medium text-fg-muted">
+        Pinned projects
+      </div>
+      {pinned.map((p) => (
+        <Link
+          key={p.id}
+          to="/projects/$projectId"
+          params={{ projectId: p.id }}
+          className="flex min-h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
+        >
+          <Dot tone={p.tone} className="mx-1" />
+          {p.name}
+        </Link>
+      ))}
+      <div className="flex-1" />
+      <Link
+        to="/settings"
+        className={cn(
+          buttonVariants({ variant: 'quiet' }),
+          'h-[30px] justify-start gap-2 px-2 font-normal [&_svg]:text-fg-muted',
+        )}
+      >
+        <Icon name="settings" size={16} />
+        Settings
+      </Link>
+    </nav>
+  )
+}

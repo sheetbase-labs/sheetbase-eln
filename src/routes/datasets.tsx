@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import {
   Link,
+  Outlet,
   createFileRoute,
   redirect,
   useNavigate,
+  useRouterState,
 } from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
@@ -77,8 +79,15 @@ export const Route = createFileRoute('/datasets')({
     }
     return { context }
   },
-  component: DatasetsList,
+  component: DatasetsRoute,
 })
+
+function DatasetsRoute() {
+  const isIndex = useRouterState({
+    select: (state) => state.location.pathname === '/datasets',
+  })
+  return isIndex ? <DatasetsList /> : <Outlet />
+}
 
 function DatasetsList() {
   const { context } = Route.useRouteContext()

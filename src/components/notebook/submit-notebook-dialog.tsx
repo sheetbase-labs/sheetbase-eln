@@ -408,7 +408,7 @@ export function SubmitNotebookDialog({
             onCheckSnapshot={() => preview.mutate()}
             onSubmitRevision={() => submit.mutate()}
             onOpenReviews={() => {
-              void navigate({ to: '/reviews' })
+              void navigate({ to: '/inbox' })
             }}
           />
 

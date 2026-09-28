@@ -118,6 +118,17 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Acceptance area/interaction suites ported**: `pnpm test:areas` runs the
+  ported area suites (`tests/browser-scripts/areas/*.mjs` — datasets, inventory,
+  pipelines, projects, settings) that discover real ids through `/api/db` and
+  exercise the screens; `pnpm test:interactions` covers the shell (New menu,
+  account appearance and its persistence, the search shortcut). All green. The
+  API and SDK suite also exposed a real bug: the account menu's appearance
+  switch changed only the local cache, so the server preference reverted it on
+  reload; the switch now persists through `set_user_appearance`. A Base UI
+  uncontrolled-`defaultValue` warning on the list search inputs was fixed by
+  making them controlled.
+
 - **Acceptance screens/phone ported**: `pnpm test:screens` loads every ported ELN
   route (static routes plus real ids discovered through `/api/db`) at desktop and
   phone widths and fails on a wrong status, a missing single visible h1,

@@ -187,7 +187,7 @@ function Rows() {
             <Input
               type="search"
               placeholder="Search rows"
-              defaultValue={search.q}
+              value={search.q ?? ''}
               className="h-[26px] text-label max-md:h-10"
               onChange={(e) =>
                 void navigate({

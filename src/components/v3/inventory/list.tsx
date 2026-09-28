@@ -109,7 +109,7 @@ export function ListToolbar({
         <Input
           type="search"
           placeholder={placeholder}
-          defaultValue={q}
+          value={q ?? ''}
           className="h-[26px] text-label max-md:h-10 max-md:text-body"
           onChange={(e) => onSearch(e.target.value)}
         />

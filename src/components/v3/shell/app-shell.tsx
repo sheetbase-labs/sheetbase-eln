@@ -20,6 +20,8 @@ import {
   PopoverTrigger,
 } from '#/components/v3/ui/popover'
 import { useTheme } from '#/components/v3/lib/theme'
+import { createDataClient } from '#/lib/data-client'
+import { setUserAppearance } from '#/lib/user-preferences'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 import type { Notification } from '#/components/v3/types'
@@ -338,8 +340,16 @@ function Notifications({ items }: { items: Notification[] }) {
   )
 }
 
+const appearanceClient = createDataClient()
+
 function AccountMenu({ me }: { me: ShellData['me'] }) {
   const { pref, setPref } = useTheme()
+  // Cache locally for an instant switch and persist the per-user preference;
+  // the server value is the source of truth on the next load.
+  const choose = (value: ThemePref) => {
+    setPref(value)
+    void setUserAppearance(appearanceClient, value).catch(() => undefined)
+  }
   const opts: [ThemePref, string][] = [
     ['system', 'System'],
     ['light', 'Light'],
@@ -382,7 +392,7 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
                 type="button"
                 role="radio"
                 aria-checked={pref === v}
-                onClick={() => setPref(v)}
+                onClick={() => choose(v)}
                 className={cn(
                   'h-6 cursor-pointer rounded-sm border-0 bg-transparent text-label text-fg-muted',
                   pref === v &&

@@ -12,6 +12,8 @@ import {
 } from '#/components/v3/settings/settings-page'
 import { authClient } from '#/lib/auth-client'
 import { useTheme } from '#/components/v3/lib/theme'
+import { createDataClient } from '#/lib/data-client'
+import { setUserAppearance } from '#/lib/user-preferences'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 
@@ -39,10 +41,16 @@ function initialsOf(name: string): string {
   )
 }
 
+const appearanceClient = createDataClient()
+
 function Profile() {
   const { context } = Route.useRouteContext()
   const user = context.user
   const theme = useTheme()
+  const chooseAppearance = (value: ThemePref) => {
+    theme.setPref(value)
+    void setUserAppearance(appearanceClient, value).catch(() => undefined)
+  }
   const [name, setName] = useState(user.name)
   const [busy, setBusy] = useState(false)
 
@@ -131,7 +139,7 @@ function Profile() {
                     type="button"
                     role="radio"
                     aria-checked={on}
-                    onClick={() => theme.setPref(option.value)}
+                    onClick={() => chooseAppearance(option.value)}
                     className={cn(
                       'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2.5 text-label text-fg',
                       on && 'bg-selection font-medium',

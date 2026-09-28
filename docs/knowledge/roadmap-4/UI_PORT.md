@@ -118,6 +118,11 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Inbox ported**: `/inbox` renders app-3's list with Needs action / Following
+  / Done today tabs, type filters and a details panel, wired to `my_work_items`
+  (`useWorkItems` + `groupWorkItems`). Data-issue, signature and material kinds
+  arrive with their capabilities; the old Inbox and its test are deleted.
+
 - **Home ported**: `/` renders app-3's Home wired to the real work items
   (reviews awaiting you), today's calendar bookings and active dataset flags.
   The old 1988-line Home and its test are deleted; the root chrome switch now

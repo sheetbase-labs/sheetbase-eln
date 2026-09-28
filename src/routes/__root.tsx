@@ -118,6 +118,7 @@ function RootRouteComponent() {
   // are deleted.
   const v3RouteIds = [
     '/',
+    '/inbox',
     '/projects',
     '/projects/$projectId',
     '/projects/$projectId/',

@@ -372,6 +372,11 @@ export const workspaceSettings = api.table(
       .notNull()
       .default(sql`'{}'`),
     auditRetentionDays: integer('audit_retention_days').notNull().default(2555),
+    /** SET-01.1 — workspace general settings. */
+    site: text('site'),
+    timezone: text('timezone').notNull().default('Europe/London'),
+    dateFormat: text('date_format').notNull().default('d MMM yyyy'),
+    numberFormat: text('number_format').notNull().default('decimal'),
     integrationSettings: jsonb('integration_settings')
       .notNull()
       .default(sql`'{}'`),

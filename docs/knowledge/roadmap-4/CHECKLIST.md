@@ -394,7 +394,7 @@ Specification: [tasks/PIPE.md](tasks/PIPE.md) · nod `epic-305`
 Specification: [tasks/SET.md](tasks/SET.md) · nod `epic-328`
 
 - [ ] **SET-01** Workspace general settings `task-329`
-  - [ ] SET-01.1 /settings/general per SettingsGeneral `subtask-330`
+  - [ ] SET-01.1 /settings/general per SettingsGeneral — **in progress** `subtask-330`
   - [ ] SET-01.2 ID prefixes and next numbers per kind in workspace_settings `subtask-331`
   - [ ] SET-01.3 Editing rules enforced server-side `subtask-332`
 - [ ] **SET-02** Members, roles, groups and project access `task-333`

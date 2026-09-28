@@ -1,5 +1,6 @@
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -146,11 +147,15 @@ describe('SubmitNotebookDialog', () => {
       'disabled',
       false,
     )
+    fireEvent.change(screen.getByLabelText('Review due date'), {
+      target: { value: '2026-10-15' },
+    })
     await user.click(screen.getByRole('button', { name: 'Submit' }))
     expect(submitRecordRevision).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         reviewerUserIds: ['u1', '22222222-reviewer'],
+        dueAt: new Date('2026-10-15T00:00:00').toISOString(),
       }),
     )
   })

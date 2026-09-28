@@ -78,6 +78,25 @@ async function submit(
   }
 }
 
+async function submitWithDue(
+  client: Client,
+  sourceDigest: string,
+  idempotencyKey: string,
+  dueAt: string,
+) {
+  const { rows } = await client.query(
+    `SELECT api.submit_record_revision(
+       $1, $2, 'default-scientific-review', 1, ARRAY[$3]::text[], true, $4, $5
+     ) AS result`,
+    [RECORD_A, sourceDigest, REVIEWER_A, idempotencyKey, dueAt],
+  )
+  return rows[0].result as {
+    revision: { id: string }
+    submission: { id: string; state: string }
+    idempotent: boolean
+  }
+}
+
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
 
@@ -167,6 +186,43 @@ afterAll(async () => {
 })
 
 describe('REV-002 submitted revision contract', () => {
+  it('WORK-01.1: an explicit due date overrides the project default', async () => {
+    const owner = await authenticated(OWNER_A, WS_A)
+    const source = await preview(owner)
+    const dueAt = '2026-10-15T12:00:00.000Z'
+    const created = await submitWithDue(
+      owner,
+      source.sourceDigest,
+      'submit-due-override',
+      dueAt,
+    )
+    const { rows } = await owner.query<{ due_at: Date }>(
+      `SELECT due_at FROM api.review_submissions WHERE id = $1`,
+      [created.submission.id],
+    )
+    expect(rows[0]?.due_at.toISOString()).toBe(dueAt)
+  })
+
+  it('WORK-01.1: without an override the due date uses the project period', async () => {
+    const owner = await authenticated(OWNER_A, WS_A)
+    const source = await preview(owner)
+    const created = await submit(
+      owner,
+      source.sourceDigest,
+      'submit-due-default',
+    )
+    const { rows } = await owner.query<{ due_at: Date; submitted_at: Date }>(
+      `SELECT due_at, submitted_at FROM api.review_submissions WHERE id = $1`,
+      [created.submission.id],
+    )
+    expect(rows[0]?.due_at).toBeInstanceOf(Date)
+    const days = Math.round(
+      (rows[0]!.due_at.getTime() - rows[0]!.submitted_at.getTime()) /
+        86_400_000,
+    )
+    expect(days).toBe(7)
+  })
+
   it('creates one attributed submission with a sha256-bound frozen envelope', async () => {
     const owner = await authenticated(OWNER_A, WS_A)
     const source = await preview(owner)

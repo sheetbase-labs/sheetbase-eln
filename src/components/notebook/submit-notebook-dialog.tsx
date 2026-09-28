@@ -145,12 +145,15 @@ export function SubmitNotebookDialog({
   const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([
     reviewerUserId,
   ])
+  // WORK-01.1 — optional due date, defaulting to the project's review period.
+  const [dueDate, setDueDate] = useState('')
 
   useEffect(() => {
     if (open) {
       setVerified(null)
       setInvalidated(false)
       setSelectedReviewerIds([reviewerUserId])
+      setDueDate('')
     }
   }, [open, reviewerUserId])
 
@@ -235,6 +238,7 @@ export function SubmitNotebookDialog({
         workflowDefinitionVersion: WORKFLOW_VERSION,
         reviewerUserIds: selectedReviewerIds,
         idempotencyKey: crypto.randomUUID(),
+        dueAt: dueDate ? new Date(`${dueDate}T00:00:00`).toISOString() : null,
       })
     },
     onSuccess: (result) => {
@@ -330,6 +334,19 @@ export function SubmitNotebookDialog({
               </label>
             ))}
           </fieldset>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">Due date (optional)</span>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              aria-label="Review due date"
+            />
+            <span className="block text-xs text-muted-foreground">
+              Leave empty to use the project&apos;s default review period.
+            </span>
+          </label>
 
           {/* NOTE-04: readiness derived from canonical state plus the
               server-owned digest check — no invented validation rules. */}

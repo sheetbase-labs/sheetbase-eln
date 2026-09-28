@@ -598,6 +598,8 @@ export interface SubmitRecordRevisionInput {
   workflowDefinitionVersion: number
   reviewerUserIds: string[]
   idempotencyKey: string
+  /** WORK-01.1 — optional review due date overriding the project default. */
+  dueAt?: string | null
 }
 
 export interface SubmitRecordRevisionResult {
@@ -627,6 +629,7 @@ export function submitRecordRevision(
     p_reviewer_user_ids: input.reviewerUserIds,
     p_confirmed: true,
     p_idempotency_key: input.idempotencyKey,
+    p_due_at: input.dueAt ?? null,
   })
 }
 

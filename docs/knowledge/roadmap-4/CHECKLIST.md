@@ -254,7 +254,7 @@ Specification: [tasks/DSET.md](tasks/DSET.md) · nod `epic-195`
 - [ ] **DSET-03** Snapshots and comparison `task-207`
   - [x] DSET-03.1 Snapshot list read model `subtask-208`
   - [x] DSET-03.2 RPC compare_dataset_versions(a, b) returning added, changed `subtask-209`
-  - [ ] DSET-03.3 Snapshots and Compare tabs per design `subtask-210`
+  - [ ] DSET-03.3 Snapshots and Compare tabs per design — **in progress** `subtask-210`
 - [ ] **DSET-04** Snapshot retention `task-211`
   - [x] DSET-04.1 Retention policy in workspace settings (periods from DEC-11) `subtask-212`
   - [x] DSET-04.2 Job removing rows of eligible snapshots `subtask-213`

@@ -767,3 +767,55 @@ export function validateTransformations(
   }
   return errors.length > 0 ? { ok: false, errors } : { ok: true }
 }
+
+// --- Snapshot summaries and comparison (DSET-03.1/03.2) -------------------
+
+export interface DatasetVersionChange {
+  added: number
+  removed: number
+  changed: number
+}
+
+export interface DatasetVersionRetention {
+  reason: string
+  keptUntil: string | null
+}
+
+export interface DatasetVersionSummary {
+  id: string
+  label: string
+  createdAt: string
+  createdByUserId: string | null
+  sourceDatasetRevision: number
+  rowCount: number
+  change: DatasetVersionChange | null
+  retention: DatasetVersionRetention
+}
+
+export async function listDatasetVersionSummaries(
+  client: DataClient,
+  datasetId: string,
+): Promise<DatasetVersionSummary[]> {
+  return client.rpc<DatasetVersionSummary[]>('dataset_version_list', {
+    p_dataset_id: datasetId,
+  })
+}
+
+export async function compareDatasetVersions(
+  client: DataClient,
+  versionA: string,
+  versionB: string,
+  limit = 100,
+  offset = 0,
+): Promise<{
+  counts: DatasetVersionChange
+  columns: Array<{ fieldId: string; kind: string }>
+  rows: Array<{ rowId: string; kind: string }>
+}> {
+  return client.rpc('compare_dataset_versions', {
+    p_version_a: versionA,
+    p_version_b: versionB,
+    p_limit: limit,
+    p_offset: offset,
+  })
+}

@@ -121,6 +121,8 @@ import {
   fetchDatasetRelationshipsFor,
   fetchDatasetRowPage,
   fetchDatasetSummaries,
+  compareDatasetVersions,
+  listDatasetVersionSummaries,
   getNextDatasetPageParam,
   resolveDatasetDeepLinkSelection,
   validateTransformations,
@@ -1688,6 +1690,30 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
   const versions = versionsQuery.data ?? []
   const selected =
     versions.find((item) => item.id === selectedVersionId) ?? null
+  // DSET-03.1/03.2 — the snapshot read model adds who made it, its row count,
+  // the change against the previous snapshot and the retention.
+  const summariesQuery = useQuery({
+    queryKey: ['dataset-version-summaries', table.id],
+    queryFn: () =>
+      listDatasetVersionSummaries(datasetExplorerDataClient, table.id),
+  })
+  const summaries = summariesQuery.data ?? []
+  const summaryById = new Map(summaries.map((summary) => [summary.id, summary]))
+  const selectedIndex = summaries.findIndex(
+    (summary) => summary.id === selectedVersionId,
+  )
+  const previousId =
+    selectedIndex >= 0 ? (summaries[selectedIndex + 1]?.id ?? null) : null
+  const compareQuery = useQuery({
+    queryKey: ['dataset-version-compare', previousId, selectedVersionId],
+    queryFn: () =>
+      compareDatasetVersions(
+        datasetExplorerDataClient,
+        previousId as string,
+        selectedVersionId as string,
+      ),
+    enabled: Boolean(previousId && selectedVersionId),
+  })
   const historicalQuery = useQuery({
     queryKey: ['dataset-version-rows', selected?.id ?? 'none'],
     queryFn: () =>
@@ -1731,7 +1757,20 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
                   className="w-full justify-start"
                   onClick={() => setSelectedVersionId(version.id)}
                 >
-                  {version.label} · r{String(version.source_dataset_revision)}
+                  <span className="flex w-full flex-col items-start">
+                    <span>
+                      {version.label} · r
+                      {String(version.source_dataset_revision)}
+                    </span>
+                    {summaryById.get(version.id) ? (
+                      <span className="text-caption text-muted-foreground">
+                        {summaryById.get(version.id)!.rowCount} rows
+                        {summaryById.get(version.id)!.change
+                          ? ` · +${summaryById.get(version.id)!.change!.added} −${summaryById.get(version.id)!.change!.removed} ~${summaryById.get(version.id)!.change!.changed}`
+                          : ''}
+                      </span>
+                    ) : null}
+                  </span>
                 </Button>
               </li>
             ))}
@@ -1742,10 +1781,19 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">Historical rows</h3>
           {selected ? (
-            <ExportMenu
-              path={`/api/export/dataset-version/${selected.id}`}
-              label="Export version"
-            />
+            <div className="flex items-center gap-2">
+              {compareQuery.data ? (
+                <span className="text-caption text-muted-foreground">
+                  vs previous +{compareQuery.data.counts.added} −
+                  {compareQuery.data.counts.removed} ~
+                  {compareQuery.data.counts.changed}
+                </span>
+              ) : null}
+              <ExportMenu
+                path={`/api/export/dataset-version/${selected.id}`}
+                label="Export version"
+              />
+            </div>
           ) : null}
         </div>
         {!selected ? (

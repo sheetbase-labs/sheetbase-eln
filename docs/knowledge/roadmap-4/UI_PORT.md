@@ -118,6 +118,11 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Dataset Compare ported**: `/datasets/$datasetId/compare` diffs two snapshots
+  through `compare_dataset_versions` (row counters, columns changed, per-field
+  add/change/remove). The dataset area is now Rows · Snapshots · Compare; the
+  import flow follows.
+
 - **Dataset Rows tab ported**: `/datasets/$datasetId/rows` renders a generic
   grid from `query_dataset_version_rows` + schema fields, with search, the
   flagged-only filter, row selection and a "Mark out of range" dialog writing

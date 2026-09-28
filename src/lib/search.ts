@@ -765,3 +765,27 @@ export function serializeSearchUrl(
 ): SearchUrlParams {
   return { ...SEARCH_URL_DEFAULTS, ...params }
 }
+
+// ---------------------------------------------------------------------------
+// "Did you mean" (SRCH-01.4)
+// ---------------------------------------------------------------------------
+
+export interface DidYouMeanSuggestion {
+  id: string
+  kind: string
+  identifier: string
+  title: string
+  similarity: number
+}
+
+export async function searchDidYouMean(
+  client: DataClient,
+  query: string,
+  includeArchived = false,
+): Promise<DidYouMeanSuggestion[]> {
+  return client.rpc<DidYouMeanSuggestion[]>('search_did_you_mean', {
+    p_query: query,
+    p_limit: 5,
+    p_include_archived: includeArchived,
+  })
+}

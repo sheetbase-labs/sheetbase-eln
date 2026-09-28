@@ -78,6 +78,7 @@ import {
   deleteSavedQuery,
   deriveSuggestions,
   executeSearch,
+  searchDidYouMean,
   loadSavedQueries,
   matchedFieldLabel,
   parseMatchedContext,
@@ -97,6 +98,7 @@ import type {
   SearchUrlParams,
 } from '#/lib/search'
 import { searchResultToRelatedKind } from '#/lib/related-work'
+import { recordDestination } from '#/lib/navigation'
 
 export const Route = createFileRoute('/search')({
   // SEARCH-001: filter and query state lives in the URL so searches are
@@ -903,6 +905,7 @@ function SearchRoute() {
             <SearchResults
               query={searchQuery}
               queryString={debouncedQuery}
+              client={client}
               hasQuery={hasQuery}
               totalCount={totalCount}
               results={pageResults}
@@ -1197,6 +1200,8 @@ export interface SearchResultsProps {
   /** Optional sort control. */
   sort?: SortKey
   onSortChange?: (sort: SortKey) => void
+  /** Optional search client, for the did-you-mean suggestions. */
+  client?: DataClient
   /** Optional pagination control. */
   page?: number
   pageSize?: number
@@ -1204,9 +1209,47 @@ export interface SearchResultsProps {
   onPageChange?: (page: number) => void
 }
 
+function DidYouMeanSuggestions({
+  query,
+  client,
+}: {
+  query: string
+  client: DataClient
+}) {
+  const suggestions = useQuery({
+    queryKey: ['did-you-mean', query],
+    queryFn: () => searchDidYouMean(client, query),
+    staleTime: 30_000,
+    enabled: query.trim().length > 0,
+  })
+  const items = (suggestions.data ?? []).filter(
+    (item) => item.identifier.toLowerCase() !== query.trim().toLowerCase(),
+  )
+  if (items.length === 0) return null
+  return (
+    <p className="text-xs text-muted-foreground">
+      Did you mean{' '}
+      {items.map((item, index) => (
+        <span key={item.id}>
+          {index > 0 ? ', ' : ''}
+          <Link
+            to={recordDestination(item.kind, item.id)}
+            className="font-medium text-primary no-underline hover:underline"
+          >
+            {item.identifier}
+          </Link>{' '}
+          <span className="text-muted-foreground">{item.title}</span>
+        </span>
+      ))}
+      ?
+    </p>
+  )
+}
+
 export function SearchResults({
   query: searchQuery,
   queryString,
+  client,
   hasQuery,
   totalCount,
   results,
@@ -1283,6 +1326,9 @@ export function SearchResults({
             ? 'Try different keywords or clear filters.'
             : 'Search records, files and notebook content across your workspace.'}
         </p>
+        {hasQuery && client ? (
+          <DidYouMeanSuggestions query={queryString} client={client} />
+        ) : null}
       </div>
     )
   }

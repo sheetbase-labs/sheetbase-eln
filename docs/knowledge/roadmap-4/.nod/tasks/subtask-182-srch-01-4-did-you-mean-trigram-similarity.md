@@ -2,7 +2,7 @@
 id: subtask-182
 title: "SRCH-01.4 — \"Did you mean\": trigram similarity"
 type: subtask
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
 updated: "2026-09-28"
@@ -19,3 +19,4 @@ Step 4 of 4 in [SRCH-01](../../tasks/SRCH.md#srch-01--search-coverage); the full
 ## Work Log
 - 2026-09-28: PR #206: api.search_did_you_mean — pg_trgm similarity over record identifiers, workspace-scoped; DB tests incl. other-workspace isolation.
 - 2026-09-28: PR #206: search_did_you_mean gains an include_archived flag (archived hidden by default); DB test.
+- 2026-09-28: PR #206: search_did_you_mean returns the record identity; the search empty state shows 'Did you mean <ID>?' links to the record. RPC + UI tests.

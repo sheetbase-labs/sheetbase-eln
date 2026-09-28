@@ -64,11 +64,12 @@ async function asAuthenticated(workspaceId: string): Promise<Client> {
 describe('api.search_did_you_mean', () => {
   it('suggests a near-miss identifier in the caller workspace', async () => {
     const member = await asAuthenticated(WS)
-    const { rows } = await member.query<{ identifier: string }>(
-      `SELECT identifier FROM api.search_did_you_mean('EXP-0943', 5)`,
+    const { rows } = await member.query<{ identifier: string; kind: string }>(
+      `SELECT identifier, kind FROM api.search_did_you_mean('EXP-0943', 5)`,
     )
     expect(rows.map((row) => row.identifier)).toContain('EXP-0934')
     expect(rows.map((row) => row.identifier)).not.toContain('EXP-0935')
+    expect(rows[0]?.kind).toBe('experiment')
   })
 
   it('hides archived records unless asked for them', async () => {

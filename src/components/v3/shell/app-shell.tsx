@@ -260,20 +260,7 @@ function NewMenu() {
         <DropdownMenuLinkItem
           icon="tube"
           hint="S"
-          render={
-            <Link
-              to="/samples"
-              search={{
-                page: undefined,
-                size: undefined,
-                sort: undefined,
-                group: 'sampleType',
-                filters: undefined,
-                selected: undefined,
-                rq: undefined,
-              }}
-            />
-          }
+          render={<Link to="/samples" search={{}} />}
         >
           Sample
         </DropdownMenuLinkItem>

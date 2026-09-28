@@ -118,6 +118,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Samples list ported**: `/samples` renders app-3's registry list (header,
+  tabs In stock/Mine/Awaiting/Quarantine/Consumed, search toolbar, table,
+  mobile list, footer, summary inspector) wired to real sample records through
+  `fetchSamplesPage`, plus Register sample through `create_model_record`. The
+  old samples page and its tests are deleted. The sample detail route and
+  custody dialogs follow.
+
 - **Search ported**: `/search` renders app-3's results page (filter aside, type
   facets, updated/archived filters, grouped results) wired to the real `search`
   RPC and `search_did_you_mean` for "Did you mean". The old Search page and its

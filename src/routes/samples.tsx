@@ -1,124 +1,81 @@
-/**
- * REG-002: Samples Registry route.
- *
- * The first production consumer of the reusable RegistryComposition. Wires
- * server-side pagination/sort/filter (RegistryQuery → PostgREST on
- * `records` where kind='sample'), summary metrics, a Samples inspector with
- * chain-of-custody, linked experiments and files, and the controlled
- * receive/consume/transfer/edit/archive/restore mutations. PostgreSQL RLS
- * remains the access-control boundary; the RPCs enforce quantity and
- * location integrity.
- */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
-import { PackagePlus, Upload } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { useShell } from '#/components/shell'
-import { ImportWizard } from '#/components/import/import-wizard'
-import { RegistryComposition } from '#/components/registry/registry-composition'
-import type { DataGridField } from '#/components/data-grid'
-import { SampleInspector } from '#/components/samples/sample-inspector'
-import type { SampleCustodyAction } from '#/components/samples/sample-inspector'
-import { StatusBadge } from '#/components/scientific/status-badge'
-import { ModelFieldInput } from '#/components/scientific/model-field-input'
+import { Button } from '#/components/v3/ui/button'
+import { Status } from '#/components/v3/ui/status'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
-  Button,
+  DescriptionList,
+  Inspector,
+  InspectorSection,
+} from '#/components/v3/ui/layout'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import { Field, Input } from '#/components/v3/ui/input'
+import {
   Dialog,
+  DialogBody,
+  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  Select,
-  Textarea,
-} from '#/components/ui'
-import { createDataClient } from '#/lib/data-client'
+} from '#/components/v3/ui/dialog'
+import { toast } from '#/components/v3/ui/sonner'
+import { NativeSelect } from '#/components/v3/projects/select'
 import {
-  fetchModelFields,
-  modelFieldValuesFromInput,
-  modelFieldColumnId,
-} from '#/lib/model-fields'
-import type { ModelFieldDefinition } from '#/lib/model-fields'
-import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
+  ListFooter,
+  ListHeader,
+  ListToolbar,
+  MobileList,
+  SearchTabs,
+  stickyCell,
+  stickyHead,
+} from '#/components/v3/inventory/list'
 import {
-  archiveSample,
-  consumeSample,
-  computeSampleSummaries,
-  createSample,
-  describeSampleError,
-  editSample,
-  fetchLinkedExperiments,
-  fetchLinkedFiles,
-  fetchSample,
-  fetchSampleEvents,
-  fetchSamplesPage,
-  isLowStock,
-  receiveSample,
-  restoreSample,
-  sampleColumns,
-  sampleQueryKeys,
-  sampleStatusOptions,
-  transferSample,
-} from '#/lib/samples'
-import type { SampleRecord } from '#/lib/samples'
-import {
-  decodeRegistryFilters,
-  decodeRegistryQuery,
-  DEFAULT_REGISTRY_QUERY,
-  encodeRegistryFilters,
-} from '#/lib/registry'
-import type { RegistryQuery } from '#/lib/registry'
+  sampleListQueryKeys,
+  toSampleListRow,
+  useProjectNames,
+  useSamplePage
+  
+} from '#/components/v3/samples/samples-data'
+import type {SampleListRow} from '#/components/v3/samples/samples-data';
+import { createSample } from '#/lib/samples'
+import { notebookDataClient } from '#/lib/notebook-data'
 
-const DEFAULT_SAMPLES_QUERY: RegistryQuery = {
-  ...DEFAULT_REGISTRY_QUERY,
-  pageSize: 50,
-  grouping: ['sampleType'],
+const tabs = ['instock', 'mine', 'awaiting', 'quarantine', 'consumed'] as const
+type SampleTab = (typeof tabs)[number]
+const tabLabel: Record<SampleTab, string> = {
+  instock: 'In stock',
+  mine: 'Mine',
+  awaiting: 'Awaiting',
+  quarantine: 'Quarantine',
+  consumed: 'Consumed',
 }
 
-export function searchFromSamplesQuery(
-  query: RegistryQuery,
-  selected?: string | null,
-) {
-  return {
-    page: query.pageIndex > 0 ? query.pageIndex : undefined,
-    size:
-      query.pageSize !== DEFAULT_SAMPLES_QUERY.pageSize
-        ? query.pageSize
-        : undefined,
-    sort:
-      query.sorting.length > 0
-        ? query.sorting
-            .map(({ id, desc }) => `${id}:${desc ? 'desc' : 'asc'}`)
-            .join(',')
-        : undefined,
-    group: query.grouping.join(','),
-    filters: encodeRegistryFilters(query.filters) || undefined,
-    selected: selected || undefined,
-    rq: undefined,
-  }
-}
-
+/** UI port (roadmap-4/ui-app3): the sample registry list, wired to real sample
+ * records. The detail route and the custody dialogs follow. */
 export const Route = createFileRoute('/samples')({
-  validateSearch: (search: Record<string, unknown>) => {
-    const page = Number(search.page)
-    const size = Number(search.size)
-    return {
-      page: Number.isInteger(page) && page > 0 ? page : undefined,
-      size:
-        Number.isInteger(size) && size > 0 && size <= 500 && size !== 50
-          ? size
-          : undefined,
-      sort: typeof search.sort === 'string' ? search.sort : undefined,
-      group: typeof search.group === 'string' ? search.group : 'sampleType',
-      filters: typeof search.filters === 'string' ? search.filters : undefined,
-      selected:
-        typeof search.selected === 'string' ? search.selected : undefined,
-      rq: typeof search.rq === 'string' ? search.rq : undefined,
-    }
-  },
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { q?: string; tab?: SampleTab; new?: boolean } => ({
+    q: typeof search.q === 'string' ? search.q : undefined,
+    tab:
+      search.tab === 'mine' ||
+      search.tab === 'awaiting' ||
+      search.tab === 'quarantine' ||
+      search.tab === 'consumed' ||
+      search.tab === 'instock'
+        ? search.tab
+        : undefined,
+    new: search.new === true || search.new === 'true' || undefined,
+  }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) {
@@ -126,752 +83,357 @@ export const Route = createFileRoute('/samples')({
     }
     return { context }
   },
-  component: SamplesRegistryRoute,
+  component: SamplesList,
 })
 
-const dataClient = createDataClient()
-
-function SamplesRegistryRoute() {
+function SamplesList() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
+  const page = useSamplePage()
+  const projects = useProjectNames()
   const queryClient = useQueryClient()
+  const tab: SampleTab = search.tab ?? 'instock'
+  const [selected, setSelected] = useState<string | null>(null)
 
-  const query = useMemo(
-    (): RegistryQuery =>
-      decodeRegistryQuery(search.rq) ?? {
-        pageIndex: search.page ?? 0,
-        pageSize: search.size ?? DEFAULT_SAMPLES_QUERY.pageSize,
-        sorting: (search.sort ?? '')
-          .split(',')
-          .filter(Boolean)
-          .map((entry) => {
-            const [id, direction] = entry.split(':')
-            return { id, desc: direction === 'desc' }
-          }),
-        grouping: search.group ? search.group.split(',').filter(Boolean) : [],
-        filters: decodeRegistryFilters(search.filters),
-      },
-    [
-      search.filters,
-      search.group,
-      search.page,
-      search.rq,
-      search.size,
-      search.sort,
-    ],
-  )
-  const selectedId = search.selected ?? null
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-
-  function setQuery(next: RegistryQuery) {
-    void navigate({
-      to: '/samples',
-      search: searchFromSamplesQuery(next, selectedId),
-      replace: false,
-    })
-  }
-
-  function setSelectedId(id: string | null) {
-    void navigate({
-      to: '/samples',
-      search: searchFromSamplesQuery(query, id),
-      replace: false,
-    })
-  }
-
-  useEffect(() => {
-    if (!search.rq) return
-    void navigate({
-      to: '/samples',
-      search: searchFromSamplesQuery(query, selectedId),
-      replace: true,
-    })
-  }, [navigate, query, search.rq, selectedId])
-
-  // ---- Registry page query ----
-  const pageQuery = useQuery({
-    queryKey: sampleQueryKeys.page(query),
-    queryFn: () => fetchSamplesPage(notebookDataClient, query),
-  })
-
-  const { rows, totalCount } = pageQuery.data ?? { rows: [], totalCount: 0 }
-  const modelFieldsQuery = useQuery({
-    queryKey: ['model-fields', 'sample'],
-    queryFn: () => fetchModelFields(notebookDataClient, 'sample'),
-  })
-  const modelFields = modelFieldsQuery.data ?? []
-  const summaries = useMemo(
-    () => computeSampleSummaries(rows, totalCount),
-    [rows, totalCount],
-  )
-
-  // ---- Selected sample detail (loaded independently of the page) ----
-  const selectedInPage = selectedId
-    ? (rows.find((r) => r.id === selectedId) ?? null)
-    : null
-  const selectedDetailQuery = useQuery({
-    queryKey: sampleQueryKeys.detail(selectedId ?? 'none'),
-    queryFn: () => fetchSample(notebookDataClient, selectedId!),
-    enabled: Boolean(selectedId) && !selectedInPage,
-  })
-  const selectedRecord: SampleRecord | null =
-    selectedInPage ?? selectedDetailQuery.data ?? null
-
-  const eventsQuery = useQuery({
-    queryKey: sampleQueryKeys.events(selectedId ?? 'none'),
-    queryFn: () => fetchSampleEvents(notebookDataClient, selectedId!),
-    enabled: Boolean(selectedId),
-  })
-  const experimentsQuery = useQuery({
-    queryKey: sampleQueryKeys.links(selectedId ?? 'none'),
-    queryFn: async () => {
-      const [experiments, files] = await Promise.all([
-        fetchLinkedExperiments(notebookDataClient, selectedId!),
-        fetchLinkedFiles(notebookDataClient, selectedId!),
-      ])
-      return { experiments, files }
-    },
-    enabled: Boolean(selectedId),
-  })
-
-  // ---- Projects for the create form ----
-  const projectsQuery = useQuery({
-    queryKey: notebookQueryKeys.projectsList(),
-    queryFn: () =>
-      notebookDataClient.list<{ id: string; key: string; title: string }>(
-        'projects',
-        '?order=created_at.desc&select=id,key,title',
+  const rows = useMemo(
+    () =>
+      (page.data?.rows ?? []).map((r) =>
+        toSampleListRow(r, projects.data ?? new Map(), context.user.id),
       ),
-  })
+    [page.data, projects.data, context.user.id],
+  )
 
-  // ---- Mutations ----
-  function invalidateAll() {
-    void queryClient.invalidateQueries({ queryKey: ['reg-002', 'samples'] })
-  }
+  const inTab = (r: SampleListRow, t: SampleTab): boolean =>
+    t === 'instock' ? r.tabs.includes('instock') : r.tabs.includes(t)
+  const counts = Object.fromEntries(
+    tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
+  ) as Record<SampleTab, number>
+  const q = (search.q ?? '').trim().toLowerCase()
+  const visible = rows
+    .filter((r) => inTab(r, tab))
+    .filter(
+      (r) =>
+        !q ||
+        [r.id, r.name, r.type, r.location].some((v) =>
+          v.toLowerCase().includes(q),
+        ),
+    )
+  const sel = visible.find((r) => r.uuid === selected) ?? visible.at(0)
 
-  const [createError, setCreateError] = useState<string | null>(null)
-
-  const createMutation = useMutation({
-    mutationFn: async (input: {
+  const create = useMutation({
+    mutationFn: (input: {
       projectId: string
       title: string
-      properties: CreateSampleForm
-      customFields: Record<string, unknown>
-    }) => {
-      const qty =
-        input.properties.quantity === ''
-          ? undefined
-          : Number(input.properties.quantity)
-      const threshold =
-        input.properties.lowStockThreshold === ''
-          ? undefined
-          : Number(input.properties.lowStockThreshold)
-      return createSample(dataClient, {
+      sampleType?: string
+      quantity?: string
+      quantityUnit?: string
+      storageLocation?: string
+    }) =>
+      createSample(notebookDataClient, {
         projectId: input.projectId,
         title: input.title,
         properties: {
-          sampleType: input.properties.sampleType || undefined,
-          quantity: qty,
-          quantityUnit: input.properties.quantityUnit || undefined,
-          storageLocation: input.properties.storageLocation || undefined,
-          barcode: input.properties.barcode || undefined,
-          lowStockThreshold: threshold,
-          notes: input.properties.notes || undefined,
+          sampleType: input.sampleType,
+          quantity: input.quantity ? Number(input.quantity) : undefined,
+          quantityUnit: input.quantityUnit,
+          storageLocation: input.storageLocation,
         },
-        customFields: input.customFields,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: sampleListQueryKeys.page })
+      toast('Sample registered')
+      void navigate({
+        to: '/samples',
+        search: (s) => ({ ...s, new: undefined }),
       })
     },
-    onSuccess: (record) => {
-      setCreateError(null)
-      setCreateOpen(false)
-      invalidateAll()
-      setSelectedId(record.id)
-    },
-    onError: (error) => {
-      setCreateError(describeSampleError(error))
-    },
-  })
-
-  const custodyMutation = useMutation({
-    mutationFn: async (action: SampleCustodyAction & { recordId: string }) => {
-      const { recordId, ...rest } = action
-      const expected = selectedRecord?.metadataVersion ?? 0
-      switch (rest.kind) {
-        case 'receive':
-          return receiveSample(dataClient, {
-            recordId,
-            expectedMetadataVersion: expected,
-            ...rest,
-          })
-        case 'consume':
-          return consumeSample(dataClient, {
-            recordId,
-            expectedMetadataVersion: expected,
-            ...rest,
-          })
-        case 'transfer':
-          return transferSample(dataClient, {
-            recordId,
-            expectedMetadataVersion: expected,
-            ...rest,
-          })
-        case 'edit':
-          return editSample(dataClient, {
-            recordId,
-            expectedMetadataVersion: expected,
-            ...rest,
-          })
-        case 'archive':
-          return archiveSample(dataClient, {
-            recordId,
-            expectedMetadataVersion: expected,
-            ...rest,
-          })
-        case 'restore':
-          return restoreSample(dataClient, {
-            recordId,
-            expectedMetadataVersion: expected,
-            ...rest,
-          })
-      }
-    },
-    onSuccess: () => {
-      setActionError(null)
-      invalidateAll()
-    },
-    onError: (error) => setActionError(describeSampleError(error)),
-  })
-
-  // ---- Columns with status + low-stock rendering ----
-  const columns = useMemo(() => {
-    const cols = sampleColumns<SampleRecord>(modelFields)
-    // Replace the plain status column with a StatusBadge cell.
-    const statusIdx = cols.findIndex((c) => c.id === 'status')
-    if (statusIdx >= 0) {
-      cols[statusIdx] = {
-        id: 'status',
-        header: 'Status',
-        accessorKey: 'status',
-        cell: ({ row }) => (
-          <span className="inline-flex items-center gap-1.5">
-            <StatusBadge status={row.original.status} domain="sample" />
-            {isLowStock(row.original) ? (
-              <span className="text-xs font-medium text-warning">Low</span>
-            ) : null}
-          </span>
-        ),
-      }
-    }
-    return cols
-  }, [modelFields])
-
-  const fields: DataGridField<SampleRecord>[] = columns.map((column) => {
-    const id = String(
-      column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
-    )
-    const labels: Partial<Record<string, string>> = {
-      identifier: 'Sample ID',
-      title: 'Title',
-      sampleType: 'Type',
-      quantity: 'Quantity',
-      storageLocation: 'Storage',
-      barcode: 'Barcode',
-      status: 'Status',
-      updatedAt: 'Updated',
-    }
-    const customOperator: 'contains' | 'eq' =
-      modelFields.find((field) => modelFieldColumnId(field.fieldName) === id)
-        ?.logicalType === 'text'
-        ? 'contains'
-        : 'eq'
-    const filter =
-      id === 'status'
-        ? {
-            type: 'select' as const,
-            operators: [{ value: 'eq' as const, label: 'is' }],
-            options: sampleStatusOptions(),
-          }
-        : id.startsWith('custom:')
-          ? {
-              type: 'text' as const,
-              placeholder: `All ${(labels[id] ?? id).toLowerCase()}`,
-              operators: [
-                {
-                  value: customOperator,
-                  label: 'is',
-                },
-              ],
-            }
-          : ['sampleType', 'storageLocation', 'barcode'].includes(id)
-            ? {
-                type: 'text' as const,
-                placeholder: `All ${(labels[id] ?? id).toLowerCase()}`,
-                operators: [{ value: 'contains' as const, label: 'contains' }],
-              }
-            : undefined
-    return {
-      id,
-      label:
-        labels[id] ??
-        modelFields.find((field) => modelFieldColumnId(field.fieldName) === id)
-          ?.label ??
-        id,
-      column,
-      filter,
-      groupable:
-        ['status', 'sampleType', 'storageLocation'].includes(id) ||
-        id.startsWith('custom:'),
-    }
-  })
-  fields.push({
-    id: 'search',
-    label: 'Search',
-    column: false,
-    groupable: false,
-    filter: {
-      type: 'text',
-      placeholder: 'Identifier, title, barcode',
-      operators: [{ value: 'contains', label: 'contains' }],
-    },
-  })
-
-  const shellContext = {
-    workspace: context.workspace ? { name: context.workspace.name } : null,
-    user: {
-      name: context.user.name,
-      email: context.user.email,
-      role: context.workspace?.role,
-    },
-  }
-
-  const inspector = (row: SampleRecord | null) =>
-    row ? (
-      <SampleInspector
-        sample={row}
-        events={eventsQuery.data ?? []}
-        eventsLoading={eventsQuery.isLoading}
-        linkedExperiments={experimentsQuery.data?.experiments ?? []}
-        linkedFiles={experimentsQuery.data?.files ?? []}
-        linksLoading={experimentsQuery.isLoading}
-        actionPending={custodyMutation.isPending}
-        actionError={actionError}
-        onAction={(action) =>
-          custodyMutation.mutate({ recordId: row.id, ...action })
-        }
-        modelFields={modelFields}
-      />
-    ) : (
-      <SampleInspector
-        sample={null}
-        events={[]}
-        linkedExperiments={[]}
-        linkedFiles={[]}
-        onAction={() => {}}
-        modelFields={modelFields}
-      />
-    )
-
-  useShell({
-    fullBleed: true,
-    context: shellContext,
-    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Samples' }],
   })
 
   return (
-    <>
-      <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
-        <RegistryComposition
-          registryId="samples"
+    <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ListHeader
           title="Samples"
-          description="Find samples, check stock and record use or transfers."
-          rows={rows}
-          totalCount={totalCount}
-          fields={fields}
-          query={query}
-          onQueryChange={setQuery}
-          getRowId={(row) => row.id}
-          selectedId={selectedId}
-          selectedRecord={selectedRecord}
-          onSelectedIdChange={setSelectedId}
-          summaries={summaries}
-          renderInspector={inspector}
-          inspectorLabel="Sample details"
-          initialColumnVisibility={{ barcode: false, sampleType: false }}
-          searchDebounceMs={250}
-          loading={pageQuery.isLoading}
-          error={pageQuery.error}
-          onRetry={() => pageQuery.refetch()}
-          emptyTitle="No samples yet"
-          noResultsTitle="No matching samples"
+          total={page.data?.totalCount}
           actions={
             <>
               <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setImportOpen(true)}
-                disabled={(projectsQuery.data ?? []).length === 0}
+                variant="primary"
+                onClick={() =>
+                  navigate({ to: '/samples', search: { new: true } })
+                }
               >
-                <Upload className="size-3.5" /> Import
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setCreateError(null)
-                  setCreateOpen(true)
-                }}
-              >
-                <PackagePlus className="size-3.5" /> New sample
+                Register sample
               </Button>
             </>
           }
+          tabs={
+            <SearchTabs
+              label="Sample lists"
+              current={tab}
+              items={tabs.map((t) => ({
+                key: t,
+                label: tabLabel[t],
+                count: counts[t],
+                link: {
+                  to: '/samples',
+                  search: { tab: t === 'instock' ? undefined : t, q: search.q },
+                },
+              }))}
+            />
+          }
         />
-        <CreateSampleDialog
-          open={createOpen}
-          onOpenChange={setCreateOpen}
-          projects={projectsQuery.data ?? []}
-          projectsLoading={projectsQuery.isLoading}
-          projectsError={projectsQuery.isError}
-          onRetryProjects={() => void projectsQuery.refetch()}
-          pending={createMutation.isPending}
-          error={createError}
-          onCreate={(input) => createMutation.mutate(input)}
-          modelFields={modelFields}
+        <ListToolbar
+          q={search.q}
+          label="Search samples"
+          placeholder="Search by ID, name, location"
+          onSearch={(next) =>
+            void navigate({
+              to: '/samples',
+              search: (s) => ({ ...s, q: next || undefined }),
+              replace: true,
+            })
+          }
         />
-        {projectsQuery.data?.[0] ? (
-          <ImportWizard
-            open={importOpen}
-            onOpenChange={setImportOpen}
-            client={dataClient}
-            mode={{
-              kind: 'record',
-              projectId: projectsQuery.data[0].id,
-              projects: projectsQuery.data,
-              modelKey: 'sample',
-              recordKind: 'sample',
-              fields: modelFields,
-            }}
-            onDone={invalidateAll}
+        <div className="min-h-0 flex-1 overflow-auto">
+          <Table aria-label="Samples" className="max-md:hidden">
+            <TableHeader>
+              <TableRow>
+                <TableHead className={stickyHead}>ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead align="right">Quantity</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((s) => (
+                <TableRow
+                  key={s.uuid}
+                  selected={s.uuid === sel?.uuid}
+                  className="cursor-pointer"
+                  onClick={() => setSelected(s.uuid)}
+                >
+                  <TableCell className={stickyCell}>
+                    <span className="mono">{s.id}</span>
+                  </TableCell>
+                  <TableCell
+                    className={s.uuid === sel?.uuid ? 'font-medium' : undefined}
+                  >
+                    {s.name}
+                  </TableCell>
+                  <TableCell>{s.type}</TableCell>
+                  <TableCell align="right">{s.quantity}</TableCell>
+                  <TableCell>{s.location}</TableCell>
+                  <TableCell>
+                    <Status tone={s.status.tone}>{s.status.label}</Status>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <MobileList
+            label="Samples"
+            items={visible.map((s) => ({
+              key: s.uuid,
+              id: s.id,
+              title: s.name,
+              sub: `${s.quantity} · ${s.location}`,
+              status: <Status tone={s.status.tone}>{s.status.label}</Status>,
+              onSelect: () => setSelected(s.uuid),
+              selected: s.uuid === sel?.uuid,
+            }))}
           />
-        ) : null}
+          {!page.isLoading && visible.length === 0 ? (
+            <div role="status" className="flex justify-center px-6">
+              <EmptyState
+                className="items-center py-14 text-center"
+                icon={q ? 'search' : 'tube'}
+                title={
+                  q
+                    ? `No samples match “${search.q}”`
+                    : `No samples in ${tabLabel[tab].toLowerCase()}`
+                }
+                body={
+                  q
+                    ? 'Search looks at ID, name, type and location.'
+                    : 'Register a sample or import a plate map to start the registry.'
+                }
+              >
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/samples"
+                      search={{ tab: tab === 'instock' ? undefined : tab }}
+                    />
+                  }
+                >
+                  {q ? 'Clear search' : 'Back to in stock'}
+                </Button>
+              </EmptyState>
+            </div>
+          ) : null}
+        </div>
+        <ListFooter right={sel ? '1 selected' : undefined}>
+          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
+        </ListFooter>
       </div>
-    </>
+
+      {sel ? (
+        <Inspector aria-label="Sample summary" className="gap-0 p-0">
+          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
+            <span className="mono text-fg-muted">{sel.id}</span>
+            <div className="font-heading text-doc font-semibold">
+              {sel.name}
+            </div>
+            <div className="text-label">
+              <Status tone={sel.status.tone}>
+                {sel.status.label}
+                {sel.quantity !== '—' ? ` · ${sel.quantity}` : ''}
+              </Status>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4 px-4 py-3.5">
+            <InspectorSection title="Key properties">
+              <DescriptionList
+                labelWidth={104}
+                items={[
+                  ['Type', sel.type],
+                  ['Quantity', sel.quantity],
+                  ['Location', sel.location],
+                  ['Project', sel.project],
+                ]}
+              />
+            </InspectorSection>
+          </div>
+        </Inspector>
+      ) : null}
+
+      <RegisterSampleDialog
+        open={Boolean(search.new)}
+        busy={create.isPending}
+        projects={[...(projects.data ?? new Map()).entries()].map(
+          ([id, title]) => ({ id, title }),
+        )}
+        onOpenChange={(open) => {
+          if (!open)
+            void navigate({
+              to: '/samples',
+              search: (s) => ({ ...s, new: undefined }),
+              replace: true,
+            })
+        }}
+        onRegister={(input) => create.mutate(input)}
+      />
+    </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Create-sample dialog.
-// ---------------------------------------------------------------------------
-
-interface CreateSampleForm {
-  projectId: string
-  title: string
-  sampleType: string
-  quantity: string
-  quantityUnit: string
-  storageLocation: string
-  barcode: string
-  lowStockThreshold: string
-  notes: string
-}
-
-const EMPTY_FORM: CreateSampleForm = {
-  projectId: '',
-  title: '',
-  sampleType: '',
-  quantity: '',
-  quantityUnit: '',
-  storageLocation: '',
-  barcode: '',
-  lowStockThreshold: '',
-  notes: '',
-}
-
-export function CreateSampleDialog({
+function RegisterSampleDialog({
   open,
+  busy,
   onOpenChange,
   projects,
-  projectsLoading,
-  projectsError = false,
-  onRetryProjects,
-  pending,
-  error,
-  onCreate,
-  modelFields,
+  onRegister,
 }: {
   open: boolean
+  busy: boolean
+  projects: { id: string; title: string }[]
   onOpenChange: (open: boolean) => void
-  projects: { id: string; key: string; title: string }[]
-  projectsLoading: boolean
-  projectsError?: boolean
-  onRetryProjects?: () => void
-  pending: boolean
-  error: string | null
-  onCreate: (input: {
+  onRegister: (input: {
     projectId: string
     title: string
-    properties: CreateSampleForm
-    customFields: Record<string, unknown>
+    sampleType?: string
+    quantity?: string
+    quantityUnit?: string
+    storageLocation?: string
   }) => void
-  modelFields: ModelFieldDefinition[]
 }) {
-  const [form, setForm] = useState<CreateSampleForm>(EMPTY_FORM)
-  const [customFields, setCustomFields] = useState<
-    Record<string, string | boolean>
-  >({})
-
-  function update(field: keyof CreateSampleForm, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }))
-  }
-
-  useEffect(() => {
-    if (!open) {
-      setForm(EMPTY_FORM)
-      setCustomFields({})
-    }
-  }, [open])
-
-  const projectId =
-    form.projectId || (projects.length === 1 ? projects[0].id : '')
-  const invalidQuantity = [form.quantity, form.lowStockThreshold].some(
-    (value) =>
-      value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0),
-  )
-
-  function submit() {
-    if (
-      pending ||
-      !projectId ||
-      !form.title.trim() ||
-      invalidQuantity ||
-      missingRequiredModelField
-    )
-      return
-    onCreate({
-      projectId,
-      title: form.title.trim(),
-      properties: form,
-      customFields: modelFieldValuesFromInput(modelFields, customFields, true),
-    })
-  }
-
-  const missingRequiredModelField = modelFields.some(
-    (definition) =>
-      !definition.nullable &&
-      definition.defaultValue == null &&
-      (customFields[definition.fieldName] ?? '') === '',
-  )
-
+  const [projectId, setProjectId] = useState('')
+  const [title, setTitle] = useState('')
+  const [sampleType, setSampleType] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [quantityUnit, setQuantityUnit] = useState('mL')
+  const [storageLocation, setStorageLocation] = useState('')
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!pending) onOpenChange(next)
-      }}
-    >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>New sample</DialogTitle>
-          <DialogDescription>
-            Name the sample and choose its project. Add stock and storage
-            details now, or fill them in later.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form
-          id="create-sample-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            submit()
-          }}
-          className="grid gap-3"
-        >
-          <Label className="text-xs text-muted-foreground">
-            Project (required)
-            <Select
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(520px,calc(100vw-32px))]">
+        <DialogHeader title="Register sample" />
+        <DialogBody>
+          <Field label="Project" required>
+            <NativeSelect
               value={projectId}
-              onChange={(e) => update('projectId', e.target.value)}
-              className="mt-1 h-9"
-              aria-label="Project"
-              required
-              disabled={projectsLoading || projectsError || pending}
+              onChange={(e) => setProjectId(e.target.value)}
             >
-              <option value="">
-                {projectsLoading ? 'Loading…' : 'Select a project'}
-              </option>
+              <option value="">Choose…</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title}
                 </option>
               ))}
-            </Select>
-          </Label>
-          {projectsError ? (
-            <div role="alert" className="text-sm text-danger">
-              Could not load projects.
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                onClick={onRetryProjects}
-              >
-                Try again
-              </Button>
-            </div>
-          ) : !projectsLoading && projects.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Create a project before adding samples.
-            </p>
-          ) : null}
-          <Label className="text-xs text-muted-foreground">
-            Sample name (required)
+            </NativeSelect>
+          </Field>
+          <Field label="Name" required>
             <Input
-              value={form.title}
-              onChange={(e) => update('title', e.target.value)}
-              className="mt-1 h-9"
-              aria-label="Sample name"
-              required
-              placeholder="Plasma pool batch 14"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
             />
-          </Label>
+          </Field>
+          <Field label="Type">
+            <Input
+              value={sampleType}
+              onChange={(e) => setSampleType(e.target.value)}
+            />
+          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Label className="text-xs text-muted-foreground">
-              Type
-              <Input
-                value={form.sampleType}
-                onChange={(e) => update('sampleType', e.target.value)}
-                className="mt-1 h-9"
-                aria-label="Sample type"
-                placeholder="plasma"
-              />
-            </Label>
-            <Label className="text-xs text-muted-foreground">
-              Barcode
-              <Input
-                value={form.barcode}
-                onChange={(e) => update('barcode', e.target.value)}
-                className="mt-1 h-9"
-                aria-label="Barcode"
-              />
-            </Label>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Label className="text-xs text-muted-foreground">
-              Quantity
+            <Field label="Quantity">
               <Input
                 type="number"
-                step="any"
-                min="0"
-                value={form.quantity}
-                onChange={(e) => update('quantity', e.target.value)}
-                className="mt-1 h-9"
-                aria-label="Quantity"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
               />
-            </Label>
-            <Label className="text-xs text-muted-foreground">
-              Unit
-              <Input
-                value={form.quantityUnit}
-                onChange={(e) => update('quantityUnit', e.target.value)}
-                className="mt-1 h-9"
-                aria-label="Unit"
-                placeholder="mL"
-              />
-            </Label>
-            <Label className="text-xs text-muted-foreground">
-              Low-stock at{form.quantityUnit ? ` (${form.quantityUnit})` : ''}
-              <Input
-                type="number"
-                step="any"
-                min="0"
-                value={form.lowStockThreshold}
-                onChange={(e) => update('lowStockThreshold', e.target.value)}
-                className="mt-1 h-9"
-                aria-label="Low-stock threshold"
-              />
-            </Label>
+            </Field>
+            <Field label="Unit">
+              <NativeSelect
+                value={quantityUnit}
+                onChange={(e) => setQuantityUnit(e.target.value)}
+              >
+                {['mL', 'µL', 'mg', 'µg', 'vial'].map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
           </div>
-          <Label className="text-xs text-muted-foreground">
-            Storage location
+          <Field label="Storage location">
             <Input
-              value={form.storageLocation}
-              onChange={(e) => update('storageLocation', e.target.value)}
-              className="mt-1 h-9"
-              aria-label="Storage location"
-              placeholder="Freezer A, Shelf 2, Box 1"
+              value={storageLocation}
+              onChange={(e) => setStorageLocation(e.target.value)}
             />
-          </Label>
-          <Label className="text-xs text-muted-foreground">
-            Notes
-            <Textarea
-              value={form.notes}
-              onChange={(e) => update('notes', e.target.value)}
-              className="mt-1 min-h-16 text-xs"
-              aria-label="Notes"
-            />
-          </Label>
-          {modelFields.length > 0 ? (
-            <div className="grid gap-3 border-t pt-3">
-              <p className="text-xs font-medium">Workspace fields</p>
-              {modelFields.map((definition) => (
-                <ModelFieldInput
-                  key={definition.id}
-                  definition={definition}
-                  value={
-                    customFields[definition.fieldName] ??
-                    (typeof definition.defaultValue === 'boolean'
-                      ? definition.defaultValue
-                      : definition.defaultValue == null
-                        ? ''
-                        : String(definition.defaultValue))
-                  }
-                  onChange={(value) =>
-                    setCustomFields((current) => ({
-                      ...current,
-                      [definition.fieldName]: value,
-                    }))
-                  }
-                />
-              ))}
-            </div>
-          ) : null}
-          {invalidQuantity ? (
-            <p role="alert" className="text-sm text-danger">
-              Quantity and low-stock threshold must be zero or greater.
-            </p>
-          ) : null}
-        </form>
-
-        {error ? (
-          <p role="alert" className="text-xs text-danger">
-            {error}
-          </p>
-        ) : null}
-
+          </Field>
+        </DialogBody>
         <DialogFooter>
+          <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
-            variant="outline"
-            disabled={pending}
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            form="create-sample-form"
-            disabled={
-              pending ||
-              !projectId ||
-              projectsLoading ||
-              projectsError ||
-              invalidQuantity ||
-              !form.title.trim() ||
-              missingRequiredModelField
+            variant="primary"
+            disabled={busy || !title.trim() || !projectId}
+            onClick={() =>
+              onRegister({
+                projectId,
+                title: title.trim(),
+                sampleType: sampleType || undefined,
+                quantity: quantity || undefined,
+                quantityUnit,
+                storageLocation: storageLocation || undefined,
+              })
             }
           >
-            {pending ? 'Creating sample…' : 'Create sample'}
+            {busy ? 'Registering…' : 'Register sample'}
           </Button>
         </DialogFooter>
       </DialogContent>

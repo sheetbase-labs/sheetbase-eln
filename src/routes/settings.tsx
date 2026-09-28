@@ -6,6 +6,7 @@ import { KeyRound } from 'lucide-react'
 import { useShell } from '#/components/shell'
 import { SettingsApiTokens } from '#/components/settings/settings-api-tokens'
 import { SettingsSessions } from '#/components/settings/settings-sessions'
+import { SettingsNotifications } from '#/components/settings/settings-notifications'
 import { Button } from '#/components/ui'
 import {
   createPersonalTokenFn,
@@ -148,6 +149,8 @@ function SettingsRoute() {
       ) : null}
 
       <SettingsSessions />
+
+      <SettingsNotifications />
     </div>
   )
 }

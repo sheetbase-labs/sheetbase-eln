@@ -3956,7 +3956,7 @@ export const notificationPreferences = api.table(
     ),
     check(
       'chk_notification_preferences_event',
-      sql`${table.eventType} IN ('review_requested', 'signature_requested', 'data_issue', 'run_waiting', 'run_failed', 'material_expiring', 'approval_required', 'conflict')`,
+      sql`${table.eventType} IN ('review_requested', 'review_returned_or_signed', 'signature_requested', 'validation_error', 'comment_or_mention', 'instrument_booking', 'material_expiring', 'protocol_new_version')`,
     ),
   ],
 )

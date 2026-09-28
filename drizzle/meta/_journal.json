@@ -1392,6 +1392,20 @@
       "when": 1790563860691,
       "tag": "0200_notification_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 201,
+      "version": "7",
+      "when": 1790563979814,
+      "tag": "0201_petite_gambit",
+      "breakpoints": true
+    },
+    {
+      "idx": 202,
+      "version": "7",
+      "when": 1790563989310,
+      "tag": "0202_notification_event_types",
+      "breakpoints": true
     }
   ]
 }

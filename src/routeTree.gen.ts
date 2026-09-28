@@ -62,6 +62,7 @@ import { Route as SettingsIntegrationsRouteImport } from './routes/settings/inte
 import { Route as SettingsMembersRouteImport } from './routes/settings/members'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
+import { Route as SettingsSignaturesRouteImport } from './routes/settings/signatures'
 import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -387,6 +388,11 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
 const SettingsProfileRoute = SettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsSignaturesRoute = SettingsSignaturesRouteImport.update({
+  id: '/signatures',
+  path: '/signatures',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SheetsInstanceIdRoute = SheetsInstanceIdRouteImport.update({
@@ -773,6 +779,7 @@ export interface FileRoutesByFullPath {
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/signatures': typeof SettingsSignaturesRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/settings/': typeof SettingsIndexRoute
@@ -881,6 +888,7 @@ export interface FileRoutesByTo {
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/signatures': typeof SettingsSignaturesRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/settings': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -997,6 +1005,7 @@ export interface FileRoutesById {
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/signatures': typeof SettingsSignaturesRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/settings/': typeof SettingsIndexRoute
@@ -1115,6 +1124,7 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/signatures'
     | '/sheets/$instanceId'
     | '/templates/$templateId'
     | '/settings/'
@@ -1223,6 +1233,7 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/signatures'
     | '/sheets/$instanceId'
     | '/settings'
     | '/api/auth/$'
@@ -1338,6 +1349,7 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/signatures'
     | '/sheets/$instanceId'
     | '/templates/$templateId'
     | '/settings/'
@@ -1833,6 +1845,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/settings/profile'
       preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/signatures': {
+      id: '/settings/signatures'
+      path: '/signatures'
+      fullPath: '/settings/signatures'
+      preLoaderRoute: typeof SettingsSignaturesRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/sheets/$instanceId': {
@@ -2505,6 +2524,7 @@ interface SettingsRouteChildren {
   SettingsMembersRoute: typeof SettingsMembersRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
+  SettingsSignaturesRoute: typeof SettingsSignaturesRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -2517,6 +2537,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsMembersRoute: SettingsMembersRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsProfileRoute: SettingsProfileRoute,
+  SettingsSignaturesRoute: SettingsSignaturesRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 

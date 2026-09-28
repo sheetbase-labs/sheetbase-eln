@@ -7,6 +7,7 @@ const { browser, page, errors } = await launch()
 const sections = [
   ['General', '/settings'],
   ['Members and roles', '/settings/members'],
+  ['Electronic signatures', '/settings/signatures'],
   ['Instruments and parsers', '/settings/instruments'],
   ['Integrations', '/settings/integrations'],
   ['Project access', '/settings/access'],

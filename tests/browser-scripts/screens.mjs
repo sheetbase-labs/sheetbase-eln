@@ -98,6 +98,7 @@ function routes(ids) {
     '/pipelines',
     '/settings',
     '/settings/members',
+    '/settings/signatures',
     '/settings/api',
     '/settings/profile',
     '/settings/notifications',

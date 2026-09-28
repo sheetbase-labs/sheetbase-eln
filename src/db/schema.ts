@@ -4137,6 +4137,43 @@ export const userPreferences = api.table(
 )
 
 /**
+ * user_signature_certifications (SIGN-003) — a person's electronic-signature
+ * certification for a workspace. One row per (workspace, user); certifying
+ * again updates `certified_at` and the agreed statement version, and withdrawing
+ * sets `revoked_at`. Written only through the `certify_signature` /
+ * `withdraw_signature_certification` SECURITY DEFINER RPCs; read under RLS by
+ * workspace members so the policy screen can list who has not certified.
+ */
+export const userSignatureCertifications = api.table(
+  'user_signature_certifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    statementVersion: integer('statement_version').notNull(),
+    certifiedAt: timestamp('certified_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    unique('uq_user_signature_certifications_user').on(
+      table.workspaceId,
+      table.userId,
+    ),
+    check(
+      'chk_user_signature_certifications_version',
+      sql`${table.statementVersion} > 0`,
+    ),
+    index('idx_user_signature_certifications_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
  * reagent_movements (REG-003) — the auditable inventory ledger for reagents.
  * One row per receive/consume/quarantine/restore movement, written exclusively
  * by the `record_reagent_movement` SECURITY DEFINER RPC (no direct INSERT

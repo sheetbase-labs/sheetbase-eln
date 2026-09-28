@@ -118,6 +118,17 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Electronic signatures ported (new capability)**: SIGN-003 adds
+  `api.user_signature_certifications` (one row per workspace/user) with RLS and
+  the `certify_signature` / `withdraw_signature_certification` /
+  `workspace_signature_certifications` RPCs, with DB contract tests for success,
+  re-certify, withdraw, denied outsider and cross-workspace isolation. The two
+  own-row writers are exempted from the GOV-01 mutation-RPC inventory (like
+  recents and favourites). `/settings/signatures` lets a person certify or
+  withdraw their own signature, shows who has not certified, and lets owners and
+  admins set the workspace meanings and re-authentication policy. Settings is now
+  complete.
+
 - **Protocols area added**: `/protocols` lists protocol-template records (ID,
   protocol, status, owner, updated; tabs All/Active/In review/Drafts) and
   `/protocols/$protocolId` frames one with Document, Template and Used by tabs —

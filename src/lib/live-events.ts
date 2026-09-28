@@ -161,6 +161,22 @@ export function createLiveEventCoordinator(
   }
 
   /**
+   * Notify subscribers after applying events at most once per microtask. A
+   * burst of durable events (for example a reconnect backlog) would otherwise
+   * call setState synchronously per event and can exceed React's nested-update
+   * limit. Status transitions still emit synchronously.
+   */
+  let eventEmitScheduled = false
+  function scheduleEventEmit(): void {
+    if (eventEmitScheduled) return
+    eventEmitScheduled = true
+    queueMicrotask(() => {
+      eventEmitScheduled = false
+      emit()
+    })
+  }
+
+  /**
    * Apply one durable change event to the query cache. Self-echoes
    * (clientId === this tab's id) are skipped — the mutation layer owns
    * canonical reconciliation for the actor's own writes. Other clients'
@@ -176,7 +192,7 @@ export function createLiveEventCoordinator(
       // Own echo: the mutation's onSuccess already reconciled the cache.
       // Advance the cursor so a later replayed batch does not re-apply.
       lastAppliedSeq = event.sequence
-      emit()
+      scheduleEventEmit()
       return
     }
 
@@ -185,7 +201,7 @@ export function createLiveEventCoordinator(
     // optimistic state for unrelated in-flight mutations.
     invalidateForEvent(event)
     lastAppliedSeq = event.sequence
-    emit()
+    scheduleEventEmit()
   }
 
   function invalidateForEvent(event: ChangeEventWire): void {

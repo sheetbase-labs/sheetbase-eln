@@ -304,6 +304,7 @@ export const defaultNavSections: AppShellNavSection[] = [
   {
     items: [
       { to: '/projects', label: 'Projects', icon: FolderOpen },
+      { to: '/experiments', label: 'Experiments', icon: FlaskConical },
       { to: '/templates', label: 'Templates', icon: LayoutTemplate },
       { to: '/samples', label: 'Samples', icon: FlaskConical },
       { to: '/materials', label: 'Materials', icon: Package },

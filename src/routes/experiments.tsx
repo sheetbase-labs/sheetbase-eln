@@ -1,0 +1,402 @@
+import { useMemo, useState } from 'react'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
+
+import { Button } from '#/components/v3/ui/button'
+import { Status } from '#/components/v3/ui/status'
+import { Input } from '#/components/v3/ui/input'
+import { Icon } from '#/components/v3/icons'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import { SearchTabs } from '#/components/v3/projects/search-tabs'
+import { FilterChip } from '#/components/v3/projects/chip'
+import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
+import {
+  toExperimentListRow,
+  useExperimentRecords,
+  useProjectNameMap
+  
+} from '#/components/v3/experiments/experiments-data'
+import type {ExperimentListRow} from '#/components/v3/experiments/experiments-data';
+import { useUserNames } from '#/lib/user-names'
+
+const tabs = [
+  'all',
+  'mine',
+  'inprogress',
+  'inreview',
+  'approved',
+  'drafts',
+] as const
+type Tab = (typeof tabs)[number]
+const tabLabel: Record<Tab, string> = {
+  all: 'All',
+  mine: 'Mine',
+  inprogress: 'In progress',
+  inreview: 'In review',
+  approved: 'Approved',
+  drafts: 'Drafts',
+}
+
+/** UI port (roadmap-4/ui-app3): the experiments list on real experiment
+ * records. Protocol version, open issues and started date are design fields the
+ * model lacks and render as gaps; rows open the record (the dedicated
+ * /experiments/$expId frame follows). */
+export const Route = createFileRoute('/experiments')({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): {
+    tab?: Tab
+    q?: string
+    older?: boolean
+    group?: 'project' | 'owner'
+  } => ({
+    tab: tabs.includes(search.tab as Tab) ? (search.tab as Tab) : undefined,
+    q: typeof search.q === 'string' ? search.q : undefined,
+    older: search.older === true || search.older === 'true' || undefined,
+    group:
+      search.group === 'project' || search.group === 'owner'
+        ? search.group
+        : undefined,
+  }),
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
+    if (!context) {
+      throw redirect({ to: '/sign-in' })
+    }
+    return { context }
+  },
+  component: Experiments,
+})
+
+function Experiments() {
+  const { context } = Route.useRouteContext()
+  const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const tab: Tab = search.tab ?? 'all'
+  const records = useExperimentRecords(context.workspace?.id)
+  const projects = useProjectNameMap()
+  const [sort, setSort] = useState<'updated' | 'id'>('updated')
+  const [draftQ, setDraftQ] = useState(search.q ?? '')
+
+  const ownerIds = useMemo(
+    () => (records.data ?? []).map((r) => r.created_by_user_id),
+    [records.data],
+  )
+  const { userLabel } = useUserNames(ownerIds, {
+    id: context.user.id,
+    name: context.user.name,
+  })
+  const ownerNames = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const id of ownerIds) map.set(id, userLabel(id))
+    return map
+  }, [ownerIds, userLabel])
+
+  const rows: ExperimentListRow[] = useMemo(
+    () =>
+      (records.data ?? []).map((r) =>
+        toExperimentListRow(r, projects.data ?? new Map(), ownerNames),
+      ),
+    [records.data, projects.data, ownerNames],
+  )
+
+  const inTab = (row: ExperimentListRow, t: Tab): boolean =>
+    t === 'all'
+      ? true
+      : t === 'mine'
+        ? row.ownerId === context.user.id
+        : t === 'inprogress'
+          ? row.status.tone === 'progress'
+          : t === 'inreview'
+            ? row.status.tone === 'review'
+            : t === 'approved'
+              ? row.status.tone === 'ok'
+              : row.status.tone === 'draft'
+  const counts = Object.fromEntries(
+    tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
+  ) as Record<Tab, number>
+  const q = (search.q ?? '').trim().toLowerCase()
+  const base = rows.filter(
+    (r) =>
+      inTab(r, tab) &&
+      (!q ||
+        [r.id, r.title, r.project, r.owner].some((v) =>
+          v.toLowerCase().includes(q),
+        )),
+  )
+  const visible = base
+    .filter((r) => search.older || r.recent)
+    .sort((a, b) =>
+      sort === 'id'
+        ? b.id.localeCompare(a.id)
+        : b.updated.localeCompare(a.updated),
+    )
+  const hiddenOld = search.older ? 0 : base.length - visible.length
+  const groups: [string | null, ExperimentListRow[]][] = search.group
+    ? [
+        ...new Set(
+          visible.map((r) =>
+            search.group === 'project' ? r.project : r.owner,
+          ),
+        ),
+      ].map((g) => [
+        g,
+        visible.filter((r) =>
+          search.group === 'project' ? r.project === g : r.owner === g,
+        ),
+      ])
+    : [[null, visible]]
+
+  const setSearch = (patch: Partial<typeof search>) =>
+    void navigate({ search: (s) => ({ ...s, ...patch }) })
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <header className="flex flex-col gap-1 border-b border-border bg-surface px-4 pt-4 md:px-6">
+        <div className="flex items-center gap-2">
+          <h1 className="text-title">Experiments</h1>
+          <span className="num text-body text-fg-muted">{rows.length}</span>
+        </div>
+        <SearchTabs
+          className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0"
+          label="Experiment views"
+          tabs={tabs.map((t) => ({
+            key: t,
+            label: tabLabel[t],
+            count: counts[t],
+            active: t === tab,
+            link: {
+              to: '/experiments',
+              search: { ...search, tab: t === 'all' ? undefined : t },
+            },
+          }))}
+        />
+      </header>
+
+      <div className="flex items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="quiet" />}>
+            Sort: {sort === 'id' ? 'ID' : 'Updated'}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[180px]">
+            {(['updated', 'id'] as const).map((k) => (
+              <DropdownMenuItem
+                key={k}
+                icon={sort === k ? 'check' : undefined}
+                className={sort === k ? '' : 'pl-[30px]'}
+                onClick={() => setSort(k)}
+              >
+                {k === 'id' ? 'ID' : 'Updated'}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="quiet"
+                className={search.older ? '' : 'text-link hover:text-link'}
+              />
+            }
+          >
+            Filter{search.older ? '' : ' · 1'}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[240px]">
+            <DropdownMenuItem
+              icon={search.older ? undefined : 'check'}
+              className={search.older ? 'pl-[30px]' : ''}
+              onClick={() =>
+                setSearch({ older: search.older ? undefined : true })
+              }
+            >
+              Updated in last 30 days
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <form
+          role="search"
+          className="relative order-first min-w-0 flex-1 lg:order-none lg:ml-3 lg:w-[280px] lg:flex-none"
+          onSubmit={(e) => {
+            e.preventDefault()
+            setSearch({ q: draftQ.trim() || undefined })
+          }}
+        >
+          <label htmlFor="exp-search" className="sr-only">
+            Search experiments
+          </label>
+          <Icon
+            name="search"
+            size={14}
+            className="pointer-events-none absolute left-[9px] top-[8px] text-fg-muted"
+          />
+          <Input
+            id="exp-search"
+            type="search"
+            placeholder="Search experiments"
+            value={draftQ}
+            className="h-7 pl-7 max-lg:h-9"
+            onChange={(e) => {
+              setDraftQ(e.target.value)
+              if (!e.target.value) setSearch({ q: undefined })
+            }}
+          />
+        </form>
+      </div>
+
+      {!search.older ? (
+        <div className="flex items-center gap-2 px-4 py-2 md:px-6">
+          <FilterChip
+            removeLabel="Remove filter: updated in last 30 days"
+            onRemove={() => setSearch({ older: true })}
+          >
+            Updated in last 30 days
+          </FilterChip>
+        </div>
+      ) : null}
+
+      <div className="min-h-0 flex-1 overflow-auto border-t border-border">
+        <MobileList
+          className="md:hidden"
+          label="Experiments"
+          rows={visible.map((e) => ({
+            key: e.uuid,
+            title: e.title,
+            meta: (
+              <>
+                <span className="mono">{e.id}</span> · {e.project}
+              </>
+            ),
+            status: e.status,
+            link: { to: '/records/$recordId', params: { recordId: e.uuid } },
+          }))}
+        />
+        <Table aria-label="Experiments" className="max-md:hidden">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="max-xl:hidden">ID</TableHead>
+              <TableHead className={stickyCol}>Experiment</TableHead>
+              <TableHead>Project</TableHead>
+              <TableHead>Owner</TableHead>
+              <TableHead>Protocol</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Open issues</TableHead>
+              <TableHead align="right">Started</TableHead>
+              <TableHead align="right">Updated</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groups.map(([g, list]) => [
+              g ? (
+                <TableRow key={`g-${g}`}>
+                  <TableCell
+                    colSpan={9}
+                    className="bg-surface-muted text-label font-medium text-fg-muted"
+                  >
+                    {g} <span className="font-normal">{list.length}</span>
+                  </TableCell>
+                </TableRow>
+              ) : null,
+              ...list.map((e) => (
+                <TableRow key={e.uuid}>
+                  <TableCell className="mono max-xl:hidden">{e.id}</TableCell>
+                  <TableCell
+                    className={`${stickyCol} max-xl:h-auto max-xl:py-1`}
+                  >
+                    <Link
+                      to="/records/$recordId"
+                      params={{ recordId: e.uuid }}
+                      className="text-fg hover:text-link"
+                    >
+                      {e.title}
+                    </Link>
+                    <span className="mono block text-[11px] text-fg-muted xl:hidden">
+                      {e.id}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {e.projectId ? (
+                      <Link
+                        to="/projects/$projectId"
+                        params={{ projectId: e.projectId }}
+                        className="text-fg hover:text-link"
+                      >
+                        {e.project}
+                      </Link>
+                    ) : (
+                      <span className="text-fg-muted">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>{e.owner}</TableCell>
+                  <TableCell className="text-fg-muted">—</TableCell>
+                  <TableCell>
+                    <Status tone={e.status.tone}>{e.status.label}</Status>
+                  </TableCell>
+                  <TableCell className="text-fg-muted">—</TableCell>
+                  <TableCell align="right" className="text-fg-muted">
+                    {e.started}
+                  </TableCell>
+                  <TableCell align="right" className="text-fg-muted">
+                    {e.updated}
+                  </TableCell>
+                </TableRow>
+              )),
+            ])}
+          </TableBody>
+        </Table>
+        {!visible.length ? (
+          <div
+            role="status"
+            className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
+          >
+            <div className="text-prose font-semibold">
+              {q
+                ? `No experiments match “${search.q}”`
+                : `No ${tabLabel[tab].toLowerCase()} experiments`}
+            </div>
+            <div className="max-w-[460px] leading-[19px] text-fg-muted">
+              {hiddenOld
+                ? `${hiddenOld} older ${hiddenOld === 1 ? 'experiment matches' : 'experiments match'} outside the last 30 days.`
+                : 'Searched IDs, titles, projects and owners.'}
+            </div>
+            <div className="mt-2 flex gap-1.5">
+              {hiddenOld ? (
+                <Button onClick={() => setSearch({ older: true })}>
+                  Include older ({hiddenOld})
+                </Button>
+              ) : null}
+              {q ? (
+                <Button onClick={() => setSearch({ q: undefined })}>
+                  Clear search
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
+        <span>
+          {visible.length} of {rows.length}
+          {search.older ? '' : ' · filtered to last 30 days'}
+        </span>
+      </div>
+    </div>
+  )
+}

@@ -118,6 +118,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Experiments list ported**: `/experiments` renders app-3's list (tabs
+  All/Mine/In progress/In review/Approved/Drafts, filter to last 30 days, sort,
+  table + mobile) on real experiment records; rows open the record. Protocol
+  version, open issues and started date are design fields the model lacks and
+  render as gaps. The nav now lists Experiments; the dedicated
+  `/experiments/$expId` frame follows.
+
 - **Sample detail ported**: `/samples/$sampleId` is app-3's frame (crumbs,
   status/type meta, Withdraw/Move actions, tabs Details/Usage/History/Lineage/
   Measurements) on real sample records; Withdraw/Move use `consume_sample` /

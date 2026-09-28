@@ -15,6 +15,7 @@ import { Route as AgentOperationsRouteImport } from './routes/agent-operations'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as ConfigureRouteImport } from './routes/configure'
 import { Route as DatasetsRouteImport } from './routes/datasets'
+import { Route as ExperimentsRouteImport } from './routes/experiments'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as InboxRouteImport } from './routes/inbox'
@@ -111,6 +112,11 @@ const ConfigureRoute = ConfigureRouteImport.update({
 const DatasetsRoute = DatasetsRouteImport.update({
   id: '/datasets',
   path: '/datasets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExperimentsRoute = ExperimentsRouteImport.update({
+  id: '/experiments',
+  path: '/experiments',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FoundationsRoute = FoundationsRouteImport.update({
@@ -467,6 +473,7 @@ export interface FileRoutesByFullPath {
   '/analysis': typeof AnalysisRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
+  '/experiments': typeof ExperimentsRoute
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
   '/inbox': typeof InboxRoute
@@ -542,6 +549,7 @@ export interface FileRoutesByTo {
   '/analysis': typeof AnalysisRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
+  '/experiments': typeof ExperimentsRoute
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
   '/inbox': typeof InboxRoute
@@ -615,6 +623,7 @@ export interface FileRoutesById {
   '/analysis': typeof AnalysisRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
+  '/experiments': typeof ExperimentsRoute
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRoute
   '/inbox': typeof InboxRoute
@@ -692,6 +701,7 @@ export interface FileRouteTypes {
     | '/analysis'
     | '/configure'
     | '/datasets'
+    | '/experiments'
     | '/foundations'
     | '/help'
     | '/inbox'
@@ -767,6 +777,7 @@ export interface FileRouteTypes {
     | '/analysis'
     | '/configure'
     | '/datasets'
+    | '/experiments'
     | '/foundations'
     | '/help'
     | '/inbox'
@@ -839,6 +850,7 @@ export interface FileRouteTypes {
     | '/analysis'
     | '/configure'
     | '/datasets'
+    | '/experiments'
     | '/foundations'
     | '/help'
     | '/inbox'
@@ -915,6 +927,7 @@ export interface RootRouteChildren {
   AnalysisRoute: typeof AnalysisRoute
   ConfigureRoute: typeof ConfigureRoute
   DatasetsRoute: typeof DatasetsRoute
+  ExperimentsRoute: typeof ExperimentsRoute
   FoundationsRoute: typeof FoundationsRoute
   HelpRoute: typeof HelpRoute
   InboxRoute: typeof InboxRoute
@@ -1008,6 +1021,13 @@ declare module '@tanstack/react-router' {
       path: '/datasets'
       fullPath: '/datasets'
       preLoaderRoute: typeof DatasetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/experiments': {
+      id: '/experiments'
+      path: '/experiments'
+      fullPath: '/experiments'
+      preLoaderRoute: typeof ExperimentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/foundations': {
@@ -1601,6 +1621,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnalysisRoute: AnalysisRoute,
   ConfigureRoute: ConfigureRoute,
   DatasetsRoute: DatasetsRoute,
+  ExperimentsRoute: ExperimentsRoute,
   FoundationsRoute: FoundationsRoute,
   HelpRoute: HelpRoute,
   InboxRoute: InboxRoute,

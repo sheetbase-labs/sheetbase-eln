@@ -136,6 +136,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   `update_project_details`, `archive_project`/`unarchive_project`. The list and
   detail share `project-data.ts`; rows carry the UUID so links resolve.
   Old detail page and its test deleted.
-- Still to port for the area: the `folders` and `members` tabs (they need the
-  folder tree port and a member list with names) and the design fields the
-  backend lacks (milestones, member summary, started date).
+- **Members tab ported** with a DB-first capability: `api.workspace_members_list`,
+  `api.project_members` (names + access + lead), and `api.set_project_member` /
+  `api.remove_project_member` gated to the project lead or a workspace admin.
+  DB tests cover read, add/change/remove, denial and an invalid access level.
+- **Folders tab ported** with a DB-first capability:
+  `api.create_project_folder` and `api.move_records_to_folder`, gated to project
+  editors (lead, workspace admin or an editor/owner `project_access`). DB tests
+  cover create/move, viewer denial, invalid name and cross-project parent.
+- Still open for the area: the design fields the backend lacks (milestones,
+  member summary, started date) and per-project roles beyond the access level.

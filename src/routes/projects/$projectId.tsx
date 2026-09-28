@@ -88,6 +88,10 @@ function ProjectLayout() {
                 },
               },
               {
+                label: 'Folders',
+                link: { to: '/projects/$projectId/folders', params },
+              },
+              {
                 label: 'Members',
                 count: membersQuery.data?.length,
                 link: { to: '/projects/$projectId/members', params },

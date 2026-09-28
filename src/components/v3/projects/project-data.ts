@@ -151,3 +151,44 @@ export async function removeProjectMember(
     p_user_id: userId,
   })
 }
+
+export interface ProjectFolder {
+  id: string
+  project_id: string
+  parent_id: string | null
+  identifier: string
+  name: string
+}
+
+export async function fetchProjectFolders(
+  projectId: string,
+): Promise<ProjectFolder[]> {
+  return projectDataClient.list<ProjectFolder>(
+    'folders',
+    `?project_id=eq.${projectId}&archived_at=is.null&order=name.asc&select=id,project_id,parent_id,identifier,name`,
+  )
+}
+
+export async function createProjectFolder(
+  projectId: string,
+  name: string,
+  parentId: string | null,
+): Promise<ProjectFolder> {
+  return projectDataClient.rpc<ProjectFolder>('create_project_folder', {
+    p_project_id: projectId,
+    p_name: name,
+    p_parent_id: parentId,
+  })
+}
+
+export async function moveRecordsToFolder(
+  projectId: string,
+  recordIds: string[],
+  folderId: string | null,
+): Promise<number> {
+  return projectDataClient.rpc<number>('move_records_to_folder', {
+    p_project_id: projectId,
+    p_record_ids: recordIds,
+    p_folder_id: folderId,
+  })
+}

@@ -1700,6 +1700,13 @@
       "when": 1790585573346,
       "tag": "0244_project_members",
       "breakpoints": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1790586310994,
+      "tag": "0245_project_folders",
+      "breakpoints": true
     }
   ]
 }

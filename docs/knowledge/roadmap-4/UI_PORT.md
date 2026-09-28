@@ -118,6 +118,18 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Settings shell ported**: `/settings` now uses app-3's workspace/account nav
+  with sub-routes. General (`/settings`), API and SDK (`/settings/api`), Profile
+  (`/settings/profile`) and Notifications (`/settings/notifications`) reuse the
+  real SET-01/SET-03 modules (workspace general and id prefixes, personal API
+  tokens, user name via Better Auth, appearance via the shared theme store,
+  sessions, notification preferences). Members and roles (`/settings/members`)
+  is a new page on `workspace_memberships`/`workspace_invitations`: role change,
+  suspend, reinstate, remove, invite and revoke go through the workspace-admin
+  RPCs, gated on `workspace.admin`. The old single `/settings` page is replaced.
+  Access, signatures, instruments, integrations and audit sections follow; the
+  nav lists only routes that exist.
+
 - **Templates area completed on the real catalogue**: the board now reads
   CORE-06 `notebook_templates` (not protocol-template records), with latest and
   published versions, section and in-use counts. `/templates/$templateId` frames

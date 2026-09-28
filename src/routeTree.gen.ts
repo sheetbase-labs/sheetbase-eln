@@ -52,6 +52,11 @@ import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projec
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsApiRouteImport } from './routes/settings/api'
+import { Route as SettingsMembersRouteImport } from './routes/settings/members'
+import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
+import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -327,6 +332,31 @@ const SamplesSampleIdRoute = SamplesSampleIdRouteImport.update({
   id: '/$sampleId',
   path: '/$sampleId',
   getParentRoute: () => SamplesRoute,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsApiRoute = SettingsApiRouteImport.update({
+  id: '/api',
+  path: '/api',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsMembersRoute = SettingsMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsProfileRoute = SettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => SettingsRoute,
 } as any)
 const SheetsInstanceIdRoute = SheetsInstanceIdRouteImport.update({
   id: '/sheets/$instanceId',
@@ -677,7 +707,7 @@ export interface FileRoutesByFullPath {
   '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRouteWithChildren
@@ -697,8 +727,13 @@ export interface FileRoutesByFullPath {
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
+  '/settings/api': typeof SettingsApiRoute
+  '/settings/members': typeof SettingsMembersRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
+  '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -782,7 +817,6 @@ export interface FileRoutesByTo {
   '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
-  '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRouteWithChildren
@@ -795,7 +829,12 @@ export interface FileRoutesByTo {
   '/docs/$name': typeof DocsNameRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/settings/api': typeof SettingsApiRoute
+  '/settings/members': typeof SettingsMembersRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/settings': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -880,7 +919,7 @@ export interface FileRoutesById {
   '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRouteWithChildren
@@ -900,8 +939,13 @@ export interface FileRoutesById {
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
+  '/settings/api': typeof SettingsApiRoute
+  '/settings/members': typeof SettingsMembersRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
+  '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -1007,8 +1051,13 @@ export interface FileRouteTypes {
     | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/samples/$sampleId'
+    | '/settings/api'
+    | '/settings/members'
+    | '/settings/notifications'
+    | '/settings/profile'
     | '/sheets/$instanceId'
     | '/templates/$templateId'
+    | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -1092,7 +1141,6 @@ export interface FileRouteTypes {
     | '/samples'
     | '/schedule'
     | '/search'
-    | '/settings'
     | '/sign-in'
     | '/storage'
     | '/templates'
@@ -1105,7 +1153,12 @@ export interface FileRouteTypes {
     | '/docs/$name'
     | '/integrations/$connectorId'
     | '/reviews/$revisionId'
+    | '/settings/api'
+    | '/settings/members'
+    | '/settings/notifications'
+    | '/settings/profile'
     | '/sheets/$instanceId'
+    | '/settings'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -1209,8 +1262,13 @@ export interface FileRouteTypes {
     | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/samples/$sampleId'
+    | '/settings/api'
+    | '/settings/members'
+    | '/settings/notifications'
+    | '/settings/profile'
     | '/sheets/$instanceId'
     | '/templates/$templateId'
+    | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -1295,7 +1353,7 @@ export interface RootRouteChildren {
   SamplesRoute: typeof SamplesRouteWithChildren
   ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
-  SettingsRoute: typeof SettingsRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
   SignInRoute: typeof SignInRoute
   StorageRoute: typeof StorageRoute
   TemplatesRoute: typeof TemplatesRouteWithChildren
@@ -1633,6 +1691,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/samples/$sampleId'
       preLoaderRoute: typeof SamplesSampleIdRouteImport
       parentRoute: typeof SamplesRoute
+    }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/api': {
+      id: '/settings/api'
+      path: '/api'
+      fullPath: '/settings/api'
+      preLoaderRoute: typeof SettingsApiRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/members': {
+      id: '/settings/members'
+      path: '/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof SettingsMembersRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/notifications': {
+      id: '/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/profile': {
+      id: '/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof SettingsRoute
     }
     '/sheets/$instanceId': {
       id: '/sheets/$instanceId'
@@ -2265,6 +2358,26 @@ const SamplesRouteChildren: SamplesRouteChildren = {
 const SamplesRouteWithChildren =
   SamplesRoute._addFileChildren(SamplesRouteChildren)
 
+interface SettingsRouteChildren {
+  SettingsApiRoute: typeof SettingsApiRoute
+  SettingsMembersRoute: typeof SettingsMembersRoute
+  SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+  SettingsProfileRoute: typeof SettingsProfileRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsApiRoute: SettingsApiRoute,
+  SettingsMembersRoute: SettingsMembersRoute,
+  SettingsNotificationsRoute: SettingsNotificationsRoute,
+  SettingsProfileRoute: SettingsProfileRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
+
 interface TemplatesTemplateIdRouteChildren {
   TemplatesTemplateIdInUseRoute: typeof TemplatesTemplateIdInUseRoute
   TemplatesTemplateIdUpdateRoute: typeof TemplatesTemplateIdUpdateRoute
@@ -2334,7 +2447,7 @@ const rootRouteChildren: RootRouteChildren = {
   SamplesRoute: SamplesRouteWithChildren,
   ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,
-  SettingsRoute: SettingsRoute,
+  SettingsRoute: SettingsRouteWithChildren,
   SignInRoute: SignInRoute,
   StorageRoute: StorageRoute,
   TemplatesRoute: TemplatesRouteWithChildren,

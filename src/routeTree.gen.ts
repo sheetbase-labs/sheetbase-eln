@@ -63,6 +63,7 @@ import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/
 import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 import { Route as DatasetsDatasetIdIndexRouteImport } from './routes/datasets/$datasetId/index'
+import { Route as DatasetsDatasetIdRowsRouteImport } from './routes/datasets/$datasetId/rows'
 import { Route as DatasetsDatasetIdSnapshotsRouteImport } from './routes/datasets/$datasetId/snapshots'
 import { Route as ExperimentsExpIdIndexRouteImport } from './routes/experiments/$expId/index'
 import { Route as ExperimentsExpIdDatasetsRouteImport } from './routes/experiments/$expId/datasets'
@@ -367,6 +368,11 @@ const DatasetsDatasetIdIndexRoute = DatasetsDatasetIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DatasetsDatasetIdRoute,
 } as any)
+const DatasetsDatasetIdRowsRoute = DatasetsDatasetIdRowsRouteImport.update({
+  id: '/rows',
+  path: '/rows',
+  getParentRoute: () => DatasetsDatasetIdRoute,
+} as any)
 const DatasetsDatasetIdSnapshotsRoute =
   DatasetsDatasetIdSnapshotsRouteImport.update({
     id: '/snapshots',
@@ -595,6 +601,7 @@ export interface FileRoutesByFullPath {
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
   '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
   '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
@@ -678,6 +685,7 @@ export interface FileRoutesByTo {
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
   '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
   '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
@@ -767,6 +775,7 @@ export interface FileRoutesById {
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
   '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
   '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
@@ -857,6 +866,7 @@ export interface FileRouteTypes {
     | '/api/health/ready'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
     | '/experiments/$expId/datasets'
     | '/experiments/$expId/files'
@@ -940,6 +950,7 @@ export interface FileRouteTypes {
     | '/api/health/ready'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
     | '/experiments/$expId/datasets'
     | '/experiments/$expId/files'
@@ -1028,6 +1039,7 @@ export interface FileRouteTypes {
     | '/api/health/ready'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
     | '/experiments/$expId/datasets'
     | '/experiments/$expId/files'
@@ -1503,6 +1515,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DatasetsDatasetIdIndexRouteImport
       parentRoute: typeof DatasetsDatasetIdRoute
     }
+    '/datasets/$datasetId/rows': {
+      id: '/datasets/$datasetId/rows'
+      path: '/rows'
+      fullPath: '/datasets/$datasetId/rows'
+      preLoaderRoute: typeof DatasetsDatasetIdRowsRouteImport
+      parentRoute: typeof DatasetsDatasetIdRoute
+    }
     '/datasets/$datasetId/snapshots': {
       id: '/datasets/$datasetId/snapshots'
       path: '/snapshots'
@@ -1741,11 +1760,13 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface DatasetsDatasetIdRouteChildren {
+  DatasetsDatasetIdRowsRoute: typeof DatasetsDatasetIdRowsRoute
   DatasetsDatasetIdSnapshotsRoute: typeof DatasetsDatasetIdSnapshotsRoute
   DatasetsDatasetIdIndexRoute: typeof DatasetsDatasetIdIndexRoute
 }
 
 const DatasetsDatasetIdRouteChildren: DatasetsDatasetIdRouteChildren = {
+  DatasetsDatasetIdRowsRoute: DatasetsDatasetIdRowsRoute,
   DatasetsDatasetIdSnapshotsRoute: DatasetsDatasetIdSnapshotsRoute,
   DatasetsDatasetIdIndexRoute: DatasetsDatasetIdIndexRoute,
 }

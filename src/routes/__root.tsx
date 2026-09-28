@@ -135,6 +135,7 @@ function RootRouteComponent() {
     '/datasets/$datasetId',
     '/datasets/$datasetId/',
     '/datasets/$datasetId/snapshots',
+    '/datasets/$datasetId/rows',
     '/samples',
     '/materials',
     '/samples/$sampleId',

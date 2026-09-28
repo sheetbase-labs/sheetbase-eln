@@ -27,6 +27,8 @@ if (ids.sample) {
     ['detail', `/samples/${ids.sample}`],
     ['usage', `/samples/${ids.sample}/usage`],
     ['history', `/samples/${ids.sample}/history`],
+    ['lineage', `/samples/${ids.sample}/lineage`],
+    ['measurements', `/samples/${ids.sample}/measurements`],
   ]) {
     await go(page, path)
     check(
@@ -34,6 +36,11 @@ if (ids.sample) {
       `sample ${tab} shows one h1`,
     )
   }
+  await go(page, `/samples/${ids.sample}/lineage`)
+  check(
+    (await page.getByRole('heading', { name: 'Lineage' }).count()) > 0,
+    'sample lineage tab renders the lineage section',
+  )
 }
 
 await go(page, '/materials')

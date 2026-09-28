@@ -157,6 +157,12 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   all results" goes to /search. The interactions suite checks it against real
   data.
 
+- **Sample lineage wired to real data**: the sample Lineage tab reads the
+  relationship graph through `fetchLineageGraph` (RLS-filtered) and shows the
+  upstream/downstream summary and neighbour table with evidence/review links;
+  restricted or missing neighbours render as text. The inventory area suite
+  checks the tab.
+
 - **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
   "Open full lineage" link on the legacy record notebook; it is removed, so the
   crawl reports 0 404s. The crawl also skips `/api/*` hrefs (file downloads
@@ -180,8 +186,10 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   builder) the now-unused report-builder libraries are deleted, and
   `/plate-designer` is removed from the legacy specialist nav. `/lineage` is
   retired: the standalone explorer, its route and tests are deleted, and the
-  lineage home is the sample lineage tab and the evidence page (both ported;
-  their lineage data is still a gap). `/instrument-monitor` is retired into the
+  lineage home is the sample lineage tab, which now reads the real
+  relationship graph (record links plus reviews, decisions, signatures and
+  change events) through the RLS-filtered lineage boundary; restricted
+  neighbours render as honest text. `/instrument-monitor` is retired into the
   new `/instruments` area (LAB-06). The remaining fold routes
   (`/planner`→PROJ-02, `/storage`→LAB-04, `/agent-operations`→PIPE-01) are
   deleted with their fold task, as DEC-03 specifies; `/docs/$name` and

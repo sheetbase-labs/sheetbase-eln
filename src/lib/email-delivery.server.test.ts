@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { processEmailDeliveries } from './email-delivery.server'
+import { processEmailDeliveries, readSmtpConfig } from './email-delivery.server'
 import type { EmailDeliveryRow, EmailQuery } from './email-delivery.server'
 
 function row(id: string): EmailDeliveryRow {
@@ -49,5 +49,25 @@ describe('processEmailDeliveries', () => {
     expect(
       calls.some((sql) => sql.includes('finish_email_delivery($1, false')),
     ).toBe(true)
+  })
+})
+
+describe('readSmtpConfig', () => {
+  it('is null without a host and full when configured', () => {
+    expect(readSmtpConfig({})).toBeNull()
+    expect(
+      readSmtpConfig({
+        SMTP_HOST: 'smtp.test',
+        SMTP_PORT: '465',
+        SMTP_USER: 'u',
+        SMTP_PASS: 'p',
+      }),
+    ).toEqual({
+      host: 'smtp.test',
+      port: 465,
+      user: 'u',
+      pass: 'p',
+      from: 'Sheetbase <no-reply@sheetbase.local>',
+    })
   })
 })

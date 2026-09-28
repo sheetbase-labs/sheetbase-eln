@@ -77,3 +77,61 @@ export async function processEmailDeliveries(
   }
   return result
 }
+
+// ---------------------------------------------------------------------------
+// SMTP transport (WORK-03.4). Configured from the environment; the worker
+// only runs when SMTP_HOST is set. `nodemailer` is loaded lazily so the
+// dependency is required only when email is actually configured.
+// ---------------------------------------------------------------------------
+
+export interface SmtpConfig {
+  host: string
+  port: number
+  user: string | null
+  pass: string | null
+  from: string
+}
+
+export function readSmtpConfig(
+  env: Record<string, string | undefined> = process.env,
+): SmtpConfig | null {
+  const host = env.SMTP_HOST
+  if (!host) return null
+  return {
+    host,
+    port: Number(env.SMTP_PORT ?? 587),
+    user: env.SMTP_USER ?? null,
+    pass: env.SMTP_PASS ?? null,
+    from: env.SMTP_FROM ?? 'Sheetbase <no-reply@sheetbase.local>',
+  }
+}
+
+/** Build a transport over the configured SMTP server. */
+export async function createSmtpTransport(
+  config: SmtpConfig,
+): Promise<EmailTransport> {
+  // Loaded by a variable specifier: nodemailer is an optional dependency, so
+  // it is present only when email delivery is configured.
+  const moduleName = 'nodemailer'
+  const { createTransport } = (await import(moduleName)) as {
+    createTransport: (options: Record<string, unknown>) => {
+      sendMail: (message: Record<string, unknown>) => Promise<unknown>
+    }
+  }
+  const transport = createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.port === 465,
+    auth: config.user ? { user: config.user, pass: config.pass } : undefined,
+  })
+  return {
+    send: async (message) => {
+      await transport.sendMail({
+        from: config.from,
+        to: message.to,
+        subject: message.subject,
+        text: message.body,
+      })
+    },
+  }
+}

@@ -34,6 +34,18 @@ const ALLOWLIST = new Set<string>([
   'SHA-256',
 ])
 
+/**
+ * Identifier families the data model stores and the seed can reproduce. Other
+ * id-like values (DS-0311, PL-0007, SHT-0019, MDL-0012, CAL-0913 …) are
+ * display identifiers with no stored column yet, so they are reported
+ * separately as a data-model gap rather than counted as seed misses.
+ */
+const STORED_PREFIXES = new Set(['EXP', 'SMP', 'PRT', 'MAT'])
+
+function prefixOf(token: string): string {
+  return token.split('-')[0] ?? ''
+}
+
 async function seededStrings(): Promise<string[]> {
   const client = new Client({ connectionString: process.env.DATABASE_URL })
   await client.connect()
@@ -67,12 +79,21 @@ async function main() {
 
   let total = 0
   let unmatchedTotal = 0
+  const displayFamilies = new Set<string>()
   for (const screen of screens) {
     const text = readFileSync(join(SCREEN_TEXT_DIR, screen), 'utf8')
     const tokens = Array.from(new Set(text.match(ID_PATTERN) ?? []))
-    if (tokens.length === 0) continue
-    total += tokens.length
-    const unmatched = tokens.filter(
+    const stored = tokens.filter((token) =>
+      STORED_PREFIXES.has(prefixOf(token)),
+    )
+    for (const token of tokens) {
+      if (!STORED_PREFIXES.has(prefixOf(token))) {
+        displayFamilies.add(prefixOf(token))
+      }
+    }
+    if (stored.length === 0) continue
+    total += stored.length
+    const unmatched = stored.filter(
       (token) =>
         !ALLOWLIST.has(token) && !seeded.some((value) => value.includes(token)),
     )
@@ -83,7 +104,10 @@ async function main() {
   }
 
   console.log(
-    `\ncoverage: ${total - unmatchedTotal}/${total} ID values matched, ${unmatchedTotal} unmatched`,
+    `\nseedable id coverage: ${total - unmatchedTotal}/${total} matched, ${unmatchedTotal} unmatched`,
+  )
+  console.log(
+    `display-id families with no stored column yet: ${[...displayFamilies].sort().join(', ')}`,
   )
 }
 

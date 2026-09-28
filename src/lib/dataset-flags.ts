@@ -8,6 +8,7 @@
  */
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
+import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 
 export type DatasetValueFlagKind =
   'out_of_range' | 'missing_unit' | 'above_curve' | 'high_cv'
@@ -87,6 +88,24 @@ export function isValueFlagged(
   fieldId: string,
 ): boolean {
   return index.has(flagKey(rowId, fieldId))
+}
+
+/**
+ * Keep rows whose used fields are not flagged. Rows without a stable row id
+ * are kept (they cannot be matched to a flag).
+ */
+export function filterRowsByFlags(
+  rows: readonly Record<string, unknown>[],
+  flags: readonly DatasetValueFlag[],
+  fieldIds: readonly string[],
+): Record<string, unknown>[] {
+  if (flags.length === 0 || fieldIds.length === 0) return [...rows]
+  const index = buildFlagIndex(flags)
+  return rows.filter((row) => {
+    const rowId = row[CHART_ROW_ID_KEY]
+    if (typeof rowId !== 'string') return true
+    return !fieldIds.some((fieldId) => isValueFlagged(index, rowId, fieldId))
+  })
 }
 
 export interface ExcludedValue {

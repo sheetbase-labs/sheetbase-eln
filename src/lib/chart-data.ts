@@ -27,11 +27,7 @@ import { toBlock } from './notebook-data'
 import type { BlockWire, NotebookBlock } from './notebook-data'
 import { materialiseChart, materialiseFacetedCharts } from './chart-spec'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
-import {
-  buildFlagIndex,
-  fetchActiveDatasetFlags,
-  isValueFlagged,
-} from './dataset-flags'
+import { fetchActiveDatasetFlags, filterRowsByFlags } from './dataset-flags'
 import type { DatasetValueFlag } from './dataset-flags'
 import type {
   ChartColumn,
@@ -306,17 +302,7 @@ export function materialiseLiveChart(
   const usedFields = Object.values(spec.fields)
     .map((binding) => binding?.fieldId)
     .filter((fieldId): fieldId is string => typeof fieldId === 'string')
-  let rows = dataset.rows
-  if (dataset.flags && dataset.flags.length > 0 && usedFields.length > 0) {
-    const index = buildFlagIndex(dataset.flags)
-    rows = rows.filter((row) => {
-      const rowId = row[CHART_ROW_ID_KEY]
-      if (typeof rowId !== 'string') return true
-      return !usedFields.some((fieldId) =>
-        isValueFlagged(index, rowId, fieldId),
-      )
-    })
-  }
+  const rows = filterRowsByFlags(dataset.rows, dataset.flags ?? [], usedFields)
   return materialiseChart(spec, dataset.source.columns, rows)
 }
 

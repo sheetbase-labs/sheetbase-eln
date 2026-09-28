@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFlagIndex,
   excludeFlaggedValues,
+  filterRowsByFlags,
   flagKey,
   isValueFlagged,
   toDatasetValueFlag,
@@ -75,5 +76,26 @@ describe('excluding flagged values', () => {
     expect(excluded).toEqual([
       { rowId: 'r2', fieldId: 'titre', flag: index.get('r2:titre') },
     ])
+  })
+})
+
+describe('filterRowsByFlags', () => {
+  it('keeps rows whose used fields are not flagged', () => {
+    const index = buildFlagIndex([flag({ rowId: 'r2', fieldId: 'titre' })])
+    const rows = [
+      { __sheetbaseRowId: 'r1', titre: 1 },
+      { __sheetbaseRowId: 'r2', titre: 2 },
+      { titre: 3 },
+    ]
+    const kept = filterRowsByFlags(rows, [...index.values()], ['titre'])
+    expect(kept.map((row) => row.__sheetbaseRowId ?? 'no-id')).toEqual([
+      'r1',
+      'no-id',
+    ])
+  })
+
+  it('returns the rows unchanged when there are no flags', () => {
+    const rows = [{ __sheetbaseRowId: 'r1', titre: 1 }]
+    expect(filterRowsByFlags(rows, [], ['titre'])).toEqual(rows)
   })
 })

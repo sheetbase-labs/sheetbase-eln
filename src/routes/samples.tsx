@@ -1,5 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import {
+  Link,
+  Outlet,
+  createFileRoute,
+  redirect,
+  useRouterState,
+} from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -83,8 +89,15 @@ export const Route = createFileRoute('/samples')({
     }
     return { context }
   },
-  component: SamplesList,
+  component: SamplesRoute,
 })
+
+function SamplesRoute() {
+  const isIndex = useRouterState({
+    select: (state) => state.location.pathname === '/samples',
+  })
+  return isIndex ? <SamplesList /> : <Outlet />
+}
 
 function SamplesList() {
   const { context } = Route.useRouteContext()
@@ -224,7 +237,13 @@ function SamplesList() {
                   <TableCell
                     className={s.uuid === sel?.uuid ? 'font-medium' : undefined}
                   >
-                    {s.name}
+                    <Link
+                      to="/samples/$sampleId"
+                      params={{ sampleId: s.uuid }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {s.name}
+                    </Link>
                   </TableCell>
                   <TableCell>{s.type}</TableCell>
                   <TableCell align="right">{s.quantity}</TableCell>

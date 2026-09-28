@@ -118,6 +118,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Sample detail ported**: `/samples/$sampleId` is app-3's frame (crumbs,
+  status/type meta, Withdraw/Move actions, tabs Details/Usage/History/Lineage/
+  Measurements) on real sample records; Withdraw/Move use `consume_sample` /
+  `transfer_sample`; Usage reads `record_links`; History reads `sample_events`.
+  Lineage and Measurements state their unbuilt capabilities rather than faking
+  a tree. The list's name links into the detail.
+
 - **Materials list ported**: `/materials` (renamed from `/reagents`) renders
   app-3's materials registry (tabs In stock/Expiring/Quarantine/Expired, search,
   table + mobile list, footer, lot inspector) wired to real reagent records

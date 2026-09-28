@@ -46,6 +46,7 @@ import { Route as PipelinesDefinitionIdRouteImport } from './routes/pipelines/$d
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
+import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
 import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
@@ -66,6 +67,11 @@ import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects
 import { Route as RecordsRecordIdIndexRouteImport } from './routes/records/$recordId/index'
 import { Route as RecordsRecordIdNotebookRouteImport } from './routes/records/$recordId/notebook'
 import { Route as RecordsRecordIdOverviewRouteImport } from './routes/records/$recordId/overview'
+import { Route as SamplesSampleIdIndexRouteImport } from './routes/samples/$sampleId/index'
+import { Route as SamplesSampleIdHistoryRouteImport } from './routes/samples/$sampleId/history'
+import { Route as SamplesSampleIdLineageRouteImport } from './routes/samples/$sampleId/lineage'
+import { Route as SamplesSampleIdMeasurementsRouteImport } from './routes/samples/$sampleId/measurements'
+import { Route as SamplesSampleIdUsageRouteImport } from './routes/samples/$sampleId/usage'
 import { Route as ApiCollaborationResolveRoomsRouteImport } from './routes/api/collaboration/resolve.rooms'
 import { Route as ApiCollaborationResolveUsersRouteImport } from './routes/api/collaboration/resolve.users'
 import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/export/dataset-version/$id'
@@ -262,6 +268,11 @@ const ReviewsRevisionIdRoute = ReviewsRevisionIdRouteImport.update({
   path: '/reviews/$revisionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SamplesSampleIdRoute = SamplesSampleIdRouteImport.update({
+  id: '/$sampleId',
+  path: '/$sampleId',
+  getParentRoute: () => SamplesRoute,
+} as any)
 const SheetsInstanceIdRoute = SheetsInstanceIdRouteImport.update({
   id: '/sheets/$instanceId',
   path: '/sheets/$instanceId',
@@ -366,6 +377,32 @@ const RecordsRecordIdOverviewRoute = RecordsRecordIdOverviewRouteImport.update({
   path: '/overview',
   getParentRoute: () => RecordsRecordIdRoute,
 } as any)
+const SamplesSampleIdIndexRoute = SamplesSampleIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SamplesSampleIdRoute,
+} as any)
+const SamplesSampleIdHistoryRoute = SamplesSampleIdHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => SamplesSampleIdRoute,
+} as any)
+const SamplesSampleIdLineageRoute = SamplesSampleIdLineageRouteImport.update({
+  id: '/lineage',
+  path: '/lineage',
+  getParentRoute: () => SamplesSampleIdRoute,
+} as any)
+const SamplesSampleIdMeasurementsRoute =
+  SamplesSampleIdMeasurementsRouteImport.update({
+    id: '/measurements',
+    path: '/measurements',
+    getParentRoute: () => SamplesSampleIdRoute,
+  } as any)
+const SamplesSampleIdUsageRoute = SamplesSampleIdUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => SamplesSampleIdRoute,
+} as any)
 const ApiCollaborationResolveRoomsRoute =
   ApiCollaborationResolveRoomsRouteImport.update({
     id: '/api/collaboration/resolve/rooms',
@@ -442,7 +479,7 @@ export interface FileRoutesByFullPath {
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/report-builder': typeof ReportBuilderRoute
-  '/samples': typeof SamplesRoute
+  '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -461,6 +498,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -478,9 +516,14 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
+  '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
+  '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
+  '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
+  '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
+  '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
@@ -511,7 +554,7 @@ export interface FileRoutesByTo {
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/report-builder': typeof ReportBuilderRoute
-  '/samples': typeof SamplesRoute
+  '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -545,9 +588,14 @@ export interface FileRoutesByTo {
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
+  '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
+  '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
+  '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
+  '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/api/token': typeof ApiTokenIndexRoute
   '/projects/$projectId': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId': typeof RecordsRecordIdIndexRoute
+  '/samples/$sampleId': typeof SamplesSampleIdIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
@@ -579,7 +627,7 @@ export interface FileRoutesById {
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/report-builder': typeof ReportBuilderRoute
-  '/samples': typeof SamplesRoute
+  '/samples': typeof SamplesRouteWithChildren
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -598,6 +646,7 @@ export interface FileRoutesById {
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -615,9 +664,14 @@ export interface FileRoutesById {
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
+  '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
+  '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
+  '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
+  '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
+  '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
@@ -669,6 +723,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/records/$recordId'
     | '/reviews/$revisionId'
+    | '/samples/$sampleId'
     | '/sheets/$instanceId'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -686,9 +741,14 @@ export interface FileRouteTypes {
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/records/$recordId/overview'
+    | '/samples/$sampleId/history'
+    | '/samples/$sampleId/lineage'
+    | '/samples/$sampleId/measurements'
+    | '/samples/$sampleId/usage'
     | '/api/token/'
     | '/projects/$projectId/'
     | '/records/$recordId/'
+    | '/samples/$sampleId/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -753,9 +813,14 @@ export interface FileRouteTypes {
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/records/$recordId/overview'
+    | '/samples/$sampleId/history'
+    | '/samples/$sampleId/lineage'
+    | '/samples/$sampleId/measurements'
+    | '/samples/$sampleId/usage'
     | '/api/token'
     | '/projects/$projectId'
     | '/records/$recordId'
+    | '/samples/$sampleId'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -805,6 +870,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/records/$recordId'
     | '/reviews/$revisionId'
+    | '/samples/$sampleId'
     | '/sheets/$instanceId'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -822,9 +888,14 @@ export interface FileRouteTypes {
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/records/$recordId/overview'
+    | '/samples/$sampleId/history'
+    | '/samples/$sampleId/lineage'
+    | '/samples/$sampleId/measurements'
+    | '/samples/$sampleId/usage'
     | '/api/token/'
     | '/projects/$projectId/'
     | '/records/$recordId/'
+    | '/samples/$sampleId/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -856,7 +927,7 @@ export interface RootRouteChildren {
   PlateDesignerRoute: typeof PlateDesignerRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReportBuilderRoute: typeof ReportBuilderRoute
-  SamplesRoute: typeof SamplesRoute
+  SamplesRoute: typeof SamplesRouteWithChildren
   ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
@@ -1156,6 +1227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewsRevisionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/samples/$sampleId': {
+      id: '/samples/$sampleId'
+      path: '/$sampleId'
+      fullPath: '/samples/$sampleId'
+      preLoaderRoute: typeof SamplesSampleIdRouteImport
+      parentRoute: typeof SamplesRoute
+    }
     '/sheets/$instanceId': {
       id: '/sheets/$instanceId'
       path: '/sheets/$instanceId'
@@ -1296,6 +1374,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecordsRecordIdOverviewRouteImport
       parentRoute: typeof RecordsRecordIdRoute
     }
+    '/samples/$sampleId/': {
+      id: '/samples/$sampleId/'
+      path: '/'
+      fullPath: '/samples/$sampleId/'
+      preLoaderRoute: typeof SamplesSampleIdIndexRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/samples/$sampleId/history': {
+      id: '/samples/$sampleId/history'
+      path: '/history'
+      fullPath: '/samples/$sampleId/history'
+      preLoaderRoute: typeof SamplesSampleIdHistoryRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/samples/$sampleId/lineage': {
+      id: '/samples/$sampleId/lineage'
+      path: '/lineage'
+      fullPath: '/samples/$sampleId/lineage'
+      preLoaderRoute: typeof SamplesSampleIdLineageRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/samples/$sampleId/measurements': {
+      id: '/samples/$sampleId/measurements'
+      path: '/measurements'
+      fullPath: '/samples/$sampleId/measurements'
+      preLoaderRoute: typeof SamplesSampleIdMeasurementsRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/samples/$sampleId/usage': {
+      id: '/samples/$sampleId/usage'
+      path: '/usage'
+      fullPath: '/samples/$sampleId/usage'
+      preLoaderRoute: typeof SamplesSampleIdUsageRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
     '/api/collaboration/resolve/rooms': {
       id: '/api/collaboration/resolve/rooms'
       path: '/api/collaboration/resolve/rooms'
@@ -1434,6 +1547,37 @@ const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
   ProjectsRouteChildren,
 )
 
+interface SamplesSampleIdRouteChildren {
+  SamplesSampleIdHistoryRoute: typeof SamplesSampleIdHistoryRoute
+  SamplesSampleIdLineageRoute: typeof SamplesSampleIdLineageRoute
+  SamplesSampleIdMeasurementsRoute: typeof SamplesSampleIdMeasurementsRoute
+  SamplesSampleIdUsageRoute: typeof SamplesSampleIdUsageRoute
+  SamplesSampleIdIndexRoute: typeof SamplesSampleIdIndexRoute
+}
+
+const SamplesSampleIdRouteChildren: SamplesSampleIdRouteChildren = {
+  SamplesSampleIdHistoryRoute: SamplesSampleIdHistoryRoute,
+  SamplesSampleIdLineageRoute: SamplesSampleIdLineageRoute,
+  SamplesSampleIdMeasurementsRoute: SamplesSampleIdMeasurementsRoute,
+  SamplesSampleIdUsageRoute: SamplesSampleIdUsageRoute,
+  SamplesSampleIdIndexRoute: SamplesSampleIdIndexRoute,
+}
+
+const SamplesSampleIdRouteWithChildren = SamplesSampleIdRoute._addFileChildren(
+  SamplesSampleIdRouteChildren,
+)
+
+interface SamplesRouteChildren {
+  SamplesSampleIdRoute: typeof SamplesSampleIdRouteWithChildren
+}
+
+const SamplesRouteChildren: SamplesRouteChildren = {
+  SamplesSampleIdRoute: SamplesSampleIdRouteWithChildren,
+}
+
+const SamplesRouteWithChildren =
+  SamplesRoute._addFileChildren(SamplesRouteChildren)
+
 interface RecordsRecordIdRouteChildren {
   RecordsRecordIdNotebookRoute: typeof RecordsRecordIdNotebookRoute
   RecordsRecordIdOverviewRoute: typeof RecordsRecordIdOverviewRoute
@@ -1469,7 +1613,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlateDesignerRoute: PlateDesignerRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ReportBuilderRoute: ReportBuilderRoute,
-  SamplesRoute: SamplesRoute,
+  SamplesRoute: SamplesRouteWithChildren,
   ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,

@@ -160,6 +160,7 @@ function routes(ids) {
   if (ids.analysis) list.push(`/analysis/${ids.analysis}`)
   if (ids.protocol) list.push(`/protocols/${ids.protocol}`)
   if (ids.revision) list.push(`/review/${ids.revision}`)
+  if (ids.revision) list.push(`/evidence/${ids.revision}`)
   return list
 }
 

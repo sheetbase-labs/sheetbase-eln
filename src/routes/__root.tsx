@@ -120,6 +120,7 @@ function RootRouteComponent() {
     '/',
     '/inbox',
     '/review/$revisionId',
+    '/evidence/$revisionId',
     '/schedule',
     '/search',
     '/settings',

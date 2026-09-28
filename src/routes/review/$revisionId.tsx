@@ -705,9 +705,8 @@ export function WorkspaceHeader({
                 Open working Notebook
               </Link>
               <Link
-                to="/records/$recordId"
-                params={{ recordId }}
-                search={{ revision: revision.id } as never}
+                to="/evidence/$revisionId"
+                params={{ revisionId: revision.id }}
                 className="text-muted-foreground underline-offset-4 hover:underline"
               >
                 View submitted evidence

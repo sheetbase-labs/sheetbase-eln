@@ -540,7 +540,7 @@ describe('WorkspaceHeader — post-submission navigation', () => {
       screen
         .getByRole('link', { name: 'View submitted evidence' })
         .getAttribute('href'),
-    ).toBe('/records/rec-1?revision=rev-1')
+    ).toBe('/evidence/rev-1')
   })
 
   it('omits the links when the record is unknown', () => {

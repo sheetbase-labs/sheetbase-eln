@@ -46,6 +46,7 @@ import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 import { Route as DocsNameRouteImport } from './routes/docs/$name'
+import { Route as EvidenceRevisionIdRouteImport } from './routes/evidence/$revisionId'
 import { Route as ExperimentsExpIdRouteImport } from './routes/experiments/$expId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
@@ -309,6 +310,11 @@ const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
 const DocsNameRoute = DocsNameRouteImport.update({
   id: '/docs/$name',
   path: '/docs/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EvidenceRevisionIdRoute = EvidenceRevisionIdRouteImport.update({
+  id: '/evidence/$revisionId',
+  path: '/evidence/$revisionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExperimentsExpIdRoute = ExperimentsExpIdRouteImport.update({
@@ -770,6 +776,7 @@ export interface FileRoutesByFullPath {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
+  '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -886,6 +893,7 @@ export interface FileRoutesByTo {
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/docs/$name': typeof DocsNameRoute
+  '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
@@ -998,6 +1006,7 @@ export interface FileRoutesById {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
+  '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -1118,6 +1127,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/datasets/$datasetId'
     | '/docs/$name'
+    | '/evidence/$revisionId'
     | '/experiments/$expId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1234,6 +1244,7 @@ export interface FileRouteTypes {
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/docs/$name'
+    | '/evidence/$revisionId'
     | '/protocols/$protocolId'
     | '/review/$revisionId'
     | '/settings/access'
@@ -1345,6 +1356,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/datasets/$datasetId'
     | '/docs/$name'
+    | '/evidence/$revisionId'
     | '/experiments/$expId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1461,6 +1473,7 @@ export interface RootRouteChildren {
   ApiMetricsRoute: typeof ApiMetricsRoute
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   DocsNameRoute: typeof DocsNameRoute
+  EvidenceRevisionIdRoute: typeof EvidenceRevisionIdRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
   ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
   SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
@@ -1746,6 +1759,13 @@ declare module '@tanstack/react-router' {
       path: '/docs/$name'
       fullPath: '/docs/$name'
       preLoaderRoute: typeof DocsNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/evidence/$revisionId': {
+      id: '/evidence/$revisionId'
+      path: '/evidence/$revisionId'
+      fullPath: '/evidence/$revisionId'
+      preLoaderRoute: typeof EvidenceRevisionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/experiments/$expId': {
@@ -2645,6 +2665,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMetricsRoute: ApiMetricsRoute,
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   DocsNameRoute: DocsNameRoute,
+  EvidenceRevisionIdRoute: EvidenceRevisionIdRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
   ReviewRevisionIdRoute: ReviewRevisionIdRoute,
   SheetsInstanceIdRoute: SheetsInstanceIdRoute,

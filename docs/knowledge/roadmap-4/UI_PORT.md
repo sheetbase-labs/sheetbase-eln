@@ -118,6 +118,15 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Evidence view added**: `/evidence/$revisionId` shows a frozen revision as
+  submitted evidence — title and identifier from the revision's metadata
+  snapshot, its blocks read-only, the integrity digest, and a warning when the
+  live record has moved on (the way forward is an amendment, never an edit). It
+  links to the live record and to the existing evidence-package export
+  (`/api/export/revision/$id/package`). The review header's "View submitted
+  evidence" link now points here, and the screens suite covers the route
+  (47 routes × 2 widths clean).
+
 - **Review moved into app-3's shell**: the review workspace is now
   `/review/$revisionId` (was `/reviews/$revisionId`) and renders inside app-3's
   chrome — the legacy `useShell`/`RouteShell` wrapper is replaced by a content

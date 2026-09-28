@@ -49,6 +49,18 @@ matching line; include-archived option; "did you mean" for near-miss IDs.
    each cell with its column label) in a search table maintained by triggers;
    results carry dataset/sheet, row numbers and the matched column. Measure
    index size on the month seed (`pnpm db:seed:month`) and record it here.
+
+   Progress: published Dataset cell values are indexed in
+   `api.dataset_cell_search` (trigger-maintained from `dataset_version_values`,
+   RLS-scoped) and searched by `api.search_cells`; DB tests cover a member, a
+   viewer and an outsider. Sheet row values wait on the SHEET capability: the
+   value shape lives in the Sheet Instance state, so indexing before it exists
+   would invent structure. Row numbers are not in the data model (a version row
+   has only `row_id`), so results carry the row identity instead of a faked
+   number. Local measurement: the design seed has no Dataset Version values, so
+   the index holds 0 rows at 48 kB; `pnpm db:seed:month` targets the production
+   workspace (`798f250c-…`) and cannot run against the design/demo seed, so the
+   month-scale size is not measurable here.
 3. File contents: at upload, extract text for CSV/TXT (and PDF text when a
    text layer exists) into a searchable column with line numbers; results show
    the matching line.

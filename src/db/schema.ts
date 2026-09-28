@@ -3045,6 +3045,47 @@ export const datasetVersionValues = api.table(
 )
 
 /**
+ * SRCH-01.2 — full-text index over published Dataset cell values, maintained by
+ * a trigger on dataset_version_values. Search returns the dataset, the matched
+ * field label and the row identity.
+ */
+export const datasetCellSearch = api.table(
+  'dataset_cell_search',
+  {
+    datasetVersionId: uuid('dataset_version_id')
+      .notNull()
+      .references(() => datasetVersions.id, { onDelete: 'cascade' }),
+    rowId: uuid('row_id').notNull(),
+    fieldId: uuid('field_id').notNull(),
+    ordinal: integer('ordinal').notNull().default(0),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    fieldLabel: text('field_label').notNull(),
+    valueText: text('value_text').notNull(),
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(value_text, '') || ' ' || coalesce(field_label, ''))`,
+    ),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.datasetVersionId,
+        table.rowId,
+        table.fieldId,
+        table.ordinal,
+      ],
+    }),
+    index('idx_dataset_cell_search_vector').using('gin', table.searchVector),
+    index('idx_dataset_cell_search_workspace').on(table.workspaceId),
+    index('idx_dataset_cell_search_dataset').on(table.datasetId),
+  ],
+)
+
+/**
  * dataset_version_keeps (DSET-04.3) — a manual "Keep" on an immutable snapshot.
  * The snapshot itself is frozen evidence, so the keep is stored beside it, one
  * row per version, and read by the retention function.

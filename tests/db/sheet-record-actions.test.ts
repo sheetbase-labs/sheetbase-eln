@@ -357,7 +357,7 @@ describe('atomic create+link and bulk commit', () => {
       ok: true,
       notebookRecordLink: false,
     })
-    expect(created.rows[0].result.identifier).toMatch(/^SMP-\d{4}-\d{4}$/)
+    expect(created.rows[0].result.identifier).toMatch(/^SMP-\d{4}$/)
     const linked = await migrator.query(
       `select reference_id::text as sample from api.dataset_row_values where row_id=$1 and field_id=$2`,
       [dataset.rowId, SAMPLE_FIELD],
@@ -442,7 +442,7 @@ describe('atomic create+link and bulk commit', () => {
     ])
     const createdId = firstCommit.rows[0].result.rows[0].recordId as string
     expect(firstCommit.rows[0].result.rows[0].identifier).toMatch(
-      /^SMP-\d{4}-\d{4}$/,
+      /^SMP-\d{4}$/,
     )
     const replay = await owner.query(
       `select api.commit_sheet_record_batch($1,'sample',$2::jsonb,$3) result`,

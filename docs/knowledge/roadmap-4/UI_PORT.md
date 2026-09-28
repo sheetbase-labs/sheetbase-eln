@@ -139,12 +139,19 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   all green against real data. The bench reading leg (scan → record reading into
   a planned sheet row, MOB-02) still lands with that capability.
 
+- **New experiment (app-3 `/experiments/new`)**: the Experiments list has a
+  "New experiment" action and the shell's New menu links to it. The form asks
+  for a project and a title and creates a real draft through the canonical
+  `create_record_with_blocks` RPC, then opens the new notebook; app-3's
+  reviewer, planned end, protocol-to-follow and copy-materials fields are
+  stated as gaps. Acceptance: screens 55 routes, crawl 300 pages/0/0.
+
 - **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
   "Open full lineage" link on the legacy record notebook; it is removed, so the
   crawl reports 0 404s. The crawl also skips `/api/*` hrefs (file downloads
   start a download that navigation cannot follow), keeping the crawl at
-  285 pages, 0 problems, 0 404s. Full acceptance is green: `test:crawl`
-  (285/0/0), `test:screens` (54 routes × 2 widths), `test:phone`,
+  300 pages, 0 problems, 0 404s. Full acceptance is green: `test:crawl`
+  (300/0/0), `test:screens` (55 routes × 2 widths), `test:phone`,
   `test:areas`, `test:interactions`. Acceptance runs raise
   `SHEETBASE_RATE_LIMIT_MAX` because the PLAT-03 proxy limiter otherwise trips
   on the suite's request burst; that is an acceptance-time env override, not a

@@ -268,6 +268,13 @@ function NewMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[240px]">
         <DropdownMenuLinkItem
+          icon="flask"
+          hint="E"
+          render={<Link to="/experiments/new" />}
+        >
+          Experiment
+        </DropdownMenuLinkItem>
+        <DropdownMenuLinkItem
           icon="tube"
           hint="S"
           render={<Link to="/samples" search={{}} />}

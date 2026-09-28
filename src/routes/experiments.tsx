@@ -181,6 +181,15 @@ function Experiments() {
         <div className="flex items-center gap-2">
           <h1 className="text-title">Experiments</h1>
           <span className="num text-body text-fg-muted">{rows.length}</span>
+          <Button
+            variant="primary"
+            icon="plus"
+            className="ml-auto"
+            nativeButton={false}
+            render={<Link to="/experiments/new" />}
+          >
+            New experiment
+          </Button>
         </div>
         <SearchTabs
           className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0"

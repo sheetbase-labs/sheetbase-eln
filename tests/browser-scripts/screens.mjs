@@ -106,6 +106,7 @@ function routes(ids) {
     '/sheets/new',
     '/instruments',
     '/scan',
+    '/experiments/new',
     '/templates',
     '/models',
     '/pipelines',

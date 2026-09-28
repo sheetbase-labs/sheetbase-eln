@@ -47,6 +47,7 @@ import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datase
 import { Route as DocsNameRouteImport } from './routes/docs/$name'
 import { Route as EvidenceRevisionIdRouteImport } from './routes/evidence/$revisionId'
 import { Route as ExperimentsExpIdRouteImport } from './routes/experiments/$expId'
+import { Route as ExperimentsNewRouteImport } from './routes/experiments/new'
 import { Route as InstrumentsInstrumentIdRouteImport } from './routes/instruments/$instrumentId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
@@ -316,6 +317,11 @@ const EvidenceRevisionIdRoute = EvidenceRevisionIdRouteImport.update({
 const ExperimentsExpIdRoute = ExperimentsExpIdRouteImport.update({
   id: '/$expId',
   path: '/$expId',
+  getParentRoute: () => ExperimentsRoute,
+} as any)
+const ExperimentsNewRoute = ExperimentsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
   getParentRoute: () => ExperimentsRoute,
 } as any)
 const InstrumentsInstrumentIdRoute = InstrumentsInstrumentIdRouteImport.update({
@@ -783,6 +789,7 @@ export interface FileRoutesByFullPath {
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
+  '/experiments/new': typeof ExperimentsNewRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -900,6 +907,7 @@ export interface FileRoutesByTo {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
+  '/experiments/new': typeof ExperimentsNewRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
@@ -1015,6 +1023,7 @@ export interface FileRoutesById {
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
+  '/experiments/new': typeof ExperimentsNewRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -1137,6 +1146,7 @@ export interface FileRouteTypes {
     | '/docs/$name'
     | '/evidence/$revisionId'
     | '/experiments/$expId'
+    | '/experiments/new'
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1254,6 +1264,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/docs/$name'
     | '/evidence/$revisionId'
+    | '/experiments/new'
     | '/instruments/$instrumentId'
     | '/protocols/$protocolId'
     | '/review/$revisionId'
@@ -1368,6 +1379,7 @@ export interface FileRouteTypes {
     | '/docs/$name'
     | '/evidence/$revisionId'
     | '/experiments/$expId'
+    | '/experiments/new'
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1778,6 +1790,13 @@ declare module '@tanstack/react-router' {
       path: '/$expId'
       fullPath: '/experiments/$expId'
       preLoaderRoute: typeof ExperimentsExpIdRouteImport
+      parentRoute: typeof ExperimentsRoute
+    }
+    '/experiments/new': {
+      id: '/experiments/new'
+      path: '/new'
+      fullPath: '/experiments/new'
+      preLoaderRoute: typeof ExperimentsNewRouteImport
       parentRoute: typeof ExperimentsRoute
     }
     '/instruments/$instrumentId': {
@@ -2421,10 +2440,12 @@ const ExperimentsExpIdRouteWithChildren =
 
 interface ExperimentsRouteChildren {
   ExperimentsExpIdRoute: typeof ExperimentsExpIdRouteWithChildren
+  ExperimentsNewRoute: typeof ExperimentsNewRoute
 }
 
 const ExperimentsRouteChildren: ExperimentsRouteChildren = {
   ExperimentsExpIdRoute: ExperimentsExpIdRouteWithChildren,
+  ExperimentsNewRoute: ExperimentsNewRoute,
 }
 
 const ExperimentsRouteWithChildren = ExperimentsRoute._addFileChildren(

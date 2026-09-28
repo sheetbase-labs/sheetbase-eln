@@ -150,6 +150,7 @@ function RootRouteComponent() {
     '/templates/$templateId/in-use',
     '/templates/$templateId/update',
     '/experiments',
+    '/experiments/new',
     '/experiments/$expId',
     '/experiments/$expId/',
     '/experiments/$expId/overview',

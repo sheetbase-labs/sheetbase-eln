@@ -178,6 +178,21 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   exports). The `data-grid-types` type augmentation stays, since registry code
   reads it.
 
+- **Settings and integrations fully on the v3 kit**: the Settings sections
+  (General, Notifications, Profile sessions, API tokens, workspace service
+  credentials) and every integrations component (connector detail, run history,
+  register dialog, credentials card, instrument ingestion, enterprise sources)
+  now live under `src/components/v3/` and use the v3 kit; the legacy
+  `components/settings` and `components/integrations` directories are deleted.
+
+- **Remaining legacy UI (recorded)**: the record notebook
+  (`/records/$recordId/notebook`) and the review workspace
+  (`/review/$revisionId`) render inside the v3 shell but keep their legacy
+  functional editors (`#/components/notebook`, `#/components/record`,
+  `#/components/scientific`, `#/components/ui`); reskinning them is a separate
+  pass. The ELN-only legacy routes (`/configure`, `/admin`, `/help`,
+  `/analysis`, `/planner`, `/docs`, `/foundations`) still use the ELN shell.
+
 - **Agent surface folded into `/pipelines/agents` (DEC-03 / PIPE-01)**: the
   Pipelines list links to an Agent operations surface with Workflows, Proposals
   and Policies tabs, reading the real `agent_operation_proposals`,

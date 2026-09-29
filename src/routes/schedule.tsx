@@ -18,14 +18,16 @@ import { toast } from '#/components/v3/ui/sonner'
 import { NativeSelect } from '#/components/v3/projects/select'
 import {
   bookInstrument,
+  useBookingSamples,
   useRangeBookings,
   useScheduleResources,
 } from '#/components/v3/schedule/schedule-data'
-import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 import type {
+  BookingSample,
   ScheduleBooking,
   ScheduleInstrument,
 } from '#/components/v3/schedule/schedule-data'
+import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 import { useWorkItems } from '#/lib/work-items/data'
 import { cn } from '#/lib/utils'
 
@@ -98,6 +100,9 @@ function Schedule() {
       : 'A colleague',
   }))
   const mineCount = bookings.filter((b) => b.mine).length
+  const bookingSamples = useBookingSamples(
+    bookings.filter((b) => b.date === today).map((b) => b.id),
+  )
   const workItemsQuery = useWorkItems()
   const reviews = (workItemsQuery.data ?? []).filter(
     (i) => i.kind === 'review_requested',
@@ -206,6 +211,7 @@ function Schedule() {
             due: r.dueAt ? r.dueAt.slice(0, 10) : '—',
             urgent: r.state === 'overdue',
           }))}
+          materials={bookingSamples.data ?? []}
         />
       )}
     </div>
@@ -486,6 +492,7 @@ function PhoneDay({
 
 function Below({
   reviews,
+  materials,
 }: {
   reviews: {
     id: string
@@ -494,6 +501,7 @@ function Below({
     due: string
     urgent: boolean
   }[]
+  materials: BookingSample[]
 }) {
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
@@ -543,10 +551,37 @@ function Below({
       <section>
         <div className="mb-1 flex items-baseline gap-2">
           <h2 className="text-body">Materials for today</h2>
+          <span className="num text-body text-fg-muted">
+            {materials.length}
+          </span>
         </div>
-        <Muted>
-          Material availability arrives with the materials capability.
-        </Muted>
+        {materials.length ? (
+          materials.map((m, i) => (
+            <div
+              key={m.id}
+              className={cn(
+                'grid grid-cols-[76px_1fr_auto] items-center gap-2 py-2 text-body',
+                i < materials.length - 1 && 'border-b border-border-subtle',
+              )}
+            >
+              {m.sampleRecordId ? (
+                <Link
+                  to="/samples/$sampleId"
+                  params={{ sampleId: m.sampleRecordId }}
+                  className="mono"
+                >
+                  {m.identifier}
+                </Link>
+              ) : (
+                <span className="mono text-fg-muted">{m.identifier}</span>
+              )}
+              <span>{m.title}</span>
+              <span className="num text-fg-muted">{m.left}</span>
+            </div>
+          ))
+        ) : (
+          <Muted>No samples are booked for today.</Muted>
+        )}
       </section>
     </div>
   )

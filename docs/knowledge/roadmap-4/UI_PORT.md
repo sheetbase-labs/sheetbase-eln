@@ -523,8 +523,8 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 - **Search ported**: `/search` renders app-3's results page (filter aside, type
   facets, updated/archived filters, grouped results) wired to the real `search`
   RPC and `search_did_you_mean` for "Did you mean". The old Search page and its
-  test are deleted. Gaps: multi-type filtering is client-side over the top 100
-  results; the ⌘K palette is still the ELN's own (app-3's palette lands next).
+  test are deleted. app-3's ⌘K palette is ported (`SearchPalette`, real `search`
+  RPC). Gap: multi-type filtering is client-side over the top 100 results.
 
 - **Schedule ported**: `/schedule` renders app-3's day/week instrument grid and
   phone day list, wired to `calendar_resources` (instruments) and
@@ -533,8 +533,9 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   `/schedule`. Bookings carry their creator (`created_by_user_id`) and the
   screen marks yours (`border-link bg-selection`, "you" in the phone list) and
   names other people's from `workspace_members_list`; the subtitle counts
-  "N bookings of yours". The "Materials for today" section still waits on the
-  materials capability.
+  "N bookings of yours". "Materials for today" lists the samples booked onto
+  today's bookings (`calendar_booking_samples`) with their quantity, linked to
+  the sample.
 
 - **Inbox ported**: `/inbox` renders app-3's list with Needs action / Following
   / Done today tabs, type filters and a details panel, wired to `my_work_items`

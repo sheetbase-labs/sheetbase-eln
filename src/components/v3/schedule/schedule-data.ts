@@ -2,11 +2,12 @@ import { useQuery } from '@tanstack/react-query'
 
 import {
   createBooking,
+  fetchBookingSamples,
   fetchCalendarBookings,
   fetchCalendarResources,
 } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
-import type { CalendarBookingWire } from '#/lib/calendar'
+import type { CalendarBookingSample, CalendarBookingWire } from '#/lib/calendar'
 import type { DataClient } from '#/lib/data-client'
 
 /** UI port (roadmap-4/ui-app3): Schedule reads calendar_resources (instruments)
@@ -103,6 +104,47 @@ export function useRangeBookings(
         .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
     },
     enabled: Boolean(workspaceId),
+  })
+}
+
+export interface BookingSample {
+  id: string
+  bookingId: string
+  sampleRecordId: string | null
+  identifier: string
+  title: string
+  left: string
+}
+
+/** Samples booked onto the given bookings, for the day's "Materials" list. */
+export function useBookingSamples(
+  bookingIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const key = bookingIds.join(',')
+  return useQuery({
+    queryKey: ['schedule', 'booking-samples', key],
+    enabled: bookingIds.length > 0,
+    queryFn: async (): Promise<BookingSample[]> => {
+      const lists = await Promise.all(
+        bookingIds.map((id) => fetchBookingSamples(client, id)),
+      )
+      return lists
+        .flat()
+        .filter((s: CalendarBookingSample) => Boolean(s.sampleIdentifier))
+        .map((s) => ({
+          id: s.id,
+          bookingId: s.bookingId,
+          sampleRecordId: s.sampleRecordId,
+          identifier: s.sampleIdentifier ?? '—',
+          title: s.sampleTitle ?? '—',
+          left:
+            s.quantityValue == null
+              ? '—'
+              : `${s.quantityValue}${s.quantityUnit ? ` ${s.quantityUnit}` : ''}`,
+        }))
+    },
+    staleTime: 30_000,
   })
 }
 

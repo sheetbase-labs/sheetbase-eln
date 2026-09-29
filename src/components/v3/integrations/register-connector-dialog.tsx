@@ -1,19 +1,19 @@
-/** INT-01 — register a connector (steward-gated). */
+/** INT-01 — register a connector (steward-gated). UI port: app-3's v3 kit. */
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
 import {
-  Button,
   Dialog,
+  DialogBody,
+  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  Select,
-} from '#/components/ui'
+} from '#/components/v3/ui/dialog'
+import { NativeSelect } from '#/components/v3/projects/select'
 import { createDataClient } from '#/lib/data-client'
 import {
   describeConnectorsError,
@@ -75,42 +75,35 @@ export function RegisterConnectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Register connector</DialogTitle>
-          <DialogDescription>
-            Connectors share one execution, security and provenance model.
-            Credentials are added as sealed secrets after registration.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-2">
-            <Label htmlFor="connector-name">Name</Label>
+      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+        <DialogHeader
+          title="Register connector"
+          description="Connectors share one execution, security and provenance model. Credentials are added as sealed secrets after registration."
+        />
+        <DialogBody>
+          <Field label="Name" required>
             <Input
-              id="connector-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Plate reader bench 2"
             />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="connector-key">Key</Label>
+          </Field>
+          <Field
+            label="Key"
+            required
+            hint="Lowercase letters, digits and dashes. Immutable once registered."
+          >
             <Input
-              id="connector-key"
               value={key}
               onChange={(event) =>
                 setKey(event.target.value.toLowerCase().replaceAll(' ', '-'))
               }
               placeholder="plate-reader-bench-2"
             />
-            <p className="text-muted-foreground text-xs">
-              Lowercase letters, digits and dashes. Immutable once registered.
-            </p>
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label>Type</Label>
-              <Select
+            <Field label="Type">
+              <NativeSelect
                 value={connectorType}
                 onChange={(event) =>
                   setConnectorType(event.target.value as ConnectorType)
@@ -121,11 +114,10 @@ export function RegisterConnectorDialog({
                     {type}
                   </option>
                 ))}
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Direction</Label>
-              <Select
+              </NativeSelect>
+            </Field>
+            <Field label="Direction">
+              <NativeSelect
                 value={direction}
                 onChange={(event) =>
                   setDirection(event.target.value as ConnectorDirection)
@@ -136,13 +128,12 @@ export function RegisterConnectorDialog({
                     {item}
                   </option>
                 ))}
-              </Select>
-            </div>
+              </NativeSelect>
+            </Field>
           </div>
           {connectorType === 'instrument' && (
-            <div className="grid gap-2">
-              <Label>Ingestion parser</Label>
-              <Select
+            <Field label="Ingestion parser">
+              <NativeSelect
                 value={parserId}
                 onChange={(event) => setParserId(event.target.value)}
               >
@@ -151,13 +142,15 @@ export function RegisterConnectorDialog({
                     {parser.label} ({getParser(parser.parserId)?.version})
                   </option>
                 ))}
-              </Select>
-            </div>
+              </NativeSelect>
+            </Field>
           )}
           {(connectorType === 'storage' || connectorType === 'database') && (
-            <div className="grid gap-2">
-              <Label>Source adapter</Label>
-              <Select
+            <Field
+              label="Source adapter"
+              hint="Enterprise source adapters run server-side; non-secret settings (bucket/prefix or host/port/database) are configured on the connector after registration."
+            >
+              <NativeSelect
                 value={adapter}
                 onChange={(event) => setAdapter(event.target.value)}
               >
@@ -170,25 +163,15 @@ export function RegisterConnectorDialog({
                   </option>
                 )}
                 <option value="">None (custom)</option>
-              </Select>
-              <p className="text-muted-foreground text-xs">
-                Enterprise source adapters run server-side; non-secret settings
-                (bucket/prefix or host/port/database) are configured on the
-                connector after registration.
-              </p>
-            </div>
+              </NativeSelect>
+            </Field>
           )}
-          {error && (
-            <p role="alert" className="text-destructive text-sm">
-              {error}
-            </p>
-          )}
-        </div>
+          {error && <Notice tone="bad">{error}</Notice>}
+        </DialogBody>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+          <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
+            variant="primary"
             disabled={
               mutation.isPending ||
               !name.trim() ||

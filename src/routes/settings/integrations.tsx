@@ -23,7 +23,7 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
-import { RegisterConnectorDialog } from '#/components/integrations/register-connector-dialog'
+import { RegisterConnectorDialog } from '#/components/v3/integrations/register-connector-dialog'
 import { createDataClient } from '#/lib/data-client'
 import { hasCapability } from '#/lib/capability'
 import {

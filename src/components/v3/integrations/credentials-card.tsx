@@ -1,5 +1,5 @@
 /**
- * INT-03 — connector credentials card (steward-gated).
+ * INT-03 — connector credentials card (steward-gated). UI port: app-3's v3 kit.
  *
  * Wraps the INT-01 sealed-secret functions: only secret *names* and
  * timestamps are visible. Values are set once, rotatable, deletable — never
@@ -8,19 +8,12 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Trash2 } from 'lucide-react'
 
-import {
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-  Separator,
-} from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
+import { Section } from '#/components/v3/ui/layout'
+import { Icon } from '#/components/v3/icons'
 import {
   deleteConnectorSecretFn,
   listConnectorSecretNamesFn,
@@ -86,85 +79,75 @@ export function ConnectorCredentialsCard({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Credentials</CardTitle>
-        <CardDescription>
-          Sealed server-side secrets. Names are visible; values are set once and
-          never returned to any client.
-          {missing.length > 0 && (
-            <span className="text-destructive">
-              {' '}
-              Missing required: {missing.join(', ')}.
-            </span>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3">
+    <Section title="Credentials">
+      <p className="m-0 max-w-3xl text-body text-fg-muted">
+        Sealed server-side secrets. Names are visible; values are set once and
+        never returned to any client.
+        {missing.length > 0 ? (
+          <span className="text-danger-text">
+            {' '}
+            Missing required: {missing.join(', ')}.
+          </span>
+        ) : null}
+      </p>
+
+      <div className="flex max-w-2xl flex-col divide-y divide-border rounded-lg border border-border">
         {(secretsQuery.data ?? []).map((entry) => (
           <div
             key={entry.secretName}
-            className="flex items-center justify-between gap-2"
+            className="flex items-center justify-between gap-2 px-3 py-2"
           >
-            <span className="flex items-center gap-2 font-mono text-xs">
-              <KeyRound className="size-3.5" />
+            <span className="flex items-center gap-2 mono text-label">
+              <Icon name="key" size={14} />
               {entry.secretName}
-              <span className="text-muted-foreground">
+              <span className="text-fg-muted">
                 updated {new Date(entry.updatedAt).toLocaleString()}
               </span>
             </span>
             <Button
               size="sm"
-              variant="ghost"
+              variant="quiet"
+              aria-label={`Delete ${entry.secretName}`}
               disabled={deleteMutation.isPending}
               onClick={() => deleteMutation.mutate(entry.secretName)}
             >
-              <Trash2 className="size-3.5" />
+              <Icon name="x" size={14} />
             </Button>
           </div>
         ))}
         {(secretsQuery.data ?? []).length === 0 && (
-          <p className="text-muted-foreground text-xs">
+          <p className="m-0 px-3 py-2 text-label text-fg-muted">
             No credentials stored yet.
           </p>
         )}
-        <Separator />
-        <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-          <div className="grid gap-1">
-            <Label htmlFor="secret-name">Secret name</Label>
-            <Input
-              id="secret-name"
-              value={secretName}
-              onChange={(event) => setSecretName(event.target.value)}
-              placeholder="access_key_id"
-            />
-          </div>
-          <div className="grid gap-1">
-            <Label htmlFor="secret-value">Value</Label>
-            <Input
-              id="secret-value"
-              type="password"
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              placeholder="••••••••"
-            />
-          </div>
-          <Button
-            size="sm"
-            disabled={
-              !secretName.trim() || !value.trim() || setMutation.isPending
-            }
-            onClick={() => setMutation.mutate({ secretName, value })}
-          >
-            {stored.has(secretName) ? 'Rotate' : 'Set'}
-          </Button>
-        </div>
-        {error && (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="grid max-w-2xl grid-cols-[1fr_1fr_auto] items-end gap-2">
+        <Field label="Secret name">
+          <Input
+            value={secretName}
+            onChange={(event) => setSecretName(event.target.value)}
+            placeholder="access_key_id"
+          />
+        </Field>
+        <Field label="Value">
+          <Input
+            type="password"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder="••••••••"
+          />
+        </Field>
+        <Button
+          disabled={
+            !secretName.trim() || !value.trim() || setMutation.isPending
+          }
+          onClick={() => setMutation.mutate({ secretName, value })}
+        >
+          {stored.has(secretName) ? 'Rotate' : 'Set'}
+        </Button>
+      </div>
+      {error && <Notice tone="bad">{error}</Notice>}
+    </Section>
   )
 }

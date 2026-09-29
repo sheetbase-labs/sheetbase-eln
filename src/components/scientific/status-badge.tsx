@@ -1,23 +1,6 @@
-import {
-  Archive,
-  Ban,
-  CalendarClock,
-  CheckCircle2,
-  CircleDashed,
-  Clock,
-  Eye,
-  FlaskConical,
-  Lock,
-  PauseCircle,
-  PlayCircle,
-  ShieldAlert,
-  Snowflake,
-  XCircle,
-  Undo2,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-
-import { Badge } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Icon } from '#/components/v3/icons'
+import type { IconName } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
 
 /**
@@ -37,38 +20,38 @@ export type StatusTone =
 export interface StatusDefinition {
   label: string
   tone: StatusTone
-  icon: LucideIcon
+  icon: IconName
 }
 
 export type StatusVocabulary = Record<string, StatusDefinition>
 
 export const experimentStatusVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
-  planned: { label: 'Planned', tone: 'info', icon: CalendarClock },
-  'in-progress': { label: 'In progress', tone: 'success', icon: PlayCircle },
-  review: { label: 'In review', tone: 'violet', icon: Eye },
-  approved: { label: 'Approved', tone: 'success', icon: CheckCircle2 },
-  locked: { label: 'Locked', tone: 'neutral', icon: Lock },
-  failed: { label: 'Failed', tone: 'danger', icon: XCircle },
-  paused: { label: 'Paused', tone: 'info', icon: PauseCircle },
-  archived: { label: 'Archived', tone: 'neutral', icon: Archive },
+  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
+  planned: { label: 'Planned', tone: 'info', icon: 'calendar' },
+  'in-progress': { label: 'In progress', tone: 'success', icon: 'play' },
+  review: { label: 'In review', tone: 'violet', icon: 'search' },
+  approved: { label: 'Approved', tone: 'success', icon: 'check' },
+  locked: { label: 'Locked', tone: 'neutral', icon: 'lock' },
+  failed: { label: 'Failed', tone: 'danger', icon: 'x' },
+  paused: { label: 'Paused', tone: 'info', icon: 'pause' },
+  archived: { label: 'Archived', tone: 'neutral', icon: 'archive' },
 }
 
 export const reviewStatusVocabulary: StatusVocabulary = {
-  pending: { label: 'Pending', tone: 'neutral', icon: Clock },
-  active: { label: 'Active', tone: 'info', icon: PlayCircle },
-  approved: { label: 'Approved', tone: 'success', icon: CheckCircle2 },
-  rejected: { label: 'Rejected', tone: 'danger', icon: XCircle },
-  returned: { label: 'Returned', tone: 'warning', icon: Undo2 },
+  pending: { label: 'Pending', tone: 'neutral', icon: 'clock' },
+  active: { label: 'Active', tone: 'info', icon: 'play' },
+  approved: { label: 'Approved', tone: 'success', icon: 'check' },
+  rejected: { label: 'Rejected', tone: 'danger', icon: 'x' },
+  returned: { label: 'Returned', tone: 'warning', icon: 'arrowLeft' },
 }
 
 export const sampleStatusVocabulary: StatusVocabulary = {
-  available: { label: 'Available', tone: 'success', icon: CheckCircle2 },
-  reserved: { label: 'Reserved', tone: 'info', icon: Lock },
-  consumed: { label: 'Consumed', tone: 'neutral', icon: Archive },
-  expired: { label: 'Expired', tone: 'danger', icon: XCircle },
-  quarantined: { label: 'Quarantined', tone: 'warning', icon: ShieldAlert },
-  frozen: { label: 'Frozen', tone: 'info', icon: Snowflake },
+  available: { label: 'Available', tone: 'success', icon: 'check' },
+  reserved: { label: 'Reserved', tone: 'info', icon: 'lock' },
+  consumed: { label: 'Consumed', tone: 'neutral', icon: 'archive' },
+  expired: { label: 'Expired', tone: 'danger', icon: 'x' },
+  quarantined: { label: 'Quarantined', tone: 'warning', icon: 'warn' },
+  frozen: { label: 'Frozen', tone: 'info', icon: 'archive' },
 }
 
 /**
@@ -77,12 +60,12 @@ export const sampleStatusVocabulary: StatusVocabulary = {
  * not a lifecycle transition target but is rendered when present.
  */
 export const reagentStatusVocabulary: StatusVocabulary = {
-  available: { label: 'Available', tone: 'success', icon: CheckCircle2 },
-  reserved: { label: 'Reserved', tone: 'info', icon: Lock },
-  consumed: { label: 'Consumed', tone: 'neutral', icon: Archive },
-  expired: { label: 'Expired', tone: 'danger', icon: XCircle },
-  quarantined: { label: 'Quarantined', tone: 'warning', icon: ShieldAlert },
-  low_stock: { label: 'Low stock', tone: 'warning', icon: ShieldAlert },
+  available: { label: 'Available', tone: 'success', icon: 'check' },
+  reserved: { label: 'Reserved', tone: 'info', icon: 'lock' },
+  consumed: { label: 'Consumed', tone: 'neutral', icon: 'archive' },
+  expired: { label: 'Expired', tone: 'danger', icon: 'x' },
+  quarantined: { label: 'Quarantined', tone: 'warning', icon: 'warn' },
+  low_stock: { label: 'Low stock', tone: 'warning', icon: 'warn' },
 }
 
 /**
@@ -91,9 +74,9 @@ export const reagentStatusVocabulary: StatusVocabulary = {
  * template registry and the protocol picker.
  */
 export const protocolStatusVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
-  active: { label: 'Active', tone: 'success', icon: CheckCircle2 },
-  under_review: { label: 'Under review', tone: 'violet', icon: Eye },
+  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
+  active: { label: 'Active', tone: 'success', icon: 'check' },
+  under_review: { label: 'Under review', tone: 'violet', icon: 'search' },
 }
 
 /**
@@ -101,15 +84,15 @@ export const protocolStatusVocabulary: StatusVocabulary = {
  * draft → validated, with archived handled by the record's archived_at.
  */
 export const notebookTemplateStatusVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
-  validated: { label: 'Validated', tone: 'success', icon: CheckCircle2 },
+  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
+  validated: { label: 'Validated', tone: 'success', icon: 'check' },
 }
 
 export const datasetStatusVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
-  valid: { label: 'Valid', tone: 'success', icon: CheckCircle2 },
-  deprecated: { label: 'Deprecated', tone: 'warning', icon: Archive },
-  retracted: { label: 'Retracted', tone: 'danger', icon: Ban },
+  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
+  valid: { label: 'Valid', tone: 'success', icon: 'check' },
+  deprecated: { label: 'Deprecated', tone: 'warning', icon: 'archive' },
+  retracted: { label: 'Retracted', tone: 'danger', icon: 'x' },
 }
 
 /**
@@ -118,9 +101,9 @@ export const datasetStatusVocabulary: StatusVocabulary = {
  * state machine. Used by the projects dashboard table and project header.
  */
 export const projectStatusVocabulary: StatusVocabulary = {
-  active: { label: 'Active', tone: 'success', icon: CheckCircle2 },
-  draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
-  archived: { label: 'Archived', tone: 'neutral', icon: Archive },
+  active: { label: 'Active', tone: 'success', icon: 'check' },
+  draft: { label: 'Draft', tone: 'neutral', icon: 'clock' },
+  archived: { label: 'Archived', tone: 'neutral', icon: 'archive' },
 }
 
 export const statusVocabularies = {
@@ -140,15 +123,15 @@ const toneToVariant: Record<
   StatusTone,
   React.ComponentProps<typeof Badge>['variant']
 > = {
-  neutral: 'outline',
-  info: 'info',
-  success: 'success',
-  warning: 'warning',
-  danger: 'danger',
-  violet: 'violet',
+  neutral: 'kind',
+  info: 'kind',
+  success: 'add',
+  warning: 'chg',
+  danger: 'del',
+  violet: 'kind',
 }
 
-const fallbackIcon = FlaskConical
+const fallbackIcon: IconName = 'flask'
 
 export interface StatusBadgeProps {
   /** Status key within the vocabulary, e.g. "in-progress". */
@@ -174,8 +157,8 @@ export function StatusBadge({
   const normalised = status.replace(/_/g, '-')
   const def = vocab?.[status] ?? vocab?.[normalised]
   const label = def?.label ?? status
-  const Icon = def?.icon ?? fallbackIcon
-  const variant = def ? toneToVariant[def.tone] : 'outline'
+  const iconName = def?.icon ?? fallbackIcon
+  const variant = def ? toneToVariant[def.tone] : 'kind'
 
   return (
     <Badge
@@ -183,10 +166,7 @@ export function StatusBadge({
       data-status={status}
       className={cn(size === 'sm' && 'text-xs', className)}
     >
-      <Icon
-        className={cn(size === 'sm' ? 'size-3' : 'size-3.5')}
-        aria-hidden="true"
-      />
+      <Icon name={iconName} size={size === 'sm' ? 12 : 14} aria-hidden="true" />
       <span>{label}</span>
       {/* The visible label is the accessible name; add an sr-only tone hint
           so screen readers also get the status key for robustness. */}

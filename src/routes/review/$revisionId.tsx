@@ -27,23 +27,7 @@ import {
 import { z } from 'zod'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import {
-  CheckCircle2,
-  ChevronLeft,
-  ClipboardList,
-  FileText,
-  Download,
-  GitCommit,
-  GitCompare,
-  History,
-  ListChecks,
-  Lock,
-  MessageSquare,
-  PenLine,
-  ShieldCheck,
-  Undo2,
-  XCircle,
-} from 'lucide-react'
+import { Download } from 'lucide-react'
 
 import {
   CollaborationRoom,
@@ -57,6 +41,8 @@ import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
 import { ReviewCheckResults, RevisionDiffReview } from '#/components/review'
+import { Icon } from '#/components/v3/icons'
+import type { IconName } from '#/components/v3/icons'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type {
   StatusDefinition,
@@ -199,31 +185,31 @@ export const Route = createFileRoute('/review/$revisionId')({
 // Workspace status vocabulary (mirrors the inbox).
 // ---------------------------------------------------------------------------
 const workspaceStatusVocabulary: StatusVocabulary = {
-  submitted: { label: 'Under review', tone: 'info', icon: ClipboardList },
-  withdrawn: { label: 'Withdrawn', tone: 'neutral', icon: Undo2 },
-  approved: { label: 'Approved', tone: 'success', icon: CheckCircle2 },
-  rejected: { label: 'Rejected', tone: 'danger', icon: XCircle },
-  returned: { label: 'Changes requested', tone: 'warning', icon: Undo2 },
+  submitted: { label: 'Under review', tone: 'info', icon: 'check' },
+  withdrawn: { label: 'Withdrawn', tone: 'neutral', icon: 'arrowLeft' },
+  approved: { label: 'Approved', tone: 'success', icon: 'check' },
+  rejected: { label: 'Rejected', tone: 'danger', icon: 'x' },
+  returned: { label: 'Changes requested', tone: 'warning', icon: 'arrowLeft' },
 }
 
 /** GOV-04 derived lifecycle vocabulary (never a second backend state). */
 const lifecycleVocabulary: StatusVocabulary = {
-  draft: { label: 'Draft', tone: 'neutral', icon: FileText },
+  draft: { label: 'Draft', tone: 'neutral', icon: 'download' },
   'under-review': {
     label: 'Under review',
     tone: 'info',
-    icon: ClipboardList,
+    icon: 'check',
   },
   'changes-requested': {
     label: 'Changes requested',
     tone: 'warning',
-    icon: Undo2,
+    icon: 'arrowLeft',
   },
-  approved: { label: 'Approved', tone: 'success', icon: CheckCircle2 },
-  'signed-locked': { label: 'Signed & locked', tone: 'violet', icon: Lock },
-  superseded: { label: 'Superseded', tone: 'neutral', icon: GitCommit },
-  withdrawn: { label: 'Withdrawn', tone: 'neutral', icon: Undo2 },
-  rejected: { label: 'Rejected', tone: 'danger', icon: XCircle },
+  approved: { label: 'Approved', tone: 'success', icon: 'check' },
+  'signed-locked': { label: 'Signed & locked', tone: 'violet', icon: 'lock' },
+  superseded: { label: 'Superseded', tone: 'neutral', icon: 'check' },
+  withdrawn: { label: 'Withdrawn', tone: 'neutral', icon: 'arrowLeft' },
+  rejected: { label: 'Rejected', tone: 'danger', icon: 'x' },
 }
 
 /** Runtime-safe status label lookup (state values come from the DB/RPC). */
@@ -533,19 +519,19 @@ export function ReviewWorkspaceRoute() {
           >
             <TabsList aria-label="Review workspace panels">
               <TabsTab value="diff">
-                <GitCompare className="size-3.5" aria-hidden />
+                <Icon name="code" size={14} aria-hidden />
                 Diff
               </TabsTab>
               <TabsTab value="comments">
-                <MessageSquare className="size-3.5" aria-hidden />
+                <Icon name="comment" size={14} aria-hidden />
                 Comments
               </TabsTab>
               <TabsTab value="checks">
-                <ListChecks className="size-3.5" aria-hidden />
+                <Icon name="check" size={14} aria-hidden />
                 Checks
               </TabsTab>
               <TabsTab value="history">
-                <History className="size-3.5" aria-hidden />
+                <Icon name="clock" size={14} aria-hidden />
                 History
               </TabsTab>
             </TabsList>
@@ -738,7 +724,12 @@ export function WorkspaceHeader({
           role="status"
           className="rounded-md border border-success bg-success-wash px-3 py-2 text-xs text-success-text"
         >
-          <Lock className="mr-1 inline size-3 align-text-bottom" aria-hidden />
+          <Icon
+            name="lock"
+            size={12}
+            className="mr-1 inline align-text-bottom"
+            aria-hidden
+          />
           This record is locked by an approved signature
           {lockedByRevisionId ? (
             <>
@@ -945,7 +936,7 @@ function ChecksPanel({
           </Button>
           {canRun ? (
             <Button size="sm" onClick={handleRun} disabled={running}>
-              <ListChecks className="size-3.5" aria-hidden />
+              <Icon name="check" size={14} aria-hidden />
               {running ? 'Running…' : 'Run checks'}
             </Button>
           ) : null}
@@ -1060,7 +1051,7 @@ function ReviewInspector({
     <div className="flex h-full flex-col">
       <div className="space-y-2 border-b p-3">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="size-4 text-muted-foreground" aria-hidden />
+          <Icon name="lock" size={16} className="text-fg-muted" aria-hidden />
           <span className="text-sm font-semibold">Review & approvals</span>
         </div>
         <p className="truncate font-mono text-xs text-muted-foreground">
@@ -1189,7 +1180,12 @@ function ReviewInspector({
           to="/inbox"
           className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-sm font-medium no-underline hover:bg-muted"
         >
-          <ChevronLeft className="size-4" aria-hidden />
+          <Icon
+            name="chevronRight"
+            size={16}
+            className="rotate-180"
+            aria-hidden
+          />
           Back to inbox
         </Link>
         {submission && permission ? (
@@ -1290,21 +1286,21 @@ export function ActionButtons({
     kind: ReviewDecisionKind
     label: string
     variant: 'default' | 'secondary' | 'danger'
-    icon: typeof CheckCircle2
+    icon: IconName
   }[] = [
     {
       kind: 'approve',
       label: 'Approve',
       variant: 'default',
-      icon: CheckCircle2,
+      icon: 'check',
     },
     {
       kind: 'request_changes',
       label: 'Request changes',
       variant: 'secondary',
-      icon: Undo2,
+      icon: 'arrowLeft',
     },
-    { kind: 'reject', label: 'Reject', variant: 'danger', icon: XCircle },
+    { kind: 'reject', label: 'Reject', variant: 'danger', icon: 'x' },
   ]
 
   return (
@@ -1343,7 +1339,7 @@ export function ActionButtons({
         kind="withdraw"
         label="Withdraw"
         variant="secondary"
-        icon={Undo2}
+        icon="arrowLeft"
         disabled={!permission.canWithdraw}
         blockedReason={permission.withdrawBlockedReason ?? undefined}
         note={note}
@@ -1376,7 +1372,7 @@ function DecisionDialog({
   kind,
   label,
   variant,
-  icon: Icon,
+  icon: iconName,
   disabled,
   blockedReason,
   note,
@@ -1388,7 +1384,7 @@ function DecisionDialog({
   kind: ReviewDecisionKind
   label: string
   variant: 'default' | 'secondary' | 'danger'
-  icon: typeof CheckCircle2
+  icon: IconName
   disabled: boolean
   blockedReason?: ReviewBlockedReason
   note: string
@@ -1403,7 +1399,7 @@ function DecisionDialog({
     variant === 'default' &&
       'bg-primary text-primary-foreground hover:bg-primary/90',
     variant === 'danger' &&
-      'border-destructive text-destructive hover:bg-destructive/10',
+      'border-danger text-danger-text hover:bg-danger-wash',
   )
   return (
     <ConfirmDialog onOpenChange={(open) => onOpenChange(open)}>
@@ -1417,7 +1413,7 @@ function DecisionDialog({
           aria-label={label}
           title={blockedReason ? blockedReasonLabel(blockedReason) : undefined}
         >
-          <Icon className="size-3.5" aria-hidden />
+          <Icon name={iconName} size={14} aria-hidden />
           {label}
         </Button>
       </ConfirmDialogTrigger>
@@ -1544,7 +1540,7 @@ function InspectorProp({
 function PermissionDenied() {
   return (
     <div className="flex min-h-72 flex-col items-center justify-center gap-2 p-6 text-center">
-      <XCircle className="size-8 text-muted-foreground" aria-hidden />
+      <Icon name="x" size={32} className="text-fg-muted" aria-hidden />
       <p className="text-sm font-semibold">Permission denied</p>
       <p className="max-w-xs text-sm text-muted-foreground">
         You may not have access to this workspace, or your session has expired.
@@ -1557,7 +1553,7 @@ function PermissionDenied() {
 function MissingRevision() {
   return (
     <div className="flex min-h-72 flex-col items-center justify-center gap-2 p-6 text-center">
-      <ClipboardList className="size-8 text-muted-foreground" aria-hidden />
+      <Icon name="check" size={32} className="text-fg-muted" aria-hidden />
       <p className="text-sm font-semibold">Revision not found</p>
       <p className="max-w-xs text-sm text-muted-foreground">
         This revision does not exist in your workspace, or it has been removed.
@@ -1794,7 +1790,7 @@ function SignatureDialog({
     >
       <ConfirmDialogTrigger asChild>
         <Button size="sm" className="h-9 w-full text-xs">
-          <PenLine className="size-3.5" aria-hidden />
+          <Icon name="edit" size={14} aria-hidden />
           Sign revision
         </Button>
       </ConfirmDialogTrigger>
@@ -2059,7 +2055,8 @@ function AmendmentSection({
         role="status"
         className="rounded-md border border-success bg-success-wash p-2 text-xs text-success-text"
       >
-        <GitCommit
+        <Icon
+          name="check"
           className="mr-1 inline size-3 align-text-bottom"
           aria-hidden
         />
@@ -2092,7 +2089,7 @@ function AmendmentSection({
       >
         <ConfirmDialogTrigger asChild>
           <Button variant="secondary" size="sm" className="h-9 w-full text-xs">
-            <GitCommit className="size-3.5" aria-hidden />
+            <Icon name="check" size={14} aria-hidden />
             Start amendment
           </Button>
         </ConfirmDialogTrigger>

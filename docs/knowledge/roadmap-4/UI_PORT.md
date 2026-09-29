@@ -120,12 +120,15 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 - **Instruments area added (LAB-06)**: `/instruments` lists the workspace
   instrument registry (ID, name, type, model, connection) with search and an
-  inspector, and `/instruments/$instrumentId` shows an instrument with its run
-  queue. Both read the real `instruments` / `instrument_runs` tables; calibration
-  is stated as a gap. The settings Instruments section links here. DEC-03's
+  inspector, and `/instruments/$instrumentId` shows an instrument with its
+  calibration and run queue. Both read the real `instruments` /
+  `instrument_runs` / `instrument_calibrations` tables; calibration (last, due,
+  history) is a DB-first capability (`api.instrument_calibrations`, RLS,
+  `record_instrument_calibration`, contract tests) and the reader can record a
+  calibration. The settings Instruments section links here. DEC-03's
   `/instrument-monitor` is retired: its route, components, stories, tests and the
   now-unused instrument-monitor library are deleted. The screens suite covers
-  `/instruments` (54 routes × 2 widths clean).
+  `/instruments`.
 
 - **Scan and the phone suite (MOB-01 / MOB-02 / LAB-05 / LAB-06)**: the phone
   bottom bar now matches app-3 (Today, Scan, Inbox, Menu) and `/scan` resolves a

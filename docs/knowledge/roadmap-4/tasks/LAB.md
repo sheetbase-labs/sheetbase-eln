@@ -240,7 +240,7 @@ recorded in the sample's History.
 
 ## LAB-06 — Instruments: identity, calibration and qualification
 
-**Status:** proposed. **DEC-03:** absorbs `/instrument-monitor`; the standalone route retires. The UI port added the `/instruments` list and `/instruments/$instrumentId` detail over the existing `api.instruments` / `api.instrument_runs` tables, retired `/instrument-monitor`, and modelled record aliases ("also known as") in `api.record_aliases` for scanning; calibration, qualification, used-by and the run telemetry surface remain.
+**Status:** proposed. **DEC-03:** absorbs `/instrument-monitor`; the standalone route retires. The UI port added the `/instruments` list and `/instruments/$instrumentId` detail over the existing `api.instruments` / `api.instrument_runs` tables, retired `/instrument-monitor`, modelled record aliases ("also known as") in `api.record_aliases` for scanning, and added calibration (`api.instrument_calibrations`, RLS, `record_instrument_calibration`) with last/due/history on the instrument page; qualification, used-by and the run telemetry surface remain.
 
 ### Design
 

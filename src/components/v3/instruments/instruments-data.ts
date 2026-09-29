@@ -56,6 +56,8 @@ export const instrumentQueryKeys = {
   instrument: (id: string) =>
     ['ui-port', 'instruments', 'instrument', id] as const,
   runs: (id: string) => ['ui-port', 'instruments', 'runs', id] as const,
+  calibrations: (id: string) =>
+    ['ui-port', 'instruments', 'calibrations', id] as const,
 }
 
 const FIELDS =
@@ -177,4 +179,95 @@ export function useInstrumentRuns(
         ),
     staleTime: 15_000,
   })
+}
+
+// ---------------------------------------------------------------------------
+// LAB-06 — calibration
+// ---------------------------------------------------------------------------
+
+export interface InstrumentCalibrationRow {
+  id: string
+  performedAt: string
+  dueAt: string
+  certificateFileId: string | null
+  performedByUserId: string | null
+  notes: string | null
+}
+
+interface CalibrationWire {
+  id: string
+  performed_at: string
+  due_at: string
+  certificate_file_id: string | null
+  performed_by_user_id: string | null
+  notes: string | null
+}
+
+const CALIBRATION_FIELDS =
+  'id,performed_at,due_at,certificate_file_id,performed_by_user_id,notes'
+
+function toCalibration(row: CalibrationWire): InstrumentCalibrationRow {
+  return {
+    id: row.id,
+    performedAt: row.performed_at,
+    dueAt: row.due_at,
+    certificateFileId: row.certificate_file_id,
+    performedByUserId: row.performed_by_user_id,
+    notes: row.notes,
+  }
+}
+
+/** Current standing of the latest calibration: overdue, due soon or valid. */
+export function calibrationStatus(
+  dueAt: string | null,
+  now: Date = new Date(),
+): { tone: Tone; label: string } {
+  if (!dueAt) return { tone: 'none', label: 'Not calibrated' }
+  const due = Date.parse(dueAt)
+  if (Number.isNaN(due)) return { tone: 'none', label: 'Not calibrated' }
+  if (due < now.getTime()) return { tone: 'bad', label: 'Overdue' }
+  if (due - now.getTime() <= 30 * 86_400_000)
+    return { tone: 'warn', label: 'Due soon' }
+  return { tone: 'ok', label: 'Valid' }
+}
+
+export function useInstrumentCalibrations(
+  instrumentId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: instrumentQueryKeys.calibrations(instrumentId),
+    enabled: instrumentId.length > 0,
+    queryFn: () =>
+      client
+        .list<CalibrationWire>(
+          'instrument_calibrations',
+          `?select=${CALIBRATION_FIELDS}&instrument_id=eq.${encodeURIComponent(instrumentId)}&order=performed_at.desc,id.desc&limit=50`,
+        )
+        .then((rows) => rows.map(toCalibration)),
+    staleTime: 15_000,
+  })
+}
+
+export async function recordInstrumentCalibration(
+  input: {
+    instrumentId: string
+    performedAt: string
+    dueAt: string
+    certificateFileId?: string | null
+    notes?: string | null
+  },
+  client: DataClient = notebookDataClient,
+): Promise<InstrumentCalibrationRow> {
+  const row = await client.rpc<CalibrationWire>(
+    'record_instrument_calibration',
+    {
+      p_instrument_id: input.instrumentId,
+      p_performed_at: input.performedAt,
+      p_due_at: input.dueAt,
+      p_certificate_file_id: input.certificateFileId ?? null,
+      p_notes: input.notes ?? null,
+    },
+  )
+  return toCalibration(row)
 }

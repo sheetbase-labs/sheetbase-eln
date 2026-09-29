@@ -5863,6 +5863,55 @@ export const instruments = api.table(
   ],
 )
 
+export const instrumentCalibrations = api.table(
+  'instrument_calibrations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    performedAt: timestamp('performed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    dueAt: timestamp('due_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    // LAB-06 — the certificate is an uploaded file (SCI-003 storage boundary).
+    certificateFileId: uuid('certificate_file_id').references(
+      () => fileObjects.id,
+      { onDelete: 'set null' },
+    ),
+    performedByUserId: text('performed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    notes: text('notes'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_instrument_calibrations_due',
+      sql`${table.dueAt} >= ${table.performedAt}`,
+    ),
+    check(
+      'chk_instrument_calibrations_notes',
+      sql`${table.notes} IS NULL OR length(${table.notes}) <= 2000`,
+    ),
+    index('idx_instrument_calibrations_instrument').on(
+      table.instrumentId,
+      table.dueAt,
+    ),
+    index('idx_instrument_calibrations_workspace').on(table.workspaceId),
+  ],
+)
+
 export const instrumentRuns = api.table(
   'instrument_runs',
   {

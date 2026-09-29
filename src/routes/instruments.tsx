@@ -13,7 +13,6 @@ import {
   DescriptionList,
   Inspector,
   InspectorSection,
-  Muted,
 } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -32,7 +31,9 @@ import {
   stickyHead,
 } from '#/components/v3/inventory/list'
 import {
+  calibrationStatus,
   instrumentConnection,
+  useInstrumentCalibrations,
   useInstruments,
 } from '#/components/v3/instruments/instruments-data'
 
@@ -83,6 +84,9 @@ function InstrumentsList() {
   )
   const sel =
     visible.find((i) => i.id === (selected ?? search.selected)) ?? visible.at(0)
+  const calibrations = useInstrumentCalibrations(sel?.id ?? '')
+  const latestCalibration = calibrations.data?.at(0) ?? null
+  const calibration = calibrationStatus(latestCalibration?.dueAt ?? null)
 
   return (
     <div className="flex min-w-0 flex-1">
@@ -225,10 +229,23 @@ function InstrumentsList() {
               />
             </InspectorSection>
             <InspectorSection title="Calibration">
-              <Muted>
-                Calibration records are not modelled yet; the instrument still
-                records its runs and connection status.
-              </Muted>
+              <DescriptionList
+                labelWidth={90}
+                items={[
+                  [
+                    'Status',
+                    <Status key="c" tone={calibration.tone}>
+                      {calibration.label}
+                    </Status>,
+                  ],
+                  [
+                    'Next due',
+                    latestCalibration?.dueAt
+                      ? latestCalibration.dueAt.slice(0, 10)
+                      : '—',
+                  ],
+                ]}
+              />
             </InspectorSection>
           </div>
         </Inspector>

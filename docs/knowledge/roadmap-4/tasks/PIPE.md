@@ -24,7 +24,7 @@ needs judgement.
 
 ## PIPE-01 — Pipeline screens
 
-**Status:** proposed. **DEC-03:** absorbs the `/agent-operations` agent surface; the standalone route retires.
+**Status:** proposed. **DEC-03:** absorbs the `/agent-operations` agent surface at `/pipelines/agents`; the standalone route is retired. The UI port delivered that agent surface (workflows, proposals, policies) on the existing RPCs; the pipeline list, editor, triggers and run screens remain.
 
 ### Design
 

@@ -174,6 +174,16 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   exports). The `data-grid-types` type augmentation stays, since registry code
   reads it.
 
+- **Agent surface folded into `/pipelines/agents` (DEC-03 / PIPE-01)**: the
+  Pipelines list links to an Agent operations surface with Workflows, Proposals
+  and Policies tabs, reading the real `agent_operation_proposals`,
+  `agent_workflows` and `agent_operation_policies` RPCs. It keeps the human
+  controls — approve / reject (reason) / execute a proposal, advance / resume /
+  cancel (reason) a workflow, create and disable execution policies — with the
+  impact, diff, provenance, budget, step and event detail. The legacy
+  `/agent-operations` route, its components, stories and component tests are
+  deleted; the libraries stay. The pipelines area suite covers the surface.
+
 - **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
   "Open full lineage" link on the legacy record notebook; it is removed, so the
   crawl reports 0 404s. The crawl also skips `/api/*` hrefs (file downloads
@@ -201,8 +211,9 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   relationship graph (record links plus reviews, decisions, signatures and
   change events) through the RLS-filtered lineage boundary; restricted
   neighbours render as honest text. `/instrument-monitor` is retired into the
-  new `/instruments` area (LAB-06). The remaining fold routes
-  (`/planner`→PROJ-02, `/storage`→LAB-04, `/agent-operations`→PIPE-01) are
+  new `/instruments` area (LAB-06), and `/agent-operations` is retired into the
+  new `/pipelines/agents` surface (PIPE-01). The remaining fold routes
+  (`/planner`→PROJ-02, `/storage`→LAB-04) are
   deleted with their fold task, as DEC-03 specifies; `/docs/$name` and
   `/foundations` stay internal and unlisted.
 

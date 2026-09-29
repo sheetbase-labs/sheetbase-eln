@@ -168,6 +168,7 @@ function RootRouteComponent() {
     '/models/$modelId/datasets',
     '/analysis/$analysisId',
     '/pipelines',
+    '/pipelines/agents',
     '/pipelines/runs/$runId',
     '/pipelines/$pipelineId',
     '/pipelines/$pipelineId/',

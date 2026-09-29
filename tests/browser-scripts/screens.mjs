@@ -110,6 +110,7 @@ function routes(ids) {
     '/templates',
     '/models',
     '/pipelines',
+    '/pipelines/agents',
     '/settings',
     '/settings/members',
     '/settings/signatures',

@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
-import { Route as AgentOperationsRouteImport } from './routes/agent-operations'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as ClientPortalRouteImport } from './routes/client-portal'
 import { Route as ConfigureRouteImport } from './routes/configure'
@@ -51,6 +50,7 @@ import { Route as ExperimentsNewRouteImport } from './routes/experiments/new'
 import { Route as InstrumentsInstrumentIdRouteImport } from './routes/instruments/$instrumentId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
+import { Route as PipelinesAgentsRouteImport } from './routes/pipelines/agents'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$protocolId'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
@@ -137,11 +137,6 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AgentOperationsRoute = AgentOperationsRouteImport.update({
-  id: '/agent-operations',
-  path: '/agent-operations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalysisRoute = AnalysisRouteImport.update({
@@ -337,6 +332,11 @@ const ModelsModelIdRoute = ModelsModelIdRouteImport.update({
 const PipelinesPipelineIdRoute = PipelinesPipelineIdRouteImport.update({
   id: '/$pipelineId',
   path: '/$pipelineId',
+  getParentRoute: () => PipelinesRoute,
+} as any)
+const PipelinesAgentsRoute = PipelinesAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
   getParentRoute: () => PipelinesRoute,
 } as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
@@ -753,7 +753,6 @@ const ApiExportRevisionIdPackageRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
-  '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/configure': typeof ConfigureRoute
@@ -793,6 +792,7 @@ export interface FileRoutesByFullPath {
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
+  '/pipelines/agents': typeof PipelinesAgentsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
@@ -874,7 +874,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
-  '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/configure': typeof ConfigureRoute
@@ -909,6 +908,7 @@ export interface FileRoutesByTo {
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/new': typeof ExperimentsNewRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
+  '/pipelines/agents': typeof PipelinesAgentsRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
@@ -987,7 +987,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
-  '/agent-operations': typeof AgentOperationsRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/configure': typeof ConfigureRoute
@@ -1027,6 +1026,7 @@ export interface FileRoutesById {
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
+  '/pipelines/agents': typeof PipelinesAgentsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
@@ -1110,7 +1110,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
-    | '/agent-operations'
     | '/analysis'
     | '/client-portal'
     | '/configure'
@@ -1150,6 +1149,7 @@ export interface FileRouteTypes {
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
+    | '/pipelines/agents'
     | '/projects/$projectId'
     | '/protocols/$protocolId'
     | '/records/$recordId'
@@ -1231,7 +1231,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
-    | '/agent-operations'
     | '/analysis'
     | '/client-portal'
     | '/configure'
@@ -1266,6 +1265,7 @@ export interface FileRouteTypes {
     | '/evidence/$revisionId'
     | '/experiments/new'
     | '/instruments/$instrumentId'
+    | '/pipelines/agents'
     | '/protocols/$protocolId'
     | '/review/$revisionId'
     | '/settings/access'
@@ -1343,7 +1343,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
-    | '/agent-operations'
     | '/analysis'
     | '/client-portal'
     | '/configure'
@@ -1383,6 +1382,7 @@ export interface FileRouteTypes {
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
+    | '/pipelines/agents'
     | '/projects/$projectId'
     | '/protocols/$protocolId'
     | '/records/$recordId'
@@ -1465,7 +1465,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
-  AgentOperationsRoute: typeof AgentOperationsRoute
   AnalysisRoute: typeof AnalysisRouteWithChildren
   ClientPortalRoute: typeof ClientPortalRoute
   ConfigureRoute: typeof ConfigureRoute
@@ -1538,13 +1537,6 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/agent-operations': {
-      id: '/agent-operations'
-      path: '/agent-operations'
-      fullPath: '/agent-operations'
-      preLoaderRoute: typeof AgentOperationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analysis': {
@@ -1818,6 +1810,13 @@ declare module '@tanstack/react-router' {
       path: '/$pipelineId'
       fullPath: '/pipelines/$pipelineId'
       preLoaderRoute: typeof PipelinesPipelineIdRouteImport
+      parentRoute: typeof PipelinesRoute
+    }
+    '/pipelines/agents': {
+      id: '/pipelines/agents'
+      path: '/agents'
+      fullPath: '/pipelines/agents'
+      preLoaderRoute: typeof PipelinesAgentsRouteImport
       parentRoute: typeof PipelinesRoute
     }
     '/projects/$projectId': {
@@ -2512,11 +2511,13 @@ const PipelinesPipelineIdRouteWithChildren =
 
 interface PipelinesRouteChildren {
   PipelinesPipelineIdRoute: typeof PipelinesPipelineIdRouteWithChildren
+  PipelinesAgentsRoute: typeof PipelinesAgentsRoute
   PipelinesRunsRunIdRoute: typeof PipelinesRunsRunIdRoute
 }
 
 const PipelinesRouteChildren: PipelinesRouteChildren = {
   PipelinesPipelineIdRoute: PipelinesPipelineIdRouteWithChildren,
+  PipelinesAgentsRoute: PipelinesAgentsRoute,
   PipelinesRunsRunIdRoute: PipelinesRunsRunIdRoute,
 }
 
@@ -2685,7 +2686,6 @@ const RecordsRecordIdRouteWithChildren = RecordsRecordIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
-  AgentOperationsRoute: AgentOperationsRoute,
   AnalysisRoute: AnalysisRouteWithChildren,
   ClientPortalRoute: ClientPortalRoute,
   ConfigureRoute: ConfigureRoute,

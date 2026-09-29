@@ -35,4 +35,21 @@ if (ids.pipeline) {
   }
 }
 
+await go(page, '/pipelines/agents')
+check(
+  (await page.getByRole('heading', { level: 1 }).count()) === 1,
+  'agent operations shows one h1',
+)
+check(
+  (await page.getByRole('link', { name: /^Proposals/ }).count()) > 0 &&
+    (await page.getByRole('link', { name: /^Policies/ }).count()) > 0,
+  'agent operations shows the Workflows, Proposals and Policies tabs',
+)
+await page.getByRole('link', { name: /^Policies/ }).click()
+await page.waitForTimeout(700)
+check(
+  (await page.getByRole('heading', { name: 'Execution policies' }).count()) > 0,
+  'agent policies tab renders the execution policies section',
+)
+
 await done(browser, errors, 'pipelines')

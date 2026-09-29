@@ -154,6 +154,15 @@ function PipelinesList() {
         <ListHeader
           title="Pipelines"
           total={rows.length}
+          actions={
+            <Button
+              nativeButton={false}
+              icon="pipeline"
+              render={<Link to="/pipelines/agents" />}
+            >
+              Agent operations
+            </Button>
+          }
           tabs={
             <SearchTabs
               label="Pipeline lists"

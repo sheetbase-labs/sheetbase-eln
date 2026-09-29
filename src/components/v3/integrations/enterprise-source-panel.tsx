@@ -1,5 +1,6 @@
 /**
  * INT-03 — enterprise connector source panel (S3 / PostgreSQL).
+ * UI port: app-3's v3 kit.
  *
  * Dense product surface for importing from enterprise sources through the
  * connector framework. All external access happens server-side via
@@ -10,29 +11,21 @@
  */
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, RefreshCw } from 'lucide-react'
 
+import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
+import { Section } from '#/components/v3/ui/layout'
+import { Status } from '#/components/v3/ui/status'
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-  Select,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
+import { NativeSelect } from '#/components/v3/projects/select'
 import { createDataClient } from '#/lib/data-client'
 import {
   discoverConnectorSource,
@@ -124,10 +117,9 @@ function TargetControls({
     enabled: Boolean(state.schemaVersionId),
   })
   return (
-    <div className="grid gap-3">
-      <div className="grid gap-2">
-        <Label>Target Schema Version</Label>
-        <Select
+    <div className="flex flex-col gap-3">
+      <Field label="Target Schema Version">
+        <NativeSelect
           value={state.schemaVersionId}
           onChange={(event) =>
             onChange({
@@ -143,13 +135,12 @@ function TargetControls({
               {option.name} v{option.version}
             </option>
           ))}
-        </Select>
-      </div>
+        </NativeSelect>
+      </Field>
       {state.schemaVersionId && (
         <div className="grid grid-cols-2 gap-3">
-          <div className="grid gap-2">
-            <Label>Existing Dataset</Label>
-            <Select
+          <Field label="Existing Dataset">
+            <NativeSelect
               value={state.datasetId}
               onChange={(event) =>
                 onChange({ ...state, datasetId: event.target.value })
@@ -161,11 +152,10 @@ function TargetControls({
                   {dataset.name}
                 </option>
               ))}
-            </Select>
-          </div>
+            </NativeSelect>
+          </Field>
           {!state.datasetId && (
-            <div className="grid gap-2">
-              <Label>New Dataset name</Label>
+            <Field label="New Dataset name">
               <Input
                 value={state.newDatasetName}
                 onChange={(event) =>
@@ -173,7 +163,7 @@ function TargetControls({
                 }
                 placeholder="Import — source data"
               />
-            </div>
+            </Field>
           )}
         </div>
       )}
@@ -212,15 +202,15 @@ function MappingSummary({
   const mapped = mappings.filter((mapping) => mapping.kind === 'field')
   if (headers.length === 0) return null
   return (
-    <ul className="text-muted-foreground space-y-0.5 text-xs">
+    <ul className="m-0 list-none space-y-0.5 p-0 text-label text-fg-muted">
       {mappings.map((mapping) => (
-        <li key={mapping.source} className="font-mono">
+        <li key={mapping.source} className="mono">
           {mapping.source} →{' '}
           {mapping.kind === 'field' ? mapping.field.label : 'ignored'}
         </li>
       ))}
       {mapped.length === 0 && (
-        <li className="text-destructive">No columns map to Schema fields.</li>
+        <li className="text-danger-text">No columns map to Schema fields.</li>
       )}
     </ul>
   )
@@ -229,11 +219,11 @@ function MappingSummary({
 function PreviewTable({ preview }: { preview: PreviewResult }) {
   if (preview.columns.length === 0) return null
   return (
-    <Table>
+    <Table aria-label="Source preview">
       <TableHeader>
         <TableRow>
           {preview.columns.map((column) => (
-            <TableHead key={column} className="font-mono text-xs">
+            <TableHead key={column} className="mono text-label">
               {column}
             </TableHead>
           ))}
@@ -243,7 +233,7 @@ function PreviewTable({ preview }: { preview: PreviewResult }) {
         {preview.rows.map((row, index) => (
           <TableRow key={index}>
             {preview.columns.map((column) => (
-              <TableCell key={column} className="font-mono text-xs">
+              <TableCell key={column} className="mono text-label">
                 {row[column] ?? ''}
               </TableCell>
             ))}
@@ -265,8 +255,13 @@ function ImportButton({
 }) {
   return (
     <div>
-      <Button size="sm" disabled={disabled} onClick={onClick}>
-        <Download className="size-4" />
+      <Button
+        size="sm"
+        variant="primary"
+        icon="download"
+        disabled={disabled}
+        onClick={onClick}
+      >
         {pending ? 'Importing…' : 'Import into Dataset'}
       </Button>
     </div>
@@ -291,24 +286,23 @@ function ImportFeedback({
   return (
     <>
       {error instanceof Error && (
-        <Alert variant="destructive">
-          <AlertTitle>Import failed — recorded as a failed run</AlertTitle>
-          <AlertDescription>{error.message}</AlertDescription>
-        </Alert>
+        <Notice tone="bad" title="Import failed — recorded as a failed run">
+          {error.message}
+        </Notice>
       )}
       {receipt && (
-        <Alert variant="info">
-          <AlertTitle>
+        <Notice tone="info">
+          <span className="font-semibold">
             Run {receipt.alreadyCompleted ? 'already completed' : 'succeeded'} (
             attempt #{receipt.attempt})
-          </AlertTitle>
-          <AlertDescription>
+          </span>
+          <p className="m-0">
             {receipt.rowCount} rows landed in Dataset{' '}
-            <span className="font-mono">{receipt.datasetId}</span>, run{' '}
-            <span className="font-mono">{receipt.runId}</span>. Provenance is
+            <span className="mono">{receipt.datasetId}</span>, run{' '}
+            <span className="mono">{receipt.runId}</span>. Provenance is
             attached to the run below.
-          </AlertDescription>
-        </Alert>
+          </p>
+        </Notice>
       )}
     </>
   )
@@ -328,16 +322,14 @@ function TestConnectionButton({
     <div className="flex items-center gap-2">
       <Button
         size="sm"
-        variant="outline"
         disabled={mutation.isPending}
         onClick={() => mutation.mutate()}
       >
-        <RefreshCw className="size-4" />
         {mutation.isPending ? 'Testing…' : 'Test connection'}
       </Button>
-      {mutation.data && <Badge variant="default">ok</Badge>}
+      {mutation.data && <Status tone="ok">ok</Status>}
       {mutation.error instanceof Error && (
-        <span role="alert" className="text-destructive text-xs">
+        <span role="alert" className="text-label text-danger-text">
           {mutation.error.message}
         </span>
       )}
@@ -418,16 +410,14 @@ function S3SourcePanel({
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Source — object storage</CardTitle>
-        <CardDescription>
-          Discover objects under the configured bucket/prefix, preview one and
-          import it. The raw object is retained in the file platform before the
-          run; imports go through canonical Dataset validation.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
+    <Section title="Source — object storage">
+      <p className="m-0 max-w-3xl text-body text-fg-muted">
+        Discover objects under the configured bucket/prefix, preview one and
+        import it. The raw object is retained in the file platform before the
+        run; imports go through canonical Dataset validation.
+      </p>
+
+      <div className="flex max-w-3xl flex-col gap-4">
         <TestConnectionButton
           workspaceId={workspaceId}
           connectorId={connector.id}
@@ -436,7 +426,6 @@ function S3SourcePanel({
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            variant="outline"
             disabled={discoverMutation.isPending}
             onClick={() => {
               discoverMutation.mutate(null)
@@ -447,7 +436,7 @@ function S3SourcePanel({
           {continuationToken && (
             <Button
               size="sm"
-              variant="ghost"
+              variant="quiet"
               disabled={discoverMutation.isPending}
               onClick={() => discoverMutation.mutate(continuationToken)}
             >
@@ -455,14 +444,14 @@ function S3SourcePanel({
             </Button>
           )}
           {discoverMutation.error instanceof Error && (
-            <span role="alert" className="text-destructive text-xs">
+            <span role="alert" className="text-label text-danger-text">
               {discoverMutation.error.message}
             </span>
           )}
         </div>
 
         {objects.length > 0 && (
-          <Table>
+          <Table aria-label="Object storage">
             <TableHeader>
               <TableRow>
                 <TableHead>Key</TableHead>
@@ -474,11 +463,13 @@ function S3SourcePanel({
             <TableBody>
               {objects.map((object) => (
                 <TableRow key={object.key}>
-                  <TableCell className="font-mono text-xs">
+                  <TableCell className="mono text-label">
                     {object.key}
                   </TableCell>
-                  <TableCell className="text-xs">{object.byteSize}</TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell className="text-label">
+                    {object.byteSize}
+                  </TableCell>
+                  <TableCell className="text-label">
                     {object.lastModified
                       ? new Date(object.lastModified).toLocaleString()
                       : '—'}
@@ -486,7 +477,7 @@ function S3SourcePanel({
                   <TableCell>
                     <Button
                       size="sm"
-                      variant={selectedKey === object.key ? 'default' : 'ghost'}
+                      variant={selectedKey === object.key ? 'primary' : 'quiet'}
                       onClick={() => {
                         setSelectedKey(object.key)
                         setObjects((current) => current)
@@ -503,12 +494,12 @@ function S3SourcePanel({
         )}
 
         {selectedKey && (
-          <div className="grid gap-3">
-            <p className="text-muted-foreground text-xs">
-              Selected <span className="font-mono">{selectedKey}</span>
+          <div className="flex flex-col gap-3">
+            <p className="m-0 text-label text-fg-muted">
+              Selected <span className="mono">{selectedKey}</span>
             </p>
             {previewMutation.data && (
-              <div className="grid gap-2">
+              <div className="flex flex-col gap-2">
                 <MappingSummary
                   headers={previewMutation.data.columns}
                   fields={fields}
@@ -516,9 +507,8 @@ function S3SourcePanel({
                 <PreviewTable preview={previewMutation.data} />
               </div>
             )}
-            <div className="grid gap-2">
-              <Label>Retain raw object in project</Label>
-              <Select
+            <Field label="Retain raw object in project">
+              <NativeSelect
                 value={projectId}
                 onChange={(event) => setProjectId(event.target.value)}
               >
@@ -528,8 +518,8 @@ function S3SourcePanel({
                     {project.title}
                   </option>
                 ))}
-              </Select>
-            </div>
+              </NativeSelect>
+            </Field>
             <TargetControls state={target} onChange={setTarget} />
             <ImportButton
               disabled={
@@ -547,8 +537,8 @@ function S3SourcePanel({
           error={importMutation.error}
           receipt={importMutation.data}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </Section>
   )
 }
 
@@ -612,16 +602,14 @@ function PostgresSourcePanel({
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Source — external database (read-only)</CardTitle>
-        <CardDescription>
-          Discover schemas, tables and views, preview a bounded selection and
-          import it. This connector is strictly read-only: no arbitrary SQL,
-          writes or DDL. Imports go through canonical Dataset validation.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
+    <Section title="Source — external database (read-only)">
+      <p className="m-0 max-w-3xl text-body text-fg-muted">
+        Discover schemas, tables and views, preview a bounded selection and
+        import it. This connector is strictly read-only: no arbitrary SQL,
+        writes or DDL. Imports go through canonical Dataset validation.
+      </p>
+
+      <div className="flex max-w-3xl flex-col gap-4">
         <TestConnectionButton
           workspaceId={workspaceId}
           connectorId={connector.id}
@@ -630,14 +618,13 @@ function PostgresSourcePanel({
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            variant="outline"
             disabled={discoverMutation.isPending}
             onClick={() => discoverMutation.mutate('')}
           >
             List schemas
           </Button>
           {discoverMutation.error instanceof Error && (
-            <span role="alert" className="text-destructive text-xs">
+            <span role="alert" className="text-label text-danger-text">
               {discoverMutation.error.message}
             </span>
           )}
@@ -645,9 +632,8 @@ function PostgresSourcePanel({
 
         {discovery && (
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label>Schema</Label>
-              <Select
+            <Field label="Schema">
+              <NativeSelect
                 value={schema}
                 onChange={(event) => {
                   setSchema(event.target.value)
@@ -661,12 +647,11 @@ function PostgresSourcePanel({
                     {name}
                   </option>
                 ))}
-              </Select>
-            </div>
+              </NativeSelect>
+            </Field>
             {schema && (
-              <div className="grid gap-2">
-                <Label>Table / view</Label>
-                <Select
+              <Field label="Table / view">
+                <NativeSelect
                   value={selectedTable}
                   onChange={(event) => setSelectedTable(event.target.value)}
                 >
@@ -676,39 +661,41 @@ function PostgresSourcePanel({
                       {table.name} ({table.kind})
                     </option>
                   ))}
-                </Select>
-              </div>
+                </NativeSelect>
+              </Field>
             )}
           </div>
         )}
 
         {selectedTableDescriptor && (
-          <div className="grid gap-3">
-            <p className="text-muted-foreground text-xs">
+          <div className="flex flex-col gap-3">
+            <p className="m-0 text-label text-fg-muted">
               Columns:{' '}
-              <span className="font-mono">
+              <span className="mono">
                 {selectedTableDescriptor.columns
                   .map((column) => column.name)
                   .join(', ')}
               </span>
             </p>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={previewMutation.isPending}
-              onClick={() => previewMutation.mutate()}
-            >
-              Preview (bounded)
-            </Button>
+            <div>
+              <Button
+                size="sm"
+                variant="quiet"
+                disabled={previewMutation.isPending}
+                onClick={() => previewMutation.mutate()}
+              >
+                Preview (bounded)
+              </Button>
+            </div>
             {previewMutation.data && (
-              <div className="grid gap-2">
+              <div className="flex flex-col gap-2">
                 <MappingSummary
                   headers={previewMutation.data.columns}
                   fields={fields}
                 />
                 <PreviewTable preview={previewMutation.data} />
                 {previewMutation.data.truncated && (
-                  <p className="text-muted-foreground text-xs">
+                  <p className="m-0 text-label text-fg-muted">
                     Preview truncated at the connector's preview row cap.
                   </p>
                 )}
@@ -730,7 +717,7 @@ function PostgresSourcePanel({
           error={importMutation.error}
           receipt={importMutation.data}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </Section>
   )
 }

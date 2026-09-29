@@ -401,9 +401,12 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 - **Settings — integrations moved in**: `/settings/integrations` lists the real
   connector registry and `/settings/integrations/$connectorId` shows config, run
-  history and instrument ingestion with pause/activate through the connector
-  RPCs. The standalone `/integrations` routes and their test are deleted, the
-  admin links retarget, and the settings nav now includes Integrations.
+  history, instrument ingestion and enterprise sources (S3 / external
+  PostgreSQL) with pause/activate through the connector RPCs. The connector
+  components are on app-3's v3 kit (`src/components/v3/integrations/`); the
+  standalone `/integrations` routes, their test and the legacy
+  `components/integrations` directory are deleted, the admin links retarget,
+  and the settings nav now includes Integrations.
   Signatures and instruments still need their capability models.
 
 - **Settings — access and audit ported**: `/settings/access` lists project

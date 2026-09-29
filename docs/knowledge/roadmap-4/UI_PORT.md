@@ -285,7 +285,10 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   record-links `or=(...in.(...),...in.(...))` filter exceeded it with a full
   record set; the lineage link/review/decision readers now chunk their id lists.
   The crawl is **clean: 220 pages, 0 problems, 0 404s**, and the screens suite
-  covers the notebook (51 routes × 2 widths).
+  covers the notebook (51 routes × 2 widths). The orphaned legacy
+  `/records/$recordId/overview` route and its `components/overview` (tabs + view
+  and tests) are retired: nothing linked to it, and the notebook carries the
+  record's properties/outline/history/activity tabs.
 
 - **New sheet flow added**: `/sheets/new` mirrors app-3's empty-sheet chooser —
   dataset, template and import starts plus a project picker and a name — and

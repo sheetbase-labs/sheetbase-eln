@@ -105,7 +105,6 @@ import { Route as ProjectsProjectIdMembersRouteImport } from './routes/projects/
 import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId/settings'
 import { Route as RecordsRecordIdIndexRouteImport } from './routes/records/$recordId/index'
 import { Route as RecordsRecordIdNotebookRouteImport } from './routes/records/$recordId/notebook'
-import { Route as RecordsRecordIdOverviewRouteImport } from './routes/records/$recordId/overview'
 import { Route as SamplesSampleIdIndexRouteImport } from './routes/samples/$sampleId/index'
 import { Route as SamplesSampleIdHistoryRouteImport } from './routes/samples/$sampleId/history'
 import { Route as SamplesSampleIdLineageRouteImport } from './routes/samples/$sampleId/lineage'
@@ -620,11 +619,6 @@ const RecordsRecordIdNotebookRoute = RecordsRecordIdNotebookRouteImport.update({
   path: '/notebook',
   getParentRoute: () => RecordsRecordIdRoute,
 } as any)
-const RecordsRecordIdOverviewRoute = RecordsRecordIdOverviewRouteImport.update({
-  id: '/overview',
-  path: '/overview',
-  getParentRoute: () => RecordsRecordIdRoute,
-} as any)
 const SamplesSampleIdIndexRoute = SamplesSampleIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -840,7 +834,6 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
-  '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
@@ -952,7 +945,6 @@ export interface FileRoutesByTo {
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
-  '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
@@ -1074,7 +1066,6 @@ export interface FileRoutesById {
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
-  '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
   '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
@@ -1197,7 +1188,6 @@ export interface FileRouteTypes {
     | '/projects/$projectId/members'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
-    | '/records/$recordId/overview'
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
     | '/samples/$sampleId/measurements'
@@ -1309,7 +1299,6 @@ export interface FileRouteTypes {
     | '/projects/$projectId/members'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
-    | '/records/$recordId/overview'
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
     | '/samples/$sampleId/measurements'
@@ -1430,7 +1419,6 @@ export interface FileRouteTypes {
     | '/projects/$projectId/members'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
-    | '/records/$recordId/overview'
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
     | '/samples/$sampleId/measurements'
@@ -2197,13 +2185,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecordsRecordIdNotebookRouteImport
       parentRoute: typeof RecordsRecordIdRoute
     }
-    '/records/$recordId/overview': {
-      id: '/records/$recordId/overview'
-      path: '/overview'
-      fullPath: '/records/$recordId/overview'
-      preLoaderRoute: typeof RecordsRecordIdOverviewRouteImport
-      parentRoute: typeof RecordsRecordIdRoute
-    }
     '/samples/$sampleId/': {
       id: '/samples/$sampleId/'
       path: '/'
@@ -2669,13 +2650,11 @@ const TemplatesRouteWithChildren = TemplatesRoute._addFileChildren(
 
 interface RecordsRecordIdRouteChildren {
   RecordsRecordIdNotebookRoute: typeof RecordsRecordIdNotebookRoute
-  RecordsRecordIdOverviewRoute: typeof RecordsRecordIdOverviewRoute
   RecordsRecordIdIndexRoute: typeof RecordsRecordIdIndexRoute
 }
 
 const RecordsRecordIdRouteChildren: RecordsRecordIdRouteChildren = {
   RecordsRecordIdNotebookRoute: RecordsRecordIdNotebookRoute,
-  RecordsRecordIdOverviewRoute: RecordsRecordIdOverviewRoute,
   RecordsRecordIdIndexRoute: RecordsRecordIdIndexRoute,
 }
 

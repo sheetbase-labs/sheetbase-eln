@@ -1,5 +1,5 @@
 /**
- * INT-02 — scientific instrument ingestion panel.
+ * INT-02 — scientific instrument ingestion panel. UI port: app-3's v3 kit.
  *
  * Proves the generic framework end-to-end for one representative instrument
  * flow. The raw instrument file is FIRST retained through the canonical
@@ -15,29 +15,21 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
 
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
+import { Section } from '#/components/v3/ui/layout'
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Select,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
+import { NativeSelect } from '#/components/v3/projects/select'
 import { createDataClient } from '#/lib/data-client'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
@@ -243,34 +235,32 @@ export function IngestPanel({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Ingest instrument output</CardTitle>
-        <CardDescription>
-          The raw file is first retained in the workspace file subsystem, then
-          parsed by the registered{' '}
-          <Badge variant="outline">
-            {parser?.parserId}@{parser?.version}
-          </Badge>{' '}
-          parser, mapped to a Dataset Schema Version and committed through the
-          canonical batch RPCs inside one governed run.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="ingest-file">Instrument file</Label>
+    <Section title="Ingest instrument output">
+      <p className="m-0 max-w-3xl text-body text-fg-muted">
+        The raw file is first retained in the workspace file subsystem, then
+        parsed by the registered{' '}
+        <Badge variant="kind">
+          {parser?.parserId}@{parser?.version}
+        </Badge>{' '}
+        parser, mapped to a Dataset Schema Version and committed through the
+        canonical batch RPCs inside one governed run.
+      </p>
+
+      <div className="flex max-w-2xl flex-col gap-4">
+        <Field label="Instrument file">
           <Input
             ref={fileInputRef}
-            id="ingest-file"
             type="file"
             accept=".csv,.tsv,text/csv,text/tab-separated-values"
             onChange={(event) => void onFilePicked(event.target.files)}
           />
-        </div>
+        </Field>
 
-        <div className="grid gap-2">
-          <Label>Retain raw file in project</Label>
-          <Select
+        <Field
+          label="Retain raw file in project"
+          hint="The original bytes are retained as a file record; the run provenance carries its canonical fileRecordId and sha256 checksum."
+        >
+          <NativeSelect
             value={projectId}
             onChange={(event) => setProjectId(event.target.value)}
           >
@@ -280,16 +270,11 @@ export function IngestPanel({
                 {project.title}
               </option>
             ))}
-          </Select>
-          <p className="text-muted-foreground text-xs">
-            The original bytes are retained as a file record; the run provenance
-            carries its canonical fileRecordId and sha256 checksum.
-          </p>
-        </div>
+          </NativeSelect>
+        </Field>
 
-        <div className="grid gap-2">
-          <Label>Target Schema Version</Label>
-          <Select
+        <Field label="Target Schema Version">
+          <NativeSelect
             value={schemaVersionId}
             onChange={(event) => {
               setSchemaVersionId(event.target.value)
@@ -305,8 +290,8 @@ export function IngestPanel({
                 {option.name} v{option.version}
               </option>
             ))}
-          </Select>
-        </div>
+          </NativeSelect>
+        </Field>
 
         {targetFields.length > 0 && file && parser && (
           <MappingPreview
@@ -319,9 +304,8 @@ export function IngestPanel({
 
         {schemaVersionId && (
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label>Existing Dataset</Label>
-              <Select
+            <Field label="Existing Dataset">
+              <NativeSelect
                 value={datasetId}
                 onChange={(event) => setDatasetId(event.target.value)}
               >
@@ -331,49 +315,49 @@ export function IngestPanel({
                     {dataset.name}
                   </option>
                 ))}
-              </Select>
-            </div>
+              </NativeSelect>
+            </Field>
             {!datasetId && (
-              <div className="grid gap-2">
-                <Label htmlFor="new-dataset-name">New Dataset name</Label>
+              <Field label="New Dataset name">
                 <Input
-                  id="new-dataset-name"
                   value={newDatasetName}
                   onChange={(event) => setNewDatasetName(event.target.value)}
                   placeholder={`Instrument import — ${file?.name ?? 'payload'}`}
                 />
-              </div>
+              </Field>
             )}
           </div>
         )}
 
         {mutation.error instanceof Error && (
-          <Alert variant="destructive">
-            <AlertTitle>Ingestion failed — recorded as a failed run</AlertTitle>
-            <AlertDescription>
-              {describeConnectorsError(mutation.error)}
-            </AlertDescription>
-          </Alert>
+          <Notice
+            tone="bad"
+            title="Ingestion failed — recorded as a failed run"
+          >
+            {describeConnectorsError(mutation.error)}
+          </Notice>
         )}
         {mutation.data && (
-          <Alert variant="info">
-            <AlertTitle>
+          <Notice tone="info">
+            <span className="font-semibold">
               Run{' '}
               {mutation.data.alreadyCompleted
                 ? 'already completed'
                 : 'succeeded'}
-            </AlertTitle>
-            <AlertDescription>
+            </span>
+            <p className="m-0">
               {mutation.data.rowCount} rows landed in the target Dataset via{' '}
               {mutation.data.parser.identity}, run{' '}
-              <span className="font-mono">{mutation.data.runId}</span>. See run
+              <span className="mono">{mutation.data.runId}</span>. See run
               history below for the full provenance payload.
-            </AlertDescription>
-          </Alert>
+            </p>
+          </Notice>
         )}
 
         <div>
           <Button
+            variant="primary"
+            icon="upload"
             disabled={
               !file ||
               !selectedSchema ||
@@ -383,12 +367,11 @@ export function IngestPanel({
             }
             onClick={() => mutation.mutate()}
           >
-            <Upload className="size-4" />
             {mutation.isPending ? 'Running…' : 'Retain + ingest into Dataset'}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </Section>
   )
 }
 
@@ -448,27 +431,27 @@ function MappingPreview({
   if (mappings.length === 0) return null
 
   return (
-    <div className="rounded-md border p-3">
-      <p className="mb-2 text-sm font-medium">
+    <div className="rounded-md border border-border p-3">
+      <p className="m-0 mb-2 text-body font-medium">
         Column mapping ({mappings.filter((m) => m.kind === 'field').length}{' '}
         mapped, {state.rows.length} rows)
       </p>
-      <ul className="text-muted-foreground space-y-1 text-xs">
+      <ul className="m-0 list-none space-y-1 p-0 text-label text-fg-muted">
         {mappings.map((mapping) => (
           <li key={mapping.source}>
-            <span className="font-mono">{mapping.source}</span> →{' '}
+            <span className="mono">{mapping.source}</span> →{' '}
             {mapping.kind === 'field' ? mapping.field.label : 'ignored'}
           </li>
         ))}
       </ul>
       {previewRows.length > 0 && (
         <>
-          <p className="mt-3 mb-1 text-sm font-medium">Preview</p>
-          <Table>
+          <p className="mb-1 mt-3 text-body font-medium">Preview</p>
+          <Table aria-label="Mapping preview">
             <TableHeader>
               <TableRow>
                 {Object.keys(previewRows[0].values).map((key) => (
-                  <TableHead key={key} className="font-mono text-xs">
+                  <TableHead key={key} className="mono text-label">
                     {key}
                   </TableHead>
                 ))}
@@ -478,7 +461,7 @@ function MappingPreview({
               {previewRows.map((row) => (
                 <TableRow key={row.rowId}>
                   {Object.keys(previewRows[0].values).map((key) => (
-                    <TableCell key={key} className="font-mono text-xs">
+                    <TableCell key={key} className="mono text-label">
                       {row.values[key] === null || row.values[key] === undefined
                         ? ''
                         : String(row.values[key])}

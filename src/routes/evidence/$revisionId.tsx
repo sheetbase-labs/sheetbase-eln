@@ -1,6 +1,11 @@
-import { useMemo } from 'react'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
 import {
   PageHeader,
@@ -12,6 +17,16 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+} from '#/components/v3/ui/dialog'
+import { Textarea } from '#/components/v3/inventory/list'
+import { toast } from '#/components/v3/ui/sonner'
 import {
   Table,
   TableBody,
@@ -26,6 +41,7 @@ import {
   fetchRevisionRow,
   reviewWorkspaceDataClient,
 } from '#/lib/review-workspace'
+import { createAmendment, sign002DataClient } from '#/lib/sign-002'
 
 /** UI port (roadmap-4/ui-app3): submitted evidence. The frozen revision reads
  * exactly as it was signed and never changes; when the live record has moved on,
@@ -62,6 +78,34 @@ function EvidencePage() {
     enabled: Boolean(recordId),
   })
   const record = recordQuery.data
+  const navigate = useNavigate()
+  const [amendOpen, setAmendOpen] = useState(false)
+  const [note, setNote] = useState('')
+
+  const amend = useMutation({
+    mutationFn: () =>
+      createAmendment(sign002DataClient, {
+        recordId,
+        note: note.trim() || undefined,
+      }),
+    onSuccess: (result) => {
+      setAmendOpen(false)
+      setNote('')
+      toast('Amendment started', {
+        description: 'The record is unlocked for a new draft revision.',
+      })
+      void navigate({
+        to: '/records/$recordId/notebook',
+        params: { recordId: result.recordId },
+      })
+    },
+    onError: (error: unknown) => {
+      toast('Could not amend', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      })
+    },
+  })
 
   const title = useMemo(() => {
     const meta = revision?.metadata_snapshot ?? {}
@@ -146,6 +190,9 @@ function EvidencePage() {
               >
                 Open live record
               </Button>
+              <Button disabled={!recordId} onClick={() => setAmendOpen(true)}>
+                Create amendment
+              </Button>
               <Button
                 variant="primary"
                 nativeButton={false}
@@ -219,6 +266,36 @@ function EvidencePage() {
           </Muted>
         </InspectorSection>
       </Inspector>
+
+      <Dialog open={amendOpen} onOpenChange={setAmendOpen}>
+        <DialogContent className="w-[min(520px,calc(100vw-32px))]">
+          <DialogHeader
+            title="Create amendment"
+            description="The frozen revision stays as signed. An amendment starts a new draft revision of the record, which is reviewed and signed in its own right."
+          />
+          <DialogBody>
+            <label className="flex flex-col gap-1 text-label">
+              <span className="font-medium text-fg">Reason for amendment</span>
+              <Textarea
+                aria-label="Reason for amendment"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="What is being corrected, and why"
+              />
+            </label>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <Button
+              variant="primary"
+              disabled={amend.isPending}
+              onClick={() => amend.mutate()}
+            >
+              {amend.isPending ? 'Creating…' : 'Create amendment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

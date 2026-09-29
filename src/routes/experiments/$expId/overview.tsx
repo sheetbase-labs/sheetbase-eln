@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import {
@@ -70,6 +70,7 @@ function Overview() {
   })
   const sections = sectionsFromBlocks(blocks.data ?? [])
   const rows = links.data ?? []
+  const protocolLinks = rows.filter((l) => l.link_type === 'protocol')
 
   return (
     <>
@@ -93,9 +94,27 @@ function Overview() {
         )}
 
         <Section title="Protocol progress">
+          {protocolLinks.length ? (
+            <DescriptionList
+              labelWidth={110}
+              items={protocolLinks.map((l) => [
+                'Protocol',
+                <Link
+                  key={l.id}
+                  to="/protocols/$protocolId"
+                  params={{ protocolId: l.target_record_id ?? '' }}
+                  className="text-link"
+                >
+                  {l.target_identifier}
+                </Link>,
+              ])}
+            />
+          ) : (
+            <Muted>This experiment does not follow a protocol.</Muted>
+          )}
           <Muted>
-            Protocol versions and step progress are not built yet; the
-            experiment stores no protocol version.
+            Step progress is not modelled; the experiment stores no protocol
+            version.
           </Muted>
         </Section>
       </div>

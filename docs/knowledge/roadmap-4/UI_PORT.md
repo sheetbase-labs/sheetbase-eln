@@ -421,8 +421,9 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   published versions, section and in-use counts. `/templates/$templateId` frames
   the template with Sections (the stored configuration's placements and
   parameters), Versions (Publish/Retire via the CORE-06 RPCs, revision-checked)
-  and In use (records pinned to a version). `/templates/$templateId/update`
-  previews `preview_notebook_template_upgrade` and applies through
+  and In use (records pinned to a version). The list shows the TPL display id and
+  owner. `/templates/$templateId/update` previews
+  `preview_notebook_template_upgrade` and applies through
   `apply_notebook_template_upgrade` with the record's structure version; conflicts
   that need per-sheet decisions are stated rather than guessed. The old
   protocol-template board is replaced.
@@ -456,13 +457,6 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   pages: no 404s; the only problems are unported legacy routes (`/settings`,
   `/records/$id/notebook`).
 
-- **Templates board ported**: `/templates` renders app-3's list on real protocol
-  templates (Template, Kind, Identifier, Status, Updated) with a selected-row
-  inspector and Copy link; `?template=`/`?protocol=` deep links select the row.
-  Versioning and sheet/notebook template kinds are gaps; the TPL display id
-  and owner are wired. The old template library component, its story and test
-  are deleted.
-
 - **Dataset Compare ported**: `/datasets/$datasetId/compare` diffs two snapshots
   through `compare_dataset_versions` (row counters, columns changed, per-field
   add/change/remove). The dataset area is now Rows · Snapshots · Compare; the
@@ -478,8 +472,9 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   (status, owner, started) and tabs Overview, Notebook, Samples, Datasets,
   Results, Files, History. Overview reads the record's notes; Samples/Datasets/
   Files read `record_links`; History reads `revisions`; Notebook points at the
-  working record notebook; Results and protocol progress state their unbuilt
-  capabilities. The list's experiments link here.
+  working record notebook; Overview shows the linked protocol; Results and
+  protocol step progress state their unbuilt capabilities. The list's
+  experiments link here.
 
 - **Dataset detail frame + Snapshots ported**: `/datasets/$datasetId` shows the
   header (status, model, rows) with a Snapshots tab wired to

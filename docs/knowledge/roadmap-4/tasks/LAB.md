@@ -159,7 +159,7 @@ link to their row; the seeded SMP-2231 matches the design.
 
 ## LAB-04 — Materials and lots
 
-**Status:** proposed; [DEC-07](DEC.md) accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): materials are built-in, not workspace-defined. **DEC-03:** absorbs `/storage` locations; the standalone route retires.
+**Status:** proposed; [DEC-07](DEC.md) accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): materials are built-in, not workspace-defined. **DEC-03:** absorbs `/storage` locations; the standalone route is retired by the UI port (locations show on materials).
 
 ### Design
 

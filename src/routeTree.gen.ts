@@ -33,7 +33,6 @@ import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as StorageRouteImport } from './routes/storage'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as AdminSectionRouteImport } from './routes/admin/$section'
 import { Route as AnalysisAnalysisIdRouteImport } from './routes/analysis/$analysisId'
@@ -246,11 +245,6 @@ const SettingsRoute = SettingsRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StorageRoute = StorageRouteImport.update({
-  id: '/storage',
-  path: '/storage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TemplatesRoute = TemplatesRouteImport.update({
@@ -769,7 +763,6 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
   '/sign-in': typeof SignInRoute
-  '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
@@ -888,7 +881,6 @@ export interface FileRoutesByTo {
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
-  '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
@@ -1001,7 +993,6 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
   '/sign-in': typeof SignInRoute
-  '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
@@ -1123,7 +1114,6 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/sign-in'
-    | '/storage'
     | '/templates'
     | '/admin/$section'
     | '/analysis/$analysisId'
@@ -1242,7 +1232,6 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/search'
     | '/sign-in'
-    | '/storage'
     | '/templates'
     | '/admin/$section'
     | '/analysis/$analysisId'
@@ -1354,7 +1343,6 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/sign-in'
-    | '/storage'
     | '/templates'
     | '/admin/$section'
     | '/analysis/$analysisId'
@@ -1475,7 +1463,6 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   SignInRoute: typeof SignInRoute
-  StorageRoute: typeof StorageRoute
   TemplatesRoute: typeof TemplatesRouteWithChildren
   ApiCalculationsRoute: typeof ApiCalculationsRoute
   ApiEventsRoute: typeof ApiEventsRoute
@@ -1679,13 +1666,6 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/storage': {
-      id: '/storage'
-      path: '/storage'
-      fullPath: '/storage'
-      preLoaderRoute: typeof StorageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/templates': {
@@ -2687,7 +2667,6 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRouteWithChildren,
   SignInRoute: SignInRoute,
-  StorageRoute: StorageRoute,
   TemplatesRoute: TemplatesRouteWithChildren,
   ApiCalculationsRoute: ApiCalculationsRoute,
   ApiEventsRoute: ApiEventsRoute,

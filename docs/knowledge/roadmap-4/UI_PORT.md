@@ -79,8 +79,8 @@ an area first forces either a double header or a temporary adapter.
 | `/client-portal`                                           | —                                                   | Build.                                         |
 | `/scan`, `/readings/new`                                   | —                                                   | Build.                                         |
 
-Retire (per DEC-03): `/plate-designer`, `/report-builder`, `/planner`,
-`/lineage`, `/storage`, `/agent-operations` — fold into their owning areas.
+Retire (per DEC-03): `/plate-designer`, `/report-builder`, `/lineage`,
+`/storage`, `/agent-operations` are retired; `/planner` folds into PROJ-02.
 
 ## Per-area definition of done
 
@@ -222,10 +222,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   change events) through the RLS-filtered lineage boundary; restricted
   neighbours render as honest text. `/instrument-monitor` is retired into the
   new `/instruments` area (LAB-06), and `/agent-operations` is retired into the
-  new `/pipelines/agents` surface (PIPE-01). The remaining fold routes
-  (`/planner`→PROJ-02, `/storage`→LAB-04) are
-  deleted with their fold task, as DEC-03 specifies; `/docs/$name` and
-  `/foundations` stay internal and unlisted.
+  new `/pipelines/agents` surface (PIPE-01). `/storage` is retired: its
+  locations surface on materials (LAB-04's `location` column) and the
+  CORE-era freezer hierarchy browser has no place in the LAB-04 design, so the
+  route, its components, `lib/storage.ts`, stories and tests are deleted. The
+  remaining fold route (`/planner`→PROJ-02) is deleted with its fold task, as
+  DEC-03 specifies; `/docs/$name` and `/foundations` stay internal and
+  unlisted.
 
 - **Portal messaging ported**: `client_portal_messages` (RLS: internal members
   or the client whose portal it is) with `post_client_portal_message` (a client

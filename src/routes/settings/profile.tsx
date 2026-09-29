@@ -5,7 +5,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Section } from '#/components/v3/ui/layout'
 import { toast } from '#/components/v3/ui/sonner'
-import { SettingsSessions } from '#/components/settings/settings-sessions'
+import { SettingsSessions } from '#/components/v3/settings/settings-sessions'
 import {
   SettingsBody,
   SettingsHeader,

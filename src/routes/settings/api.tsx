@@ -3,7 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
-import { SettingsApiTokens } from '#/components/settings/settings-api-tokens'
+import { SettingsApiTokens } from '#/components/v3/settings/settings-api-tokens'
 import {
   SettingsBody,
   SettingsHeader,

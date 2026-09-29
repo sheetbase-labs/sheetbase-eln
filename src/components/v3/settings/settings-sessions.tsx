@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button, Empty, EmptyDescription, EmptyTitle } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/v3/ui/alert'
+import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Muted, Section } from '#/components/v3/ui/layout'
 import { authClient } from '#/lib/auth-client'
 
 /**
  * SET-03.2 — the caller's own sessions, with sign-out per session. Uses the
  * Better Auth session API; the current session is marked and cannot be ended
- * from the list (sign out does that from the account menu).
+ * from the list (sign out does that from the account menu). UI port: v3 kit.
  */
 interface MySession {
   id: string
@@ -72,44 +75,38 @@ export function SettingsSessions() {
   const sessions = query.data ?? []
 
   return (
-    <section aria-label="My sessions" className="space-y-3">
-      <div className="space-y-1">
-        <h3 className="text-section text-foreground">My sessions</h3>
-        <p className="text-caption text-muted-foreground">
-          Devices signed in as you. Ending a session signs that device out.
-        </p>
-      </div>
+    <Section title="My sessions">
+      <p className="m-0 text-body text-fg-muted">
+        Devices signed in as you. Ending a session signs that device out.
+      </p>
 
       {revoke.isError ? (
-        <p role="alert" className="text-caption text-danger-text">
+        <Notice tone="bad">
           {revoke.error instanceof Error
             ? revoke.error.message
             : 'Could not end the session.'}
-        </p>
+        </Notice>
       ) : null}
 
       {query.isLoading ? (
-        <p className="text-body text-muted-foreground">Loading…</p>
+        <Muted>Loading…</Muted>
       ) : query.isError ? (
-        <div className="space-y-2">
-          <p role="alert" className="text-caption text-danger-text">
+        <div className="flex flex-col gap-2">
+          <Notice tone="bad">
             {query.error instanceof Error
               ? query.error.message
               : 'Could not load your sessions.'}
-          </p>
-          <Button variant="outline" size="sm" onClick={() => query.refetch()}>
-            Try again
-          </Button>
+          </Notice>
+          <Button onClick={() => query.refetch()}>Try again</Button>
         </div>
       ) : sessions.length === 0 ? (
-        <Empty>
-          <EmptyTitle>No other sessions</EmptyTitle>
-          <EmptyDescription>
-            You are only signed in on this device.
-          </EmptyDescription>
-        </Empty>
+        <EmptyState
+          icon="lock"
+          title="No other sessions"
+          body="You are only signed in on this device."
+        />
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border">
+        <ul className="m-0 max-w-2xl list-none divide-y divide-border rounded-lg border border-border p-0">
           {sessions.map((entry) => {
             const current = entry.id === currentSessionId
             return (
@@ -118,22 +115,21 @@ export function SettingsSessions() {
                 className="flex items-center gap-3 px-3 py-2 text-body"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-foreground">
+                  <p className="m-0 truncate text-fg">
                     {describeDevice(entry.userAgent)}
                     {current ? ' · this device' : ''}
                   </p>
-                  <p className="truncate text-caption text-muted-foreground">
+                  <p className="m-0 truncate text-label text-fg-muted">
                     {entry.ipAddress ?? '—'} · started{' '}
                     {formatWhen(entry.createdAt)}
                   </p>
                 </div>
                 {current ? (
-                  <span className="shrink-0 text-caption text-muted-foreground">
+                  <span className="shrink-0 text-label text-fg-muted">
                     Current
                   </span>
                 ) : (
                   <Button
-                    variant="secondary"
                     size="sm"
                     disabled={revoke.isPending}
                     onClick={() => revoke.mutate(entry.token)}
@@ -146,6 +142,6 @@ export function SettingsSessions() {
           })}
         </ul>
       )}
-    </section>
+    </Section>
   )
 }

@@ -1,7 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
+import { Section } from '#/components/v3/ui/layout'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
 import {
   defaultPreferences,
   fetchNotificationPreferences,
@@ -15,7 +28,7 @@ import type { NotificationPreference } from '#/lib/notification-preferences'
 
 /**
  * WORK-03.1 — SettingsNotifications: choose where each event reaches the
- * caller, quiet hours and the daily digest time.
+ * caller, quiet hours and the daily digest time. UI port: app-3's v3 kit.
  */
 export function SettingsNotifications() {
   const queryClient = useQueryClient()
@@ -79,99 +92,100 @@ export function SettingsNotifications() {
   }
 
   return (
-    <section aria-label="Notifications" className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h3 className="text-section text-foreground">Notifications</h3>
-          <p className="text-caption text-muted-foreground">
-            Choose where each kind of event reaches you.
-          </p>
-        </div>
+    <Section
+      title="Notifications"
+      action={
         <Button
+          variant="primary"
           onClick={() => save.mutate()}
           disabled={save.isPending || preferencesQuery.isLoading}
         >
           {save.isPending ? 'Saving…' : 'Save changes'}
         </Button>
-      </div>
+      }
+    >
+      <p className="m-0 text-body text-fg-muted">
+        Choose where each kind of event reaches you.
+      </p>
 
       {save.isError ? (
-        <p role="alert" className="text-caption text-danger-text">
+        <Notice tone="bad">
           {save.error instanceof Error
             ? save.error.message
             : 'Could not save your notification settings.'}
-        </p>
+        </Notice>
       ) : null}
 
-      <table className="w-full text-body">
-        <thead>
-          <tr className="border-b border-border text-left text-caption text-muted-foreground">
-            <th className="py-2">Event</th>
-            <th className="w-20 py-2 text-center">In app</th>
-            <th className="w-20 py-2 text-center">Email</th>
-            <th className="w-24 py-2 text-center">Daily digest</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.eventType} className="border-b border-border">
-              <td className="py-2 pr-3">
-                {NOTIFICATION_EVENT_LABELS[row.eventType]}
-              </td>
-              {(['inApp', 'email', 'digest'] as const).map((channel) => (
-                <td key={channel} className="py-2 text-center">
-                  <input
-                    type="checkbox"
-                    aria-label={`${NOTIFICATION_EVENT_LABELS[row.eventType]} ${channel}`}
-                    checked={row[channel]}
-                    onChange={() => toggle(row.eventType, channel)}
-                  />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <TableBox className="max-w-2xl">
+        <Table aria-label="Notification channels">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Event</TableHead>
+              <TableHead className="text-center">In app</TableHead>
+              <TableHead className="text-center">Email</TableHead>
+              <TableHead className="text-center">Daily digest</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.eventType}>
+                <TableCell>
+                  {NOTIFICATION_EVENT_LABELS[row.eventType]}
+                </TableCell>
+                {(['inApp', 'email', 'digest'] as const).map((channel) => (
+                  <TableCell key={channel} className="text-center">
+                    <Checkbox
+                      aria-label={`${NOTIFICATION_EVENT_LABELS[row.eventType]} ${channel}`}
+                      checked={row[channel]}
+                      onCheckedChange={() => toggle(row.eventType, channel)}
+                    />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableBox>
 
-      <div className="space-y-2">
-        <h4 className="text-label text-foreground">Quiet hours</h4>
-        <div className="flex items-center gap-2 text-body">
-          <span className="text-muted-foreground">Hold email between</span>
-          <input
+      <div className="flex flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">Quiet hours</h3>
+        <div className="flex flex-wrap items-center gap-2 text-body">
+          <span className="text-fg-muted">Hold email between</span>
+          <Input
             type="time"
             aria-label="Quiet hours start"
-            className="h-8 rounded-md border border-input bg-card px-2"
+            className="w-32"
             value={quietStart ?? ''}
             onChange={(event) => setQuietStart(event.target.value || null)}
           />
-          <span className="text-muted-foreground">and</span>
-          <input
+          <span className="text-fg-muted">and</span>
+          <Input
             type="time"
             aria-label="Quiet hours end"
-            className="h-8 rounded-md border border-input bg-card px-2"
+            className="w-32"
             value={quietEnd ?? ''}
             onChange={(event) => setQuietEnd(event.target.value || null)}
           />
         </div>
-        <p className="text-caption text-muted-foreground">
+        <p className="m-0 text-label text-fg-muted">
           Reviews due today and signature requests always come through.
         </p>
       </div>
 
-      <div className="space-y-2">
-        <h4 className="text-label text-foreground">Digest</h4>
-        <label className="flex items-center gap-2 text-body">
-          <span className="text-muted-foreground">Send at</span>
-          <input
+      <div className="flex flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">Digest</h3>
+        <div className="flex flex-wrap items-center gap-2 text-body">
+          <span className="text-fg-muted">Send at</span>
+          <Input
             type="time"
             aria-label="Digest time"
-            className="h-8 rounded-md border border-input bg-card px-2"
+            className="w-32"
             value={digestTime ?? ''}
             onChange={(event) => setDigestTime(event.target.value || null)}
           />
-          <span className="text-muted-foreground">weekdays</span>
-        </label>
+          <span className="text-fg-muted">weekdays</span>
+        </div>
       </div>
-    </section>
+    </Section>
   )
 }

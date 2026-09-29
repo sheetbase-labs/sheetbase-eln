@@ -419,7 +419,8 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   (`/settings/profile`) and Notifications (`/settings/notifications`) reuse the
   real SET-01/SET-03 modules (workspace general and id prefixes, personal API
   tokens, user name via Better Auth, appearance via the shared theme store,
-  sessions, notification preferences). Members and roles (`/settings/members`)
+  sessions, notification preferences), reskinned onto app-3's v3 kit
+  (`src/components/v3/settings/`). Members and roles (`/settings/members`)
   is a new page on `workspace_memberships`/`workspace_invitations`: role change,
   suspend, reinstate, remove, invite and revoke go through the workspace-admin
   RPCs, gated on `workspace.admin`. The old single `/settings` page is replaced.

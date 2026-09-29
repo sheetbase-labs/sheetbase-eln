@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { SettingsGeneral } from '#/components/settings/settings-general'
+import { SettingsGeneral } from '#/components/v3/settings/settings-general'
 import {
   SettingsBody,
   SettingsHeader,

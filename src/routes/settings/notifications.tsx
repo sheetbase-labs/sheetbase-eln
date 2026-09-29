@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { SettingsNotifications } from '#/components/settings/settings-notifications'
+import { SettingsNotifications } from '#/components/v3/settings/settings-notifications'
 import {
   SettingsBody,
   SettingsHeader,

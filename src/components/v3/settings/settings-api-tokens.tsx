@@ -1,17 +1,19 @@
 import { useState } from 'react'
 
+import { Button } from '#/components/v3/ui/button'
+import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
+import { Status } from '#/components/v3/ui/status'
 import {
-  Button,
-  Checkbox,
-  Input,
-  Label,
   Table,
   TableBody,
+  TableBox,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
 import { SCOPE_GROUPS } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
 import type {
@@ -20,6 +22,7 @@ import type {
 } from '#/lib/personal-api-tokens'
 import { formatDate } from '#/lib/workspace-admin'
 
+/** UI port (roadmap-4/ui-app3): personal API tokens, app-3's v3 kit. */
 export function SettingsApiTokens({
   tokens,
   revealed,
@@ -65,8 +68,8 @@ export function SettingsApiTokens({
   }
 
   return (
-    <div className="space-y-6">
-      <p className="max-w-3xl text-sm text-muted-foreground">
+    <div className="flex flex-col gap-6">
+      <p className="m-0 max-w-3xl text-body text-fg-muted">
         A personal API token acts as you (the signed-in member), under the same
         canonical Core-domain scopes and fail-closed allowlist as a workspace
         service credential. It inherits your membership role — so a{' '}
@@ -77,94 +80,86 @@ export function SettingsApiTokens({
       </p>
 
       {revealed ? (
-        <div
-          role="status"
-          className="space-y-3 rounded-lg border border-warning-border bg-warning-wash p-4 text-sm text-warning-text"
-        >
-          <p className="font-medium">
-            Copy the token for {revealed.name} now. It will not be shown again.
-          </p>
-          <code className="block break-all rounded-md bg-background px-3 py-2 text-foreground">
-            {revealed.secret}
-          </code>
-          <p className="text-xs">
-            Prefix <code>{revealed.displayPrefix}</code>. Scopes:{' '}
-            {revealed.scopes.join(', ')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() =>
-                void navigator.clipboard.writeText(revealed.secret)
-              }
-            >
-              Copy token
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={onDismissRevealed}
-            >
-              I have stored it
-            </Button>
+        <Notice tone="warn" className="flex-col items-start">
+          <div className="flex flex-col gap-3">
+            <p className="m-0 font-medium">
+              Copy the token for {revealed.name} now. It will not be shown
+              again.
+            </p>
+            <code className="block break-all rounded-md bg-surface px-3 py-2 text-fg">
+              {revealed.secret}
+            </code>
+            <p className="m-0 text-label">
+              Prefix <code>{revealed.displayPrefix}</code>. Scopes:{' '}
+              {revealed.scopes.join(', ')}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() =>
+                  void navigator.clipboard.writeText(revealed.secret)
+                }
+              >
+                Copy token
+              </Button>
+              <Button type="button" size="sm" onClick={onDismissRevealed}>
+                I have stored it
+              </Button>
+            </div>
           </div>
-        </div>
+        </Notice>
       ) : null}
 
       <form
         onSubmit={submit}
-        className="space-y-4 rounded-lg border bg-background p-4"
+        className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4"
       >
-        <h3 className="font-semibold">Create personal token</h3>
-        <div className="max-w-md space-y-2">
-          <Label htmlFor="personal-token-name">Name</Label>
-          <Input
-            id="personal-token-name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Local Jupyter"
-            required
-          />
+        <h3 className="m-0 font-heading text-doc font-semibold">
+          Create personal token
+        </h3>
+        <div className="max-w-md">
+          <Field label="Name" required>
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Local Jupyter"
+              required
+            />
+          </Field>
         </div>
-        <div className="max-w-md space-y-2">
-          <Label htmlFor="personal-token-expiry">Expires (optional)</Label>
-          <Input
-            id="personal-token-expiry"
-            type="datetime-local"
-            value={expiresAt}
-            onChange={(event) => setExpiresAt(event.target.value)}
-          />
+        <div className="max-w-md">
+          <Field label="Expires (optional)">
+            <Input
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(event) => setExpiresAt(event.target.value)}
+            />
+          </Field>
         </div>
-        <fieldset className="space-y-4">
-          <legend className="text-sm font-medium">Scopes</legend>
+        <fieldset className="flex flex-col gap-4 border-0 p-0">
+          <legend className="text-body font-medium text-fg">Scopes</legend>
           {SCOPE_GROUPS.map((group) => (
-            <div key={group.title} className="space-y-2">
-              <p className="text-sm font-medium">
+            <div key={group.title} className="flex flex-col gap-2">
+              <p className="m-0 text-body font-medium">
                 {group.title}
-                {group.effective ? (
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    Enforced today
-                  </span>
-                ) : (
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    Mintable; not on the external allowlist
-                  </span>
-                )}
+                <span className="ml-2 text-label font-normal text-fg-muted">
+                  {group.effective
+                    ? 'Enforced today'
+                    : 'Mintable; not on the external allowlist'}
+                </span>
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="m-0 text-label text-fg-muted">
                 {group.description}
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {group.scopes.map((scope) => (
                   <label
                     key={scope}
-                    htmlFor={`personal-token-scope-${scope.replaceAll(':', '-')}`}
-                    className="flex items-center gap-2 text-sm"
+                    className="flex items-center gap-2 text-body"
                   >
                     <Checkbox
-                      id={`personal-token-scope-${scope.replaceAll(':', '-')}`}
+                      aria-label={scope}
                       checked={selected.has(scope)}
                       onCheckedChange={() => toggle(scope)}
                     />
@@ -175,13 +170,19 @@ export function SettingsApiTokens({
             </div>
           ))}
         </fieldset>
-        <Button type="submit" disabled={!name.trim() || selected.size === 0}>
-          Create token
-        </Button>
+        <div>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={!name.trim() || selected.size === 0}
+          >
+            Create token
+          </Button>
+        </div>
       </form>
 
-      <div className="rounded-lg border bg-background">
-        <Table>
+      <TableBox>
+        <Table aria-label="Personal tokens">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
@@ -200,18 +201,11 @@ export function SettingsApiTokens({
               const isExpired =
                 Boolean(row.expiresAt) &&
                 new Date(row.expiresAt!).getTime() <= Date.now()
-              const status = isRevoked
-                ? 'Revoked'
-                : isExpired
-                  ? 'Expired'
-                  : 'Active'
               return (
                 <TableRow key={row.id}>
                   <TableCell>{row.name}</TableCell>
-                  <TableCell>
-                    <code>{row.displayPrefix}</code>
-                  </TableCell>
-                  <TableCell className="max-w-xs text-xs">
+                  <TableCell className="mono">{row.displayPrefix}</TableCell>
+                  <TableCell className="max-w-xs text-label">
                     {row.scopes.join(', ')}
                   </TableCell>
                   <TableCell>{formatDate(row.createdAt)}</TableCell>
@@ -221,12 +215,17 @@ export function SettingsApiTokens({
                   <TableCell>
                     {row.expiresAt ? formatDate(row.expiresAt) : 'Never'}
                   </TableCell>
-                  <TableCell>{status}</TableCell>
+                  <TableCell>
+                    <Status
+                      tone={isRevoked ? 'stored' : isExpired ? 'bad' : 'ok'}
+                    >
+                      {isRevoked ? 'Revoked' : isExpired ? 'Expired' : 'Active'}
+                    </Status>
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
-                        variant="outline"
                         disabled={isRevoked || isExpired}
                         onClick={() => onRotate(row.id)}
                       >
@@ -234,7 +233,7 @@ export function SettingsApiTokens({
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="danger"
                         disabled={isRevoked}
                         onClick={() => onRevoke(row.id)}
                       >
@@ -249,7 +248,7 @@ export function SettingsApiTokens({
               <TableRow>
                 <TableCell
                   colSpan={8}
-                  className="py-8 text-center text-muted-foreground"
+                  className="py-8 text-center text-fg-muted"
                 >
                   You have no personal tokens.
                 </TableCell>
@@ -257,7 +256,7 @@ export function SettingsApiTokens({
             )}
           </TableBody>
         </Table>
-      </div>
+      </TableBox>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { MessageSquare } from 'lucide-react'
 
-import { Badge, Button } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import { cn } from '#/lib/utils'
 
 /**
@@ -24,8 +25,8 @@ export function CommentButton({
   return (
     <Button
       type="button"
-      variant="ghost"
-      size="icon-sm"
+      variant="quiet"
+      size="icon"
       aria-label={label}
       className={cn('relative', className)}
       onClick={onClick}

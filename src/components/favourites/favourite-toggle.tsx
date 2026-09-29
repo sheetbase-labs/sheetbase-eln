@@ -2,7 +2,7 @@
 
 import { Star } from 'lucide-react'
 
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 import { useFavouriteState } from '#/lib/favourites'
 import type { DataClient } from '#/lib/data-client'
 import type { FavouriteObjectKind } from '#/lib/favourites'
@@ -43,8 +43,8 @@ export function FavouriteToggle({
     <span className={cn('inline-flex items-center', className)}>
       <Button
         type="button"
-        variant="ghost"
-        size="icon-sm"
+        variant="quiet"
+        size="icon"
         aria-label={isFavourite ? 'Remove favourite' : 'Add favourite'}
         aria-pressed={isFavourite}
         disabled={pending}
@@ -53,15 +53,13 @@ export function FavouriteToggle({
         <Star
           className={cn(
             'size-3.5',
-            isFavourite
-              ? 'fill-warning text-warning-text'
-              : 'text-muted-foreground',
+            isFavourite ? 'fill-warning text-warning-text' : 'text-fg-muted',
           )}
           aria-hidden="true"
         />
       </Button>
       {error ? (
-        <span role="alert" className="text-xs text-destructive">
+        <span role="alert" className="text-xs text-danger-text">
           Could not save favourite.
         </span>
       ) : null}

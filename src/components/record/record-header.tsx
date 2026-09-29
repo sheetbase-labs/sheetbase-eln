@@ -1,9 +1,11 @@
 import * as React from 'react'
-import { MoreHorizontal, Star } from 'lucide-react'
+import { Star } from 'lucide-react'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 
 import { cn } from '#/lib/utils'
-import { Badge, Button, Separator } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Icon } from '#/components/v3/icons'
 
 /**
  * Compact record header — the identity strip above a project, experiment,
@@ -65,7 +67,7 @@ function Avatar({
       title={name}
       aria-label={name}
       className={cn(
-        'inline-flex items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary ring-2 ring-background',
+        'inline-flex items-center justify-center rounded-full bg-selection text-label font-semibold text-fg ring-2 ring-surface',
         size === 'sm' ? 'size-6 text-xs' : 'size-8 text-xs',
       )}
     >
@@ -95,11 +97,11 @@ export function RecordHeader({
   return (
     <header className={cn('space-y-3', className)}>
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <span className="font-semibold uppercase tracking-[0.14em] text-fg-muted">
           {recordType}
         </span>
         {identifier ? (
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          <span className="font-mono text-xs tabular-nums text-fg-muted">
             {identifier}
           </span>
         ) : null}
@@ -113,8 +115,8 @@ export function RecordHeader({
         </h1>
         {onToggleStar ? (
           <Button
-            variant="ghost"
-            size="icon-sm"
+            variant="quiet"
+            size="icon"
             aria-label={starred ? 'Unstar record' : 'Star record'}
             aria-pressed={starred}
             onClick={onToggleStar}
@@ -128,29 +130,29 @@ export function RecordHeader({
         {actions}
         {menu ?? (
           <Button
-            variant="ghost"
-            size="icon-sm"
+            variant="quiet"
+            size="icon"
             aria-label="More actions"
             disabled
           >
-            <MoreHorizontal className="size-4" />
+            <Icon name="more" size={16} />
           </Button>
         )}
       </div>
 
       {hasMeta ? (
         <>
-          <Separator />
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+          <div className="border-t border-border" />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-fg-muted">
             {owner ? (
               <span className="inline-flex items-center gap-2">
                 <Avatar name={owner.name} initials={owner.initials} size="sm" />
-                <span className="text-foreground">{owner.name}</span>
+                <span className="text-fg">{owner.name}</span>
               </span>
             ) : null}
             {updatedAt ? (
               <span>
-                Updated <span className="text-foreground">{updatedAt}</span>
+                Updated <span className="text-fg">{updatedAt}</span>
               </span>
             ) : null}
             {contributors && contributors.length > 0 ? (
@@ -163,7 +165,7 @@ export function RecordHeader({
                   />
                 ))}
                 {contributors.length > 5 ? (
-                  <span className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium ring-2 ring-background">
+                  <span className="inline-flex size-6 items-center justify-center rounded-full bg-surface-muted text-xs font-medium ring-2 ring-surface">
                     +{contributors.length - 5}
                   </span>
                 ) : null}

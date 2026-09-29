@@ -652,21 +652,21 @@ function RecordPreview() {
                       type: 'Sample',
                       title: 'Sample 28',
                       meta: 'Cell line',
-                      icon: FlaskConical,
+                      icon: 'flask',
                     },
                     {
                       id: '2',
                       type: 'Protocol',
                       title: 'Stability assay SOP',
                       meta: 'v3',
-                      icon: Folder,
+                      icon: 'folder',
                     },
                     {
                       id: '3',
                       type: 'Dataset',
                       title: 'Raw qPCR',
                       meta: '12 wells',
-                      icon: Table2,
+                      icon: 'table',
                     },
                   ]}
                 />

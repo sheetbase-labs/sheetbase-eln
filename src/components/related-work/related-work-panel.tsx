@@ -7,40 +7,29 @@
  * (renders null) when there is nothing to show — mounts never need an
  * empty-state branch.
  */
-import {
-  Beaker,
-  Database,
-  FileText,
-  FlaskConical,
-  Folder,
-  LayoutTemplate,
-  Microscope,
-  ScrollText,
-  Sheet,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import type { IconName } from '#/components/v3/icons'
 
 import { InspectorSection, LinkedRecordList } from '#/components/record'
 import type { LinkedRecordItem } from '#/components/record'
 import { relatedKindLabel, useRelatedWork } from '#/lib/related-work'
 import type { RelatedWorkItem, RelatedWorkKind } from '#/lib/related-work'
 
-const KIND_ICON: Record<RelatedWorkKind, LucideIcon> = {
-  record: FileText,
-  dataset: Database,
-  sheet: Sheet,
-  template: LayoutTemplate,
-  project: Folder,
+const KIND_ICON: Record<RelatedWorkKind, IconName> = {
+  record: 'box',
+  dataset: 'database',
+  sheet: 'table',
+  template: 'template',
+  project: 'folder',
 }
 
-const RECORD_KIND_ICON: Record<string, LucideIcon> = {
-  experiment: FlaskConical,
-  sample: Microscope,
-  reagent: Beaker,
-  protocol_template: ScrollText,
-  report: FileText,
-  file: FileText,
-  notebook_template: LayoutTemplate,
+const RECORD_KIND_ICON: Record<string, IconName> = {
+  experiment: 'flask',
+  sample: 'tube',
+  reagent: 'box',
+  protocol_template: 'protocol',
+  report: 'download',
+  file: 'download',
+  notebook_template: 'template',
 }
 
 /** Pure render of resolved items — the unit under the component test. */

@@ -1,15 +1,7 @@
 import * as React from 'react'
-import {
-  FileImage,
-  FileSpreadsheet,
-  FileText,
-  File as FileIcon,
-  Link2,
-  Plus,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-
-import { Badge } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Icon } from '#/components/v3/icons'
+import type { IconName } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
 
 /**
@@ -51,7 +43,7 @@ export function InspectorSection({
       )}
     >
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h3 className="text-xs font-semibold text-foreground">{title}</h3>
+        <h3 className="text-xs font-semibold text-fg">{title}</h3>
         {action ? <div>{action}</div> : null}
       </div>
       {children}
@@ -66,7 +58,7 @@ export interface LinkedRecordItem {
   title: string
   meta?: string
   href?: string
-  icon?: LucideIcon
+  icon?: IconName
 }
 
 export function LinkedRecordList({ items }: { items: LinkedRecordItem[] }) {
@@ -74,22 +66,22 @@ export function LinkedRecordList({ items }: { items: LinkedRecordItem[] }) {
   return (
     <ul className="space-y-1">
       {items.map((item) => {
-        const Icon = item.icon ?? Link2
+        const iconName = item.icon ?? 'link'
         const body = (
           <>
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <Icon className="size-3" />
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-selection text-fg">
+              <Icon name={iconName} size={12} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium text-foreground">
+              <span className="block truncate text-xs font-medium text-fg">
                 {item.title}
               </span>
               {item.meta ? (
-                <span className="block truncate text-[0.65rem] text-muted-foreground">
+                <span className="block truncate text-[0.65rem] text-fg-muted">
                   {item.type} · {item.meta}
                 </span>
               ) : (
-                <span className="block truncate text-[0.65rem] text-muted-foreground">
+                <span className="block truncate text-[0.65rem] text-fg-muted">
                   {item.type}
                 </span>
               )}
@@ -101,7 +93,7 @@ export function LinkedRecordList({ items }: { items: LinkedRecordItem[] }) {
             {item.href ? (
               <a
                 href={item.href}
-                className="flex items-center gap-2 rounded-md border border-border/80 bg-surface px-2 py-1.5 no-underline transition-colors hover:border-border hover:bg-muted/50"
+                className="flex items-center gap-2 rounded-md border border-border/80 bg-surface px-2 py-1.5 no-underline transition-colors hover:border-border hover:bg-surface-hover"
               >
                 {body}
               </a>
@@ -131,7 +123,7 @@ export interface FileItem {
 
 /** Pick a file-type icon + accent colour from the media type. */
 function fileTypeIcon(mediaType?: string): {
-  icon: LucideIcon
+  icon: IconName
   className: string
 } {
   const mt = (mediaType ?? '').toLowerCase()
@@ -143,10 +135,10 @@ function fileTypeIcon(mediaType?: string): {
     mt.endsWith('.csv') ||
     mt.endsWith('.tsv')
   ) {
-    return { icon: FileSpreadsheet, className: 'text-success' }
+    return { icon: 'table', className: 'text-success-text' }
   }
   if (mt.includes('pdf') || mt.endsWith('.pdf')) {
-    return { icon: FileText, className: 'text-destructive' }
+    return { icon: 'download', className: 'text-danger-text' }
   }
   if (
     mt.includes('image') ||
@@ -157,12 +149,12 @@ function fileTypeIcon(mediaType?: string): {
     mt.endsWith('.webp') ||
     mt.endsWith('.svg')
   ) {
-    return { icon: FileImage, className: 'text-info' }
+    return { icon: 'box', className: 'text-link' }
   }
   if (mt.includes('text') || mt.endsWith('.txt') || mt.endsWith('.md')) {
-    return { icon: FileText, className: 'text-muted-foreground' }
+    return { icon: 'download', className: 'text-fg-muted' }
   }
-  return { icon: FileIcon, className: 'text-muted-foreground' }
+  return { icon: 'download', className: 'text-fg-muted' }
 }
 
 export function FileList({ items }: { items: FileItem[] }) {
@@ -170,20 +162,22 @@ export function FileList({ items }: { items: FileItem[] }) {
   return (
     <ul className="space-y-0.5">
       {items.map((f) => {
-        const { icon: Icon, className: iconCls } = fileTypeIcon(
+        const { icon: iconName, className: iconCls } = fileTypeIcon(
           f.mediaType ?? f.meta,
         )
         const body = (
           <>
             <Icon
-              className={cn('size-3.5 shrink-0', iconCls)}
+              name={iconName}
+              size={14}
+              className={cn('shrink-0', iconCls)}
               aria-hidden="true"
             />
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-fg">
               {f.name}
             </span>
             {f.size ? (
-              <span className="shrink-0 text-[0.65rem] tabular-nums text-muted-foreground">
+              <span className="shrink-0 text-[0.65rem] tabular-nums text-fg-muted">
                 {f.size}
               </span>
             ) : null}
@@ -194,7 +188,7 @@ export function FileList({ items }: { items: FileItem[] }) {
             {f.href ? (
               <a
                 href={f.href}
-                className="flex items-center gap-2 rounded-md px-1.5 py-1 no-underline hover:bg-muted/50"
+                className="flex items-center gap-2 rounded-md px-1.5 py-1 no-underline hover:bg-surface-hover"
               >
                 {body}
               </a>
@@ -222,12 +216,12 @@ export interface CheckItem {
 
 const checkBadge: Record<
   CheckState,
-  { label: string; variant: 'success' | 'danger' | 'outline' | 'warning' }
+  { label: string; variant: 'add' | 'del' | 'kind' | 'chg' }
 > = {
-  pass: { label: 'Passed', variant: 'success' },
-  fail: { label: 'Failed', variant: 'danger' },
-  pending: { label: 'Pending', variant: 'outline' },
-  warning: { label: 'Warning', variant: 'warning' },
+  pass: { label: 'Passed', variant: 'add' },
+  fail: { label: 'Failed', variant: 'del' },
+  pending: { label: 'Pending', variant: 'kind' },
+  warning: { label: 'Warning', variant: 'chg' },
 }
 
 export function CheckList({ items }: { items: CheckItem[] }) {
@@ -241,11 +235,11 @@ export function CheckList({ items }: { items: CheckItem[] }) {
             key={c.id}
             className="flex items-center gap-2 rounded-md px-1 py-1"
           >
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-fg">
               {c.label}
             </span>
             {c.detail ? (
-              <span className="shrink-0 text-[0.65rem] text-muted-foreground">
+              <span className="shrink-0 text-[0.65rem] text-fg-muted">
                 {c.detail}
               </span>
             ) : null}
@@ -286,9 +280,9 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
             {(a.actor.initials ?? a.actor.name.slice(0, 2)).toUpperCase()}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs leading-5 text-foreground">
+            <p className="text-xs leading-5 text-fg">
               <span className="font-medium">{a.actor.name}</span>{' '}
-              <span className="text-muted-foreground">{a.action}</span>
+              <span className="text-fg-muted">{a.action}</span>
               {a.target ? (
                 <>
                   {' '}
@@ -296,7 +290,7 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
                 </>
               ) : null}
             </p>
-            <p className="text-xs text-muted-foreground">{a.at}</p>
+            <p className="text-xs text-fg-muted">{a.at}</p>
           </div>
         </li>
       ))}
@@ -329,11 +323,9 @@ export function CommentList({ items }: { items: CommentItem[] }) {
               </span>
               <span className="text-xs font-medium">{c.author.name}</span>
             </span>
-            <span className="text-xs text-muted-foreground">{c.at}</span>
+            <span className="text-xs text-fg-muted">{c.at}</span>
           </div>
-          <p className="break-words text-xs leading-5 text-foreground">
-            {c.body}
-          </p>
+          <p className="break-words text-xs leading-5 text-fg">{c.body}</p>
         </li>
       ))}
     </ul>
@@ -341,7 +333,7 @@ export function CommentList({ items }: { items: CommentItem[] }) {
 }
 
 export function EmptyHint({ children }: { children: React.ReactNode }) {
-  return <p className="py-1 text-xs text-muted-foreground">{children}</p>
+  return <p className="py-1 text-xs text-fg-muted">{children}</p>
 }
 
 // ---------------------------------------------------------------------------
@@ -387,7 +379,7 @@ export function ContributorAvatars({
       {overflow > 0 ? (
         <span
           className={cn(
-            'ml-1.5 flex shrink-0 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground',
+            'ml-1.5 flex shrink-0 items-center justify-center rounded-full bg-surface-muted font-medium text-fg-muted',
             dim,
           )}
         >
@@ -410,7 +402,7 @@ export function TagPills({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {tags.map((tag) => (
-        <Badge key={tag} variant="violet" className="px-2 py-0 text-[0.65rem]">
+        <Badge key={tag} variant="kind" className="px-2 py-0 text-[0.65rem]">
           {tag}
         </Badge>
       ))}
@@ -418,10 +410,10 @@ export function TagPills({
         <button
           type="button"
           onClick={onAdd}
-          className="flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex size-4 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-surface-muted hover:text-fg"
           aria-label="Add tag"
         >
-          <Plus className="size-3" />
+          <Icon name="plus" size={12} />
         </button>
       ) : null}
     </div>
@@ -432,7 +424,7 @@ export function TagPills({
 export interface LinkToItem {
   label: string
   count: number
-  icon?: LucideIcon
+  icon?: IconName
   onClick?: () => void
 }
 
@@ -441,20 +433,23 @@ export function LinkToPills({ items }: { items: LinkToItem[] }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {items.map((item, i) => {
-        const Icon = item.icon ?? Link2
+        const iconName = item.icon ?? 'link'
         return (
           <button
             key={i}
             type="button"
             onClick={item.onClick}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-foreground transition-colors hover:border-input hover:bg-muted/50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-fg transition-colors hover:border-input hover:bg-surface-hover"
           >
-            <Icon className="size-3 text-muted-foreground" aria-hidden="true" />
+            <Icon
+              name={iconName}
+              size={12}
+              className="text-fg-muted"
+              aria-hidden="true"
+            />
             {item.label}
             {item.count > 0 ? (
-              <span className="tabular-nums text-muted-foreground">
-                ({item.count})
-              </span>
+              <span className="tabular-nums text-fg-muted">({item.count})</span>
             ) : null}
           </button>
         )
@@ -471,7 +466,7 @@ export function AddPropertyLink({ onClick }: { onClick?: () => void }) {
       onClick={onClick}
       className="inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
     >
-      <Plus className="size-3" />
+      <Icon name="plus" size={12} />
       Add property
     </button>
   )

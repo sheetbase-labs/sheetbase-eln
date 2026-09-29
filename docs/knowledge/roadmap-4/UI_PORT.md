@@ -186,12 +186,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   `components/settings` and `components/integrations` directories are deleted.
 
 - **Remaining legacy UI (recorded)**: the record notebook
-  (`/records/$recordId/notebook`) and the review workspace
-  (`/review/$revisionId`) render inside the v3 shell but keep their legacy
-  functional editors (`#/components/notebook`, `#/components/record`,
-  `#/components/scientific`, `#/components/ui`); reskinning them is a separate
-  pass. The ELN-only legacy routes (`/configure`, `/admin`, `/help`,
-  `/analysis`, `/planner`, `/docs`, `/foundations`) still use the ELN shell.
+  (`/records/$recordId/notebook`) keeps its legacy functional editors
+  (`#/components/notebook`, `#/components/record`, `#/components/scientific`,
+  `#/components/ui`); reskinning it is a separate pass. The review workspace's
+  chrome (confirm dialogs, tabs, buttons, badges, skeletons, textareas) and its
+  diff/check components are now on the v3 kit. The ELN-only legacy routes
+  (`/configure`, `/admin`, `/help`, `/analysis`, `/planner`, `/docs`,
+  `/foundations`) still use the ELN shell.
 
 - **Agent surface folded into `/pipelines/agents` (DEC-03 / PIPE-01)**: the
   Pipelines list links to an Agent operations surface with Workflows, Proposals
@@ -347,7 +348,9 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   audit history and the assist guide), the route tests move with it, and the
   screens suite covers `/review/$revisionId` (46 routes × 2 widths clean). The
   workspace keeps its real diff, comments, checks, history, approval stepper and
-  signing.
+  signing; its chrome now uses the v3 kit (`ConfirmDialog`, `Tabs`, `Button`,
+  `Badge`, `Skeleton`, `Textarea`), with the diff and check-result components on
+  the v3 kit too.
 
 - **Import entry point added**: `/import` lists the datasets a file can be
   imported into and runs the existing import wizard for the chosen target

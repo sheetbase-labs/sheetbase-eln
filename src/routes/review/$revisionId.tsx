@@ -63,24 +63,21 @@ import type {
   StatusVocabulary,
 } from '#/components/scientific/status-badge'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-  Badge,
-  Button,
-  Skeleton,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Textarea,
-} from '#/components/ui'
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+  ConfirmDialogTrigger,
+} from '#/components/v3/ui/confirm-dialog'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
+import { Tabs, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
+import { Textarea } from '#/components/v3/inventory/list'
 import { DataClientError } from '#/lib/data-client'
 import {
   fetchProjectsForReviews,
@@ -535,28 +532,25 @@ export function ReviewWorkspaceRoute() {
             className="flex min-h-0 flex-1 flex-col"
           >
             <TabsList aria-label="Review workspace panels">
-              <TabsTrigger value="diff">
+              <TabsTab value="diff">
                 <GitCompare className="size-3.5" aria-hidden />
                 Diff
-              </TabsTrigger>
-              <TabsTrigger value="comments">
+              </TabsTab>
+              <TabsTab value="comments">
                 <MessageSquare className="size-3.5" aria-hidden />
                 Comments
-              </TabsTrigger>
-              <TabsTrigger value="checks">
+              </TabsTab>
+              <TabsTab value="checks">
                 <ListChecks className="size-3.5" aria-hidden />
                 Checks
-              </TabsTrigger>
-              <TabsTrigger value="history">
+              </TabsTab>
+              <TabsTab value="history">
                 <History className="size-3.5" aria-hidden />
                 History
-              </TabsTrigger>
+              </TabsTab>
             </TabsList>
 
-            <TabsContent
-              value="diff"
-              className="min-h-0 flex-1 overflow-y-auto"
-            >
+            <TabsPanel value="diff" className="min-h-0 flex-1 overflow-y-auto">
               <DiffPanel
                 beforeEnvelope={beforeEnvelope}
                 afterEnvelope={afterEnvelope}
@@ -569,9 +563,9 @@ export function ReviewWorkspaceRoute() {
                   comparisonRevisionQuery.isLoading
                 }
               />
-            </TabsContent>
+            </TabsPanel>
 
-            <TabsContent
+            <TabsPanel
               value="comments"
               className="min-h-0 flex-1 overflow-y-auto"
             >
@@ -592,9 +586,9 @@ export function ReviewWorkspaceRoute() {
                   Comments are available once the revision is loaded.
                 </p>
               )}
-            </TabsContent>
+            </TabsPanel>
 
-            <TabsContent
+            <TabsPanel
               value="checks"
               className="min-h-0 flex-1 overflow-y-auto"
             >
@@ -607,9 +601,9 @@ export function ReviewWorkspaceRoute() {
                 }
                 onRefresh={() => void checksQuery.refetch()}
               />
-            </TabsContent>
+            </TabsPanel>
 
-            <TabsContent
+            <TabsPanel
               value="history"
               className="min-h-0 flex-1 overflow-y-auto"
             >
@@ -626,7 +620,7 @@ export function ReviewWorkspaceRoute() {
                   timelineQuery.isFetching && !timelineQuery.isLoading
                 }
               />
-            </TabsContent>
+            </TabsPanel>
           </Tabs>
         </div>
       </RouteShell>
@@ -946,7 +940,7 @@ function ChecksPanel({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onRefresh}>
+          <Button variant="secondary" size="sm" onClick={onRefresh}>
             Refresh
           </Button>
           {canRun ? (
@@ -1079,7 +1073,7 @@ function ReviewInspector({
             size="sm"
           />
         ) : (
-          <Badge variant="outline">No submission</Badge>
+          <Badge variant="kind">No submission</Badge>
         )}
       </div>
 
@@ -1295,7 +1289,7 @@ export function ActionButtons({
   const reviewActions: {
     kind: ReviewDecisionKind
     label: string
-    variant: 'default' | 'outline' | 'danger'
+    variant: 'default' | 'secondary' | 'danger'
     icon: typeof CheckCircle2
   }[] = [
     {
@@ -1307,7 +1301,7 @@ export function ActionButtons({
     {
       kind: 'request_changes',
       label: 'Request changes',
-      variant: 'outline',
+      variant: 'secondary',
       icon: Undo2,
     },
     { kind: 'reject', label: 'Reject', variant: 'danger', icon: XCircle },
@@ -1348,7 +1342,7 @@ export function ActionButtons({
       <DecisionDialog
         kind="withdraw"
         label="Withdraw"
-        variant="outline"
+        variant="secondary"
         icon={Undo2}
         disabled={!permission.canWithdraw}
         blockedReason={permission.withdrawBlockedReason ?? undefined}
@@ -1393,7 +1387,7 @@ function DecisionDialog({
 }: {
   kind: ReviewDecisionKind
   label: string
-  variant: 'default' | 'outline' | 'danger'
+  variant: 'default' | 'secondary' | 'danger'
   icon: typeof CheckCircle2
   disabled: boolean
   blockedReason?: ReviewBlockedReason
@@ -1412,10 +1406,10 @@ function DecisionDialog({
       'border-destructive text-destructive hover:bg-destructive/10',
   )
   return (
-    <AlertDialog onOpenChange={(open) => onOpenChange(open)}>
-      <AlertDialogTrigger asChild>
+    <ConfirmDialog onOpenChange={(open) => onOpenChange(open)}>
+      <ConfirmDialogTrigger asChild>
         <Button
-          variant={variant === 'default' ? 'default' : 'outline'}
+          variant={variant === 'default' ? 'primary' : 'secondary'}
           size="sm"
           className={triggerClass}
           disabled={disabled}
@@ -1426,18 +1420,18 @@ function DecisionDialog({
           <Icon className="size-3.5" aria-hidden />
           {label}
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{label} this review?</AlertDialogTitle>
-          <AlertDialogDescription>
+      </ConfirmDialogTrigger>
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>{label} this review?</ConfirmDialogTitle>
+          <ConfirmDialogDescription>
             {DECISION_CONSEQUENCE[kind]}
             <br />
             <br />
             The submission will move to “{statusLabel(nextState)}”. This cannot
             be undone from the workspace.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </ConfirmDialogDescription>
+        </ConfirmDialogHeader>
         <Textarea
           className="min-h-[70px]"
           placeholder={
@@ -1449,12 +1443,12 @@ function DecisionDialog({
           onChange={(event) => setNote(event.target.value)}
           aria-label={`${label} note`}
         />
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>{label}</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+          <ConfirmDialogAction onClick={onConfirm}>{label}</ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
   )
 }
 
@@ -1788,7 +1782,7 @@ function SignatureDialog({
     confirmation.trim().toLowerCase() === currentUserName.trim().toLowerCase()
 
   return (
-    <AlertDialog
+    <ConfirmDialog
       open={open}
       onOpenChange={(next) => {
         if (next) {
@@ -1798,22 +1792,22 @@ function SignatureDialog({
         onOpenChange(next)
       }}
     >
-      <AlertDialogTrigger asChild>
+      <ConfirmDialogTrigger asChild>
         <Button size="sm" className="h-9 w-full text-xs">
           <PenLine className="size-3.5" aria-hidden />
           Sign revision
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Sign this revision</AlertDialogTitle>
-          <AlertDialogDescription>
+      </ConfirmDialogTrigger>
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>Sign this revision</ConfirmDialogTitle>
+          <ConfirmDialogDescription>
             You are signing revision{' '}
             <span className="font-mono">{revision.id.slice(0, 8)}</span> as an
             attestation of your review. This is an internal electronic
             signature, not a regulatory compliance certification.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </ConfirmDialogDescription>
+        </ConfirmDialogHeader>
 
         <dl className="space-y-1 rounded-md border bg-muted/30 p-2 text-xs">
           <InspectorPropStatic label="Revision">
@@ -1889,17 +1883,17 @@ function SignatureDialog({
           </p>
         ) : null}
 
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+          <ConfirmDialogAction
             disabled={signing || !confirmationMatches}
             onClick={() => onConfirm(meaning, confirmation)}
           >
             {signing ? 'Signing…' : 'Sign'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
   )
 }
 
@@ -1982,10 +1976,7 @@ export function RevisionChainSection({
                 {formatDate(entry.createdAt)}
               </span>
               {isCurrent ? (
-                <Badge
-                  variant="outline"
-                  className="h-4 shrink-0 px-1 text-[10px]"
-                >
+                <Badge variant="kind" className="h-4 shrink-0 px-1 text-[10px]">
                   viewed
                 </Badge>
               ) : null}
@@ -2089,7 +2080,7 @@ function AmendmentSection({
         revision, supersede the locked one and unlock the record for editing.
         The amendment is recorded in the audit trail.
       </p>
-      <AlertDialog
+      <ConfirmDialog
         open={open}
         onOpenChange={(next) => {
           setOpen(next)
@@ -2099,22 +2090,22 @@ function AmendmentSection({
           }
         }}
       >
-        <AlertDialogTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9 w-full text-xs">
+        <ConfirmDialogTrigger asChild>
+          <Button variant="secondary" size="sm" className="h-9 w-full text-xs">
             <GitCommit className="size-3.5" aria-hidden />
             Start amendment
           </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Start an amendment?</AlertDialogTitle>
-            <AlertDialogDescription>
+        </ConfirmDialogTrigger>
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Start an amendment?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
               A new revision will be created from the current record, the locked
               revision will be superseded, and the record will be unlocked so
               you can edit again. This is recorded in the audit trail and cannot
               be undone from the workspace.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
           <Textarea
             className="min-h-[70px]"
             placeholder="Describe the reason for the amendment (optional)…"
@@ -2130,14 +2121,14 @@ function AmendmentSection({
               {error}
             </p>
           ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={submitting} onClick={handleConfirm}>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogAction disabled={submitting} onClick={handleConfirm}>
               {submitting ? 'Starting…' : 'Start amendment'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </section>
   )
 }

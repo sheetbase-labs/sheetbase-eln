@@ -22,7 +22,7 @@ import {
   Undo2,
 } from 'lucide-react'
 
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 import { RichTextContent } from '#/lib/blocks/rich-text'
 import type { RichTextDocument, RichTextPayload } from '#/lib/blocks/rich-text'
 import { cn } from '#/lib/utils'
@@ -231,7 +231,7 @@ export function RichTextEditor({
         'aria-multiline': 'true',
         role: 'textbox',
         class:
-          'space-y-1.5 text-sm leading-6 text-foreground outline-none [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:leading-7 [&_h2]:tracking-tight [&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:leading-6 [&_h3]:tracking-tight [&_ol]:list-decimal [&_ol]:space-y-0.5 [&_ol]:pl-5 [&_p]:min-h-[1.25rem] [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-5',
+          'space-y-1.5 text-sm leading-6 text-fg outline-none [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:leading-7 [&_h2]:tracking-tight [&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:leading-6 [&_h3]:tracking-tight [&_ol]:list-decimal [&_ol]:space-y-0.5 [&_ol]:pl-5 [&_p]:min-h-[1.25rem] [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-5',
       },
       handleKeyDown: (view, event) => {
         const menu = slashMenuRef.current
@@ -588,16 +588,16 @@ export function RichTextEditor({
               aria-label={label}
               aria-pressed={active || undefined}
               className={cn(
-                'size-7 text-muted-foreground shadow-none',
+                'size-7 text-fg-muted shadow-none',
                 active && 'bg-accent text-accent-foreground',
               )}
               disabled={disabled}
               onClick={action}
               onMouseDown={(event) => event.preventDefault()}
-              size="icon-sm"
+              size="icon"
               title={label}
               type="button"
-              variant="ghost"
+              variant="quiet"
             >
               <Icon className="size-3.5" />
             </Button>

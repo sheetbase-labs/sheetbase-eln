@@ -5,20 +5,22 @@ import type {
   NotebookBlock as NotebookBlockData,
   NotebookRecord,
 } from '#/lib/notebook-data'
+import { Button } from '#/components/v3/ui/button'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  Button,
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '#/components/ui'
+} from '#/components/v3/ui/popover'
 import { DraftProposalPanel } from '#/components/assist/draft-proposal-panel'
 import {
   buildTextDraftProposal,
@@ -900,13 +902,13 @@ function NotebookDocumentContent({
       />
       {orderedIds.length === 0 && !isReadOnly ? (
         <div
-          className="rounded-lg border border-dashed bg-muted/20 px-6 py-8 text-center"
+          className="rounded-lg border border-dashed bg-surface-muted/20 px-6 py-8 text-center"
           data-empty-notebook
         >
           <h2 className="font-display text-base font-semibold">
             Start this Notebook
           </h2>
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+          <p className="mx-auto mt-1 max-w-md text-sm text-fg-muted">
             Begin with an objective, method, observation, or another scientific
             block. The new block opens in place and saves automatically.
           </p>
@@ -1146,7 +1148,7 @@ function NotebookDocumentContent({
               {moveError && moveError.blockId === block.id ? (
                 <p
                   role="alert"
-                  className="mt-1 px-1 text-xs text-destructive"
+                  className="mt-1 px-1 text-xs text-danger-text"
                   data-move-error={moveError.stale ? 'stale' : 'generic'}
                 >
                   {moveError.message}
@@ -1177,7 +1179,7 @@ function NotebookDocumentContent({
             ) : null}
             {collapsedHere && !isHiddenSection ? (
               <div
-                className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground"
+                className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-fg-muted"
                 data-testid={`section-collapsed-${collapsedHere}`}
                 data-print-hide
               >
@@ -1193,7 +1195,7 @@ function NotebookDocumentContent({
                 </span>
                 <button
                   type="button"
-                  className="underline underline-offset-2 hover:text-foreground"
+                  className="underline underline-offset-2 hover:text-fg"
                   onClick={() => onToggleSection?.(collapsedHere)}
                 >
                   Show
@@ -1205,7 +1207,7 @@ function NotebookDocumentContent({
       })}
 
       {errorById.__insert ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-danger-text">
           {errorById.__insert}
         </p>
       ) : null}
@@ -1224,7 +1226,7 @@ function NotebookDocumentContent({
         <div className="space-y-2 pt-2" data-print-hide>
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => {
               const proposal = buildDraftProposal()
@@ -1237,7 +1239,7 @@ function NotebookDocumentContent({
             Draft summary
           </Button>
           {draftStatus ? (
-            <p className="text-xs text-muted-foreground">{draftStatus}</p>
+            <p className="text-xs text-fg-muted">{draftStatus}</p>
           ) : null}
           {draftProposal ? (
             <DraftProposalPanel
@@ -1253,7 +1255,7 @@ function NotebookDocumentContent({
         </div>
       ) : null}
       {!isReadOnly && orderedIds.length > 0 ? (
-        <p className="text-xs text-muted-foreground" data-print-hide>
+        <p className="text-xs text-fg-muted" data-print-hide>
           Type / in empty text to insert a block. Alt+↑/↓ reorders the focused
           block; Ctrl+↑/↓ moves focus between blocks. Alt+Enter adds text below.
           The block menu also duplicates or deletes.
@@ -1263,7 +1265,7 @@ function NotebookDocumentContent({
       {undo ? (
         <div
           role="status"
-          className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2 text-xs"
+          className="flex items-center gap-3 rounded-md border bg-surface-muted/40 px-3 py-2 text-xs"
         >
           <span>{'Block deleted.'}</span>
           {onUndoDelete ? (
@@ -1278,16 +1280,16 @@ function NotebookDocumentContent({
         </div>
       ) : null}
 
-      <AlertDialog
+      <ConfirmDialog
         open={confirmDelete !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmDelete(null)
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this block?</AlertDialogTitle>
-            <AlertDialogDescription>
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Delete this block?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
               {confirmDelete && unsavedBlockIds.has(confirmDelete.id)
                 ? 'This block has edits that have not saved. Deleting now discards those edits. You can undo immediately after deleting.'
                 : confirmDelete &&
@@ -1295,21 +1297,21 @@ function NotebookDocumentContent({
                     isCanonicalSheetBlock(confirmDelete.payload)
                   ? 'The block will be removed from the notebook. The Sheet Instance is not archived or deleted, and you can undo immediately after deleting.'
                   : 'The block will be removed from the notebook. You can undo immediately after deleting.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pendingDelete}>
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel disabled={pendingDelete}>
               Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
+            </ConfirmDialogCancel>
+            <ConfirmDialogAction
               onClick={() => void handleConfirmDelete()}
               disabled={pendingDelete}
             >
               {pendingDelete ? 'Deleting…' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }
@@ -1405,18 +1407,16 @@ function BlockCommentsInner({
   ).length
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <span className="inline-flex">
-          <CommentButton
-            count={unresolvedCount}
-            label={`Comments on block ${blockId}`}
-            className={cn(
-              'size-6 transition-opacity',
-              unresolvedCount === 0 &&
-                'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100',
-            )}
-          />
-        </span>
+      <PopoverTrigger render={<span className="inline-flex" />}>
+        <CommentButton
+          count={unresolvedCount}
+          label={`Comments on block ${blockId}`}
+          className={cn(
+            'size-6 transition-opacity',
+            unresolvedCount === 0 &&
+              'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100',
+          )}
+        />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 p-3">
         <ThreadPanel anchor={anchor} currentRole={role} compact />

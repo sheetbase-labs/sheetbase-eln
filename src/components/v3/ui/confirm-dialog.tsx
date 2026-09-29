@@ -84,12 +84,14 @@ export function ConfirmDialogDescription({
 export function ConfirmDialogCancel({
   children,
   className,
+  disabled,
 }: {
   children?: React.ReactNode
   className?: string
+  disabled?: boolean
 }) {
   return (
-    <DialogClose render={<Button className={className} />}>
+    <DialogClose render={<Button className={className} disabled={disabled} />}>
       {children ?? 'Cancel'}
     </DialogClose>
   )

@@ -34,17 +34,13 @@ import type {
 } from '#/lib/notebook-data'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { datasetPath, recordDestination } from '#/lib/navigation'
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Checkbox,
-  Input,
-  Label,
-  Select,
-  Textarea,
-} from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
+import { Textarea } from '#/components/v3/inventory/list'
+import { NativeSelect } from '#/components/v3/projects/select'
 import {
   Plus,
   Trash2,
@@ -343,7 +339,7 @@ function ValidationErrors({
       ? explainBlockValidation(explain)
       : null
   return (
-    <Alert variant="destructive" className="mt-2 space-y-1 p-2">
+    <Notice tone="bad" className="mt-2 space-y-1 p-2">
       <ul className="space-y-1">
         {errors.map((e, i) => (
           <li key={i}>{e}</li>
@@ -354,20 +350,20 @@ function ValidationErrors({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             aria-expanded={showExplain}
             onClick={() => setShowExplain((value) => !value)}
           >
             {showExplain ? 'Hide explanation' : 'Explain'}
           </Button>
           {showExplain ? (
-            <div className="pt-1 text-foreground">
+            <div className="pt-1 text-fg">
               <ExplainPanel explanation={explanation} />
             </div>
           ) : null}
         </div>
       ) : null}
-    </Alert>
+    </Notice>
   )
 }
 
@@ -397,7 +393,7 @@ function AutosaveFooter({
 }) {
   if (status === 'clean') return null
   return (
-    <div className="absolute right-0 bottom-0 z-10 max-w-full space-y-1 rounded-md bg-background/90 p-1.5 text-xs shadow-sm backdrop-blur-sm">
+    <div className="absolute right-0 bottom-0 z-10 max-w-full space-y-1 rounded-md bg-surface/90 p-1.5 text-xs shadow-sm backdrop-blur-sm">
       <SaveStatus status={status} message={error} />
       {status === 'conflict' ? (
         <ConflictBanner
@@ -529,16 +525,12 @@ function ChecklistEditor({
     return (
       <ul className={cn('space-y-1.5', className)}>
         {a.draft.items.length === 0 ? (
-          <li className="text-sm text-muted-foreground">No checklist items</li>
+          <li className="text-sm text-fg-muted">No checklist items</li>
         ) : null}
         {a.draft.items.map((item, i) => (
           <li key={i} className="flex items-center gap-2.5 text-sm">
             <Checkbox checked={item.checked} disabled aria-hidden="true" />
-            <span
-              className={cn(
-                item.checked && 'text-muted-foreground line-through',
-              )}
-            >
+            <span className={cn(item.checked && 'text-fg-muted line-through')}>
               {item.text || 'Untitled item'}
             </span>
           </li>
@@ -581,13 +573,13 @@ function ChecklistEditor({
               placeholder={`Item ${i + 1}`}
               className={cn(
                 'h-7 min-w-0 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-1 focus-visible:ring-ring/40 focus-visible:ring-offset-0',
-                item.checked && 'text-muted-foreground line-through',
+                item.checked && 'text-fg-muted line-through',
               )}
             />
             <Button
               type="button"
-              variant="ghost"
-              size="icon-sm"
+              variant="quiet"
+              size="icon"
               aria-label={`Remove item ${i + 1}`}
               onClick={() => remove(i)}
             >
@@ -598,10 +590,10 @@ function ChecklistEditor({
       </ul>
       <Button
         type="button"
-        variant="ghost"
+        variant="quiet"
         size="sm"
         onClick={add}
-        className="text-muted-foreground"
+        className="text-fg-muted"
       >
         <Plus /> Add item
       </Button>
@@ -731,7 +723,7 @@ function LinkedRecordSearch({
         placeholder="Search by name or identifier"
       />
       {results.isError ? (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-xs text-danger-text" role="alert">
           Could not search {kind === 'dataset' ? 'Datasets' : 'records'}.
         </p>
       ) : null}
@@ -752,9 +744,7 @@ function LinkedRecordSearch({
               }}
             >
               <span className="font-mono text-xs">{row.identifier}</span>
-              <span className="truncate text-muted-foreground">
-                {row.title}
-              </span>
+              <span className="truncate text-fg-muted">{row.title}</span>
             </button>
           </li>
         ))}
@@ -800,16 +790,16 @@ function LinkedRecordEditor({
       <div
         className={cn('flex flex-wrap items-center gap-2 text-sm', className)}
       >
-        <Badge variant="outline" className="uppercase">
+        <Badge variant="kind" className="uppercase">
           <Link2 className="size-3" />
           {a.draft.linkType}
         </Badge>
-        <span className="font-medium text-foreground">
+        <span className="font-medium text-fg">
           {a.draft.targetKind}{' '}
           <span className="font-mono">{a.draft.targetIdentifier || '—'}</span>
         </span>
         {a.draft.label ? (
-          <span className="text-muted-foreground">— {a.draft.label}</span>
+          <span className="text-fg-muted">— {a.draft.label}</span>
         ) : null}
         {openTo ? <OpenLink to={openTo}>Open</OpenLink> : null}
       </div>
@@ -820,7 +810,7 @@ function LinkedRecordEditor({
     <div className={cn('space-y-3', className)}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Field label="Target kind" htmlFor={`lr-kind-${block.id}`}>
-          <Select
+          <NativeSelect
             id={`lr-kind-${block.id}`}
             value={a.draft.targetKind}
             onChange={(e) => {
@@ -841,7 +831,7 @@ function LinkedRecordEditor({
                 {TARGET_KIND_LABELS[k]}
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </Field>
         <Field label="Identifier" htmlFor={`lr-id-${block.id}`}>
           <Input
@@ -866,7 +856,7 @@ function LinkedRecordEditor({
           />
         </Field>
         <Field label="Link type" htmlFor={`lr-link-${block.id}`}>
-          <Select
+          <NativeSelect
             id={`lr-link-${block.id}`}
             value={a.draft.linkType}
             onChange={(e) => {
@@ -879,7 +869,7 @@ function LinkedRecordEditor({
                 {t}
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </Field>
         <Field label="Label" htmlFor={`lr-label-${block.id}`}>
           <Input
@@ -937,12 +927,12 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label
+      <label
         htmlFor={htmlFor}
-        className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+        className="text-xs font-semibold uppercase tracking-wide text-fg-muted"
       >
         {label}
-      </Label>
+      </label>
       {children}
     </div>
   )
@@ -962,11 +952,7 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
   if (pinned) {
     const status = String(block.payload.approvalStatus)
     const statusVariant =
-      status === 'Approved'
-        ? 'success'
-        : status === 'Rejected'
-          ? 'danger'
-          : 'warning'
+      status === 'Approved' ? 'add' : status === 'Rejected' ? 'del' : 'chg'
     return (
       <div className="space-y-2 py-1">
         <div className="flex items-start justify-between gap-2">
@@ -974,14 +960,14 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
             <p className="text-sm font-medium">
               {String(block.payload.protocolTitle)}
             </p>
-            <p className="font-mono text-xs text-muted-foreground">
+            <p className="font-mono text-xs text-fg-muted">
               {String(block.payload.protocolIdentifier)} · Version{' '}
               {String(block.payload.version)}
             </p>
           </div>
           <Badge variant={statusVariant}>{status}</Badge>
         </div>
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <p className="flex items-center gap-1.5 text-xs text-fg-muted">
           <Pin className="size-3" />
           Pinned {new Date(String(block.payload.pinnedAt)).toLocaleString()}
         </p>
@@ -1013,9 +999,9 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
         }}
       />
       {error ? (
-        <Alert variant="destructive" className="p-2">
+        <Notice tone="bad" className="p-2">
           {error}
-        </Alert>
+        </Notice>
       ) : null}
     </div>
   )
@@ -1057,13 +1043,13 @@ function ProcedureStepEditor(props: BlockEditorProps) {
           className="mt-1"
         />
         <span>
-          <span className="block text-xs font-medium text-muted-foreground">
+          <span className="block text-xs font-medium text-fg-muted">
             Step {String(payload.stepNumber ?? '')}
           </span>
           <span
             className={cn(
               'block text-sm',
-              a.draft.completed && 'text-muted-foreground line-through',
+              a.draft.completed && 'text-fg-muted line-through',
             )}
           >
             {String(payload.text)}
@@ -1135,9 +1121,7 @@ function MaterialsEditor(props: BlockEditorProps) {
   return (
     <div className="space-y-4">
       {a.draft.items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No materials linked yet.
-        </p>
+        <p className="text-sm text-fg-muted">No materials linked yet.</p>
       ) : (
         <div className="divide-y divide-border">
           {a.draft.items.map((item, index) => (
@@ -1148,10 +1132,7 @@ function MaterialsEditor(props: BlockEditorProps) {
               <div className="min-w-0 space-y-0.5">
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-medium">{item.title}</p>
-                  <Badge
-                    variant={item.kind === 'sample' ? 'info' : 'violet'}
-                    className="shrink-0"
-                  >
+                  <Badge variant="kind" className="shrink-0">
                     {item.kind === 'sample' ? (
                       <FlaskConical className="size-3" />
                     ) : (
@@ -1160,7 +1141,7 @@ function MaterialsEditor(props: BlockEditorProps) {
                     {item.kind}
                   </Badge>
                 </div>
-                <p className="font-mono text-xs text-muted-foreground">
+                <p className="font-mono text-xs text-fg-muted">
                   {item.identifier}
                 </p>
               </div>
@@ -1197,8 +1178,8 @@ function MaterialsEditor(props: BlockEditorProps) {
               />
               <Button
                 type="button"
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 aria-label={`Remove ${item.title}`}
                 onClick={() =>
                   updateItems(
@@ -1213,14 +1194,14 @@ function MaterialsEditor(props: BlockEditorProps) {
           ))}
         </div>
       )}
-      <Card className="space-y-3 p-3">
+      <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
         <div className="flex gap-2">
           {(['sample', 'reagent'] as const).map((value) => (
             <Button
               key={value}
               type="button"
               size="sm"
-              variant={kind === value ? 'secondary' : 'outline'}
+              variant={kind === value ? 'primary' : 'secondary'}
               onClick={() => {
                 setKind(value)
                 setSelected(null)
@@ -1306,7 +1287,7 @@ function MaterialsEditor(props: BlockEditorProps) {
             </Button>
           </div>
         ) : null}
-      </Card>
+      </div>
       <AutosaveFooter
         status={a.status}
         error={a.error}
@@ -1336,14 +1317,12 @@ function UnsupportedEditor({
   return (
     <div className={cn('space-y-2', className)}>
       <div className="rounded-md border border-dashed border-warning/50 bg-warning/5 p-3 text-xs">
-        <p className="font-medium text-foreground">
-          {block.type} — not editable here
-        </p>
-        <p className="mt-1 text-muted-foreground">
+        <p className="font-medium text-fg">{block.type} — not editable here</p>
+        <p className="mt-1 text-fg-muted">
           This block type or payload schema version is not editable in this
           client yet. Its content is preserved and readable through the API.
         </p>
-        <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted/40 p-2 font-mono text-xs">
+        <pre className="mt-2 max-h-40 overflow-auto rounded bg-surface-muted/40 p-2 font-mono text-xs">
           {JSON.stringify(block.payload, null, 2)}
         </pre>
       </div>
@@ -1380,16 +1359,16 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
     return (
       <div className="space-y-2 py-1">
         <div className="flex items-center gap-3">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-muted text-fg-muted">
             <FileGlyph className="size-4" />
           </div>
           <div className="min-w-0 space-y-0.5">
             <p className="truncate text-sm font-medium">{name}</p>
-            <p className="font-mono text-xs text-muted-foreground tabular-nums">
+            <p className="font-mono text-xs text-fg-muted tabular-nums">
               {mediaType || 'unknown'} · {formatBytes(byteSize)}
             </p>
           </div>
-          <Badge variant="success" className="ml-auto shrink-0">
+          <Badge variant="add" className="ml-auto shrink-0">
             Attached
           </Badge>
         </div>
@@ -1432,13 +1411,13 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-dashed border-input bg-muted/20 p-6 text-center">
-      <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-background text-muted-foreground shadow-xs">
+    <div className="space-y-3 rounded-md border border-dashed border-border bg-surface-muted/20 p-6 text-center">
+      <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-surface text-fg-muted shadow-xs">
         <FileText className="size-5" />
       </div>
       <div className="space-y-1">
         <p className="text-sm font-medium">Attach a file</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-fg-muted">
           CSV, text, JSON, PDF, images &amp; Office formats · up to{' '}
           {formatBytes(FILE_MAX_BYTES)}
         </p>
@@ -1454,17 +1433,17 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
           // Reset so selecting the same file again re-triggers.
           event.target.value = ''
         }}
-        className="mx-auto h-auto w-full max-w-xs rounded-none border-0 bg-transparent p-0 text-xs shadow-none file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-accent"
+        className="mx-auto h-auto w-full max-w-xs rounded-none border-0 bg-transparent p-0 text-xs shadow-none file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-accent"
       />
       {pending ? (
-        <p role="status" className="text-xs text-muted-foreground">
+        <p role="status" className="text-xs text-fg-muted">
           Uploading…
         </p>
       ) : null}
       {error ? (
-        <Alert variant="destructive" className="mx-auto max-w-md text-left">
+        <Notice tone="bad" className="mx-auto max-w-md text-left">
           {error}
-        </Alert>
+        </Notice>
       ) : null}
     </div>
   )
@@ -1673,7 +1652,7 @@ function ChartBlockEditor({
       />
 
       {readOnly ? null : (
-        <Card className="space-y-4 p-3">
+        <div className="rounded-lg border border-border bg-surface space-y-4 p-3">
           <ChartField label="Title">
             <Input
               aria-label="Chart title"
@@ -1687,7 +1666,7 @@ function ChartBlockEditor({
           </ChartField>
 
           <ChartField label="Dataset">
-            <Select
+            <NativeSelect
               aria-label="Dataset"
               value={selectedDatasetId}
               onChange={(e) => chooseDataset(e.target.value)}
@@ -1704,15 +1683,15 @@ function ChartBlockEditor({
                   {d.name}
                 </option>
               ))}
-            </Select>
-            <p className="text-xs text-muted-foreground">
+            </NativeSelect>
+            <p className="text-xs text-fg-muted">
               Charts plot canonical Dataset data (decision 0037).
             </p>
           </ChartField>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <ChartField label="Chart type">
-              <Select
+              <NativeSelect
                 aria-label="Chart type"
                 value={spec?.type ?? 'line'}
                 onChange={(e) => setChartType(e.target.value as ChartType)}
@@ -1724,15 +1703,15 @@ function ChartBlockEditor({
                     {t.charAt(0).toUpperCase() + t.slice(1)}
                   </option>
                 ))}
-              </Select>
+              </NativeSelect>
             </ChartField>
             <ChartField label="Series field (optional)">
               {spec?.type === 'heatmap' ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-fg-muted">
                   Not used for heatmap charts.
                 </p>
               ) : (
-                <Select
+                <NativeSelect
                   aria-label="Series field"
                   value={bindingValue(spec?.fields.series)}
                   onChange={(e) =>
@@ -1743,17 +1722,17 @@ function ChartBlockEditor({
                 >
                   <option value="">(none)</option>
                   {fieldOptions}
-                </Select>
+                </NativeSelect>
               )}
             </ChartField>
             <ChartField label="X field">
               {spec?.type === 'histogram' || spec?.type === 'box' ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-fg-muted">
                   Not used for {spec.type} charts — the measured value is the Y
                   field.
                 </p>
               ) : (
-                <Select
+                <NativeSelect
                   aria-label="X field"
                   value={bindingValue(spec?.fields.x)}
                   onChange={(e) =>
@@ -1764,11 +1743,11 @@ function ChartBlockEditor({
                 >
                   <option value="">(none)</option>
                   {fieldOptions}
-                </Select>
+                </NativeSelect>
               )}
             </ChartField>
             <ChartField label="Y field">
-              <Select
+              <NativeSelect
                 aria-label="Y field"
                 value={bindingValue(spec?.fields.y)}
                 onChange={(e) =>
@@ -1781,10 +1760,10 @@ function ChartBlockEditor({
               >
                 <option value="">(none)</option>
                 {fieldOptions}
-              </Select>
+              </NativeSelect>
             </ChartField>
             <ChartField label="X axis scale">
-              <Select
+              <NativeSelect
                 aria-label="X axis scale"
                 value={spec?.display.axes.x.scale ?? 'linear'}
                 onChange={(e) =>
@@ -1806,10 +1785,10 @@ function ChartBlockEditor({
                     {s}
                   </option>
                 ))}
-              </Select>
+              </NativeSelect>
             </ChartField>
             <ChartField label="Y axis scale">
-              <Select
+              <NativeSelect
                 aria-label="Y axis scale"
                 value={spec?.display.axes.y.scale ?? 'linear'}
                 onChange={(e) =>
@@ -1831,7 +1810,7 @@ function ChartBlockEditor({
                     {s}
                   </option>
                 ))}
-              </Select>
+              </NativeSelect>
             </ChartField>
           </div>
 
@@ -1859,7 +1838,7 @@ function ChartBlockEditor({
           ) : null}
           {spec?.type === 'heatmap' ? (
             <ChartField label="Cell value">
-              <Select
+              <NativeSelect
                 aria-label="Heatmap cell aggregation"
                 value={spec.typeParams.heatmap?.aggregate ?? 'count'}
                 onChange={(e) => {
@@ -1888,7 +1867,7 @@ function ChartBlockEditor({
                 <option value="median">Median of Y</option>
                 <option value="min">Min of Y</option>
                 <option value="max">Max of Y</option>
-              </Select>
+              </NativeSelect>
             </ChartField>
           ) : null}
 
@@ -1907,14 +1886,14 @@ function ChartBlockEditor({
           <div className="flex flex-wrap items-center gap-2">
             {frozen ? (
               <>
-                <Badge variant="warning">
+                <Badge variant="chg">
                   <Snowflake className="size-3" />
                   Frozen snapshot — immutable
                 </Badge>
                 {onUnfreezeChart ? (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() => void onUnfreezeChart()}
                   >
@@ -1939,7 +1918,7 @@ function ChartBlockEditor({
               </Button>
             ) : null}
           </div>
-        </Card>
+        </div>
       )}
 
       <AutosaveFooter
@@ -1968,7 +1947,7 @@ function ChartField({
 }) {
   return (
     <label className="grid gap-1 text-xs">
-      <span className="font-medium text-muted-foreground">{label}</span>
+      <span className="font-medium text-fg-muted">{label}</span>
       {children}
     </label>
   )
@@ -2135,9 +2114,7 @@ function PlateMapBlockEditor({
   if (readOnly) {
     return (
       <div className={cn('space-y-2')}>
-        <p className="font-medium text-foreground">
-          {draft.title ?? 'Plate map'}
-        </p>
+        <p className="font-medium text-fg">{draft.title ?? 'Plate map'}</p>
         {spec ? (
           <PlateMap
             wells={plateWells}
@@ -2148,9 +2125,7 @@ function PlateMapBlockEditor({
             compact
           />
         ) : (
-          <p className="text-sm text-muted-foreground">
-            No plate map configured.
-          </p>
+          <p className="text-sm text-fg-muted">No plate map configured.</p>
         )}
       </div>
     )
@@ -2171,14 +2146,14 @@ function PlateMapBlockEditor({
 
       {/* Format info */}
       {spec ? (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant="secondary">96-well (8×12)</Badge>
+        <div className="flex items-center gap-2 text-xs text-fg-muted">
+          <Badge variant="chg">96-well (8×12)</Badge>
           <span className="tabular-nums">
             {spec.wells.length} wells assigned
           </span>
         </div>
       ) : (
-        <Button variant="outline" size="sm" onClick={() => ensureSpec()}>
+        <Button variant="secondary" size="sm" onClick={() => ensureSpec()}>
           Initialize 96-well plate
         </Button>
       )}
@@ -2200,7 +2175,7 @@ function PlateMapBlockEditor({
           </div>
 
           {/* Inspector */}
-          <Card className="space-y-3 p-3">
+          <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
             {selectedWellCode ? (
               <WellInspector
                 wellCode={selectedWellCode}
@@ -2247,7 +2222,7 @@ function PlateMapBlockEditor({
                 }}
               />
             ) : (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-fg-muted">
                 Click a well in the grid to assign it.
               </p>
             )}
@@ -2257,7 +2232,7 @@ function PlateMapBlockEditor({
               spec={spec}
               onChange={(validation) => updateSpec({ validation })}
             />
-          </Card>
+          </div>
         </div>
       ) : null}
 
@@ -2319,10 +2294,10 @@ function WellInspector({
         {well ? (
           <Button
             type="button"
-            variant="ghost"
+            variant="quiet"
             size="sm"
             onClick={onRemoveWell}
-            className="text-xs text-destructive"
+            className="text-xs text-danger-text"
           >
             <Trash2 /> Remove
           </Button>
@@ -2331,7 +2306,7 @@ function WellInspector({
 
       {/* Role selector */}
       <Field label="Role" htmlFor={`well-role-${wellCode}`}>
-        <Select
+        <NativeSelect
           id={`well-role-${wellCode}`}
           value={role}
           onChange={(e) => onAssignRole(e.target.value as AssignmentRole)}
@@ -2341,32 +2316,32 @@ function WellInspector({
               {ROLE_STYLES[r].label}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
       </Field>
 
       {/* Sample link (for sample and control roles) */}
       {role !== 'empty' && role !== 'blank' ? (
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Sample
-          </Label>
+          </label>
           {well?.sampleRef ? (
-            <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/20 px-2 py-1.5">
+            <div className="flex items-center justify-between gap-2 rounded-md border bg-surface-muted/20 px-2 py-1.5">
               <div className="min-w-0">
                 <p className="truncate text-xs font-medium">
                   {well.sampleRef.identifier}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="truncate text-xs text-fg-muted">
                   {well.sampleRef.title}
                   {well.sampleRef.archived ? ' · archived' : ''}
                 </p>
               </div>
               <Button
                 type="button"
-                variant="ghost"
+                variant="quiet"
                 size="sm"
                 onClick={onClearSample}
-                className="shrink-0 text-xs text-destructive"
+                className="shrink-0 text-xs text-danger-text"
               >
                 Clear
               </Button>
@@ -2408,9 +2383,9 @@ function WellInspector({
       {/* Volume */}
       {role !== 'empty' ? (
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Volume
-          </Label>
+          </label>
           {well?.volume ? (
             <div className="flex items-center gap-2">
               <Input
@@ -2436,10 +2411,10 @@ function WellInspector({
               />
               <Button
                 type="button"
-                variant="ghost"
+                variant="quiet"
                 size="sm"
                 onClick={onClearVolume}
-                className="text-xs text-destructive"
+                className="text-xs text-danger-text"
               >
                 Clear
               </Button>
@@ -2456,7 +2431,7 @@ function WellInspector({
                 }
                 className="w-20 font-mono tabular-nums"
               />
-              <span className="text-xs text-muted-foreground">µL</span>
+              <span className="text-xs text-fg-muted">µL</span>
             </div>
           )}
         </div>
@@ -2488,19 +2463,19 @@ function ValidationConfigEditor({
   const v = spec.validation
   return (
     <details className="space-y-3 rounded-md border p-3">
-      <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+      <summary className="cursor-pointer text-xs font-medium text-fg-muted">
         Validation config
       </summary>
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Required roles
-          </Label>
+          </label>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {ASSIGNMENT_ROLES.filter((r) => r !== 'empty').map((r) => (
               <label
                 key={r}
-                className="flex items-center gap-1.5 text-xs text-foreground"
+                className="flex items-center gap-1.5 text-xs text-fg"
               >
                 <Checkbox
                   checked={v.requiredRoles?.includes(r) ?? false}
@@ -2620,9 +2595,9 @@ function AnalysisBlockEditor({
 
   return (
     <div className="space-y-4">
-      <Card className="space-y-3 p-3">
+      <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
         <ChartField label="Saved analysis">
-          <Select
+          <NativeSelect
             aria-label="Saved analysis"
             value={draft.definitionId ?? ''}
             onChange={(e) => chooseDefinition(e.target.value)}
@@ -2641,8 +2616,8 @@ function AnalysisBlockEditor({
                 {`${d.name} · v${d.version}`}
               </option>
             ))}
-          </Select>
-          <p className="text-xs text-muted-foreground">
+          </NativeSelect>
+          <p className="text-xs text-fg-muted">
             Analyses execute against live dataset rows. Freeze to pin the inputs
             as evidence.
           </p>
@@ -2663,14 +2638,14 @@ function AnalysisBlockEditor({
         <div className="flex flex-wrap items-center gap-2">
           {frozen ? (
             <>
-              <Badge variant="warning">
+              <Badge variant="chg">
                 <Snowflake className="size-3" />
                 Frozen snapshot — immutable
               </Badge>
               {onUnfreezeAnalysis ? (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={() => void onUnfreezeAnalysis()}
                 >
@@ -2695,7 +2670,7 @@ function AnalysisBlockEditor({
             </Button>
           ) : null}
         </div>
-      </Card>
+      </div>
 
       <AutosaveFooter
         status={a.status}

@@ -3,18 +3,21 @@ import { Link } from '@tanstack/react-router'
 import { ZodError } from 'zod'
 
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
+import { Badge } from '#/components/v3/ui/badge'
 import {
-  Badge,
   Popover,
   PopoverContent,
   PopoverTrigger,
+} from '#/components/v3/ui/popover'
+import {
   Table,
   TableBody,
+  TableBox,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
 import { DataClientError } from '#/lib/data-client'
 import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
@@ -47,7 +50,7 @@ export function NotebookSheetBlock({
   const instanceId = sheetBlockInstanceId(block.payload)
   if (!instanceId) {
     return (
-      <p className="p-3 text-sm text-muted-foreground" role="status">
+      <p className="p-3 text-sm text-fg-muted" role="status">
         This block has no Sheet Instance.
       </p>
     )
@@ -86,11 +89,11 @@ export function FrozenSheetEvidencePanel({
         <p className="text-xs font-medium" role="status">
           Frozen submitted Sheet evidence
         </p>
-        <Badge variant="success" className="text-xs">
+        <Badge variant="add" className="text-xs">
           Read-only
         </Badge>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fg-muted">
         Reconstructed from the approved revision, not the live Sheet. {origin}
         {bindingCount > 0
           ? ` · ${bindingCount} Dataset binding${bindingCount === 1 ? '' : 's'}`
@@ -101,41 +104,43 @@ export function FrozenSheetEvidencePanel({
         .
       </p>
       {grid.columns.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fg-muted">
           No local columns were frozen with this Sheet.
         </p>
       ) : (
-        <Table aria-label="Frozen Sheet" containerClassName="rounded-md border">
-          <TableHeader>
-            <TableRow>
-              {grid.columns.map((column) => (
-                <TableHead key={column.id}>{column.label}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {grid.rows.length === 0 ? (
+        <TableBox className="rounded-md border">
+          <Table aria-label="Frozen Sheet">
+            <TableHeader>
               <TableRow>
-                <TableCell
-                  colSpan={grid.columns.length}
-                  className="text-muted-foreground"
-                >
-                  No local rows were frozen with this Sheet.
-                </TableCell>
+                {grid.columns.map((column) => (
+                  <TableHead key={column.id}>{column.label}</TableHead>
+                ))}
               </TableRow>
-            ) : (
-              grid.rows.map((row, rowIndex) => (
-                <TableRow key={rowIndex}>
-                  {row.map((cell, cellIndex) => (
-                    <TableCell key={grid.columns[cellIndex]?.id ?? cellIndex}>
-                      {cell || '—'}
-                    </TableCell>
-                  ))}
+            </TableHeader>
+            <TableBody>
+              {grid.rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={grid.columns.length}
+                    className="text-fg-muted"
+                  >
+                    No local rows were frozen with this Sheet.
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                grid.rows.map((row, rowIndex) => (
+                  <TableRow key={rowIndex}>
+                    {row.map((cell, cellIndex) => (
+                      <TableCell key={grid.columns[cellIndex]?.id ?? cellIndex}>
+                        {cell || '—'}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableBox>
       )}
     </div>
   )
@@ -207,7 +212,7 @@ function NotebookInstanceSheetEmbed({
 
   if (instance.isPending) {
     return (
-      <p className="p-3 text-sm text-muted-foreground" role="status">
+      <p className="p-3 text-sm text-fg-muted" role="status">
         Loading Sheet…
       </p>
     )
@@ -233,15 +238,13 @@ function NotebookInstanceSheetEmbed({
   return (
     <div className="flex min-h-[24rem] flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
-        <h3 className="text-sm font-medium text-foreground">
-          {instance.data.name}
-        </h3>
-        <span className="text-xs text-muted-foreground">{definitionLabel}</span>
+        <h3 className="text-sm font-medium text-fg">{instance.data.name}</h3>
+        <span className="text-xs text-fg-muted">{definitionLabel}</span>
         {sharedCount > 1 ? (
           <SharedNotebooksBadge others={others} total={sharedCount} />
         ) : null}
         {instance.data.lifecycle === 'archived' ? (
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="kind" className="text-xs">
             Archived
           </Badge>
         ) : null}
@@ -249,7 +252,7 @@ function NotebookInstanceSheetEmbed({
         canonical ?projectId context so it opens with the same write
         affordances as the embed. */}
         <Link
-          className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          className="ml-auto text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
           to="/sheets/$sheetId"
           params={{ sheetId: instanceId }}
           search={{ projectId: projectId ?? undefined }}
@@ -258,7 +261,7 @@ function NotebookInstanceSheetEmbed({
         </Link>
       </div>
       {!projectId ? (
-        <p className="px-1 text-xs text-muted-foreground" role="status">
+        <p className="px-1 text-xs text-fg-muted" role="status">
           This Notebook has no project, so Records cannot be created or linked
           here. The Sheet remains readable.
         </p>
@@ -284,23 +287,25 @@ function SharedNotebooksBadge({
   const extra = Math.max(0, total - 1)
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex"
-          aria-label={`Shared with ${extra} other Notebook${extra === 1 ? '' : 's'}`}
-        >
-          <Badge variant="info" className="cursor-pointer text-xs">
-            Shared · {extra} other Notebook{extra === 1 ? '' : 's'}
-          </Badge>
-        </button>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="inline-flex"
+            aria-label={`Shared with ${extra} other Notebook${extra === 1 ? '' : 's'}`}
+          />
+        }
+      >
+        <Badge variant="kind" className="cursor-pointer text-xs">
+          Shared · {extra} other Notebook{extra === 1 ? '' : 's'}
+        </Badge>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-0">
         <p className="border-b px-3 py-2 text-xs font-medium">Also used in</p>
         <ul className="max-h-64 overflow-y-auto py-1">
           {others.map((item) => (
             <li key={item.recordId} className="px-3 py-1.5 text-sm">
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="font-mono text-xs text-fg-muted">
                 {item.identifier}
               </span>
               <span className="mt-0.5 block truncate">{item.title}</span>

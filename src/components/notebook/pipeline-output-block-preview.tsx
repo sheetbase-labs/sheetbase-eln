@@ -5,7 +5,7 @@
 import { Link } from '@tanstack/react-router'
 import { Workflow } from 'lucide-react'
 
-import { Badge } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
 
 export interface PipelineOutputBlockPayload {
   /** The Pipeline run this block references (stable identity). */
@@ -30,7 +30,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
 
   if (!runId) {
     return (
-      <div className="text-muted-foreground flex items-center gap-2 rounded-md border p-3 text-sm">
+      <div className="text-fg-muted flex items-center gap-2 rounded-md border p-3 text-sm">
         <Workflow className="size-4" aria-hidden="true" />
         Pipeline output block — attach a Pipeline run to pin its output here.
       </div>
@@ -45,7 +45,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
           <p className="truncate text-sm font-medium">
             {label ?? 'Pipeline run output'}
           </p>
-          <p className="text-muted-foreground font-mono text-xs">
+          <p className="text-fg-muted font-mono text-xs">
             run {runId.slice(0, 8)}
             {datasetVersionId
               ? ` · Dataset Version ${datasetVersionId.slice(0, 8)}`
@@ -54,7 +54,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <Badge variant="secondary">Pipeline</Badge>
+        <Badge variant="kind">Pipeline</Badge>
         <Link
           to="/pipelines/runs/$runId"
           params={{ runId }}
@@ -66,7 +66,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
           <Link
             to="/datasets"
             search={{ dataset: datasetId, archived: false }}
-            className="text-muted-foreground text-xs underline-offset-2 hover:underline"
+            className="text-fg-muted text-xs underline-offset-2 hover:underline"
           >
             Output Dataset
           </Link>

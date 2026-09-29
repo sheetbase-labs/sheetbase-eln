@@ -7,9 +7,11 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Workflow } from 'lucide-react'
 
-import { Button, Input, Label, Select } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { NativeSelect } from '#/components/v3/projects/select'
+import { Icon } from '#/components/v3/icons'
 import { createDataClient } from '#/lib/data-client'
 import { formatRelativeTime } from '#/lib/notebook-data'
 import {
@@ -99,14 +101,17 @@ export function PipelineOutputBlockEditor({
   return (
     <div className="space-y-3 rounded-md border p-3">
       <div className="flex items-center gap-2">
-        <Workflow className="text-primary size-4" aria-hidden="true" />
+        <Icon
+          name="pipeline"
+          size={16}
+          className="text-link"
+          aria-hidden="true"
+        />
         <span className="text-sm font-medium">Pipeline output reference</span>
       </div>
 
-      <Label className="space-y-1 text-xs">
-        <span>Pipeline run</span>
-        <Select
-          className="text-sm"
+      <Field label="Pipeline run">
+        <NativeSelect
           value={runId}
           onChange={(event) => void chooseRun(event.target.value)}
           aria-label="Pipeline run"
@@ -118,11 +123,11 @@ export function PipelineOutputBlockEditor({
               {run.id.slice(0, 8)} · {status(run)}
             </option>
           ))}
-        </Select>
-      </Label>
+        </NativeSelect>
+      </Field>
 
       {selected ? (
-        <div className="text-muted-foreground space-y-1 text-xs">
+        <div className="text-fg-muted space-y-1 text-xs">
           <p>
             {outputsQuery.data?.length
               ? `Pins Dataset Version ${outputsQuery.data[0].dataset_version_id.slice(0, 8)} — ${outputsQuery.data[0].label}`
@@ -131,7 +136,7 @@ export function PipelineOutputBlockEditor({
           <Link
             to="/pipelines/runs/$runId"
             params={{ runId: selected.id }}
-            className="text-primary underline-offset-2 hover:underline"
+            className="text-link underline-offset-2 hover:underline"
           >
             Inspect run
           </Link>
@@ -139,10 +144,9 @@ export function PipelineOutputBlockEditor({
       ) : null}
 
       {runId ? (
-        <Label className="space-y-1 text-xs">
-          <span>Or paste a run id</span>
+        <Field label="Or paste a run id">
           <Input
-            className="font-mono text-xs"
+            className="mono"
             value={runId}
             onChange={(event) => setRunId(event.target.value)}
             onBlur={() => {
@@ -151,7 +155,7 @@ export function PipelineOutputBlockEditor({
             aria-label="Pipeline run id"
             disabled={readOnly}
           />
-        </Label>
+        </Field>
       ) : null}
 
       {!readOnly && (
@@ -159,14 +163,14 @@ export function PipelineOutputBlockEditor({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={saving || !touched}
             onClick={() => void persist({})}
           >
             Clear reference
           </Button>
           {offline ? (
-            <span className="text-muted-foreground text-xs">
+            <span className="text-fg-muted text-xs">
               offline — changes will sync
             </span>
           ) : null}

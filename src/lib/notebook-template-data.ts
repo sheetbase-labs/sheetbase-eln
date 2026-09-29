@@ -60,6 +60,7 @@ export type NotebookTemplate = {
   revision: number
   createdAt: string
   updatedAt: string
+  createdByUserId: string | null
 }
 
 export type NotebookTemplateVersion = {
@@ -122,6 +123,7 @@ export function notebookTemplateFromWire(wire: unknown): NotebookTemplate {
     revision: parsed.revision,
     createdAt: parsed.created_at,
     updatedAt: parsed.updated_at,
+    createdByUserId: parsed.created_by_user_id,
   }
 }
 

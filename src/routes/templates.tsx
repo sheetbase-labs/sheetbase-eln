@@ -40,6 +40,7 @@ import {
   useTemplateRows,
 } from '#/components/v3/templates/templates-data'
 import type { TemplateRow } from '#/components/v3/templates/templates-data'
+import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 
 const tabs = ['all', 'active', 'retired'] as const
 type TemplateTab = (typeof tabs)[number]
@@ -101,6 +102,9 @@ function TemplatesList() {
   const navigate = useNavigate({ from: Route.fullPath })
   const query = useTemplateRows()
   const rows = query.data ?? []
+  const members = useWorkspaceMemberNames()
+  const ownerName = (id: string | null) =>
+    id ? (members.data?.get(id) ?? '—') : '—'
   const tab: TemplateTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -164,6 +168,7 @@ function TemplatesList() {
                 <TableHead align="right">Sections</TableHead>
                 <TableHead align="right">In use</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Owner</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -210,6 +215,9 @@ function TemplatesList() {
                     <TableCell>
                       <Status tone={status.tone}>{status.label}</Status>
                     </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {ownerName(t.createdByUserId)}
+                    </TableCell>
                   </TableRow>
                 )
               })}
@@ -223,7 +231,7 @@ function TemplatesList() {
                 key: t.id,
                 id: t.key,
                 title: t.name,
-                sub: `${t.sectionCount} sections · ${t.inUse} in use`,
+                sub: `${t.sectionCount} sections · ${t.inUse} in use · ${ownerName(t.createdByUserId)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,
                 link: {
                   to: '/templates/$templateId',

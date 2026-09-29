@@ -482,9 +482,10 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   (status, owner, started) and tabs Overview, Notebook, Samples, Datasets,
   Results, Files, History. Overview reads the record's notes; Samples/Datasets/
   Files read `record_links`; History reads `revisions`; Notebook points at the
-  working record notebook; Overview shows the linked protocol; Results and
-  protocol step progress state their unbuilt capabilities. The list's
-  experiments link here.
+  working record notebook; Overview shows the linked protocol and lists the
+  experiment's linked datasets/analyses under Key results (each dataset linked);
+  curated results and protocol step progress state their unbuilt capabilities.
+  The list's experiments link here.
 
 - **Dataset detail frame + Snapshots ported**: `/datasets/$datasetId` shows the
   header (status, model, rows) with a Snapshots tab wired to

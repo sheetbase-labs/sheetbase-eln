@@ -71,6 +71,10 @@ function Overview() {
   const sections = sectionsFromBlocks(blocks.data ?? [])
   const rows = links.data ?? []
   const protocolLinks = rows.filter((l) => l.link_type === 'protocol')
+  const datasetLinks = rows.filter(
+    (l) => l.link_type === 'dataset' && l.target_record_id,
+  )
+  const analysisLinks = rows.filter((l) => l.link_type === 'analysis')
 
   return (
     <>
@@ -121,7 +125,53 @@ function Overview() {
 
       <Inspector className="w-[300px]">
         <InspectorSection title="Key results">
-          <Muted>Preliminary results arrive with the results capability.</Muted>
+          {datasetLinks.length || analysisLinks.length ? (
+            <DescriptionList
+              labelWidth={90}
+              items={[
+                ...(datasetLinks.length
+                  ? ([
+                      [
+                        'Datasets',
+                        <>
+                          {datasetLinks.map((l, i) => (
+                            <span key={l.id}>
+                              {i ? ', ' : ''}
+                              <Link
+                                to="/datasets/$datasetId"
+                                params={{
+                                  datasetId: l.target_record_id ?? '',
+                                }}
+                                className="text-link mono"
+                              >
+                                {l.target_identifier}
+                              </Link>
+                            </span>
+                          ))}
+                        </>,
+                      ],
+                    ] as [string, React.ReactNode][])
+                  : []),
+                ...(analysisLinks.length
+                  ? ([
+                      [
+                        'Analyses',
+                        <span key="a" className="mono">
+                          {analysisLinks
+                            .map((l) => l.target_identifier)
+                            .join(', ')}
+                        </span>,
+                      ],
+                    ] as [string, React.ReactNode][])
+                  : []),
+              ]}
+            />
+          ) : (
+            <Muted>
+              Curated figures and tables are a later capability; datasets the
+              experiment produced appear on the Datasets tab.
+            </Muted>
+          )}
         </InspectorSection>
         <InspectorSection title="Details">
           <DescriptionList

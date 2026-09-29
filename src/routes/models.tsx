@@ -36,6 +36,7 @@ import {
 } from '#/components/v3/inventory/list'
 import { modelStatus, useModels } from '#/components/v3/models/models-data'
 import type { ModelRow } from '#/components/v3/models/models-data'
+import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 
 const tabs = ['all', 'published', 'drafts', 'retired'] as const
 type ModelTab = (typeof tabs)[number]
@@ -96,6 +97,9 @@ function ModelsList() {
   const navigate = useNavigate({ from: Route.fullPath })
   const query = useModels()
   const rows = query.data ?? []
+  const members = useWorkspaceMemberNames()
+  const ownerName = (id: string | null) =>
+    id ? (members.data?.get(id) ?? '—') : '—'
   const tab: ModelTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -157,6 +161,7 @@ function ModelsList() {
                 <TableHead align="right">Fields</TableHead>
                 <TableHead align="right">Datasets</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Owner</TableHead>
                 <TableHead align="right">Updated</TableHead>
               </TableRow>
             </TableHeader>
@@ -199,6 +204,9 @@ function ModelsList() {
                     <TableCell>
                       <Status tone={status.tone}>{status.label}</Status>
                     </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {ownerName(m.created_by_user_id)}
+                    </TableCell>
                     <TableCell align="right" className="text-fg-muted">
                       {m.updated_at.slice(0, 10)}
                     </TableCell>
@@ -215,7 +223,7 @@ function ModelsList() {
                 key: m.id,
                 id: `${m.key} · ${m.latestVersion ? `v${m.latestVersion.version}` : 'no version'}`,
                 title: m.name,
-                sub: `${m.fieldCount} fields · ${m.datasetCount} datasets`,
+                sub: `${m.fieldCount} fields · ${m.datasetCount} datasets · ${ownerName(m.created_by_user_id)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,
                 link: { to: '/models/$modelId', params: { modelId: m.id } },
               }

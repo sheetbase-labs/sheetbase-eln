@@ -435,8 +435,8 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   `dataset_schema_version_fields`). New version and Publish run the existing
   RPCs, so the rules stay in the database. A model is a schema; its instances
   are datasets, which is why app-3's Records tab is the Datasets tab here. The
-  app-3 Record/Measurement kind, owner and MDL display id are gaps. `nav.ts`
-  now points Models at `/models`.
+  app-3 Record/Measurement kind and MDL display id are gaps; owner reads
+  `workspace_members_list`. `nav.ts` now points Models at `/models`.
 
 - **Acceptance crawl ported**: `pnpm test:crawl [baseUrl] [maxPages]` follows
   every internal link from Home and fails on page errors, horizontal overflow,

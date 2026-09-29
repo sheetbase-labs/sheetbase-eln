@@ -130,6 +130,23 @@ export async function fetchWorkspaceMemberIdentities(): Promise<
   )
 }
 
+export const workspaceMemberQueryKeys = {
+  identities: ['ui-port', 'workspace-members'] as const,
+}
+
+/** Workspace member display names, keyed by user id. Shared by screens that
+ * name the person behind a record (schedule bookers, model/template owners). */
+export function useWorkspaceMemberNames() {
+  return useQuery({
+    queryKey: workspaceMemberQueryKeys.identities,
+    queryFn: async () => {
+      const members = await fetchWorkspaceMemberIdentities()
+      return new Map(members.map((m) => [m.user_id, m.name]))
+    },
+    staleTime: 60_000,
+  })
+}
+
 export async function setProjectMember(
   projectId: string,
   userId: string,

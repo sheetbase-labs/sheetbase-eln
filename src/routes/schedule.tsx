@@ -20,8 +20,8 @@ import {
   bookInstrument,
   useRangeBookings,
   useScheduleResources,
-  useWorkspaceMemberNames,
 } from '#/components/v3/schedule/schedule-data'
+import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 import type {
   ScheduleBooking,
   ScheduleInstrument,

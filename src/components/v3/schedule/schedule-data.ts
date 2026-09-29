@@ -6,7 +6,6 @@ import {
   fetchCalendarResources,
 } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { fetchWorkspaceMemberIdentities } from '#/components/v3/projects/project-data'
 import type { CalendarBookingWire } from '#/lib/calendar'
 import type { DataClient } from '#/lib/data-client'
 
@@ -70,19 +69,6 @@ export const scheduleQueryKeys = {
     ['schedule', 'resources', workspaceId] as const,
   bookings: (workspaceId: string, from: string, to: string) =>
     ['schedule', 'bookings', workspaceId, from, to] as const,
-  members: ['schedule', 'members'] as const,
-}
-
-/** Member display names, so a booking can say who made it (and mark yours). */
-export function useWorkspaceMemberNames() {
-  return useQuery({
-    queryKey: scheduleQueryKeys.members,
-    queryFn: async () => {
-      const members = await fetchWorkspaceMemberIdentities()
-      return new Map(members.map((m) => [m.user_id, m.name]))
-    },
-    staleTime: 60_000,
-  })
 }
 
 export function useScheduleResources(

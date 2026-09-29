@@ -457,9 +457,10 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   and In use (records pinned to a version). The list shows the TPL display id and
   owner. `/templates/$templateId/update` previews
   `preview_notebook_template_upgrade` and applies through
-  `apply_notebook_template_upgrade` with the record's structure version; conflicts
-  that need per-sheet decisions are stated rather than guessed. The old
-  protocol-template board is replaced.
+  `apply_notebook_template_upgrade` with the record's structure version;
+  conflicts that need per-sheet decisions are stated rather than guessed. The
+  old protocol-template board is replaced, and `pnpm test:areas` now includes a
+  templates suite (`templates-interact.mjs`).
 
 - **Pipelines ported**: `/pipelines` (board with All/Active/Drafts/Retired),
   `/pipelines/$pipelineId` with Overview, Runs and Triggers tabs,

@@ -185,14 +185,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   now live under `src/components/v3/` and use the v3 kit; the legacy
   `components/settings` and `components/integrations` directories are deleted.
 
-- **Remaining legacy UI (recorded)**: the record notebook
-  (`/records/$recordId/notebook`) keeps its legacy functional editors
-  (`#/components/notebook`, `#/components/record`, `#/components/scientific`,
-  `#/components/ui`); reskinning it is a separate pass. The review workspace's
-  chrome (confirm dialogs, tabs, buttons, badges, skeletons, textareas) and its
-  diff/check components are now on the v3 kit. The ELN-only legacy routes
-  (`/configure`, `/admin`, `/help`, `/analysis`, `/planner`, `/docs`,
-  `/foundations`) still use the ELN shell.
+- **Remaining legacy UI (recorded)**: the record notebook's block/editor
+  components (`#/components/notebook`, `#/components/record`,
+  `#/components/scientific`) are the last ported-area legacy kit; the notebook
+  route's own chrome is now v3, as are the review workspace's chrome and its
+  diff/check components. The ELN-only legacy routes (`/configure`, `/admin`,
+  `/help`, `/analysis`, `/planner`, `/docs`, `/foundations`) still use the ELN
+  shell.
 
 - **Agent surface folded into `/pipelines/agents` (DEC-03 / PIPE-01)**: the
   Pipelines list links to an Agent operations surface with Workflows, Proposals
@@ -310,7 +309,10 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   covers the notebook (51 routes × 2 widths). The orphaned legacy
   `/records/$recordId/overview` route and its `components/overview` (tabs + view
   and tests) are retired: nothing linked to it, and the notebook carries the
-  record's properties/outline/history/activity tabs.
+  record's properties/outline/history/activity tabs. The notebook route's own
+  chrome (dialogs, buttons, badges, title input, the Sheet-link picker) now uses
+  the v3 kit; its block/editor components (`#/components/notebook`,
+  `#/components/record`, `#/components/scientific`) remain the last legacy pass.
 
 - **New sheet flow added**: `/sheets/new` mirrors app-3's empty-sheet chooser —
   dataset, template and import starts plus a project picker and a name — and

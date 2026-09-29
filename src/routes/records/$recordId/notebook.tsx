@@ -61,20 +61,16 @@ import {
   StatusBadge,
 } from '#/components/scientific'
 import type { InspectorTab } from '#/components/record'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import {
-  Badge,
-  Button,
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Field,
-  FieldLabel,
-  Input,
-  SearchableSelect,
-} from '#/components/ui'
+} from '#/components/v3/ui/dialog'
+import { Field, Input } from '#/components/v3/ui/input'
+import { NativeSelect } from '#/components/v3/projects/select'
 import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -634,9 +630,7 @@ function ExperimentNotebookRoute() {
               primitive with a labelled title for focus management. */}
           <Dialog open={samplePanelOpen} onOpenChange={setSamplePanelOpen}>
             <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Sample panel</DialogTitle>
-              </DialogHeader>
+              <DialogHeader title="Sample panel" />
               <SampleExtensionPanel loadSummary={loadSampleSummary} />
             </DialogContent>
           </Dialog>
@@ -843,7 +837,7 @@ export function StickyRecordHeader({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => setDuplicateOpen(true)}
             >
               Duplicate
@@ -858,7 +852,7 @@ export function StickyRecordHeader({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => setSignOpen(true)}
             >
               Sign
@@ -1049,7 +1043,7 @@ export function LockedBanner({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             className="ml-auto h-7"
             data-print-hide
             onClick={() => setAmendOpen(true)}
@@ -1757,38 +1751,33 @@ function EditableNotebook({
       />
       <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Link an existing Sheet</DialogTitle>
-            <DialogDescription>
-              This Notebook will show the same live Sheet. Editing it here
-              changes it everywhere it is used.
-            </DialogDescription>
-          </DialogHeader>
-          <Field>
-            <FieldLabel htmlFor="link-sheet-instance">Sheet</FieldLabel>
-            <SearchableSelect
+          <DialogHeader
+            title="Link an existing Sheet"
+            description="This Notebook will show the same live Sheet. Editing it here changes it everywhere it is used."
+          />
+          <Field label="Sheet">
+            <NativeSelect
               id="link-sheet-instance"
-              items={(embedCandidates.data ?? []).filter(
-                (instance) => instance.lifecycle === 'active',
-              )}
               value={embedInstanceId}
-              onChange={setEmbedInstanceId}
-              getId={(instance) => instance.id}
-              getLabel={(instance) => instance.name}
-              getDescription={(instance) =>
-                instance.sourceDefinitionVersionId
-                  ? 'From a Sheet Definition'
-                  : 'Ad hoc Sheet'
-              }
-              placeholder="Search Sheets by name"
-              triggerLabel="Select a Sheet"
-              emptyLabel="No Sheets match that search."
-            />
+              onChange={(event) => setEmbedInstanceId(event.target.value)}
+            >
+              <option value="">Select a Sheet…</option>
+              {(embedCandidates.data ?? [])
+                .filter((instance) => instance.lifecycle === 'active')
+                .map((instance) => (
+                  <option key={instance.id} value={instance.id}>
+                    {instance.name}
+                    {instance.sourceDefinitionVersionId
+                      ? ' (from a Sheet Definition)'
+                      : ' (ad hoc Sheet)'}
+                  </option>
+                ))}
+            </NativeSelect>
           </Field>
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => setEmbedOpen(false)}
             >
               Cancel
@@ -2226,7 +2215,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
       </span>
       {availability.status === 'upgrade-available' &&
       availability.latestVersion ? (
-        <Badge variant="outline" className="text-xs">
+        <Badge variant="kind" className="text-xs">
           Upgrade available · v{availability.latestVersion.version}
         </Badge>
       ) : null}
@@ -2355,7 +2344,7 @@ export function NotebookInspector({
                   dense key-value rows matching the mockup's layout. */}
           <PropertyList>
             <Property label="Type">
-              <Badge variant="info" className="text-xs">
+              <Badge variant="kind" className="text-xs">
                 {recordKindLabel(record.kind)}
               </Badge>
             </Property>
@@ -2393,19 +2382,19 @@ export function NotebookInspector({
               Notebook state
             </span>
             {lifecycle === 'Submitted' ? (
-              <Badge variant="success" className="text-xs">
+              <Badge variant="add" className="text-xs">
                 Submitted — evidence frozen
               </Badge>
             ) : lifecycle === 'In review' ? (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="kind" className="text-xs">
                 In review
               </Badge>
             ) : lifecycle === 'Archived' ? (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="kind" className="text-xs">
                 Archived
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="kind" className="text-xs">
                 Working
               </Badge>
             )}

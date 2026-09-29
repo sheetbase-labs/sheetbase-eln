@@ -1,23 +1,7 @@
 import * as React from 'react'
-import {
-  CheckSquare,
-  FlaskConical,
-  Link2,
-  PackageOpen,
-  Pilcrow,
-  Plus,
-  Sheet,
-  Paperclip,
-  LineChart,
-  Grid3x3,
-  Sigma,
-  Workflow,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-
 import { cn } from '#/lib/utils'
+import { Button } from '#/components/v3/ui/button'
 import {
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -25,6 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/ui'
+import { Icon } from '#/components/v3/icons'
+import type { IconName } from '#/components/v3/icons'
 
 /**
  * Block insertion control (ELN-005). A keyboard-accessible picker that
@@ -41,7 +27,7 @@ export interface BlockPickerOption {
   type: string
   label: string
   description: string
-  icon: LucideIcon
+  icon: IconName
   group: 'writing' | 'structure' | 'evidence'
   aliases: readonly string[]
 }
@@ -57,7 +43,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     type: 'rich_text',
     label: 'Text',
     description: 'Headings, paragraphs, and prose lists.',
-    icon: Pilcrow,
+    icon: 'edit',
     group: 'writing',
     aliases: ['heading', 'paragraph', 'note', 'prose'],
   },
@@ -65,7 +51,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     type: 'checklist',
     label: 'Checklist',
     description: 'A list of checkable items.',
-    icon: CheckSquare,
+    icon: 'check',
     group: 'writing',
     aliases: ['todo', 'tasks'],
   },
@@ -74,7 +60,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Linked record',
     description:
       'A reference to another experiment, Dataset, sample or reagent.',
-    icon: Link2,
+    icon: 'link',
     group: 'structure',
     aliases: ['dataset', 'record', 'sample', 'reagent', 'link'],
   },
@@ -82,7 +68,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     type: 'sheet',
     label: 'Sheet',
     description: 'Start a new Sheet on this Notebook.',
-    icon: Sheet,
+    icon: 'table',
     group: 'structure',
     aliases: ['table', 'grid', 'spreadsheet'],
   },
@@ -91,7 +77,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Link existing Sheet',
     description:
       'Show a Sheet that already exists. Edits stay shared with every Notebook that uses it.',
-    icon: Link2,
+    icon: 'link',
     group: 'structure',
     aliases: ['embed', 'reuse'],
   },
@@ -99,7 +85,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     type: 'protocol_reference',
     label: 'Protocol',
     description: 'Pin an exact protocol version and its procedure.',
-    icon: FlaskConical,
+    icon: 'flask',
     group: 'structure',
     aliases: ['sop', 'method'],
   },
@@ -107,7 +93,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     type: 'materials',
     label: 'Materials',
     description: 'Linked samples and reagents with quantities and units.',
-    icon: PackageOpen,
+    icon: 'box',
     group: 'structure',
     aliases: ['samples', 'reagents', 'inventory'],
   },
@@ -115,7 +101,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     type: 'file',
     label: 'File',
     description: 'Attach a file with provenance and lifecycle states.',
-    icon: Paperclip,
+    icon: 'download',
     group: 'evidence',
     aliases: ['image', 'photo', 'pdf', 'attachment'],
   },
@@ -124,7 +110,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Chart',
     description:
       'A line, scatter or bar chart from a saved dataset, with a live or frozen snapshot.',
-    icon: LineChart,
+    icon: 'chart',
     group: 'evidence',
     aliases: ['plot', 'graph'],
   },
@@ -133,7 +119,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Analysis',
     description:
       'A saved analysis — grouped statistics or a regression fit — run against live dataset rows, freezable as evidence.',
-    icon: Sigma,
+    icon: 'code',
     group: 'evidence',
     aliases: ['statistics', 'regression', 'fit'],
   },
@@ -142,7 +128,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Plate map',
     description:
       'A 96-well plate layout with sample assignments, controls, replicates and volumes.',
-    icon: Grid3x3,
+    icon: 'table',
     group: 'evidence',
     aliases: ['plate', 'wells'],
   },
@@ -151,7 +137,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Pipeline output',
     description:
       'Reference a Pipeline run and pin the Dataset Version it produced into the notebook.',
-    icon: Workflow,
+    icon: 'pipeline',
     group: 'evidence',
     aliases: ['pipeline', 'automation', 'run'],
   },
@@ -185,24 +171,24 @@ export function BlockPicker({
     variant === 'icon' ? (
       <Button
         id={triggerId}
-        variant="ghost"
-        size="icon-sm"
+        variant="quiet"
+        size="icon"
         aria-label={label}
         disabled={disabled}
         className="rounded-full border bg-background shadow-xs"
       >
-        <Plus className="size-3.5" />
+        <Icon name="plus" size={14} />
       </Button>
     ) : (
       <Button
         id={triggerId}
-        variant="ghost"
+        variant="quiet"
         size="sm"
         disabled={disabled}
         aria-label={label}
-        className="w-full justify-start text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+        className="w-full justify-start text-fg-muted hover:bg-surface-hover hover:text-fg"
       >
-        <Plus className="size-4" aria-hidden="true" />
+        <Icon name="plus" size={16} aria-hidden="true" />
         {label}
       </Button>
     )
@@ -221,26 +207,27 @@ export function BlockPicker({
               <div key={group.id}>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
-                {items.map((opt) => {
-                  const Icon = opt.icon
-                  return (
-                    <DropdownMenuItem
-                      key={opt.type}
-                      onSelect={() => onInsert(opt.type)}
-                      className="flex items-start gap-2"
-                    >
-                      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium">
-                          {opt.label}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {opt.description}
-                        </span>
+                {items.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt.type}
+                    onSelect={() => onInsert(opt.type)}
+                    className="flex items-start gap-2"
+                  >
+                    <Icon
+                      name={opt.icon}
+                      size={16}
+                      className="mt-0.5 shrink-0 text-fg-muted"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">
+                        {opt.label}
                       </span>
-                    </DropdownMenuItem>
-                  )
-                })}
+                      <span className="block text-xs text-fg-muted">
+                        {opt.description}
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                ))}
               </div>
             )
           })}

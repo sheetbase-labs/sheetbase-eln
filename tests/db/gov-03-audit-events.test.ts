@@ -459,9 +459,9 @@ describe('api.audit_events permissions and isolation', () => {
       (event) => event.entityType === 'api_credential',
     )
     expect(credential).toBeDefined()
-    expect(ownerPage.events.every((event) => event.actorName !== undefined)).toBe(
-      true,
-    )
+    expect(
+      ownerPage.events.every((event) => event.actorName !== undefined),
+    ).toBe(true)
   })
 
   it('allows viewers to read general history but never crosses workspaces', async () => {
@@ -489,17 +489,14 @@ describe('api.audit_events permissions and isolation', () => {
     const client = await asRole('authenticator')
     clients.push(client)
     await client.query('SET ROLE authenticated')
-    await client.query(
-      "SELECT set_config('request.jwt.claims', $1, false)",
-      [
-        JSON.stringify({
-          sub: MEMBER,
-          workspace_id: WS,
-          role: 'authenticated',
-          // no session_id — service/credential style caller
-        }),
-      ],
-    )
+    await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+      JSON.stringify({
+        sub: MEMBER,
+        workspace_id: WS,
+        role: 'authenticated',
+        // no session_id — service/credential style caller
+      }),
+    ])
     await expect(callAuditEvents(client, {})).rejects.toMatchObject({
       code: DENIED,
     })
@@ -551,19 +548,19 @@ describe('same-workspace access differentials (review pass)', () => {
     const memberClient = await asAuthenticated(MEMBER, WS)
     const page = await callAuditEvents(memberClient, { p_object: RECORD_D })
     expect(page.events.length).toBeGreaterThan(0)
-    expect(
-      page.events.some((event) => event.operation === 'create'),
-    ).toBe(true)
+    expect(page.events.some((event) => event.operation === 'create')).toBe(true)
   })
 
   it('never exposes admin/security classes to plain members via filters, search or pagination', async () => {
     // A real project_access grant through its canonical RPC — this emits an
     // authoritative change event of the sensitive class.
     const ownerClient = await asAuthenticated(OWNER, WS)
-    const grants = (await ownerClient.query<{ id: string }>(
-      `SELECT * FROM api.grant_project_access('${WS}'::uuid,
+    const grants = (
+      await ownerClient.query<{ id: string }>(
+        `SELECT * FROM api.grant_project_access('${WS}'::uuid,
          '${PROJECT_D}'::uuid, '${MEMBER}', 'viewer')`,
-    )).rows as Array<{ id: string }>
+      )
+    ).rows as Array<{ id: string }>
     expect(grants).toHaveLength(1)
 
     // Owner sees it; the granted member does not see it even though they are
@@ -582,7 +579,9 @@ describe('same-workspace access differentials (review pass)', () => {
     const byObject = await callAuditEvents(memberClient, {
       p_object: PROJECT_D,
     })
-    expect(byObject.events.some((e) => e.entityType === 'project_access')).toBe(false)
+    expect(byObject.events.some((e) => e.entityType === 'project_access')).toBe(
+      false,
+    )
 
     // Exhaustive pagination walk: no sensitive class ever materialises and
     // hasMore/cursor arithmetic never counts hidden rows back into view.
@@ -715,12 +714,17 @@ describe('history stays honest for archived and deleted objects', () => {
        VALUES ('${recordId}', '${WS}', '10000000-0000-4000-8000-0000000e03f9',
                'experiment', 'GOV03-002', 'Doomed Notebook', 'draft', '${MEMBER}')`,
     )
-    await migrator.query(`UPDATE api.records SET deleted_at = now() WHERE id = $1`, [
-      recordId,
-    ])
+    await migrator.query(
+      `UPDATE api.records SET deleted_at = now() WHERE id = $1`,
+      [recordId],
+    )
 
     const memberClient = await asAuthenticated(MEMBER, WS)
     const page = await callAuditEvents(memberClient, { p_object: recordId })
-    expect(page.events.some((event) => event.operation === 'delete' || event.operation === 'create')).toBe(true)
+    expect(
+      page.events.some(
+        (event) => event.operation === 'delete' || event.operation === 'create',
+      ),
+    ).toBe(true)
   })
 })

@@ -67,7 +67,10 @@ async function install(
     manifest?: unknown
   } = {},
 ) {
-  const manifest = (overrides.manifest ?? manifestFixture()) as Record<string, unknown>
+  const manifest = (overrides.manifest ?? manifestFixture()) as Record<
+    string,
+    unknown
+  >
   const rows = (
     await client.query(
       `select * from api.install_extension($1,$2,$3,$4,$5,$6::jsonb)`,
@@ -76,7 +79,9 @@ async function install(
         overrides.key ?? 'retest',
         overrides.name ?? manifest.name ?? 'Retest Tracker',
         overrides.version ?? manifest.version ?? '1.0.0',
-        overrides.source ?? manifest.source ?? 'https://extensions.example.com/x.tgz',
+        overrides.source ??
+          manifest.source ??
+          'https://extensions.example.com/x.tgz',
         JSON.stringify(manifest),
       ],
     )
@@ -150,7 +155,9 @@ describe('EXT-01 extension lifecycle', () => {
         [WS_A, extension.id],
       )
     ).rows
-    expect(events).toMatchObject([{ entity_type: 'extension', operation: 'create' }])
+    expect(events).toMatchObject([
+      { entity_type: 'extension', operation: 'create' },
+    ])
   })
 
   it('lets stewards install but denies members and viewers', async () => {
@@ -159,11 +166,15 @@ describe('EXT-01 extension lifecycle', () => {
     expect(extension.status).toBe('installed')
 
     const member = await actor(MEMBER_A, WS_A)
-    await expect(install(member, { key: 'retest-member' })).rejects.toMatchObject({
+    await expect(
+      install(member, { key: 'retest-member' }),
+    ).rejects.toMatchObject({
       code: '42501',
     })
     const viewer = await actor(VIEWER_A, WS_A)
-    await expect(install(viewer, { key: 'retest-viewer' })).rejects.toMatchObject({
+    await expect(
+      install(viewer, { key: 'retest-viewer' }),
+    ).rejects.toMatchObject({
       code: '42501',
     })
   })
@@ -171,7 +182,9 @@ describe('EXT-01 extension lifecycle', () => {
   it('rejects unknown contribution points fail-closed', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const manifest = { ...manifestFixture(), contributions: { widgets: [] } }
-    await expect(install(owner, { key: 'retest-widget', manifest })).rejects.toMatchObject({
+    await expect(
+      install(owner, { key: 'retest-widget', manifest }),
+    ).rejects.toMatchObject({
       code: 'SB034',
     })
   })
@@ -215,17 +228,26 @@ describe('EXT-01 extension lifecycle', () => {
     const extension = await install(owner, { key: 'retest-lifecycle' })
 
     const enabled = (
-      await owner.query(`select * from api.enable_extension($1,$2)`, [WS_A, extension.id])
+      await owner.query(`select * from api.enable_extension($1,$2)`, [
+        WS_A,
+        extension.id,
+      ])
     ).rows[0]
     expect(enabled.status).toBe('enabled')
 
     const enabledAgain = (
-      await owner.query(`select * from api.enable_extension($1,$2)`, [WS_A, extension.id])
+      await owner.query(`select * from api.enable_extension($1,$2)`, [
+        WS_A,
+        extension.id,
+      ])
     ).rows[0]
     expect(enabledAgain.status).toBe('enabled')
 
     const disabled = (
-      await owner.query(`select * from api.disable_extension($1,$2)`, [WS_A, extension.id])
+      await owner.query(`select * from api.disable_extension($1,$2)`, [
+        WS_A,
+        extension.id,
+      ])
     ).rows[0]
     expect(disabled.status).toBe('disabled')
 
@@ -246,12 +268,18 @@ describe('EXT-01 extension lifecycle', () => {
 
     const member = await actor(MEMBER_A, WS_A)
     await expect(
-      member.query(`select * from api.enable_extension($1,$2)`, [WS_A, extension.id]),
+      member.query(`select * from api.enable_extension($1,$2)`, [
+        WS_A,
+        extension.id,
+      ]),
     ).rejects.toMatchObject({ code: '42501' })
 
     const otherOwner = await actor(OWNER_B, WS_B)
     await expect(
-      otherOwner.query(`select * from api.enable_extension($1,$2)`, [WS_A, extension.id]),
+      otherOwner.query(`select * from api.enable_extension($1,$2)`, [
+        WS_A,
+        extension.id,
+      ]),
     ).rejects.toMatchObject({ code: 'SB033' })
 
     await expect(
@@ -265,11 +293,15 @@ describe('EXT-01 extension lifecycle', () => {
   it('isolates installs between workspaces (RLS)', async () => {
     const owner = await actor(OWNER_A, WS_A)
     await install(owner, { key: 'retest-rls' })
-    const mine = await owner.query(`select count(*)::int as n from api.extensions`)
+    const mine = await owner.query(
+      `select count(*)::int as n from api.extensions`,
+    )
     expect(mine.rows[0].n).toBeGreaterThan(0)
 
     const otherOwner = await actor(OWNER_B, WS_B)
-    const theirs = await otherOwner.query(`select count(*)::int as n from api.extensions`)
+    const theirs = await otherOwner.query(
+      `select count(*)::int as n from api.extensions`,
+    )
     expect(theirs.rows[0].n).toBe(0)
   })
 
@@ -299,7 +331,10 @@ describe('EXT-01 extension-attributed authority', () => {
   it('asserts enabled + declared + granted on every call', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const extension = await install(owner, { key: 'retest-assert' })
-    await owner.query(`select * from api.enable_extension($1,$2)`, [WS_A, extension.id])
+    await owner.query(`select * from api.enable_extension($1,$2)`, [
+      WS_A,
+      extension.id,
+    ])
 
     // Declared and granted to the owner: passes silently.
     await owner.query(`select api.assert_extension_capability($1,$2,$3)`, [
@@ -328,7 +363,10 @@ describe('EXT-01 extension-attributed authority', () => {
     ).rejects.toMatchObject({ code: '42501' })
 
     // Disabled extensions cannot act.
-    await owner.query(`select * from api.disable_extension($1,$2)`, [WS_A, extension.id])
+    await owner.query(`select * from api.disable_extension($1,$2)`, [
+      WS_A,
+      extension.id,
+    ])
     await expect(
       owner.query(`select api.assert_extension_capability($1,$2,$3)`, [
         WS_A,
@@ -341,10 +379,10 @@ describe('EXT-01 extension-attributed authority', () => {
   it('reports declared capabilities to workspace members', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const extension = await install(owner, { key: 'retest-declared' })
-    const { rows } = await owner.query(`select api.extension_capabilities($1,$2) caps`, [
-      WS_A,
-      extension.id,
-    ])
+    const { rows } = await owner.query(
+      `select api.extension_capabilities($1,$2) caps`,
+      [WS_A, extension.id],
+    )
     expect(rows[0].caps).toEqual(['record.create', 'record.link'])
   })
 
@@ -367,7 +405,10 @@ describe('EXT-01 per-extension credentials', () => {
   it('issues minimal manifest-declared scopes and resolves enabled calls', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const extension = await install(owner, { key: 'retest-cred' })
-    await owner.query(`select * from api.enable_extension($1,$2)`, [WS_A, extension.id])
+    await owner.query(`select * from api.enable_extension($1,$2)`, [
+      WS_A,
+      extension.id,
+    ])
 
     const created = await issueExtensionCredential(db, {
       workspaceId: WS_A,
@@ -400,7 +441,10 @@ describe('EXT-01 per-extension credentials', () => {
         actorUserId: MEMBER_A,
         scopes: ['projects:read'],
       }),
-    ).rejects.toMatchObject({ name: 'ExtensionCredentialError', code: 'denied' })
+    ).rejects.toMatchObject({
+      name: 'ExtensionCredentialError',
+      code: 'denied',
+    })
 
     await expect(
       issueExtensionCredential(db, {
@@ -430,26 +474,59 @@ describe('EXT-01 per-extension credentials', () => {
 
     // Installed but not enabled: calls cannot attribute.
     await expect(
-      resolveExtensionCall(db, { credentialId: created.id, requiredScope: 'projects:read' }),
-    ).rejects.toMatchObject({ name: 'ExtensionCredentialError', code: 'extension_disabled' })
+      resolveExtensionCall(db, {
+        credentialId: created.id,
+        requiredScope: 'projects:read',
+      }),
+    ).rejects.toMatchObject({
+      name: 'ExtensionCredentialError',
+      code: 'extension_disabled',
+    })
 
-    await owner.query(`select * from api.enable_extension($1,$2)`, [WS_A, extension.id])
+    await owner.query(`select * from api.enable_extension($1,$2)`, [
+      WS_A,
+      extension.id,
+    ])
     // Credential lacks the scope the call needs.
     await expect(
-      resolveExtensionCall(db, { credentialId: created.id, requiredScope: 'projects:write' }),
-    ).rejects.toMatchObject({ name: 'ExtensionCredentialError', code: 'insufficient_scope' })
+      resolveExtensionCall(db, {
+        credentialId: created.id,
+        requiredScope: 'projects:write',
+      }),
+    ).rejects.toMatchObject({
+      name: 'ExtensionCredentialError',
+      code: 'insufficient_scope',
+    })
 
     // Disabled again: calls stop attributing immediately.
-    await owner.query(`select * from api.disable_extension($1,$2)`, [WS_A, extension.id])
+    await owner.query(`select * from api.disable_extension($1,$2)`, [
+      WS_A,
+      extension.id,
+    ])
     await expect(
-      resolveExtensionCall(db, { credentialId: created.id, requiredScope: 'projects:read' }),
-    ).rejects.toMatchObject({ name: 'ExtensionCredentialError', code: 'extension_disabled' })
+      resolveExtensionCall(db, {
+        credentialId: created.id,
+        requiredScope: 'projects:read',
+      }),
+    ).rejects.toMatchObject({
+      name: 'ExtensionCredentialError',
+      code: 'extension_disabled',
+    })
 
     // Revoked credentials never attribute again, even once re-enabled.
-    await owner.query(`select * from api.enable_extension($1,$2)`, [WS_A, extension.id])
+    await owner.query(`select * from api.enable_extension($1,$2)`, [
+      WS_A,
+      extension.id,
+    ])
     await revokeCredential(db, { workspaceId: WS_A, credentialId: created.id })
     await expect(
-      resolveExtensionCall(db, { credentialId: created.id, requiredScope: 'projects:read' }),
-    ).rejects.toMatchObject({ name: 'ExtensionCredentialError', code: 'revoked' })
+      resolveExtensionCall(db, {
+        credentialId: created.id,
+        requiredScope: 'projects:read',
+      }),
+    ).rejects.toMatchObject({
+      name: 'ExtensionCredentialError',
+      code: 'revoked',
+    })
   })
 })

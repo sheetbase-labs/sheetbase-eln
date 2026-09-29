@@ -73,10 +73,7 @@ describe('SCI-02 analysis definitions', () => {
 
     const updated = await owner.query(
       `UPDATE api.analysis_definitions SET definition=$2::jsonb WHERE id=$1 RETURNING *`,
-      [
-        inserted.rows[0].id,
-        JSON.stringify({ ...definition, degree: 2 }),
-      ],
+      [inserted.rows[0].id, JSON.stringify({ ...definition, degree: 2 })],
     )
     expect(updated.rows[0].version).toBe(2)
 

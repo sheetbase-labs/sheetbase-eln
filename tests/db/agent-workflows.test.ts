@@ -106,20 +106,17 @@ async function humanRequiredRowPlan(
             : suffix === 'cancel_inspectable'
               ? 'a0050000-0000-4000-8000-000000000045'
               : 'a0050000-0000-4000-8000-000000000042'
-  await owner.query(
-    `SELECT api.commit_dataset_row_batch($1,1,$2::jsonb,$3)`,
-    [
-      dataset.rows[0].id,
-      JSON.stringify([
-        {
-          operation: 'create',
-          rowId: paddedRowId,
-          values: { [field.rows[0].field_id]: 1 },
-        },
-      ]),
-      `auto05-${suffix}-seed`,
-    ],
-  )
+  await owner.query(`SELECT api.commit_dataset_row_batch($1,1,$2::jsonb,$3)`, [
+    dataset.rows[0].id,
+    JSON.stringify([
+      {
+        operation: 'create',
+        rowId: paddedRowId,
+        values: { [field.rows[0].field_id]: 1 },
+      },
+    ]),
+    `auto05-${suffix}-seed`,
+  ])
   return {
     formatVersion: 1,
     steps: [1, 2].map((number) => ({
@@ -920,9 +917,10 @@ describe('AUTO-05 agentic scientific workflows', () => {
       revision: string
       status: string
       used_operations: number
-    }>(`SELECT revision,status,used_operations FROM api.agent_workflows WHERE id=$1`, [
-      created.id,
-    ])
+    }>(
+      `SELECT revision,status,used_operations FROM api.agent_workflows WHERE id=$1`,
+      [created.id],
+    )
     // Dry-run: the same join the workbench renders — plain reads over
     // steps plus their stored PostgreSQL preview/impact/risk/policy.
     const preview = await owner.query<{
@@ -970,14 +968,18 @@ describe('AUTO-05 agentic scientific workflows', () => {
       revision: string
       status: string
       used_operations: number
-    }>(`SELECT revision,status,used_operations FROM api.agent_workflows WHERE id=$1`, [
-      created.id,
-    ])
+    }>(
+      `SELECT revision,status,used_operations FROM api.agent_workflows WHERE id=$1`,
+      [created.id],
+    )
     expect(after.rows[0]).toEqual(before.rows[0])
     expect(
-      await owner.query(`SELECT count(*) FROM api.agent_operation_proposals p
+      await owner.query(
+        `SELECT count(*) FROM api.agent_operation_proposals p
         JOIN api.agent_workflow_steps s ON s.proposal_id = p.id
-        WHERE s.workflow_id=$1`, [created.id]),
+        WHERE s.workflow_id=$1`,
+        [created.id],
+      ),
     ).toMatchObject({ rowCount: 1 })
   })
 
@@ -998,7 +1000,11 @@ describe('AUTO-05 agentic scientific workflows', () => {
           WS,
           'A different goal for the same key.',
           JSON.stringify(pipelinePlan('safe_execution_reuse')),
-          JSON.stringify({ maxOperations: 4, maxTokens: 10_000, maxCostMicrousd: 500_000 }),
+          JSON.stringify({
+            maxOperations: 4,
+            maxTokens: 10_000,
+            maxCostMicrousd: 500_000,
+          }),
           JSON.stringify({ tokens: 500, costMicrousd: 20_000 }),
           JSON.stringify(provenance),
           'safe_execution',
@@ -1039,9 +1045,10 @@ describe('AUTO-05 agentic scientific workflows', () => {
     expect(original.rows[0]).toEqual({ status: 'rejected', revision: '2' })
 
     // Approve and execute the retry, then advance past it.
-    await owner.query(`SELECT api.decide_agent_operation($1,1,'approve',NULL)`, [
-      retry.id,
-    ])
+    await owner.query(
+      `SELECT api.decide_agent_operation($1,1,'approve',NULL)`,
+      [retry.id],
+    )
     await owner.query(`SELECT api.execute_agent_operation($1,2)`, [retry.id])
     const done = await owner.query<{ status: string; result: unknown }>(
       `SELECT status,result FROM api.agent_operation_proposals WHERE id=$1`,
@@ -1063,16 +1070,20 @@ describe('AUTO-05 agentic scientific workflows', () => {
       plan: await humanRequiredRowPlan(owner, 'cancel_inspectable'),
     })
     const first = await currentProposal(owner, created.id)
-    await owner.query(`SELECT api.decide_agent_operation($1,1,'approve',NULL)`, [
-      first.id,
-    ])
+    await owner.query(
+      `SELECT api.decide_agent_operation($1,1,'approve',NULL)`,
+      [first.id],
+    )
     await owner.query(`SELECT api.execute_agent_operation($1,2)`, [first.id])
     await agent.query(`SELECT api.advance_agent_workflow($1,2)`, [created.id])
     const mid = await owner.query<{ revision: string }>(
       `SELECT revision FROM api.agent_workflows WHERE id=$1`,
       [created.id],
     )
-    const cancelled = await agent.query<{ status: string; cancellation_reason: string }>(
+    const cancelled = await agent.query<{
+      status: string
+      cancellation_reason: string
+    }>(
       `SELECT status,cancellation_reason
          FROM api.cancel_agent_workflow($1,$2,'Assay superseded')`,
       [created.id, mid.rows[0].revision],
@@ -1104,7 +1115,9 @@ describe('AUTO-05 agentic scientific workflows', () => {
       [created.id],
     )
     expect(events.rows.map((event) => event.event_type)).toContain('cancelled')
-    expect(events.rows.map((event) => event.event_type)).toContain('step_succeeded')
+    expect(events.rows.map((event) => event.event_type)).toContain(
+      'step_succeeded',
+    )
     // Terminal workflows refuse resume.
     const terminal = await owner.query<{ revision: string }>(
       `SELECT revision FROM api.agent_workflows WHERE id=$1`,

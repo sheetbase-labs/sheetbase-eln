@@ -441,9 +441,7 @@ describe('atomic create+link and bulk commit', () => {
       }),
     ])
     const createdId = firstCommit.rows[0].result.rows[0].recordId as string
-    expect(firstCommit.rows[0].result.rows[0].identifier).toMatch(
-      /^SMP-\d{4}$/,
-    )
+    expect(firstCommit.rows[0].result.rows[0].identifier).toMatch(/^SMP-\d{4}$/)
     const replay = await owner.query(
       `select api.commit_sheet_record_batch($1,'sample',$2::jsonb,$3) result`,
       [PROJ_A, JSON.stringify(payload), retry],

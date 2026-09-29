@@ -152,7 +152,14 @@ describe('EXT-03 trusted distribution', () => {
     const legacy = (
       await owner.query(
         `select * from api.install_extension($1,$2,$3,$4,$5,$6::jsonb)`,
-        [WS, 'dist-legacy', manifest.name, manifest.version, manifest.source, JSON.stringify(manifest)],
+        [
+          WS,
+          'dist-legacy',
+          manifest.name,
+          manifest.version,
+          manifest.source,
+          JSON.stringify(manifest),
+        ],
       )
     ).rows[0] as Row
     expect(legacy.status).toBe('installed')
@@ -185,7 +192,10 @@ describe('EXT-03 trusted distribution', () => {
       install(member, {
         key: 'dist-member',
         source: 'dev:dist-member',
-        manifest: manifestFixture({ source: 'dev:dist-member', compatibleWith: '*' }),
+        manifest: manifestFixture({
+          source: 'dev:dist-member',
+          compatibleWith: '*',
+        }),
         acknowledgeUntrusted: true,
       }),
     ).rejects.toMatchObject({ code: '42501' })
@@ -261,25 +271,44 @@ describe('EXT-03 lifecycle completion', () => {
     await expect(
       owner.query(
         `select * from api.update_extension($1,$2,$3,$4,$5,$6::jsonb,$7)`,
-        [WS, extension.id, 'Different Name', next.version, next.source, JSON.stringify(next), false],
+        [
+          WS,
+          extension.id,
+          'Different Name',
+          next.version,
+          next.source,
+          JSON.stringify(next),
+          false,
+        ],
       ),
     ).rejects.toMatchObject({ code: 'SB034' })
     await expect(
       member.query(
         `select * from api.update_extension($1,$2,$3,$4,$5,$6::jsonb,$7)`,
-        [WS, extension.id, next.name, next.version, next.source, JSON.stringify(next), false],
+        [
+          WS,
+          extension.id,
+          next.name,
+          next.version,
+          next.source,
+          JSON.stringify(next),
+          false,
+        ],
       ),
     ).rejects.toMatchObject({ code: '42501' })
     await expect(
-      owner.query(`select * from api.update_extension($1,$2,$3,$4,$5,$6::jsonb,$7)`, [
-        WS,
-        '00000000-0000-4000-8000-000000000000',
-        next.name,
-        next.version,
-        next.source,
-        JSON.stringify(next),
-        false,
-      ]),
+      owner.query(
+        `select * from api.update_extension($1,$2,$3,$4,$5,$6::jsonb,$7)`,
+        [
+          WS,
+          '00000000-0000-4000-8000-000000000000',
+          next.name,
+          next.version,
+          next.source,
+          JSON.stringify(next),
+          false,
+        ],
+      ),
     ).rejects.toMatchObject({ code: 'SB036' })
   })
 
@@ -297,10 +326,10 @@ describe('EXT-03 lifecycle completion', () => {
         [WS, OWNER],
       )
     ).rows[0] as { id: string }
-    await migrator.query(`update api.extensions set credential_id=$1 where id=$2`, [
-      credential.id,
-      extension.id,
-    ])
+    await migrator.query(
+      `update api.extensions set credential_id=$1 where id=$2`,
+      [credential.id, extension.id],
+    )
     await owner.query(`select * from api.enable_extension($1,$2)`, [
       WS,
       extension.id,
@@ -385,9 +414,7 @@ describe('EXT-03 extension history correlation', () => {
     }
     expect(
       page.events.map((event) => `${event.entityType}/${event.operation}`),
-    ).toEqual(
-      expect.arrayContaining(['extension/create', 'record/create']),
-    )
+    ).toEqual(expect.arrayContaining(['extension/create', 'record/create']))
 
     const lifecycleOnly = (
       await owner.query(`select api.audit_events($1,$2,$3,$4,$5,$6,$7)`, [

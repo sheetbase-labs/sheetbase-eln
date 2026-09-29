@@ -7,14 +7,7 @@
  * The indicator is presentational; `useAutosave` owns the state.
  */
 import * as React from 'react'
-import {
-  Check,
-  Loader2,
-  PencilLine,
-  RefreshCw,
-  TriangleAlert,
-  WifiOff,
-} from 'lucide-react'
+import { Icon } from '#/components/v3/icons'
 
 import { cn } from '#/lib/utils'
 import type { AutosaveStatus } from './use-autosave'
@@ -31,44 +24,53 @@ const META: Record<
 > = {
   clean: {
     label: 'Saved',
-    icon: <Check className="size-3" aria-hidden="true" />,
-    className: 'text-success',
+    icon: <Icon name="check" size={12} aria-hidden="true" />,
+    className: 'text-success-text',
     testId: 'clean',
   },
   dirty: {
     label: 'Editing…',
-    icon: <PencilLine className="size-3" aria-hidden="true" />,
-    className: 'text-muted-foreground',
+    icon: <Icon name="edit" size={12} aria-hidden="true" />,
+    className: 'text-fg-muted',
     testId: 'dirty',
   },
   saving: {
     label: 'Saving…',
-    icon: <Loader2 className="size-3 animate-spin" aria-hidden="true" />,
-    className: 'text-muted-foreground',
+    icon: (
+      <Icon
+        name="clock"
+        size={12}
+        className="animate-spin"
+        aria-hidden="true"
+      />
+    ),
+    className: 'text-fg-muted',
     testId: 'saving',
   },
   retrying: {
     label: 'Retrying…',
-    icon: <RefreshCw className="size-3 animate-spin" aria-hidden="true" />,
-    className: 'text-warning-foreground',
+    icon: (
+      <Icon name="move" size={12} className="animate-spin" aria-hidden="true" />
+    ),
+    className: 'text-warning-text',
     testId: 'retrying',
   },
   offline: {
     label: 'Offline — will save when reconnected',
-    icon: <WifiOff className="size-3" aria-hidden="true" />,
-    className: 'text-warning-foreground',
+    icon: <Icon name="warn" size={12} aria-hidden="true" />,
+    className: 'text-warning-text',
     testId: 'offline',
   },
   failed: {
     label: 'Save failed',
-    icon: <TriangleAlert className="size-3" aria-hidden="true" />,
-    className: 'text-destructive',
+    icon: <Icon name="warn" size={12} aria-hidden="true" />,
+    className: 'text-danger-text',
     testId: 'failed',
   },
   conflict: {
     label: 'Conflict — needs review',
-    icon: <TriangleAlert className="size-3" aria-hidden="true" />,
-    className: 'text-destructive',
+    icon: <Icon name="warn" size={12} aria-hidden="true" />,
+    className: 'text-danger-text',
     testId: 'conflict',
   },
 }

@@ -1,16 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
+import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
 import {
-  Button,
   Dialog,
+  DialogBody,
+  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Label,
-} from '#/components/ui'
+} from '#/components/v3/ui/dialog'
+import { NativeSelect } from '#/components/v3/projects/select'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -130,79 +132,64 @@ export function SignNotebookDialog({
         onOpenChange(next)
       }}
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Sign this Notebook</DialogTitle>
-          <DialogDescription>
-            This records an internal electronic signature against the submitted
-            evidence. It is not a regulatory compliance certification.
-          </DialogDescription>
-        </DialogHeader>
-        {signState !== 'can-sign' ? (
-          <p className="text-sm text-muted-foreground">
-            {signState === 'awaiting-review'
-              ? 'Review must finish before this Notebook can be signed.'
-              : signState === 'already-signed'
-                ? 'You have already signed this submission.'
-                : signState === 'not-assigned'
-                  ? 'Only an assigned reviewer may sign this Notebook.'
-                  : 'No review submission is available for this revision.'}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            <Label className="space-y-1">
-              <span>Signature meaning</span>
-              <select
-                aria-label="Signature meaning"
-                className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                value={meaning}
-                onChange={(event) =>
-                  setMeaning(event.target.value as SignatureMeaning)
-                }
-              >
-                {SIGNATURE_MEANING_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {selected.description}
+      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+        <DialogHeader
+          title="Sign this Notebook"
+          description="This records an internal electronic signature against the submitted evidence. It is not a regulatory compliance certification."
+        />
+        <DialogBody>
+          {signState !== 'can-sign' ? (
+            <p className="m-0 text-body text-fg-muted">
+              {signState === 'awaiting-review'
+                ? 'Review must finish before this Notebook can be signed.'
+                : signState === 'already-signed'
+                  ? 'You have already signed this submission.'
+                  : signState === 'not-assigned'
+                    ? 'Only an assigned reviewer may sign this Notebook.'
+                    : 'No review submission is available for this revision.'}
             </p>
-            <p className="rounded-md border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
-              {ASSURANCE_LEVEL_STATEMENT.standard}
-            </p>
-            <Label className="space-y-1">
-              <span>Type your name to confirm</span>
-              <input
-                aria-label="Signature confirmation"
-                type="text"
-                className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                placeholder={currentUserName}
-                value={confirmation}
-                onChange={(event) => setConfirmation(event.target.value)}
-                autoComplete="off"
-              />
-            </Label>
-          </div>
-        )}
-        {errorMessage ? (
-          <p className="text-sm text-destructive" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
+          ) : (
+            <div className="flex flex-col gap-3">
+              <Field label="Signature meaning">
+                <NativeSelect
+                  aria-label="Signature meaning"
+                  value={meaning}
+                  onChange={(event) =>
+                    setMeaning(event.target.value as SignatureMeaning)
+                  }
+                >
+                  {SIGNATURE_MEANING_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <p className="m-0 text-label text-fg-muted">
+                {selected.description}
+              </p>
+              <p className="m-0 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-label text-fg-muted">
+                {ASSURANCE_LEVEL_STATEMENT.standard}
+              </p>
+              <Field label="Type your name to confirm">
+                <Input
+                  aria-label="Signature confirmation"
+                  type="text"
+                  placeholder={currentUserName}
+                  value={confirmation}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  autoComplete="off"
+                />
+              </Field>
+            </div>
+          )}
+          {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
+        </DialogBody>
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
+          <DialogClose render={<Button />}>Cancel</DialogClose>
           {signState === 'can-sign' ? (
             <Button
-              type="button"
+              variant="primary"
               disabled={
                 sign.isPending || !confirmationMatches || !integrityDigest
               }

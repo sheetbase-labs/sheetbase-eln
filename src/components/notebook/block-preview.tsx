@@ -1,22 +1,6 @@
 import * as React from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import {
-  Check,
-  CheckCircle2,
-  CircleAlert,
-  FileText,
-  FileSpreadsheet,
-  FileImage,
-  File as FileIconLucide,
-  FlaskConical,
-  Info,
-  Link2,
-  Snowflake,
-  StickyNote,
-  TriangleAlert,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
 import type { NotebookBlock } from '#/lib/notebook-data'
@@ -38,7 +22,9 @@ import {
   formatCellValue,
   formatMetricValue,
 } from '#/lib/format-numbers'
-import { Badge } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Icon } from '#/components/v3/icons'
+import type { IconName } from '#/components/v3/icons'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
 import { datasetPath, recordDestination, sheetPath } from '#/lib/navigation'
 import { PipelineOutputBlockPreview } from './pipeline-output-block-preview'
@@ -161,7 +147,7 @@ export function OpenLink({
   return (
     <Link
       to={to}
-      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+      className="text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
     >
       {children}
     </Link>
@@ -262,17 +248,15 @@ function renderChecklist(payload: unknown): React.ReactNode {
                 'mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-colors',
                 checked
                   ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-input bg-background',
+                  : 'border-border bg-surface',
               )}
             >
-              {checked ? <Check className="size-3.5" strokeWidth={3} /> : null}
+              {checked ? <Icon name="check" size={14} strokeWidth={3} /> : null}
             </span>
             <span
               className={cn(
                 'text-sm leading-6',
-                checked
-                  ? 'text-muted-foreground line-through'
-                  : 'text-foreground',
+                checked ? 'text-fg-muted line-through' : 'text-fg',
               )}
             >
               {text}
@@ -293,7 +277,6 @@ function renderCallout(payload: unknown): React.ReactNode {
   const text = asString(obj.text) ?? ''
   const variant = asString(obj.variant) ?? 'info'
   const styles = CALLOUT_STYLES[variant] ?? CALLOUT_STYLES.info
-  const Icon = styles.icon
   return (
     <div
       className={cn(
@@ -302,7 +285,9 @@ function renderCallout(payload: unknown): React.ReactNode {
       )}
     >
       <Icon
-        className={cn('mt-0.5 size-4 shrink-0', styles.iconClass)}
+        name={styles.icon}
+        size={16}
+        className={cn('mt-0.5 shrink-0', styles.iconClass)}
         aria-hidden="true"
       />
       <p className="min-w-0 flex-1">{text}</p>
@@ -312,30 +297,30 @@ function renderCallout(payload: unknown): React.ReactNode {
 
 interface CalloutStyle {
   container: string
-  icon: LucideIcon
+  icon: IconName
   iconClass: string
 }
 
 const CALLOUT_STYLES: Record<string, CalloutStyle> = {
   info: {
-    container: 'bg-info/[0.07] text-foreground',
-    icon: Info,
+    container: 'bg-info/[0.07] text-fg',
+    icon: 'info',
     iconClass: 'text-info',
   },
   warning: {
-    container: 'bg-warning/[0.09] text-foreground',
-    icon: TriangleAlert,
-    iconClass: 'text-warning-foreground',
+    container: 'bg-warning/[0.09] text-fg',
+    icon: 'warn',
+    iconClass: 'text-warning-text',
   },
   danger: {
-    container: 'bg-destructive/[0.07] text-foreground',
-    icon: CircleAlert,
-    iconClass: 'text-destructive',
+    container: 'bg-destructive/[0.07] text-fg',
+    icon: 'warn',
+    iconClass: 'text-danger-text',
   },
   note: {
-    container: 'bg-success/[0.07] text-foreground',
-    icon: StickyNote,
-    iconClass: 'text-success',
+    container: 'bg-success/[0.07] text-fg',
+    icon: 'comment',
+    iconClass: 'text-success-text',
   },
 }
 
@@ -360,7 +345,7 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
   const label = asString(obj.label) ?? ''
   const linkType = asString(obj.linkType) ?? 'general'
   const targetId = asString(obj.targetId) ?? ''
-  const Icon = LINKED_RECORD_ICONS[targetKind] ?? Link2
+  const linkedIcon = LINKED_RECORD_ICONS[targetKind] ?? 'link'
   const openTo = targetId
     ? targetKind === 'dataset'
       ? datasetPath(targetId)
@@ -368,22 +353,25 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
     : null
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Badge variant="outline" className="gap-1.5 px-2.5 py-1 text-xs">
-        <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
-        <span className="font-medium text-foreground">
+      <Badge variant="kind" className="gap-1.5 px-2.5 py-1 text-xs">
+        <Icon
+          name={linkedIcon}
+          size={14}
+          className="text-fg-muted"
+          aria-hidden="true"
+        />
+        <span className="font-medium text-fg">
           {targetKind}
           {targetIdentifier ? (
-            <span className="ml-1 font-mono text-muted-foreground">
+            <span className="ml-1 font-mono text-fg-muted">
               {targetIdentifier}
             </span>
           ) : null}
         </span>
       </Badge>
-      {label ? (
-        <span className="text-xs text-muted-foreground">{label}</span>
-      ) : null}
+      {label ? <span className="text-xs text-fg-muted">{label}</span> : null}
       {linkType && linkType !== 'general' ? (
-        <span className="text-xs uppercase tracking-wide text-muted-foreground/70">
+        <span className="text-xs uppercase tracking-wide text-fg-muted/70">
           {linkType}
         </span>
       ) : null}
@@ -392,12 +380,12 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
   )
 }
 
-const LINKED_RECORD_ICONS: Record<string, LucideIcon> = {
-  experiment: FlaskConical,
-  protocol: FlaskConical,
-  sample: FileImage,
-  dataset: FileSpreadsheet,
-  file: FileText,
+const LINKED_RECORD_ICONS: Record<string, IconName> = {
+  experiment: 'flask',
+  protocol: 'flask',
+  sample: 'box',
+  dataset: 'table',
+  file: 'download',
 }
 
 function renderProcedureStep(payload: unknown): React.ReactNode {
@@ -415,28 +403,24 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
         className={cn(
           'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums',
           completed
-            ? 'border-success bg-success text-success-foreground'
-            : 'border-border bg-muted text-muted-foreground',
+            ? 'border-success bg-success text-success-text-foreground'
+            : 'border-border bg-surface-muted text-fg-muted',
         )}
       >
-        {completed ? <Check className="size-3.5" strokeWidth={3} /> : number}
+        {completed ? <Icon name="check" size={14} strokeWidth={3} /> : number}
       </span>
       <div className="min-w-0 flex-1">
         <p
           className={cn(
             'whitespace-pre-wrap text-sm leading-6',
-            completed
-              ? 'text-muted-foreground line-through'
-              : 'text-foreground',
+            completed ? 'text-fg-muted line-through' : 'text-fg',
           )}
         >
           {text}
         </p>
-        {note ? (
-          <p className="mt-1 text-xs text-muted-foreground">{note}</p>
-        ) : null}
+        {note ? <p className="mt-1 text-xs text-fg-muted">{note}</p> : null}
         {completedAt ? (
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-fg-muted">
             Completed {new Date(completedAt).toLocaleString()}
           </p>
         ) : null}
@@ -457,7 +441,7 @@ function ProtocolReferencePreview({ payload }: { payload: unknown }) {
   })
   if (!obj || Object.keys(obj).length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fg-muted">
         No protocol version pinned. Select this block to choose a protocol.
       </p>
     )
@@ -466,35 +450,37 @@ function ProtocolReferencePreview({ payload }: { payload: unknown }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-start gap-2.5">
-        <FlaskConical
-          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+        <Icon
+          name="flask"
+          size={16}
+          className="mt-0.5 shrink-0 text-fg-muted"
           aria-hidden="true"
         />
         <div className="min-w-0">
-          <p className="font-medium text-foreground">
+          <p className="font-medium text-fg">
             {asString(obj.protocolTitle) ?? 'Protocol'}
           </p>
-          <p className="font-mono text-xs text-muted-foreground">
+          <p className="font-mono text-xs text-fg-muted">
             {asString(obj.protocolIdentifier)} · revision{' '}
             {(asString(obj.protocolRevisionId) ?? '').slice(0, 8)}
           </p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
-        <Badge variant="info">Version {asString(obj.version) ?? '—'}</Badge>
-        <Badge variant="outline">{approvalStatus}</Badge>
+        <Badge variant="kind">Version {asString(obj.version) ?? '—'}</Badge>
+        <Badge variant="kind">{approvalStatus}</Badge>
         {current.isLoading ? (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-fg-muted">
             Checking current status…
           </span>
         ) : current.error ? (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-fg-muted">
             Current status unavailable
           </span>
         ) : current.data?.archivedAt ? (
-          <Badge variant="warning">Protocol archived</Badge>
+          <Badge variant="chg">Protocol archived</Badge>
         ) : current.data === null ? (
-          <Badge variant="danger">Protocol unavailable</Badge>
+          <Badge variant="del">Protocol unavailable</Badge>
         ) : null}
         {/* NOTE-03: open the canonical protocol Record via its stable UUID. */}
         {protocolRecordId ? (
@@ -521,12 +507,12 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
   const loading = records.some((query) => query.isLoading)
   const error = records.some((query) => query.error)
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">No materials linked.</p>
+    return <p className="text-sm text-fg-muted">No materials linked.</p>
   }
   return (
     <div aria-busy={loading}>
       {error ? (
-        <p role="alert" className="pb-2 text-xs text-destructive">
+        <p role="alert" className="pb-2 text-xs text-danger-text">
           Current material availability could not be loaded. Stored observations
           remain visible.
         </p>
@@ -542,28 +528,24 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
               className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">
-                  {item.title}
-                </p>
-                <p className="font-mono text-xs text-muted-foreground">
+                <p className="text-sm font-medium text-fg">{item.title}</p>
+                <p className="font-mono text-xs text-fg-muted">
                   {item.identifier}
                 </p>
               </div>
               <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
-                <span className="font-mono text-sm tabular-nums text-foreground">
+                <span className="font-mono text-sm tabular-nums text-fg">
                   {item.quantity} {item.unit.symbol}
                 </span>
                 {loading ? (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-fg-muted">
                     Checking availability…
                   </span>
                 ) : null}
                 {alerts.map((alert) => (
                   <Badge
                     key={alert.kind}
-                    variant={
-                      alert.kind === 'unavailable' ? 'danger' : 'warning'
-                    }
+                    variant={alert.kind === 'unavailable' ? 'del' : 'chg'}
                   >
                     {alert.label}
                   </Badge>
@@ -595,13 +577,13 @@ function renderMetric(payload: unknown): React.ReactNode {
   const value = formatMetricValue(obj.value)
   return (
     <dl className="flex flex-col gap-0.5">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <dt className="text-xs font-medium uppercase tracking-wide text-fg-muted">
         {label || 'Metric'}
       </dt>
-      <dd className="font-display text-2xl font-semibold leading-tight tabular-nums text-foreground">
+      <dd className="font-display text-2xl font-semibold leading-tight tabular-nums text-fg">
         {value}
         {unit ? (
-          <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+          <span className="ml-1.5 text-sm font-normal text-fg-muted">
             {unit}
           </span>
         ) : null}
@@ -637,12 +619,12 @@ function renderTable(payload: unknown): React.ReactNode {
     <div className="overflow-hidden rounded-md border border-border">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border bg-muted/40">
+          <tr className="border-b border-border bg-surface-muted/40">
             {columns.map((col, i) => (
               <th
                 key={i}
                 scope="col"
-                className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted"
               >
                 {col.label}
               </th>
@@ -651,7 +633,7 @@ function renderTable(payload: unknown): React.ReactNode {
         </thead>
         <tbody className="divide-y divide-border">
           {rows.map((row, i) => (
-            <tr key={i} className="bg-background">
+            <tr key={i} className="bg-surface">
               {columns.map((col, j) => {
                 const cell = Array.isArray(row)
                   ? row[j]
@@ -659,7 +641,7 @@ function renderTable(payload: unknown): React.ReactNode {
                 return (
                   <td
                     key={j}
-                    className="px-3 py-2 font-mono tabular-nums text-foreground"
+                    className="px-3 py-2 font-mono tabular-nums text-fg"
                   >
                     {formatCellValue(cell)}
                   </td>
@@ -672,7 +654,7 @@ function renderTable(payload: unknown): React.ReactNode {
           <tr className="border-t border-border">
             <td
               colSpan={columns.length}
-              className="px-3 py-1.5 text-xs text-muted-foreground"
+              className="px-3 py-1.5 text-xs text-fg-muted"
             >
               {rows.length} {rows.length === 1 ? 'row' : 'rows'}
             </td>
@@ -690,7 +672,7 @@ function SheetBlockPreview({ payload }: { payload: unknown }) {
     return <CanonicalSheetBlockPreview instanceId={instanceId} />
   }
   return (
-    <p className="p-3 text-sm text-muted-foreground" role="status">
+    <p className="p-3 text-sm text-fg-muted" role="status">
       This block has no Sheet Instance.
     </p>
   )
@@ -703,7 +685,7 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
   })
   if (instanceQuery.isLoading) {
     return (
-      <div className="rounded-lg border p-3 text-sm text-muted-foreground">
+      <div className="rounded-lg border p-3 text-sm text-fg-muted">
         Loading Sheet…
       </div>
     )
@@ -714,8 +696,8 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
         className="rounded-lg border border-dashed border-destructive/30 bg-destructive/5 p-3 text-xs"
         role="alert"
       >
-        <p className="font-medium text-foreground">Sheet unavailable</p>
-        <p className="mt-1 text-muted-foreground">
+        <p className="font-medium text-fg">Sheet unavailable</p>
+        <p className="mt-1 text-fg-muted">
           {sheetInstanceEmbedErrorMessage(
             instanceQuery.error,
             !instanceQuery.data,
@@ -728,12 +710,12 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
   return (
     <div className="rounded-lg border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-medium text-foreground">{instance.name}</p>
+        <p className="text-xs font-medium text-fg">{instance.name}</p>
         {/* NOTE-03: the read preview carries the same canonical Sheet link
         as the live embed, built from the instance's stable UUID. */}
         <OpenLink to={sheetPath(instanceId)}>Open full sheet</OpenLink>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1 text-sm text-fg-muted">
         {instance.sourceDefinitionVersionId
           ? 'Sheet from a Definition. Open the block to edit.'
           : 'Ad hoc Sheet. Open the block to edit.'}
@@ -747,14 +729,14 @@ function renderUnsupported(type: string, payload: unknown): React.ReactNode {
   const known = (KNOWN_BLOCK_TYPES as readonly string[]).includes(type)
   return (
     <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
-      <p className="font-medium text-foreground">
+      <p className="font-medium text-fg">
         {known ? 'Unsupported payload version' : `Unknown block type: ${type}`}
       </p>
-      <p className="mt-1 text-muted-foreground">
+      <p className="mt-1 text-fg-muted">
         The block is preserved as stored. Its content will render here once a
         renderer for this type and schema version is available.
       </p>
-      <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted/40 p-2 font-mono text-xs">
+      <pre className="mt-2 max-h-40 overflow-auto rounded bg-surface-muted/40 p-2 font-mono text-xs">
         {JSON.stringify(payload, null, 2)}
       </pre>
     </div>
@@ -784,16 +766,14 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
 
   if (!obj || Object.keys(obj).length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fg-muted">
         No file attached. Select this block to upload a file.
       </p>
     )
   }
   if (!fileRecordId) {
     return (
-      <p className="text-sm text-muted-foreground">
-        This file block is incomplete.
-      </p>
+      <p className="text-sm text-fg-muted">This file block is incomplete.</p>
     )
   }
 
@@ -804,7 +784,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
 
   if (live.isLoading) {
     return (
-      <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2.5 text-sm text-fg-muted">
         <FileIcon mediaType={mediaType} />
         <span>{name || 'Loading file…'}</span>
       </div>
@@ -813,8 +793,8 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   if (live.error) {
     return (
       <div className="text-sm">
-        <p className="font-medium text-foreground">{name || 'File'}</p>
-        <p role="alert" className="mt-1 text-xs text-destructive">
+        <p className="font-medium text-fg">{name || 'File'}</p>
+        <p role="alert" className="mt-1 text-xs text-danger-text">
           File status could not be loaded.
         </p>
       </div>
@@ -824,8 +804,8 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   if (status === 'missing' || !live.data) {
     return (
       <div className="text-sm">
-        <p className="font-medium text-foreground">{name || 'File'}</p>
-        <p className="mt-1 text-xs text-warning-foreground">
+        <p className="font-medium text-fg">{name || 'File'}</p>
+        <p className="mt-1 text-xs text-warning-text">
           The storage object for this file is missing.
         </p>
         <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
@@ -835,8 +815,8 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   if (status === 'quarantined') {
     return (
       <div className="text-sm">
-        <p className="font-medium text-foreground">{name}</p>
-        <p className="mt-1 text-xs text-warning-foreground">
+        <p className="font-medium text-fg">{name}</p>
+        <p className="mt-1 text-xs text-warning-text">
           Quarantined
           {live.data.statusReason ? ` — ${live.data.statusReason}` : ''}.
         </p>
@@ -847,10 +827,8 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   if (status === 'deleted') {
     return (
       <div className="text-sm">
-        <p className="font-medium text-muted-foreground line-through">{name}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          This file is deleted.
-        </p>
+        <p className="font-medium text-fg-muted line-through">{name}</p>
+        <p className="mt-1 text-xs text-fg-muted">This file is deleted.</p>
         <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
       </div>
     )
@@ -866,7 +844,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
           <div className="min-w-0">
             <a
               href={`/api/files/${fileRecordId}/download`}
-              className="font-medium text-foreground underline-offset-2 hover:underline"
+              className="font-medium text-fg underline-offset-2 hover:underline"
               download
             >
               {name}
@@ -874,8 +852,8 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
             <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
           </div>
         </div>
-        <Badge variant="success">
-          <CheckCircle2 className="size-3" aria-hidden="true" />
+        <Badge variant="add">
+          <Icon name="check" size={12} aria-hidden="true" />
           Active
         </Badge>
       </div>
@@ -898,30 +876,30 @@ function FileMetaLine({
   byteSize: number
 }) {
   return (
-    <p className="font-mono text-xs text-muted-foreground">
+    <p className="font-mono text-xs text-fg-muted">
       {mediaType || 'unknown'} · {formatFileSize(byteSize)}
     </p>
   )
 }
 
-function fileIconForType(mediaType: string): LucideIcon {
-  if (mediaType.startsWith('image/')) return FileImage
-  if (mediaType === 'application/pdf') return FileText
+function fileIconForType(mediaType: string): IconName {
+  if (mediaType.startsWith('image/')) return 'box'
+  if (mediaType === 'application/pdf') return 'download'
   if (mediaType.includes('spreadsheet') || mediaType === 'text/csv') {
-    return FileSpreadsheet
+    return 'table'
   }
-  if (mediaType.includes('wordprocessing')) return FileText
-  return FileIconLucide
+  if (mediaType.includes('wordprocessing')) return 'download'
+  return 'download'
 }
 
 function FileIcon({ mediaType }: { mediaType: string }) {
-  const Icon = fileIconForType(mediaType)
+  const iconName = fileIconForType(mediaType)
   return (
     <span
       aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground"
+      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-muted text-fg-muted"
     >
-      <Icon className="size-4" />
+      <Icon name={iconName} size={16} />
     </span>
   )
 }
@@ -940,7 +918,7 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
   const obj = asObject(payload)
   if (!obj || Object.keys(obj).length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fg-muted">
         No chart configured. Select this block to choose a dataset and fields.
       </p>
     )
@@ -954,7 +932,7 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
   // (and its React Query context) when the chart is still an empty draft.
   if (!spec && !frozen) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fg-muted">
         No chart configured. Select this block to choose a dataset and fields.
       </p>
     )
@@ -1070,7 +1048,7 @@ function ChartOpenDatasetActions({
               : source.datasetId
           }
           to={datasetPath(source.datasetId)}
-          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          className="text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
         >
           {multi
             ? source.versionId
@@ -1309,7 +1287,7 @@ function PlateMapBlockPreview({
 
   if (isEmpty) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fg-muted">
         No plate map configured. Select this block to set dimensions and assign
         wells.
       </p>
@@ -1318,7 +1296,7 @@ function PlateMapBlockPreview({
 
   if (!spec) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fg-muted">
         {title} — plate map spec is incomplete or unsupported.
       </p>
     )
@@ -1407,24 +1385,22 @@ function PlateMapBlockPreview({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         {spec.wells.length === 0 ? (
-          <span className="text-xs text-muted-foreground">
-            No wells assigned
-          </span>
+          <span className="text-xs text-fg-muted">No wells assigned</span>
         ) : (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-fg-muted">
             {spec.wells.length} well{spec.wells.length !== 1 ? 's' : ''} ·{' '}
             {spec.rows}×{spec.cols}
           </span>
         )}
       </div>
       {referenceFailure ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-danger-text">
           Some sample references could not be loaded. Stored observations remain
           visible.
         </p>
       ) : null}
       {loading ? (
-        <p className="text-xs text-muted-foreground">Loading sample details…</p>
+        <p className="text-xs text-fg-muted">Loading sample details…</p>
       ) : null}
       <PlateMap
         wells={plateWells}
@@ -1443,7 +1419,7 @@ function PlateMapBlockPreview({
       {selection ? <PlateWellSelectionSummary selection={selection} /> : null}
       {linkedSamples.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-xs text-muted-foreground">Samples:</span>
+          <span className="text-xs text-fg-muted">Samples:</span>
           {linkedSamples.map((ref) => (
             <OpenLink
               key={ref.recordId}
@@ -1474,7 +1450,7 @@ function PlateWellSelectionSummary({
   const { well, sampleRef, resolution } = selection
   return (
     <div
-      className="rounded-md border bg-muted/20 px-2 py-1.5"
+      className="rounded-md border bg-surface-muted/20 px-2 py-1.5"
       aria-live="polite"
     >
       <p className="text-xs font-medium">
@@ -1482,17 +1458,17 @@ function PlateWellSelectionSummary({
         {well ? ` · ${ROLE_STYLES[well.role].label}` : ' · unassigned'}
       </p>
       {well?.replicate ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-fg-muted">
           Replicate {well.replicate}
           {well.volume ? ` · ${well.volume.value} ${well.volume.unit}` : ''}
         </p>
       ) : well?.volume ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-fg-muted">
           {well.volume.value} {well.volume.unit}
         </p>
       ) : null}
       {sampleRef ? (
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-xs text-fg-muted">
           {sampleRef.identifier.trim() || sampleRef.recordId}
           {sampleRef.title ? ` · ${sampleRef.title}` : ''}
           {resolution ? ` · ${describeWellSampleState(resolution)}` : ''}
@@ -1568,7 +1544,7 @@ export function AnalysisBlockPreview({ payload }: { payload: unknown }) {
   const obj = asObject(payload)
   if (!obj || Object.keys(obj).length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fg-muted">
         No analysis configured. Select this block to choose a saved analysis.
       </p>
     )
@@ -1589,7 +1565,7 @@ export function AnalysisBlockPreview({ payload }: { payload: unknown }) {
   }
   if (!block.definitionId) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fg-muted">
         No analysis configured. Select this block to choose a saved analysis.
       </p>
     )
@@ -1620,13 +1596,13 @@ function LiveAnalysisPreview({
 
   if (definitionQuery.isLoading)
     return (
-      <div role="status" className="text-xs text-muted-foreground">
+      <div role="status" className="text-xs text-fg-muted">
         Loading analysis…
       </div>
     )
   if (definitionQuery.error || !definitionQuery.data)
     return (
-      <div role="alert" className="text-xs text-destructive">
+      <div role="alert" className="text-xs text-danger-text">
         The saved analysis could not be loaded. It may have been deleted.
       </div>
     )
@@ -1634,7 +1610,7 @@ function LiveAnalysisPreview({
   const definition = saved.definition as AnalysisDefinition | null
   if (!definition)
     return (
-      <div role="alert" className="text-xs text-destructive">
+      <div role="alert" className="text-xs text-danger-text">
         The saved analysis has no executable definition body.
       </div>
     )
@@ -1693,7 +1669,7 @@ function LiveAnalysisExecution({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">
+        <Badge variant="kind">
           {name} · v{version}
         </Badge>
         {/* NOTE-03: open the canonical Dataset the analysis executes over. */}
@@ -1701,7 +1677,7 @@ function LiveAnalysisExecution({
           <OpenLink to={datasetPath(datasetId)}>Open dataset</OpenLink>
         ) : null}
         {resolvedQuery.isFetching ? (
-          <span className="text-xs text-muted-foreground">Loading rows…</span>
+          <span className="text-xs text-fg-muted">Loading rows…</span>
         ) : null}
       </div>
       {executed && executed.ok ? (
@@ -1709,19 +1685,19 @@ function LiveAnalysisExecution({
       ) : executed ? (
         <div
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-danger-text"
         >
           {executed.error.code === 'empty_dataset'
             ? 'The dataset has no rows to analyse.'
             : `This analysis cannot execute: ${executed.error.code}.`}
         </div>
       ) : (
-        <div role="status" className="text-xs text-muted-foreground">
+        <div role="status" className="text-xs text-fg-muted">
           Preparing analysis…
         </div>
       )}
       {provenance ? (
-        <p className="text-xs text-muted-foreground">{provenance}</p>
+        <p className="text-xs text-fg-muted">{provenance}</p>
       ) : null}
       <span className="sr-only">{title}</span>
     </div>
@@ -1771,11 +1747,11 @@ function FrozenAnalysisPreview({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="warning">
-          <Snowflake className="size-3" aria-hidden />
+        <Badge variant="chg">
+          <Icon name="archive" size={12} aria-hidden />
           Frozen snapshot — {frozen.frozenAt}
         </Badge>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-fg-muted">
           Provenance: {provenanceParts.join(', ')}
         </span>
         {/* NOTE-03: the frozen evidence pins a Dataset Version; the open
@@ -1790,7 +1766,7 @@ function FrozenAnalysisPreview({
           reconstructed.
         </EvidenceAlert>
       ) : rowsQuery.isLoading ? (
-        <div role="status" className="text-xs text-muted-foreground">
+        <div role="status" className="text-xs text-fg-muted">
           Reconstructing from pinned Dataset Version…
         </div>
       ) : rowsQuery.error ? (
@@ -1810,7 +1786,7 @@ function FrozenAnalysisPreview({
         </EvidenceAlert>
       ) : null}
       {provenance ? (
-        <p className="text-xs text-muted-foreground">{provenance}</p>
+        <p className="text-xs text-fg-muted">{provenance}</p>
       ) : null}
       <span className="sr-only">{title}</span>
     </div>
@@ -1821,7 +1797,7 @@ function EvidenceAlert({ children }: { children: React.ReactNode }) {
   return (
     <div
       role="alert"
-      className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+      className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-danger-text"
     >
       {children}
     </div>

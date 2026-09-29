@@ -34,10 +34,30 @@ beforeAll(async () => {
   const db = drizzle(migrator)
 
   await db.insert(schema.user).values([
-    { id: OWNER, name: 'Owner', email: 'wha-o@sheetbase.test', emailVerified: true },
-    { id: STEWARD, name: 'Steward', email: 'wha-s@sheetbase.test', emailVerified: true },
-    { id: MEMBER, name: 'Member', email: 'wha-m@sheetbase.test', emailVerified: true },
-    { id: VIEWER, name: 'Viewer', email: 'wha-v@sheetbase.test', emailVerified: true },
+    {
+      id: OWNER,
+      name: 'Owner',
+      email: 'wha-o@sheetbase.test',
+      emailVerified: true,
+    },
+    {
+      id: STEWARD,
+      name: 'Steward',
+      email: 'wha-s@sheetbase.test',
+      emailVerified: true,
+    },
+    {
+      id: MEMBER,
+      name: 'Member',
+      email: 'wha-m@sheetbase.test',
+      emailVerified: true,
+    },
+    {
+      id: VIEWER,
+      name: 'Viewer',
+      email: 'wha-v@sheetbase.test',
+      emailVerified: true,
+    },
   ])
   await db.insert(schema.workspaces).values([
     { id: WS_A, name: 'Webhook Admin A', slug: 'whadmin-a' },
@@ -54,15 +74,30 @@ beforeAll(async () => {
   const owner = await asUser(OWNER, WS_A)
   const { rows } = await owner.query(
     `SELECT api.create_webhook_subscription($1, $2, $3, $4) AS result`,
-    [WS_A, 'admin-orders', 'https://example.com/admin-orders', JSON.stringify(['record.created'])],
+    [
+      WS_A,
+      'admin-orders',
+      'https://example.com/admin-orders',
+      JSON.stringify(['record.created']),
+    ],
   )
   subId = rows[0].result.subscription.id
 
   // Seed delivery history directly: one dead letter with a reason, one
   // failed, one pending (owned by the retry sweep, never replayable).
   const seed: Array<[string, string, string, string | null, string | null]> = [
-    ['00000000-0000-4000-8000-0000000008d1', 'dead_letter', 'http_500', 'attempt 5 failed with 500'],
-    ['00000000-0000-4000-8000-0000000008d2', 'failed', 'http_500', 'attempt 1 failed with 500'],
+    [
+      '00000000-0000-4000-8000-0000000008d1',
+      'dead_letter',
+      'http_500',
+      'attempt 5 failed with 500',
+    ],
+    [
+      '00000000-0000-4000-8000-0000000008d2',
+      'failed',
+      'http_500',
+      'attempt 1 failed with 500',
+    ],
     ['00000000-0000-4000-8000-0000000008d3', 'pending', null, null],
   ]
   for (const [id, status, code, message] of seed) {
@@ -73,7 +108,15 @@ beforeAll(async () => {
        VALUES ($1, $2, $3, $4, 'record.created',
          '{"eventType":"record.created"}', '{"eventType":"record.created"}',
          'sha256=dummy', 1, $5, $6, $7)`,
-      [id, WS_A, subId, `00000000-0000-4000-8000-0000000008e${id.slice(-1)}`, status, code, message],
+      [
+        id,
+        WS_A,
+        subId,
+        `00000000-0000-4000-8000-0000000008e${id.slice(-1)}`,
+        status,
+        code,
+        message,
+      ],
     )
   }
 })
@@ -143,7 +186,9 @@ describe('ADMIN-02 webhook admin plane', () => {
     )
     expect(rows[0].result.total).toBe(1)
     expect(rows[0].result.data[0].error_code).toBe('http_500')
-    expect(rows[0].result.data[0].error_message).toBe('attempt 5 failed with 500')
+    expect(rows[0].result.data[0].error_message).toBe(
+      'attempt 5 failed with 500',
+    )
   })
 
   it('lets stewards disable and re-enable, resetting failure debt', async () => {
@@ -202,27 +247,27 @@ describe('ADMIN-02 webhook admin plane', () => {
       '00000000-0000-4000-8000-0000000008d2',
     )
     await expect(
-      steward.query(`SELECT * FROM api.replay_webhook_delivery($1::uuid, $2::uuid)`, [
-        WS_A,
-        '00000000-0000-4000-8000-0000000008d3',
-      ]),
+      steward.query(
+        `SELECT * FROM api.replay_webhook_delivery($1::uuid, $2::uuid)`,
+        [WS_A, '00000000-0000-4000-8000-0000000008d3'],
+      ),
     ).rejects.toThrow(/only terminal/)
   })
 
   it('denies replay and rotation to viewers and members', async () => {
     const viewer = await asUser(VIEWER, WS_A)
     await expect(
-      viewer.query(`SELECT * FROM api.replay_webhook_delivery($1::uuid, $2::uuid)`, [
-        WS_A,
-        '00000000-0000-4000-8000-0000000008d2',
-      ]),
+      viewer.query(
+        `SELECT * FROM api.replay_webhook_delivery($1::uuid, $2::uuid)`,
+        [WS_A, '00000000-0000-4000-8000-0000000008d2'],
+      ),
     ).rejects.toThrow()
     const member = await asUser(MEMBER, WS_A)
     await expect(
-      member.query(`SELECT api.rotate_webhook_secret($1::uuid, $2::uuid, NULL) AS result`, [
-        WS_A,
-        subId,
-      ]),
+      member.query(
+        `SELECT api.rotate_webhook_secret($1::uuid, $2::uuid, NULL) AS result`,
+        [WS_A, subId],
+      ),
     ).rejects.toThrow()
   })
 

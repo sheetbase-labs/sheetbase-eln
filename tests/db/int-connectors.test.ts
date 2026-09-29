@@ -94,20 +94,16 @@ function pgDataClient(owner: Client): DataClient {
       )
       const placeholders = Object.values(args)
         .map((value, index) =>
-          value !== null && typeof value === 'object' ? `$${index + 1}::jsonb` : `$${index + 1}`,
+          value !== null && typeof value === 'object'
+            ? `$${index + 1}::jsonb`
+            : `$${index + 1}`,
         )
         .join(',')
       return (
-        await owner.query(
-          `select * from api.${name}(${placeholders})`,
-          values,
-        )
+        await owner.query(`select * from api.${name}(${placeholders})`, values)
       ).rows[0]
     },
-    list: async <T>(
-      resource: string,
-      query: string,
-    ): Promise<T[]> => {
+    list: async <T>(resource: string, query: string): Promise<T[]> => {
       if (resource !== 'connector_runs') {
         throw new Error(`unexpected list resource ${resource}`)
       }
@@ -125,7 +121,8 @@ function pgDataClient(owner: Client): DataClient {
       )
       return result.rows as T[]
     },
-    insert: async (resource: string, row: Record<string, unknown>) => {      if (resource !== 'datasets') {
+    insert: async (resource: string, row: Record<string, unknown>) => {
+      if (resource !== 'datasets') {
         throw new Error(`unexpected insert resource ${resource}`)
       }
       const result = await owner.query(
@@ -562,8 +559,12 @@ describe('INT-01 connector framework', () => {
         [WS_A],
       )
     ).rows
-    expect(events.filter((e) => e.entity_type === 'connector').length).toBeGreaterThan(0)
-    expect(events.filter((e) => e.entity_type === 'connector_run').length).toBeGreaterThan(0)
+    expect(
+      events.filter((e) => e.entity_type === 'connector').length,
+    ).toBeGreaterThan(0)
+    expect(
+      events.filter((e) => e.entity_type === 'connector_run').length,
+    ).toBeGreaterThan(0)
   })
 
   it('hides connector tables from external credentials (fail-closed allowlist)', async () => {
@@ -575,8 +576,14 @@ describe('INT-01 connector framework', () => {
          where table_schema='api' and table_name='connectors' order by grantee, privilege_type`,
       )
     ).rows
-    const clientGrants = grants.filter((g: { grantee: string }) => g.grantee === 'api_client')
-    expect(clientGrants.every((g: { privilege_type: string }) => g.privilege_type === 'SELECT')).toBe(true)
+    const clientGrants = grants.filter(
+      (g: { grantee: string }) => g.grantee === 'api_client',
+    )
+    expect(
+      clientGrants.every(
+        (g: { privilege_type: string }) => g.privilege_type === 'SELECT',
+      ),
+    ).toBe(true)
   })
 })
 
@@ -625,10 +632,17 @@ A2,std-2,21.7`
 
     // The raw file was retained through the canonical file subsystem first;
     // its canonical id and sha256 travel into run provenance.
-    const result = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
-      fileRecordId: '0e100000-0000-4000-8000-00000000aa01',
-      checksum: 'a'.repeat(64),
-    })
+    const result = await ingest(
+      owner,
+      connectorId,
+      fixture,
+      VALID_CSV,
+      'run-42.csv',
+      {
+        fileRecordId: '0e100000-0000-4000-8000-00000000aa01',
+        checksum: 'a'.repeat(64),
+      },
+    )
 
     expect(result.alreadyCompleted).toBe(false)
     expect(result.rowCount).toBe(2)
@@ -678,18 +692,32 @@ A2,std-2,21.7`
       )
     ).rows[0].id
 
-    const first = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
-      fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
-      checksum: 'b'.repeat(64),
-    })
+    const first = await ingest(
+      owner,
+      connectorId,
+      fixture,
+      VALID_CSV,
+      'run-42.csv',
+      {
+        fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
+        checksum: 'b'.repeat(64),
+      },
+    )
     expect(first.alreadyCompleted).toBe(false)
 
     // Same retained file re-ingested: deduplicated to the same run, with the
     // stored result reconstructed — never rowCount 0 / empty metadata.
-    const replay = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
-      fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
-      checksum: 'b'.repeat(64),
-    })
+    const replay = await ingest(
+      owner,
+      connectorId,
+      fixture,
+      VALID_CSV,
+      'run-42.csv',
+      {
+        fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
+        checksum: 'b'.repeat(64),
+      },
+    )
     expect(replay.alreadyCompleted).toBe(true)
     expect(replay.runId).toBe(first.runId)
     expect(replay.rowCount).toBe(2)

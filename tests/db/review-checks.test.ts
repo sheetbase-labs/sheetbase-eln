@@ -369,9 +369,7 @@ describe('REV-005 reviewer check definitions and results', () => {
     expect(formulaCheck?.evidence).toMatchObject({ totalFormulas: 1 })
 
     // required-links (informational) fails — does not affect overall status.
-    const linksCheck = result.results.find(
-      (r) => r.key === 'required-links',
-    )
+    const linksCheck = result.results.find((r) => r.key === 'required-links')
     expect(linksCheck?.status).toBe('fail')
     expect(result.infoFailureCount).toBe(1)
   })
@@ -424,7 +422,9 @@ describe('REV-005 reviewer check definitions and results', () => {
     )
     const v1Row = rows.find((r) => r.check_definition_version === 1)
     const v2Row = rows.find((r) => r.check_definition_version === 2)
-    expect(v1Row.check_definition_digest).not.toBe(v2Row.check_definition_digest)
+    expect(v1Row.check_definition_digest).not.toBe(
+      v2Row.check_definition_digest,
+    )
   })
 
   it('returns the same result for an idempotent retry', async () => {
@@ -490,9 +490,7 @@ describe('REV-005 reviewer check definitions and results', () => {
     expect(invalidCols[0]).toMatchObject({ logicalType: 'invalid_type' })
 
     // The required-links evidence shows missing types.
-    const linksCheck = result.results.find(
-      (r) => r.key === 'required-links',
-    )
+    const linksCheck = result.results.find((r) => r.key === 'required-links')
     expect(linksCheck?.status).toBe('fail')
     expect(linksCheck?.evidence).toMatchObject({
       requiredLinkTypes: ['file'],

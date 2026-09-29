@@ -1,21 +1,17 @@
 import * as React from 'react'
-import {
-  EllipsisVertical,
-  GripVertical,
-  Lock,
-  TriangleAlert,
-} from 'lucide-react'
+import {} from 'lucide-react'
 
 import { cn } from '#/lib/utils'
+import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import {
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Skeleton,
 } from '#/components/ui'
+import { Icon } from '#/components/v3/icons'
 
 /**
  * NotebookBlock — a composable visual frame for one block in a notebook
@@ -86,10 +82,9 @@ const stateRing: Record<NotebookBlockState, string> = {
   default: 'bg-transparent',
   selected: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/25',
   editing: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/40',
-  dragging:
-    'bg-background opacity-60 shadow-sm ring-1 ring-inset ring-primary/50',
+  dragging: 'bg-surface opacity-60 shadow-sm ring-1 ring-inset ring-primary/50',
   invalid: 'ring-1 ring-inset ring-destructive/60',
-  locked: 'bg-muted/20',
+  locked: 'bg-surface-muted/20',
   loading: 'bg-transparent',
   'read-only': 'bg-transparent',
 }
@@ -157,9 +152,9 @@ export function NotebookBlock({
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
             onClick={() => hasMenu && setMenuOpen(true)}
-            className="cursor-grab rounded p-0.5 text-muted-foreground opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
+            className="cursor-grab rounded p-0.5 text-fg-muted opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
           >
-            <GripVertical className="size-3.5" />
+            <Icon name="move" size={14} />
           </button>
         ) : null}
       </div>
@@ -173,14 +168,18 @@ export function NotebookBlock({
         <div className="pointer-events-auto flex items-center gap-1">
           {actions}
           {locked ? (
-            <Lock
-              className="size-3.5 text-muted-foreground"
+            <Icon
+              name="lock"
+              size={14}
+              className="text-fg-muted"
               aria-label="Block locked"
             />
           ) : null}
           {invalid ? (
-            <TriangleAlert
-              className="size-3.5 text-destructive"
+            <Icon
+              name="warn"
+              size={14}
+              className="text-danger-text"
               aria-label="Block has errors"
             />
           ) : null}
@@ -188,12 +187,12 @@ export function NotebookBlock({
             <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost"
-                  size="icon-sm"
+                  variant="quiet"
+                  size="icon"
                   aria-label="Block actions"
                   className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                 >
-                  <EllipsisVertical />
+                  <Icon name="more" size={16} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -229,7 +228,7 @@ export function NotebookBlock({
             }
           }}
           placeholder="Untitled"
-          className="mb-1 w-full border-0 bg-transparent p-0 font-display text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/40 focus:ring-0"
+          className="mb-1 w-full border-0 bg-transparent p-0 font-display text-sm font-semibold text-fg outline-none placeholder:text-fg-muted/40 focus:ring-0"
         />
       ) : title ? (
         <h3 className="mb-1 font-display text-sm font-semibold">{title}</h3>

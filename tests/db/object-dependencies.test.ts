@@ -154,10 +154,10 @@ describe('CORE-05 dependency discovery and lifecycle', () => {
     ).rows[0]
     expect(archived.lifecycle).toBe('archived')
     const restored = (
-      await steward.query(
-        `select lifecycle from api.restore_dataset($1,$2)`,
-        [dataset.id, archived.revision],
-      )
+      await steward.query(`select lifecycle from api.restore_dataset($1,$2)`, [
+        dataset.id,
+        archived.revision,
+      ])
     ).rows[0]
     expect(restored.lifecycle).toBe('active')
   })
@@ -171,10 +171,9 @@ describe('CORE-05 dependency discovery and lifecycle', () => {
         [WS],
       )
     ).rows[0].result
-    await steward.query(
-      `select api.retire_dataset_schema_definition($1)`,
-      [created.schema_definition_id],
-    )
+    await steward.query(`select api.retire_dataset_schema_definition($1)`, [
+      created.schema_definition_id,
+    ])
     const restored = (
       await steward.query(
         `select lifecycle from api.restore_dataset_schema_definition($1)`,

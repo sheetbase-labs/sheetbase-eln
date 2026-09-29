@@ -9,7 +9,10 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { resolveExtensionContributions } from '#/lib/extensions/registry'
-import { SAMPLE_EXTENSION_KEY, SAMPLE_EXTENSION_MANIFEST } from '#/lib/extensions/sample/manifest'
+import {
+  SAMPLE_EXTENSION_KEY,
+  SAMPLE_EXTENSION_MANIFEST,
+} from '#/lib/extensions/sample/manifest'
 import { prepareTestDatabase } from './helpers'
 
 const WS = '0e020000-0000-4000-8000-0000000000e1'
@@ -25,7 +28,11 @@ async function actor(userId: string, workspaceId: string): Promise<Client> {
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query(`select set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ role: 'authenticated', sub: userId, workspace_id: workspaceId }),
+    JSON.stringify({
+      role: 'authenticated',
+      sub: userId,
+      workspace_id: workspaceId,
+    }),
   ])
   return client
 }
@@ -140,15 +147,26 @@ describe('EXT-02 sample install + enforcement', () => {
 
     // Installed-only: nothing resolves, even for members.
     expect(
-      resolveExtensionContributions([toInstall('installed')], 'member').objectActions,
+      resolveExtensionContributions([toInstall('installed')], 'member')
+        .objectActions,
     ).toEqual([])
 
     await owner.query(`select api.enable_extension($1,$2)`, [WS, extension.id])
     const live = (
-      await owner.query(`select status, manifest from api.extensions where id=$1`, [extension.id])
+      await owner.query(
+        `select status, manifest from api.extensions where id=$1`,
+        [extension.id],
+      )
     ).rows[0] as { status: string; manifest: unknown }
     const enabled = resolveExtensionContributions(
-      [{ id: extension.id, key: SAMPLE_EXTENSION_KEY, status: live.status, manifest: live.manifest }],
+      [
+        {
+          id: extension.id,
+          key: SAMPLE_EXTENSION_KEY,
+          status: live.status,
+          manifest: live.manifest,
+        },
+      ],
       'member',
     )
     expect(enabled.objectActions.map((c) => c.id)).toEqual(['open-panel'])

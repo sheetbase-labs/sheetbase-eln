@@ -190,7 +190,14 @@ beforeAll(async () => {
       ($4,$2,'AUTO04 limited credential','sb_auto04_limited','auto04-limited-hash',ARRAY['agent_operations:read','agent_operations:write'],$3),
       ($5,$2,'AUTO04 no-agent credential','sb_auto04_no_agent','auto04-no-agent-hash',ARRAY['datasets:write'],$3),
       ($6,$2,'AUTO04 other credential','sb_auto04_other','auto04-other-hash',ARRAY['agent_operations:read','agent_operations:write','datasets:write'],$3)`,
-    [CREDENTIAL, WS, OWNER, LIMITED_CREDENTIAL, NO_AGENT_CREDENTIAL, OTHER_CREDENTIAL],
+    [
+      CREDENTIAL,
+      WS,
+      OWNER,
+      LIMITED_CREDENTIAL,
+      NO_AGENT_CREDENTIAL,
+      OTHER_CREDENTIAL,
+    ],
   )
 })
 

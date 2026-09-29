@@ -88,9 +88,7 @@ describe('workspace bootstrap', () => {
     })
 
     expect(result.created).toBe(true)
-    expect(result.workspaceId).not.toBe(
-      workspaceSlugForUser('bootstrap-first'),
-    )
+    expect(result.workspaceId).not.toBe(workspaceSlugForUser('bootstrap-first'))
   })
 
   it('rolls the workspace back when the membership insert fails', async () => {

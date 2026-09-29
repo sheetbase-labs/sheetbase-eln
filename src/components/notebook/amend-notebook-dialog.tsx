@@ -1,20 +1,22 @@
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 
+import { Button } from '#/components/v3/ui/button'
+import { Field } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
 import {
-  Button,
   Dialog,
+  DialogBody,
+  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Label,
-  Textarea,
-} from '#/components/ui'
+} from '#/components/v3/ui/dialog'
+import { Textarea } from '#/components/v3/inventory/list'
 import { DataClientError } from '#/lib/data-client'
 import { createAmendment, sign002DataClient } from '#/lib/sign-002'
 
+/** UI port (roadmap-4/ui-app3): amend a signed notebook, app-3's v3 kit. */
 export function AmendNotebookDialog({
   open,
   onOpenChange,
@@ -55,39 +57,25 @@ export function AmendNotebookDialog({
         onOpenChange(next)
       }}
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Amend Notebook</DialogTitle>
-          <DialogDescription>
-            The submitted evidence stays frozen and a new working copy is opened
-            so you can edit this Notebook again.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Label className="space-y-1">
-            <span>Note (optional)</span>
+      <DialogContent className="w-[min(520px,calc(100vw-32px))]">
+        <DialogHeader
+          title="Amend Notebook"
+          description="The submitted evidence stays frozen and a new working copy is opened so you can edit this Notebook again."
+        />
+        <DialogBody>
+          <Field label="Note (optional)">
             <Textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
               aria-label="Amendment note"
             />
-          </Label>
-          {errorMessage ? (
-            <p className="text-sm text-destructive" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
-        </div>
+          </Field>
+          {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
+        </DialogBody>
         <DialogFooter>
+          <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
+            variant="primary"
             disabled={amend.isPending}
             onClick={() => amend.mutate()}
           >

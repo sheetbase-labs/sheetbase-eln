@@ -31,7 +31,9 @@ describe('PLAT-03 security pipeline', () => {
     expect(readFileSync('.github/workflows/security.yml', 'utf8')).toContain(
       'Deliberately not triggered on pull_request',
     )
-    expect(readFileSync('docs/operations/security.md', 'utf8')).toContain('release gate')
+    expect(readFileSync('docs/operations/security.md', 'utf8')).toContain(
+      'release gate',
+    )
   })
 
   it('runs the dependency audit for visibility outside the gate', () => {
@@ -83,7 +85,9 @@ describe('PLAT-03 security documentation', () => {
   })
 
   it('links the security doc from the observability and recovery docs', () => {
-    expect(readFileSync('docs/operations/observability.md', 'utf8')).not.toBeNull()
+    expect(
+      readFileSync('docs/operations/observability.md', 'utf8'),
+    ).not.toBeNull()
   })
 })
 

@@ -1239,9 +1239,8 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
 
     const recordCount = async () =>
-      (
-        await member.query(`select count(*)::int count from api.records`)
-      ).rows[0].count as number
+      (await member.query(`select count(*)::int count from api.records`))
+        .rows[0].count as number
     const before = await recordCount()
 
     // Required inputs fail closed naming the missing key; nothing is created.
@@ -1305,9 +1304,9 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     const sheets = result.composition.filter(
       (entry: { kind: string }) => entry.kind === 'sheet',
     )
-    expect(sheets.map((entry: { placementId: string }) => entry.placementId)).toEqual(
-      [PLACEMENT_A, PLACEMENT_B],
-    )
+    expect(
+      sheets.map((entry: { placementId: string }) => entry.placementId),
+    ).toEqual([PLACEMENT_A, PLACEMENT_B])
     for (const entry of sheets) {
       expect(entry.definitionVersionId).toBe(local.version.id)
       expect(entry.instanceId).toBeTruthy()
@@ -1413,9 +1412,8 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
 
     const recordCount = async () =>
-      (
-        await member.query(`select count(*)::int count from api.records`)
-      ).rows[0].count as number
+      (await member.query(`select count(*)::int count from api.records`))
+        .rows[0].count as number
     const before = await recordCount()
     const attempt = (versionId: string, inputs: unknown, key: string) =>
       member.query(

@@ -46,7 +46,10 @@ afterAll(async () => {
   await migrator.end()
 })
 
-async function asAuthenticated(userId: string, workspaceId: string): Promise<Client> {
+async function asAuthenticated(
+  userId: string,
+  workspaceId: string,
+): Promise<Client> {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
@@ -88,11 +91,14 @@ describe('signature certification', () => {
     expect(mine?.statement_version).toBe(2)
     expect(mine?.revoked_at).toBeNull()
     // A member who has not certified is listed with no certification.
-    expect(listed.rows.find((r) => r.user_id === SECOND)?.statement_version).toBeNull()
+    expect(
+      listed.rows.find((r) => r.user_id === SECOND)?.statement_version,
+    ).toBeNull()
 
-    await member.query(`SELECT * FROM api.withdraw_signature_certification($1)`, [
-      WS,
-    ])
+    await member.query(
+      `SELECT * FROM api.withdraw_signature_certification($1)`,
+      [WS],
+    )
     const afterWithdraw = await member.query<{ revoked_at: Date | null }>(
       `SELECT * FROM api.workspace_signature_certifications() WHERE user_id = $1`,
       [MEMBER],
@@ -115,7 +121,9 @@ describe('signature certification', () => {
     )
 
     // Certifying their own workspace works and is not visible in the other.
-    await outsider.query(`SELECT * FROM api.certify_signature($1, 1)`, [OTHER_WS])
+    await outsider.query(`SELECT * FROM api.certify_signature($1, 1)`, [
+      OTHER_WS,
+    ])
     const otherList = await outsider.query<{ user_id: string }>(
       `SELECT * FROM api.workspace_signature_certifications()`,
     )
@@ -125,10 +133,7 @@ describe('signature certification', () => {
     const wsList = await member.query<{ user_id: string }>(
       `SELECT * FROM api.workspace_signature_certifications()`,
     )
-    expect(wsList.rows.map((r) => r.user_id).sort()).toEqual([
-      MEMBER,
-      SECOND,
-    ])
+    expect(wsList.rows.map((r) => r.user_id).sort()).toEqual([MEMBER, SECOND])
   })
 
   it('rejects an invalid statement version and a missing certification', async () => {

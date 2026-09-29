@@ -27,7 +27,11 @@ let migrator: Client | undefined
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
 
-function claims(userId: string, workspaceId: string, sessionId?: string): string {
+function claims(
+  userId: string,
+  workspaceId: string,
+  sessionId?: string,
+): string {
   return JSON.stringify({
     sub: userId,
     workspace_id: workspaceId,
@@ -215,11 +219,7 @@ async function runChecks(
   return rows[0].result as { overallStatus: string; idempotent: boolean }
 }
 
-async function approve(
-  client: Client,
-  submissionId: string,
-  digest: string,
-) {
+async function approve(client: Client, submissionId: string, digest: string) {
   const { rows } = await client.query(
     `SELECT api.approve_review($1, NULL, 'submitted', $2) AS result`,
     [submissionId, digest],
@@ -303,12 +303,9 @@ async function buildApprovedSubmission(
   digest: string
 }> {
   const rev = await insertRevision(RECORD_A, WS_A, snapshot)
-  const submissionId = await insertSubmission(
-    rev.id,
-    WS_A,
-    RECORD_A,
-    [reviewerId],
-  )
+  const submissionId = await insertSubmission(rev.id, WS_A, RECORD_A, [
+    reviewerId,
+  ])
   // Run checks as the reviewer so a passing result exists for the revision.
   const reviewer = await authenticated(reviewerId, WS_A)
   await runChecks(reviewer, rev.id, `checks-${rev.id}`)
@@ -366,11 +363,7 @@ describe('SIGN-001 electronic signatures', () => {
     // Insert an expired session for REVIEWER_B and sign with that session id.
     const expiredSessionId = 'session-expired-reviewer-b'
     await insertSession(REVIEWER_B, expiredSessionId, '2000-01-01T00:00:00Z')
-    const reviewer = await authenticated(
-      REVIEWER_B,
-      WS_A,
-      expiredSessionId,
-    )
+    const reviewer = await authenticated(REVIEWER_B, WS_A, expiredSessionId)
 
     await expect(
       sign(reviewer, submissionId, 'approve-for-record', 'Reviewer B', digest),
@@ -384,7 +377,13 @@ describe('SIGN-001 electronic signatures', () => {
 
     expect(wrongDigest).not.toBe(digest)
     await expect(
-      sign(reviewer, submissionId, 'approve-for-record', 'Reviewer A', wrongDigest),
+      sign(
+        reviewer,
+        submissionId,
+        'approve-for-record',
+        'Reviewer A',
+        wrongDigest,
+      ),
     ).rejects.toMatchObject({ code: 'SB001' })
   })
 
@@ -392,7 +391,13 @@ describe('SIGN-001 electronic signatures', () => {
     const { submissionId, digest } = await buildApprovedSubmission()
     const reviewer = await authenticated(REVIEWER_A, WS_A)
 
-    await sign(reviewer, submissionId, 'approve-for-record', 'Reviewer A', digest)
+    await sign(
+      reviewer,
+      submissionId,
+      'approve-for-record',
+      'Reviewer A',
+      digest,
+    )
 
     // A second signature by the same signer on the same submission is rejected.
     await expect(
@@ -406,59 +411,74 @@ describe('SIGN-001 electronic signatures', () => {
     const unassigned = await authenticated(REVIEWER_B, WS_A)
 
     await expect(
-      sign(unassigned, submissionId, 'approve-for-record', 'Reviewer B', digest),
+      sign(
+        unassigned,
+        submissionId,
+        'approve-for-record',
+        'Reviewer B',
+        digest,
+      ),
     ).rejects.toMatchObject({ code: '42501' })
   })
 
   it('rejects signing when the review is not in the approved state', async () => {
     const rev = await insertRevision(RECORD_A, WS_A, passingSnapshot())
-    const submissionId = await insertSubmission(
-      rev.id,
-      WS_A,
-      RECORD_A,
-      [REVIEWER_A],
-    )
+    const submissionId = await insertSubmission(rev.id, WS_A, RECORD_A, [
+      REVIEWER_A,
+    ])
     const reviewer = await authenticated(REVIEWER_A, WS_A)
     await runChecks(reviewer, rev.id, `checks-not-approved-${rev.id}`)
     // Still 'submitted' — not approved yet.
 
     await expect(
-      sign(reviewer, submissionId, 'approve-for-record', 'Reviewer A', rev.integrityDigest),
+      sign(
+        reviewer,
+        submissionId,
+        'approve-for-record',
+        'Reviewer A',
+        rev.integrityDigest,
+      ),
     ).rejects.toMatchObject({ code: 'SB007' })
   })
 
   it('rejects signing when required checks have not been run', async () => {
     const rev = await insertRevision(RECORD_A, WS_A, passingSnapshot())
-    const submissionId = await insertSubmission(
-      rev.id,
-      WS_A,
-      RECORD_A,
-      [REVIEWER_A],
-    )
+    const submissionId = await insertSubmission(rev.id, WS_A, RECORD_A, [
+      REVIEWER_A,
+    ])
     const reviewer = await authenticated(REVIEWER_A, WS_A)
     // Approve without running checks first.
     await approve(reviewer, submissionId, rev.integrityDigest)
 
     await expect(
-      sign(reviewer, submissionId, 'approve-for-record', 'Reviewer A', rev.integrityDigest),
+      sign(
+        reviewer,
+        submissionId,
+        'approve-for-record',
+        'Reviewer A',
+        rev.integrityDigest,
+      ),
     ).rejects.toMatchObject({ code: 'SB008' })
   })
 
   it('rejects signing when required checks have blocking failures', async () => {
     const rev = await insertRevision(RECORD_A, WS_A, failingSnapshot())
-    const submissionId = await insertSubmission(
-      rev.id,
-      WS_A,
-      RECORD_A,
-      [REVIEWER_A],
-    )
+    const submissionId = await insertSubmission(rev.id, WS_A, RECORD_A, [
+      REVIEWER_A,
+    ])
     const reviewer = await authenticated(REVIEWER_A, WS_A)
     await runChecks(reviewer, rev.id, `checks-fail-${rev.id}`)
     // Approve despite failing checks (approve_review only checks state/digest/permission).
     await approve(reviewer, submissionId, rev.integrityDigest)
 
     await expect(
-      sign(reviewer, submissionId, 'approve-for-record', 'Reviewer A', rev.integrityDigest),
+      sign(
+        reviewer,
+        submissionId,
+        'approve-for-record',
+        'Reviewer A',
+        rev.integrityDigest,
+      ),
     ).rejects.toMatchObject({ code: 'SB008' })
   })
 
@@ -499,15 +519,21 @@ describe('SIGN-001 electronic signatures', () => {
     ).rejects.toMatchObject({ code: '42501' })
     await expect(
       reviewer.query(`DELETE FROM api.signatures WHERE id = $1`, [
-        result.signatureId],
-      ),
+        result.signatureId,
+      ]),
     ).rejects.toMatchObject({ code: '42501' })
   })
 
   it('isolates signatures by workspace', async () => {
     const { submissionId, digest } = await buildApprovedSubmission()
     const reviewer = await authenticated(REVIEWER_A, WS_A)
-    await sign(reviewer, submissionId, 'approve-for-record', 'Reviewer A', digest)
+    await sign(
+      reviewer,
+      submissionId,
+      'approve-for-record',
+      'Reviewer A',
+      digest,
+    )
 
     // Workspace B cannot see workspace A's signatures.
     const ownerB = await authenticated(OWNER_B, WS_B)

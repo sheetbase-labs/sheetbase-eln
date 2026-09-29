@@ -228,10 +228,9 @@ describe('CORE-05 Dataset Schema draft concurrency', () => {
       )
     ).rows[0].result
     await expectDenied(
-      stewardA.query(
-        `select api.create_next_dataset_schema_version($1)`,
-        [created.schema_definition_id],
-      ),
+      stewardA.query(`select api.create_next_dataset_schema_version($1)`, [
+        created.schema_definition_id,
+      ]),
       'SB072',
     )
     await expectDenied(

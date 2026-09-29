@@ -109,8 +109,7 @@ describe('api.archive_project', () => {
     )
     expect(
       events.rows.some(
-        (row) =>
-          row.operation === 'update' && row.payload.archivedAt != null,
+        (row) => row.operation === 'update' && row.payload.archivedAt != null,
       ),
     ).toBe(true)
   })

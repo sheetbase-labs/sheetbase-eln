@@ -46,12 +46,19 @@ afterAll(async () => {
   await migrator.end()
 })
 
-async function asAuthenticated(userId: string, workspaceId: string): Promise<Client> {
+async function asAuthenticated(
+  userId: string,
+  workspaceId: string,
+): Promise<Client> {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
-    JSON.stringify({ sub: userId, workspace_id: workspaceId, role: 'authenticated' }),
+    JSON.stringify({
+      sub: userId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }),
   ])
   return client
 }
@@ -95,10 +102,14 @@ describe('project members', () => {
     )
     expect(afterChange.rows[0]?.access_level).toBe('editor')
 
-    await lead.query(`SELECT api.remove_project_member($1, $2)`, [PROJECT, MEMBER])
-    const afterRemove = await lead.query(`SELECT * FROM api.project_members($1)`, [
+    await lead.query(`SELECT api.remove_project_member($1, $2)`, [
       PROJECT,
+      MEMBER,
     ])
+    const afterRemove = await lead.query(
+      `SELECT * FROM api.project_members($1)`,
+      [PROJECT],
+    )
     expect(afterRemove.rows.find((r) => r.user_id === MEMBER)).toBeUndefined()
   })
 

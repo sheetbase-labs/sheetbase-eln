@@ -58,12 +58,19 @@ afterAll(async () => {
   await migrator.end()
 })
 
-async function asAuthenticated(userId: string, workspaceId = WS): Promise<Client> {
+async function asAuthenticated(
+  userId: string,
+  workspaceId = WS,
+): Promise<Client> {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
-    JSON.stringify({ sub: userId, workspace_id: workspaceId, role: 'authenticated' }),
+    JSON.stringify({
+      sub: userId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }),
   ])
   return client
 }
@@ -91,12 +98,16 @@ describe('project folders', () => {
   it('denies a viewer and an invalid name', async () => {
     const viewer = await asAuthenticated(VIEWER)
     await expectDenied(
-      viewer.query(`SELECT * FROM api.create_project_folder($1, 'Nope')`, [PROJECT]),
+      viewer.query(`SELECT * FROM api.create_project_folder($1, 'Nope')`, [
+        PROJECT,
+      ]),
       '42501',
     )
     const lead = await asAuthenticated(LEAD)
     await expect(
-      lead.query(`SELECT * FROM api.create_project_folder($1, '   ')`, [PROJECT]),
+      lead.query(`SELECT * FROM api.create_project_folder($1, '   ')`, [
+        PROJECT,
+      ]),
     ).rejects.toMatchObject({ code: '22023' })
   })
 

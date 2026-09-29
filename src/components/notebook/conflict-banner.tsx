@@ -17,7 +17,7 @@
  */
 
 import { cn } from '#/lib/utils'
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 
 export interface ConflictBannerProps {
   /** Human-readable explanation of the conflict. */
@@ -48,16 +48,16 @@ export function ConflictBanner({
       role="alert"
       data-conflict-banner
       className={cn(
-        'mt-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs',
+        'mt-2 rounded-md border border-danger/40 bg-danger-wash p-3 text-label',
         className,
       )}
     >
-      <p className="font-medium text-destructive">{message}</p>
-      <p className="mt-1 text-muted-foreground">
+      <p className="font-medium text-danger-text">{message}</p>
+      <p className="mt-1 text-fg-muted">
         Your edits are preserved below. The latest server version is:
       </p>
       <pre
-        className="mt-1 max-h-32 overflow-auto rounded bg-muted/40 p-2 font-mono text-xs"
+        className="mt-1 max-h-32 overflow-auto rounded bg-surface-muted p-2 font-mono text-xs"
         data-conflict-server-preview
       >
         {serverPreview}
@@ -66,7 +66,7 @@ export function ConflictBanner({
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           onClick={onUseServer}
           data-conflict-use-server
         >

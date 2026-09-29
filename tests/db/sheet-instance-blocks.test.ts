@@ -108,10 +108,10 @@ describe('CORE-06.2 canonical Notebook Sheet Instance blocks', () => {
     expect(shared.block.record_id).toBe(RECORD_B)
 
     const moved = (
-      await auth.query(
-        `SELECT api.move_block($1,$2,NULL,NULL) result`,
-        [second.block.id, 3],
-      )
+      await auth.query(`SELECT api.move_block($1,$2,NULL,NULL) result`, [
+        second.block.id,
+        3,
+      ])
     ).rows[0].result
     expect(moved.block.payload.instanceId).toBe(instanceB)
 
@@ -124,10 +124,9 @@ describe('CORE-06.2 canonical Notebook Sheet Instance blocks', () => {
     ).rows[0]
     expect(remaining.lifecycle).toBe('active')
     const stillEmbedded = (
-      await auth.query(
-        `SELECT payload FROM api.blocks WHERE id=$1`,
-        [shared.block.id],
-      )
+      await auth.query(`SELECT payload FROM api.blocks WHERE id=$1`, [
+        shared.block.id,
+      ])
     ).rows[0]
     expect(stillEmbedded.payload).toEqual({ instanceId: instanceA })
 
@@ -150,14 +149,11 @@ describe('CORE-06.2 canonical Notebook Sheet Instance blocks', () => {
     )
 
     await expectDenied(
-      auth.query(
-        `SELECT api.update_block_payload($1,$2::jsonb,$3,1)`,
-        [
-          second.block.id,
-          JSON.stringify({ instanceId: instanceA }),
-          second.block.version,
-        ],
-      ),
+      auth.query(`SELECT api.update_block_payload($1,$2::jsonb,$3,1)`, [
+        second.block.id,
+        JSON.stringify({ instanceId: instanceA }),
+        second.block.version,
+      ]),
       '23514',
     )
 
@@ -172,9 +168,7 @@ describe('CORE-06.2 canonical Notebook Sheet Instance blocks', () => {
     )
       .filter((item) => item.kind === 'sheet_instance')
       .map((item) => item.id)
-    expect(notebookInstanceIds).toEqual(
-      expect.arrayContaining([instanceB]),
-    )
+    expect(notebookInstanceIds).toEqual(expect.arrayContaining([instanceB]))
 
     const depsFromInstance = (
       await auth.query(
@@ -191,23 +185,20 @@ describe('CORE-06.2 canonical Notebook Sheet Instance blocks', () => {
 
   it('rejects mixed payload identities and stale structure versions', async () => {
     await expectDenied(
-      auth.query(
-        `SELECT api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`,
-        [
-          RECORD_A,
-          JSON.stringify({
-            instanceId: crypto.randomUUID(),
-            tableId: crypto.randomUUID(),
-          }),
-        ],
-      ),
+      auth.query(`SELECT api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`, [
+        RECORD_A,
+        JSON.stringify({
+          instanceId: crypto.randomUUID(),
+          tableId: crypto.randomUUID(),
+        }),
+      ]),
       '23514',
     )
     await expectDenied(
-      auth.query(
-        `SELECT api.insert_sheet_instance_block($1,NULL,$2,NULL)`,
-        [RECORD_A, 1],
-      ),
+      auth.query(`SELECT api.insert_sheet_instance_block($1,NULL,$2,NULL)`, [
+        RECORD_A,
+        1,
+      ]),
       'SB001',
     )
   })
@@ -235,8 +226,6 @@ describe('CORE-06.2 canonical Notebook Sheet Instance blocks', () => {
         ],
       )
     ).rows[0].result
-    expect(updated.state.localValues[rowKey][fieldId]).toBe(
-      'first observation',
-    )
+    expect(updated.state.localValues[rowKey][fieldId]).toBe('first observation')
   })
 })

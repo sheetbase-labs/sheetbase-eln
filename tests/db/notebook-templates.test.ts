@@ -214,10 +214,10 @@ describe('CORE-06.3 / 06.4 Notebook Template versions', () => {
         [WS, JSON.stringify(validSheetDefinitionConfiguration())],
       )
     ).rows[0].result
-    await owner.query(
-      `select api.publish_sheet_definition_version($1,$2)`,
-      [definition.version.id, definition.version.revision],
-    )
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
 
     const created = (
       await owner.query(

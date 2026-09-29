@@ -52,9 +52,9 @@ describe('BlockPicker', () => {
     const user = userEvent.setup()
     render(<BlockPicker onInsert={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: /Add block/ }))
-    expect(screen.getByText('Writing')).toBeTruthy()
-    expect(screen.getByText('Sheets and references')).toBeTruthy()
-    expect(screen.getByText('Files and figures')).toBeTruthy()
+    expect(await screen.findByText('Writing')).toBeTruthy()
+    expect(await screen.findByText('Sheets and references')).toBeTruthy()
+    expect(await screen.findByText('Files and figures')).toBeTruthy()
   })
 
   it('calls onInsert with the chosen type', async () => {

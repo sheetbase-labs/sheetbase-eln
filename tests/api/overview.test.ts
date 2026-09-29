@@ -225,8 +225,20 @@ describe('SCI-007 experiment overview REST contract', () => {
   })
 
   it('PATCHes overview configuration and reads it back', async () => {
-    const experiment = await createRecord(USER_A, WS_A, PROJECT_A, 'experiment', 'Configured overview')
-    const blockResponse = await insertBlock(USER_A, WS_A, experiment, 'rich_text', {})
+    const experiment = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'experiment',
+      'Configured overview',
+    )
+    const blockResponse = await insertBlock(
+      USER_A,
+      WS_A,
+      experiment,
+      'rich_text',
+      {},
+    )
     expect(blockResponse.status).toBe(200)
     const block = (await blockResponse.json()).block
     const properties = { overview: { excludedBlockIds: [block.id] } }
@@ -237,7 +249,10 @@ describe('SCI-007 experiment overview REST contract', () => {
       WS_A,
       {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json', prefer: 'return=representation' },
+        headers: {
+          'content-type': 'application/json',
+          prefer: 'return=representation',
+        },
         body: JSON.stringify({ properties }),
       },
     )
@@ -253,10 +268,23 @@ describe('SCI-007 experiment overview REST contract', () => {
   })
 
   it('creates a revision and reads it back through the proxy', async () => {
-    const experiment = await createRecord(USER_A, WS_A, PROJECT_A, 'experiment', 'Revision overview')
+    const experiment = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'experiment',
+      'Revision overview',
+    )
     const revisionId = '6c000000-0000-4000-8000-00000000072a'
     const blockSnapshot = [
-      { id: 'b1', type: 'rich_text', payload: {}, payload_schema_version: 1, order: 0, version: 1 },
+      {
+        id: 'b1',
+        type: 'rich_text',
+        payload: {},
+        payload_schema_version: 1,
+        order: 0,
+        version: 1,
+      },
     ]
     await admin.query(
       `INSERT INTO api.revisions (id, record_id, structure_version, metadata_version, metadata_snapshot, block_snapshot, reason, created_by_user_id, created_at, updated_at)
@@ -272,19 +300,41 @@ describe('SCI-007 experiment overview REST contract', () => {
   })
 
   it('denies cross-workspace access to the experiment record', async () => {
-    const experiment = await createRecord(USER_A, WS_A, PROJECT_A, 'experiment', 'Private overview')
+    const experiment = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'experiment',
+      'Private overview',
+    )
     const response = await proxy(`records?id=eq.${experiment.id}`, USER_B, WS_B)
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual([])
   })
 
   it('denies cross-workspace PATCH of overview configuration', async () => {
-    const experiment = await createRecord(USER_A, WS_A, PROJECT_A, 'experiment', 'Protected overview')
-    const response = await proxy(`records?id=eq.${experiment.id}`, USER_B, WS_B, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json', prefer: 'return=representation' },
-      body: JSON.stringify({ properties: { overview: { excludedBlockIds: ['b1'] } } }),
-    })
+    const experiment = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'experiment',
+      'Protected overview',
+    )
+    const response = await proxy(
+      `records?id=eq.${experiment.id}`,
+      USER_B,
+      WS_B,
+      {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          prefer: 'return=representation',
+        },
+        body: JSON.stringify({
+          properties: { overview: { excludedBlockIds: ['b1'] } },
+        }),
+      },
+    )
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual([])
   })

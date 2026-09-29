@@ -24,12 +24,7 @@ async function actor(userId: string) {
   return client
 }
 
-async function field(
-  client: Client,
-  model: string,
-  key: string,
-  type: string,
-) {
+async function field(client: Client, model: string, key: string, type: string) {
   const { rows } = await client.query(
     `select * from api.create_model_field($1,$2,$3,$3,$4,true,null,'{}'::jsonb)`,
     [WS, model, key, type],
@@ -100,7 +95,12 @@ async function seedConsumers(owner: Client, tag: string) {
         WS,
         `m04_result_${tag}`,
         JSON.stringify([
-          { key: 'titre', label: 'Titre', logical_type: 'decimal', nullable: true },
+          {
+            key: 'titre',
+            label: 'Titre',
+            logical_type: 'decimal',
+            nullable: true,
+          },
         ]),
       ],
     )

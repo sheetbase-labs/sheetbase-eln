@@ -1,22 +1,23 @@
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
+import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
 import {
-  Button,
   Dialog,
+  DialogBody,
+  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-} from '#/components/ui'
+} from '#/components/v3/ui/dialog'
 import { DataClientError } from '#/lib/data-client'
 import { duplicateExperiment } from '#/lib/notebook-experience'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
+/** UI port (roadmap-4/ui-app3): duplicate a notebook, app-3's v3 kit. */
 export function DuplicateNotebookDialog({
   open,
   onOpenChange,
@@ -59,43 +60,34 @@ export function DuplicateNotebookDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Duplicate Notebook</DialogTitle>
-          <DialogDescription>
-            Creates a new working Notebook. Sheets are copied; submitted
-            evidence stays with the original.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="w-[min(520px,calc(100vw-32px))]">
+        <DialogHeader
+          title="Duplicate Notebook"
+          description="Creates a new working Notebook. Sheets are copied; submitted evidence stays with the original."
+        />
         <form
-          className="space-y-3"
           onSubmit={(event) => {
             event.preventDefault()
             duplicate.mutate()
           }}
         >
-          <Label className="space-y-1">
-            <span>Title</span>
-            <Input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              aria-label="Notebook title"
-            />
-          </Label>
-          {errorMessage ? (
-            <p className="text-sm text-destructive" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
+          <DialogBody>
+            <Field label="Title">
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                aria-label="Notebook title"
+              />
+            </Field>
+            {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
+          </DialogBody>
           <DialogFooter>
+            <DialogClose render={<Button />}>Cancel</DialogClose>
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
+              type="submit"
+              variant="primary"
+              disabled={duplicate.isPending}
             >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={duplicate.isPending}>
               Duplicate
             </Button>
           </DialogFooter>

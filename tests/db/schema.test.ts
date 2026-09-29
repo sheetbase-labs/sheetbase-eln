@@ -45,7 +45,12 @@ describe('identity and workspace schema', () => {
         (SELECT count(*) FROM api.workspace_memberships WHERE workspace_id = '${FIXTURE_WORKSPACE_ID}')::int AS memberships,
         (SELECT count(*) FROM api.projects WHERE id = '${FIXTURE_PROJECT_ID}')::int AS projects
     `)
-    expect(rows[0]).toEqual({ users: 1, workspaces: 1, memberships: 1, projects: 1 })
+    expect(rows[0]).toEqual({
+      users: 1,
+      workspaces: 1,
+      memberships: 1,
+      projects: 1,
+    })
   })
 
   it('rejects memberships for a user that does not exist', async () => {

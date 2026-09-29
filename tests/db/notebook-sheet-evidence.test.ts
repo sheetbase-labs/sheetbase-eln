@@ -158,10 +158,10 @@ describe('CORE-06.7 / 06.8 / 06.13 frozen Sheet evidence', () => {
         [WS, JSON.stringify(sheetConfig(definition.version.id, PLACEMENT_B))],
       )
     ).rows[0].result
-    await owner.query(
-      `select api.publish_notebook_template_version($1,$2)`,
-      [templateB.version.id, templateB.version.revision],
-    )
+    await owner.query(`select api.publish_notebook_template_version($1,$2)`, [
+      templateB.version.id,
+      templateB.version.revision,
+    ])
 
     const notebookA = (
       await owner.query(
@@ -238,7 +238,10 @@ describe('CORE-06.7 / 06.8 / 06.13 frozen Sheet evidence', () => {
         live.revision,
         crypto.randomUUID(),
         JSON.stringify([
-          { operation: 'add', field: field(crypto.randomUUID(), 'observation') },
+          {
+            operation: 'add',
+            field: field(crypto.randomUUID(), 'observation'),
+          },
         ]),
       ],
     )

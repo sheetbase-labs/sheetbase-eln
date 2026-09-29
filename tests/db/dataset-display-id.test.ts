@@ -33,7 +33,10 @@ afterAll(async () => {
   await migrator.end()
 })
 
-async function insertDataset(name: string, displayId: string | null): Promise<string> {
+async function insertDataset(
+  name: string,
+  displayId: string | null,
+): Promise<string> {
   const { rows } = await migrator.query<{ display_id: string }>(
     `INSERT INTO api.datasets (workspace_id, schema_version_id, name, display_id)
      VALUES ($1, $2, $3, $4) RETURNING display_id`,

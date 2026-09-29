@@ -73,12 +73,19 @@ afterAll(async () => {
   await migrator.end()
 })
 
-async function asAuthenticated(userId: string, workspaceId: string): Promise<Client> {
+async function asAuthenticated(
+  userId: string,
+  workspaceId: string,
+): Promise<Client> {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
-    JSON.stringify({ sub: userId, workspace_id: workspaceId, role: 'authenticated' }),
+    JSON.stringify({
+      sub: userId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }),
   ])
   return client
 }
@@ -101,7 +108,9 @@ describe('api.dataset_list_summary', () => {
 
   it('shows another workspace nothing', async () => {
     const outsider = await asAuthenticated(OUTSIDER, OTHER_WS)
-    const { rows } = await outsider.query(`SELECT * FROM api.dataset_list_summary()`)
+    const { rows } = await outsider.query(
+      `SELECT * FROM api.dataset_list_summary()`,
+    )
     expect(rows).toEqual([])
   })
 })

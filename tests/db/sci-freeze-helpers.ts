@@ -4,10 +4,7 @@
  */
 import type { Client } from 'pg'
 
-import {
-  materialiseChart,
-  materialiseFacetedCharts,
-} from '#/lib/chart-spec'
+import { materialiseChart, materialiseFacetedCharts } from '#/lib/chart-spec'
 import type {
   ChartColumn,
   ChartSpec,

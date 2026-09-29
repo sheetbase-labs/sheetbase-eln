@@ -216,9 +216,7 @@ describe('AUTO-PLUS-03 eval: correctness', () => {
             name: 'AUTO03 eval pipe',
             description: 'AUTO-PLUS-03 correctness fixture.',
           },
-          inputReferences: [
-            { kind: 'dataset_version', id: pinned.versionId },
-          ],
+          inputReferences: [{ kind: 'dataset_version', id: pinned.versionId }],
         },
         {
           key: 'commit_value',
@@ -237,9 +235,7 @@ describe('AUTO-PLUS-03 eval: correctness', () => {
               },
             ],
           },
-          inputReferences: [
-            { kind: 'dataset_version', id: pinned.versionId },
-          ],
+          inputReferences: [{ kind: 'dataset_version', id: pinned.versionId }],
         },
       ],
     }
@@ -264,9 +260,10 @@ describe('AUTO-PLUS-03 eval: correctness', () => {
         )`,
       [created.id],
     )
-    await owner.query(`SELECT api.decide_agent_operation($1,1,'approve',NULL)`, [
-      pending.rows[0].id,
-    ])
+    await owner.query(
+      `SELECT api.decide_agent_operation($1,1,'approve',NULL)`,
+      [pending.rows[0].id],
+    )
     await owner.query(`SELECT api.execute_agent_operation($1,2)`, [
       pending.rows[0].id,
     ])
@@ -400,9 +397,10 @@ describe('AUTO-PLUS-03 eval: permission isolation', () => {
     )
     const proposalId = proposalRow.rows[0].id
     await expectDenied(
-      agentClient.query(`SELECT api.decide_agent_operation($1,1,'approve',NULL)`, [
-        proposalId,
-      ]),
+      agentClient.query(
+        `SELECT api.decide_agent_operation($1,1,'approve',NULL)`,
+        [proposalId],
+      ),
       '42501',
     )
     await expectDenied(
@@ -412,9 +410,7 @@ describe('AUTO-PLUS-03 eval: permission isolation', () => {
       '42501',
     )
     await expectDenied(
-      agentClient.query(`SELECT api.resume_agent_workflow($1,2)`, [
-        created.id,
-      ]),
+      agentClient.query(`SELECT api.resume_agent_workflow($1,2)`, [created.id]),
       '42501',
     )
 
@@ -547,9 +543,7 @@ describe('AUTO-PLUS-03 eval: failure behaviour', () => {
       `SELECT operation FROM api.agent_operation_proposals WHERE id=$1`,
       [retried.rows[0].proposal_id],
     )
-    expect(retriedProposal.rows[0].operation).toEqual(
-      current.rows[0].operation,
-    )
+    expect(retriedProposal.rows[0].operation).toEqual(current.rows[0].operation)
   })
 
   it('budget exhaustion terminates the run but preserves the audit trail', async () => {

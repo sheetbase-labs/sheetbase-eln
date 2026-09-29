@@ -562,10 +562,11 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 - **Projects list ported**: `/projects` renders app-3's screen wired to
   `project_list_summary` + `create_project`, inside app-3's shell. The ELN's
   `projects.tsx` list, `components/projects/project-list.tsx`, its story and the
-  old list tests are deleted. Member summary (from `project_members`) and the
-  started date are wired on the project Overview and detail meta; the remaining
-  gap is milestones (PROJ-02). The New dialog maps
-  client (code → id) and stage, not lead (needs a member-name list).
+  old list tests are deleted. The project Overview shows the real member summary
+  (from `project_members`), the started date and the project's milestones —
+  reconciled with the study model (`study_deliverables` reached through
+  `study_tasks.project_id`); authoring milestones lands with PROJ-02. The New
+  dialog maps client (code → id) and stage, not lead (needs a member-name list).
 - **Project detail ported**: `/projects/$projectId` is app-3's frame (crumbs,
   title, status/client/modality/stage/lead meta) with Overview and Settings
   tabs, wired to `project_list_summary`, `fetchRecordsForProject`,

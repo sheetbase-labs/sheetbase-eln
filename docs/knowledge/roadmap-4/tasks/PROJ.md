@@ -76,7 +76,7 @@ state; archived projects are read-only and excluded unless asked for.
 
 ## PROJ-02 — Milestones
 
-**Status:** proposed. **DEC-03:** absorbs `/planner` study tasks; the standalone route retires.
+**Status:** proposed. **DEC-03:** absorbs `/planner` study tasks; the standalone route retires. The UI port reconciled the project Overview's Milestones with `study_deliverables` (reached through `study_tasks.project_id`) as a read-only list; the milestone RPCs (create/reorder/update/link evidence) and the ProjectDetail/LVV/Ambr design remain.
 
 ### Design
 

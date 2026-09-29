@@ -209,3 +209,62 @@ export async function moveRecordsToFolder(
     p_folder_id: folderId,
   })
 }
+
+// ---------------------------------------------------------------------------
+// PROJ-02 — project milestones, reconciled with the study model
+// (study_deliverables reached through the project's study tasks).
+// ---------------------------------------------------------------------------
+
+export interface ProjectMilestone {
+  id: string
+  name: string
+  status: string
+  dueAt: string | null
+  linkedRecordId: string | null
+  linkedRecordIdentifier: string | null
+}
+
+interface MilestoneWire {
+  id: string
+  name: string
+  status: string
+  due_at: string | null
+  linked_record_id: string | null
+  linked_record_identifier: string | null
+}
+
+export function useProjectMilestones(projectId: string) {
+  return useQuery({
+    queryKey: ['ui-port', 'project-milestones', projectId],
+    enabled: projectId.length > 0,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ProjectMilestone[]> => {
+      const tasks = await projectDataClient.list<{ id: string }>(
+        'study_tasks',
+        `?project_id=eq.${encodeURIComponent(projectId)}&select=id`,
+      )
+      if (tasks.length === 0) return []
+      const ids = tasks.map((t) => t.id)
+      const rows: MilestoneWire[] = []
+      for (let i = 0; i < ids.length; i += 12) {
+        const chunk = ids
+          .slice(i, i + 12)
+          .map((id) => encodeURIComponent(id))
+          .join(',')
+        const part = await projectDataClient.list<MilestoneWire>(
+          'study_deliverables',
+          `?task_id=in.(${chunk})&select=id,name,status,due_at,linked_record_id,linked_record_identifier&order=due_at.asc.nullslast,id.asc`,
+        )
+        rows.push(...part)
+      }
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        status: r.status,
+        dueAt: r.due_at,
+        linkedRecordId: r.linked_record_id,
+        linkedRecordIdentifier: r.linked_record_identifier,
+      }))
+    },
+  })
+}

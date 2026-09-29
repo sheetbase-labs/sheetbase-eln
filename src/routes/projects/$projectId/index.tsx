@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import {
@@ -22,6 +22,7 @@ import {
 } from '#/components/v3/ui/table'
 import {
   fetchProjectMembers,
+  useProjectMilestones,
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
 import { statusLabel, statusTone } from '../$projectId'
@@ -36,9 +37,34 @@ export const Route = createFileRoute('/projects/$projectId/')({
   component: ProjectOverview,
 })
 
+function milestoneTone(status: string): {
+  tone: 'draft' | 'progress' | 'ok' | 'bad' | 'none'
+  label: string
+} {
+  switch (status) {
+    case 'planned':
+      return { tone: 'draft', label: 'Planned' }
+    case 'in_progress':
+      return { tone: 'progress', label: 'In progress' }
+    case 'delivered':
+      return { tone: 'ok', label: 'Delivered' }
+    case 'overdue':
+      return { tone: 'bad', label: 'Overdue' }
+    default:
+      return {
+        tone: 'none',
+        label: status
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase()),
+      }
+  }
+}
+
 function ProjectOverview() {
   const { projectId } = Route.useParams()
   const { project } = useProjectSummary(projectId)
+  const milestonesQuery = useProjectMilestones(projectId)
+  const milestones = milestonesQuery.data ?? []
   const recordsQuery = useQuery({
     queryKey: notebookQueryKeys.records(projectId),
     queryFn: () => fetchRecordsForProject(notebookDataClient, projectId),
@@ -90,12 +116,56 @@ function ProjectOverview() {
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
-        <Section title="Milestones">
-          <EmptyState
-            className="py-2"
-            title="No milestones yet"
-            body="Milestones group the experiments that count as evidence. The capability that stores them is not built yet."
-          />
+        <Section title="Milestones" count={milestones.length}>
+          {milestones.length ? (
+            <TableBox>
+              <Table aria-label="Project milestones">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Milestone</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Due</TableHead>
+                    <TableHead>Evidence</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {milestones.map((m) => {
+                    const tone = milestoneTone(m.status)
+                    return (
+                      <TableRow key={m.id}>
+                        <TableCell className="font-medium">{m.name}</TableCell>
+                        <TableCell>
+                          <Status tone={tone.tone}>{tone.label}</Status>
+                        </TableCell>
+                        <TableCell className="mono text-fg-muted">
+                          {m.dueAt ? m.dueAt.slice(0, 10) : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {m.linkedRecordId ? (
+                            <Link
+                              to="/records/$recordId"
+                              params={{ recordId: m.linkedRecordId }}
+                              className="text-link mono"
+                            >
+                              {m.linkedRecordIdentifier ?? 'Record'}
+                            </Link>
+                          ) : (
+                            <span className="text-fg-muted">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableBox>
+          ) : (
+            <EmptyState
+              className="py-2"
+              title="No milestones yet"
+              body="Milestones are the project's deliverables with a target date, linked to the records that evidence them."
+            />
+          )}
         </Section>
 
         <Section
@@ -149,8 +219,9 @@ function ProjectOverview() {
         </Section>
 
         <Muted>
-          Milestones arrive with PROJ-02; folders, members and settings are on
-          their tabs.
+          Milestones are the project's study deliverables; authoring them from
+          here lands with PROJ-02. Folders, members and settings are on their
+          tabs.
         </Muted>
       </div>
 

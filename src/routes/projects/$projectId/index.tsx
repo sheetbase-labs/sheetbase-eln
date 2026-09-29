@@ -20,7 +20,10 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { useProjectSummary } from '#/components/v3/projects/project-data'
+import {
+  fetchProjectMembers,
+  useProjectSummary,
+} from '#/components/v3/projects/project-data'
 import { statusLabel, statusTone } from '../$projectId'
 import {
   fetchRecordsForProject,
@@ -50,6 +53,19 @@ function ProjectOverview() {
     [experiments],
   )
   const { userLabel } = useUserNames(ownerIds)
+  const membersQuery = useQuery({
+    queryKey: ['project-members', projectId],
+    queryFn: () => fetchProjectMembers(projectId),
+    staleTime: 60_000,
+  })
+  const memberSummary = membersQuery.data?.length
+    ? `${membersQuery.data
+        .slice(0, 3)
+        .map((m) => m.name)
+        .join(', ')}${
+        membersQuery.data.length > 3 ? ` +${membersQuery.data.length - 3}` : ''
+      }`
+    : '—'
 
   if (!project) return null
 
@@ -59,6 +75,8 @@ function ProjectOverview() {
     ['Modality', project.modality ?? '—'],
     ['Stage', project.stage ?? '—'],
     ['Lead', project.leadName ?? '—'],
+    ['Members', memberSummary],
+    ['Started', project.startedOn ?? '—'],
     ...(project.agreementReference
       ? ([
           [
@@ -131,8 +149,8 @@ function ProjectOverview() {
         </Section>
 
         <Muted>
-          Folder organisation, members and per-project governance arrive with
-          their capability tasks.
+          Milestones arrive with PROJ-02; folders, members and settings are on
+          their tabs.
         </Muted>
       </div>
 

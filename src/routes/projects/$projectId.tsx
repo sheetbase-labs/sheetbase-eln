@@ -74,6 +74,9 @@ function ProjectLayout() {
             {project.modality ? <span>{project.modality}</span> : null}
             {project.stage ? <span>{project.stage}</span> : null}
             {project.leadName ? <span>Lead {project.leadName}</span> : null}
+            {project.startedOn ? (
+              <span>Started {project.startedOn}</span>
+            ) : null}
           </>
         }
         tabs={

@@ -16,9 +16,8 @@ import type { ScanResolution, ScanTarget } from '#/components/v3/scan/scan-data'
 /**
  * UI port (roadmap-4/ui-app3): the Scan screen (MOB-02 / LAB-05). Camera
  * scanning uses the browser BarcodeDetector where available; typing an
- * identifier always works. Results resolve against real records and
- * instruments. Aliases are not modelled yet, so only canonical identifiers
- * resolve and that is stated rather than faked.
+ * identifier or an "also known as" alias always works. Results resolve against
+ * real records and instruments.
  */
 export const Route = createFileRoute('/scan')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -173,7 +172,12 @@ function ScanPage() {
               <div className="min-w-0 flex-1">
                 <div className="mono text-fg-muted">{hit.identifier}</div>
                 <div className="text-[15px] font-semibold">{hit.title}</div>
-                <div className="text-label text-fg-muted">{hit.line}</div>
+                <div className="text-label text-fg-muted">
+                  {hit.line}
+                  {hit.matchedAlias ? (
+                    <> · also known as {hit.matchedAlias}</>
+                  ) : null}
+                </div>
               </div>
               <Status tone={hit.status.tone}>{hit.status.label}</Status>
             </div>
@@ -226,7 +230,7 @@ function ScanPage() {
           <Field
             label="Can’t scan? Type the ID"
             className="min-w-0 flex-1"
-            hint="Canonical identifiers only (SMP-, EXP-, INS-…). Aliases are not modelled yet."
+            hint="Identifiers (SMP-, EXP-, INS-…) or an alias such as a harvest lot."
           >
             <Input
               value={code}

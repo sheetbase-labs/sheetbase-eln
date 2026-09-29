@@ -127,12 +127,13 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   now-unused instrument-monitor library are deleted. The screens suite covers
   `/instruments` (54 routes × 2 widths clean).
 
-- **Scan and the phone suite (MOB-01 / MOB-02 / LAB-05)**: the phone bottom
-  bar now matches app-3 (Today, Scan, Inbox, Menu) and `/scan` resolves a typed
-  or camera-scanned code to a real record or instrument by its stable
-  identifier, with a result card, suggestions and recent scans. Aliases are not
-  modelled yet, so only canonical identifiers resolve and the screen says so.
-  app-3's `tests/phone.mjs` is ported as `tests/browser-scripts/phone.mjs` and
+- **Scan and the phone suite (MOB-01 / MOB-02 / LAB-05 / LAB-06)**: the phone
+  bottom bar now matches app-3 (Today, Scan, Inbox, Menu) and `/scan` resolves a
+  typed or camera-scanned code to a real record or instrument by its stable
+  identifier or an "also known as" alias, with a result card, suggestions and
+  recent scans. Aliases are a DB-first capability (`api.record_aliases`, RLS,
+  `add_record_alias` / `remove_record_alias`, contract tests). app-3's
+  `tests/phone.mjs` is ported as `tests/browser-scripts/phone.mjs` and
   `pnpm test:phone` runs it: phone bottom bar and hidden side nav, Scan
   resolving a discovered sample, the navigation drawer, the inspector and
   dialogs as full-width bottom sheets, the tablet drawer and the laptop rail —

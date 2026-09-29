@@ -3,10 +3,9 @@ import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /**
- * UI port (roadmap-4/ui-app3): the Scan surface (MOB-02 / LAB-05). Resolves a
- * typed or scanned code to a real record or instrument by its stable identifier.
- * LAB-06's "also known as" aliases are not modelled yet, so only canonical
- * identifiers resolve; that is stated on the screen rather than faked.
+ * UI port (roadmap-4/ui-app3): the Scan surface (MOB-02 / LAB-05 / LAB-06).
+ * Resolves a typed or scanned code to a real record or instrument by its stable
+ * identifier or an "also known as" alias.
  */
 export interface ScanTarget {
   /** Record uuid or instrument uuid. */
@@ -18,6 +17,8 @@ export interface ScanTarget {
   status: { tone: Tone; label: string }
   /** Secondary line: kind label and type/status detail. */
   line: string
+  /** Set when the code matched an "also known as" alias, not the identifier. */
+  matchedAlias?: string
 }
 
 interface RecordWire {
@@ -34,6 +35,11 @@ interface InstrumentWire {
   name: string
   instrument_type: string
   connection_status: string
+}
+
+interface AliasWire {
+  record_id: string
+  alias: string
 }
 
 const RECORD_FIELDS = 'id,identifier,title,kind,status'
@@ -125,7 +131,7 @@ export async function resolveScanCode(
   const exact = encodeURIComponent(trimmed)
   const fuzzy = encodeURIComponent(`*${trimmed}*`)
 
-  const [exactRecords, exactInstruments] = await Promise.all([
+  const [exactRecords, exactInstruments, exactAliases] = await Promise.all([
     client.list<RecordWire>(
       'records',
       `?select=${RECORD_FIELDS}&identifier=eq.${exact}&limit=5`,
@@ -134,11 +140,17 @@ export async function resolveScanCode(
       'instruments',
       `?select=${INSTRUMENT_FIELDS}&display_id=eq.${exact}&limit=5`,
     ),
+    client.list<AliasWire>(
+      'record_aliases',
+      `?select=record_id,alias&alias=ilike.${exact}&limit=5`,
+    ),
   ])
 
+  const exactAliasTargets = await aliasTargets(client, exactAliases)
   const exactTargets = [
     ...exactRecords.map(toRecordTarget),
     ...exactInstruments.map(toInstrumentTarget),
+    ...exactAliasTargets,
   ]
   if (exactTargets.length > 0) {
     return {
@@ -149,7 +161,7 @@ export async function resolveScanCode(
     }
   }
 
-  const [fuzzyRecords, fuzzyInstruments] = await Promise.all([
+  const [fuzzyRecords, fuzzyInstruments, fuzzyAliases] = await Promise.all([
     client.list<RecordWire>(
       'records',
       `?select=${RECORD_FIELDS}&identifier=ilike.${fuzzy}&limit=8`,
@@ -158,10 +170,37 @@ export async function resolveScanCode(
       'instruments',
       `?select=${INSTRUMENT_FIELDS}&display_id=ilike.${fuzzy}&limit=8`,
     ),
+    client.list<AliasWire>(
+      'record_aliases',
+      `?select=record_id,alias&alias=ilike.${fuzzy}&limit=8`,
+    ),
   ])
+  const fuzzyAliasTargets = await aliasTargets(client, fuzzyAliases)
   const suggestions = [
     ...fuzzyRecords.map(toRecordTarget),
     ...fuzzyInstruments.map(toInstrumentTarget),
+    ...fuzzyAliasTargets,
   ].slice(0, 5)
   return { found: false, code: trimmed, suggestions }
+}
+
+/** Resolve alias rows to record targets, keeping the matched alias. */
+async function aliasTargets(
+  client: DataClient,
+  aliases: AliasWire[],
+): Promise<ScanTarget[]> {
+  if (aliases.length === 0) return []
+  const ids = Array.from(new Set(aliases.map((a) => a.record_id)))
+  const records = await client.list<RecordWire>(
+    'records',
+    `?select=${RECORD_FIELDS}&id=in.(${ids.map((id) => encodeURIComponent(id)).join(',')})`,
+  )
+  const byId = new Map(records.map((r) => [r.id, r]))
+  const out: ScanTarget[] = []
+  for (const alias of aliases) {
+    const record = byId.get(alias.record_id)
+    if (record)
+      out.push({ ...toRecordTarget(record), matchedAlias: alias.alias })
+  }
+  return out
 }

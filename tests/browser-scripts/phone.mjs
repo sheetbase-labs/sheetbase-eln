@@ -71,8 +71,18 @@ await p.waitForURL(/\/scan/)
 check(p.url().endsWith('/scan'), 'Phone: Scan opens /scan')
 
 const sampleIdentifier = ids.sampleIdentifier
+const scanInput = () => p.getByPlaceholder(/SMP-0001/)
 if (sampleIdentifier) {
-  await p.getByLabel('Can’t scan? Type the ID').fill(sampleIdentifier)
+  if (ids.alias) {
+    await scanInput().fill(ids.alias)
+    await p.getByRole('button', { name: 'Find' }).tap()
+    await p.waitForTimeout(900)
+    check(
+      await p.getByText(sampleIdentifier).first().isVisible(),
+      'Scan: an "also known as" alias resolves the sample',
+    )
+  }
+  await scanInput().fill(sampleIdentifier)
   await p.getByRole('button', { name: 'Find' }).tap()
   await p.getByText(sampleIdentifier).first().waitFor()
   check(

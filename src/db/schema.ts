@@ -934,6 +934,41 @@ export const recordLinks = api.table(
 )
 
 /**
+ * LAB-06 — a record's "also known as" names. The stable identifier never
+ * changes; an alias is a secondary code people scan or type (for example a
+ * harvest lot). Readable by workspace members; writes go through the
+ * `add_record_alias` / `remove_record_alias` RPCs.
+ */
+export const recordAliases = api.table(
+  'record_aliases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    alias: text('alias').notNull(),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_record_aliases_alias',
+      sql`length(btrim(${table.alias})) BETWEEN 1 AND 120`,
+    ),
+    uniqueIndex('uq_record_aliases_workspace_alias').on(
+      table.workspaceId,
+      sql`lower(${table.alias})`,
+    ),
+    index('idx_record_aliases_record').on(table.recordId),
+  ],
+)
+
+/**
  * file_objects holds the universal storage-boundary metadata for a `file`
  * record (SCI-003, decision 0028). 1:1 with a file record: the record carries
  * identity, ownership, links, events and audit; this table carries the storage

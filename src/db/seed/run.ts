@@ -379,6 +379,22 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   {
+    name: 'demo sample alias: LVV-CAR-T harvest lot',
+    run: async (db) => {
+      // LAB-06 "also known as": a harvest lot people scan or type that
+      // resolves to the drug-substance sample.
+      await db
+        .insert(schema.recordAliases)
+        .values({
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          recordId: DEMO_SAMPLE_RECORD_ID,
+          alias: 'HL-0934',
+          createdByUserId: DEV_USER.id,
+        })
+        .onConflictDoNothing()
+    },
+  },
+  {
     name: 'demo archived sample: expired LVV reference lot',
     run: async (db) => {
       // Insert (or restore) the archived reference sample, then mark it

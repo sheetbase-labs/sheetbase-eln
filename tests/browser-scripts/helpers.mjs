@@ -69,6 +69,7 @@ export async function discover() {
       revisions,
       sheets,
       instruments,
+      aliases,
     ] = await Promise.all([
       get('/api/db/rpc/project_list_summary?limit=1'),
       get('/api/db/records?kind=eq.experiment&limit=1&select=id,identifier'),
@@ -82,6 +83,7 @@ export async function discover() {
       get('/api/db/revisions?limit=1&select=id'),
       get('/api/db/sheet_instances?limit=1&select=id'),
       get('/api/db/instruments?limit=1&select=id'),
+      get('/api/db/record_aliases?limit=1&select=alias'),
     ])
     let versions = []
     if (datasets[0]?.id) {
@@ -104,6 +106,7 @@ export async function discover() {
       revision: revisions[0]?.id,
       sheet: sheets[0]?.id,
       instrument: instruments[0]?.id,
+      alias: aliases[0]?.alias,
       versions,
     }
   })

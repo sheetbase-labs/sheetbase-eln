@@ -2,20 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { Pause, Play } from 'lucide-react'
 
-import { PageHeader } from '#/components/v3/ui/layout'
+import { PageHeader, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { ConnectorCredentialsCard } from '#/components/integrations/credentials-card'
 import { EnterpriseSourcePanel } from '#/components/integrations/enterprise-source-panel'
 import { IngestPanel } from '#/components/integrations/ingest-panel'
-import { RunHistory } from '#/components/integrations/run-history'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Separator,
-} from '#/components/ui'
+import { RunHistory } from '#/components/v3/integrations/run-history'
 import { createDataClient } from '#/lib/data-client'
 import { hasCapability } from '#/lib/capability'
 import {
@@ -148,29 +141,23 @@ function ConnectorDetailRoute() {
       />
 
       <div className="grid min-h-0 flex-1 gap-4 overflow-auto p-4 md:p-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuration</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <p>
-                <span className="text-muted-foreground">Parser identity:</span>{' '}
-                {connector.parser_id ?? 'none (non-ingestion connector)'}
-                {parser ? ` (${parser.label}, version ${parser.version})` : ''}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Settings:</span> config
-                is non-secret only; third-party credentials are sealed secrets
-                managed by stewards.
-              </p>
-              <Separator />
-              <p className="text-muted-foreground text-xs">
-                Registered {new Date(connector.created_at).toLocaleString()} ·
-                updated {new Date(connector.updated_at).toLocaleString()}
-              </p>
-            </CardContent>
-          </Card>
+        <div className="flex flex-col gap-4">
+          <Section title="Configuration">
+            <p className="m-0 text-body">
+              <span className="text-fg-muted">Parser identity:</span>{' '}
+              {connector.parser_id ?? 'none (non-ingestion connector)'}
+              {parser ? ` (${parser.label}, version ${parser.version})` : ''}
+            </p>
+            <p className="m-0 text-body">
+              <span className="text-fg-muted">Settings:</span> config is
+              non-secret only; third-party credentials are sealed secrets
+              managed by stewards.
+            </p>
+            <p className="m-0 border-t border-border pt-2 text-label text-fg-muted">
+              Registered {new Date(connector.created_at).toLocaleString()} ·
+              updated {new Date(connector.updated_at).toLocaleString()}
+            </p>
+          </Section>
 
           {connector.connector_type === 'instrument' &&
             connector.parser_id &&
@@ -203,14 +190,9 @@ function ConnectorDetailRoute() {
           ) : null}
         </div>
 
-        <Card className="self-start">
-          <CardHeader>
-            <CardTitle>Run history</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RunHistory connectorId={connector.id} />
-          </CardContent>
-        </Card>
+        <Section title="Run history" className="self-start">
+          <RunHistory connectorId={connector.id} />
+        </Section>
       </div>
     </div>
   )

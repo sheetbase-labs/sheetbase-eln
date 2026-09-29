@@ -35,6 +35,10 @@ if (ids.protocol) {
       `protocol ${tab} tab activates`,
     )
   }
+  check(
+    (await page.getByRole('heading', { name: 'Version history' }).count()) > 0,
+    'protocol Versions tab renders the version history',
+  )
 } else {
   console.log(
     'note no protocol templates in this workspace — skipped detail checks',

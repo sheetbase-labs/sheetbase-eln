@@ -21,6 +21,7 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
+import type { RevisionWire } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { protocolStatus } from '../protocols'
 
@@ -65,7 +66,18 @@ function ProtocolPage() {
     queryKey: ['ui-port', 'protocol-links', protocolId],
     queryFn: () => fetchLinksForRecord(notebookDataClient, protocolId),
   })
-  const names = useUserNames(record.data ? [record.data.createdByUserId] : [])
+  const revisions = useQuery({
+    queryKey: ['ui-port', 'protocol-revisions', protocolId],
+    queryFn: () =>
+      notebookDataClient.list<RevisionWire>(
+        'revisions',
+        `?record_id=eq.${encodeURIComponent(protocolId)}&order=created_at.desc,id.desc&limit=50`,
+      ),
+  })
+  const names = useUserNames([
+    ...(record.data ? [record.data.createdByUserId] : []),
+    ...(revisions.data ?? []).map((r) => r.created_by_user_id),
+  ])
   const p = record.data
 
   if (!p) {
@@ -113,7 +125,7 @@ function ProtocolPage() {
                 ['document', 'Document', undefined],
                 ['template', 'Template', blocks.data?.length],
                 ['usedby', 'Used by', links.data?.length],
-                ['versions', 'Versions', undefined],
+                ['versions', 'Versions', revisions.data?.length],
               ] as [ProtocolTab, string, number | undefined][]
             ).map(([key, label, count]) => (
               <button
@@ -218,11 +230,57 @@ function ProtocolPage() {
           </div>
         ) : (
           <div className="px-4 py-4 md:px-6">
-            <EmptyState
-              icon="protocol"
-              title="Version history is not modelled yet"
-              body="Controlled versions with approval chains are a later capability; new experiments will pin the version they start from."
-            />
+            <Section
+              title="Version history"
+              count={revisions.data?.length ?? 0}
+            >
+              {revisions.data?.length ? (
+                <TableBox className="max-w-[900px]">
+                  <Table aria-label="Protocol version history">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead align="right">Version</TableHead>
+                        <TableHead>Reason</TableHead>
+                        <TableHead>Author</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {revisions.data.map((r, i) => (
+                        <TableRow key={r.id}>
+                          <TableCell align="right" className="num">
+                            v{revisions.data.length - i}
+                          </TableCell>
+                          <TableCell>{r.reason}</TableCell>
+                          <TableCell>
+                            {names.userLabel(r.created_by_user_id)}
+                          </TableCell>
+                          <TableCell className="text-fg-muted">
+                            {r.created_at.slice(0, 16).replace('T', ' ')}
+                          </TableCell>
+                          <TableCell align="right">
+                            <Link
+                              to="/evidence/$revisionId"
+                              params={{ revisionId: r.id }}
+                              className="text-link"
+                            >
+                              Evidence
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableBox>
+              ) : (
+                <EmptyState
+                  icon="protocol"
+                  title="No frozen versions yet"
+                  body="A version is frozen when the protocol is submitted for review. New experiments pin the version they start from."
+                />
+              )}
+            </Section>
           </div>
         )}
       </div>

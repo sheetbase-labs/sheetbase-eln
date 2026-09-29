@@ -344,11 +344,12 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 - **Protocols area added**: `/protocols` lists protocol-template records (ID,
   protocol, status, owner, updated; tabs All/Active/In review/Drafts) and
-  `/protocols/$protocolId` frames one with Document, Template and Used by tabs —
-  the template reads the record's real notebook blocks, Used by reads
-  `record_links`, and the controlled document, versions and training are stated
-  as gaps. The nav lists Protocols, and the screens/areas suites cover the
-  list and detail (43 routes × 2 widths clean).
+  `/protocols/$protocolId` frames one with Document, Template, Used by and
+  Versions tabs — the template reads the record's real notebook blocks, Used by
+  reads `record_links`, and Versions reads the record's frozen `revisions` with
+  an Evidence link per version. The controlled document and training are stated
+  as gaps. The nav lists Protocols, and the screens/areas suites cover the list
+  and detail.
 
 - **Settings — instruments and parsers ported**: `/settings/instruments` lists
   the inbound instrument connectors and the registered parser catalogue

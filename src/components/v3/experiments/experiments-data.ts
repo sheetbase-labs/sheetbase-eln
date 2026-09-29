@@ -17,6 +17,8 @@ export interface ExperimentListRow {
   ownerId: string
   owner: string
   status: { tone: Tone; label: string }
+  protocol: string
+  protocolRecordId: string | null
   started: string
   updated: string
   recent: boolean
@@ -76,6 +78,8 @@ export function toExperimentListRow(
     ownerId: row.created_by_user_id,
     owner: ownerNames.get(row.created_by_user_id) ?? '—',
     status: experimentStatus(row.status),
+    protocol: '—',
+    protocolRecordId: null,
     started: row.created_at.slice(0, 10),
     updated: row.updated_at.slice(0, 10),
     recent: !Number.isNaN(updated) && Date.now() - updated <= 30 * 86_400_000,
@@ -108,5 +112,55 @@ export function useProjectNameMap(client: DataClient = notebookDataClient) {
       return new Map(rows.map((r) => [r.id, r.title]))
     },
     staleTime: 60_000,
+  })
+}
+
+interface ProtocolLinkWire {
+  source_record_id: string
+  target_record_id: string | null
+  target_identifier: string | null
+}
+
+export interface ExperimentProtocol {
+  identifier: string
+  recordId: string | null
+}
+
+/** Chunk ids so the proxy's 500-char single-value cap is never exceeded. */
+function chunkIds(ids: string[], size = 12): string[][] {
+  const chunks: string[][] = []
+  for (let i = 0; i < ids.length; i += size) chunks.push(ids.slice(i, i + size))
+  return chunks
+}
+
+/** The protocol each experiment follows, from `record_links` (link_type
+ * 'protocol', experiment as source). */
+export function useExperimentProtocols(
+  experimentIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const key = experimentIds.join(',')
+  return useQuery({
+    queryKey: ['ui-port', 'experiments', 'protocols', key],
+    enabled: experimentIds.length > 0,
+    queryFn: async () => {
+      const map = new Map<string, ExperimentProtocol>()
+      for (const chunk of chunkIds(experimentIds)) {
+        const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+        const rows = await client.list<ProtocolLinkWire>(
+          'record_links',
+          `?source_record_id=in.(${filter})&link_type=eq.protocol&select=source_record_id,target_record_id,target_identifier`,
+        )
+        for (const row of rows) {
+          if (!row.target_identifier) continue
+          map.set(row.source_record_id, {
+            identifier: row.target_identifier,
+            recordId: row.target_record_id,
+          })
+        }
+      }
+      return map
+    },
+    staleTime: 30_000,
   })
 }

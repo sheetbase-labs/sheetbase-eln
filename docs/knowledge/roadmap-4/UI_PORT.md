@@ -492,9 +492,10 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 - **Experiments list ported**: `/experiments` renders app-3's list (tabs
   All/Mine/In progress/In review/Approved/Drafts, filter to last 30 days, sort,
-  table + mobile) on real experiment records; rows open the record. Protocol
-  version, open issues and started date are design fields the model lacks and
-  render as gaps. The nav now lists Experiments; the dedicated
+  table + mobile) on real experiment records; rows open the record. The
+  protocol link is wired from `record_links` (`link_type` 'protocol') and the
+  started date from the record's created date; open issues is still a gap the
+  model does not carry. The nav now lists Experiments; the dedicated
   `/experiments/$expId` frame follows.
 
 - **Sample detail ported**: `/samples/$sampleId` is app-3's frame (crumbs,

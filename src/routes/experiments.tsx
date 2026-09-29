@@ -31,6 +31,7 @@ import { FilterChip } from '#/components/v3/projects/chip'
 import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
 import {
   toExperimentListRow,
+  useExperimentProtocols,
   useExperimentRecords,
   useProjectNameMap,
 } from '#/components/v3/experiments/experiments-data'
@@ -100,6 +101,11 @@ function Experiments() {
   const tab: Tab = search.tab ?? 'all'
   const records = useExperimentRecords(context.workspace?.id)
   const projects = useProjectNameMap()
+  const experimentIds = useMemo(
+    () => (records.data ?? []).map((r) => r.id),
+    [records.data],
+  )
+  const protocols = useExperimentProtocols(experimentIds)
   const [sort, setSort] = useState<'updated' | 'id'>('updated')
   const [draftQ, setDraftQ] = useState(search.q ?? '')
 
@@ -119,10 +125,22 @@ function Experiments() {
 
   const rows: ExperimentListRow[] = useMemo(
     () =>
-      (records.data ?? []).map((r) =>
-        toExperimentListRow(r, projects.data ?? new Map(), ownerNames),
-      ),
-    [records.data, projects.data, ownerNames],
+      (records.data ?? []).map((r) => {
+        const row = toExperimentListRow(
+          r,
+          projects.data ?? new Map(),
+          ownerNames,
+        )
+        const protocol = protocols.data?.get(r.id)
+        return protocol
+          ? {
+              ...row,
+              protocol: protocol.identifier,
+              protocolRecordId: protocol.recordId,
+            }
+          : row
+      }),
+    [records.data, projects.data, ownerNames, protocols.data],
   )
 
   const inTab = (row: ExperimentListRow, t: Tab): boolean =>
@@ -299,6 +317,7 @@ function Experiments() {
             meta: (
               <>
                 <span className="mono">{e.id}</span> · {e.project}
+                {e.protocolRecordId ? <> · {e.protocol}</> : null}
               </>
             ),
             status: e.status,
@@ -362,7 +381,19 @@ function Experiments() {
                     )}
                   </TableCell>
                   <TableCell>{e.owner}</TableCell>
-                  <TableCell className="text-fg-muted">—</TableCell>
+                  <TableCell className="text-fg-muted">
+                    {e.protocolRecordId ? (
+                      <Link
+                        to="/protocols/$protocolId"
+                        params={{ protocolId: e.protocolRecordId }}
+                        className="text-fg hover:text-link"
+                      >
+                        {e.protocol}
+                      </Link>
+                    ) : (
+                      e.protocol
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Status tone={e.status.tone}>{e.status.label}</Status>
                   </TableCell>

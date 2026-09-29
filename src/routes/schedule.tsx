@@ -20,6 +20,7 @@ import {
   bookInstrument,
   useRangeBookings,
   useScheduleResources,
+  useWorkspaceMemberNames,
 } from '#/components/v3/schedule/schedule-data'
 import type {
   ScheduleBooking,
@@ -86,7 +87,17 @@ function Schedule() {
     `${rangeTo}T00:00:00.000Z`,
   )
   const instruments: ScheduleInstrument[] = resourcesQuery.data ?? []
-  const bookings = [...(bookingsQuery.data ?? []), ...added]
+  const membersQuery = useWorkspaceMemberNames()
+  const meId = context.user.id
+  const memberNames = membersQuery.data
+  const bookings = [...(bookingsQuery.data ?? []), ...added].map((b) => ({
+    ...b,
+    mine: Boolean(meId && b.createdByUserId === meId),
+    who: b.createdByUserId
+      ? (memberNames?.get(b.createdByUserId) ?? 'A colleague')
+      : 'A colleague',
+  }))
+  const mineCount = bookings.filter((b) => b.mine).length
   const workItemsQuery = useWorkItems()
   const reviews = (workItemsQuery.data ?? []).filter(
     (i) => i.kind === 'review_requested',
@@ -100,8 +111,8 @@ function Schedule() {
   const instrumentsUsed = new Set(bookings.map((b) => b.resourceId)).size
   const subtitle =
     view === 'day'
-      ? `${fmt(anchor, { weekday: 'long', day: 'numeric', month: 'long' })}${instrumentsUsed ? ` · ${instrumentsUsed} instruments` : ''}`
-      : `Week of ${fmt(weekStart, { day: 'numeric', month: 'long' })}${instrumentsUsed ? ` · ${instrumentsUsed} instruments` : ''}`
+      ? `${fmt(anchor, { weekday: 'long', day: 'numeric', month: 'long' })}${mineCount ? ` · ${mineCount} bookings of yours` : ' · no bookings of yours'}${instrumentsUsed ? ` · ${instrumentsUsed} instruments` : ''}`
+      : `Week of ${fmt(weekStart, { day: 'numeric', month: 'long' })}${mineCount ? ` · ${mineCount} bookings of yours` : ' · no bookings of yours'}${instrumentsUsed ? ` · ${instrumentsUsed} instruments` : ''}`
 
   return (
     <div className="relative flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 pb-6 pt-[18px] md:px-6">
@@ -266,8 +277,13 @@ function DayGrid({
                     <div
                       key={b.id}
                       role="listitem"
-                      title={`${b.start}–${b.end} · ${b.title}`}
-                      className="absolute top-1 flex h-7 items-center truncate rounded-sm border border-border bg-surface-muted px-1.5 text-label text-fg-muted"
+                      title={`${b.start}–${b.end} · ${b.mine ? 'you' : b.who} · ${b.title}`}
+                      className={cn(
+                        'absolute top-1 flex h-7 items-center truncate rounded-sm border px-1.5 text-label',
+                        b.mine
+                          ? 'border-link bg-selection text-fg'
+                          : 'border-border bg-surface-muted text-fg-muted',
+                      )}
                       style={{
                         left: `calc(${pct(b.start)}% + 1px)`,
                         width: `calc(${pct(b.end) - pct(b.start)}% - 2px)`,
@@ -276,6 +292,7 @@ function DayGrid({
                       <span className="sr-only">
                         {b.start}–{b.end}{' '}
                       </span>
+                      {b.mine ? '' : `${b.who} · `}
                       {b.title}
                     </div>
                   ))}
@@ -388,10 +405,16 @@ function WeekGrid({
                       {list.map((b) => (
                         <li
                           key={b.id}
-                          title={`${b.start}–${b.end} · ${b.title}`}
-                          className="truncate rounded-sm border border-border bg-surface-muted px-1 leading-[18px] text-fg-muted"
+                          title={`${b.start}–${b.end} · ${b.mine ? 'you' : b.who} · ${b.title}`}
+                          className={cn(
+                            'truncate rounded-sm border px-1 leading-[18px]',
+                            b.mine
+                              ? 'border-link bg-selection text-fg'
+                              : 'border-border bg-surface-muted text-fg-muted',
+                          )}
                         >
-                          {b.start} {b.title}
+                          {b.start} {b.mine ? '' : `${b.who} · `}
+                          {b.title}
                         </li>
                       ))}
                     </ul>
@@ -443,6 +466,8 @@ function PhoneDay({
                 <span className="block text-body font-medium">{b.title}</span>
                 <span className="block text-label text-fg-muted">
                   {instruments.find((i) => i.id === b.resourceId)?.name ?? '—'}
+                  {' · '}
+                  {b.mine ? 'you' : b.who}
                 </span>
               </span>
             </li>

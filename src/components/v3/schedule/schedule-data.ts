@@ -6,6 +6,7 @@ import {
   fetchCalendarResources,
 } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { fetchWorkspaceMemberIdentities } from '#/components/v3/projects/project-data'
 import type { CalendarBookingWire } from '#/lib/calendar'
 import type { DataClient } from '#/lib/data-client'
 
@@ -28,6 +29,11 @@ export interface ScheduleBooking {
   start: string
   end: string
   timezone: string
+  createdByUserId: string | null
+  /** Set by the screen: whether the current user made this booking. */
+  mine?: boolean
+  /** Set by the screen: the booker's display name. */
+  who?: string
 }
 
 const dayFmt = (timeZone: string) =>
@@ -55,6 +61,7 @@ export function toScheduleBooking(wire: CalendarBookingWire): ScheduleBooking {
     start: timeFmt(tz).format(new Date(wire.starts_at)),
     end: timeFmt(tz).format(new Date(wire.ends_at)),
     timezone: tz,
+    createdByUserId: wire.created_by_user_id,
   }
 }
 
@@ -63,6 +70,19 @@ export const scheduleQueryKeys = {
     ['schedule', 'resources', workspaceId] as const,
   bookings: (workspaceId: string, from: string, to: string) =>
     ['schedule', 'bookings', workspaceId, from, to] as const,
+  members: ['schedule', 'members'] as const,
+}
+
+/** Member display names, so a booking can say who made it (and mark yours). */
+export function useWorkspaceMemberNames() {
+  return useQuery({
+    queryKey: scheduleQueryKeys.members,
+    queryFn: async () => {
+      const members = await fetchWorkspaceMemberIdentities()
+      return new Map(members.map((m) => [m.user_id, m.name]))
+    },
+    staleTime: 60_000,
+  })
 }
 
 export function useScheduleResources(

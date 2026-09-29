@@ -490,9 +490,9 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 - **Sample detail ported**: `/samples/$sampleId` is app-3's frame (crumbs,
   status/type meta, Withdraw/Move actions, tabs Details/Usage/History/Lineage/
   Measurements) on real sample records; Withdraw/Move use `consume_sample` /
-  `transfer_sample`; Usage reads `record_links`; History reads `sample_events`.
-  Lineage and Measurements state their unbuilt capabilities rather than faking
-  a tree. The list's name links into the detail.
+  `transfer_sample`; Usage reads `record_links`; History reads `sample_events`;
+  Lineage reads the real relationship graph. Measurements still states its
+  unbuilt capability rather than faking a table. The list's name links into the detail.
 
 - **Materials list ported**: `/materials` (renamed from `/reagents`) renders
   app-3's materials registry (tabs In stock/Expiring/Quarantine/Expired, search,
@@ -518,8 +518,11 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   phone day list, wired to `calendar_resources` (instruments) and
   `calendar_bookings`; "Book instrument" writes through `create_booking`. The
   old `/calendar` route and its test are deleted; nav and Home point at
-  `/schedule`. Gaps: the wire has no booking creator, so `mine`/who styling is
-  omitted; the "Materials for today" section waits on the materials capability.
+  `/schedule`. Bookings carry their creator (`created_by_user_id`) and the
+  screen marks yours (`border-link bg-selection`, "you" in the phone list) and
+  names other people's from `workspace_members_list`; the subtitle counts
+  "N bookings of yours". The "Materials for today" section still waits on the
+  materials capability.
 
 - **Inbox ported**: `/inbox` renders app-3's list with Needs action / Following
   / Done today tabs, type filters and a details panel, wired to `my_work_items`

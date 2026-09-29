@@ -1,17 +1,9 @@
 import * as React from 'react'
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  Move,
-  Plus,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 
-import { Badge, Button } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Icon } from '#/components/v3/icons'
+import type { IconName } from '#/components/v3/icons'
 import { diffRevisionEnvelopes } from '#/lib/revision-diff'
 import type {
   CanonicalRevisionEnvelope,
@@ -52,14 +44,14 @@ const KIND_META: Record<
   RevisionChangeKind,
   {
     label: string
-    icon: LucideIcon
-    variant: 'success' | 'danger' | 'warning' | 'info'
+    icon: IconName
+    variant: 'add' | 'del' | 'chg' | 'kind'
   }
 > = {
-  added: { label: 'Added', icon: Plus, variant: 'success' },
-  removed: { label: 'Removed', icon: Trash2, variant: 'danger' },
-  modified: { label: 'Modified', icon: RefreshCw, variant: 'warning' },
-  moved: { label: 'Moved', icon: Move, variant: 'info' },
+  added: { label: 'Added', icon: 'plus', variant: 'add' },
+  removed: { label: 'Removed', icon: 'x', variant: 'del' },
+  modified: { label: 'Modified', icon: 'edit', variant: 'chg' },
+  moved: { label: 'Moved', icon: 'move', variant: 'chg' },
 }
 
 const AREA_LABELS: Record<RevisionChange['area'], string> = {
@@ -102,10 +94,9 @@ function focusChange(target: HTMLElement | undefined) {
 
 function KindBadge({ kind }: { kind: RevisionChangeKind }) {
   const meta = KIND_META[kind]
-  const Icon = meta.icon
   return (
     <Badge variant={meta.variant}>
-      <Icon className="size-3" aria-hidden="true" />
+      <Icon name={meta.icon} size={12} aria-hidden="true" />
       {meta.label}
     </Badge>
   )
@@ -121,15 +112,15 @@ function ChangeValue({
   unit?: string
 }) {
   return (
-    <div className="min-w-0 rounded-md border bg-background px-3 py-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="min-w-0 rounded-md border bg-surface px-3 py-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
         {label}
       </p>
-      <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-xs leading-5 text-foreground">
+      <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-xs leading-5 text-fg">
         {exactText(value)}
       </pre>
       {unit ? (
-        <p className="mt-1 font-mono text-xs text-muted-foreground">{unit}</p>
+        <p className="mt-1 font-mono text-xs text-fg-muted">{unit}</p>
       ) : null}
     </div>
   )
@@ -138,7 +129,7 @@ function ChangeValue({
 function ChangeBody({ change }: { change: RevisionChange }) {
   if (change.kind === 'moved') {
     return (
-      <p className="mt-3 text-xs text-muted-foreground">
+      <p className="mt-3 text-xs text-fg-muted">
         Position {(change.beforeOrder ?? 0) + 1} →{' '}
         {(change.afterOrder ?? 0) + 1}
       </p>
@@ -169,13 +160,13 @@ function ChangeCard({
       tabIndex={-1}
       aria-current={active ? 'step' : undefined}
       className={cn(
-        'rounded-lg border bg-card p-3 outline-none',
+        'rounded-lg border bg-surface p-3 outline-none',
         active && 'ring-2 ring-primary/40',
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             {AREA_LABELS[change.area]}
           </p>
           <h3 className="break-words text-sm font-semibold">{change.label}</h3>
@@ -224,17 +215,17 @@ function TableDiffCard({
     <section
       ref={rootRef}
       className={cn(
-        'rounded-lg border bg-card outline-none',
+        'rounded-lg border bg-surface outline-none',
         activeDetailIndex >= 0 && 'ring-2 ring-primary/40',
       )}
     >
       <div className="flex flex-wrap items-center gap-3 p-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Scientific table
           </p>
           <h3 className="text-sm font-semibold">{summary.label}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-fg-muted">
             {summary.addedRows} rows added · {summary.removedRows} rows removed
             {' · '}
             {summary.modifiedCells} cells changed · {summary.schemaChanges}{' '}
@@ -242,13 +233,17 @@ function TableDiffCard({
           </p>
         </div>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           aria-expanded={expanded}
           aria-label={`${expanded ? 'Hide' : 'Show'} changes for ${summary.label}`}
           onClick={() => setExpanded((current) => !current)}
         >
-          {expanded ? <ChevronUp /> : <ChevronDown />}
+          {expanded ? (
+            <Icon name="chevronDown" size={14} className="rotate-180" />
+          ) : (
+            <Icon name="chevronDown" size={14} />
+          )}
           {expanded ? 'Hide details' : `Show ${changes.length} changes`}
         </Button>
       </div>
@@ -277,7 +272,7 @@ function TableDiffCard({
       {expanded && visibleLimit < changes.length ? (
         <div className="border-t p-3">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() =>
               setVisibleLimit((current) =>
@@ -422,20 +417,20 @@ export function RevisionDiffReview({
       aria-label="Revision comparison"
       className={cn('space-y-4', className)}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-card p-3">
+      <header className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-surface p-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Compare revisions
           </p>
           <div className="mt-1 flex items-center gap-2 text-sm font-semibold">
             <span>{beforeLabel}</span>
-            <span aria-hidden="true" className="text-muted-foreground">
+            <span aria-hidden="true" className="text-fg-muted">
               →
             </span>
             <span>{afterLabel}</span>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground" aria-live="polite">
+        <p className="text-xs text-fg-muted" aria-live="polite">
           {diff.changes.length}{' '}
           {diff.changes.length === 1 ? 'change' : 'changes'}
         </p>
@@ -455,7 +450,7 @@ export function RevisionDiffReview({
                 return (
                   <Button
                     key={kind}
-                    variant={enabled ? 'secondary' : 'outline'}
+                    variant={enabled ? 'primary' : 'secondary'}
                     size="sm"
                     aria-pressed={enabled}
                     aria-label={`${enabled ? 'Hide' : 'Show'} ${kind} changes`}
@@ -480,7 +475,7 @@ export function RevisionDiffReview({
                   return (
                     <Button
                       key={area}
-                      variant={enabled ? 'secondary' : 'outline'}
+                      variant={enabled ? 'primary' : 'secondary'}
                       size="sm"
                       aria-pressed={enabled}
                       aria-label={`${enabled ? 'Hide' : 'Show'} ${AREA_LABELS[area]} changes`}
@@ -494,23 +489,23 @@ export function RevisionDiffReview({
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground" aria-live="polite">
+            <span className="text-xs text-fg-muted" aria-live="polite">
               {visibleChanges.length > 0
                 ? `Change ${activeIndex + 1} of ${visibleChanges.length}`
                 : 'No changes match the filters'}
             </span>
             <Button
-              variant="outline"
-              size="icon-sm"
+              variant="secondary"
+              size="icon"
               aria-label="Previous change"
               disabled={activeIndex === 0 || visibleChanges.length === 0}
               onClick={() => navigate(activeIndex - 1)}
             >
-              <ChevronLeft />
+              <Icon name="chevronRight" size={14} className="rotate-180" />
             </Button>
             <Button
-              variant="outline"
-              size="icon-sm"
+              variant="secondary"
+              size="icon"
               aria-label="Next change"
               disabled={
                 activeIndex >= visibleChanges.length - 1 ||
@@ -518,22 +513,22 @@ export function RevisionDiffReview({
               }
               onClick={() => navigate(activeIndex + 1)}
             >
-              <ChevronRight />
+              <Icon name="chevronRight" size={14} />
             </Button>
           </div>
         </div>
       ) : null}
 
       {diff.unchanged ? (
-        <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
+        <div className="rounded-lg border border-dashed bg-surface-muted p-8 text-center">
           <h2 className="text-sm font-semibold">No meaningful changes</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-fg-muted">
             The submitted scientific content is unchanged between these
             revisions.
           </p>
         </div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed p-6 text-center text-sm text-fg-muted">
           No changes match the selected change types.
         </div>
       ) : (

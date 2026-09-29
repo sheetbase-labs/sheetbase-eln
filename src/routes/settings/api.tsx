@@ -1,14 +1,23 @@
 import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { SettingsApiTokens } from '#/components/v3/settings/settings-api-tokens'
+import { SettingsServiceCredentials } from '#/components/v3/settings/settings-service-credentials'
 import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
 import { Muted } from '#/components/v3/ui/layout'
+import {
+  apiCredentialQueryKey,
+  createApiCredentialFn,
+  listApiCredentialsFn,
+  revokeApiCredentialFn,
+  rotateApiCredentialFn,
+} from '#/lib/api-credential-admin'
+import type { CreatedCredentialWire } from '#/lib/api-credential-admin'
 import {
   createPersonalTokenFn,
   listPersonalTokensFn,
@@ -19,8 +28,8 @@ import {
 import type { CreatedPersonalTokenWire } from '#/lib/personal-api-tokens'
 import type { Scope } from '#/lib/api-credential-scopes'
 
-/** UI port (roadmap-4/ui-app3): personal API tokens. A token acts as you; the
- * workspace service credentials are managed by owners under Administration. */
+/** UI port (roadmap-4/ui-app3): personal API tokens and (for owners) workspace
+ * service credentials, both in Settings. */
 export const Route = createFileRoute('/settings/api')({
   component: ApiSettings,
 })
@@ -29,9 +38,12 @@ function ApiSettings() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''
+  const isOwner = context.workspace?.role === 'owner'
   const [revealed, setRevealed] = useState<CreatedPersonalTokenWire | null>(
     null,
   )
+  const [revealedService, setRevealedService] =
+    useState<CreatedCredentialWire | null>(null)
 
   const query = useQuery({
     queryKey: personalTokenQueryKey(context.user.id, workspaceId),
@@ -39,9 +51,19 @@ function ApiSettings() {
     enabled: Boolean(workspaceId),
   })
 
+  const serviceQuery = useQuery({
+    queryKey: apiCredentialQueryKey(workspaceId),
+    queryFn: () => listApiCredentialsFn({ data: { workspaceId } }),
+    enabled: Boolean(workspaceId) && isOwner,
+  })
+
   const invalidate = () =>
     queryClient.invalidateQueries({
       queryKey: personalTokenQueryKey(context.user.id, workspaceId),
+    })
+  const invalidateService = () =>
+    queryClient.invalidateQueries({
+      queryKey: apiCredentialQueryKey(workspaceId),
     })
 
   const createToken = useMutation({
@@ -76,19 +98,43 @@ function ApiSettings() {
     },
   })
 
+  const createService = useMutation({
+    mutationFn: ({
+      name,
+      scopes,
+      expiresAt,
+    }: {
+      name: string
+      scopes: Scope[]
+      expiresAt: string | null
+    }) =>
+      createApiCredentialFn({ data: { workspaceId, name, scopes, expiresAt } }),
+    onSuccess: (created) => {
+      setRevealedService(created)
+      invalidateService()
+    },
+  })
+
+  const revokeService = useMutation({
+    mutationFn: (credentialId: string) =>
+      revokeApiCredentialFn({ data: { workspaceId, credentialId } }),
+    onSuccess: invalidateService,
+  })
+
+  const rotateService = useMutation({
+    mutationFn: (credentialId: string) =>
+      rotateApiCredentialFn({ data: { workspaceId, credentialId } }),
+    onSuccess: (created) => {
+      setRevealedService(created)
+      invalidateService()
+    },
+  })
+
   return (
     <>
       <SettingsHeader title="API and SDK">
-        Personal tokens act as you; workspace service credentials are managed by
-        owners in{' '}
-        <Link
-          to="/admin/$section"
-          params={{ section: 'api-credentials' }}
-          search={{ model: undefined }}
-        >
-          Administration
-        </Link>
-        .
+        Personal tokens act as you. Workspace service credentials are managed
+        here by owners.
       </SettingsHeader>
       <SettingsBody>
         {createToken.isError ? (
@@ -116,6 +162,22 @@ function ApiSettings() {
           <Button variant="secondary" onClick={() => void invalidate()}>
             Retry
           </Button>
+        ) : null}
+        {isOwner ? (
+          serviceQuery.isLoading ? (
+            <Muted>Loading service credentials…</Muted>
+          ) : (
+            <SettingsServiceCredentials
+              tokens={serviceQuery.data ?? []}
+              revealed={revealedService}
+              onCreate={(name, scopes, expiresAt) =>
+                createService.mutate({ name, scopes, expiresAt })
+              }
+              onRevoke={(credentialId) => revokeService.mutate(credentialId)}
+              onRotate={(credentialId) => rotateService.mutate(credentialId)}
+              onDismissRevealed={() => setRevealedService(null)}
+            />
+          )
         ) : null}
       </SettingsBody>
     </>

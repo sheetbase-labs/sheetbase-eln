@@ -420,7 +420,10 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   real SET-01/SET-03 modules (workspace general and id prefixes, personal API
   tokens, user name via Better Auth, appearance via the shared theme store,
   sessions, notification preferences), reskinned onto app-3's v3 kit
-  (`src/components/v3/settings/`). Members and roles (`/settings/members`)
+  (`src/components/v3/settings/`). `/settings/api` also carries the owner-only
+  workspace service credentials (list, create, rotate, revoke) via the
+  owner-gated admin server functions, so the previous link into legacy
+  `/admin` is gone. Members and roles (`/settings/members`)
   is a new page on `workspace_memberships`/`workspace_invitations`: role change,
   suspend, reinstate, remove, invite and revoke go through the workspace-admin
   RPCs, gated on `workspace.admin`. The old single `/settings` page is replaced.

@@ -21,6 +21,7 @@ export const notebookTemplateWireSchema = z
     key: z.string(),
     name: z.string(),
     description: z.string().nullable(),
+    display_id: z.string().nullable(),
     lifecycle: z.enum(['active', 'retired']),
     revision,
     created_at: timestamp,
@@ -58,6 +59,7 @@ export type NotebookTemplate = {
   description: string | null
   lifecycle: 'active' | 'retired'
   revision: number
+  displayId: string | null
   createdAt: string
   updatedAt: string
   createdByUserId: string | null
@@ -121,6 +123,7 @@ export function notebookTemplateFromWire(wire: unknown): NotebookTemplate {
     description: parsed.description,
     lifecycle: parsed.lifecycle,
     revision: parsed.revision,
+    displayId: parsed.display_id,
     createdAt: parsed.created_at,
     updatedAt: parsed.updated_at,
     createdByUserId: parsed.created_by_user_id,

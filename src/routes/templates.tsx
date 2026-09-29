@@ -161,7 +161,8 @@ function TemplatesList() {
           <Table aria-label="Templates" className="max-lg:hidden">
             <TableHeader>
               <TableRow>
-                <TableHead className={stickyHead}>Key</TableHead>
+                <TableHead className={stickyHead}>ID</TableHead>
+                <TableHead>Key</TableHead>
                 <TableHead>Template</TableHead>
                 <TableHead>Kind</TableHead>
                 <TableHead align="right">Version</TableHead>
@@ -182,6 +183,9 @@ function TemplatesList() {
                     onClick={() => setSelected(t.id)}
                   >
                     <TableCell className={stickyCell}>
+                      <span className="mono">{t.displayId ?? '—'}</span>
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
                       <span className="mono">{t.key}</span>
                     </TableCell>
                     <TableCell
@@ -229,7 +233,7 @@ function TemplatesList() {
               const status = templateLifecycle(t.lifecycle)
               return {
                 key: t.id,
-                id: t.key,
+                id: t.displayId ?? t.key,
                 title: t.name,
                 sub: `${t.sectionCount} sections · ${t.inUse} in use · ${ownerName(t.createdByUserId)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,

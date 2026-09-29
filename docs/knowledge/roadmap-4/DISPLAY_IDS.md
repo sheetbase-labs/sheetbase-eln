@@ -1,6 +1,7 @@
 # Display identifiers
 
-**Status (2026-09-28):** open data-model gap found by DSYS-05.4.
+**Status (2026-09-29):** open data-model gap found by DSYS-05.4. The UI port
+resolved `MDL-` and `TPL-` (models, notebook templates); the rest remain.
 
 The design screens label objects with human display identifiers that the data
 model does not store yet. The seed reproduces every stored family (`EXP-`,
@@ -10,15 +11,15 @@ these families have no column:
 | Family                                                                        | Design use                                   | Owning task        |
 | ----------------------------------------------------------------------------- | -------------------------------------------- | ------------------ |
 | `SHT-nnnn`                                                                    | working sheets (`SHT-0019`)                  | SHEET (sheets)     |
-| `MDL-nnnn`                                                                    | models (`MDL-0012`)                          | MDL (models)       |
 | `CB-nnnn`                                                                     | cell banks                                   | LAB (cell banks)   |
 | `AN-nnnn`                                                                     | analyses                                     | Analysis stream    |
-| `TPL-nnnn`                                                                    | notebook templates                           | SHEET/REUSE        |
 | `HL-nnnn`                                                                     | harvest lots                                 | LAB (samples)      |
 | `LT-nn`, `TB-nn`, `PR-nn`, `EM-…`, `MSA-…`, `QC-…`, `SIG-…`, `SOW-…`, `AMB-…` | fixtures, plates, media, samples, signatures | their owning tasks |
 
 Resolved: `DS-`, `PL-`, `CAL-`, `INS-` (earlier tasks); `PRJ-` and `CL-`
-(PROJ-01.1 — `api.projects.display_id`, `api.clients.code`).
+(PROJ-01.1 — `api.projects.display_id`, `api.clients.code`); `MDL-` and `TPL-`
+(UI port — `api.dataset_schema_definitions.display_id`,
+`api.notebook_templates.display_id`).
 
 ## Rule
 

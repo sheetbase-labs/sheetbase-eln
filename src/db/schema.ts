@@ -2294,6 +2294,8 @@ export const datasetSchemaDefinitions = api.table(
     key: text('key').notNull(),
     name: text('name').notNull(),
     description: text('description'),
+    /** DSYS-05.4 — stable workspace display id, e.g. MDL-0012. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('draft'),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
@@ -2548,6 +2550,8 @@ export const notebookTemplates = api.table(
     key: text('key').notNull(),
     name: text('name').notNull(),
     description: text('description'),
+    /** DSYS-05.4 — stable workspace display id, e.g. TPL-0012. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('active'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()

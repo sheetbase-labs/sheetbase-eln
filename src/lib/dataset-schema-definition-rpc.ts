@@ -110,6 +110,7 @@ export interface CanonicalDatasetSchemaDefinition {
   name: string
   description: string | null
   lifecycle: string
+  display_id: string | null
   created_at: string
   updated_at: string
   created_by_user_id: string | null
@@ -146,7 +147,7 @@ export async function listCanonicalDatasetSchemaDefinitions(
 ): Promise<CanonicalDatasetSchemaDefinition[]> {
   return client.list(
     'dataset_schema_definitions',
-    '?select=id,key,name,description,lifecycle,created_at,updated_at,created_by_user_id&order=name.asc',
+    '?select=id,key,name,description,lifecycle,display_id,created_at,updated_at,created_by_user_id&order=name.asc',
   )
 }
 

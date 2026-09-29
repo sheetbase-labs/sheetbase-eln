@@ -74,6 +74,7 @@ function fakeClient(): DataClient {
             key: 'stability_nb',
             name: 'Stability notebook',
             description: null,
+            display_id: null,
             lifecycle: 'active',
             revision: 1,
             created_at: '2026-01-01T00:00:00Z',

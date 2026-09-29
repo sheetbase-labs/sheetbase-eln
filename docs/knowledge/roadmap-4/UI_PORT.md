@@ -184,6 +184,14 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   `/agent-operations` route, its components, stories and component tests are
   deleted; the libraries stay. The pipelines area suite covers the surface.
 
+- **Model and template display ids (DB-first, DSYS-05.4)**: migration `0254`
+  adds immutable, never-reused `MDL-nnnn` / `TPL-nnnn` display ids to
+  `api.dataset_schema_definitions` and `api.notebook_templates`, assigned on
+  insert by a trigger on the shared `internal.next_display_id` allocator and
+  backfilled once. Contract tests cover sequential assignment, an explicit
+  design id and immutability (SB072). The Models and Templates lists show the
+  id column; `DISPLAY_IDS.md` records MDL/TPL as resolved.
+
 - **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
   "Open full lineage" link on the legacy record notebook; it is removed, so the
   crawl reports 0 404s. The crawl also skips `/api/*` hrefs (file downloads
@@ -435,8 +443,9 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   `dataset_schema_version_fields`). New version and Publish run the existing
   RPCs, so the rules stay in the database. A model is a schema; its instances
   are datasets, which is why app-3's Records tab is the Datasets tab here. The
-  app-3 Record/Measurement kind and MDL display id are gaps; owner reads
-  `workspace_members_list`. `nav.ts` now points Models at `/models`.
+  app-3 Record/Measurement kind is a gap; the MDL display id and owner are
+  wired (`display_id`, `workspace_members_list`). `nav.ts` now points Models at
+  `/models`.
 
 - **Acceptance crawl ported**: `pnpm test:crawl [baseUrl] [maxPages]` follows
   every internal link from Home and fails on page errors, horizontal overflow,
@@ -448,9 +457,9 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 - **Templates board ported**: `/templates` renders app-3's list on real protocol
   templates (Template, Kind, Identifier, Status, Updated) with a selected-row
   inspector and Copy link; `?template=`/`?protocol=` deep links select the row.
-  Versioning, sheet/notebook template kinds and the TPL display id are gaps;
-  owner reads `workspace_members_list`. The old template library component, its
-  story and test are deleted.
+  Versioning and sheet/notebook template kinds are gaps; the TPL display id
+  and owner are wired. The old template library component, its story and test
+  are deleted.
 
 - **Dataset Compare ported**: `/datasets/$datasetId/compare` diffs two snapshots
   through `compare_dataset_versions` (row counters, columns changed, per-field

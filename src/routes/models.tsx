@@ -155,7 +155,8 @@ function ModelsList() {
           <Table aria-label="Models" className="max-lg:hidden">
             <TableHeader>
               <TableRow>
-                <TableHead className={stickyHead}>Key</TableHead>
+                <TableHead className={stickyHead}>ID</TableHead>
+                <TableHead>Key</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead align="right">Version</TableHead>
                 <TableHead align="right">Fields</TableHead>
@@ -176,6 +177,9 @@ function ModelsList() {
                     onClick={() => setSelected(m.id)}
                   >
                     <TableCell className={stickyCell}>
+                      <span className="mono">{m.display_id ?? '—'}</span>
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
                       <span className="mono">{m.key}</span>
                     </TableCell>
                     <TableCell
@@ -221,7 +225,7 @@ function ModelsList() {
               const status = modelStatus(m.lifecycle)
               return {
                 key: m.id,
-                id: `${m.key} · ${m.latestVersion ? `v${m.latestVersion.version}` : 'no version'}`,
+                id: `${m.display_id ?? m.key} · ${m.latestVersion ? `v${m.latestVersion.version}` : 'no version'}`,
                 title: m.name,
                 sub: `${m.fieldCount} fields · ${m.datasetCount} datasets · ${ownerName(m.created_by_user_id)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,

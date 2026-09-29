@@ -2,7 +2,8 @@ import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageSquarePlus } from 'lucide-react'
 
-import { Badge, Button } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import {
   commentsQueryKeys,
   createComment,
@@ -131,10 +132,10 @@ export function CommentPanel({
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Badge variant={openCount > 0 ? 'warning' : 'info'}>
+          <Badge variant={openCount > 0 ? 'chg' : 'kind'}>
             {threads.length} {threads.length === 1 ? 'thread' : 'threads'}
           </Badge>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-fg-muted">
             {openCount} open · {threads.length - openCount} resolved
           </span>
         </div>
@@ -143,16 +144,16 @@ export function CommentPanel({
       {loadError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-danger-text"
         >
           Could not load comments.
         </p>
       ) : null}
 
       {loading ? (
-        <p className="text-xs text-muted-foreground">Loading comments…</p>
+        <p className="text-xs text-fg-muted">Loading comments…</p>
       ) : threads.length === 0 && !loadError ? (
-        <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-md border border-dashed bg-surface-muted/30 px-3 py-2 text-xs text-fg-muted">
           No comments yet on this revision.
         </p>
       ) : (
@@ -188,7 +189,7 @@ export function CommentPanel({
       {canComment ? (
         <form onSubmit={handleCreate} className="space-y-2 border-t pt-3">
           <textarea
-            className="min-h-[70px] w-full rounded-md border bg-background px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-[70px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             placeholder="Add a comment on this revision…"
             value={newBody}
             onChange={(event) => setNewBody(event.target.value)}
@@ -204,7 +205,7 @@ export function CommentPanel({
               Add comment
             </Button>
             {createMutation.isPending ? (
-              <span className="text-xs text-muted-foreground">Sending…</span>
+              <span className="text-xs text-fg-muted">Sending…</span>
             ) : null}
           </div>
         </form>
@@ -213,7 +214,7 @@ export function CommentPanel({
       {error ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-danger-text"
         >
           {error}
         </p>

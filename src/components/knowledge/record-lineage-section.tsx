@@ -63,7 +63,7 @@ export function RecordLineageList({
           return (
             <li
               key={row.id}
-              className="flex items-center justify-between gap-2 rounded px-2 py-1 text-xs hover:bg-muted"
+              className="flex items-center justify-between gap-2 rounded px-2 py-1 text-xs hover:bg-surface-muted"
             >
               <span className="min-w-0">
                 {destination ? (
@@ -74,20 +74,18 @@ export function RecordLineageList({
                     {row.identifier}
                   </a>
                 ) : (
-                  <span className="font-mono font-medium text-muted-foreground">
+                  <span className="font-mono font-medium text-fg-muted">
                     {row.identifier}
                     {!node.accessible
                       ? ` (${node.status === 'missing' ? 'missing' : 'restricted'})`
                       : null}
                   </span>
                 )}{' '}
-                <span className="text-muted-foreground">
+                <span className="text-fg-muted">
                   {row.relationshipLabel} · {row.entityTypeLabel}
                 </span>
               </span>
-              <span className="shrink-0 text-muted-foreground">
-                {row.direction}
-              </span>
+              <span className="shrink-0 text-fg-muted">{row.direction}</span>
             </li>
           )
         })}
@@ -115,7 +113,7 @@ export function RecordLineageSection({ recordId }: { recordId: string }) {
       {lineageQuery.isLoading ? (
         <EmptyHint>Loading lineage…</EmptyHint>
       ) : lineageQuery.error ? (
-        <p className="text-xs text-destructive">
+        <p className="text-xs text-danger-text">
           Could not load lineage.{' '}
           {(lineageQuery.error as Error | undefined)?.message ?? ''}
         </p>

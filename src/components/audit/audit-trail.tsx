@@ -8,7 +8,8 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { Button, Skeleton } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import { cn } from '#/lib/utils'
 
 /**
@@ -101,7 +102,7 @@ export function AuditTrail({
 
   if (events.length === 0) {
     return (
-      <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+      <p className="rounded-md border border-dashed bg-surface-muted/30 px-3 py-2 text-xs text-fg-muted">
         No activity yet
       </p>
     )
@@ -129,12 +130,12 @@ export function AuditTrail({
                   className="absolute left-4 top-8 h-[calc(100%-1.5rem)] w-px bg-border"
                 />
               ) : null}
-              <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground">
+              <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-surface text-fg-muted">
                 <Icon className="size-3.5" aria-hidden="true" />
               </span>
               <div className="min-w-0 pt-1">
                 <p className="text-sm font-medium">{event.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="truncate text-xs text-fg-muted">
                   {actor?.unknown ? 'Unknown user' : (actor?.name ?? 'System')}
                   {' · '}
                   {event.timestamp}
@@ -149,7 +150,7 @@ export function AuditTrail({
       {hasMore && onLoadMore ? (
         <div className="pt-3">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={onLoadMore}
             disabled={loadingMore}
@@ -162,7 +163,7 @@ export function AuditTrail({
         </div>
       ) : null}
       {totalCount !== undefined ? (
-        <p className="pt-2 text-xs text-muted-foreground">
+        <p className="pt-2 text-xs text-fg-muted">
           Showing {events.length} of {totalCount} events
         </p>
       ) : null}

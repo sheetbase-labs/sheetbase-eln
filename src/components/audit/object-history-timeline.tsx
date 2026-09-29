@@ -20,7 +20,9 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 
-import { Badge, Button, Skeleton } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import {
   auditLinkFor,
   describeAuditEvent,
@@ -104,30 +106,30 @@ function actorLabel(event: AuditEventWire): string {
 function ChangeChip({ change }: { change: FieldChange }) {
   return (
     <div className="flex flex-wrap items-center gap-1 text-xs">
-      <span className="text-muted-foreground">{change.label}:</span>
+      <span className="text-fg-muted">{change.label}:</span>
       {change.kind === 'changed' ? (
         <>
-          <span className="rounded bg-muted px-1 py-px font-mono text-muted-foreground line-through decoration-border">
+          <span className="rounded bg-surface-muted px-1 py-px font-mono text-fg-muted line-through decoration-border">
             {change.from}
           </span>
           <span aria-hidden>→</span>
-          <span className="rounded bg-primary/10 px-1 py-px font-mono text-foreground">
+          <span className="rounded bg-primary/10 px-1 py-px font-mono text-fg">
             {change.to}
           </span>
         </>
       ) : change.kind === 'added' ? (
         <>
           <span className="sr-only">set to </span>
-          <span className="rounded bg-primary/10 px-1 py-px font-mono text-foreground">
+          <span className="rounded bg-primary/10 px-1 py-px font-mono text-fg">
             {change.to}
           </span>
         </>
       ) : (
         <>
-          <span className="rounded bg-destructive/10 px-1 py-px font-mono text-destructive line-through decoration-destructive/40">
+          <span className="rounded bg-destructive/10 px-1 py-px font-mono text-danger-text line-through decoration-destructive/40">
             {change.from}
           </span>
-          <span className="text-muted-foreground">(removed)</span>
+          <span className="text-fg-muted">(removed)</span>
         </>
       )}
     </div>
@@ -137,10 +139,10 @@ function ChangeChip({ change }: { change: FieldChange }) {
 function RawPayload({ event }: { event: AuditEventWire }) {
   return (
     <details className="pt-1">
-      <summary className="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
+      <summary className="cursor-pointer select-none text-xs text-fg-muted hover:text-fg">
         Raw event
       </summary>
-      <pre className="mt-1 overflow-x-auto rounded-md border bg-muted/40 p-2 font-mono text-[11px] leading-snug text-muted-foreground">
+      <pre className="mt-1 overflow-x-auto rounded-md border bg-surface-muted/40 p-2 font-mono text-[11px] leading-snug text-fg-muted">
         {JSON.stringify(
           {
             sequence: event.sequence,
@@ -174,21 +176,21 @@ function GroupRow({
         aria-hidden="true"
         className="absolute left-4 top-9 h-[calc(100%-1.5rem)] w-px bg-border last:hidden"
       />
-      <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground">
+      <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-surface text-fg-muted">
         <Icon className="size-3.5" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1 pt-0.5">
         <p className="flex flex-wrap items-center gap-x-1.5 text-sm">
           <span className="font-medium">{actorLabel(group.primary)}</span>
-          <span className="text-muted-foreground">{described.action}</span>
+          <span className="text-fg-muted">{described.action}</span>
           <span className="truncate font-medium">{described.subject}</span>
           {correlated ? (
-            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+            <Badge variant="kind" className="h-4 px-1 text-[10px]">
               rotation
             </Badge>
           ) : null}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-fg-muted">
           <time dateTime={group.primary.createdAt}>
             {formatRelativeTime(group.primary.createdAt)}
           </time>{' '}
@@ -204,7 +206,7 @@ function GroupRow({
               return (
                 <div
                   key={related.id}
-                  className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground"
+                  className="flex flex-wrap items-center gap-1 text-xs text-fg-muted"
                 >
                   <span aria-hidden>↳</span>
                   {relatedDescribed.action} {relatedDescribed.subject}
@@ -266,7 +268,7 @@ export function ObjectHistoryTimeline({
     return (
       <p
         role="alert"
-        className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+        className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-danger-text"
       >
         {error}
       </p>
@@ -277,7 +279,7 @@ export function ObjectHistoryTimeline({
 
   if (groups.length === 0) {
     return (
-      <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+      <p className="rounded-md border border-dashed bg-surface-muted/30 px-3 py-2 text-xs text-fg-muted">
         No recorded activity for this object yet.
       </p>
     )
@@ -297,7 +299,7 @@ export function ObjectHistoryTimeline({
       {hasMore && onLoadMore ? (
         <div className="pt-3">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={onLoadMore}
             disabled={loadingMore}

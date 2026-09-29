@@ -145,7 +145,7 @@ describe('ThreadPanel', () => {
         }}
       />,
     )
-    fireEvent.click(screen.getByLabelText('Unresolved only'))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Unresolved only' }))
     expect(screen.getByTestId('thread-t-open')).toBeTruthy()
     expect(screen.queryByTestId('thread-t-resolved')).toBeNull()
     // The count still reflects every thread on this anchor.

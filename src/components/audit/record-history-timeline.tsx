@@ -15,7 +15,8 @@ import type { LucideIcon } from 'lucide-react'
 
 import { AuditTrail } from './audit-trail'
 import type { AuditEvent } from './audit-trail'
-import { Button, Skeleton } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import type { TimelineEventWire } from '#/lib/sign-002'
 
 /**
@@ -185,12 +186,12 @@ export function RecordHistoryTimeline({
   if (error) {
     return (
       <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-danger-text">
           Could not load the record history.
         </p>
         {onRefresh ? (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={onRefresh}
             disabled={refreshing}
@@ -209,14 +210,14 @@ export function RecordHistoryTimeline({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">Complete history</h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fg-muted">
             Creation, edits, submissions, comments, checks, signatures and
             amendments — in the order they happened.
           </p>
         </div>
         {onRefresh ? (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={onRefresh}
             disabled={refreshing}
@@ -227,7 +228,7 @@ export function RecordHistoryTimeline({
       </div>
       <AuditTrail events={mapped} totalCount={mapped.length} />
       {revisionId ? (
-        <p className="font-mono text-xs text-muted-foreground/70">
+        <p className="font-mono text-xs text-fg-muted/70">
           Revision {revisionId.slice(0, 12)}…
           {integrityDigest
             ? ` · integrity ${integrityDigest.slice(0, 16)}…`

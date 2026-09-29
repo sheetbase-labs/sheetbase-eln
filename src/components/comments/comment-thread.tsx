@@ -1,7 +1,8 @@
 import * as React from 'react'
 import { CheckCircle2, MessageSquare, RotateCcw } from 'lucide-react'
 
-import { Badge, Button } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import { cn } from '#/lib/utils'
 import type { CommentTargetKind, CommentWire } from '#/lib/comments-data'
 
@@ -94,7 +95,7 @@ function CommentRow({
   )
   const deleted = comment.author_user_id === null
   return (
-    <article className="rounded-lg border bg-card p-3">
+    <article className="rounded-lg border bg-surface p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-2">
           <span
@@ -103,7 +104,7 @@ function CommentRow({
             className={cn(
               'flex size-6 items-center justify-center rounded-full text-xs font-semibold',
               deleted
-                ? 'bg-muted text-muted-foreground'
+                ? 'bg-surface-muted text-fg-muted'
                 : 'bg-primary/15 text-primary',
             )}
           >
@@ -111,11 +112,11 @@ function CommentRow({
           </span>
           <span className="text-xs font-medium">{label}</span>
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-fg-muted">
           {formatRelative(comment.created_at)}
         </span>
       </div>
-      <p className="mt-2 break-words text-sm leading-6 text-foreground whitespace-pre-wrap">
+      <p className="mt-2 break-words text-sm leading-6 text-fg whitespace-pre-wrap">
         {comment.body}
       </p>
     </article>
@@ -150,7 +151,7 @@ export function CommentThread({
   return (
     <li className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={resolved ? 'success' : 'info'}>
+        <Badge variant={resolved ? 'add' : 'kind'}>
           {resolved ? (
             <>
               <CheckCircle2 className="size-3" aria-hidden="true" />
@@ -163,9 +164,7 @@ export function CommentThread({
             </>
           )}
         </Badge>
-        <span className="text-xs text-muted-foreground">
-          Anchored to {targetLabel}
-        </span>
+        <span className="text-xs text-fg-muted">Anchored to {targetLabel}</span>
       </div>
 
       <CommentRow
@@ -198,7 +197,7 @@ export function CommentThread({
         <div className="flex flex-wrap items-center gap-2">
           {!resolved ? (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => onResolve(root.id)}
               aria-label="Resolve thread"
@@ -208,7 +207,7 @@ export function CommentThread({
             </Button>
           ) : (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => onReopen(root.id)}
               aria-label="Reopen thread"
@@ -219,7 +218,7 @@ export function CommentThread({
           )}
           {!showReply ? (
             <Button
-              variant="ghost"
+              variant="quiet"
               size="sm"
               onClick={() => setShowReply(true)}
               aria-label="Reply to thread"
@@ -233,7 +232,7 @@ export function CommentThread({
       {showReply && canComment ? (
         <form onSubmit={handleReply} className="space-y-2 pl-5">
           <textarea
-            className="min-h-[60px] w-full rounded-md border bg-background px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-[60px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             placeholder="Write a reply…"
             value={replyBody}
             onChange={(event) => setReplyBody(event.target.value)}
@@ -249,7 +248,7 @@ export function CommentThread({
             </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="quiet"
               size="sm"
               onClick={() => {
                 setShowReply(false)

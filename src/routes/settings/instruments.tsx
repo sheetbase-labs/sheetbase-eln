@@ -244,9 +244,9 @@ function Instruments() {
           </InspectorSection>
           <InspectorSection title="Calibration">
             <Muted>
-              Calibration records are not modelled yet, so no due dates are
-              shown. The connector still records every import with its file
-              hash.
+              Calibration is recorded on the instrument itself (see
+              Instruments). The connector still records every import with its
+              file hash.
             </Muted>
           </InspectorSection>
         </Inspector>

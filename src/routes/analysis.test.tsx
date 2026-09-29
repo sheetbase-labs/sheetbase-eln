@@ -318,6 +318,7 @@ function view(overrides: Partial<AnalysisViewWire> = {}): AnalysisViewWire {
     workspace_id: 'ws-1',
     owner_user_id: 'u-1',
     name: 'pH over time',
+    display_id: null,
     version: 1,
     spec: spec(),
     source_revisions: [

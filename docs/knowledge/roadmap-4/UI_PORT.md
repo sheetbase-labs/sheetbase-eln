@@ -184,13 +184,14 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   `/agent-operations` route, its components, stories and component tests are
   deleted; the libraries stay. The pipelines area suite covers the surface.
 
-- **Model and template display ids (DB-first, DSYS-05.4)**: migration `0254`
-  adds immutable, never-reused `MDL-nnnn` / `TPL-nnnn` display ids to
-  `api.dataset_schema_definitions` and `api.notebook_templates`, assigned on
-  insert by a trigger on the shared `internal.next_display_id` allocator and
-  backfilled once. Contract tests cover sequential assignment, an explicit
-  design id and immutability (SB072). The Models and Templates lists show the
-  id column; `DISPLAY_IDS.md` records MDL/TPL as resolved.
+- **Display ids (DB-first, DSYS-05.4)**: migrations `0254`/`0255` add immutable,
+  never-reused display ids to `api.dataset_schema_definitions` (`MDL-`),
+  `api.notebook_templates` (`TPL-`), `api.sheet_instances` (`SHT-`) and
+  `api.analysis_views` (`AN-`), assigned on insert by triggers on the shared
+  `internal.next_display_id` allocator and backfilled once. Contract tests cover
+  sequential assignment, an explicit design id and immutability. The Models,
+  Templates, working-sheet and saved-analysis headers show the id;
+  `DISPLAY_IDS.md` records the four families as resolved.
 
 - **Acceptance-suite fixes**: the retired `/lineage` explorer left a dead
   "Open full lineage" link on the legacy record notebook; it is removed, so the

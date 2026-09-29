@@ -725,6 +725,8 @@ describe('Sheet Instance durability and authority', () => {
     ).toEqual([
       { tgname: 'change_event_sheet_instances', tgenabled: 'O', count: 1 },
       { tgname: 'guard_sheet_instance', tgenabled: 'O', count: 1 },
+      { tgname: 'prevent_sheet_display_id_change', tgenabled: 'O', count: 1 },
+      { tgname: 'sheet_instances_assign_display_id', tgenabled: 'O', count: 1 },
     ])
     expect(
       (

@@ -2762,6 +2762,8 @@ export const sheetInstances = api.table(
     ),
     name: text('name').notNull(),
     description: text('description'),
+    /** DSYS-05.4 — stable workspace display id, e.g. SHT-0019. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('active'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
@@ -4781,6 +4783,8 @@ export const analysisViews = api.table(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    /** DSYS-05.4 — stable workspace display id, e.g. AN-0057. */
+    displayId: text('display_id'),
     // Bumped by the bump_analysis_view_version trigger on every UPDATE.
     version: integer('version').notNull().default(1),
     spec: jsonb('spec').notNull(),

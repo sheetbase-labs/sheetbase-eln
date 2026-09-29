@@ -1770,6 +1770,13 @@
       "when": 1790671155980,
       "tag": "0254_conscious_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1790673567358,
+      "tag": "0255_chubby_banshee",
+      "breakpoints": true
     }
   ]
 }

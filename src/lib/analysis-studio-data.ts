@@ -118,6 +118,7 @@ export interface AnalysisViewWire {
   workspace_id: string
   owner_user_id: string
   name: string
+  display_id: string | null
   version: number
   spec: ChartSpec
   source_revisions: SourceRevision[]

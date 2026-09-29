@@ -1677,8 +1677,8 @@ async function seedDesignDatasets(
 
         await client.query(
           `insert into api.datasets
-           (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id, display_id)
-         values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+           (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id)
+         values ($1,$2,$3,$4,$5,$6,$7)`,
           [
             dataset.id,
             dataset.workspaceId,

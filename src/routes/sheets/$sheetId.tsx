@@ -113,6 +113,9 @@ function ComposedSheetRoute() {
         title={instance?.name ?? 'Sheet'}
         meta={
           <>
+            {instance?.displayId ? (
+              <span className="mono">{instance.displayId}</span>
+            ) : null}
             <span>{instance ? `v${instance.revision}` : 'Loading…'}</span>
             {instance?.sourceDefinitionVersionId ? (
               <span className="max-lg:hidden">From a template</span>

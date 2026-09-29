@@ -123,7 +123,10 @@ function AnalysisView() {
               <Link to="/analysis" className="text-link">
                 Analysis
               </Link>{' '}
-              / <span className="mono">v{view.version}</span>
+              /{' '}
+              <span className="mono">
+                {view.display_id ?? `v${view.version}`}
+              </span>
             </>
           }
           title={view.name}

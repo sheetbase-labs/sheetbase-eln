@@ -139,12 +139,16 @@ function routes(ids) {
       `/experiments/${ids.experiment}/datasets`,
       `/experiments/${ids.experiment}/notebook`,
       `/records/${ids.experiment}/notebook`,
+      `/experiments/${ids.experiment}/results`,
+      `/experiments/${ids.experiment}/results?state=gap`,
     )
   if (ids.sample)
     list.push(
       `/samples/${ids.sample}`,
       `/samples/${ids.sample}/usage`,
       `/samples/${ids.sample}/history`,
+      `/samples/${ids.sample}/measurements`,
+      `/samples/${ids.sample}/measurements?state=gap`,
     )
   if (ids.dataset)
     list.push(

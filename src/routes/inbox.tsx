@@ -10,7 +10,9 @@ import {
   DescriptionList,
 } from '#/components/v3/ui/layout'
 import { Kbd } from '#/components/v3/ui/kbd'
+import { CapabilityGap } from '#/components/v3/ui/capability-gap'
 import { cn } from '#/lib/utils'
+import { capabilityRoadmap } from '#/lib/capabilities'
 import { groupWorkItems, useWorkItems } from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
 
@@ -71,6 +73,9 @@ function itemLink(item: WorkItem) {
 }
 
 function Inbox() {
+  const { auth } = Route.useRouteContext()
+  const role = auth?.workspace?.role
+  const admin = role === 'owner' || role === 'admin'
   const query = useWorkItems()
   const items = query.data ?? []
   const [tab, setTab] = useState<InboxTab>('needs-action')
@@ -176,6 +181,20 @@ function Inbox() {
           <span className="shrink-0 whitespace-nowrap text-label text-fg-muted max-lg:hidden">
             Sorted by due date · <Kbd>J</Kbd>/<Kbd>K</Kbd> to move
           </span>
+        </div>
+
+        <div className="px-4 pt-2 md:px-6">
+          <CapabilityGap
+            variant="inline"
+            title="Data-issue, material and signature items aren’t in the Inbox yet"
+            will="Dataset errors, material expiries and signature requests will appear here alongside reviews and failed runs."
+            roadmap={capabilityRoadmap.inboxKinds}
+            admin={admin}
+            instead={[
+              { label: 'Datasets with errors', link: { to: '/datasets' } },
+              { label: 'Materials', link: { to: '/materials' } },
+            ]}
+          />
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">

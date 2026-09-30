@@ -44,6 +44,7 @@ import {
 } from '#/lib/planner'
 import type { StudyTask } from '#/lib/planner'
 import { capabilityRoadmap } from '#/lib/capabilities'
+import { cn } from '#/lib/utils'
 
 /**
  * UI port (roadmap-4/ui-app3): the project Milestones tab (PROJ-02), replacing
@@ -242,6 +243,19 @@ function Milestones() {
           </Button>
         </div>
 
+        <MilestoneTimeline
+          milestones={milestones}
+          selectedId={selected.id}
+          onSelect={(id) =>
+            void navigate({
+              to: '/projects/$projectId/milestones',
+              params: { projectId },
+              search: (prev: Record<string, unknown>) => ({ ...prev, m: id }),
+              replace: true,
+            })
+          }
+        />
+
         <div className="overflow-hidden rounded-md border border-border">
           <Table aria-label="Milestones">
             <TableHeader>
@@ -404,6 +418,88 @@ function Milestones() {
           busy={move.isPending}
         />
       ) : null}
+    </div>
+  )
+}
+
+function MilestoneTimeline({
+  milestones,
+  selectedId,
+  onSelect,
+}: {
+  milestones: StudyTask[]
+  selectedId: string
+  onSelect: (id: string) => void
+}) {
+  const dates = milestones
+    .map((m) => (m.dueAt ? Date.parse(m.dueAt) : null))
+    .filter((d): d is number => d !== null)
+  if (dates.length === 0) return null
+  const now = Date.now()
+  const min = Math.min(...dates, now)
+  const max = Math.max(...dates, now)
+  const span = max - min || 1
+  const pos = (t: number) => ((t - min) / span) * 100
+  // Month ticks across the range.
+  const months: { label: string; left: number }[] = []
+  const cursor = new Date(min)
+  cursor.setDate(1)
+  cursor.setHours(0, 0, 0, 0)
+  while (cursor.getTime() <= max) {
+    months.push({
+      label: cursor.toLocaleDateString('en-GB', { month: 'short' }),
+      left: pos(cursor.getTime()),
+    })
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+  return (
+    <div
+      aria-label="Milestone timeline"
+      className="relative mb-3 h-16 rounded-md border border-border bg-surface-muted/40 max-md:hidden"
+    >
+      <div className="absolute inset-x-3 top-1/2 h-px bg-border" />
+      {months.map((m) => (
+        <span
+          key={`${m.label}-${m.left}`}
+          className="absolute top-1 -translate-x-1/2 text-caption text-fg-muted"
+          style={{ left: `calc(${m.left}% )` }}
+        >
+          {m.label}
+        </span>
+      ))}
+      {milestones.map((m) => {
+        if (!m.dueAt) return null
+        const status = milestoneStatus(m)
+        const tone =
+          status.tone === 'ok'
+            ? 'bg-success'
+            : status.tone === 'bad'
+              ? 'bg-danger'
+              : status.tone === 'review' || status.tone === 'progress'
+                ? 'bg-warning'
+                : 'bg-link'
+        return (
+          <button
+            key={m.id}
+            type="button"
+            title={`${m.title} · ${m.dueAt.slice(0, 10)}`}
+            aria-label={`${m.title}, due ${m.dueAt.slice(0, 10)}`}
+            aria-pressed={m.id === selectedId}
+            onClick={() => onSelect(m.id)}
+            className={cn(
+              'absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-pointer border-0 p-0',
+              tone,
+              m.id === selectedId && 'ring-2 ring-focus',
+            )}
+            style={{ left: `${pos(Date.parse(m.dueAt))}%` }}
+          />
+        )
+      })}
+      <span
+        className="absolute top-1/2 h-10 -translate-x-1/2 -translate-y-1/2 border-l border-dashed border-fg-muted"
+        style={{ left: `${pos(now)}%` }}
+        title="Today"
+      />
     </div>
   )
 }

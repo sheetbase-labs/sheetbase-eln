@@ -55,6 +55,7 @@ import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pip
 import { Route as PipelinesAgentsRouteImport } from './routes/pipelines/agents'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$protocolId'
+import { Route as ReadingsNewRouteImport } from './routes/readings/new'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
 import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionId'
 import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
@@ -101,6 +102,7 @@ import { Route as ModelsModelIdDatasetsRouteImport } from './routes/models/$mode
 import { Route as ModelsModelIdFieldsRouteImport } from './routes/models/$modelId/fields'
 import { Route as ModelsModelIdVersionsRouteImport } from './routes/models/$modelId/versions'
 import { Route as PipelinesPipelineIdIndexRouteImport } from './routes/pipelines/$pipelineId/index'
+import { Route as PipelinesPipelineIdStepsRouteImport } from './routes/pipelines/$pipelineId/steps'
 import { Route as PipelinesPipelineIdTriggersRouteImport } from './routes/pipelines/$pipelineId/triggers'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
 import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
@@ -362,6 +364,11 @@ const ProtocolsProtocolIdRoute = ProtocolsProtocolIdRouteImport.update({
   path: '/$protocolId',
   getParentRoute: () => ProtocolsRoute,
 } as any)
+const ReadingsNewRoute = ReadingsNewRouteImport.update({
+  id: '/readings/new',
+  path: '/readings/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecordsRecordIdRoute = RecordsRecordIdRouteImport.update({
   id: '/records/$recordId',
   path: '/records/$recordId',
@@ -599,6 +606,12 @@ const PipelinesPipelineIdIndexRoute =
     path: '/',
     getParentRoute: () => PipelinesPipelineIdRoute,
   } as any)
+const PipelinesPipelineIdStepsRoute =
+  PipelinesPipelineIdStepsRouteImport.update({
+    id: '/steps',
+    path: '/steps',
+    getParentRoute: () => PipelinesPipelineIdRoute,
+  } as any)
 const PipelinesPipelineIdTriggersRoute =
   PipelinesPipelineIdTriggersRouteImport.update({
     id: '/triggers',
@@ -814,6 +827,7 @@ export interface FileRoutesByFullPath {
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
+  '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
@@ -856,6 +870,7 @@ export interface FileRoutesByFullPath {
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
   '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
+  '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
@@ -931,6 +946,7 @@ export interface FileRoutesByTo {
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
+  '/readings/new': typeof ReadingsNewRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
@@ -970,6 +986,7 @@ export interface FileRoutesByTo {
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
   '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
+  '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
@@ -1053,6 +1070,7 @@ export interface FileRoutesById {
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
+  '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
@@ -1095,6 +1113,7 @@ export interface FileRoutesById {
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
   '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
+  '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
@@ -1179,6 +1198,7 @@ export interface FileRouteTypes {
     | '/pipelines/agents'
     | '/projects/$projectId'
     | '/protocols/$protocolId'
+    | '/readings/new'
     | '/records/$recordId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
@@ -1221,6 +1241,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/datasets'
     | '/models/$modelId/fields'
     | '/models/$modelId/versions'
+    | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
@@ -1296,6 +1317,7 @@ export interface FileRouteTypes {
     | '/instruments/$instrumentId'
     | '/pipelines/agents'
     | '/protocols/$protocolId'
+    | '/readings/new'
     | '/review/$revisionId'
     | '/settings/access'
     | '/settings/api'
@@ -1335,6 +1357,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/datasets'
     | '/models/$modelId/fields'
     | '/models/$modelId/versions'
+    | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
@@ -1417,6 +1440,7 @@ export interface FileRouteTypes {
     | '/pipelines/agents'
     | '/projects/$projectId'
     | '/protocols/$protocolId'
+    | '/readings/new'
     | '/records/$recordId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
@@ -1459,6 +1483,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/datasets'
     | '/models/$modelId/fields'
     | '/models/$modelId/versions'
+    | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
@@ -1529,6 +1554,7 @@ export interface RootRouteChildren {
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   DocsNameRoute: typeof DocsNameRoute
   EvidenceRevisionIdRoute: typeof EvidenceRevisionIdRoute
+  ReadingsNewRoute: typeof ReadingsNewRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
   ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
   SheetsSheetIdRoute: typeof SheetsSheetIdRoute
@@ -1880,6 +1906,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtocolsProtocolIdRouteImport
       parentRoute: typeof ProtocolsRoute
     }
+    '/readings/new': {
+      id: '/readings/new'
+      path: '/readings/new'
+      fullPath: '/readings/new'
+      preLoaderRoute: typeof ReadingsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/records/$recordId': {
       id: '/records/$recordId'
       path: '/records/$recordId'
@@ -2200,6 +2233,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/pipelines/$pipelineId/'
       preLoaderRoute: typeof PipelinesPipelineIdIndexRouteImport
+      parentRoute: typeof PipelinesPipelineIdRoute
+    }
+    '/pipelines/$pipelineId/steps': {
+      id: '/pipelines/$pipelineId/steps'
+      path: '/steps'
+      fullPath: '/pipelines/$pipelineId/steps'
+      preLoaderRoute: typeof PipelinesPipelineIdStepsRouteImport
       parentRoute: typeof PipelinesPipelineIdRoute
     }
     '/pipelines/$pipelineId/triggers': {
@@ -2561,6 +2601,7 @@ const ModelsRouteWithChildren =
   ModelsRoute._addFileChildren(ModelsRouteChildren)
 
 interface PipelinesPipelineIdRouteChildren {
+  PipelinesPipelineIdStepsRoute: typeof PipelinesPipelineIdStepsRoute
   PipelinesPipelineIdTriggersRoute: typeof PipelinesPipelineIdTriggersRoute
   PipelinesPipelineIdIndexRoute: typeof PipelinesPipelineIdIndexRoute
   PipelinesPipelineIdRunsRunIdRoute: typeof PipelinesPipelineIdRunsRunIdRoute
@@ -2568,6 +2609,7 @@ interface PipelinesPipelineIdRouteChildren {
 }
 
 const PipelinesPipelineIdRouteChildren: PipelinesPipelineIdRouteChildren = {
+  PipelinesPipelineIdStepsRoute: PipelinesPipelineIdStepsRoute,
   PipelinesPipelineIdTriggersRoute: PipelinesPipelineIdTriggersRoute,
   PipelinesPipelineIdIndexRoute: PipelinesPipelineIdIndexRoute,
   PipelinesPipelineIdRunsRunIdRoute: PipelinesPipelineIdRunsRunIdRoute,
@@ -2786,6 +2828,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   DocsNameRoute: DocsNameRoute,
   EvidenceRevisionIdRoute: EvidenceRevisionIdRoute,
+  ReadingsNewRoute: ReadingsNewRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
   ReviewRevisionIdRoute: ReviewRevisionIdRoute,
   SheetsSheetIdRoute: SheetsSheetIdRoute,

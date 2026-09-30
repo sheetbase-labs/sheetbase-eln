@@ -185,6 +185,10 @@ function PipelineLayout() {
                 link: { to: '/pipelines/$pipelineId/runs', params },
               },
               {
+                label: 'Steps',
+                link: { to: '/pipelines/$pipelineId/steps', params },
+              },
+              {
                 label: 'Triggers',
                 link: { to: '/pipelines/$pipelineId/triggers', params },
               },

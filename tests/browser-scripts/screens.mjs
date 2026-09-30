@@ -111,6 +111,8 @@ function routes(ids) {
     '/instruments?tab=retired',
     '/instruments?state=denied',
     '/scan',
+    '/readings/new',
+    '/readings/new?state=gap',
     '/experiments/new',
     '/templates',
     '/models',
@@ -184,6 +186,7 @@ function routes(ids) {
       `/pipelines/${ids.pipeline}`,
       `/pipelines/${ids.pipeline}/runs`,
       `/pipelines/${ids.pipeline}/triggers`,
+      `/pipelines/${ids.pipeline}/steps`,
     )
   if (ids.template)
     list.push(

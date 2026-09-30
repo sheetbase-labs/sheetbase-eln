@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { CapabilityGap } from '#/components/v3/ui/capability-gap'
 import {
   Table,
   TableBody,
@@ -23,9 +24,10 @@ import {
 } from '#/lib/notebook-data'
 import type { RevisionWire } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
+import { capabilityRoadmap } from '#/lib/capabilities'
 import { protocolStatus } from '../protocols'
 
-const tabs = ['document', 'template', 'usedby', 'versions'] as const
+const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
 type ProtocolTab = (typeof tabs)[number]
 
 /** UI port (roadmap-4/ui-app3): the protocol detail frame. The record's
@@ -37,7 +39,8 @@ export const Route = createFileRoute('/protocols/$protocolId')({
       search.tab === 'template' ||
       search.tab === 'usedby' ||
       search.tab === 'versions' ||
-      search.tab === 'document'
+      search.tab === 'document' ||
+      search.tab === 'training'
         ? search.tab
         : undefined,
   }),
@@ -53,6 +56,9 @@ export const Route = createFileRoute('/protocols/$protocolId')({
 
 function ProtocolPage() {
   const { protocolId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+  const role = context.workspace?.role
+  const admin = role === 'owner' || role === 'admin'
   const [tab, setTab] = useState<ProtocolTab>('document')
   const record = useQuery({
     queryKey: notebookQueryKeys.record(protocolId),
@@ -126,6 +132,7 @@ function ProtocolPage() {
                 ['template', 'Template', blocks.data?.length],
                 ['usedby', 'Used by', links.data?.length],
                 ['versions', 'Versions', revisions.data?.length],
+                ['training', 'Training', undefined],
               ] as [ProtocolTab, string, number | undefined][]
             ).map(([key, label, count]) => (
               <button
@@ -153,10 +160,43 @@ function ProtocolPage() {
       <div className="min-h-0 flex-1 overflow-auto">
         {tab === 'document' ? (
           <div className="px-4 py-4 md:px-6">
-            <EmptyState
-              icon="protocol"
-              title="The controlled document is not modelled yet"
-              body="Purpose, parameters, procedure and acceptance criteria are a later capability. The protocol record, its template and its links are real today."
+            <CapabilityGap
+              title="The controlled document isn’t tracked here yet"
+              will="Each protocol version will link to its controlled copy — purpose, parameters, procedure and acceptance criteria — with its document-management identity."
+              roadmap={capabilityRoadmap.protocolDocuments}
+              admin={admin}
+              instead={[
+                {
+                  label: 'Protocol versions',
+                  link: {
+                    to: '/protocols/$protocolId',
+                    params: { protocolId },
+                    search: { tab: 'versions' },
+                  },
+                  note: 'The real revisions of this protocol.',
+                },
+                {
+                  label: 'Document management integration',
+                  link: { to: '/settings/integrations' },
+                  note: 'Controlled copies stay in your QMS.',
+                },
+              ]}
+            />
+          </div>
+        ) : tab === 'training' ? (
+          <div className="px-4 py-4 md:px-6">
+            <CapabilityGap
+              title="Training isn’t tracked here yet"
+              will="Each protocol version will show who has read it, so only trained people can start experiments from it."
+              roadmap={capabilityRoadmap.protocolDocuments}
+              admin={admin}
+              instead={[
+                {
+                  label: 'Members and roles',
+                  link: { to: '/settings/members' },
+                  note: 'Who is in the workspace today.',
+                },
+              ]}
             />
           </div>
         ) : tab === 'template' ? (

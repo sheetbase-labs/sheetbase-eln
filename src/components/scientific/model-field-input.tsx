@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { definitionOfModelField } from '#/lib/model-fields'
-import { Button, Checkbox, Input, Label, Select } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Input } from '#/components/v3/ui/input'
+import { NativeSelect } from '#/components/v3/projects/select'
 import {
   fieldEditorPresentation,
   selectableFieldOptions,
@@ -62,7 +65,7 @@ export function ModelFieldInput({
 
   if (presentation.kind === 'checkbox') {
     return (
-      <Label
+      <div
         className={`flex items-center gap-2 text-xs ${showLabel ? '' : 'justify-end'}`}
       >
         <Checkbox
@@ -71,16 +74,16 @@ export function ModelFieldInput({
           aria-label={definition.label}
         />
         {showLabel ? definition.label : null}
-      </Label>
+      </div>
     )
   }
 
   if (presentation.kind === 'category-select') {
     return (
-      <Label className="text-xs text-muted-foreground">
+      <label className="text-xs text-fg-muted">
         {showLabel ? definition.label : null}
         {showLabel && !definition.nullable ? ' *' : ''}
-        <Select
+        <NativeSelect
           className={`${showLabel ? 'mt-1' : ''} h-8 text-xs`}
           value={String(value)}
           onChange={(event) => onChange(event.target.value)}
@@ -92,8 +95,8 @@ export function ModelFieldInput({
               {option.label}
             </option>
           ))}
-        </Select>
-      </Label>
+        </NativeSelect>
+      </label>
     )
   }
 
@@ -123,7 +126,7 @@ export function ModelFieldInput({
   }
 
   return (
-    <Label className="text-xs text-muted-foreground">
+    <label className="text-xs text-fg-muted">
       {showLabel ? definition.label : null}
       {showLabel && !definition.nullable ? ' *' : ''}
       <Input
@@ -140,7 +143,7 @@ export function ModelFieldInput({
           {definition.description}
         </span>
       ) : null}
-    </Label>
+    </label>
   )
 }
 
@@ -285,13 +288,13 @@ function ModelReferencePicker({
 
   if (!targetModelKey) {
     return (
-      <Label className="text-xs text-muted-foreground">
+      <label className="text-xs text-fg-muted">
         {showLabel ? label : null}
-        <span className="mt-1 block text-[0.65rem] text-destructive">
+        <span className="mt-1 block text-[0.65rem] text-danger-text">
           Reference target is not configured — ask a Steward to set the
           relationship target before linking Records.
         </span>
-      </Label>
+      </label>
     )
   }
   // MODEL-03: the source Model's declared relationships disallow this
@@ -303,13 +306,13 @@ function ModelReferencePicker({
     isReferenceTargetAllowed(relationshipRules, sourceModelKey, targetModelKey)
   if (!targetAllowed) {
     return (
-      <Label className="text-xs text-muted-foreground">
+      <label className="text-xs text-fg-muted">
         {showLabel ? label : null}
-        <span className="mt-1 block text-[0.65rem] text-destructive">
+        <span className="mt-1 block text-[0.65rem] text-danger-text">
           {sourceModelKey} does not accept {targetModelKey} references — ask a
           Steward to declare the relationship before linking Records.
         </span>
-      </Label>
+      </label>
     )
   }
 
@@ -358,7 +361,7 @@ function ModelReferencePicker({
   }
 
   return (
-    <div className="text-xs text-muted-foreground">
+    <div className="text-xs text-fg-muted">
       {showLabel ? (
         <span className="font-medium">
           {label}
@@ -372,7 +375,7 @@ function ModelReferencePicker({
           </span>
         ) : null}
         {state.kind === 'invalid' ? (
-          <span role="alert" className="block text-[0.65rem] text-destructive">
+          <span role="alert" className="block text-[0.65rem] text-danger-text">
             {state.message}
           </span>
         ) : null}
@@ -380,7 +383,7 @@ function ModelReferencePicker({
           <span className="block text-[0.65rem]">Resolving Record…</span>
         ) : null}
         {state.kind === 'present' && state.snapshot ? (
-          <span className="block truncate text-[0.65rem] font-medium text-foreground">
+          <span className="block truncate text-[0.65rem] font-medium text-fg">
             {formatRecordReferenceLabel(state.snapshot)}
           </span>
         ) : null}
@@ -391,13 +394,13 @@ function ModelReferencePicker({
           </span>
         ) : null}
         {state.kind === 'invalid-model' ? (
-          <span role="alert" className="block text-[0.65rem] text-destructive">
+          <span role="alert" className="block text-[0.65rem] text-danger-text">
             Belongs to model {state.snapshot.modelKey}, expected{' '}
             {targetModelKey} — pick a {targetModelKey} Record.
           </span>
         ) : null}
         {state.kind === 'missing' ? (
-          <span role="alert" className="block text-[0.65rem] text-destructive">
+          <span role="alert" className="block text-[0.65rem] text-danger-text">
             Record {state.recordId} is not found or not visible in this
             workspace — the stored UUID is kept, pick a replacement or clear it.
           </span>
@@ -405,7 +408,7 @@ function ModelReferencePicker({
         <div className="flex flex-wrap gap-1">
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={() => setPickerOpen((open) => !open)}
           >
             {value === '' ? 'Select record' : 'Change record'}
@@ -413,7 +416,7 @@ function ModelReferencePicker({
           {value !== '' && nullable ? (
             <Button
               size="sm"
-              variant="ghost"
+              variant="quiet"
               onClick={() => {
                 onChange('')
                 setPickerOpen(false)

@@ -1,29 +1,25 @@
 import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 
+import { Button } from '#/components/v3/ui/button'
 import {
-  Button,
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  Select,
+} from '#/components/v3/ui/dialog'
+import { Input } from '#/components/v3/ui/input'
+import { Textarea } from '#/components/v3/inventory/list'
+import { NativeSelect } from '#/components/v3/projects/select'
+import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Textarea,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
+import { Tabs, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
 import type { DataClient } from '#/lib/data-client'
 import { datasetRevision } from '#/lib/dataset-product'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
@@ -238,31 +234,27 @@ export function ImportWizard({
       }}
     >
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Import</DialogTitle>
-          <DialogDescription>
-            Upload CSV, TSV, JSON or XLSX, or paste from the clipboard. Rows are
-            mapped, validated against the current Schema Version, then committed
-            through the canonical Dataset or Record writers.
-          </DialogDescription>
-        </DialogHeader>
+        <DialogHeader
+          title="Import"
+          description="Upload CSV, TSV, JSON or XLSX, or paste from the clipboard. Rows are mapped, validated against the current Schema Version, then committed through the canonical Dataset or Record writers."
+        />
         {mode.kind === 'dataset' ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fg-muted">
             Target Dataset Schema Version{' '}
             {mode.table.schema_version_number ?? ''} (
             {mode.table.schema_version_id ?? 'unpinned'})
           </p>
         ) : (
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-fg-muted">
               Target Records: {mode.recordKind}. Creates go through{' '}
               <code>create_model_record</code> after{' '}
               <code>validate_sheet_record_batch</code>.
             </p>
             {mode.projects && mode.projects.length > 0 ? (
-              <Label className="text-xs text-muted-foreground">
+              <label className="text-xs text-fg-muted">
                 Project
-                <Select
+                <NativeSelect
                   className="mt-1"
                   aria-label="Import project"
                   value={projectId}
@@ -273,18 +265,18 @@ export function ImportWizard({
                       {project.title}
                     </option>
                   ))}
-                </Select>
-              </Label>
+                </NativeSelect>
+              </label>
             ) : null}
           </div>
         )}
         <Tabs defaultValue="upload">
           <TabsList>
-            <TabsTrigger value="upload">Upload</TabsTrigger>
-            <TabsTrigger value="paste">Paste</TabsTrigger>
+            <TabsTab value="upload">Upload</TabsTab>
+            <TabsTab value="paste">Paste</TabsTab>
           </TabsList>
-          <TabsContent value="upload">
-            <Label className="text-xs text-muted-foreground">
+          <TabsPanel value="upload">
+            <label className="text-xs text-fg-muted">
               Laboratory file
               <Input
                 className="mt-1"
@@ -294,10 +286,10 @@ export function ImportWizard({
                   void loadFile(event.target.files?.[0])
                 }}
               />
-            </Label>
-          </TabsContent>
-          <TabsContent value="paste" className="space-y-2">
-            <Label className="text-xs text-muted-foreground">
+            </label>
+          </TabsPanel>
+          <TabsPanel value="paste" className="space-y-2">
+            <label className="text-xs text-fg-muted">
               Clipboard
               <Textarea
                 aria-label="Import paste"
@@ -306,18 +298,18 @@ export function ImportWizard({
                 onChange={(event) => setPaste(event.target.value)}
                 placeholder="Paste CSV, TSV or JSON"
               />
-            </Label>
-            <Button size="sm" variant="outline" onClick={loadPaste}>
+            </label>
+            <Button size="sm" variant="secondary" onClick={loadPaste}>
               Preview paste
             </Button>
-          </TabsContent>
+          </TabsPanel>
         </Tabs>
         {preview && sheet ? (
           <div className="space-y-3">
             {preview.sheets.length > 1 ? (
-              <Label className="text-xs text-muted-foreground">
+              <label className="text-xs text-fg-muted">
                 Sheet
-                <Select
+                <NativeSelect
                   className="mt-1"
                   aria-label="Import sheet"
                   value={sheetName}
@@ -344,8 +336,8 @@ export function ImportWizard({
                       {item.name}
                     </option>
                   ))}
-                </Select>
-              </Label>
+                </NativeSelect>
+              </label>
             ) : null}
             <div className="overflow-auto rounded-md border">
               <Table>
@@ -375,7 +367,7 @@ export function ImportWizard({
                 <Button
                   type="button"
                   size="sm"
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => {
                     setMappingProposal(
                       suggestMappingProposal(sheet.headers, fields),
@@ -405,12 +397,12 @@ export function ImportWizard({
                 />
               ) : null}
               {sheet.headers.map((header) => (
-                <Label
+                <label
                   key={header}
-                  className="grid grid-cols-[1fr_1fr] items-center gap-2 text-xs text-muted-foreground"
+                  className="grid grid-cols-[1fr_1fr] items-center gap-2 text-xs text-fg-muted"
                 >
                   <span>{header}</span>
-                  <Select
+                  <NativeSelect
                     aria-label={`Map ${header}`}
                     value={mappingValues[header] ?? 'ignore'}
                     onChange={(event) =>
@@ -427,12 +419,12 @@ export function ImportWizard({
                         {field.nullable ? '' : ' *'}
                       </option>
                     ))}
-                  </Select>
-                </Label>
+                  </NativeSelect>
+                </label>
               ))}
             </div>
             {mapped && mapped.errors.length > 0 ? (
-              <ul role="alert" className="text-xs text-destructive">
+              <ul role="alert" className="text-xs text-danger-text">
                 {mapped.errors.slice(0, 8).map((error) => (
                   <li key={`${error.row}-${error.source}`}>
                     Row {error.row} · {error.source}: {error.message}
@@ -440,23 +432,21 @@ export function ImportWizard({
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-fg-muted">
                 {sheet.rows.length} rows ready. Validate-before-commit uses the
                 canonical RPCs only.
               </p>
             )}
           </div>
         ) : null}
-        {status ? (
-          <p className="text-xs text-muted-foreground">{status}</p>
-        ) : null}
+        {status ? <p className="text-xs text-fg-muted">{status}</p> : null}
         {commitMutation.error instanceof Error ? (
-          <p role="alert" className="text-xs text-destructive">
+          <p role="alert" className="text-xs text-danger-text">
             {commitMutation.error.message}
           </p>
         ) : null}
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={() => commitMutation.mutate()} disabled={!canCommit}>

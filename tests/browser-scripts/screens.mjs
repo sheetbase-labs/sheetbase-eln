@@ -99,6 +99,7 @@ function routes(ids) {
     '/search',
     '/projects',
     '/experiments',
+    '/protocols',
     '/samples',
     '/materials',
     '/datasets',

@@ -245,6 +245,11 @@ beforeAll(async () => {
     [WS, OWNER, VIEWER, OTHER_WS, OUTSIDER],
   )
   await migrator.query(
+    `INSERT INTO api.user_signature_certifications(workspace_id,user_id,statement_version)
+     VALUES ($1,$2,1) ON CONFLICT DO NOTHING`,
+    [WS, OWNER],
+  )
+  await migrator.query(
     `INSERT INTO internal.api_credentials(
       id,workspace_id,name,display_prefix,secret_hash,scopes,created_by_user_id
     ) VALUES (
@@ -589,9 +594,15 @@ describe('AUTO-05 agentic scientific workflows', () => {
     await owner.query(
       `SELECT api.create_agent_operation_policy(
         $1,'AUTO05 append','dataset_rows.commit','dataset',$2,$3,
-        '{"maxAffectedRows":2}'::jsonb
+        '{"maxAffectedRows":2}'::jsonb,$4,$5
       )`,
-      [WS, dataset.rows[0].id, DATA_CREDENTIAL],
+      [
+        WS,
+        dataset.rows[0].id,
+        DATA_CREDENTIAL,
+        'Test policy change',
+        'I approve this delegation',
+      ],
     )
     const plan = {
       formatVersion: 1,

@@ -109,6 +109,8 @@ describe('agent operation client contract', () => {
       targetType: 'dataset',
       targetId: 'dataset-1',
       maxAffectedRows: 25,
+      reason: 'Assay import rows',
+      meaning: 'I approve this delegation',
     })
     await disableAgentOperationPolicy(client, {
       workspaceId: 'workspace-1',
@@ -124,6 +126,8 @@ describe('agent operation client contract', () => {
       p_target_id: 'dataset-1',
       p_credential_id: 'credential-1',
       p_limits: { maxAffectedRows: 25 },
+      p_reason: 'Assay import rows',
+      p_meaning: 'I approve this delegation',
     })
     expect(rpc).toHaveBeenNthCalledWith(2, 'disable_agent_operation_policy', {
       p_workspace_id: 'workspace-1',

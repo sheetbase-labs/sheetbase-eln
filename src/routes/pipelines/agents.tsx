@@ -202,6 +202,8 @@ function AgentsRoute() {
       targetType: Parameters<typeof createAgentOperationPolicy>[1]['targetType']
       targetId: string | null
       maxAffectedRows: number
+      reason: string
+      meaning: string
     }) =>
       createAgentOperationPolicy(dataClient, {
         workspaceId,
@@ -211,6 +213,8 @@ function AgentsRoute() {
         targetType: input.targetType,
         targetId: input.targetId,
         maxAffectedRows: input.maxAffectedRows,
+        reason: input.reason,
+        meaning: input.meaning,
       }),
     onSuccess: refreshPolicies,
   })

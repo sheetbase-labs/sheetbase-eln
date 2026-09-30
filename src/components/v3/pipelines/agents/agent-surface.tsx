@@ -664,6 +664,8 @@ export function AgentPoliciesPanel({
     targetType: AgentOperationPolicyTargetType
     targetId: string | null
     maxAffectedRows: number
+    reason: string
+    meaning: string
   }) => void
   onDisable: (policy: AgentOperationPolicy) => void
 }) {
@@ -673,6 +675,8 @@ export function AgentPoliciesPanel({
     useState<AgentOperationPolicyTargetType>('dataset')
   const [targetId, setTargetId] = useState('')
   const [maxRows, setMaxRows] = useState('100')
+  const [reason, setReason] = useState('')
+  const [meaning, setMeaning] = useState('I approve this delegation')
 
   useEffect(() => {
     if (!credentialId && credentials[0]) setCredentialId(credentials[0].id)
@@ -684,7 +688,9 @@ export function AgentPoliciesPanel({
     credentialId.length > 0 &&
     Number.isInteger(limit) &&
     limit >= 1 &&
-    limit <= 1000
+    limit <= 1000 &&
+    reason.trim().length > 0 &&
+    meaning.trim().length > 0
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-6">
@@ -707,9 +713,12 @@ export function AgentPoliciesPanel({
                 targetType,
                 targetId: targetType === 'workspace' ? null : targetId.trim(),
                 maxAffectedRows: limit,
+                reason: reason.trim(),
+                meaning: meaning.trim(),
               })
               setName('')
               setTargetId('')
+              setReason('')
             }}
           >
             <Field label="Policy name" required>
@@ -771,6 +780,23 @@ export function AgentPoliciesPanel({
                 onChange={(e) => setMaxRows(e.target.value)}
               />
             </Field>
+            <Field label="Reason for change" required>
+              <Input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="e.g. Assay import rows"
+              />
+            </Field>
+            <Field
+              label="Signature meaning"
+              required
+              hint="You must have certified your electronic signature."
+            >
+              <Input
+                value={meaning}
+                onChange={(e) => setMeaning(e.target.value)}
+              />
+            </Field>
             <div className="flex items-end">
               <Button type="submit" variant="primary" disabled={!valid}>
                 Create policy
@@ -798,7 +824,20 @@ export function AgentPoliciesPanel({
               <TableBody>
                 {policies.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="py-1.5 leading-[17px]">
+                      <span className="block font-medium">{p.name}</span>
+                      {p.reason ? (
+                        <span className="block text-label text-fg-muted">
+                          {p.reason}
+                        </span>
+                      ) : null}
+                      {p.signed_at ? (
+                        <span className="block text-label text-fg-muted">
+                          Signed {p.signed_at.slice(0, 10)}
+                          {p.signed_meaning ? ` · ${p.signed_meaning}` : ''}
+                        </span>
+                      ) : null}
+                    </TableCell>
                     <TableCell>
                       {credentials.find((c) => c.id === p.credential_id)
                         ?.name ?? p.credential_id}

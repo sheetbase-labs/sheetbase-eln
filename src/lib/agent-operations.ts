@@ -112,6 +112,10 @@ export interface AgentOperationPolicy {
   target_id: string | null
   limits: Record<string, unknown>
   enabled: boolean
+  reason: string | null
+  signed_by_user_id: string | null
+  signed_meaning: string | null
+  signed_at: string | null
   created_by_user_id: string
   updated_by_user_id: string
   created_at: string
@@ -243,7 +247,7 @@ export async function listAgentOperationPolicies(
 ): Promise<AgentOperationPolicy[]> {
   return client.list(
     'agent_operation_policies',
-    '?select=id,workspace_id,name,credential_id,operation_kind,target_type,target_id,limits,enabled,created_by_user_id,updated_by_user_id,created_at,updated_at&order=created_at.desc',
+    '?select=id,workspace_id,name,credential_id,operation_kind,target_type,target_id,limits,enabled,reason,signed_by_user_id,signed_meaning,signed_at,created_by_user_id,updated_by_user_id,created_at,updated_at&order=created_at.desc',
   )
 }
 
@@ -257,6 +261,8 @@ export async function createAgentOperationPolicy(
     targetType: AgentOperationPolicyTargetType
     targetId: string | null
     maxAffectedRows: number
+    reason: string
+    meaning: string
   },
 ): Promise<AgentOperationPolicy> {
   return client.rpc('create_agent_operation_policy', {
@@ -267,6 +273,8 @@ export async function createAgentOperationPolicy(
     p_target_id: input.targetId,
     p_credential_id: input.credentialId,
     p_limits: { maxAffectedRows: input.maxAffectedRows },
+    p_reason: input.reason,
+    p_meaning: input.meaning,
   })
 }
 

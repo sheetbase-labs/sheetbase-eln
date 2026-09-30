@@ -7843,6 +7843,14 @@ export const agentOperationPolicies = api.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     enabled: boolean('enabled').notNull().default(true),
+    /** Why the policy was created or changed (change-control record). */
+    reason: text('reason'),
+    /** The change e-signature: who signed, its meaning and the server time. */
+    signedByUserId: text('signed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    signedMeaning: text('signed_meaning'),
+    signedAt: timestamp('signed_at', { withTimezone: true, mode: 'date' }),
     createdByUserId: text('created_by_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),

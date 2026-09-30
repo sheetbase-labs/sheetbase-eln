@@ -1,13 +1,15 @@
-import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Link,
+  Outlet,
+  createFileRoute,
+  redirect,
+  useMatchRoute,
+} from '@tanstack/react-router'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { LinkTabs } from '#/components/v3/projects/search-tabs'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
-import { toast } from '#/components/v3/ui/sonner'
-import { createNextDatasetSchemaVersion } from '#/lib/dataset-schema-definition-rpc'
-import { notebookDataClient } from '#/lib/notebook-data'
 import {
   modelStatus,
   useModelDefinition,
@@ -31,7 +33,10 @@ export const Route = createFileRoute('/models/$modelId')({
 
 function ModelLayout() {
   const { modelId } = Route.useParams()
-  const queryClient = useQueryClient()
+  const matchRoute = useMatchRoute()
+  const onEdit = Boolean(
+    matchRoute({ to: '/models/$modelId/edit', fuzzy: true }),
+  )
   const definition = useModelDefinition(modelId)
   const versions = useModelVersions(modelId)
   const latest = versions.data?.[0]
@@ -39,26 +44,7 @@ function ModelLayout() {
   const versionIds = (versions.data ?? []).map((v) => v.id)
   const datasets = useModelDatasets(versionIds)
 
-  const newVersion = useMutation({
-    mutationFn: () =>
-      createNextDatasetSchemaVersion(notebookDataClient, modelId),
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({
-        queryKey: ['ui-port', 'models'],
-      })
-      toast(`Draft v${result.version} started`, {
-        description:
-          'Add fields and publish it; datasets keep the version they are on.',
-      })
-    },
-    onError: (error: unknown) => {
-      toast('Could not start a version', {
-        description:
-          error instanceof Error ? error.message : 'The database refused it.',
-      })
-    },
-  })
-
+  if (onEdit) return <Outlet />
   const m = definition.data
   if (!m) {
     return (
@@ -103,11 +89,11 @@ function ModelLayout() {
         actions={
           <Button
             variant="primary"
-            icon="plus"
-            disabled={newVersion.isPending}
-            onClick={() => newVersion.mutate()}
+            icon="edit"
+            nativeButton={false}
+            render={<Link to="/models/$modelId/edit" params={params} />}
           >
-            New version
+            Edit model
           </Button>
         }
         tabs={

@@ -180,6 +180,8 @@ function routes(ids) {
       `/models/${ids.model}/fields`,
       `/models/${ids.model}/versions`,
       `/models/${ids.model}/datasets`,
+      `/models/${ids.model}/edit`,
+      `/models/${ids.model}/edit?state=denied`,
     )
   if (ids.pipeline)
     list.push(

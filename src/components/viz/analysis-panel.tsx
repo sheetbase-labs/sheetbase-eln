@@ -3,23 +3,18 @@ import { Play, Save, Sigma, Trash2, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Input } from '#/components/v3/ui/input'
+import { NativeSelect } from '#/components/v3/projects/select'
 import {
-  Badge,
-  Button,
-  ButtonGroup,
-  Card,
-  Field,
-  FieldGroup,
-  FieldLabel,
-  Input,
-  Select,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
 import {
   ANALYSIS_KINDS,
   COLUMN_TRANSFORMS,
@@ -279,20 +274,23 @@ export function AnalysisPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-      <Card className="space-y-3 p-3">
-        <FieldGroup className="flex flex-wrap items-end gap-3">
-          <Field className="min-w-44 flex-1">
-            <FieldLabel htmlFor="analysis-definition-dataset">
+      <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-44 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="analysis-definition-dataset"
+            >
               Dataset
-            </FieldLabel>
-            <Select
+            </label>
+            <NativeSelect
               id="analysis-definition-dataset"
               aria-label="Analysis dataset"
               value={selectedDatasetId}
               onChange={(event) => {
                 setSelectedDatasetId(event.target.value)
               }}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               <option value="">Select a dataset</option>
               {datasets.map((d) => (
@@ -300,18 +298,20 @@ export function AnalysisPanel({
                   {d.name}
                 </option>
               ))}
-            </Select>
-          </Field>
-          <Field className="min-w-40 flex-1">
-            <FieldLabel htmlFor="analysis-kind">Analysis</FieldLabel>
-            <ButtonGroup>
+            </NativeSelect>
+          </div>
+          <div className="min-w-40 flex-1">
+            <label className="text-label text-fg-muted" htmlFor="analysis-kind">
+              Analysis
+            </label>
+            <div className="flex items-center gap-1">
               {ANALYSIS_KINDS.map((kind) => (
                 <Button
                   key={kind}
                   type="button"
                   size="sm"
                   variant={
-                    draft.definition?.kind === kind ? 'default' : 'outline'
+                    draft.definition?.kind === kind ? 'primary' : 'secondary'
                   }
                   disabled={!selectedDataset}
                   aria-pressed={draft.definition?.kind === kind}
@@ -323,9 +323,9 @@ export function AnalysisPanel({
                     : 'Regression fit'}
                 </Button>
               ))}
-            </ButtonGroup>
-          </Field>
-        </FieldGroup>
+            </div>
+          </div>
+        </div>
 
         {draft.definition ? (
           <AnalysisDefinitionControls
@@ -351,7 +351,7 @@ export function AnalysisPanel({
             onChange={(event) =>
               setDraft((prev) => ({ ...prev, name: event.target.value }))
             }
-            className="h-8 w-48 bg-background"
+            className="h-8 w-48 bg-surface"
           />
           <Button
             type="button"
@@ -368,32 +368,32 @@ export function AnalysisPanel({
             <Save /> {draft.editingId ? 'Update' : 'Save'}
           </Button>
           {staleDetail ? (
-            <Badge variant="warning">
+            <Badge variant="chg">
               <TriangleAlert className="size-3" aria-hidden />
               Stale source
             </Badge>
           ) : null}
         </div>
         {staleDetail ? (
-          <p role="status" className="text-xs text-muted-foreground">
+          <p role="status" className="text-xs text-fg-muted">
             {staleDetail}
           </p>
         ) : null}
-      </Card>
+      </div>
 
       {execution && execution.ok ? (
         <AnalysisResultTable result={execution.result} />
       ) : execution ? (
         <div
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-xs text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-xs text-danger-text"
         >
           {describeExecutionError(execution.error)}
         </div>
       ) : (
         <div
           role="status"
-          className="rounded-md border border-dashed border-input bg-muted/20 p-6 text-sm text-muted-foreground"
+          className="rounded-md border border-dashed border-border bg-surface-muted/20 p-6 text-sm text-fg-muted"
         >
           Pick a dataset, choose an analysis, then Run to compute against the
           current rows. Saved analyses are listed below.
@@ -402,7 +402,7 @@ export function AnalysisPanel({
 
       {fitChart ? (
         <div className="rounded-md border p-2">
-          <p className="mb-1 text-xs font-medium text-muted-foreground">
+          <p className="mb-1 text-xs font-medium text-fg-muted">
             Fitted curve over observations
           </p>
           <ChartRenderer
@@ -419,7 +419,7 @@ export function AnalysisPanel({
         execution.ok &&
         draft.definition?.kind === 'regression' &&
         draft.definition.group ? (
-        <p className="rounded-md border border-dashed border-input bg-muted/20 p-3 text-xs text-muted-foreground">
+        <p className="rounded-md border border-dashed border-border bg-surface-muted/20 p-3 text-xs text-fg-muted">
           Grouped fits produce one model per group; a single overlay would
           misrepresent them, so no curve is drawn for grouped regressions.
         </p>
@@ -493,66 +493,89 @@ function AnalysisDefinitionControls({
   }
 
   return (
-    <FieldGroup className="flex flex-wrap items-end gap-3">
+    <div className="flex flex-wrap items-end gap-3">
       {definition.kind === 'descriptive' ? (
         <>
-          <Field className="min-w-36 flex-1">
-            <FieldLabel htmlFor="analysis-value">Measured value</FieldLabel>
-            <Select
+          <div className="min-w-36 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="analysis-value"
+            >
+              Measured value
+            </label>
+            <NativeSelect
               id="analysis-value"
               aria-label="Measured value column"
               value={bindingValue(definition.value)}
               onChange={(e) => setBinding('value', e.target.value, true)}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               {columnOptions(numeric)}
-            </Select>
-          </Field>
-          <Field className="min-w-36 flex-1">
-            <FieldLabel htmlFor="analysis-group">
+            </NativeSelect>
+          </div>
+          <div className="min-w-36 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="analysis-group"
+            >
               Group by (optional)
-            </FieldLabel>
-            <Select
+            </label>
+            <NativeSelect
               id="analysis-group"
               aria-label="Group by column"
               value={bindingValue(definition.group)}
               onChange={(e) => setBinding('group', e.target.value, false)}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               <option value="">(one group)</option>
               {columnOptions(category)}
-            </Select>
-          </Field>
+            </NativeSelect>
+          </div>
         </>
       ) : (
         <>
-          <Field className="min-w-36 flex-1">
-            <FieldLabel htmlFor="analysis-outcome">Outcome (y)</FieldLabel>
-            <Select
+          <div className="min-w-36 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="analysis-outcome"
+            >
+              Outcome (y)
+            </label>
+            <NativeSelect
               id="analysis-outcome"
               aria-label="Outcome column"
               value={bindingValue(definition.outcome)}
               onChange={(e) => setBinding('outcome', e.target.value, true)}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               {columnOptions(numeric)}
-            </Select>
-          </Field>
-          <Field className="min-w-36 flex-1">
-            <FieldLabel htmlFor="analysis-predictor">Predictor (x)</FieldLabel>
-            <Select
+            </NativeSelect>
+          </div>
+          <div className="min-w-36 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="analysis-predictor"
+            >
+              Predictor (x)
+            </label>
+            <NativeSelect
               id="analysis-predictor"
               aria-label="Predictor column"
               value={bindingValue(definition.predictor)}
               onChange={(e) => setBinding('predictor', e.target.value, true)}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               {columnOptions(numeric)}
-            </Select>
-          </Field>
-          <Field className="min-w-24">
-            <FieldLabel htmlFor="analysis-degree">Degree</FieldLabel>
-            <Select
+            </NativeSelect>
+          </div>
+          <div className="min-w-24">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="analysis-degree"
+            >
+              Degree
+            </label>
+            <NativeSelect
               id="analysis-degree"
               aria-label="Polynomial degree"
               value={String(definition.degree ?? 1)}
@@ -561,63 +584,76 @@ function AnalysisDefinitionControls({
                   degree: Math.max(1, Number(e.target.value) || 1),
                 })
               }
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               {Array.from({ length: MAX_DEGREE }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>
                   {d}
                 </option>
               ))}
-            </Select>
-          </Field>
-          <Field className="min-w-32">
-            <FieldLabel htmlFor="analysis-y-transform">y transform</FieldLabel>
-            <Select
+            </NativeSelect>
+          </div>
+          <div className="min-w-32">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="analysis-y-transform"
+            >
+              y transform
+            </label>
+            <NativeSelect
               id="analysis-y-transform"
               aria-label="Outcome transform"
               value={definition.outcomeTransform ?? ''}
               onChange={(e) => setTransform('outcomeTransform', e.target.value)}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               <option value="">None</option>
               <option value="log10">log₁₀</option>
               <option value="ln">ln</option>
-            </Select>
-          </Field>
-          <Field className="min-w-32">
-            <FieldLabel htmlFor="analysis-x-transform">x transform</FieldLabel>
-            <Select
+            </NativeSelect>
+          </div>
+          <div className="min-w-32">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="analysis-x-transform"
+            >
+              x transform
+            </label>
+            <NativeSelect
               id="analysis-x-transform"
               aria-label="Predictor transform"
               value={definition.predictorTransform ?? ''}
               onChange={(e) =>
                 setTransform('predictorTransform', e.target.value)
               }
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               <option value="">None</option>
               <option value="log10">log₁₀</option>
               <option value="ln">ln</option>
-            </Select>
-          </Field>
-          <Field className="min-w-36 flex-1">
-            <FieldLabel htmlFor="analysis-regression-group">
+            </NativeSelect>
+          </div>
+          <div className="min-w-36 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="analysis-regression-group"
+            >
               Group fits by (optional)
-            </FieldLabel>
-            <Select
+            </label>
+            <NativeSelect
               id="analysis-regression-group"
               aria-label="Regression grouping column"
               value={bindingValue(definition.group)}
               onChange={(e) => setBinding('group', e.target.value, false)}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               <option value="">(one fit)</option>
               {columnOptions(category)}
-            </Select>
-          </Field>
+            </NativeSelect>
+          </div>
         </>
       )}
-    </FieldGroup>
+    </div>
   )
 }
 
@@ -759,13 +795,13 @@ function SavedDefinitionsList({
 }) {
   if (loading)
     return (
-      <div className="p-3 text-xs text-muted-foreground" role="status">
+      <div className="p-3 text-xs text-fg-muted" role="status">
         Loading saved analyses…
       </div>
     )
   if (definitions.length === 0)
     return (
-      <div className="p-3 text-xs text-muted-foreground" role="status">
+      <div className="p-3 text-xs text-fg-muted" role="status">
         No saved analyses yet.
       </div>
     )
@@ -778,20 +814,20 @@ function SavedDefinitionsList({
         >
           <span className="truncate font-medium">{saved.name}</span>
           <span className="flex items-center gap-2">
-            <Badge variant="outline">v{saved.version}</Badge>
+            <Badge variant="kind">v{saved.version}</Badge>
             {activeId === saved.id ? <Badge>Saving edits here</Badge> : null}
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => onLoad(saved)}
             >
               Load
             </Button>
             <Button
               type="button"
-              size="icon-sm"
-              variant="ghost"
+              size="icon"
+              variant="quiet"
               aria-label={`Delete ${saved.name}`}
               onClick={() => onDelete(saved.id)}
             >

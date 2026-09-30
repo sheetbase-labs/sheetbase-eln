@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
@@ -118,6 +118,26 @@ function JsonValue({ label, value }: { label: string; value: unknown }) {
 // Proposals
 // ---------------------------------------------------------------------------
 
+/** Group proposals the way the design does: what needs you, what waits on
+ * others, and what is already decided. */
+export function proposalGroups(
+  proposals: AgentOperationProposal[],
+  canApprove: boolean,
+): { key: string; label: string; items: AgentOperationProposal[] }[] {
+  const needsYou: AgentOperationProposal[] = []
+  const waiting: AgentOperationProposal[] = []
+  const decided: AgentOperationProposal[] = []
+  for (const p of proposals) {
+    if (p.status === 'pending') (canApprove ? needsYou : waiting).push(p)
+    else decided.push(p)
+  }
+  return [
+    { key: 'needs', label: 'Needs your approval', items: needsYou },
+    { key: 'waiting', label: 'Waiting on others', items: waiting },
+    { key: 'decided', label: 'Decided', items: decided },
+  ].filter((g) => g.items.length)
+}
+
 export function AgentProposalsPanel({
   proposals,
   events,
@@ -171,31 +191,50 @@ export function AgentProposalsPanel({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {proposals.map((p) => (
-              <TableRow
-                key={p.id}
-                selected={p.id === selected.id}
-                className="cursor-pointer"
-                onClick={() => onSelect(p.id)}
-              >
-                <TableCell
-                  className={p.id === selected.id ? 'font-medium' : undefined}
-                >
-                  {p.title}
-                </TableCell>
-                <TableCell>{agentOperationLabel(p.operation_kind)}</TableCell>
-                <TableCell className="text-fg-muted">
-                  {p.risk_class.replace(/_/g, ' ')}
-                </TableCell>
-                <TableCell>
-                  <Status tone={proposalTone(p.status)}>
-                    {statusLabel(p.status)}
-                  </Status>
-                </TableCell>
-                <TableCell className="text-fg-muted">
-                  {p.created_at.slice(0, 16).replace('T', ' ')}
-                </TableCell>
-              </TableRow>
+            {proposalGroups(proposals, canApprove).map((group) => (
+              <Fragment key={group.key}>
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
+                    colSpan={5}
+                    className="bg-surface-muted text-label font-medium text-fg-muted"
+                  >
+                    {group.label}
+                    <span className="num ml-1.5 font-normal">
+                      {group.items.length}
+                    </span>
+                  </TableCell>
+                </TableRow>
+                {group.items.map((p) => (
+                  <TableRow
+                    key={p.id}
+                    selected={p.id === selected.id}
+                    className="cursor-pointer"
+                    onClick={() => onSelect(p.id)}
+                  >
+                    <TableCell
+                      className={
+                        p.id === selected.id ? 'font-medium' : undefined
+                      }
+                    >
+                      {p.title}
+                    </TableCell>
+                    <TableCell>
+                      {agentOperationLabel(p.operation_kind)}
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {p.risk_class.replace(/_/g, ' ')}
+                    </TableCell>
+                    <TableCell>
+                      <Status tone={proposalTone(p.status)}>
+                        {statusLabel(p.status)}
+                      </Status>
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {p.created_at.slice(0, 16).replace('T', ' ')}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Fragment>
             ))}
           </TableBody>
         </Table>

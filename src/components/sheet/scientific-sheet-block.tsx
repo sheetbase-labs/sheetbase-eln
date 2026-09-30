@@ -23,31 +23,23 @@ import {
   ChevronRight,
   Check,
   AlertCircle,
-  MoreHorizontal,
   RotateCcw,
   Settings,
 } from 'lucide-react'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Dialog, DialogContent, DialogHeader } from '#/components/v3/ui/dialog'
 import {
-  Badge,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Field,
-  FieldLabel,
-  Input,
-  Separator,
-  Spinner,
-  Textarea,
-} from '#/components/ui'
+} from '#/components/v3/ui/dropdown-menu'
+import { Input } from '#/components/v3/ui/input'
+import { Textarea } from '#/components/v3/inventory/list'
+import { Icon } from '#/components/v3/icons'
 import { SheetbaseGrid } from './sheetbase-grid'
 import { ScientificApiInspector } from './scientific-api-inspector'
 import { ScientificTransferPanel } from './scientific-transfer-panel'
@@ -235,26 +227,26 @@ function SaveStatusIndicator({
   if (status === 'saving' || status === 'retrying')
     return (
       <span
-        className="flex items-center gap-1 text-muted-foreground"
+        className="flex items-center gap-1 text-fg-muted"
         aria-label={status === 'retrying' ? 'Retrying save' : 'Saving'}
       >
-        <Spinner className="size-3" />
+        <Icon name="clock" size={12} className="animate-spin" />
         {status === 'retrying' ? 'Offline/Retrying…' : 'Saving…'}
       </span>
     )
   if (status === 'error')
     return (
       <span
-        className="flex items-center gap-1 text-destructive"
+        className="flex items-center gap-1 text-danger-text"
         aria-label="Save failed"
       >
         <AlertCircle className="size-3" />
         Save failed
         <Button
           type="button"
-          variant="ghost"
+          variant="quiet"
           size="sm"
-          className="h-5 px-1.5 text-[10px] text-destructive"
+          className="h-5 px-1.5 text-[10px] text-danger-text"
           onClick={onRetry}
         >
           <RotateCcw className="size-3" />
@@ -265,7 +257,7 @@ function SaveStatusIndicator({
   if (status === 'saved')
     return (
       <span
-        className="flex items-center gap-1 text-success-foreground"
+        className="flex items-center gap-1 text-success-text-foreground"
         aria-label="Saved"
       >
         <Check className="size-3" />
@@ -289,11 +281,11 @@ const LOGICAL_TYPES: ScientificLogicalType[] = [
  * shadcn Select primitive in this project, so we style the native control with
  * the same tokens as `Input`. */
 const selectClass =
-  'h-8 rounded-md border border-input bg-background px-2 text-xs shadow-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
+  'h-8 rounded-md border border-border bg-surface px-2 text-xs shadow-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
 
 /** Native checkbox styled to match the design system (no Checkbox primitive). */
 const checkboxClass =
-  'size-4 rounded border-input text-primary accent-primary focus-visible:ring-2 focus-visible:ring-ring/50'
+  'size-4 rounded border-border text-primary accent-primary focus-visible:ring-2 focus-visible:ring-ring/50'
 
 type Confirmation =
   | {
@@ -444,23 +436,22 @@ function SchemaConfigurator({
 
   return (
     <div className="space-y-5">
-      <DialogHeader>
-        <DialogTitle className="font-display">Configure sheet</DialogTitle>
-        <DialogDescription>
-          Rename the sheet, add columns, and manage units, validation and schema
-          lifecycle. Display labels can change; stable identities remain.
-        </DialogDescription>
-      </DialogHeader>
+      <DialogHeader
+        title="Configure sheet"
+        description="Rename the sheet, add columns, and manage units, validation and schema lifecycle. Display labels can change; stable identities remain."
+      />
 
       {formulaDependencies.length ? (
-        <p className="text-xs text-warning-foreground" role="status">
+        <p className="text-xs text-warning-text" role="status">
           {new Set(formulaDependencies.map((item) => item.formula_id)).size}{' '}
           persisted formula(s) depend on this sheet
         </p>
       ) : null}
 
-      <Field>
-        <FieldLabel htmlFor="sheet-name">Sheet name</FieldLabel>
+      <div className="space-y-1">
+        <label className="text-label text-fg-muted" htmlFor="sheet-name">
+          Sheet name
+        </label>
         <div className="flex items-center gap-2">
           <Input
             id="sheet-name"
@@ -472,7 +463,7 @@ function SchemaConfigurator({
           <Button
             type="button"
             size="sm"
-            variant="subtle"
+            variant="quiet"
             disabled={disabled || !name.trim() || name === table.name}
             onClick={() =>
               schemaMutation.mutate((v) =>
@@ -488,24 +479,30 @@ function SchemaConfigurator({
             Save name
           </Button>
         </div>
-      </Field>
+      </div>
 
-      <Separator />
+      <hr className="border-border" />
 
       <div className="space-y-3">
-        <FieldLabel>Add column</FieldLabel>
+        <label className="text-label font-medium text-fg-muted">
+          Add column
+        </label>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="new-col-label">Label</FieldLabel>
+          <div className="space-y-1">
+            <label className="text-label text-fg-muted" htmlFor="new-col-label">
+              Label
+            </label>
             <Input
               id="new-col-label"
               aria-label="New column label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="new-col-type">Type</FieldLabel>
+          </div>
+          <div className="space-y-1">
+            <label className="text-label text-fg-muted" htmlFor="new-col-type">
+              Type
+            </label>
             <select
               id="new-col-type"
               aria-label="New column type"
@@ -517,7 +514,7 @@ function SchemaConfigurator({
                 <option key={value}>{value}</option>
               ))}
             </select>
-          </Field>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-xs">
           <label className="flex items-center gap-2">
@@ -548,10 +545,10 @@ function SchemaConfigurator({
           ) : null}
         </div>
         {type === 'category' ? (
-          <Field>
-            <FieldLabel htmlFor="cat-options">
+          <div className="space-y-1">
+            <label className="text-label text-fg-muted" htmlFor="cat-options">
               Category options (one per line)
-            </FieldLabel>
+            </label>
             <Textarea
               id="cat-options"
               aria-label="Category options"
@@ -559,15 +556,17 @@ function SchemaConfigurator({
               onChange={(e) => setOptions(e.target.value)}
               className="min-h-24"
             />
-          </Field>
+          </div>
         ) : null}
-        <details className="rounded-md border bg-muted/20 p-2 text-xs">
-          <summary className="cursor-pointer font-medium text-muted-foreground">
+        <details className="rounded-md border bg-surface-muted/20 p-2 text-xs">
+          <summary className="cursor-pointer font-medium text-fg-muted">
             Advanced · custom JSON
           </summary>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="unit-json">Unit JSON</FieldLabel>
+            <div className="space-y-1">
+              <label className="text-label text-fg-muted" htmlFor="unit-json">
+                Unit JSON
+              </label>
               <Textarea
                 id="unit-json"
                 aria-label="Unit JSON"
@@ -576,9 +575,14 @@ function SchemaConfigurator({
                 onChange={(e) => setUnit(e.target.value)}
                 className="min-h-20 font-mono"
               />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="validation-json">Validation JSON</FieldLabel>
+            </div>
+            <div className="space-y-1">
+              <label
+                className="text-label text-fg-muted"
+                htmlFor="validation-json"
+              >
+                Validation JSON
+              </label>
               <Textarea
                 id="validation-json"
                 aria-label="Validation JSON"
@@ -587,7 +591,7 @@ function SchemaConfigurator({
                 onChange={(e) => setValidation(e.target.value)}
                 className="min-h-20 font-mono"
               />
-            </Field>
+            </div>
           </div>
         </details>
         <Button type="button" size="sm" disabled={disabled} onClick={addColumn}>
@@ -595,15 +599,15 @@ function SchemaConfigurator({
         </Button>
       </div>
 
-      <Separator />
+      <hr className="border-border" />
 
       <div className="space-y-2">
-        <FieldLabel>Columns</FieldLabel>
+        <label className="text-label font-medium text-fg-muted">Columns</label>
         <ol className="space-y-1.5" aria-label="Columns">
           {table.columns.map((column, index) => (
             <li
               key={column.id}
-              className="flex flex-wrap items-center gap-2 rounded-md border bg-card/40 p-2"
+              className="flex flex-wrap items-center gap-2 rounded-md border bg-surface/40 p-2"
             >
               <Input
                 aria-label={`Label for ${column.label}`}
@@ -622,8 +626,8 @@ function SchemaConfigurator({
                 }}
                 className="h-8 min-w-36 flex-1"
               />
-              <Badge variant="secondary">{column.logical_type}</Badge>
-              <Badge variant="outline">
+              <Badge variant="chg">{column.logical_type}</Badge>
+              <Badge variant="kind">
                 {column.nullable ? 'nullable' : 'required'}
               </Badge>
               <select
@@ -669,8 +673,8 @@ function SchemaConfigurator({
               </select>
               <Button
                 type="button"
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 aria-label="Move left"
                 disabled={disabled || index === 0}
                 onClick={() =>
@@ -689,8 +693,8 @@ function SchemaConfigurator({
               </Button>
               <Button
                 type="button"
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 aria-label="Move right"
                 disabled={disabled || index === table.columns.length - 1}
                 onClick={() =>
@@ -709,7 +713,7 @@ function SchemaConfigurator({
               </Button>
               <Button
                 type="button"
-                variant="ghost"
+                variant="quiet"
                 size="sm"
                 disabled={
                   disabled ||
@@ -743,7 +747,7 @@ function SchemaConfigurator({
           ))}
         </ol>
         {rowMutationPending || draftColumnIds.size > 0 ? (
-          <p role="status" className="text-xs text-warning-foreground">
+          <p role="status" className="text-xs text-warning-text">
             Save or discard pending row changes before converting or retiring
             columns.
           </p>
@@ -774,7 +778,7 @@ function SchemaConfigurator({
               ).size
             }
           </p>
-          <p className="text-muted-foreground">
+          <p className="text-fg-muted">
             This can affect formulas and API clients. The stable field remains{' '}
             {confirmation.column.field_name}.
           </p>
@@ -782,7 +786,7 @@ function SchemaConfigurator({
             <Button
               type="button"
               size="sm"
-              variant="destructive"
+              variant="danger"
               disabled={
                 disabled ||
                 rowMutationPending ||
@@ -815,7 +819,7 @@ function SchemaConfigurator({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={disabled}
               onClick={() => {
                 setConfirmation(null)
@@ -834,9 +838,9 @@ function SchemaConfigurator({
         </p>
       ) : null}
 
-      <Separator />
+      <hr className="border-border" />
 
-      <details className="rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground">
+      <details className="rounded-md border bg-surface-muted/20 p-2 text-xs text-fg-muted">
         <summary className="cursor-pointer font-medium">Developer info</summary>
         <div className="mt-2 space-y-2">
           <p>
@@ -2040,7 +2044,7 @@ export function ScientificSheetBlock({
       {issues.length ? (
         <ul
           role="alert"
-          className="mb-2 space-y-0.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+          className="mb-2 space-y-0.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-danger-text"
         >
           {issues.map((issue) => (
             <li key={issue.key} data-cell={issue.key}>
@@ -2052,7 +2056,7 @@ export function ScientificSheetBlock({
       {calculationProblem ? (
         <p
           role="alert"
-          className="mb-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+          className="mb-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-danger-text"
         >
           {calculationProblem}
         </p>
@@ -2080,15 +2084,15 @@ export function ScientificSheetBlock({
       {readOnly ? null : (
         <section
           aria-label="Formula bar"
-          className="mb-2 flex items-center gap-1.5 border-y bg-muted/20 px-3 py-2 text-xs"
+          className="mb-2 flex items-center gap-1.5 border-y bg-surface-muted/20 px-3 py-2 text-xs"
         >
           <span
-            className="flex h-5 w-12 shrink-0 items-center justify-center rounded bg-background font-mono text-[10px] font-semibold text-muted-foreground"
+            className="flex h-5 w-12 shrink-0 items-center justify-center rounded bg-surface font-mono text-[10px] font-semibold text-fg-muted"
             aria-label="Active cell address"
           >
             {selectedCoords ? toA1(selectedCoords.row, selectedCoords.col) : ''}
           </span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted font-mono text-[10px] font-semibold italic text-muted-foreground">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-muted font-mono text-[10px] font-semibold italic text-fg-muted">
             fx
           </span>
           <div className="relative flex-1">
@@ -2123,13 +2127,13 @@ export function ScientificSheetBlock({
           {exponentHint ? (
             <span
               role="status"
-              className="shrink-0 text-[10px] text-muted-foreground italic"
+              className="shrink-0 text-[10px] text-fg-muted italic"
             >
               ** converted to ^
             </span>
           ) : null}
           {formulaStatus ? (
-            <span role="status" className="text-muted-foreground">
+            <span role="status" className="text-fg-muted">
               {formulaStatus}
             </span>
           ) : null}
@@ -2142,7 +2146,7 @@ export function ScientificSheetBlock({
         onReady={handleGridReady}
       />
 
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">
         <div className="flex items-center gap-2">
           <span>
             {localRows.length} {localRows.length === 1 ? 'row' : 'rows'}
@@ -2158,7 +2162,7 @@ export function ScientificSheetBlock({
           {!readOnly ? (
             <Button
               type="button"
-              variant="subtle"
+              variant="quiet"
               size="sm"
               className="h-7 text-xs"
               aria-label="Add row"
@@ -2167,16 +2171,21 @@ export function ScientificSheetBlock({
               + Add row
             </Button>
           ) : null}
-          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-            <a href={`/datasets?dataset=${encodeURIComponent(tableId)}`}>
-              Explore dataset
-            </a>
+          <Button
+            variant="quiet"
+            size="sm"
+            className="h-7 text-xs"
+            render={
+              <a href={`/datasets?dataset=${encodeURIComponent(tableId)}`} />
+            }
+          >
+            Explore dataset
           </Button>
           {!readOnly ? (
             <Button
               type="button"
-              variant="ghost"
-              size="icon-sm"
+              variant="quiet"
+              size="icon"
               aria-label="Configure table"
               onClick={() => setConfigurationOpen(true)}
             >
@@ -2184,27 +2193,28 @@ export function ScientificSheetBlock({
             </Button>
           ) : null}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Sheet tools"
-              >
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="quiet"
+                  size="icon"
+                  aria-label="Sheet tools"
+                  icon="more"
+                />
+              }
+            />
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
+              <DropdownMenuItem onClick={() => setTransferOpen(true)}>
                 Export CSV
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setInspectorOpen(true)}>
+              <DropdownMenuItem onClick={() => setInspectorOpen(true)}>
                 API inspector
               </DropdownMenuItem>
               {readOnly ? null : (
                 <DropdownMenuItem
                   disabled={calculationResultsQuery.isFetching}
-                  onSelect={() => void refreshCalculation()}
+                  onClick={() => void refreshCalculation()}
                 >
                   Recalculate
                 </DropdownMenuItem>
@@ -2239,13 +2249,10 @@ export function ScientificSheetBlock({
 
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Sheet export</DialogTitle>
-            <DialogDescription>
-              Export this Sheet with schema and unit metadata. Laboratory file
-              import lives on Datasets and Records, not leftover scientific CSV.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogHeader
+            title="Sheet export"
+            description="Export this Sheet with schema and unit metadata. Laboratory file import lives on Datasets and Records, not leftover scientific CSV."
+          />
           <ScientificTransferPanel
             table={table}
             rows={allRowsQuery.data ?? []}
@@ -2256,12 +2263,10 @@ export function ScientificSheetBlock({
 
       <Dialog open={inspectorOpen} onOpenChange={setInspectorOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>API inspector</DialogTitle>
-            <DialogDescription>
-              Sheet identity, fields, and authenticated request examples.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogHeader
+            title="API inspector"
+            description="Sheet identity, fields, and authenticated request examples."
+          />
           <ScientificApiInspector
             table={table}
             selectedRowId={selected?.rowId}

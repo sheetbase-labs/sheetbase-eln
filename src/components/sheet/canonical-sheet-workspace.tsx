@@ -17,7 +17,8 @@ import { createRecordPickerEditor } from '#/components/sheet/record-picker-edito
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
-import { Button, Input, Label } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Input } from '#/components/v3/ui/input'
 import { explainSheetWriteBack } from '#/lib/assist-explain'
 import { ExplainPanel } from '#/components/assist/explain-panel'
 import { createDataClient, DataClientError } from '#/lib/data-client'
@@ -237,14 +238,14 @@ export function CanonicalSheetWorkspace({
   })
   if (instanceQuery.isPending) {
     return (
-      <p className="p-3 text-sm text-muted-foreground" role="status">
+      <p className="p-3 text-sm text-fg-muted" role="status">
         Loading Sheet…
       </p>
     )
   }
   if (instanceQuery.error || !instanceQuery.data) {
     return (
-      <p className="p-3 text-sm text-destructive" role="alert">
+      <p className="p-3 text-sm text-danger-text" role="alert">
         This Sheet could not be loaded.
       </p>
     )
@@ -279,7 +280,7 @@ function WriteBackExplain({
       <Button
         type="button"
         size="sm"
-        variant="outline"
+        variant="secondary"
         aria-expanded={showExplain}
         onClick={() => setShowExplain((value) => !value)}
       >
@@ -1429,10 +1430,14 @@ export function CanonicalSheetEditor({
     <div className="flex h-full min-h-[24rem] flex-col">
       <div className="flex shrink-0 items-center justify-end gap-2 border-b px-2 py-1">
         {visualiseDatasetId ? (
-          <Button asChild size="sm" variant="outline">
-            <Link to="/analysis" search={{ dataset: visualiseDatasetId }}>
-              Visualise
-            </Link>
+          <Button
+            render={
+              <Link to="/analysis" search={{ dataset: visualiseDatasetId }} />
+            }
+            size="sm"
+            variant="secondary"
+          >
+            Visualise
           </Button>
         ) : null}
         <ObjectHistoryDialog objectId={instance.id} objectLabel="Sheet" />
@@ -1448,7 +1453,7 @@ export function CanonicalSheetEditor({
       {canWrite ? (
         <div className="flex flex-wrap items-end gap-2 border-b px-2 py-2">
           <label className="space-y-1 text-xs">
-            <span className="text-muted-foreground">New column</span>
+            <span className="text-fg-muted">New column</span>
             <Input
               value={columnLabel}
               onChange={(event) => setColumnLabel(event.target.value)}
@@ -1459,7 +1464,7 @@ export function CanonicalSheetEditor({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={localMutate.isPending}
             onClick={() => void addColumn()}
           >
@@ -1474,7 +1479,7 @@ export function CanonicalSheetEditor({
             Add row
           </Button>
           <label className="space-y-1 text-xs">
-            <span className="text-muted-foreground">Formula</span>
+            <span className="text-fg-muted">Formula</span>
             <Input
               value={formula}
               onChange={(event) => setFormula(event.target.value)}
@@ -1493,7 +1498,7 @@ export function CanonicalSheetEditor({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={addCalculation.isPending}
             onClick={() => addCalculation.mutate()}
           >
@@ -1519,12 +1524,12 @@ export function CanonicalSheetEditor({
           role="group"
           aria-label="Working view controls"
         >
-          <span className="text-muted-foreground">Working view</span>
+          <span className="text-fg-muted">Working view</span>
           <span className="flex items-center gap-1">
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               aria-label="Freeze one fewer column"
               disabled={presentation.frozenColumnCount === 0}
               onClick={() =>
@@ -1544,7 +1549,7 @@ export function CanonicalSheetEditor({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               aria-label="Freeze one more column"
               disabled={presentation.frozenColumnCount >= matrix.columns.length}
               onClick={() =>
@@ -1563,7 +1568,7 @@ export function CanonicalSheetEditor({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => void persistPresentation({ hiddenColumnIds: [] })}
             >
               Show {presentation.hiddenColumnIds.length} hidden column
@@ -1571,19 +1576,19 @@ export function CanonicalSheetEditor({
             </Button>
           ) : null}
           <span className="ml-auto flex items-center gap-2">
-            <Button type="button" size="sm" variant="ghost" onClick={saveView}>
+            <Button type="button" size="sm" variant="quiet" onClick={saveView}>
               Save view
             </Button>
             <Button
               type="button"
               size="sm"
-              variant="ghost"
+              variant="quiet"
               disabled={!savedViewExists}
               onClick={restoreView}
             >
               Restore view
             </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={resetView}>
+            <Button type="button" size="sm" variant="quiet" onClick={resetView}>
               Reset view
             </Button>
           </span>
@@ -1652,7 +1657,7 @@ export function CanonicalSheetEditor({
       ) : null}
       {composed ? (
         <div
-          className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs text-muted-foreground"
+          className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs text-fg-muted"
           role="status"
           aria-live="polite"
         >
@@ -1674,7 +1679,7 @@ export function CanonicalSheetEditor({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={composition.isFetching}
               onClick={() => setPageCount((count) => count + 1)}
             >
@@ -1684,11 +1689,11 @@ export function CanonicalSheetEditor({
         </div>
       ) : null}
       {matrix.columns.length === 0 ? (
-        <p className="p-3 text-sm text-muted-foreground" role="status">
+        <p className="p-3 text-sm text-fg-muted" role="status">
           This Sheet has no columns yet. Add a column to start entering data.
         </p>
       ) : composition.isLoading ? (
-        <p className="p-3 text-sm text-muted-foreground" role="status">
+        <p className="p-3 text-sm text-fg-muted" role="status">
           Loading composed Sheet…
         </p>
       ) : (
@@ -1700,7 +1705,7 @@ export function CanonicalSheetEditor({
           />
         </div>
       )}
-      <div className="space-y-1 border-t px-3 py-2 text-xs text-muted-foreground">
+      <div className="space-y-1 border-t px-3 py-2 text-xs text-fg-muted">
         <p>
           Sorting, filters, freezing, hidden columns and sizes are a
           display-only working view. They never change the Dataset, the Sheet's
@@ -1717,7 +1722,7 @@ export function CanonicalSheetEditor({
           <WriteBackExplain failure={writeBackFailure} />
         ) : null}
         {errorText(localMutate.error) || errorText(addCalculation.error) ? (
-          <p className="text-destructive" role="alert">
+          <p className="text-danger-text" role="alert">
             {errorText(localMutate.error) ?? errorText(addCalculation.error)}
           </p>
         ) : null}
@@ -1787,13 +1792,13 @@ export function CanonicalSheetEditor({
             setCreateOpen(false)
           }}
         >
-          <Label>
+          <label>
             Name
             <Input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
             />
-          </Label>
+          </label>
           {(fields.data ?? [])
             .filter((field) => field.lifecycle === 'active')
             .map((field) => (
@@ -1849,7 +1854,7 @@ export function SheetProvenanceLine({
         <>
           {' · dataset '}
           <Link
-            className="underline underline-offset-2 hover:text-foreground"
+            className="underline underline-offset-2 hover:text-fg"
             to="/datasets"
             // NAV-02 review fix: the link carries only the stable Dataset
             // ID. The explorer resolves the Dataset's lifecycle itself and
@@ -1867,7 +1872,7 @@ export function SheetProvenanceLine({
         <>
           {' · record '}
           <Link
-            className="underline underline-offset-2 hover:text-foreground"
+            className="underline underline-offset-2 hover:text-fg"
             to="/records/$recordId"
             params={{ recordId: provenance.provenance.sourceRecordId }}
           >

@@ -23,6 +23,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandLoading,
 } from '#/components/v3/ui/command'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import { cn } from '#/lib/utils'
@@ -95,24 +96,20 @@ export function RecordPicker({
   const archived = results.filter((r) => r.archivedAt)
 
   return (
-    <Command className={cn('h-full', className)} shouldFilter={false} loop>
-      <div className="flex items-center gap-2 border-b px-3">
-        <Icon name="search" size={16} className="shrink-0 text-fg-muted" />
-        <CommandInput
-          placeholder={label}
-          onValueChange={onSearch}
-          aria-label={label}
-        />
-        {loading ? (
-          <Icon
-            name="clock"
-            size={16}
-            className="shrink-0 animate-spin text-fg-muted"
-            aria-hidden
-          />
-        ) : null}
-      </div>
+    <Command
+      label={label}
+      className={cn('h-full', className)}
+      shouldFilter={false}
+      loop
+    >
+      <CommandInput
+        placeholder={label}
+        onValueChange={onSearch}
+        aria-label={label}
+        icon="search"
+      />
       <CommandList>
+        <CommandLoading loading={loading} />
         {error ? (
           <div
             role="alert"

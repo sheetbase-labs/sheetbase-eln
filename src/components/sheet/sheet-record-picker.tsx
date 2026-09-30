@@ -10,6 +10,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandLoading,
 } from '#/components/v3/ui/command'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import { formatRecordReferenceLabel } from '#/lib/record-reference-cell'
@@ -66,24 +67,15 @@ export function SheetRecordPicker({
     ? results
     : results.filter((record) => !record.archivedAt)
   return (
-    <Command shouldFilter={false} loop>
-      <div className="flex items-center gap-2 border-b px-3">
-        <Icon name="search" size={16} className="shrink-0 text-fg-muted" />
-        <CommandInput
-          placeholder={label}
-          onValueChange={onSearch}
-          aria-label={label}
-        />
-        {loading ? (
-          <Icon
-            name="clock"
-            size={16}
-            className="shrink-0 animate-spin text-fg-muted"
-            aria-hidden
-          />
-        ) : null}
-      </div>
+    <Command label={label} shouldFilter={false} loop>
+      <CommandInput
+        placeholder={label}
+        onValueChange={onSearch}
+        aria-label={label}
+        icon="search"
+      />
       <CommandList>
+        <CommandLoading loading={loading} />
         {error ? (
           <div
             role="alert"

@@ -73,7 +73,8 @@ function mount(
 describe('RecordPicker', () => {
   it('shows a loading indicator while results are loading', () => {
     mount({ loading: true })
-    expect(document.querySelector('.animate-spin')).toBeTruthy()
+    // The v3 command shows skeleton rows and announces "Searching…".
+    expect(screen.getByText('Searching…')).toBeTruthy()
   })
 
   it('shows an empty state when there are no results and no error', () => {
@@ -155,9 +156,11 @@ describe('RecordPicker', () => {
     // cmdk manages aria-selected for the keyboard-active item itself; here we
     // only assert that both records render as real selectable items.
     expect(
-      screen.getByText('Virus stock A').closest('[cmdk-item]'),
+      screen.getByText('Virus stock A').closest('[data-command-item]'),
     ).toBeTruthy()
-    expect(screen.getByText('Stock B').closest('[cmdk-item]')).toBeTruthy()
+    expect(
+      screen.getByText('Stock B').closest('[data-command-item]'),
+    ).toBeTruthy()
   })
 
   it('exposes an accessible search input with an aria-label', () => {

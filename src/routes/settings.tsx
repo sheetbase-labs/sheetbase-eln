@@ -66,6 +66,16 @@ const workspace: Item[] = [
     match: (p) => p.startsWith('/settings/audit'),
   },
   {
+    label: 'Diagnostics',
+    link: { to: '/settings/diagnostics' },
+    match: (p) => p.startsWith('/settings/diagnostics'),
+  },
+  {
+    label: 'Usage',
+    link: { to: '/settings/usage' },
+    match: (p) => p.startsWith('/settings/usage'),
+  },
+  {
     label: 'API and SDK',
     link: { to: '/settings/api' },
     match: (p) => p.startsWith('/settings/api'),

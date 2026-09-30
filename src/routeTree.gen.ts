@@ -62,12 +62,14 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
 import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
+import { Route as SettingsDiagnosticsRouteImport } from './routes/settings/diagnostics'
 import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
 import { Route as SettingsMembersRouteImport } from './routes/settings/members'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsSignaturesRouteImport } from './routes/settings/signatures'
+import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
 import { Route as SheetsNewRouteImport } from './routes/sheets/new'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
@@ -395,6 +397,11 @@ const SettingsAuditRoute = SettingsAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsDiagnosticsRoute = SettingsDiagnosticsRouteImport.update({
+  id: '/diagnostics',
+  path: '/diagnostics',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsInstrumentsRoute = SettingsInstrumentsRouteImport.update({
   id: '/instruments',
   path: '/instruments',
@@ -423,6 +430,11 @@ const SettingsProfileRoute = SettingsProfileRouteImport.update({
 const SettingsSignaturesRoute = SettingsSignaturesRouteImport.update({
   id: '/signatures',
   path: '/signatures',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsUsageRoute = SettingsUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SheetsSheetIdRoute = SheetsSheetIdRouteImport.update({
@@ -808,12 +820,14 @@ export interface FileRoutesByFullPath {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
+  '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
@@ -921,12 +935,14 @@ export interface FileRoutesByTo {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
+  '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/help': typeof HelpIndexRoute
@@ -1043,12 +1059,14 @@ export interface FileRoutesById {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
+  '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
@@ -1167,12 +1185,14 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/diagnostics'
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/signatures'
+    | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/templates/$templateId'
@@ -1280,12 +1300,14 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/diagnostics'
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/signatures'
+    | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/help'
@@ -1401,12 +1423,14 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/diagnostics'
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/signatures'
+    | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/templates/$templateId'
@@ -1905,6 +1929,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAuditRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/diagnostics': {
+      id: '/settings/diagnostics'
+      path: '/diagnostics'
+      fullPath: '/settings/diagnostics'
+      preLoaderRoute: typeof SettingsDiagnosticsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/instruments': {
       id: '/settings/instruments'
       path: '/instruments'
@@ -1945,6 +1976,13 @@ declare module '@tanstack/react-router' {
       path: '/signatures'
       fullPath: '/settings/signatures'
       preLoaderRoute: typeof SettingsSignaturesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/usage': {
+      id: '/settings/usage'
+      path: '/usage'
+      fullPath: '/settings/usage'
+      preLoaderRoute: typeof SettingsUsageRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/sheets/$sheetId': {
@@ -2642,12 +2680,14 @@ interface SettingsRouteChildren {
   SettingsAccessRoute: typeof SettingsAccessRoute
   SettingsApiRoute: typeof SettingsApiRoute
   SettingsAuditRoute: typeof SettingsAuditRoute
+  SettingsDiagnosticsRoute: typeof SettingsDiagnosticsRoute
   SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRouteWithChildren
   SettingsMembersRoute: typeof SettingsMembersRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
   SettingsSignaturesRoute: typeof SettingsSignaturesRoute
+  SettingsUsageRoute: typeof SettingsUsageRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -2655,12 +2695,14 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAccessRoute: SettingsAccessRoute,
   SettingsApiRoute: SettingsApiRoute,
   SettingsAuditRoute: SettingsAuditRoute,
+  SettingsDiagnosticsRoute: SettingsDiagnosticsRoute,
   SettingsInstrumentsRoute: SettingsInstrumentsRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRouteWithChildren,
   SettingsMembersRoute: SettingsMembersRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsProfileRoute: SettingsProfileRoute,
   SettingsSignaturesRoute: SettingsSignaturesRoute,
+  SettingsUsageRoute: SettingsUsageRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 

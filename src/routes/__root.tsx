@@ -138,6 +138,8 @@ function RootRouteComponent() {
     '/settings/integrations',
     '/settings/integrations/$connectorId',
     '/settings/audit',
+    '/settings/diagnostics',
+    '/settings/usage',
     '/settings/api',
     '/settings/profile',
     '/settings/notifications',

@@ -980,7 +980,7 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Undo' }))
 
@@ -1064,7 +1064,7 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(cachedIds()).toEqual(['b2'])
 

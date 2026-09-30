@@ -62,7 +62,7 @@ describe('BlockPicker', () => {
     const onInsert = vi.fn()
     render(<BlockPicker onInsert={onInsert} />)
     await user.click(screen.getByRole('button', { name: /Add block/ }))
-    await user.click(screen.getByRole('menuitem', { name: /Checklist/ }))
+    await user.click(await screen.findByRole('menuitem', { name: /Checklist/ }))
     expect(onInsert).toHaveBeenCalledWith('checklist')
   })
 

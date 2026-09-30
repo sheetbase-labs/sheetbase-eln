@@ -118,6 +118,30 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Notebook, record and scientific components reskinned (last legacy pass)**:
+  the ported areas' remaining legacy kit is now on the v3 kit and tokens. The
+  notebook block/editor surfaces (`block-editor`, `block-preview`, `block-picker`,
+  `notebook-block`, `notebook-document`, `rich-text-editor`, `save-status`,
+  `conflict-banner`, the outline/history panels, the sheet and pipeline-output
+  blocks, `print-notebook`, the amend/duplicate/sign/submit dialogs and the
+  slash command menu), the shared record/scientific components
+  (`data-table`, `model-field-input`, `record-picker`, `sheet-record-picker`,
+  `diff`, the audit/history timelines, comment/thread panels, presence and
+  export/import chrome) and the viz frames (`representation-frame`,
+  `chart-frame`, `compare-view`, `analysis-panel`, `chart-configurator`) now use
+  the v3 `Button`/`Badge`/`Input`/`Textarea`/`NativeSelect`/`Table`/`Dialog`/
+  `Tabs`/`Popover`/`Tooltip`/`Avatar`/`DropdownMenu`/`Skeleton`/`ConfirmDialog`
+  and v3 icons/tokens. A v3 cmdk `command` primitive was vendored for the
+  searchable record pickers. The last two Radix menus (`block-picker`,
+  `notebook-block`) moved to the base-ui menu after fixing a real bug: their
+  group label sat outside a `Menu.Group`, which base-ui rejects; the affected
+  component tests now wait for the menu to mount, as base-ui opens it
+  asynchronously. `src/components/ui` now backs only the six ELN-only legacy
+  routes (`/configure`, `/planner`, `/admin`, `/admin/$section`, `/analysis`,
+  `/help`) and their exclusive components (`reui`, `planner`,
+  `workspace-admin`, `configuration`, `stewardship`, `templates`,
+  `shortcuts-dialog`, the legacy `shell`), none of which are ported areas.
+
 - **Instruments area added (LAB-06)**: `/instruments` lists the workspace
   instrument registry (ID, name, type, model, connection) with search and an
   inspector, and `/instruments/$instrumentId` shows an instrument with its

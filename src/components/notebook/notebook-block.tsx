@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/ui'
+} from '#/components/v3/ui/dropdown-menu'
 import { Icon } from '#/components/v3/icons'
 
 /**
@@ -185,22 +185,23 @@ export function NotebookBlock({
           ) : null}
           {hasMenu ? (
             <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="quiet"
-                  size="icon"
-                  aria-label="Block actions"
-                  className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                >
-                  <Icon name="more" size={16} />
-                </Button>
-              </DropdownMenuTrigger>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="quiet"
+                    size="icon"
+                    aria-label="Block actions"
+                    className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                    icon="more"
+                  />
+                }
+              />
               <DropdownMenuContent align="end">
                 {menuExtra}
                 {menuItems?.map((item) => (
                   <React.Fragment key={item.id}>
                     <DropdownMenuItem
-                      onSelect={item.onSelect}
+                      onClick={item.onSelect}
                       disabled={item.disabled || readOnly}
                     >
                       {item.label}

@@ -261,7 +261,7 @@ describe('NotebookDocument — insertion', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Add block/ }))
-    await user.click(screen.getByRole('menuitem', { name: /^Text/ }))
+    await user.click(await screen.findByRole('menuitem', { name: /^Text/ }))
     expect(onInsertBlock).toHaveBeenCalledWith('rich_text', undefined)
   })
 
@@ -371,7 +371,9 @@ describe('NotebookDocument — insertion', () => {
     await user.click(
       screen.getAllByRole('button', { name: 'Insert block after Text' })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: /^Checklist/ }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: /^Checklist/ }),
+    )
     expect(onInsertBlock).toHaveBeenCalledWith('checklist', 'b1')
   })
 })
@@ -476,7 +478,7 @@ describe('NotebookDocument — duplication', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Block actions/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Duplicate' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Duplicate' }))
     expect(onDuplicateBlock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'b1', type: 'rich_text' }),
     )
@@ -498,7 +500,7 @@ describe('NotebookDocument — delete confirmation', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Block actions/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     // Confirmation dialog opens; the destructive action is not yet taken.
     expect(onDeleteBlock).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Delete' }))
@@ -521,7 +523,7 @@ describe('NotebookDocument — delete confirmation', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Block actions/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onDeleteBlock).not.toHaveBeenCalled()
   })
@@ -544,7 +546,7 @@ describe('NotebookDocument — undo delete', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Block actions/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(screen.getByText('Block deleted.')).toBeTruthy()
     const undoDelete = screen
@@ -577,7 +579,7 @@ describe('NotebookDocument — undo delete', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Undo' }))
     // The restored block is present and the undo status is dismissed: the
@@ -628,8 +630,8 @@ function blockIdOrder(container: HTMLElement): string[] {
   )
 }
 
-function moveMenuItems(): HTMLElement[] {
-  return screen.getAllByRole('menuitem', { name: /^Move (up|down)$/ })
+async function moveMenuItems(): Promise<HTMLElement[]> {
+  return screen.findAllByRole('menuitem', { name: /^Move (up|down)$/ })
 }
 
 describe('NotebookDocument — movement via menu', () => {
@@ -653,9 +655,9 @@ describe('NotebookDocument — movement via menu', () => {
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
     // First block's Move up is disabled; only Move down is enabled.
-    const moves = moveMenuItems()
+    const moves = await moveMenuItems()
     expect(moves.length).toBeGreaterThanOrEqual(1)
-    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move down' }))
     expect(onMoveBlock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'b1' }),
       // Moving b1 from index 0 to index 1 → after=b2, before=b3.
@@ -680,7 +682,7 @@ describe('NotebookDocument — movement via menu', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[2],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move up' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move up' }))
     expect(onMoveBlock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'b3' }),
       // Moving b3 from index 2 to index 1 → after=b1, before=b2.
@@ -706,7 +708,7 @@ describe('NotebookDocument — movement via menu', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[1],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move up' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move up' }))
     expect(onMoveBlock).toHaveBeenLastCalledWith(
       expect.objectContaining({ id: 'b2' }),
       expect.objectContaining({ afterBlockId: null, beforeBlockId: 'b1' }),
@@ -729,7 +731,7 @@ describe('NotebookDocument — movement via menu', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    const up = screen.getByRole('menuitem', {
+    const up = await screen.findByRole('menuitem', {
       name: 'Move up',
     })
     expect(
@@ -756,7 +758,7 @@ describe('NotebookDocument — movement via menu', () => {
       screen.getAllByRole('button', { name: /Block actions/ })[1],
     )
     await user.click(
-      screen.getByRole('menuitem', { name: 'Insert text below' }),
+      await screen.findByRole('menuitem', { name: 'Insert text below' }),
     )
     expect(onInsertBlock).toHaveBeenCalledWith('rich_text', 'b2')
   })
@@ -897,7 +899,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move down' }))
     // Optimistic: b1 should now appear second in DOM order while the RPC
     // is in flight.
     expect(blockIdOrder(container)).toEqual(['b2', 'b1', 'b3'])
@@ -929,7 +931,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move down' }))
     // After rejection the order returns to the pre-move baseline.
     await new Promise((r) => setTimeout(r, 0))
     expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
@@ -955,7 +957,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move down' }))
     await new Promise((r) => setTimeout(r, 0))
     expect(container.querySelector('[data-move-error="generic"]')).toBeTruthy()
     expect(screen.getByText('network down')).toBeTruthy()

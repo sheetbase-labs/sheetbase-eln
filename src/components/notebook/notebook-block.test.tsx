@@ -56,7 +56,7 @@ describe('NotebookBlock', () => {
     )
     expect(screen.getByLabelText('Block locked')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Block actions' }))
-    const editItem = screen.getByRole('menuitem', { name: 'Edit' })
+    const editItem = await screen.findByRole('menuitem', { name: 'Edit' })
     await user.click(editItem)
     expect(onEdit).not.toHaveBeenCalled() // disabled by readOnly
   })
@@ -94,7 +94,9 @@ describe('NotebookBlock', () => {
       </NotebookBlock>,
     )
     await user.click(screen.getByRole('button', { name: 'Block actions' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Delete block' }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Delete block' }),
+    )
     expect(onDelete).toHaveBeenCalledTimes(1)
   })
 

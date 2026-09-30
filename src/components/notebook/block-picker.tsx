@@ -4,11 +4,12 @@ import { Button } from '#/components/v3/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/ui'
+} from '#/components/v3/ui/dropdown-menu'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 
@@ -196,21 +197,23 @@ export function BlockPicker({
   return (
     <div className={cn('relative', className)}>
       <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+        <DropdownMenuTrigger render={trigger} />
         <DropdownMenuContent align="start" className="w-72">
-          <DropdownMenuLabel>Insert block</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Insert block</DropdownMenuLabel>
+          </DropdownMenuGroup>
           {BLOCK_PICKER_GROUPS.map((group) => {
             const items = BLOCK_PICKER_OPTIONS.filter(
               (opt) => opt.group === group.id,
             )
             return (
-              <div key={group.id}>
+              <DropdownMenuGroup key={group.id}>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
                 {items.map((opt) => (
                   <DropdownMenuItem
                     key={opt.type}
-                    onSelect={() => onInsert(opt.type)}
+                    onClick={() => onInsert(opt.type)}
                     className="flex items-start gap-2"
                   >
                     <Icon
@@ -228,7 +231,7 @@ export function BlockPicker({
                     </span>
                   </DropdownMenuItem>
                 ))}
-              </div>
+              </DropdownMenuGroup>
             )
           })}
         </DropdownMenuContent>

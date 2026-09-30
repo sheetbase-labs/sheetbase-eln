@@ -18,7 +18,7 @@ import {
   EmptyAnalysisState,
   ExportPanel,
   SavedViewsPanel,
-} from './analysis'
+} from './analysis/new'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'

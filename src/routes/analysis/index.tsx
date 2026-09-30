@@ -1,0 +1,273 @@
+import { useMemo } from 'react'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+
+import { PageHeader, Muted } from '#/components/v3/ui/layout'
+import { Button } from '#/components/v3/ui/button'
+import { Status } from '#/components/v3/ui/status'
+import { EmptyState } from '#/components/v3/ui/empty-state'
+import { SearchTabs } from '#/components/v3/inventory/list'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import { useUserNames } from '#/lib/user-names'
+import { createDataClient } from '#/lib/data-client'
+import {
+  analysisStudioQueryKeys,
+  fetchAnalysisViews,
+} from '#/lib/analysis-studio-data'
+import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
+import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
+
+/**
+ * UI port (roadmap-4/ui-app3): the Analysis Studio home. Lists the workspace's
+ * saved analyses (the real analysis_views) with the datasets you can start
+ * from; the builder is at /analysis/new and a saved view opens at
+ * /analysis/$analysisId. `?state=denied` drives the acceptance suite.
+ */
+export const Route = createFileRoute('/analysis/')({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: 'mine' | 'drafts'; q?: string; state?: 'denied' } => ({
+    tab:
+      search.tab === 'mine' || search.tab === 'drafts' ? search.tab : undefined,
+    q: typeof search.q === 'string' ? search.q : undefined,
+    state: search.state === 'denied' ? 'denied' : undefined,
+  }),
+  component: AnalysisHome,
+})
+
+const client = createDataClient()
+
+const MODES = [
+  { mode: 'chart', label: 'Chart', body: 'A figure from a dataset snapshot.' },
+  {
+    mode: 'analyse',
+    label: 'Analyse',
+    body: 'Statistics with assumption checks.',
+  },
+  { mode: 'compare', label: 'Compare', body: 'Two snapshots side by side.' },
+] as const
+
+function kindLabel(view: AnalysisViewWire): string {
+  return view.spec.type
+}
+
+function AnalysisHome() {
+  const { tab, q, state } = Route.useSearch()
+  const navigate = useNavigate()
+  const { context } = Route.useRouteContext()
+  const userId = context.user.id
+
+  const views = useQuery({
+    queryKey: analysisStudioQueryKeys.views,
+    queryFn: () => fetchAnalysisViews(client),
+    staleTime: 10_000,
+  })
+  const datasets = useQuery({
+    queryKey: analysisStudioQueryKeys.datasets,
+    queryFn: () => fetchDatasetSummaries(),
+    staleTime: 30_000,
+  })
+  const rows = views.data ?? []
+  const names = useUserNames(rows.map((r) => r.owner_user_id).filter(Boolean))
+  const datasetName = (id: string | undefined) =>
+    (datasets.data ?? []).find((d) => d.id === id)?.name ?? '—'
+
+  const needle = (q ?? '').trim().toLowerCase()
+  const visible = useMemo(
+    () =>
+      rows.filter((v) => {
+        if (tab === 'mine' && v.owner_user_id !== userId) return false
+        if (tab === 'drafts' && v.version > 1) return false
+        if (
+          needle &&
+          !`${v.display_id ?? ''} ${v.name} ${v.spec.type} ${v.spec.datasets[0]?.datasetId ?? ''}`
+            .toLowerCase()
+            .includes(needle)
+        )
+          return false
+        return true
+      }),
+    [rows, tab, needle, userId],
+  )
+
+  const recent = (datasets.data ?? []).slice(0, 3)
+
+  if (state === 'denied') {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PageHeader crumbs="Home" title="Analysis" />
+        <div className="px-4 py-5 md:px-6">
+          <EmptyState
+            icon="lock"
+            title="You don’t have access to analyses"
+            body="Your workspace role doesn’t include Analysis. You can still see figures that records cite. A workspace admin can change your role in Settings › Members."
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <PageHeader
+        crumbs="Home"
+        title="Analysis"
+        meta={<span>{rows.length} saved analyses</span>}
+        actions={
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="primary" icon="plus" />}
+            >
+              New analysis
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              {MODES.map((m) => (
+                <DropdownMenuItem
+                  key={m.mode}
+                  hint={m.label}
+                  onClick={() =>
+                    void navigate({
+                      to: '/analysis/new',
+                      search: { mode: m.mode },
+                    })
+                  }
+                >
+                  {m.body}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      />
+
+      {recent.length ? (
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 md:px-6">
+          <span className="text-label text-fg-muted">
+            Start from a recent dataset
+          </span>
+          {recent.map((d) => (
+            <Link
+              key={d.id}
+              to="/analysis/new"
+              search={{ mode: 'chart', dataset: d.id }}
+              className="text-label"
+            >
+              {d.name}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="border-b border-border px-4 md:px-6">
+        <SearchTabs
+          label="Analysis lists"
+          current={tab ?? 'all'}
+          items={[
+            {
+              key: 'all',
+              label: 'All',
+              count: rows.length,
+              link: { to: '/analysis', search: {} },
+            },
+            {
+              key: 'mine',
+              label: 'Mine',
+              count: rows.filter((v) => v.owner_user_id === userId).length,
+              link: { to: '/analysis', search: { tab: 'mine' } },
+            },
+            {
+              key: 'drafts',
+              label: 'Drafts',
+              count: rows.filter((v) => v.version <= 1).length,
+              link: { to: '/analysis', search: { tab: 'drafts' } },
+            },
+          ]}
+        />
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto">
+        {views.isLoading ? (
+          <div className="px-4 py-5 md:px-6">
+            <Muted>Loading analyses…</Muted>
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="px-4 py-5 md:px-6">
+            <EmptyState
+              icon="chart"
+              title={needle ? 'No analyses match' : 'No analyses yet'}
+              body="An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start."
+            >
+              <div className="flex flex-wrap justify-center gap-2">
+                {MODES.map((m) => (
+                  <Button
+                    key={m.mode}
+                    nativeButton={false}
+                    render={
+                      <Link to="/analysis/new" search={{ mode: m.mode }} />
+                    }
+                  >
+                    Start a {m.label.toLowerCase()}
+                  </Button>
+                ))}
+              </div>
+            </EmptyState>
+          </div>
+        ) : (
+          <Table aria-label="Saved analyses">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="first:pl-4">ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Kind</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Owner</TableHead>
+                <TableHead className="pr-4">Updated</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((v) => (
+                <TableRow key={v.id} className="cursor-pointer">
+                  <TableCell className="first:pl-4">
+                    <Link
+                      to="/analysis/$analysisId"
+                      params={{ analysisId: v.id }}
+                      className="mono"
+                    >
+                      {v.display_id ?? v.id.slice(0, 8)}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="font-medium">{v.name}</TableCell>
+                  <TableCell>
+                    <Status tone="analysis">{kindLabel(v)}</Status>
+                  </TableCell>
+                  <TableCell className="text-fg-muted">
+                    {datasetName(v.spec.datasets[0]?.datasetId)}
+                  </TableCell>
+                  <TableCell className="text-fg-muted">
+                    {names.userLabel(v.owner_user_id)}
+                  </TableCell>
+                  <TableCell className="pr-4 text-fg-muted">
+                    {v.updated_at.slice(0, 10)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </div>
+  )
+}

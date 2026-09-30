@@ -104,7 +104,7 @@ function AnalysisView() {
             title="This analysis does not exist"
             body="It may have been deleted, or it belongs to another workspace."
           >
-            <Button nativeButton={false} render={<Link to="/analysis" />}>
+            <Button nativeButton={false} render={<Link to="/analysis/new" />}>
               Open the studio
             </Button>
           </EmptyState>
@@ -147,7 +147,7 @@ function AnalysisView() {
             <Button
               variant="primary"
               nativeButton={false}
-              render={<Link to="/analysis" />}
+              render={<Link to="/analysis/new" />}
             >
               Edit in studio
             </Button>

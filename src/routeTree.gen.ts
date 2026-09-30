@@ -35,7 +35,9 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as AdminSectionRouteImport } from './routes/admin/$section'
+import { Route as AnalysisIndexRouteImport } from './routes/analysis/index'
 import { Route as AnalysisAnalysisIdRouteImport } from './routes/analysis/$analysisId'
+import { Route as AnalysisNewRouteImport } from './routes/analysis/new'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
@@ -266,9 +268,19 @@ const AdminSectionRoute = AdminSectionRouteImport.update({
   path: '/$section',
   getParentRoute: () => AdminRoute,
 } as any)
+const AnalysisIndexRoute = AnalysisIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AnalysisRoute,
+} as any)
 const AnalysisAnalysisIdRoute = AnalysisAnalysisIdRouteImport.update({
   id: '/$analysisId',
   path: '/$analysisId',
+  getParentRoute: () => AnalysisRoute,
+} as any)
+const AnalysisNewRoute = AnalysisNewRouteImport.update({
+  id: '/new',
+  path: '/new',
   getParentRoute: () => AnalysisRoute,
 } as any)
 const ApiCalculationsRoute = ApiCalculationsRouteImport.update({
@@ -822,6 +834,7 @@ export interface FileRoutesByFullPath {
   '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
+  '/analysis/new': typeof AnalysisNewRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
@@ -858,6 +871,7 @@ export interface FileRoutesByFullPath {
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
+  '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -925,7 +939,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
-  '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
@@ -948,6 +961,7 @@ export interface FileRoutesByTo {
   '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
+  '/analysis/new': typeof AnalysisNewRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
@@ -976,6 +990,7 @@ export interface FileRoutesByTo {
   '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
+  '/analysis': typeof AnalysisIndexRoute
   '/help': typeof HelpIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -1069,6 +1084,7 @@ export interface FileRoutesById {
   '/templates': typeof TemplatesRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
+  '/analysis/new': typeof AnalysisNewRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
@@ -1105,6 +1121,7 @@ export interface FileRoutesById {
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
+  '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -1199,6 +1216,7 @@ export interface FileRouteTypes {
     | '/templates'
     | '/admin/$section'
     | '/analysis/$analysisId'
+    | '/analysis/new'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
@@ -1235,6 +1253,7 @@ export interface FileRouteTypes {
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/templates/$templateId'
+    | '/analysis/'
     | '/help/'
     | '/settings/'
     | '/api/auth/$'
@@ -1302,7 +1321,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
-    | '/analysis'
     | '/client-portal'
     | '/configure'
     | '/datasets'
@@ -1325,6 +1343,7 @@ export interface FileRouteTypes {
     | '/templates'
     | '/admin/$section'
     | '/analysis/$analysisId'
+    | '/analysis/new'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
@@ -1353,6 +1372,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
+    | '/analysis'
     | '/help'
     | '/settings'
     | '/api/auth/$'
@@ -1445,6 +1465,7 @@ export interface FileRouteTypes {
     | '/templates'
     | '/admin/$section'
     | '/analysis/$analysisId'
+    | '/analysis/new'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
@@ -1481,6 +1502,7 @@ export interface FileRouteTypes {
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/templates/$templateId'
+    | '/analysis/'
     | '/help/'
     | '/settings/'
     | '/api/auth/$'
@@ -1791,11 +1813,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSectionRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/analysis/': {
+      id: '/analysis/'
+      path: '/'
+      fullPath: '/analysis/'
+      preLoaderRoute: typeof AnalysisIndexRouteImport
+      parentRoute: typeof AnalysisRoute
+    }
     '/analysis/$analysisId': {
       id: '/analysis/$analysisId'
       path: '/$analysisId'
       fullPath: '/analysis/$analysisId'
       preLoaderRoute: typeof AnalysisAnalysisIdRouteImport
+      parentRoute: typeof AnalysisRoute
+    }
+    '/analysis/new': {
+      id: '/analysis/new'
+      path: '/new'
+      fullPath: '/analysis/new'
+      preLoaderRoute: typeof AnalysisNewRouteImport
       parentRoute: typeof AnalysisRoute
     }
     '/api/calculations': {
@@ -2506,10 +2542,14 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AnalysisRouteChildren {
   AnalysisAnalysisIdRoute: typeof AnalysisAnalysisIdRoute
+  AnalysisNewRoute: typeof AnalysisNewRoute
+  AnalysisIndexRoute: typeof AnalysisIndexRoute
 }
 
 const AnalysisRouteChildren: AnalysisRouteChildren = {
   AnalysisAnalysisIdRoute: AnalysisAnalysisIdRoute,
+  AnalysisNewRoute: AnalysisNewRoute,
+  AnalysisIndexRoute: AnalysisIndexRoute,
 }
 
 const AnalysisRouteWithChildren = AnalysisRoute._addFileChildren(

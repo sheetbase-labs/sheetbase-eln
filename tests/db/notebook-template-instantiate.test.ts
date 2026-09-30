@@ -266,7 +266,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -345,7 +345,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const requiredPublished = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [required.version.id, required.version.revision],
       )
     ).rows[0].result
@@ -430,7 +430,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v1 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -453,7 +453,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v2 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [v2draft.id, v2draft.revision],
       )
     ).rows[0].result
@@ -549,7 +549,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v1 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -632,7 +632,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -694,7 +694,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v1 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -733,7 +733,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v2 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [v2draft.id, v2draft.revision],
       )
     ).rows[0].result
@@ -878,7 +878,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -1110,7 +1110,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v1 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -1152,7 +1152,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v2 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [v2draft.id, v2draft.revision],
       )
     ).rows[0].result
@@ -1233,7 +1233,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -1394,7 +1394,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -1406,7 +1406,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const emptyPublished = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [empty.version.id, empty.version.revision],
       )
     ).rows[0].result

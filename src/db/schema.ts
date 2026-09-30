@@ -2647,6 +2647,14 @@ export const notebookTemplateVersions = api.table(
     publishedByUserId: text('published_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    /** Why this version was published or retired (governance record). */
+    reason: text('reason'),
+    /** The retire e-signature: who signed, its meaning and the server time. */
+    signedByUserId: text('signed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    signedMeaning: text('signed_meaning'),
+    signedAt: timestamp('signed_at', { withTimezone: true, mode: 'date' }),
     retiredAt: timestamp('retired_at', {
       withTimezone: true,
       mode: 'date',

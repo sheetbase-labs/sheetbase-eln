@@ -189,7 +189,9 @@ function routes(ids) {
     list.push(
       `/templates/${ids.template}`,
       `/templates/${ids.template}/versions`,
+      `/templates/${ids.template}/versions?state=denied`,
       `/templates/${ids.template}/in-use`,
+      `/templates/${ids.template}/in-use?state=denied`,
     )
   if (ids.reagent) list.push(`/materials?q=`)
   if (ids.connector) list.push(`/settings/integrations/${ids.connector}`)

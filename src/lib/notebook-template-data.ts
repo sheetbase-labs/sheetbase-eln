@@ -46,6 +46,10 @@ export const notebookTemplateVersionWireSchema = z
     updated_by_user_id: z.string().nullable(),
     published_at: timestamp.nullable(),
     published_by_user_id: z.string().nullable(),
+    reason: z.string().nullable(),
+    signed_by_user_id: z.string().nullable(),
+    signed_meaning: z.string().nullable(),
+    signed_at: timestamp.nullable(),
     retired_at: timestamp.nullable(),
     retired_by_user_id: z.string().nullable(),
   })
@@ -73,6 +77,12 @@ export type NotebookTemplateVersion = {
   configuration: NotebookTemplateConfiguration
   revision: number
   publishedAt: string | null
+  publishedByUserId: string | null
+  reason: string | null
+  signedByUserId: string | null
+  signedMeaning: string | null
+  signedAt: string | null
+  retiredAt: string | null
 }
 
 export type NotebookTemplateParameterInput =
@@ -142,6 +152,12 @@ export function notebookTemplateVersionFromWire(
     configuration: parseNotebookTemplateConfiguration(parsed.configuration),
     revision: parsed.revision,
     publishedAt: parsed.published_at,
+    publishedByUserId: parsed.published_by_user_id,
+    reason: parsed.reason,
+    signedByUserId: parsed.signed_by_user_id,
+    signedMeaning: parsed.signed_meaning,
+    signedAt: parsed.signed_at,
+    retiredAt: parsed.retired_at,
   }
 }
 
@@ -239,11 +255,13 @@ export async function createNotebookTemplate(
 export async function publishNotebookTemplateVersion(
   versionId: string,
   expectedRevision: number,
+  reason: string,
   client: DataClient = notebookTemplateDataClient,
 ) {
   const row = await client.rpc<unknown>('publish_notebook_template_version', {
     p_version_id: versionId,
     p_expected_revision: expectedRevision,
+    p_reason: reason,
   })
   return notebookTemplateVersionFromWire(row)
 }
@@ -339,11 +357,15 @@ export async function applyNotebookTemplateUpgrade(
 export async function retireNotebookTemplateVersion(
   versionId: string,
   expectedRevision: number,
+  reason: string,
+  meaning: string,
   client: DataClient = notebookTemplateDataClient,
 ) {
   const row = await client.rpc<unknown>('retire_notebook_template_version', {
     p_version_id: versionId,
     p_expected_revision: expectedRevision,
+    p_reason: reason,
+    p_meaning: meaning,
   })
   return notebookTemplateVersionFromWire(row)
 }

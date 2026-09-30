@@ -54,6 +54,12 @@ function version(
     configuration: config(2),
     revision: 1,
     publishedAt: '2026-01-02T00:00:00Z',
+    publishedByUserId: null,
+    reason: null,
+    signedByUserId: null,
+    signedMeaning: null,
+    signedAt: null,
+    retiredAt: null,
     ...overrides,
   }
 }

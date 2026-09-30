@@ -349,8 +349,13 @@ export function VersionedNotebookTemplatePanel({
     },
   })
   const publish = useMutation({
+    // Legacy /configure surface; the ported Versions tab has a proper dialog.
     mutationFn: (input: { id: string; revision: number }) =>
-      publishNotebookTemplateVersion(input.id, input.revision),
+      publishNotebookTemplateVersion(
+        input.id,
+        input.revision,
+        window.prompt('Reason for publishing this version?') ?? '',
+      ),
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: ['notebook-template-versions'],
@@ -358,7 +363,12 @@ export function VersionedNotebookTemplatePanel({
   })
   const retire = useMutation({
     mutationFn: (input: { id: string; revision: number }) =>
-      retireNotebookTemplateVersion(input.id, input.revision),
+      retireNotebookTemplateVersion(
+        input.id,
+        input.revision,
+        window.prompt('Reason for retiring this version?') ?? '',
+        'Retired — no longer for new records',
+      ),
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: ['notebook-template-versions'],

@@ -160,6 +160,12 @@ export interface TemplateUser {
   identifier: string
   title: string
   source_notebook_template_version_id: string | null
+  status: string
+  locked_at: string | null
+  project_id: string | null
+  created_by_user_id: string | null
+  created_at: string
+  updated_at: string
 }
 
 export function useTemplateUsers(
@@ -174,7 +180,7 @@ export function useTemplateUsers(
     queryFn: () =>
       client.list<TemplateUser>(
         'records',
-        `?source_notebook_template_version_id=in.(${versionIds.join(',')})&select=id,identifier,title,source_notebook_template_version_id&order=updated_at.desc&limit=200`,
+        `?source_notebook_template_version_id=in.(${versionIds.join(',')})&select=id,identifier,title,source_notebook_template_version_id,status,locked_at,project_id,created_by_user_id,created_at,updated_at&order=updated_at.desc&limit=200`,
       ),
     enabled: versionIds.length > 0,
     staleTime: 15_000,

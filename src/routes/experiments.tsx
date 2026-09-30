@@ -9,7 +9,9 @@ import {
 } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
+import { CapabilityGap } from '#/components/v3/ui/capability-gap'
 import { Status } from '#/components/v3/ui/status'
+import { capabilityRoadmap } from '#/lib/capabilities'
 import { Input } from '#/components/v3/ui/input'
 import { Icon } from '#/components/v3/icons'
 import {
@@ -96,6 +98,8 @@ function ExperimentsRoute() {
 
 function Experiments() {
   const { context } = Route.useRouteContext()
+  const admin =
+    context.workspace?.role === 'owner' || context.workspace?.role === 'admin'
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const tab: Tab = search.tab ?? 'all'
@@ -308,6 +312,21 @@ function Experiments() {
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto border-t border-border">
+        <div className="px-4 pt-2 md:px-6">
+          <CapabilityGap
+            variant="inline"
+            title="Open-issue counts aren’t tracked yet"
+            will="The number of open issues on each experiment will show here; today the model carries no count, so the column stays empty."
+            roadmap={capabilityRoadmap.expOpenIssues}
+            admin={admin}
+            instead={[
+              {
+                label: 'Open an experiment’s notebook',
+                link: { to: '/experiments' },
+              },
+            ]}
+          />
+        </div>
         <MobileList
           className="md:hidden"
           label="Experiments"
@@ -397,7 +416,9 @@ function Experiments() {
                   <TableCell>
                     <Status tone={e.status.tone}>{e.status.label}</Status>
                   </TableCell>
-                  <TableCell className="text-fg-muted">—</TableCell>
+                  <TableCell className="text-fg-muted" title="Not tracked yet">
+                    —
+                  </TableCell>
                   <TableCell align="right" className="text-fg-muted">
                     {e.started}
                   </TableCell>

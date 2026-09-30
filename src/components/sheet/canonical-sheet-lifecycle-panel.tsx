@@ -70,7 +70,9 @@ function defaultExtractionSelection(
 }
 
 export function configurationDefinitionHref(definitionId: string) {
-  return `/configure?kind=definition&id=${encodeURIComponent(definitionId)}`
+  // UI port: a definition is a dataset schema definition, so it opens in the
+  // ported Models area rather than the legacy Configure workspace.
+  return `/models/${encodeURIComponent(definitionId)}`
 }
 
 export function CanonicalSheetLifecyclePanel({
@@ -235,7 +237,7 @@ export function CanonicalSheetLifecyclePanel({
         name: result.definition.name,
       })
       setStatus(
-        `Extracted draft Definition “${result.definition.name}”. Continue in Configure to review and publish it.`,
+        `Extracted draft Definition “${result.definition.name}”. Continue in Models to review and publish it.`,
       )
       await queryClient.invalidateQueries({ queryKey: ['sheet-definitions'] })
     },
@@ -572,7 +574,7 @@ export function CanonicalSheetLifecyclePanel({
                   className="font-medium text-primary underline-offset-4 hover:underline"
                   href={configurationDefinitionHref(extractedDefinition.id)}
                 >
-                  Continue in Configure
+                  Continue in Models
                 </a>
               ) : null}
             </div>

@@ -5,6 +5,11 @@ Branch: `roadmap-4/ui-app3`. Decision: **A** — the ELN keeps the backend
 (Postgres / PostgREST / RLS / RPCs); the UI from `../sheetbase-app-3` is ported
 in, area by area, and wired to real data.
 
+The port is complete for every app-3-mapped area. The remaining screen work —
+ELN-specific surfaces that need designing, app-3 screens not yet ported, routes
+to retire and capability gaps — is in
+[`UI_PORT_SCREENS.md`](UI_PORT_SCREENS.md).
+
 ## Why
 
 `sheetbase-app-3` is the new UI **already written** (TanStack Start, Tailwind v4,

@@ -23,8 +23,11 @@ active; once it is, this file and the tracker own Roadmap 4's queue.
 **Active — UI port (Plan A) on branch `roadmap-4/ui-app3`.** Roadmap 4's tasks
 are being delivered by porting `sheetbase-app-3`'s UI into the ELN area by area,
 on the real backend; see [`UI_PORT.md`](UI_PORT.md) for the area-by-area
-definition of done, route map and progress log. That file is the port hand-off;
-the per-task tracker below still records the original task specs.
+definition of done, route map and progress log, and
+[`UI_PORT_SCREENS.md`](UI_PORT_SCREENS.md) for the screens that remain
+(ELN-specific surfaces to design, app-3 screens to port, routes to retire and
+capability gaps). Those files are the port hand-off; the per-task tracker below
+still records the original task specs.
 
 Activation started with wave 0: the decision tasks DEC-01..12, beginning with
 [ADR-0047](../decisions/0047-ui-system-v3-adoption.md).

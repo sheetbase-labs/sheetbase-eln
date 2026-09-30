@@ -17,6 +17,9 @@ export interface InstrumentRow {
   model: string | null
   serialNumber: string | null
   vendor: string | null
+  location: string | null
+  ownerId: string | null
+  retiredAt: string | null
   connectionStatus: string
   lastConnectedAt: string | null
   position: number
@@ -31,6 +34,9 @@ interface InstrumentWire {
   model: string | null
   serial_number: string | null
   vendor: string | null
+  location: string | null
+  owner_id: string | null
+  retired_at: string | null
   connection_status: string
   last_connected_at: string | null
   position: number
@@ -61,7 +67,7 @@ export const instrumentQueryKeys = {
 }
 
 const FIELDS =
-  'id,display_id,name,instrument_type,model,serial_number,vendor,connection_status,last_connected_at,position,updated_at'
+  'id,display_id,name,instrument_type,model,serial_number,vendor,location,owner_id,retired_at,connection_status,last_connected_at,position,updated_at'
 
 function toInstrument(row: InstrumentWire): InstrumentRow {
   return {
@@ -72,6 +78,9 @@ function toInstrument(row: InstrumentWire): InstrumentRow {
     model: row.model,
     serialNumber: row.serial_number,
     vendor: row.vendor,
+    location: row.location,
+    ownerId: row.owner_id,
+    retiredAt: row.retired_at,
     connectionStatus: row.connection_status,
     lastConnectedAt: row.last_connected_at,
     position: row.position,
@@ -187,6 +196,7 @@ export function useInstrumentRuns(
 
 export interface InstrumentCalibrationRow {
   id: string
+  instrumentId: string
   performedAt: string
   dueAt: string
   certificateFileId: string | null
@@ -196,6 +206,7 @@ export interface InstrumentCalibrationRow {
 
 interface CalibrationWire {
   id: string
+  instrument_id: string
   performed_at: string
   due_at: string
   certificate_file_id: string | null
@@ -204,11 +215,12 @@ interface CalibrationWire {
 }
 
 const CALIBRATION_FIELDS =
-  'id,performed_at,due_at,certificate_file_id,performed_by_user_id,notes'
+  'id,instrument_id,performed_at,due_at,certificate_file_id,performed_by_user_id,notes'
 
 function toCalibration(row: CalibrationWire): InstrumentCalibrationRow {
   return {
     id: row.id,
+    instrumentId: row.instrument_id,
     performedAt: row.performed_at,
     dueAt: row.due_at,
     certificateFileId: row.certificate_file_id,
@@ -270,4 +282,69 @@ export async function recordInstrumentCalibration(
     },
   )
   return toCalibration(row)
+}
+
+export interface NewInstrumentInput {
+  workspaceId: string
+  name: string
+  instrumentType: string
+  model?: string | null
+  serialNumber?: string | null
+  vendor?: string | null
+  location?: string | null
+  ownerId?: string | null
+}
+
+/** Register an instrument through the canonical RPC (writer-gated in SQL). */
+export async function createInstrument(
+  input: NewInstrumentInput,
+  client: DataClient = notebookDataClient,
+): Promise<InstrumentRow> {
+  const row = await client.rpc<InstrumentWire>('create_instrument', {
+    p_workspace_id: input.workspaceId,
+    p_name: input.name,
+    p_instrument_type: input.instrumentType,
+    p_model: input.model ?? null,
+    p_serial_number: input.serialNumber ?? null,
+    p_vendor: input.vendor ?? null,
+    p_location: input.location ?? null,
+    p_owner_id: input.ownerId ?? null,
+  })
+  return toInstrument(row)
+}
+
+/** Retire or reinstate an instrument through the canonical RPC. */
+export async function setInstrumentRetired(
+  instrumentId: string,
+  retired: boolean,
+  client: DataClient = notebookDataClient,
+): Promise<InstrumentRow> {
+  const row = await client.rpc<InstrumentWire>('set_instrument_retired', {
+    p_instrument_id: instrumentId,
+    p_retired: retired,
+  })
+  return toInstrument(row)
+}
+
+/** Latest calibration per instrument, for the registry list's due column. */
+export function useLatestCalibrationsByInstrument(
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'instruments', 'calibrations', 'all'] as const,
+    queryFn: () =>
+      client
+        .list<CalibrationWire>(
+          'instrument_calibrations',
+          `?select=${CALIBRATION_FIELDS}&order=due_at.desc,id.desc&limit=500`,
+        )
+        .then((rows) => {
+          const latest = new Map<string, InstrumentCalibrationRow>()
+          for (const row of rows.map(toCalibration)) {
+            if (!latest.has(row.instrumentId)) latest.set(row.instrumentId, row)
+          }
+          return latest
+        }),
+    staleTime: 15_000,
+  })
 }

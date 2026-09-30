@@ -5811,6 +5811,14 @@ export const instruments = api.table(
     model: text('model'),
     serialNumber: text('serial_number'),
     vendor: text('vendor'),
+    /** Where the instrument sits, e.g. "Analytical lab 2". */
+    location: text('location'),
+    /** Who owns the instrument (a workspace member). */
+    ownerId: text('owner_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    /** Retired instruments stay for history; they cannot be booked or cited. */
+    retiredAt: timestamp('retired_at', { withTimezone: true, mode: 'date' }),
     connectionStatus: text('connection_status')
       .notNull()
       .default('disconnected'),

@@ -174,10 +174,23 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
     the pipeline Steps tab and `/readings/new` show the honest gap with real
     alternatives.
 
-  Still to port from this drop: the Analysis Studio home/builder, the canonical
-  record notebook (any record type), the model editor and project milestones,
-  plus the small inline gaps on inbox, search, the experiments list and
-  settings instruments.
+  - **Analysis Studio split**: `/analysis` is the saved-analyses home (tabs,
+    the real `analysis_views`, a New analysis menu and a recent-dataset
+    strip); the builder is `/analysis/new` (`?mode=chart|analyse|compare`); a
+    saved view stays at `/analysis/$analysisId`. Links retarget.
+  - **Model editor (MDL-02)**: `/models/$modelId/edit` edits a draft schema
+    version — inline field table grouped by category, debounced autosave
+    through `replace_dataset_schema_version_fields`, a change list against the
+    published version, and publish.
+  - **Project milestones (PROJ-02)**: `/projects/$projectId/milestones`
+    replaces `/planner`; milestones are `study_tasks` of type milestone, the
+    "done when" criteria are their `study_deliverables`, and Mark done is
+    enabled only when every condition is delivered. Client visibility and date
+    history are stated as gaps (not stored).
+
+  Still to port from this drop: the canonical record notebook (any record type,
+  using the new picker), plus the small inline gaps on inbox kinds, the
+  experiments open-issue column, model kinds and portal reports.
 
 - **Analysis studio moved into app-3's shell**: `/analysis` (the studio index)
   drops the legacy `useShell` wrapper for a content column with the chart

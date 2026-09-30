@@ -204,6 +204,7 @@ function RootRouteComponent() {
     '/projects',
     '/projects/$projectId',
     '/projects/$projectId/',
+    '/projects/$projectId/milestones',
     '/projects/$projectId/folders',
     '/projects/$projectId/members',
     '/projects/$projectId/settings',

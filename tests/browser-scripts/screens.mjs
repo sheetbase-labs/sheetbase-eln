@@ -145,6 +145,8 @@ function routes(ids) {
   if (ids.project)
     list.push(
       `/projects/${ids.project}`,
+      `/projects/${ids.project}/milestones`,
+      `/projects/${ids.project}/milestones?state=denied`,
       `/projects/${ids.project}/folders`,
       `/projects/${ids.project}/members`,
       `/projects/${ids.project}/settings`,

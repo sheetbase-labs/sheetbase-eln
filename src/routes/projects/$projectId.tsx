@@ -91,6 +91,10 @@ function ProjectLayout() {
                 },
               },
               {
+                label: 'Milestones',
+                link: { to: '/projects/$projectId/milestones', params },
+              },
+              {
                 label: 'Folders',
                 link: { to: '/projects/$projectId/folders', params },
               },

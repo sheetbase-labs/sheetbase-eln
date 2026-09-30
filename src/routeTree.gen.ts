@@ -109,6 +109,7 @@ import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/
 import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
 import { Route as ProjectsProjectIdFoldersRouteImport } from './routes/projects/$projectId/folders'
 import { Route as ProjectsProjectIdMembersRouteImport } from './routes/projects/$projectId/members'
+import { Route as ProjectsProjectIdMilestonesRouteImport } from './routes/projects/$projectId/milestones'
 import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId/settings'
 import { Route as RecordsRecordIdIndexRouteImport } from './routes/records/$recordId/index'
 import { Route as RecordsRecordIdNotebookRouteImport } from './routes/records/$recordId/notebook'
@@ -646,6 +647,12 @@ const ProjectsProjectIdMembersRoute =
     path: '/members',
     getParentRoute: () => ProjectsProjectIdRoute,
   } as any)
+const ProjectsProjectIdMilestonesRoute =
+  ProjectsProjectIdMilestonesRouteImport.update({
+    id: '/milestones',
+    path: '/milestones',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
 const ProjectsProjectIdSettingsRoute =
   ProjectsProjectIdSettingsRouteImport.update({
     id: '/settings',
@@ -882,6 +889,7 @@ export interface FileRoutesByFullPath {
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
+  '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
@@ -999,6 +1007,7 @@ export interface FileRoutesByTo {
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
+  '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
@@ -1127,6 +1136,7 @@ export interface FileRoutesById {
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
+  '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
@@ -1256,6 +1266,7 @@ export interface FileRouteTypes {
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
+    | '/projects/$projectId/milestones'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
@@ -1373,6 +1384,7 @@ export interface FileRouteTypes {
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
+    | '/projects/$projectId/milestones'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
@@ -1500,6 +1512,7 @@ export interface FileRouteTypes {
     | '/pipelines/runs/$runId'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
+    | '/projects/$projectId/milestones'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
@@ -2296,6 +2309,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdMembersRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
+    '/projects/$projectId/milestones': {
+      id: '/projects/$projectId/milestones'
+      path: '/milestones'
+      fullPath: '/projects/$projectId/milestones'
+      preLoaderRoute: typeof ProjectsProjectIdMilestonesRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
     '/projects/$projectId/settings': {
       id: '/projects/$projectId/settings'
       path: '/settings'
@@ -2659,6 +2679,7 @@ const PipelinesRouteWithChildren = PipelinesRoute._addFileChildren(
 interface ProjectsProjectIdRouteChildren {
   ProjectsProjectIdFoldersRoute: typeof ProjectsProjectIdFoldersRoute
   ProjectsProjectIdMembersRoute: typeof ProjectsProjectIdMembersRoute
+  ProjectsProjectIdMilestonesRoute: typeof ProjectsProjectIdMilestonesRoute
   ProjectsProjectIdSettingsRoute: typeof ProjectsProjectIdSettingsRoute
   ProjectsProjectIdIndexRoute: typeof ProjectsProjectIdIndexRoute
 }
@@ -2666,6 +2687,7 @@ interface ProjectsProjectIdRouteChildren {
 const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
   ProjectsProjectIdFoldersRoute: ProjectsProjectIdFoldersRoute,
   ProjectsProjectIdMembersRoute: ProjectsProjectIdMembersRoute,
+  ProjectsProjectIdMilestonesRoute: ProjectsProjectIdMilestonesRoute,
   ProjectsProjectIdSettingsRoute: ProjectsProjectIdSettingsRoute,
   ProjectsProjectIdIndexRoute: ProjectsProjectIdIndexRoute,
 }

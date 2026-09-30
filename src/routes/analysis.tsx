@@ -28,42 +28,27 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  ChevronDown,
-  ChevronUp,
-  Database,
-  Download,
-  Loader2,
-  PanelLeft,
-  PanelLeftClose,
-  Save,
-  Sigma,
-  Trash2,
-  TriangleAlert,
-} from 'lucide-react'
+import { PanelLeft, PanelLeftClose, Save, Sigma, Trash2 } from 'lucide-react'
 
-import { useShell } from '#/components/shell'
 import type { ChartSelection } from '#/components/viz/chart-plots'
 import { AnalysisPanel } from '#/components/viz/analysis-panel'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
+import { Icon } from '#/components/v3/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Input } from '#/components/v3/ui/input'
+import { Skeleton } from '#/components/v3/ui/skeleton'
+import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
+import { NativeSelect } from '#/components/v3/projects/select'
 import {
-  Badge,
-  Button,
-  Card,
-  Field,
-  FieldGroup,
-  FieldLabel,
-  Input,
-  Select,
-  Skeleton,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
 import { Inspector } from '#/components/record/inspector'
 import { InspectorSection, InspectorSectionStack } from '#/components/record'
 import { Property, PropertyList } from '#/components/scientific'
@@ -325,65 +310,35 @@ function AnalysisStudio() {
     }
   }
 
-  const shellContext = {
-    workspace: context.workspace ? { name: context.workspace.name } : null,
-    user: {
-      name: context.user.name,
-      email: context.user.email,
-      role: context.workspace?.role,
-    },
-  }
-
-  const selectedDatasetForCrumb = selectedDatasetId
-    ? datasets.find((dataset) => dataset.id === selectedDatasetId)
-    : null
-
-  useShell({
-    context: shellContext,
-    breadcrumbs: [
-      { label: 'Home', to: '/' },
-      { label: 'Analysis', to: '/analysis' },
-      // NAV-02: the analysed dataset is context, resolved from the stable
-      // ?dataset= ID and linked back to its canonical explorer page.
-      ...(selectedDatasetForCrumb
-        ? [
-            {
-              label: selectedDatasetForCrumb.name,
-              to: `/datasets?dataset=${encodeURIComponent(selectedDatasetForCrumb.id)}`,
-            },
-          ]
-        : []),
-    ],
-    fullBleed: true,
-    inspectorCollapsible: true,
-    inspectorLabel: 'Chart settings',
-    inspector:
-      selectedSource && spec ? (
-        <AnalysisInspector
-          source={selectedSource}
-          spec={spec}
-          onSpecChange={setSpec}
-          views={views}
-          selectedViewId={selectedViewId}
-          viewName={viewName}
-          onViewNameChange={setViewName}
-          onLoad={loadView}
-          onSave={() => saveMutation.mutate()}
-          onDelete={(id) => deleteMutation.mutate(id)}
-          saving={saveMutation.isPending}
-          exportSettings={exportSettings}
-          onExportSettingsChange={setExportSettings}
-          sources={sources}
-          user={{ id: userId, name: context.user.name }}
-          materialised={analysisMaterialised}
-          selection={chartSelection}
-        />
-      ) : undefined,
-  })
+  // UI port (roadmap-4/ui-app3): the studio renders inside app-3's shell, so
+  // the legacy shell wrapper is replaced by a content column with the chart
+  // settings inspector beside it.
+  const inspector =
+    selectedSource && spec ? (
+      <AnalysisInspector
+        source={selectedSource}
+        spec={spec}
+        onSpecChange={setSpec}
+        views={views}
+        selectedViewId={selectedViewId}
+        viewName={viewName}
+        onViewNameChange={setViewName}
+        onLoad={loadView}
+        onSave={() => saveMutation.mutate()}
+        onDelete={(id) => deleteMutation.mutate(id)}
+        saving={saveMutation.isPending}
+        exportSettings={exportSettings}
+        onExportSettingsChange={setExportSettings}
+        sources={sources}
+        user={{ id: userId, name: context.user.name }}
+        materialised={analysisMaterialised}
+        selection={chartSelection}
+      />
+    ) : undefined
 
   return (
-    <>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
           <AnalysisStudioHeader
             datasets={datasets}
@@ -402,7 +357,7 @@ function AnalysisStudio() {
                 key={value}
                 type="button"
                 size="sm"
-                variant={mode === value ? 'default' : 'outline'}
+                variant={mode === value ? 'primary' : 'secondary'}
                 role="tab"
                 aria-selected={mode === value}
                 onClick={() => setMode(value)}
@@ -419,7 +374,7 @@ function AnalysisStudio() {
             <Button
               type="button"
               size="sm"
-              variant="ghost"
+              variant="quiet"
               aria-expanded={configOpen}
               aria-controls="analysis-chart-config"
               onClick={() => setConfigOpen((open) => !open)}
@@ -528,7 +483,14 @@ function AnalysisStudio() {
           </div>
         )}
       </div>
-    </>
+      {inspector ? (
+        <InspectorPanel label="Chart settings" className="w-[340px] gap-0 p-0">
+          <div className="flex flex-col gap-5 overflow-auto p-4">
+            {inspector}
+          </div>
+        </InspectorPanel>
+      ) : null}
+    </div>
   )
 }
 
@@ -566,22 +528,22 @@ export function AnalysisStudioHeader({
       </div>
       <div className="flex items-center gap-2">
         {error ? (
-          <Badge variant="danger">Could not load datasets</Badge>
+          <Badge variant="del">Could not load datasets</Badge>
         ) : loading ? (
           <Skeleton className="h-7 w-48" />
         ) : datasets.length === 0 ? (
-          <Badge variant="outline">No datasets</Badge>
+          <Badge variant="kind">No datasets</Badge>
         ) : (
-          <Field className="flex items-center gap-2">
-            <FieldLabel htmlFor="analysis-data-source" className="sr-only">
+          <div className="flex items-center gap-2">
+            <label className="sr-only" htmlFor="analysis-data-source">
               Data source
-            </FieldLabel>
-            <Select
+            </label>
+            <NativeSelect
               id="analysis-data-source"
               aria-label="Select data source"
               value={selectedDatasetId ?? ''}
               onChange={(e) => onSelect(e.target.value)}
-              className="h-8 w-56 bg-background"
+              className="h-8 w-56 bg-surface"
             >
               {datasets.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -589,8 +551,8 @@ export function AnalysisStudioHeader({
                   {d.dataset_schema ? ` · ${d.dataset_schema.slug}` : ''}
                 </option>
               ))}
-            </Select>
-          </Field>
+            </NativeSelect>
+          </div>
         )}
       </div>
     </header>
@@ -640,28 +602,28 @@ export function FilterControls({
         const column = source.columns.find((c) => c.id === filter.fieldId)
         return (
           <div key={filter.fieldId + i} className="flex items-center gap-1.5">
-            <span className="flex-1 truncate text-xs text-muted-foreground">
+            <span className="flex-1 truncate text-xs text-fg-muted">
               {column?.label ?? filter.fieldId}
             </span>
-            <Field className="w-24">
-              <FieldLabel
+            <div className="w-24">
+              <label
                 className="sr-only"
                 htmlFor={`filter-${filter.fieldId}-${i}`}
               >
                 Filter value
-              </FieldLabel>
+              </label>
               <Input
                 id={`filter-${filter.fieldId}-${i}`}
                 aria-label={`Filter value for ${column?.label ?? filter.fieldId}`}
                 value={String(filter.value ?? '')}
                 onChange={(e) => setFilter(i, e.target.value)}
                 placeholder="eq…"
-                className="h-7 bg-background text-xs"
+                className="h-7 bg-surface text-xs"
               />
-            </Field>
+            </div>
             <Button
-              variant="ghost"
-              size="icon-sm"
+              variant="quiet"
+              size="icon"
               aria-label="Remove filter"
               onClick={() => removeFilter(i)}
             >
@@ -671,7 +633,7 @@ export function FilterControls({
         )
       })}
       {spec.filters.length < ANALYSIS_MAX_FILTERS ? (
-        <Button variant="outline" size="sm" onClick={addFilter}>
+        <Button variant="secondary" size="sm" onClick={addFilter}>
           + Add filter
         </Button>
       ) : null}
@@ -694,7 +656,7 @@ function SelectedPointSummary({
   const point = series?.points[selection?.index ?? -1]
   if (!point) {
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fg-muted">
         Click a point or use the arrow keys on the figure to inspect a Dataset
         row.
       </p>
@@ -765,13 +727,16 @@ function AnalysisInspector({
   const settings = (
     <InspectorSectionStack>
       <InspectorSection title="Axis scaling">
-        <FieldGroup>
+        <div>
           {(['x', 'y'] as const).map((axis) => (
-            <Field key={axis}>
-              <FieldLabel htmlFor={`inspector-${axis}-scale`}>
+            <div key={axis}>
+              <label
+                className="text-label text-fg-muted"
+                htmlFor={`inspector-${axis}-scale`}
+              >
                 {axis.toUpperCase()}-axis scale
-              </FieldLabel>
-              <Select
+              </label>
+              <NativeSelect
                 id={`inspector-${axis}-scale`}
                 value={spec.display.axes[axis].scale}
                 onChange={(event) =>
@@ -783,10 +748,10 @@ function AnalysisInspector({
                     {scale === 'log' ? 'Logarithmic' : 'Linear'}
                   </option>
                 ))}
-              </Select>
-            </Field>
+              </NativeSelect>
+            </div>
           ))}
-        </FieldGroup>
+        </div>
       </InspectorSection>
       <InspectorSection title="Appearance">
         <PropertyList>
@@ -906,35 +871,44 @@ export function SavedViewsPanel({
       <h2 id="saved-views-title" className="text-sm font-semibold">
         Saved analysis views
       </h2>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fg-muted">
         Save a named configuration with its source revisions so others can
         reproduce the chart.
       </p>
       <div className="flex items-end gap-1.5">
-        <Field className="flex-1">
-          <FieldLabel htmlFor="analysis-view-name">Name</FieldLabel>
+        <div className="flex-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor="analysis-view-name"
+          >
+            Name
+          </label>
           <Input
             id="analysis-view-name"
             aria-label="Analysis view name"
             value={viewName}
             onChange={(e) => onViewNameChange(e.target.value)}
             placeholder="e.g. pH vs stability"
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           />
-        </Field>
+        </div>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={onSave}
           disabled={!canSave || saving}
           aria-label="Save analysis view"
         >
-          {saving ? <Loader2 className="animate-spin" /> : <Save />}
+          {saving ? (
+            <Icon name="clock" size={16} className="animate-spin" />
+          ) : (
+            <Save />
+          )}
           {selectedViewId ? 'Update' : 'Save'}
         </Button>
       </div>
       {views.length === 0 ? (
-        <p className="py-2 text-center text-xs text-muted-foreground">
+        <p className="py-2 text-center text-xs text-fg-muted">
           No saved views yet.
         </p>
       ) : (
@@ -956,15 +930,15 @@ export function SavedViewsPanel({
                   aria-label={`Load view ${view.name}`}
                 >
                   <span className="truncate font-medium">{view.name}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-fg-muted">
                     v{view.version} ·{' '}
                     {formatCount(view.source_revisions.length)} source
                     {view.source_revisions.length === 1 ? '' : 's'}
                   </span>
                 </button>
                 <Button
-                  variant="ghost"
-                  size="icon-sm"
+                  variant="quiet"
+                  size="icon"
                   aria-label={`Delete view ${view.name}`}
                   onClick={() => onDelete(view.id)}
                 >
@@ -1077,45 +1051,63 @@ export function ExportPanel({
   }
 
   return (
-    <Card className="space-y-2 p-4" aria-labelledby="export-title">
+    <div
+      className="rounded-lg border border-border bg-surface space-y-2 p-4"
+      aria-labelledby="export-title"
+    >
       <h2 id="export-title" className="text-sm font-semibold">
         Export
       </h2>
       <div className="grid grid-cols-2 gap-2 text-xs">
-        <Field>
-          <FieldLabel htmlFor="analysis-export-format">Format</FieldLabel>
-          <Select
+        <div>
+          <label
+            className="text-label text-fg-muted"
+            htmlFor="analysis-export-format"
+          >
+            Format
+          </label>
+          <NativeSelect
             id="analysis-export-format"
             aria-label="Export format"
             value={settings.format}
             onChange={(e) =>
               setSetting('format', e.target.value as ExportSettings['format'])
             }
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           >
             <option value="json">JSON (spec + provenance)</option>
             <option value="csv">CSV (data table)</option>
             <option value="svg">SVG (chart image)</option>
             <option value="png">PNG (publication raster)</option>
-          </Select>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="analysis-export-theme">Theme</FieldLabel>
-          <Select
+          </NativeSelect>
+        </div>
+        <div>
+          <label
+            className="text-label text-fg-muted"
+            htmlFor="analysis-export-theme"
+          >
+            Theme
+          </label>
+          <NativeSelect
             id="analysis-export-theme"
             aria-label="Export theme"
             value={settings.theme}
             onChange={(e) =>
               setSetting('theme', e.target.value as ExportSettings['theme'])
             }
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
-          </Select>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="analysis-export-width">Width (px)</FieldLabel>
+          </NativeSelect>
+        </div>
+        <div>
+          <label
+            className="text-label text-fg-muted"
+            htmlFor="analysis-export-width"
+          >
+            Width (px)
+          </label>
           <Input
             id="analysis-export-width"
             aria-label="Export width"
@@ -1126,11 +1118,16 @@ export function ExportPanel({
             onChange={(e) =>
               setSetting('width', Number(e.target.value) || settings.width)
             }
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="analysis-export-height">Height (px)</FieldLabel>
+        </div>
+        <div>
+          <label
+            className="text-label text-fg-muted"
+            htmlFor="analysis-export-height"
+          >
+            Height (px)
+          </label>
           <Input
             id="analysis-export-height"
             aria-label="Export height"
@@ -1141,26 +1138,30 @@ export function ExportPanel({
             onChange={(e) =>
               setSetting('height', Number(e.target.value) || settings.height)
             }
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           />
-        </Field>
+        </div>
       </div>
-      <Field className="flex grid-cols-[auto_1fr] items-center gap-2">
+      <div className="flex grid-cols-[auto_1fr] items-center gap-2">
         <input
           id="analysis-export-provenance"
           type="checkbox"
           checked={settings.includeProvenance}
           onChange={(e) => setSetting('includeProvenance', e.target.checked)}
         />
-        <FieldLabel htmlFor="analysis-export-provenance">
+        <label
+          className="text-label text-fg-muted"
+          htmlFor="analysis-export-provenance"
+        >
           Include provenance metadata (owner, version, sources)
-        </FieldLabel>
-      </Field>
+        </label>
+      </div>
       <Button size="sm" onClick={doExport} className="w-full">
-        <Download /> Export {settings.format.toUpperCase()}
+        <Icon name="download" size={14} /> Export{' '}
+        {settings.format.toUpperCase()}
       </Button>
       <SvgExporterAnchor svgRef={svgRef} />
-    </Card>
+    </div>
   )
 }
 
@@ -1265,14 +1266,14 @@ export function AnalysisPreview({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 py-1">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Badge variant="outline">
+          <div className="flex items-center gap-2 text-xs text-fg-muted">
+            <Badge variant="kind">
               {datasetQuery.isLoading
                 ? 'Loading…'
                 : `${formatCount(resultRowCount)} rows`}
             </Badge>
             {spec.transformations.length > 0 ? (
-              <Badge variant="outline">
+              <Badge variant="kind">
                 <Sigma className="size-3" aria-hidden="true" />
                 {spec.transformations.length} transform
                 {spec.transformations.length === 1 ? '' : 's'}
@@ -1294,7 +1295,7 @@ export function AnalysisPreview({
               </span>
             ))}
             {summaries[0]?.foldChange ? (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-fg-muted">
                 Fold change: {summaries[0].foldChange.toFixed(1)}×{' '}
                 {summaries[0].direction}
               </span>
@@ -1306,7 +1307,7 @@ export function AnalysisPreview({
         {!validation.ok ? (
           <div
             role="alert"
-            className="mx-4 mb-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+            className="mx-4 mb-2 rounded-md border border-danger-border bg-danger-wash p-3 text-xs text-danger-text"
           >
             <p className="font-semibold">Specification problems</p>
             <ul className="mt-1 list-disc pl-4">
@@ -1319,10 +1320,12 @@ export function AnalysisPreview({
         {staleDetail ? (
           <div
             role="status"
-            className="mx-4 mb-2 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs"
+            className="mx-4 mb-2 flex items-start gap-2 rounded-md border border-warning-border bg-warning-wash p-3 text-xs"
           >
-            <TriangleAlert
-              className="mt-0.5 size-4 text-warning"
+            <Icon
+              name="warn"
+              size={16}
+              className="mt-0.5 text-warning-text"
               aria-hidden="true"
             />
             <span>{staleDetail}</span>
@@ -1331,10 +1334,12 @@ export function AnalysisPreview({
         {excessiveSize ? (
           <div
             role="status"
-            className="mx-4 mb-2 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs"
+            className="mx-4 mb-2 flex items-start gap-2 rounded-md border border-warning-border bg-warning-wash p-3 text-xs"
           >
-            <TriangleAlert
-              className="mt-0.5 size-4 text-warning"
+            <Icon
+              name="warn"
+              size={16}
+              className="mt-0.5 text-warning-text"
               aria-hidden="true"
             />
             <span>
@@ -1376,9 +1381,14 @@ export function AnalysisPreview({
         >
           <span>Data preview</span>
           {dataPreviewOpen ? (
-            <ChevronUp className="size-3.5" aria-hidden="true" />
+            <Icon
+              name="chevronDown"
+              size={14}
+              className="rotate-180"
+              aria-hidden="true"
+            />
           ) : (
-            <ChevronDown className="size-3.5" aria-hidden="true" />
+            <Icon name="chevronDown" size={14} aria-hidden="true" />
           )}
         </button>
         {dataPreviewOpen ? (
@@ -1418,7 +1428,7 @@ export function DataTableAlternative({
     materialised.state.kind !== 'log_scale_invalid'
   ) {
     return (
-      <div className="rounded-lg border bg-card p-4 text-center text-xs text-muted-foreground">
+      <div className="rounded-lg border bg-surface p-4 text-center text-xs text-fg-muted">
         No plottable data table for the current state.
       </div>
     )
@@ -1457,20 +1467,20 @@ export function DataTableAlternative({
       <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
         <h2 id="data-table-title" className="text-sm font-semibold">
           Data preview
-          <span className="ml-2 font-normal text-muted-foreground">
+          <span className="ml-2 font-normal text-fg-muted">
             First {Math.min(rows.length, 50)} rows
           </span>
         </h2>
         <div className="flex items-center gap-1">
-          <Button variant="link" size="sm">
+          <Button variant="quiet" size="sm">
             Open in data table
           </Button>
           <Button
-            variant="ghost"
-            size="icon-sm"
+            variant="quiet"
+            size="icon"
             aria-label="Download data preview"
           >
-            <Download />
+            <Icon name="download" size={16} />
           </Button>
         </div>
       </div>
@@ -1488,7 +1498,7 @@ export function DataTableAlternative({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="text-center text-xs text-muted-foreground"
+                  className="text-center text-xs text-fg-muted"
                 >
                   No rows.
                 </TableCell>
@@ -1505,7 +1515,7 @@ export function DataTableAlternative({
                 return (
                   <TableRow
                     key={i}
-                    className={isSelected ? 'bg-muted' : undefined}
+                    className={isSelected ? 'bg-surface-muted' : undefined}
                   >
                     {columns.map((column) => (
                       <TableCell
@@ -1557,30 +1567,35 @@ export function EmptyAnalysisState({
     return (
       <div
         role="alert"
-        className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-8 text-center text-sm text-destructive"
+        className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-danger-border bg-danger-wash p-8 text-center text-sm text-danger-text"
       >
         Could not load datasets. Check the connection and try again.
       </div>
     )
   }
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border bg-card p-10 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border bg-surface p-10 text-center">
       {loading ? (
         <Skeleton className="h-8 w-48" />
       ) : (
         <>
-          <Database
-            className="size-8 text-muted-foreground"
+          <Icon
+            name="database"
+            size={32}
+            className="text-fg-muted"
             aria-hidden="true"
           />
-          <p className="max-w-md text-sm text-muted-foreground">
+          <p className="max-w-md text-sm text-fg-muted">
             Create a dataset first, then return here to build charts and compare
             results.
           </p>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/datasets" search={{ dataset: '' }}>
-              Open datasets
-            </Link>
+          <Button
+            render={<Link to="/datasets" search={{ dataset: '' }} />}
+            nativeButton={false}
+            variant="secondary"
+            size="sm"
+          >
+            Open datasets
           </Button>
         </>
       )}

@@ -102,6 +102,7 @@ function routes(ids) {
     '/samples',
     '/materials',
     '/datasets',
+    '/analysis',
     '/import',
     '/sheets/new',
     '/instruments',

@@ -441,6 +441,7 @@ export function CanonicalSheetLifecyclePanel({
                         }}
                       />
                     }
+                    nativeButton={false}
                     variant="secondary"
                     size="sm"
                     className="mt-1 w-full"

@@ -436,8 +436,8 @@ describe('DataTableAlternative', () => {
     const { container } = render(
       <DataTableAlternative materialised={null as never} loading />,
     )
-    // Skeleton renders as a div with class containing "animate-pulse".
-    expect(container.querySelector('.animate-pulse')).toBeTruthy()
+    // The v3 Skeleton renders as a div with the skeleton surface token.
+    expect(container.querySelector('.bg-skeleton')).toBeTruthy()
   })
 
   it('renders a no-data message for a non-ok state', () => {

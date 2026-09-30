@@ -118,6 +118,16 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Analysis studio moved into app-3's shell**: `/analysis` (the studio index)
+  drops the legacy `useShell` wrapper for a content column with the chart
+  settings inspector beside it, and joins `v3RouteIds`, so the v3 nav's
+  Analysis entry no longer lands on a legacy-shell page. The studio's own kit
+  is now the v3 `Button`/`Badge`/`Input`/`Skeleton`/`Table`/`NativeSelect` with
+  v3 icons and tokens; the router links that act as buttons pass
+  `nativeButton={false}`, fixing a base-ui warning the screens suite caught on
+  the new route. The screens suite now lists `/analysis` (48 routes × 2 widths
+  clean) and the areas suite's analysis checks stay green.
+
 - **Notebook, record and scientific components reskinned (last legacy pass)**:
   the ported areas' remaining legacy kit is now on the v3 kit and tokens. The
   notebook block/editor surfaces (`block-editor`, `block-preview`, `block-picker`,

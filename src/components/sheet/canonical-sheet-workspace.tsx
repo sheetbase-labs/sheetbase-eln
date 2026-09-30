@@ -1434,6 +1434,7 @@ export function CanonicalSheetEditor({
             render={
               <Link to="/analysis" search={{ dataset: visualiseDatasetId }} />
             }
+            nativeButton={false}
             size="sm"
             variant="secondary"
           >

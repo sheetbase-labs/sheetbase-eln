@@ -177,10 +177,15 @@ export function RecordPicker({
                         className="mt-0.5"
                       />
                       <span className="mono text-fg-muted max-md:hidden">
-                        {i.id.slice(0, 8)}
+                        {i.identifier}
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate">{i.name}</span>
+                        <span className="block truncate">
+                          <span className="mono mr-1.5 text-fg-muted md:hidden">
+                            {i.identifier}
+                          </span>
+                          {i.name}
+                        </span>
                         <span className="block truncate text-label text-fg-muted">
                           {i.kind}
                         </span>

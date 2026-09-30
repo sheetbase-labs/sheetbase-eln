@@ -71,7 +71,7 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { NativeSelect } from '#/components/v3/projects/select'
-import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
+import { Inspector as InspectorPanel, Muted } from '#/components/v3/ui/layout'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import {
@@ -82,6 +82,7 @@ import {
   fetchLinksForRecord,
   fetchProject,
   fetchRecord,
+  fetchRevisionsForRecord,
   fetchRecordsForProject,
   fetchRevision,
   fetchRevisionSheetEvidence,
@@ -98,7 +99,17 @@ import type {
   NotebookLink,
   NotebookRecord,
   RecordActivityItem,
+  RevisionWire,
 } from '#/lib/notebook-data'
+import { useUserNames } from '#/lib/user-names'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
 import {
   defaultPayloadFor,
   deleteBlock,
@@ -163,6 +174,9 @@ import {
 } from '#/lib/notebook-outline'
 import { NotebookOutlinePanel } from '#/components/notebook/notebook-outline-panel'
 import type { NotebookOutlineControls } from '#/components/notebook/notebook-outline-panel'
+import { RecordPickerDialog } from '#/components/v3/record-picker/record-picker'
+import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
+import { toast } from '#/components/v3/ui/sonner'
 
 /**
  * UI port (roadmap-4/ui-app3): the notebook renders inside app-3's shell, so
@@ -239,6 +253,7 @@ function ExperimentNotebookRoute() {
   })
 
   const queryClient = useQueryClient()
+  const [tab, setTab] = useState<NotebookTab>('notebook')
 
   const recordQuery = useQuery({
     queryKey: notebookQueryKeys.record(recordId),
@@ -269,6 +284,11 @@ function ExperimentNotebookRoute() {
   const linksQuery = useQuery({
     queryKey: notebookQueryKeys.links(recordId),
     queryFn: () => fetchLinksForRecord(notebookDataClient, recordId),
+    enabled: !historicalRevisionId,
+  })
+  const revisionsQuery = useQuery({
+    queryKey: notebookQueryKeys.revisions(recordId),
+    queryFn: () => fetchRevisionsForRecord(notebookDataClient, recordId),
     enabled: !historicalRevisionId,
   })
   const activityQuery = useQuery({
@@ -388,6 +408,7 @@ function ExperimentNotebookRoute() {
   const record = recordQuery.data ?? null
   const blocks = blocksQuery.data ?? []
   const links = linksQuery.data ?? []
+  const revisions = revisionsQuery.data ?? []
   const activity = activityQuery.data ?? []
 
   const outlineControls = {
@@ -625,6 +646,24 @@ function ExperimentNotebookRoute() {
             onExtensionAction={runExtensionContribution}
             extensionError={extensionError}
           />
+          {!historicalRevisionId ? (
+            <RecordNotebookTabs
+              tab={tab}
+              onTab={setTab}
+              linkCount={links.length}
+              revisionCount={revisions.length}
+              signatureCount={
+                revisions.filter((r) => r.reason === 'sign').length
+              }
+            />
+          ) : null}
+          {tab !== 'notebook' && !historicalRevisionId ? (
+            <RecordNotebookPanel
+              tab={tab}
+              links={links}
+              revisions={revisions}
+            />
+          ) : null}
           {/* EXT-02 sample panel: contributed object-actions and palette
               commands converge here. Rendered through the existing Dialog
               primitive with a labelled title for focus management. */}
@@ -651,7 +690,8 @@ function ExperimentNotebookRoute() {
               }}
             />
           ) : null}
-          {historicalRevisionId ? (
+          {tab !== 'notebook' &&
+          !historicalRevisionId ? null : historicalRevisionId ? (
             <HistoricalNotebookCanvas
               record={record}
               revisionId={historicalRevisionId}
@@ -746,6 +786,7 @@ export function StickyRecordHeader({
   const [submitOpen, setSubmitOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [signOpen, setSignOpen] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
   const [titleDraft, setTitleDraft] = useState(record.title)
   const lockedAt = liveLockedAt ?? record.lockedAt
   const lockedByRevisionId = liveLockedByRevisionId ?? record.lockedByRevisionId
@@ -779,6 +820,33 @@ export function StickyRecordHeader({
     !record.archivedAt &&
     (reviewActivity === 'approved' || Boolean(lockedAt && lockedByRevisionId))
   const evidenceRevisionId = reviewRevisionId
+
+  const linkRecords = useMutation({
+    mutationFn: (items: PickerItem[]) =>
+      Promise.all(
+        items.map((item) =>
+          notebookDataClient.rpc('create_record_link', {
+            p_source_record_id: record.id,
+            p_target_kind: pickerRecordKind(item.kind),
+            p_target_identifier: item.identifier,
+            p_link_type: pickerLinkType(item.kind),
+            p_target_record_id: item.id,
+          }),
+        ),
+      ),
+    onSuccess: (_result, items) => {
+      void queryClient.invalidateQueries({
+        queryKey: notebookQueryKeys.links(record.id),
+      })
+      toast(
+        items.length === 1 ? 'Record linked' : `${items.length} records linked`,
+      )
+    },
+    onError: () =>
+      toast('Could not link', {
+        description: 'The record may already be linked.',
+      }),
+  })
 
   const saveTitle = useMutation({
     mutationFn: (title: string) =>
@@ -833,6 +901,16 @@ export function StickyRecordHeader({
           <FavouriteToggle kind="record" objectId={record.id} />
           <PrintNotebookButton className="h-8" />
           <ExportEvidenceButton revisionId={evidenceRevisionId} />
+          {!historicalRevisionId && !lockedAt ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setLinkOpen(true)}
+            >
+              Link records…
+            </Button>
+          ) : null}
           {projectId && !historicalRevisionId ? (
             <Button
               type="button"
@@ -961,6 +1039,17 @@ export function StickyRecordHeader({
           }}
         />
       ) : null}
+      {linkOpen ? (
+        <RecordPickerDialog
+          open={linkOpen}
+          onOpenChange={setLinkOpen}
+          title="Link records"
+          allowed={['Sample', 'Material', 'Experiment']}
+          multiple
+          confirmLabel={(n) => `Link ${n}`}
+          onPick={(items) => linkRecords.mutate(items)}
+        />
+      ) : null}
       {signOpen && reviewRevisionId && currentUserId && currentUserName ? (
         <SignNotebookDialog
           open={signOpen}
@@ -971,6 +1060,172 @@ export function StickyRecordHeader({
         />
       ) : null}
     </div>
+  )
+}
+
+function pickerRecordKind(kind: PickerItem['kind']): string {
+  if (kind === 'Sample') return 'sample'
+  if (kind === 'Material') return 'reagent'
+  if (kind === 'Experiment') return 'experiment'
+  return 'dataset'
+}
+
+function pickerLinkType(kind: PickerItem['kind']): string {
+  if (kind === 'Sample') return 'sample'
+  if (kind === 'Material') return 'reagent'
+  return 'general'
+}
+
+type NotebookTab = 'notebook' | 'links' | 'revisions' | 'signatures'
+
+const NOTEBOOK_TABS: { id: NotebookTab; label: string }[] = [
+  { id: 'notebook', label: 'Notebook' },
+  { id: 'links', label: 'Links' },
+  { id: 'revisions', label: 'Revisions' },
+  { id: 'signatures', label: 'Signatures' },
+]
+
+function RecordNotebookTabs({
+  tab,
+  onTab,
+  linkCount,
+  revisionCount,
+  signatureCount,
+}: {
+  tab: NotebookTab
+  onTab: (t: NotebookTab) => void
+  linkCount: number
+  revisionCount: number
+  signatureCount: number
+}) {
+  const counts: Record<NotebookTab, number | undefined> = {
+    notebook: undefined,
+    links: linkCount,
+    revisions: revisionCount,
+    signatures: signatureCount,
+  }
+  return (
+    <nav
+      aria-label="Notebook sections"
+      className="mt-3 flex gap-5 border-b border-border"
+      data-print-hide
+    >
+      {NOTEBOOK_TABS.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          aria-current={tab === t.id ? 'page' : undefined}
+          onClick={() => onTab(t.id)}
+          className={
+            tab === t.id
+              ? 'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-link bg-transparent px-0.5 text-body font-medium text-fg'
+              : 'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted hover:text-fg'
+          }
+        >
+          {t.label}
+          {counts[t.id] != null ? (
+            <span className="text-label font-normal text-fg-muted">
+              {counts[t.id]}
+            </span>
+          ) : null}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+function RecordNotebookPanel({
+  tab,
+  links,
+  revisions,
+}: {
+  tab: Exclude<NotebookTab, 'notebook'>
+  links: NotebookLink[]
+  revisions: RevisionWire[]
+}) {
+  const names = useUserNames(
+    [
+      ...links.map((l) => l.createdByUserId ?? ''),
+      ...revisions.map((r) => r.created_by_user_id),
+    ].filter(Boolean),
+  )
+  if (tab === 'links') {
+    return (
+      <section aria-label="Links" className="py-4">
+        {links.length ? (
+          <div className="overflow-hidden rounded-md border border-border">
+            <Table aria-label="Linked records">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="first:pl-3">Kind</TableHead>
+                  <TableHead>Identifier</TableHead>
+                  <TableHead>Relation</TableHead>
+                  <TableHead className="pr-3">Linked</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {links.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell className="first:pl-3 capitalize">
+                      {l.targetKind.replace(/_/g, ' ')}
+                    </TableCell>
+                    <TableCell className="mono">{l.targetIdentifier}</TableCell>
+                    <TableCell className="text-fg-muted">
+                      {l.linkType}
+                    </TableCell>
+                    <TableCell className="pr-3 text-fg-muted">
+                      {l.createdAt.slice(0, 10)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <Muted>Nothing is linked to this record yet.</Muted>
+        )}
+      </section>
+    )
+  }
+  const rows =
+    tab === 'signatures'
+      ? revisions.filter((r) => r.reason === 'sign')
+      : revisions
+  return (
+    <section aria-label={tab} className="py-4">
+      {rows.length ? (
+        <div className="overflow-hidden rounded-md border border-border">
+          <Table aria-label="Revisions">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="first:pl-3">Revision</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>By</TableHead>
+                <TableHead className="pr-3">When</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="first:pl-3 mono">
+                    v{r.structure_version}
+                  </TableCell>
+                  <TableCell className="text-fg-muted">{r.reason}</TableCell>
+                  <TableCell>{names.userLabel(r.created_by_user_id)}</TableCell>
+                  <TableCell className="pr-3 text-fg-muted">
+                    {r.created_at.slice(0, 16).replace('T', ' ')}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <Muted>
+          {tab === 'signatures' ? 'No signatures yet.' : 'No revisions yet.'}
+        </Muted>
+      )}
+    </section>
   )
 }
 

@@ -9,6 +9,7 @@ import type { PickerItem, PickerResult } from './record-picker-data'
 const mocks = vi.hoisted(() => {
   const sample: PickerItem = {
     id: 'smp-1',
+    identifier: 'SMP-2249',
     name: 'Virus stock A',
     kind: 'Sample',
     status: { tone: 'ok', label: 'In stock' },
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => {
   }
   const dataset: PickerItem = {
     id: 'ds-1',
+    identifier: 'DS-0311',
     name: 'Stability DS',
     kind: 'Dataset',
     status: { tone: 'none', label: '—' },

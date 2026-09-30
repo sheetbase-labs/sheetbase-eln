@@ -13,7 +13,10 @@ import type { Tone } from '#/components/v3/ui/status'
 export type PickerKind = 'Sample' | 'Material' | 'Dataset' | 'Experiment'
 
 export interface PickerItem {
+  /** The canonical record id (or dataset id), the stable target identity. */
   id: string
+  /** The human identifier (e.g. SMP-2249), preserved on the link. */
+  identifier: string
   name: string
   kind: PickerKind
   status: { tone: Tone; label: string }
@@ -55,6 +58,7 @@ export function toPickerItem(result: SearchResult): PickerItem | null {
   if (!kind) return null
   return {
     id: result.recordId,
+    identifier: result.identifier,
     name: result.title,
     kind,
     status: pickerStatus(result.status),

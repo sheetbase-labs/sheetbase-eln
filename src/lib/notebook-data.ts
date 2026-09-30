@@ -445,6 +445,7 @@ export const notebookQueryKeys = {
   record: (recordId: string) => ['notebook', 'record', recordId] as const,
   blocks: (recordId: string) => ['notebook', 'blocks', recordId] as const,
   links: (recordId: string) => ['notebook', 'links', recordId] as const,
+  revisions: (recordId: string) => ['notebook', 'revisions', recordId] as const,
   activity: (recordId: string) => ['notebook', 'activity', recordId] as const,
   fileObject: (fileRecordId: string) =>
     ['notebook', 'file-object', fileRecordId] as const,
@@ -638,6 +639,14 @@ export function fetchRevision(client: DataClient, revisionId: string) {
   return client
     .list<RevisionWire>('revisions', `?id=eq.${revisionId}&limit=1`)
     .then((rows) => (rows.length > 0 ? rows[0] : null))
+}
+
+/** All revisions of a record, newest first (Notebook Revisions tab). */
+export function fetchRevisionsForRecord(client: DataClient, recordId: string) {
+  return client.list<RevisionWire>(
+    'revisions',
+    `?record_id=eq.${encodeURIComponent(recordId)}&select=id,record_id,structure_version,metadata_version,reason,created_at,created_by_user_id,integrity_digest&order=created_at.desc,id.desc&limit=100`,
+  )
 }
 
 export function fetchLatestRevisionForRecord(

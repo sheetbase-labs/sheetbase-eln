@@ -11,10 +11,10 @@ import type {
   SortingState,
   VisibilityState,
 } from '@tanstack/react-table'
-import { ArrowUpDown, ArrowUp, ArrowDown, Columns3 } from 'lucide-react'
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 
-import { Button } from '#/components/ui/button'
-import { Checkbox } from '#/components/ui/checkbox'
+import { Button } from '#/components/v3/ui/button'
+import { Checkbox } from '#/components/v3/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -22,13 +22,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/ui/table'
+} from '#/components/v3/ui/table'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-} from '#/components/ui/dropdown-menu'
+  DropdownMenuItem,
+} from '#/components/v3/ui/dropdown-menu'
 import { cn } from '#/lib/utils'
 
 // Column width/alignment hints consumed by the TableHead/TableCell renderers
@@ -109,28 +109,28 @@ function DataTable<TData, TValue>({
           {enableColumnVisibility && (
             <div className="ml-auto">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Columns3 className="size-4" />
-                    Columns
-                  </Button>
+                <DropdownMenuTrigger
+                  render={
+                    <Button variant="secondary" size="sm" icon="schema" />
+                  }
+                >
+                  Columns
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {table
                     .getAllLeafColumns()
                     .filter((column) => column.getCanHide())
                     .map((column) => (
-                      <DropdownMenuCheckboxItem
+                      <DropdownMenuItem
                         key={column.id}
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(!!value)
-                        }
+                        closeOnClick={false}
+                        icon={column.getIsVisible() ? 'check' : undefined}
+                        onClick={() => column.toggleVisibility()}
                       >
                         {typeof column.columnDef.header === 'string'
                           ? column.columnDef.header
                           : column.id}
-                      </DropdownMenuCheckboxItem>
+                      </DropdownMenuItem>
                     ))}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -145,7 +145,7 @@ function DataTable<TData, TValue>({
             : 'overflow-hidden rounded-md border'
         }
       >
-        <Table variant={variant} className={tableClassName} aria-label={label}>
+        <Table className={tableClassName} aria-label={label}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
@@ -153,9 +153,10 @@ function DataTable<TData, TValue>({
                   <TableHead className="w-10">
                     <Checkbox
                       aria-label="Select all rows"
-                      checked={
-                        table.getIsAllPageRowsSelected() ||
-                        (table.getIsSomePageRowsSelected() && 'indeterminate')
+                      checked={table.getIsAllPageRowsSelected()}
+                      indeterminate={
+                        !table.getIsAllPageRowsSelected() &&
+                        table.getIsSomePageRowsSelected()
                       }
                       onCheckedChange={(value) =>
                         table.toggleAllPageRowsSelected(Boolean(value))
@@ -177,9 +178,9 @@ function DataTable<TData, TValue>({
                   >
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
                       <Button
-                        variant="ghost"
+                        variant="quiet"
                         size="sm"
-                        className="-ml-2 h-8 rounded-sm px-2 font-medium hover:bg-transparent hover:text-foreground dark:hover:bg-transparent"
+                        className="-ml-2 h-8 rounded-sm px-2 font-medium hover:bg-transparent hover:text-fg dark:hover:bg-transparent"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(
@@ -248,7 +249,7 @@ function DataTable<TData, TValue>({
                     table.getVisibleLeafColumns().length +
                     (enableRowSelection ? 1 : 0)
                   }
-                  className="h-24 text-center text-muted-foreground"
+                  className="h-24 text-center text-fg-muted"
                 >
                   {emptyMessage}
                 </TableCell>
@@ -258,11 +259,11 @@ function DataTable<TData, TValue>({
         </Table>
       </div>
       {enablePagination && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-fg-muted">
           <label className="flex items-center gap-2">
             Rows per page
             <select
-              className="rounded-md border border-input bg-background p-1 text-foreground"
+              className="rounded-md border border-input bg-surface p-1 text-fg"
               value={table.getState().pagination.pageSize}
               onChange={(event) =>
                 table.setPageSize(Number(event.target.value))
@@ -281,7 +282,7 @@ function DataTable<TData, TValue>({
               {Math.max(1, table.getPageCount())}
             </span>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
@@ -289,7 +290,7 @@ function DataTable<TData, TValue>({
               Previous
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}

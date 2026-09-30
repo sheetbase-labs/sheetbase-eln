@@ -3,7 +3,7 @@ import { RemoteSelectionChips } from '#/components/collaboration/presence-select
 
 import type { ResolvedSheetRecordAction } from '#/lib/sheet-record-actions'
 import type { SheetRecordGridError } from '#/lib/sheet-record-grid-errors'
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 
 export function ComposedSheetRecordToolbar({
   actions,
@@ -42,14 +42,14 @@ export function ComposedSheetRecordToolbar({
       >
         {create?.label ?? 'Create Record'}
       </Button>
-      <Button type="button" size="sm" variant="outline" onClick={onValidate}>
+      <Button type="button" size="sm" variant="secondary" onClick={onValidate}>
         Validate
       </Button>
-      <Button type="button" size="sm" variant="outline" onClick={onCommit}>
+      <Button type="button" size="sm" variant="secondary" onClick={onCommit}>
         Commit
       </Button>
       {errors.length > 0 ? (
-        <Button type="button" size="sm" variant="ghost" onClick={onNextError}>
+        <Button type="button" size="sm" variant="quiet" onClick={onNextError}>
           Next error ({errors.length})
         </Button>
       ) : null}

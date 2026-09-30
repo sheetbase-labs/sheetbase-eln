@@ -1,8 +1,8 @@
 import * as React from 'react'
-import { Camera, CircleAlert, Database, Radio } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
-import { Badge } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Icon } from '#/components/v3/icons'
 import type { RepresentationHandle } from '#/lib/representations'
 
 /**
@@ -63,7 +63,7 @@ export function RepresentationFrame({
 
   return (
     <figure
-      className={cn('rounded-lg border bg-card shadow-xs', className)}
+      className={cn('rounded-lg border bg-surface shadow-xs', className)}
       role="figure"
       aria-labelledby={titleId}
     >
@@ -74,29 +74,29 @@ export function RepresentationFrame({
               {title}
             </h3>
             {frozen ? (
-              <Badge variant="outline" className="shrink-0">
-                <Camera className="size-3" aria-hidden="true" />
+              <Badge variant="kind" className="shrink-0">
+                <Icon name="archive" size={12} aria-hidden="true" />
                 Snapshot
               </Badge>
             ) : (
-              <Badge variant="success" className="shrink-0">
-                <Radio className="size-3" aria-hidden="true" />
+              <Badge variant="add" className="shrink-0">
+                <Icon name="play" size={12} aria-hidden="true" />
                 Live
               </Badge>
             )}
             {sourceBadge ? (
-              <Badge variant="secondary" className="shrink-0">
-                <Database className="size-3" aria-hidden="true" />
+              <Badge variant="chg" className="shrink-0">
+                <Icon name="database" size={12} aria-hidden="true" />
                 {sourceBadge}
               </Badge>
             ) : null}
           </div>
           {versionLine ? (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            <p className="mt-0.5 truncate text-xs text-fg-muted">
               {versionLine}
             </p>
           ) : null}
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          <p className="mt-0.5 truncate text-xs text-fg-muted">
             {handle.provenance.summary}
             {handle.readOnly ? null : ' · editable'}
           </p>
@@ -108,16 +108,18 @@ export function RepresentationFrame({
 
       <div className="p-4">
         {loading ? (
-          <p className="text-sm text-muted-foreground" aria-busy="true">
+          <p className="text-sm text-fg-muted" aria-busy="true">
             Loading representation…
           </p>
         ) : error ? (
           <p
             role="alert"
-            className="flex items-start gap-2 text-sm text-destructive"
+            className="flex items-start gap-2 text-sm text-danger-text"
           >
-            <CircleAlert
-              className="mt-0.5 size-4 shrink-0"
+            <Icon
+              name="warn"
+              size={16}
+              className="mt-0.5 shrink-0"
               aria-hidden="true"
             />
             {error}

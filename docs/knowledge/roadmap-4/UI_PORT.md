@@ -123,6 +123,44 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Second reference drop ported (analysis-studio, agents, instruments,
+  template tabs, record notebook, command/picker, diagnostics/usage, model
+  editor, milestones, help, sign-in, capability gaps)**: the reference app was
+  extended with designed screens for the gaps this hand-off listed, each with a
+  per-screen brief under `docs/screens/` in that reference. Ported so far:
+
+  - **Capability gap pattern**: `CapabilityGap` (page and inline) plus the
+    deployment capability flags in `#/lib/capabilities`
+    (`SHEETBASE_CAPABILITIES`, all off by default). Sample measurements and
+    experiment results show the honest gap with real alternative links and an
+    admin-only roadmap chip.
+  - **Help centre**: `/help`, `/help/records` and `/help/shortcuts`, replacing
+    the legacy route. Static content ships with the release; the release card
+    reads the deployment version and validation label; support shows the gap
+    until a service-desk integration exists. Linked from the account menu.
+  - **Settings diagnostics and usage**: `/settings/diagnostics` reads the real
+    deployment diagnostics, run health and connector diagnostics; the support
+    bundle shows the gap. `/settings/usage` reads the real usage and storage
+    figures and says where call metering and quotas are not configured. Both
+    join the settings nav, finishing the fold of the legacy `/admin` sections.
+  - **Sign-in**: redesigned outside the app shell (bare route) with the
+    signed-out, expired-signing and locked states, the session note and the
+    validated-release footer. The real provider is GitHub OAuth, so the copy
+    states that only company sign-in is available.
+  - **Instruments registry**: migration `0258` adds location, owner and
+    retirement to `api.instruments` and replaces `create_instrument`
+    (writer-gated, duplicate-serial refusal) with `set_instrument_retired`;
+    DB contract tests cover register, duplicate serial, viewer denial,
+    other-workspace denial and retire/reinstate. The list gains tabs, filters,
+    calibration-due, location and owner columns, a register dialog and
+    retire/reinstate.
+  - **Command primitive**: the reference's self-contained keyboard-driven
+    command replaces the cmdk one; the existing record pickers move to it.
+
+  Still to port from this drop: the Analysis Studio home/builder, the agents
+  surface, template Versions and In use, the canonical record notebook, the
+  searchable record picker component, the model editor and project milestones.
+
 - **Analysis studio moved into app-3's shell**: `/analysis` (the studio index)
   drops the legacy `useShell` wrapper for a content column with the chart
   settings inspector beside it, and joins `v3RouteIds`, so the v3 nav's

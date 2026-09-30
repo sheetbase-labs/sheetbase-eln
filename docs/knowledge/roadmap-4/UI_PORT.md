@@ -188,9 +188,21 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
     enabled only when every condition is delivered. Client visibility and date
     history are stated as gaps (not stored).
 
-  Still to port from this drop: the canonical record notebook (any record type,
-  using the new picker), plus the small inline gaps on inbox kinds, the
-  experiments open-issue column, model kinds and portal reports.
+  - **Record notebook tabs + picker**: the notebook gains Notebook / Links /
+    Revisions / Signatures tabs over the real links and revisions data, and a
+    Link records… action that opens the new searchable record picker and links
+    samples, materials and experiments through `create_record_link`.
+  - **Agent policy governance**: migrations `0260`/`0261` record a reason and
+    an e-signature on `agent_operation_policies`; creating a policy requires a
+    reason and a certified signature. DB tests cover the reason and
+    certification requirements.
+  - **Remaining inline gaps**: the Inbox (kinds), the experiments list
+    (open-issue column) and the pipeline Steps, protocol Document/Training and
+    bench-reading routes.
+
+  Gaps that do not apply here, because the ELN already has the capability:
+  multi-type search, instrument calibration, and the portal's shared reports.
+  The model "kinds" gap has no new-model UI in the ELN to attach to.
 
 - **Analysis studio moved into app-3's shell**: `/analysis` (the studio index)
   drops the legacy `useShell` wrapper for a content column with the chart

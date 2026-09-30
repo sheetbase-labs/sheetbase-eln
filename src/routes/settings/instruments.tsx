@@ -44,7 +44,8 @@ import '#/lib/connectors/plate-reader'
 
 /** UI port (roadmap-4/ui-app3): instruments and parsers. An instrument is an
  * inbound connector; its parser comes from the registered parser catalogue.
- * Calibration has no model yet and is stated as a gap rather than faked. */
+ * Calibration is recorded on the instrument record (`/instruments/$id`), not
+ * here; this page manages the inbound connectors and the parser catalogue. */
 export const Route = createFileRoute('/settings/instruments')({
   component: Instruments,
 })

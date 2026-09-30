@@ -132,6 +132,10 @@ function routes(ids) {
     '/help/shortcuts',
     '/help/shortcuts?os=windows',
     '/client-portal',
+    '/sign-in',
+    '/sign-in?state=signed-out',
+    '/sign-in?state=expired-signing',
+    '/sign-in?state=locked',
   ]
   if (ids.project)
     list.push(

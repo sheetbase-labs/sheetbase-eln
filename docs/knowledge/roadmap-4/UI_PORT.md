@@ -157,9 +157,27 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   - **Command primitive**: the reference's self-contained keyboard-driven
     command replaces the cmdk one; the existing record pickers move to it.
 
-  Still to port from this drop: the Analysis Studio home/builder, the agents
-  surface, template Versions and In use, the canonical record notebook, the
-  searchable record picker component, the model editor and project milestones.
+  - **Template Versions and In use (governance)**: migration `0259` records a
+    reason on publish and retire, and makes retire an e-signature (the caller
+    must be signature-certified; no unsigned records may still be pinned).
+    DB contract tests cover the reason requirement, the certification
+    requirement, the unsigned-records block and a signed retire. The Versions
+    tab has the version table, a governance inspector and publish/retire
+    dialogs; In use groups records by version with status and update
+    affordances.
+  - **Agent proposals grouped**: Needs your approval / Waiting on others /
+    Decided, with a unit test for the grouping.
+  - **Searchable record picker**: a cmdk-style list over the real search RPC
+    with type chips, per-kind counts, linked rows disabled, single- and
+    multi-select.
+  - **Remaining capability gaps**: the protocol Document and Training tabs,
+    the pipeline Steps tab and `/readings/new` show the honest gap with real
+    alternatives.
+
+  Still to port from this drop: the Analysis Studio home/builder, the canonical
+  record notebook (any record type), the model editor and project milestones,
+  plus the small inline gaps on inbox, search, the experiments list and
+  settings instruments.
 
 - **Analysis studio moved into app-3's shell**: `/analysis` (the studio index)
   drops the legacy `useShell` wrapper for a content column with the chart

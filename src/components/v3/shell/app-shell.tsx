@@ -444,6 +444,9 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
           </div>
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuLinkItem icon="info" render={<Link to="/help" />}>
+          Help and shortcuts
+        </DropdownMenuLinkItem>
         <DropdownMenuLinkItem icon="settings" render={<Link to="/settings" />}>
           Settings
         </DropdownMenuLinkItem>

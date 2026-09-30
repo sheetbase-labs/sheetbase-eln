@@ -122,6 +122,11 @@ function routes(ids) {
     '/settings/access',
     '/settings/audit',
     '/settings/integrations',
+    '/help',
+    '/help?q=snapshot',
+    '/help/records',
+    '/help/shortcuts',
+    '/help/shortcuts?os=windows',
     '/client-portal',
   ]
   if (ids.project)

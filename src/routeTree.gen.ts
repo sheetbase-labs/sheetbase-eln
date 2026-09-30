@@ -46,6 +46,9 @@ import { Route as DocsNameRouteImport } from './routes/docs/$name'
 import { Route as EvidenceRevisionIdRouteImport } from './routes/evidence/$revisionId'
 import { Route as ExperimentsExpIdRouteImport } from './routes/experiments/$expId'
 import { Route as ExperimentsNewRouteImport } from './routes/experiments/new'
+import { Route as HelpIndexRouteImport } from './routes/help/index'
+import { Route as HelpRecordsRouteImport } from './routes/help/records'
+import { Route as HelpShortcutsRouteImport } from './routes/help/shortcuts'
 import { Route as InstrumentsInstrumentIdRouteImport } from './routes/instruments/$instrumentId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
@@ -311,6 +314,21 @@ const ExperimentsNewRoute = ExperimentsNewRouteImport.update({
   id: '/new',
   path: '/new',
   getParentRoute: () => ExperimentsRoute,
+} as any)
+const HelpIndexRoute = HelpIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => HelpRoute,
+} as any)
+const HelpRecordsRoute = HelpRecordsRouteImport.update({
+  id: '/records',
+  path: '/records',
+  getParentRoute: () => HelpRoute,
+} as any)
+const HelpShortcutsRoute = HelpShortcutsRouteImport.update({
+  id: '/shortcuts',
+  path: '/shortcuts',
+  getParentRoute: () => HelpRoute,
 } as any)
 const InstrumentsInstrumentIdRoute = InstrumentsInstrumentIdRouteImport.update({
   id: '/$instrumentId',
@@ -747,7 +765,7 @@ export interface FileRoutesByFullPath {
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
-  '/help': typeof HelpRoute
+  '/help': typeof HelpRouteWithChildren
   '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
@@ -776,6 +794,8 @@ export interface FileRoutesByFullPath {
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
   '/experiments/new': typeof ExperimentsNewRoute
+  '/help/records': typeof HelpRecordsRoute
+  '/help/shortcuts': typeof HelpShortcutsRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -797,6 +817,7 @@ export interface FileRoutesByFullPath {
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
+  '/help/': typeof HelpIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -866,7 +887,6 @@ export interface FileRoutesByTo {
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
-  '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
@@ -892,6 +912,8 @@ export interface FileRoutesByTo {
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/new': typeof ExperimentsNewRoute
+  '/help/records': typeof HelpRecordsRoute
+  '/help/shortcuts': typeof HelpShortcutsRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
@@ -907,6 +929,7 @@ export interface FileRoutesByTo {
   '/settings/signatures': typeof SettingsSignaturesRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
+  '/help': typeof HelpIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -977,7 +1000,7 @@ export interface FileRoutesById {
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
-  '/help': typeof HelpRoute
+  '/help': typeof HelpRouteWithChildren
   '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
@@ -1006,6 +1029,8 @@ export interface FileRoutesById {
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
   '/experiments/new': typeof ExperimentsNewRoute
+  '/help/records': typeof HelpRecordsRoute
+  '/help/shortcuts': typeof HelpShortcutsRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -1027,6 +1052,7 @@ export interface FileRoutesById {
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
+  '/help/': typeof HelpIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -1127,6 +1153,8 @@ export interface FileRouteTypes {
     | '/evidence/$revisionId'
     | '/experiments/$expId'
     | '/experiments/new'
+    | '/help/records'
+    | '/help/shortcuts'
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1148,6 +1176,7 @@ export interface FileRouteTypes {
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/templates/$templateId'
+    | '/help/'
     | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -1217,7 +1246,6 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/experiments'
     | '/foundations'
-    | '/help'
     | '/import'
     | '/inbox'
     | '/instruments'
@@ -1243,6 +1271,8 @@ export interface FileRouteTypes {
     | '/docs/$name'
     | '/evidence/$revisionId'
     | '/experiments/new'
+    | '/help/records'
+    | '/help/shortcuts'
     | '/instruments/$instrumentId'
     | '/pipelines/agents'
     | '/protocols/$protocolId'
@@ -1258,6 +1288,7 @@ export interface FileRouteTypes {
     | '/settings/signatures'
     | '/sheets/$sheetId'
     | '/sheets/new'
+    | '/help'
     | '/settings'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -1356,6 +1387,8 @@ export interface FileRouteTypes {
     | '/evidence/$revisionId'
     | '/experiments/$expId'
     | '/experiments/new'
+    | '/help/records'
+    | '/help/shortcuts'
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1377,6 +1410,7 @@ export interface FileRouteTypes {
     | '/sheets/$sheetId'
     | '/sheets/new'
     | '/templates/$templateId'
+    | '/help/'
     | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -1447,7 +1481,7 @@ export interface RootRouteChildren {
   DatasetsRoute: typeof DatasetsRouteWithChildren
   ExperimentsRoute: typeof ExperimentsRouteWithChildren
   FoundationsRoute: typeof FoundationsRoute
-  HelpRoute: typeof HelpRoute
+  HelpRoute: typeof HelpRouteWithChildren
   ImportRoute: typeof ImportRoute
   InboxRoute: typeof InboxRoute
   InstrumentsRoute: typeof InstrumentsRouteWithChildren
@@ -1758,6 +1792,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/experiments/new'
       preLoaderRoute: typeof ExperimentsNewRouteImport
       parentRoute: typeof ExperimentsRoute
+    }
+    '/help/': {
+      id: '/help/'
+      path: '/'
+      fullPath: '/help/'
+      preLoaderRoute: typeof HelpIndexRouteImport
+      parentRoute: typeof HelpRoute
+    }
+    '/help/records': {
+      id: '/help/records'
+      path: '/records'
+      fullPath: '/help/records'
+      preLoaderRoute: typeof HelpRecordsRouteImport
+      parentRoute: typeof HelpRoute
+    }
+    '/help/shortcuts': {
+      id: '/help/shortcuts'
+      path: '/shortcuts'
+      fullPath: '/help/shortcuts'
+      preLoaderRoute: typeof HelpShortcutsRouteImport
+      parentRoute: typeof HelpRoute
     }
     '/instruments/$instrumentId': {
       id: '/instruments/$instrumentId'
@@ -2412,6 +2467,20 @@ const ExperimentsRouteWithChildren = ExperimentsRoute._addFileChildren(
   ExperimentsRouteChildren,
 )
 
+interface HelpRouteChildren {
+  HelpRecordsRoute: typeof HelpRecordsRoute
+  HelpShortcutsRoute: typeof HelpShortcutsRoute
+  HelpIndexRoute: typeof HelpIndexRoute
+}
+
+const HelpRouteChildren: HelpRouteChildren = {
+  HelpRecordsRoute: HelpRecordsRoute,
+  HelpShortcutsRoute: HelpShortcutsRoute,
+  HelpIndexRoute: HelpIndexRoute,
+}
+
+const HelpRouteWithChildren = HelpRoute._addFileChildren(HelpRouteChildren)
+
 interface InstrumentsRouteChildren {
   InstrumentsInstrumentIdRoute: typeof InstrumentsInstrumentIdRoute
 }
@@ -2651,7 +2720,7 @@ const rootRouteChildren: RootRouteChildren = {
   DatasetsRoute: DatasetsRouteWithChildren,
   ExperimentsRoute: ExperimentsRouteWithChildren,
   FoundationsRoute: FoundationsRoute,
-  HelpRoute: HelpRoute,
+  HelpRoute: HelpRouteWithChildren,
   ImportRoute: ImportRoute,
   InboxRoute: InboxRoute,
   InstrumentsRoute: InstrumentsRouteWithChildren,

@@ -18,7 +18,6 @@ export const capabilityKeys = [
   'protocolDocuments',
   'pipelineSteps',
   'benchReading',
-  'inboxKinds',
 ] as const
 
 export type CapabilityKey = (typeof capabilityKeys)[number]
@@ -34,7 +33,6 @@ export const capabilityRoadmap: Record<CapabilityKey, string> = {
   protocolDocuments: 'RM-104',
   pipelineSteps: 'RM-125',
   benchReading: 'RM-109',
-  inboxKinds: 'RM-116',
 }
 
 /** Parse the deployment allow-list. Pure, so it is unit-testable. */

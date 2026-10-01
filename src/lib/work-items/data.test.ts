@@ -63,11 +63,15 @@ describe('countByKind', () => {
       item(),
       item(),
       item({ kind: 'run_failed' }),
+      item({ kind: 'data_issue' }),
+      item({ kind: 'material_expiring' }),
       item({ kind: 'following' }),
     ])
     expect(counts).toEqual({
       review_requested: 2,
       run_failed: 1,
+      data_issue: 1,
+      material_expiring: 1,
       following: 1,
     })
   })

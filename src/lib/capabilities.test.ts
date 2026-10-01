@@ -15,11 +15,11 @@ describe('capabilities', () => {
 
   it('enables only the keys in the allow-list', () => {
     const caps = capabilitiesFromEnv({
-      SHEETBASE_CAPABILITIES: 'benchReading, inboxKinds',
+      SHEETBASE_CAPABILITIES: 'benchReading, pipelineSteps',
     })
     expect(caps.benchReading).toBe(true)
-    expect(caps.inboxKinds).toBe(true)
-    expect(caps.pipelineSteps).toBe(false)
+    expect(caps.pipelineSteps).toBe(true)
+    expect(caps.protocolDocuments).toBe(false)
   })
 
   it('ignores unknown keys and whitespace', () => {

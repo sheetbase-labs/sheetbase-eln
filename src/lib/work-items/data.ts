@@ -12,7 +12,12 @@ import { useQuery } from '@tanstack/react-query'
 import type { DataClient } from '../data-client'
 import { notebookDataClient } from '../notebook-data'
 
-export type WorkItemKind = 'review_requested' | 'run_failed' | 'following'
+export type WorkItemKind =
+  | 'review_requested'
+  | 'run_failed'
+  | 'data_issue'
+  | 'material_expiring'
+  | 'following'
 export type WorkItemState =
   'needs_action' | 'following' | 'overdue' | 'done_today'
 
@@ -45,6 +50,8 @@ export interface WorkItem {
 const KINDS: readonly WorkItemKind[] = [
   'review_requested',
   'run_failed',
+  'data_issue',
+  'material_expiring',
   'following',
 ]
 const STATES: readonly WorkItemState[] = [
@@ -131,6 +138,8 @@ export function countByKind(
   const counts: Record<WorkItemKind, number> = {
     review_requested: 0,
     run_failed: 0,
+    data_issue: 0,
+    material_expiring: 0,
     following: 0,
   }
   for (const item of items) counts[item.kind] += 1

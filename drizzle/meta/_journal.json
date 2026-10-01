@@ -1868,6 +1868,20 @@
       "when": 1790895277398,
       "tag": "0268_cloudy_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 269,
+      "version": "7",
+      "when": 1790896000000,
+      "tag": "0269_my_work_items_kinds",
+      "breakpoints": true
+    },
+    {
+      "idx": 270,
+      "version": "7",
+      "when": 1790897000000,
+      "tag": "0270_inbox_workspace_scoped",
+      "breakpoints": true
     }
   ]
 }

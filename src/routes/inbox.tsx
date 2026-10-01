@@ -10,14 +10,12 @@ import {
   DescriptionList,
 } from '#/components/v3/ui/layout'
 import { Kbd } from '#/components/v3/ui/kbd'
-import { CapabilityGap } from '#/components/v3/ui/capability-gap'
 import { cn } from '#/lib/utils'
-import { capabilityRoadmap } from '#/lib/capabilities'
 import { groupWorkItems, useWorkItems } from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
 
 type InboxTab = 'needs-action' | 'following' | 'done-today'
-type InboxType = 'reviews' | 'runs' | 'following'
+type InboxType = 'reviews' | 'data' | 'runs' | 'materials' | 'following'
 
 const tabs: [InboxTab, string][] = [
   ['needs-action', 'Needs action'],
@@ -26,32 +24,39 @@ const tabs: [InboxTab, string][] = [
 ]
 const types: [InboxType, string, Tone, WorkItemKind][] = [
   ['reviews', 'Reviews', 'review', 'review_requested'],
+  ['data', 'Data issues', 'bad', 'data_issue'],
   ['runs', 'Runs', 'analysis', 'run_failed'],
+  ['materials', 'Materials', 'warn', 'material_expiring'],
   ['following', 'Following', 'stored', 'following'],
 ]
 
-/** UI port (roadmap-4/ui-app3): the Inbox, wired to `my_work_items`. Data
- * issues, signatures and materials item kinds arrive with their capabilities. */
+/** UI port (roadmap-4/ui-app3): the Inbox, wired to `my_work_items`. */
 export const Route = createFileRoute('/inbox')({
   component: Inbox,
 })
 
 function kindToType(kind: WorkItemKind): InboxType {
   if (kind === 'review_requested') return 'reviews'
+  if (kind === 'data_issue') return 'data'
   if (kind === 'run_failed') return 'runs'
+  if (kind === 'material_expiring') return 'materials'
   return 'following'
 }
 
 function toneFor(kind: WorkItemKind): Tone {
   if (kind === 'review_requested') return 'review'
+  if (kind === 'data_issue') return 'bad'
   if (kind === 'run_failed') return 'bad'
+  if (kind === 'material_expiring') return 'warn'
   return 'stored'
 }
 
 function labelFor(kind: WorkItemKind, state: string): string {
   if (state === 'overdue') return 'Overdue'
   if (kind === 'review_requested') return 'Review'
+  if (kind === 'data_issue') return 'Data issue'
   if (kind === 'run_failed') return 'Failed'
+  if (kind === 'material_expiring') return 'Material'
   return 'Following'
 }
 
@@ -64,6 +69,8 @@ function itemTab(item: WorkItem): InboxTab {
 
 function itemLink(item: WorkItem) {
   if (item.kind === 'run_failed') return { to: '/pipelines' as const }
+  if (item.kind === 'data_issue') return { to: '/datasets' as const }
+  if (item.kind === 'material_expiring') return { to: '/materials' as const }
   if (item.recordId)
     return {
       to: '/records/$recordId' as const,
@@ -73,9 +80,6 @@ function itemLink(item: WorkItem) {
 }
 
 function Inbox() {
-  const { auth } = Route.useRouteContext()
-  const role = auth?.workspace?.role
-  const admin = role === 'owner' || role === 'admin'
   const query = useWorkItems()
   const items = query.data ?? []
   const [tab, setTab] = useState<InboxTab>('needs-action')
@@ -92,12 +96,9 @@ function Inbox() {
   ).length
   const selected =
     shown.find((i) => (i.recordId ?? i.identifier) === selectedKey) ?? shown[0]
-  const tabCount = (t: InboxTab) =>
-    items.filter((i) => itemTab(i) === t && !groups.later.includes(i)).length
+  const tabCount = (t: InboxTab) => items.filter((i) => itemTab(i) === t).length
   const typeCount = (t: InboxType) =>
-    inTab.filter(
-      (i) => kindToType(i.kind) === t && (later || !groups.later.includes(i)),
-    ).length
+    inTab.filter((i) => kindToType(i.kind) === t).length
 
   const sections: [string | null, WorkItem[]][] =
     tab === 'needs-action'
@@ -183,20 +184,6 @@ function Inbox() {
           </span>
         </div>
 
-        <div className="px-4 py-3 md:px-6">
-          <CapabilityGap
-            variant="inline"
-            title="Data-issue, material and signature items aren’t in the Inbox yet"
-            will="Dataset errors, material expiries and signature requests will appear here alongside reviews and failed runs."
-            roadmap={capabilityRoadmap.inboxKinds}
-            admin={admin}
-            instead={[
-              { label: 'Datasets with errors', link: { to: '/datasets' } },
-              { label: 'Materials', link: { to: '/materials' } },
-            ]}
-          />
-        </div>
-
         <div className="min-h-0 flex-1 overflow-auto">
           {shown.length === 0 && hiddenLater === 0 ? (
             <div
@@ -276,7 +263,7 @@ function Inbox() {
               })}
             </div>
           )}
-          {shown.length === 0 && hiddenLater > 0 && !later ? (
+          {hiddenLater > 0 && !later ? (
             <button
               type="button"
               aria-expanded={false}
@@ -290,7 +277,7 @@ function Inbox() {
       </div>
 
       {shown.length ? (
-        <Inspector aria-label="Item details" className="w-[320px] gap-0 p-0">
+        <Inspector aria-label="Item details" className="w-[320px]">
           <InspectorSection title="Item">
             <DescriptionList
               labelWidth={96}

@@ -10,10 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as ClientPortalRouteImport } from './routes/client-portal'
-import { Route as ConfigureRouteImport } from './routes/configure'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as ExperimentsRouteImport } from './routes/experiments'
 import { Route as FoundationsRouteImport } from './routes/foundations'
@@ -24,7 +22,6 @@ import { Route as InstrumentsRouteImport } from './routes/instruments'
 import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
-import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as SamplesRouteImport } from './routes/samples'
@@ -34,7 +31,6 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TemplatesRouteImport } from './routes/templates'
-import { Route as AdminSectionRouteImport } from './routes/admin/$section'
 import { Route as AnalysisIndexRouteImport } from './routes/analysis/index'
 import { Route as AnalysisAnalysisIdRouteImport } from './routes/analysis/$analysisId'
 import { Route as AnalysisNewRouteImport } from './routes/analysis/new'
@@ -143,11 +139,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AnalysisRoute = AnalysisRouteImport.update({
   id: '/analysis',
   path: '/analysis',
@@ -156,11 +147,6 @@ const AnalysisRoute = AnalysisRouteImport.update({
 const ClientPortalRoute = ClientPortalRouteImport.update({
   id: '/client-portal',
   path: '/client-portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfigureRoute = ConfigureRouteImport.update({
-  id: '/configure',
-  path: '/configure',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsRoute = DatasetsRouteImport.update({
@@ -213,11 +199,6 @@ const PipelinesRoute = PipelinesRouteImport.update({
   path: '/pipelines',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PlannerRoute = PlannerRouteImport.update({
-  id: '/planner',
-  path: '/planner',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
@@ -262,11 +243,6 @@ const TemplatesRoute = TemplatesRouteImport.update({
   id: '/templates',
   path: '/templates',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AdminSectionRoute = AdminSectionRouteImport.update({
-  id: '/$section',
-  path: '/$section',
-  getParentRoute: () => AdminRoute,
 } as any)
 const AnalysisIndexRoute = AnalysisIndexRouteImport.update({
   id: '/',
@@ -808,10 +784,8 @@ const ApiExportRevisionIdPackageRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
-  '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -822,7 +796,6 @@ export interface FileRoutesByFullPath {
   '/materials': typeof MaterialsRoute
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
-  '/planner': typeof PlannerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
@@ -832,7 +805,6 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRouteWithChildren
-  '/admin/$section': typeof AdminSectionRoute
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/analysis/new': typeof AnalysisNewRoute
   '/api/calculations': typeof ApiCalculationsRoute
@@ -938,9 +910,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
-  '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -950,7 +920,6 @@ export interface FileRoutesByTo {
   '/materials': typeof MaterialsRoute
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
-  '/planner': typeof PlannerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
@@ -959,7 +928,6 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRouteWithChildren
-  '/admin/$section': typeof AdminSectionRoute
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/analysis/new': typeof AnalysisNewRoute
   '/api/calculations': typeof ApiCalculationsRoute
@@ -1058,10 +1026,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
-  '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1072,7 +1038,6 @@ export interface FileRoutesById {
   '/materials': typeof MaterialsRoute
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
-  '/planner': typeof PlannerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
@@ -1082,7 +1047,6 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRouteWithChildren
-  '/admin/$section': typeof AdminSectionRoute
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/analysis/new': typeof AnalysisNewRoute
   '/api/calculations': typeof ApiCalculationsRoute
@@ -1190,10 +1154,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
     | '/analysis'
     | '/client-portal'
-    | '/configure'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -1204,7 +1166,6 @@ export interface FileRouteTypes {
     | '/materials'
     | '/models'
     | '/pipelines'
-    | '/planner'
     | '/projects'
     | '/protocols'
     | '/samples'
@@ -1214,7 +1175,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sign-in'
     | '/templates'
-    | '/admin/$section'
     | '/analysis/$analysisId'
     | '/analysis/new'
     | '/api/calculations'
@@ -1320,9 +1280,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/client-portal'
-    | '/configure'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -1332,7 +1290,6 @@ export interface FileRouteTypes {
     | '/materials'
     | '/models'
     | '/pipelines'
-    | '/planner'
     | '/projects'
     | '/protocols'
     | '/samples'
@@ -1341,7 +1298,6 @@ export interface FileRouteTypes {
     | '/search'
     | '/sign-in'
     | '/templates'
-    | '/admin/$section'
     | '/analysis/$analysisId'
     | '/analysis/new'
     | '/api/calculations'
@@ -1439,10 +1395,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/admin'
     | '/analysis'
     | '/client-portal'
-    | '/configure'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -1453,7 +1407,6 @@ export interface FileRouteTypes {
     | '/materials'
     | '/models'
     | '/pipelines'
-    | '/planner'
     | '/projects'
     | '/protocols'
     | '/samples'
@@ -1463,7 +1416,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sign-in'
     | '/templates'
-    | '/admin/$section'
     | '/analysis/$analysisId'
     | '/analysis/new'
     | '/api/calculations'
@@ -1570,10 +1522,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRouteWithChildren
   AnalysisRoute: typeof AnalysisRouteWithChildren
   ClientPortalRoute: typeof ClientPortalRoute
-  ConfigureRoute: typeof ConfigureRoute
   DatasetsRoute: typeof DatasetsRouteWithChildren
   ExperimentsRoute: typeof ExperimentsRouteWithChildren
   FoundationsRoute: typeof FoundationsRoute
@@ -1584,7 +1534,6 @@ export interface RootRouteChildren {
   MaterialsRoute: typeof MaterialsRoute
   ModelsRoute: typeof ModelsRouteWithChildren
   PipelinesRoute: typeof PipelinesRouteWithChildren
-  PlannerRoute: typeof PlannerRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
   SamplesRoute: typeof SamplesRouteWithChildren
@@ -1638,13 +1587,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/analysis': {
       id: '/analysis'
       path: '/analysis'
@@ -1657,13 +1599,6 @@ declare module '@tanstack/react-router' {
       path: '/client-portal'
       fullPath: '/client-portal'
       preLoaderRoute: typeof ClientPortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/configure': {
-      id: '/configure'
-      path: '/configure'
-      fullPath: '/configure'
-      preLoaderRoute: typeof ConfigureRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets': {
@@ -1736,13 +1671,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PipelinesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/planner': {
-      id: '/planner'
-      path: '/planner'
-      fullPath: '/planner'
-      preLoaderRoute: typeof PlannerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/projects': {
       id: '/projects'
       path: '/projects'
@@ -1805,13 +1733,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/templates'
       preLoaderRoute: typeof TemplatesRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/admin/$section': {
-      id: '/admin/$section'
-      path: '/$section'
-      fullPath: '/admin/$section'
-      preLoaderRoute: typeof AdminSectionRouteImport
-      parentRoute: typeof AdminRoute
     }
     '/analysis/': {
       id: '/analysis/'
@@ -2530,16 +2451,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AdminRouteChildren {
-  AdminSectionRoute: typeof AdminSectionRoute
-}
-
-const AdminRouteChildren: AdminRouteChildren = {
-  AdminSectionRoute: AdminSectionRoute,
-}
-
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
-
 interface AnalysisRouteChildren {
   AnalysisAnalysisIdRoute: typeof AnalysisAnalysisIdRoute
   AnalysisNewRoute: typeof AnalysisNewRoute
@@ -2880,10 +2791,8 @@ const RecordsRecordIdRouteWithChildren = RecordsRecordIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRouteWithChildren,
   AnalysisRoute: AnalysisRouteWithChildren,
   ClientPortalRoute: ClientPortalRoute,
-  ConfigureRoute: ConfigureRoute,
   DatasetsRoute: DatasetsRouteWithChildren,
   ExperimentsRoute: ExperimentsRouteWithChildren,
   FoundationsRoute: FoundationsRoute,
@@ -2894,7 +2803,6 @@ const rootRouteChildren: RootRouteChildren = {
   MaterialsRoute: MaterialsRoute,
   ModelsRoute: ModelsRouteWithChildren,
   PipelinesRoute: PipelinesRouteWithChildren,
-  PlannerRoute: PlannerRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ProtocolsRoute: ProtocolsRouteWithChildren,
   SamplesRoute: SamplesRouteWithChildren,

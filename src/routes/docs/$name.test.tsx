@@ -91,10 +91,10 @@ describe('docs/$name route — component', () => {
     ).toBeTruthy()
   })
 
-  it('includes a back link to the deployment admin section', () => {
+  it('includes a back link to Settings', () => {
     loaderResult.current = { name: 'deployment', html: '<p>Mock</p>' }
     const DocPage = Route.options.component as React.ComponentType
     render(<DocPage />)
-    expect(screen.getByText('← Back to deployment')).toBeTruthy()
+    expect(screen.getByText('← Settings')).toBeTruthy()
   })
 })

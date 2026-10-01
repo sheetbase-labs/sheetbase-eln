@@ -18,7 +18,7 @@
  */
 import * as React from 'react'
 
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 
 export interface SampleSummaryRow {
   label: string
@@ -68,7 +68,7 @@ export function SampleExtensionPanel({
   if (state.status === 'loading') {
     return (
       <div role="status" aria-busy="true" className="space-y-2 py-2">
-        <p className="text-xs text-muted-foreground">Loading sample summary…</p>
+        <p className="text-xs text-fg-muted">Loading sample summary…</p>
       </div>
     )
   }
@@ -76,8 +76,8 @@ export function SampleExtensionPanel({
   if (state.status === 'error') {
     return (
       <div role="status" className="space-y-2 py-2">
-        <p className="text-xs text-muted-foreground">{state.message}</p>
-        <Button type="button" variant="outline" size="sm" onClick={load}>
+        <p className="text-xs text-fg-muted">{state.message}</p>
+        <Button type="button" variant="secondary" size="sm" onClick={load}>
           Retry
         </Button>
       </div>
@@ -87,7 +87,7 @@ export function SampleExtensionPanel({
   if (!state.summary) {
     return (
       <div className="py-2">
-        <p className="text-xs text-muted-foreground">No summary available.</p>
+        <p className="text-xs text-fg-muted">No summary available.</p>
       </div>
     )
   }
@@ -97,9 +97,7 @@ export function SampleExtensionPanel({
       <div>
         <p className="text-sm font-semibold">{state.summary.heading}</p>
         {state.summary.subheading ? (
-          <p className="text-xs text-muted-foreground">
-            {state.summary.subheading}
-          </p>
+          <p className="text-xs text-fg-muted">{state.summary.subheading}</p>
         ) : null}
       </div>
       <dl className="divide-y divide-border rounded-md border border-border">
@@ -108,17 +106,15 @@ export function SampleExtensionPanel({
             key={row.label}
             className="flex items-center justify-between gap-2 px-2 py-1.5"
           >
-            <dt className="shrink-0 text-xs text-muted-foreground">
-              {row.label}
-            </dt>
-            <dd className="truncate text-xs text-foreground">{row.value}</dd>
+            <dt className="shrink-0 text-xs text-fg-muted">{row.label}</dt>
+            <dd className="truncate text-xs text-fg">{row.value}</dd>
           </div>
         ))}
       </dl>
       {onOpenRecord ? (
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={onOpenRecord}
         >

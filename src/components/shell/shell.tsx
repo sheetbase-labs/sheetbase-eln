@@ -19,7 +19,6 @@ import {
   GanttChart,
   Home as HomeIcon,
   Inbox,
-  Layers,
   LayoutGrid,
   LayoutTemplate,
   LineChart as LineChartIcon,
@@ -286,7 +285,7 @@ export interface AppShellProps {
 
 /** Default workspace navigation shared by every authenticated route. */
 /** Specialist tools kept reachable but out of the default product nav. */
-export const SPECIALIST_NAV_HREFS = ['/planner'] as const
+export const SPECIALIST_NAV_HREFS = [] as const
 
 export const defaultNavSections: AppShellNavSection[] = [
   {
@@ -306,7 +305,6 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/datasets', label: 'Datasets', icon: Database },
       { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/pipelines', label: 'Pipelines', icon: Workflow },
-      { to: '/configure', label: 'Models', icon: Layers },
     ],
   },
 ]

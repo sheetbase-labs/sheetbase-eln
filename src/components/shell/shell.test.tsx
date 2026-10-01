@@ -142,8 +142,8 @@ describe('AppShell', () => {
     expect(destinations.find((item) => item.to === '/templates')?.label).toBe(
       'Templates',
     )
-    expect(destinations.find((item) => item.to === '/configure')?.label).toBe(
-      'Models',
+    expect(destinations.find((item) => item.to === '/pipelines')?.label).toBe(
+      'Pipelines',
     )
   })
 

@@ -23,10 +23,12 @@ import { ThemeProvider } from '../components/theme-provider'
 
 import type { QueryClient } from '@tanstack/react-query'
 import type { CurrentContext } from '#/lib/current-user'
+import type { ShellCounts } from '#/lib/shell-counts.server'
 
 interface RouterContext {
   queryClient: QueryClient
   auth: CurrentContext | null
+  shellCounts: ShellCounts
 }
 
 // Fetch auth context once at the root so every child route can read it
@@ -38,6 +40,15 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const { getRequestHeaders } = await import('@tanstack/react-start/server')
   const { getCurrentContext } = await import('#/lib/current-user')
   return getCurrentContext(getRequestHeaders())
+})
+
+const getShellCountsFn = createServerFn({ method: 'GET' }).handler(async () => {
+  const { getRequestHeaders } = await import('@tanstack/react-start/server')
+  const { getCurrentContext } = await import('#/lib/current-user')
+  const { getShellCounts } = await import('#/lib/shell-counts.server')
+  const context = await getCurrentContext(getRequestHeaders())
+  if (!context?.workspace) return {}
+  return getShellCounts(context.workspace.id)
 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -73,8 +84,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootRouteComponent,
   shellComponent: RootDocument,
   beforeLoad: async () => {
-    const auth = await getAuthContextFn()
-    return { auth }
+    const [auth, shellCounts] = await Promise.all([
+      getAuthContextFn(),
+      getShellCountsFn(),
+    ])
+    return { auth, shellCounts }
   },
 })
 
@@ -88,7 +102,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
  * active child route (e.g. `/sign-in`) inside the provider.
  */
 function RootRouteComponent() {
-  const { auth } = Route.useRouteContext()
+  const { auth, shellCounts } = Route.useRouteContext()
 
   // Map the auth context to the AppShell context shape so the sidebar
   // (workspace name, user info, nav) renders during SSR — not after
@@ -233,11 +247,13 @@ function RootRouteComponent() {
           name: string
           tone: 'progress' | 'review'
         }[],
+        counts: shellCounts,
       }
     : {
         me: { name: '', initials: '', role: '' },
         notifications: [],
         pinned: [],
+        counts: {},
       }
 
   return (

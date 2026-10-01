@@ -70,6 +70,9 @@ export interface StudyTaskWire {
   linked_protocol_identifier: string | null
   approval_required: boolean
   approval_status: StudyApprovalStatus
+  client_visible: boolean
+  shared_since: string | null
+  client_visible_reason: string | null
   tags: string[]
   metadata_version: number
   created_at: string
@@ -210,6 +213,9 @@ export interface StudyTask {
   linkedProtocolIdentifier: string | null
   approvalRequired: boolean
   approvalStatus: StudyApprovalStatus
+  clientVisible: boolean
+  sharedSince: string | null
+  clientVisibleReason: string | null
   tags: string[]
   metadataVersion: number
   createdAt: string
@@ -359,6 +365,9 @@ export function toStudyTask(
     linkedProtocolIdentifier: task.linked_protocol_identifier,
     approvalRequired: task.approval_required,
     approvalStatus: task.approval_status,
+    clientVisible: task.client_visible,
+    sharedSince: task.shared_since,
+    clientVisibleReason: task.client_visible_reason,
     tags: task.tags,
     metadataVersion: task.metadata_version,
     createdAt: task.created_at,
@@ -598,6 +607,87 @@ export async function deleteStudyTask(
   taskId: string,
 ): Promise<void> {
   await client.rpc('delete_study_task', { p_task_id: taskId })
+}
+
+export interface StudyTaskDueChange {
+  id: string
+  taskId: string
+  fromDueAt: string | null
+  toDueAt: string | null
+  reason: string
+  clientNotified: boolean
+  changedAt: string
+  changedByUserId: string | null
+}
+
+interface StudyTaskDueChangeWire {
+  id: string
+  task_id: string
+  from_due_at: string | null
+  to_due_at: string | null
+  reason: string
+  client_notified: boolean
+  changed_at: string
+  changed_by_user_id: string | null
+}
+
+/** Milestone date history, newest first (PROJ-02). */
+export async function fetchStudyTaskDueChanges(
+  client: DataClient,
+  taskId: string,
+): Promise<StudyTaskDueChange[]> {
+  const rows = await client.list<StudyTaskDueChangeWire>(
+    'study_task_due_changes',
+    `?task_id=eq.${encodeURIComponent(taskId)}&select=id,task_id,from_due_at,to_due_at,reason,client_notified,changed_at,changed_by_user_id&order=changed_at.desc`,
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    taskId: row.task_id,
+    fromDueAt: row.from_due_at,
+    toDueAt: row.to_due_at,
+    reason: row.reason,
+    clientNotified: row.client_notified,
+    changedAt: row.changed_at,
+    changedByUserId: row.changed_by_user_id,
+  }))
+}
+
+/** Move a milestone's due date with a required reason and audit history. */
+export async function moveStudyTaskDue(
+  client: DataClient,
+  input: {
+    taskId: string
+    expectedMetadataVersion?: number
+    dueAt: string
+    reason: string
+    notifyClient?: boolean
+  },
+): Promise<StudyTaskWire> {
+  return client.rpc('move_study_task_due', {
+    p_task_id: input.taskId,
+    p_expected_metadata_version: input.expectedMetadataVersion ?? null,
+    p_due_at: input.dueAt,
+    p_reason: input.reason,
+    p_notify_client: input.notifyClient ?? false,
+  })
+}
+
+/** Show or hide a milestone on the client portal (reason required to hide). */
+export async function setStudyTaskClientVisible(
+  client: DataClient,
+  input: {
+    taskId: string
+    expectedMetadataVersion?: number
+    clientVisible: boolean
+    reason?: string
+  },
+): Promise<StudyTaskWire> {
+  return client.rpc('set_study_task_client_visible', {
+    p_task_id: input.taskId,
+    p_expected_metadata_version: input.expectedMetadataVersion ?? null,
+    p_client_visible: input.clientVisible,
+    p_reason: input.reason ?? null,
+  })
 }
 
 export async function createDependency(

@@ -5595,6 +5595,14 @@ export const studyTasks = api.table(
     linkedProtocolIdentifier: text('linked_protocol_identifier'),
     approvalRequired: boolean('approval_required').notNull().default(false),
     approvalStatus: text('approval_status').notNull().default('not_required'),
+    /** PROJ-02: whether the client portal shows this milestone. */
+    clientVisible: boolean('client_visible').notNull().default(false),
+    sharedSince: timestamp('shared_since', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    /** Why visibility was last changed (required when hiding). */
+    clientVisibleReason: text('client_visible_reason'),
     tags: text('tags')
       .notNull()
       .default(sql`'{}'`),
@@ -5802,6 +5810,37 @@ export const studyDeliverables = api.table(
     ),
     index('idx_study_deliverables_workspace').on(table.workspaceId),
     index('idx_study_deliverables_task').on(table.taskId),
+  ],
+)
+
+/** PROJ-02: append-only history of milestone date changes. */
+export const studyTaskDueChanges = api.table(
+  'study_task_due_changes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => studyTasks.id, { onDelete: 'cascade' }),
+    fromDueAt: timestamp('from_due_at', { withTimezone: true, mode: 'date' }),
+    toDueAt: timestamp('to_due_at', { withTimezone: true, mode: 'date' }),
+    reason: text('reason').notNull(),
+    clientNotified: boolean('client_notified').notNull().default(false),
+    changedAt: timestamp('changed_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .default(sql`now()`),
+    changedByUserId: text('changed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_study_task_due_changes_reason',
+      sql`length(btrim(${table.reason})) BETWEEN 1 AND 500`,
+    ),
+    index('idx_study_task_due_changes_task').on(table.taskId, table.changedAt),
   ],
 )
 

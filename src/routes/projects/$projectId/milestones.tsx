@@ -12,7 +12,6 @@ import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { CapabilityGap } from '#/components/v3/ui/capability-gap'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Muted } from '#/components/v3/ui/layout'
 import {
@@ -38,12 +37,14 @@ import {
   createStudyTask,
   editStudyTask,
   fetchStudyDeliverables,
+  fetchStudyTaskDueChanges,
   fetchStudyTasks,
   fetchStudyWorkstreams,
+  moveStudyTaskDue,
+  setStudyTaskClientVisible,
   toStudyTask,
 } from '#/lib/planner'
 import type { StudyTask } from '#/lib/planner'
-import { capabilityRoadmap } from '#/lib/capabilities'
 import { cn } from '#/lib/utils'
 
 /**
@@ -127,7 +128,18 @@ function Milestones() {
     return deliverables[index]?.data ?? []
   }
 
-  const selected = milestones.find((t) => t.id === m) ?? milestones[0]
+  const selected =
+    milestones.find((t) => t.id === m) ??
+    (milestones.length ? milestones[0] : undefined)
+  const dueChanges = useQuery({
+    queryKey: ['ui-port', 'milestones', 'due-changes', selected?.id ?? ''],
+    queryFn: () =>
+      selected
+        ? fetchStudyTaskDueChanges(notebookDataClient, selected.id)
+        : Promise.resolve([]),
+    enabled: Boolean(selected),
+    staleTime: 15_000,
+  })
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'milestones'] })
@@ -153,19 +165,50 @@ function Milestones() {
     },
   })
   const move = useMutation({
-    mutationFn: (input: { task: StudyTask; dueAt: string }) =>
-      editStudyTask(notebookDataClient, {
+    mutationFn: (input: {
+      task: StudyTask
+      dueAt: string
+      reason: string
+      notifyClient: boolean
+    }) =>
+      moveStudyTaskDue(notebookDataClient, {
         taskId: input.task.id,
         dueAt: input.dueAt,
+        reason: input.reason,
+        notifyClient: input.notifyClient,
         expectedMetadataVersion: input.task.metadataVersion,
       }),
     onSuccess: () => {
       void invalidate()
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'milestones', 'due-changes'],
+      })
       setMoveOpen(false)
       toast('Date changed')
     },
     onError: () =>
       toast('Could not move the date', {
+        description: 'The plan changed; reload and try again.',
+      }),
+  })
+  const setVisibility = useMutation({
+    mutationFn: (input: {
+      task: StudyTask
+      clientVisible: boolean
+      reason: string
+    }) =>
+      setStudyTaskClientVisible(notebookDataClient, {
+        taskId: input.task.id,
+        clientVisible: input.clientVisible,
+        reason: input.reason,
+        expectedMetadataVersion: input.task.metadataVersion,
+      }),
+    onSuccess: () => {
+      void invalidate()
+      toast('Visibility changed')
+    },
+    onError: () =>
+      toast('Could not change visibility', {
         description: 'The plan changed; reload and try again.',
       }),
   })
@@ -194,7 +237,7 @@ function Milestones() {
     )
   }
 
-  if (!milestones.length) {
+  if (!selected) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="px-4 py-5 md:px-6">
@@ -384,22 +427,61 @@ function Milestones() {
           )}
         </div>
 
-        <CapabilityGap
-          variant="inline"
-          title="Client visibility and date history aren’t stored yet"
-          will="Whether the client sees a milestone, and every date change with its reason, will be recorded here."
-          roadmap={capabilityRoadmap.portalReports}
-          admin={!denied}
-          instead={[
-            {
-              label: 'Project settings',
-              link: {
-                to: '/projects/$projectId/settings',
-                params: { projectId },
-              },
-            },
-          ]}
-        />
+        <div className="flex flex-col gap-2">
+          <h3 className="text-label font-medium text-fg-muted">
+            Client portal
+          </h3>
+          <label className="flex items-start gap-2 text-body">
+            <input
+              type="checkbox"
+              aria-label="Show to the client"
+              disabled={denied || setVisibility.isPending}
+              checked={selected.clientVisible}
+              onChange={(e) =>
+                setVisibility.mutate({
+                  task: selected,
+                  clientVisible: e.target.checked,
+                  reason: e.target.checked
+                    ? ''
+                    : (window.prompt(
+                        'Why are you hiding this milestone from the client?',
+                      ) ?? ''),
+                })
+              }
+            />
+            <span>
+              Show to the client
+              {selected.clientVisible && selected.sharedSince ? (
+                <span className="block text-label text-fg-muted">
+                  Shared since {selected.sharedSince.slice(0, 10)}
+                </span>
+              ) : null}
+            </span>
+          </label>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h3 className="text-label font-medium text-fg-muted">Date history</h3>
+          {dueChanges.data?.length ? (
+            <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+              {dueChanges.data.map((c) => (
+                <li key={c.id} className="text-label leading-[17px]">
+                  <span className="text-fg-muted">
+                    {c.fromDueAt ? c.fromDueAt.slice(0, 10) : '—'} →{' '}
+                    {c.toDueAt ? c.toDueAt.slice(0, 10) : '—'}
+                  </span>{' '}
+                  {c.reason}
+                  <span className="block text-fg-muted">
+                    {c.changedAt.slice(0, 16).replace('T', ' ')}
+                    {c.clientNotified ? ' · client told' : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Muted>No date changes yet.</Muted>
+          )}
+        </div>
       </aside>
 
       {addOpen ? (
@@ -414,7 +496,7 @@ function Milestones() {
         <MoveDateDialog
           task={selected}
           onClose={() => setMoveOpen(false)}
-          onSubmit={(dueAt) => move.mutate({ task: selected, dueAt })}
+          onSubmit={(input) => move.mutate({ task: selected, ...input })}
           busy={move.isPending}
         />
       ) : null}
@@ -588,16 +670,22 @@ function MoveDateDialog({
 }: {
   task: StudyTask
   onClose: () => void
-  onSubmit: (dueAt: string) => void
+  onSubmit: (input: {
+    dueAt: string
+    reason: string
+    notifyClient: boolean
+  }) => void
   busy: boolean
 }) {
   const [dueAt, setDueAt] = useState(task.dueAt?.slice(0, 10) ?? '')
+  const [reason, setReason] = useState('')
+  const [notifyClient, setNotifyClient] = useState(task.clientVisible)
   return (
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader
           title="Move date"
-          description="Later milestones don’t move automatically."
+          description="Later milestones don’t move automatically. Every change is kept with its reason."
         />
         <DialogBody>
           <Field label="Current">
@@ -610,13 +698,40 @@ function MoveDateDialog({
               onChange={(e) => setDueAt(e.target.value)}
             />
           </Field>
+          <Field
+            label="Reason for change"
+            required
+            hint={
+              task.clientVisible
+                ? 'The client sees this date, so the reason is kept with the change.'
+                : undefined
+            }
+          >
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Material release slipped a week"
+            />
+          </Field>
+          {task.clientVisible ? (
+            <label className="flex items-center gap-2 text-body">
+              <input
+                type="checkbox"
+                checked={notifyClient}
+                onChange={(e) => setNotifyClient(e.target.checked)}
+              />
+              Tell the client about the new date
+            </label>
+          ) : null}
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
           <Button
             variant="primary"
-            disabled={busy || !dueAt}
-            onClick={() => onSubmit(dueAt)}
+            disabled={busy || !dueAt || reason.trim().length < 3}
+            onClick={() =>
+              onSubmit({ dueAt, reason: reason.trim(), notifyClient })
+            }
           >
             Move date
           </Button>

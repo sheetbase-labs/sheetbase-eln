@@ -472,6 +472,10 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignDatasets(db),
   },
   {
+    name: 'design pipelines',
+    run: (db) => seedDesignPipelines(db),
+  },
+  {
     name: 'design work items',
     run: (db) => seedDesignWorkItems(db),
   },
@@ -2417,4 +2421,157 @@ async function seedDesignProjectDetails(
         ),
       )
   }
+}
+
+/**
+ * Design pipelines: real definitions with a published version and a short run
+ * history, so the Pipelines area shows the design's pipelines (some succeeded,
+ * one failed), not an empty board.
+ */
+async function seedDesignPipelines(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  await withDesignClaims(db, actorId, workspaceId, async (client) => {
+    const sv = await client.query(
+      `select v.id from api.dataset_schema_versions v
+         join api.dataset_schema_definitions d on d.id = v.schema_id
+        where d.workspace_id = $1 and d.key = $2
+        order by v.version desc limit 1`,
+      [workspaceId, 'ambr_250_daily_reading'],
+    )
+    const schemaVersionId: string | undefined = sv.rows[0]?.id
+    if (!schemaVersionId) return
+
+    const dv = await client.query(
+      `select v.id from api.dataset_versions v
+         join api.datasets d on d.id = v.dataset_id
+        where d.workspace_id = $1
+        order by v.created_at desc limit 1`,
+      [workspaceId],
+    )
+    const inputVersionId: string | undefined = dv.rows[0]?.id
+
+    const pipelines = [
+      {
+        key: 'clarification_step_yield',
+        name: 'Clarification step yield',
+        description:
+          'Joins ELISA titre to the filter runs, calculates step yield per load, fits it and proposes an updated figure in EXP-0142.',
+        statement: 'SELECT batch, load, step_yield FROM measurements',
+        runs: 1,
+        failed: 0,
+      },
+      {
+        key: 'weekly_stability_summary',
+        name: 'Weekly stability summary',
+        description:
+          'Summarises the stability pull results and writes a table back to the study notebook.',
+        statement: 'SELECT timepoint, monomer FROM measurements',
+        runs: 1,
+        failed: 0,
+      },
+      {
+        key: 'plate_reader_pr_01_export',
+        name: 'Plate reader PR-01 export',
+        description:
+          'Imports the plate reader export, checks the units and snapshots the dataset.',
+        statement: 'SELECT well, value FROM measurements',
+        runs: 1,
+        failed: 1,
+      },
+      {
+        key: 'aex_screen_summary',
+        name: 'AEX screen summary',
+        description:
+          'Summarises the AEX fraction screen into a table the process team can cite.',
+        statement: 'SELECT fraction, yield FROM measurements',
+        runs: 1,
+        failed: 0,
+      },
+    ] as const
+
+    for (const p of pipelines) {
+      const existing = await client.query(
+        'select id from api.pipeline_definitions where workspace_id = $1 and key = $2',
+        [workspaceId, p.key],
+      )
+      let definitionId: string = existing.rows[0]?.id
+      if (!definitionId) {
+        const created = await client.query(
+          'select * from api.create_pipeline_definition($1,$2,$3,$4)',
+          [workspaceId, p.key, p.name, p.description],
+        )
+        definitionId = created.rows[0].id
+      }
+
+      const versions = await client.query(
+        'select id, lifecycle from api.pipeline_definition_versions where definition_id = $1 order by version desc',
+        [definitionId],
+      )
+      let versionId: string | undefined = versions.rows.find(
+        (r) => r.lifecycle === 'published',
+      )?.id
+      if (!versionId) {
+        const configuration = {
+          configVersion: 1,
+          description: p.description,
+          inputs: [{ name: 'measurements', required: false }],
+          transform: { language: 'sql', statement: p.statement },
+          output: {
+            mode: 'create',
+            schemaVersionId,
+            datasetName: p.name,
+            datasetLabel: 'pipeline output',
+            fieldMapping: null,
+          },
+        }
+        const created = await client.query(
+          'select * from api.create_pipeline_definition_version($1,$2,$3::jsonb)',
+          [workspaceId, definitionId, JSON.stringify(configuration)],
+        )
+        versionId = created.rows[0].id
+        await client.query(
+          'select api.publish_pipeline_definition_version($1,$2)',
+          [workspaceId, versionId],
+        )
+      }
+
+      const runCount = await client.query(
+        'select count(*)::int as n from api.pipeline_runs where definition_version_id = $1',
+        [versionId],
+      )
+      if (runCount.rows[0].n === 0 && inputVersionId) {
+        for (let i = 0; i < p.runs; i++) {
+          const started = await client.query(
+            'select * from api.start_pipeline_run($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7)',
+            [
+              workspaceId,
+              versionId,
+              i === 0 ? 'manual' : 'scheduled',
+              '{}',
+              JSON.stringify({ measurements: inputVersionId }),
+              null,
+              i === 0 ? null : `seed:${p.key}:${i}`,
+            ],
+          )
+          const runId = started.rows[0].id
+          if (i >= p.runs - p.failed) {
+            await client.query('select api.fail_pipeline_run($1,$2,$3,$4)', [
+              workspaceId,
+              runId,
+              'SB070',
+              'Step failed: input column missing',
+            ])
+          } else {
+            await client.query(
+              'select api.complete_pipeline_run($1,$2,$3::jsonb)',
+              [workspaceId, runId, '{}'],
+            )
+          }
+        }
+      }
+    }
+  })
 }

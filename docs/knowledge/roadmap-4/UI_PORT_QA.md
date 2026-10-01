@@ -1,7 +1,9 @@
 # UI port QA — ELN vs `sheetbase-app (5)`
 
-**Status:** review only, no fixes applied. Method and raw artifacts recorded below so
-every finding can be re-run.
+**Status:** review complete. The visual/style drift is fixed (commits
+`5fe5782d`, `a35b61eb`); the structural divergences are filed as issues
+#208–#219. Method and findings are recorded below so every item can be
+re-checked.
 
 ## Method
 
@@ -77,6 +79,18 @@ Measured visible text where reference and ELN differ by ≥1px:
 | `/analysis/new`        | `h1`                                                                           | 20px/26px                              | **16px/24px**                       | `src/routes/analysis/new.tsx` (structural — see §4)                             |
 | `/schedule`            | `Today` chip                                                                   | 12px                                   | **10px**, padding-left +4px         | `src/routes/schedule.tsx`                                                       |
 
+**Outcome (fixed in `5fe5782d`):** the systemic body base and the `mono`
+line-height are fixed, so the `/sheets/new` labels and the `/help` rows match;
+the `/settings/usage` first-cell padding, `/settings/signatures` button,
+`/settings/audit` search and `/pipelines/agents` tab padding are fixed; the
+`/analysis/new` heading is `text-title`.
+
+False positives from the tag+text match (different elements that happen to
+share text, mostly a table cell vs an inspector label): the `/templates` and
+`/models` status badges, the `/settings/usage` `Run minutes` heading and the
+`/schedule` `Today` chip all match the reference element-for-element when the
+same node is measured on both sides.
+
 ## 3. Shared-component drift — `ListToolbar`
 
 `src/components/v3/inventory/list.tsx` is a **reduced copy** of the reference's:
@@ -98,7 +112,16 @@ ELN: `src/components/v3/inventory/list.tsx:89-121`.
 ## 4. Per-page structural divergences
 
 These are design/content differences rather than pure style. Confirm each is not
-an intentional ELN-model adaptation before acting.
+an intentional ELN-model adaptation before acting. **Filed as issues
+#208–#219.**
+
+Empty-state / capability-gap polish (fixed in `a35b61eb`): the Home
+`Awaiting your review` empty state drops its lone check icon (the reference
+home shows no icon there); `/analysis` centres its empty state
+(`role=status`, `flex justify-center`, `items-center text-center`) to match the
+reference list-empty convention the other lists already use; and the inline
+capability gaps on `/experiments` and `/inbox` get `py-3` so they are not flush
+against the table header.
 
 - **`/` (Home)** — the ELN renders a simplified custom home (`Good morning`,
   `Today`, `Awaiting your review`, `Needs attention`). The reference home has a

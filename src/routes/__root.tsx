@@ -39,16 +39,11 @@ interface RouterContext {
 const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const { getRequestHeaders } = await import('@tanstack/react-start/server')
   const { getCurrentContext } = await import('#/lib/current-user')
-  return getCurrentContext(getRequestHeaders())
-})
-
-const getShellCountsFn = createServerFn({ method: 'GET' }).handler(async () => {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
-  const { getCurrentContext } = await import('#/lib/current-user')
-  const { getShellCounts } = await import('#/lib/shell-counts.server')
   const context = await getCurrentContext(getRequestHeaders())
-  if (!context?.workspace) return {}
-  return getShellCounts(context.workspace.id)
+  if (!context?.workspace) return { context, counts: {} as ShellCounts }
+  const { getShellCounts } = await import('#/lib/shell-counts.server')
+  const counts = await getShellCounts(context.workspace.id)
+  return { context, counts }
 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -84,10 +79,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootRouteComponent,
   shellComponent: RootDocument,
   beforeLoad: async () => {
-    const [auth, shellCounts] = await Promise.all([
-      getAuthContextFn(),
-      getShellCountsFn(),
-    ])
+    const { context: auth, counts: shellCounts } = await getAuthContextFn()
     return { auth, shellCounts }
   },
 })

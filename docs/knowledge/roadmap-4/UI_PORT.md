@@ -123,6 +123,19 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Retired `/admin`, `/configure` and `/planner`**: their replacements now
+  exist and are the designated folds — `/settings/*` for `/admin` (SET-04.1),
+  `/models` plus the model editor for `/configure` (MDL-02), and the project
+  Milestones tab for `/planner` (PROJ-02). The routes, their components
+  (`configuration`, `workspace-admin`, `planner`, `stewardship`, the legacy
+  versioned template editor), their tests and stories, and the unused `reui`
+  kit are deleted. The legacy shell nav loses its Models entry and
+  `/docs/$name` points back to Settings. The planner/admin **libraries** stay
+  (`#/lib/planner`, `#/lib/workspace-admin`, `#/lib/admin-platform`): the
+  milestones tab and the settings screens read them. `/foundations` and
+  `/docs/$name` remain internal (DEC-03) and are the only legacy-shell routes
+  left, so the legacy kit still backs them; everything else is on the v3 kit.
+
 - **Second reference drop ported (analysis-studio, agents, instruments,
   template tabs, record notebook, command/picker, diagnostics/usage, model
   editor, milestones, help, sign-in, capability gaps)**: the reference app was

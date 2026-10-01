@@ -312,7 +312,7 @@ function Experiments() {
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto border-t border-border">
-        <div className="px-4 pt-2 md:px-6">
+        <div className="px-4 py-3 md:px-6">
           <CapabilityGap
             variant="inline"
             title="Open-issue counts aren’t tracked yet"

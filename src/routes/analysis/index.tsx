@@ -207,9 +207,13 @@ function AnalysisHome() {
               <Muted>Loading analyses…</Muted>
             </div>
           ) : visible.length === 0 ? (
-            <div className="px-4 py-5 md:px-6">
+            <div
+              role="status"
+              className="flex justify-center px-4 py-5 md:px-6"
+            >
               <EmptyState
                 icon="chart"
+                className="items-center text-center"
                 title={needle ? 'No analyses match' : 'No analyses yet'}
                 body="An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start."
               >

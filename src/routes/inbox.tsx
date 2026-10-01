@@ -183,7 +183,7 @@ function Inbox() {
           </span>
         </div>
 
-        <div className="px-4 pt-2 md:px-6">
+        <div className="px-4 py-3 md:px-6">
           <CapabilityGap
             variant="inline"
             title="Data-issue, material and signature items aren’t in the Inbox yet"

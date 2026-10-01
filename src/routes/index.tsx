@@ -232,7 +232,6 @@ function Home() {
           ) : (
             <EmptyState
               className="py-2"
-              icon="check"
               title="Nothing awaiting your review"
               body="Submitted records assigned to you appear here."
             />

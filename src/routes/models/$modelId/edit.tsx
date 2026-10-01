@@ -31,6 +31,7 @@ import { hasCapability } from '#/lib/capability'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   createNextDatasetSchemaVersion,
+  deleteDatasetSchemaVersion,
   publishDatasetSchemaVersion,
   replaceDatasetSchemaVersionFields,
 } from '#/lib/dataset-schema-definition-rpc'
@@ -118,6 +119,7 @@ function ModelEditor() {
   const [rows, setRows] = useState<DraftField[]>([])
   const [dirty, setDirty] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
+  const [discardOpen, setDiscardOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const loadedRef = useRef<string | null>(null)
 
@@ -164,6 +166,17 @@ function ModelEditor() {
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
       toast('Draft started')
     },
+  })
+
+  const discard = useMutation({
+    mutationFn: () => deleteDatasetSchemaVersion(notebookDataClient, draft!.id),
+    onSuccess: () => {
+      setDiscardOpen(false)
+      loadedRef.current = null
+      void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
+      toast('Draft discarded')
+    },
+    onError: (e) => setError(errorMessage(e)),
   })
 
   const publish = useMutation({
@@ -265,6 +278,13 @@ function ModelEditor() {
         actions={
           draft ? (
             <>
+              <Button
+                variant="quiet"
+                disabled={denied || save.isPending}
+                onClick={() => setDiscardOpen(true)}
+              >
+                Discard draft
+              </Button>
               <Button
                 variant="primary"
                 disabled={denied || changes.total === 0 || save.isPending}
@@ -452,6 +472,31 @@ function ModelEditor() {
         </div>
       )}
 
+      {discardOpen && draft ? (
+        <Dialog
+          open
+          onOpenChange={(o) => (o ? undefined : setDiscardOpen(false))}
+        >
+          <DialogContent className="w-[min(480px,calc(100vw-32px))]">
+            <DialogHeader
+              title="Discard this draft?"
+              description={`Draft v${draft.version} and its field changes are deleted. v${published?.version ?? '—'} stays in use.`}
+            />
+            <DialogFooter>
+              <DialogClose render={<Button type="button" />}>
+                Cancel
+              </DialogClose>
+              <Button
+                variant="danger"
+                disabled={discard.isPending}
+                onClick={() => discard.mutate()}
+              >
+                {discard.isPending ? 'Discarding…' : 'Discard draft'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
       {publishOpen && draft ? (
         <Dialog
           open

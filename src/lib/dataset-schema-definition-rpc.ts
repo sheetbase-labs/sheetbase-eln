@@ -88,6 +88,16 @@ export async function createNextDatasetSchemaVersion(
   })
 }
 
+/** Discard a draft Dataset Schema Version (only a draft; SQL-gated). */
+export async function deleteDatasetSchemaVersion(
+  client: DataClient,
+  schemaVersionId: string,
+): Promise<void> {
+  await client.rpc('delete_dataset_schema_version', {
+    p_schema_version_id: schemaVersionId,
+  })
+}
+
 export async function retireDatasetSchemaDefinition(
   client: DataClient,
   schemaDefinitionId: string,

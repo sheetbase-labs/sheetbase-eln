@@ -204,6 +204,21 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   multi-type search, instrument calibration, and the portal's shared reports.
   The model "kinds" gap has no new-model UI in the ELN to attach to.
 
+  - **Add-block palette**: the notebook's insertion affordances (empty state,
+    inline gap, bottom button) open the design's command-palette AddBlockMenu
+    over the shared block catalogue; the superseded BlockPicker is deleted.
+  - **Model editor discard**: migration `0262`
+    `delete_dataset_schema_version` (draft only, `schema.edit`-gated) with DB
+    tests, and a Discard draft action.
+  - **Analysis builder**: `/analysis/new` opens in the `?mode=` mode; the
+    export panel's Save and cite saves the view, inserts a frozen analysis
+    block into a chosen notebook (searchable record picker) and freezes it;
+    the home gains a saved-analysis inspector (Open, New from its data).
+
+  The agents "edit before approving" is not applicable: the ELN's agent
+  operations are definition changes (schema/sheet/pipeline), not notebook
+  block captions, so there is no caption/text to edit before approval.
+
 - **Analysis studio moved into app-3's shell**: `/analysis` (the studio index)
   drops the legacy `useShell` wrapper for a content column with the chart
   settings inspector beside it, and joins `v3RouteIds`, so the v3 nav's

@@ -215,9 +215,21 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
     block into a chosen notebook (searchable record picker) and freezes it;
     the home gains a saved-analysis inspector (Open, New from its data).
 
+  - **Milestone visibility and date history (PROJ-02)**: migration `0263`
+    adds `client_visible`/`shared_since` to `study_tasks` and an append-only
+    `study_task_due_changes` table, with `move_study_task_due` (reason
+    required, history recorded) and `set_study_task_client_visible` (reason
+    required to hide). DB tests cover the reason requirement, the history,
+    viewer denial and the visibility rule; the inspector gains the client
+    checkbox, the date history and a Move date dialog with a reason and a
+    tell-the-client choice.
+
   The agents "edit before approving" is not applicable: the ELN's agent
   operations are definition changes (schema/sheet/pipeline), not notebook
-  block captions, so there is no caption/text to edit before approval.
+  block captions, so there is no caption/text to edit before approval. The
+  notebook "Sample table" block is the ELN's `materials` block (linked samples
+  and reagents); the design's Fields/Actions/Signature-request blocks are not
+  in the ELN's notebook model.
 
 - **Analysis studio moved into app-3's shell**: `/analysis` (the studio index)
   drops the legacy `useShell` wrapper for a content column with the chart

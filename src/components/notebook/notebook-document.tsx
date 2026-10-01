@@ -40,7 +40,7 @@ import {
   notebookSectionSpans,
   sectionHiddenCounts,
 } from '#/lib/notebook-outline'
-import { BlockPicker } from './block-picker'
+import { AddBlockControl } from './add-block-menu'
 import { NotebookSheetBlock } from './notebook-sheet-block'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 import {
@@ -921,7 +921,7 @@ function NotebookDocumentContent({
             >
               Start writing
             </button>
-            <BlockPicker
+            <AddBlockControl
               onInsert={(type) => void handleInsert(type)}
               label="Choose block type"
               className="sm:w-44"
@@ -1169,9 +1169,10 @@ function NotebookDocumentContent({
                 data-print-hide
               >
                 <div className="absolute inset-x-0 h-px bg-border opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100" />
-                <BlockPicker
+                <AddBlockControl
                   onInsert={(type) => void handleInsert(type, block.id)}
                   variant="icon"
+                  after={blockLabel(block)}
                   label={`Insert block after ${blockLabel(block)}`}
                   className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
                 />
@@ -1214,9 +1215,8 @@ function NotebookDocumentContent({
 
       {isReadOnly || orderedIds.length === 0 ? null : (
         <div className="pt-2" data-print-hide>
-          <BlockPicker
+          <AddBlockControl
             onInsert={(type) => void handleInsert(type)}
-            disabled={false}
             label="Add block"
             triggerId="notebook-add-block"
           />

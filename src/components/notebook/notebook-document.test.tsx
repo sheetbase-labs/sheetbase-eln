@@ -261,7 +261,7 @@ describe('NotebookDocument — insertion', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Add block/ }))
-    await user.click(await screen.findByRole('menuitem', { name: /^Text/ }))
+    await user.click(await screen.findByRole('option', { name: /^Text/ }))
     expect(onInsertBlock).toHaveBeenCalledWith('rich_text', undefined)
   })
 
@@ -371,9 +371,7 @@ describe('NotebookDocument — insertion', () => {
     await user.click(
       screen.getAllByRole('button', { name: 'Insert block after Text' })[0],
     )
-    await user.click(
-      await screen.findByRole('menuitem', { name: /^Checklist/ }),
-    )
+    await user.click(await screen.findByRole('option', { name: /^Checklist/ }))
     expect(onInsertBlock).toHaveBeenCalledWith('checklist', 'b1')
   })
 })

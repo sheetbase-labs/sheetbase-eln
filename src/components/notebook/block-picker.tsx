@@ -1,27 +1,10 @@
-import * as React from 'react'
-import { cn } from '#/lib/utils'
-import { Button } from '#/components/v3/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 
 /**
- * Block insertion control (ELN-005). A keyboard-accessible picker that
- * inserts one of the editable block types. Familiar labels (Text, Checklist,
- * Linked record) rather than internal codes; each item is
- * keyboard-operable through the DropdownMenu and announces its type.
- *
- * The picker is the only insertion affordance on the canvas; it does not
- * own the mutation. On select it calls `onInsert(type)` and the parent
- * performs the insert_block RPC and refetch/optimistic update.
+ * The block catalogue: the editable block types with familiar labels (Text,
+ * Checklist, Linked record) rather than internal codes. The insertion UI is
+ * the command-palette `AddBlockMenu` and the slash menu; this module owns the
+ * option list they share.
  */
 
 export interface BlockPickerOption {
@@ -143,99 +126,3 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     aliases: ['pipeline', 'automation', 'run'],
   },
 ]
-
-export interface BlockPickerProps {
-  onInsert: (type: string) => void
-  /** Insert after this block id; the parent decides positioning. */
-  afterBlockId?: string
-  disabled?: boolean
-  className?: string
-  /** Variant: a full "Add block" button (default) or a compact icon trigger. */
-  variant?: 'button' | 'icon'
-  label?: string
-  triggerId?: string
-}
-
-export function BlockPicker({
-  onInsert,
-  afterBlockId,
-  disabled,
-  className,
-  variant = 'button',
-  label = 'Add block',
-  triggerId,
-}: BlockPickerProps) {
-  const [open, setOpen] = React.useState(false)
-  void afterBlockId // captured by the parent when wiring onInsert
-
-  const trigger =
-    variant === 'icon' ? (
-      <Button
-        id={triggerId}
-        variant="quiet"
-        size="icon"
-        aria-label={label}
-        disabled={disabled}
-        className="rounded-full border bg-background shadow-xs"
-      >
-        <Icon name="plus" size={14} />
-      </Button>
-    ) : (
-      <Button
-        id={triggerId}
-        variant="quiet"
-        size="sm"
-        disabled={disabled}
-        aria-label={label}
-        className="w-full justify-start text-fg-muted hover:bg-surface-hover hover:text-fg"
-      >
-        <Icon name="plus" size={16} aria-hidden="true" />
-        {label}
-      </Button>
-    )
-
-  return (
-    <div className={cn('relative', className)}>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger render={trigger} />
-        <DropdownMenuContent align="start" className="w-72">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Insert block</DropdownMenuLabel>
-          </DropdownMenuGroup>
-          {BLOCK_PICKER_GROUPS.map((group) => {
-            const items = BLOCK_PICKER_OPTIONS.filter(
-              (opt) => opt.group === group.id,
-            )
-            return (
-              <DropdownMenuGroup key={group.id}>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
-                {items.map((opt) => (
-                  <DropdownMenuItem
-                    key={opt.type}
-                    onClick={() => onInsert(opt.type)}
-                    className="flex items-start gap-2"
-                  >
-                    <Icon
-                      name={opt.icon}
-                      size={16}
-                      className="mt-0.5 shrink-0 text-fg-muted"
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-sm font-medium">
-                        {opt.label}
-                      </span>
-                      <span className="block text-xs text-fg-muted">
-                        {opt.description}
-                      </span>
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            )
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  )
-}

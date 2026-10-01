@@ -10,10 +10,12 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { PageHeader, Muted } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
 import { NativeSelect } from '#/components/v3/projects/select'
 import { toast } from '#/components/v3/ui/sonner'
-import { createBlankExperiment } from '#/lib/notebook-create'
+import {
+  applyExperimentSetup,
+  createBlankExperiment,
+} from '#/lib/notebook-create'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /**
@@ -52,7 +54,47 @@ function NewExperiment() {
   const rows = projects.data ?? []
   const [projectId, setProjectId] = useState(search.project ?? '')
   const [title, setTitle] = useState('')
+  const [reviewerId, setReviewerId] = useState('')
+  const [plannedEnd, setPlannedEnd] = useState('')
+  const [protocolId, setProtocolId] = useState('')
+  const [copyFromId, setCopyFromId] = useState('')
   const [touched, setTouched] = useState(false)
+
+  const members = useQuery({
+    queryKey: ['ui-port', 'experiments', 'new', 'members'],
+    queryFn: () =>
+      notebookDataClient.rpc<{ user_id: string; name: string; role: string }[]>(
+        'workspace_members_list',
+        {},
+      ),
+    staleTime: 60_000,
+  })
+  const protocols = useQuery({
+    queryKey: ['ui-port', 'experiments', 'new', 'protocols'],
+    queryFn: () =>
+      notebookDataClient.list<{
+        id: string
+        identifier: string
+        title: string
+      }>(
+        'records',
+        '?kind=eq.protocol_template&deleted_at=is.null&order=identifier.asc&select=id,identifier,title&limit=100',
+      ),
+    staleTime: 60_000,
+  })
+  const experiments = useQuery({
+    queryKey: ['ui-port', 'experiments', 'new', 'sources'],
+    queryFn: () =>
+      notebookDataClient.list<{
+        id: string
+        identifier: string
+        title: string
+      }>(
+        'records',
+        '?kind=eq.experiment&deleted_at=is.null&order=updated_at.desc&select=id,identifier,title&limit=50',
+      ),
+    staleTime: 30_000,
+  })
 
   const effectiveProjectId = projectId || rows.at(0)?.id || ''
   const titleError =
@@ -63,11 +105,24 @@ function NewExperiment() {
     touched && !effectiveProjectId ? 'Choose a project.' : undefined
 
   const create = useMutation({
-    mutationFn: () =>
-      createBlankExperiment(notebookDataClient, {
+    mutationFn: async () => {
+      const record = await createBlankExperiment(notebookDataClient, {
         projectId: effectiveProjectId,
         title: title.trim(),
-      }),
+      })
+      if (reviewerId || plannedEnd) {
+        await notebookDataClient.rpc('set_experiment_fields', {
+          p_record_id: record.id,
+          p_reviewer_user_id: reviewerId || null,
+          p_planned_end: plannedEnd || null,
+        })
+      }
+      await applyExperimentSetup(notebookDataClient, record.id, {
+        protocolRecordId: protocolId || undefined,
+        copyFromRecordId: copyFromId || undefined,
+      })
+      return record
+    },
     onSuccess: (record) => {
       toast(`Draft ${record.identifier} created`, {
         description: 'It opens on a blank notebook; add blocks as you work.',
@@ -139,12 +194,61 @@ function NewExperiment() {
             aria-invalid={Boolean(titleError) || undefined}
           />
         </Field>
-        <Notice tone="info">
-          The ELN records an experiment with a project and a title. Reviewer,
-          planned end, a protocol to follow and copying materials from an
-          earlier experiment are not modelled yet; add them when those
-          capabilities land.
-        </Notice>
+        <Field
+          label="Reviewer"
+          hint="Who reviews the submitted notebook. Optional."
+        >
+          <NativeSelect
+            value={reviewerId}
+            onChange={(e) => setReviewerId(e.target.value)}
+          >
+            <option value="">No reviewer yet</option>
+            {(members.data ?? []).map((m) => (
+              <option key={m.user_id} value={m.user_id}>
+                {m.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
+        <Field
+          label="Planned end"
+          hint="When the experiment is expected to finish. Optional."
+        >
+          <Input
+            type="date"
+            value={plannedEnd}
+            onChange={(e) => setPlannedEnd(e.target.value)}
+          />
+        </Field>
+        <Field label="Protocol to follow" hint="Optional.">
+          <NativeSelect
+            value={protocolId}
+            onChange={(e) => setProtocolId(e.target.value)}
+          >
+            <option value="">No protocol</option>
+            {(protocols.data ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.identifier} · {p.title}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
+        <Field
+          label="Copy materials from"
+          hint="Links the same samples and reagents as an earlier experiment. Optional."
+        >
+          <NativeSelect
+            value={copyFromId}
+            onChange={(e) => setCopyFromId(e.target.value)}
+          >
+            <option value="">Nothing</option>
+            {(experiments.data ?? []).map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.identifier} · {x.title}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
         <div className="flex gap-2">
           <Button
             type="submit"

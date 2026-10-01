@@ -40,7 +40,7 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const { getRequestHeaders } = await import('@tanstack/react-start/server')
   const { getCurrentContext } = await import('#/lib/current-user')
   const context = await getCurrentContext(getRequestHeaders())
-  if (!context?.workspace) return { context, counts: {} as ShellCounts }
+  if (!context?.workspace) return { context, counts: {} }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
   const counts = await getShellCounts(context.workspace.id)
   return { context, counts }

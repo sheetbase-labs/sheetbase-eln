@@ -743,6 +743,12 @@ export const records = api.table(
     customFields: jsonb('custom_fields')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    // New-experiment fields: who reviews the submitted notebook, and when the
+    // experiment is planned to end. Written through `set_experiment_fields`.
+    reviewerUserId: text('reviewer_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    plannedEnd: date('planned_end'),
     // Typed tags array; UI renders as badges.
     tags: text('tags')
       .array()

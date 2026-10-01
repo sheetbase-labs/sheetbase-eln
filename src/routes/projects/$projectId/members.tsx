@@ -136,9 +136,7 @@ function ProjectMembers() {
                   {['Person', 'Project role', 'Access', 'Added'].map((h) => (
                     <TableHead key={h}>{h}</TableHead>
                   ))}
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
+                  <TableHead aria-label="Actions" />
                 </TableRow>
               </TableHeader>
               <TableBody>

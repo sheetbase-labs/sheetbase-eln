@@ -11,7 +11,7 @@ import {
 } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
 import { Status } from '#/components/v3/ui/status'
-import { Button } from '#/components/v3/ui/button'
+import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { resolveChartDataset, materialiseLiveChart } from '#/lib/chart-data'
 import {
@@ -144,13 +144,12 @@ function AnalysisView() {
             </>
           }
           actions={
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={<Link to="/analysis/new" />}
+            <Link
+              to="/analysis/new"
+              className={buttonVariants({ variant: 'primary' })}
             >
               Edit in studio
-            </Button>
+            </Link>
           }
         />
         <div className="flex flex-col gap-4 px-4 py-4 md:px-6">

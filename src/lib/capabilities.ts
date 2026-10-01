@@ -15,7 +15,6 @@ import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 
 export const capabilityKeys = [
-  'experimentResults',
   'protocolDocuments',
   'pipelineSteps',
   'benchReading',
@@ -32,7 +31,6 @@ export const noCapabilities: Capabilities = Object.fromEntries(
 
 /** Roadmap item tracking each gap; CapabilityGap shows it to admins only. */
 export const capabilityRoadmap: Record<CapabilityKey, string> = {
-  experimentResults: 'RM-118',
   protocolDocuments: 'RM-104',
   pipelineSteps: 'RM-125',
   benchReading: 'RM-109',

@@ -492,6 +492,10 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignMeasurements(db),
   },
   {
+    name: 'design experiment results',
+    run: (db) => seedDesignResults(db),
+  },
+  {
     name: 'design work items',
     run: (db) => seedDesignWorkItems(db),
   },
@@ -2437,6 +2441,47 @@ async function seedDesignProjectDetails(
         ),
       )
   }
+}
+
+/**
+ * Design experiment results (RM-118): record a decision on a design experiment
+ * and cite one of the design analyses into it, so the Results tab shows a
+ * figure and a decision instead of empty sections.
+ */
+async function seedDesignResults(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  await withDesignClaims(db, actorId, workspaceId, async (client) => {
+    const experiment = DESIGN_EXPERIMENTS.at(0)
+    if (!experiment) return
+
+    const hasDecision = await client.query(
+      'select decision from api.records where id = $1',
+      [experiment.id],
+    )
+    if (hasDecision.rows[0]?.decision == null) {
+      await client.query(
+        `select api.set_experiment_decision($1,'supported','Titre met the release criterion across all three trains.')`,
+        [experiment.id],
+      )
+    }
+
+    const hasFigure = await client.query(
+      `select 1 from api.record_links where source_record_id = $1 and link_type = 'analysis' limit 1`,
+      [experiment.id],
+    )
+    if ((hasFigure.rowCount ?? 0) === 0) {
+      await client.query(
+        `insert into api.record_links
+           (source_record_id, target_kind, target_identifier, link_type, created_by_user_id)
+         values ($1,'analysis','AN-0001','analysis',$2)
+         on conflict (source_record_id, target_identifier, link_type) do nothing`,
+        [experiment.id, actorId],
+      )
+    }
+  })
 }
 
 /**

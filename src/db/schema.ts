@@ -749,6 +749,9 @@ export const records = api.table(
       onDelete: 'set null',
     }),
     plannedEnd: date('planned_end'),
+    // Experiment results (RM-118): the recorded decision and its note.
+    decision: text('decision'),
+    decisionNotes: text('decision_notes'),
     // Typed tags array; UI renders as badges.
     tags: text('tags')
       .array()

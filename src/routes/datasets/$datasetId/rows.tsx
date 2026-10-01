@@ -51,7 +51,6 @@ interface FieldWire {
   field_id: string
   label: string
   logical_type: string
-  unit: unknown
   display_order: number
 }
 
@@ -105,7 +104,7 @@ function Rows() {
     queryFn: () =>
       notebookDataClient.list<FieldWire>(
         'dataset_schema_version_fields',
-        `?schema_version_id=eq.${payload!.schemaVersionId}&order=display_order.asc&select=field_id,label,logical_type,unit,display_order`,
+        `?schema_version_id=eq.${payload!.schemaVersionId}&order=display_order.asc&select=field_id,label,logical_type,display_order`,
       ),
     enabled: Boolean(payload?.schemaVersionId),
   })

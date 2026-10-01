@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
@@ -69,6 +69,7 @@ function AnalysisHome() {
   const navigate = useNavigate()
   const { context } = Route.useRouteContext()
   const userId = context.user.id
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const views = useQuery({
     queryKey: analysisStudioQueryKeys.views,
@@ -104,6 +105,7 @@ function AnalysisHome() {
   )
 
   const recent = (datasets.data ?? []).slice(0, 3)
+  const selected = visible.find((v) => v.id === selectedId) ?? null
 
   if (state === 'denied') {
     return (
@@ -121,153 +123,213 @@ function AnalysisHome() {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <PageHeader
-        crumbs="Home"
-        title="Analysis"
-        meta={<span>{rows.length} saved analyses</span>}
-        actions={
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="primary" icon="plus" />}
-            >
-              New analysis
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              {MODES.map((m) => (
-                <DropdownMenuItem
-                  key={m.mode}
-                  hint={m.label}
-                  onClick={() =>
-                    void navigate({
-                      to: '/analysis/new',
-                      search: { mode: m.mode },
-                    })
-                  }
-                >
-                  {m.body}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        }
-      />
-
-      {recent.length ? (
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 md:px-6">
-          <span className="text-label text-fg-muted">
-            Start from a recent dataset
-          </span>
-          {recent.map((d) => (
-            <Link
-              key={d.id}
-              to="/analysis/new"
-              search={{ mode: 'chart', dataset: d.id }}
-              className="text-label"
-            >
-              {d.name}
-            </Link>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="border-b border-border px-4 md:px-6">
-        <SearchTabs
-          label="Analysis lists"
-          current={tab ?? 'all'}
-          items={[
-            {
-              key: 'all',
-              label: 'All',
-              count: rows.length,
-              link: { to: '/analysis', search: {} },
-            },
-            {
-              key: 'mine',
-              label: 'Mine',
-              count: rows.filter((v) => v.owner_user_id === userId).length,
-              link: { to: '/analysis', search: { tab: 'mine' } },
-            },
-            {
-              key: 'drafts',
-              label: 'Drafts',
-              count: rows.filter((v) => v.version <= 1).length,
-              link: { to: '/analysis', search: { tab: 'drafts' } },
-            },
-          ]}
-        />
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto">
-        {views.isLoading ? (
-          <div className="px-4 py-5 md:px-6">
-            <Muted>Loading analyses…</Muted>
-          </div>
-        ) : visible.length === 0 ? (
-          <div className="px-4 py-5 md:px-6">
-            <EmptyState
-              icon="chart"
-              title={needle ? 'No analyses match' : 'No analyses yet'}
-              body="An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start."
-            >
-              <div className="flex flex-wrap justify-center gap-2">
+    <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PageHeader
+          crumbs="Home"
+          title="Analysis"
+          meta={<span>{rows.length} saved analyses</span>}
+          actions={
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="primary" icon="plus" />}
+              >
+                New analysis
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
                 {MODES.map((m) => (
-                  <Button
+                  <DropdownMenuItem
                     key={m.mode}
-                    nativeButton={false}
-                    render={
-                      <Link to="/analysis/new" search={{ mode: m.mode }} />
+                    hint={m.label}
+                    onClick={() =>
+                      void navigate({
+                        to: '/analysis/new',
+                        search: { mode: m.mode },
+                      })
                     }
                   >
-                    Start a {m.label.toLowerCase()}
-                  </Button>
+                    {m.body}
+                  </DropdownMenuItem>
                 ))}
-              </div>
-            </EmptyState>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />
+
+        {recent.length ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 md:px-6">
+            <span className="text-label text-fg-muted">
+              Start from a recent dataset
+            </span>
+            {recent.map((d) => (
+              <Link
+                key={d.id}
+                to="/analysis/new"
+                search={{ mode: 'chart', dataset: d.id }}
+                className="text-label"
+              >
+                {d.name}
+              </Link>
+            ))}
           </div>
-        ) : (
-          <Table aria-label="Saved analyses">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="first:pl-4">ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead className="pr-4">Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((v) => (
-                <TableRow key={v.id} className="cursor-pointer">
-                  <TableCell className="first:pl-4">
-                    <Link
-                      to="/analysis/$analysisId"
-                      params={{ analysisId: v.id }}
-                      className="mono"
+        ) : null}
+
+        <div className="border-b border-border px-4 md:px-6">
+          <SearchTabs
+            label="Analysis lists"
+            current={tab ?? 'all'}
+            items={[
+              {
+                key: 'all',
+                label: 'All',
+                count: rows.length,
+                link: { to: '/analysis', search: {} },
+              },
+              {
+                key: 'mine',
+                label: 'Mine',
+                count: rows.filter((v) => v.owner_user_id === userId).length,
+                link: { to: '/analysis', search: { tab: 'mine' } },
+              },
+              {
+                key: 'drafts',
+                label: 'Drafts',
+                count: rows.filter((v) => v.version <= 1).length,
+                link: { to: '/analysis', search: { tab: 'drafts' } },
+              },
+            ]}
+          />
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-auto">
+          {views.isLoading ? (
+            <div className="px-4 py-5 md:px-6">
+              <Muted>Loading analyses…</Muted>
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="px-4 py-5 md:px-6">
+              <EmptyState
+                icon="chart"
+                title={needle ? 'No analyses match' : 'No analyses yet'}
+                body="An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start."
+              >
+                <div className="flex flex-wrap justify-center gap-2">
+                  {MODES.map((m) => (
+                    <Button
+                      key={m.mode}
+                      nativeButton={false}
+                      render={
+                        <Link to="/analysis/new" search={{ mode: m.mode }} />
+                      }
                     >
-                      {v.display_id ?? v.id.slice(0, 8)}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="font-medium">{v.name}</TableCell>
-                  <TableCell>
-                    <Status tone="analysis">{kindLabel(v)}</Status>
-                  </TableCell>
-                  <TableCell className="text-fg-muted">
-                    {datasetName(v.spec.datasets[0]?.datasetId)}
-                  </TableCell>
-                  <TableCell className="text-fg-muted">
-                    {names.userLabel(v.owner_user_id)}
-                  </TableCell>
-                  <TableCell className="pr-4 text-fg-muted">
-                    {v.updated_at.slice(0, 10)}
-                  </TableCell>
+                      Start a {m.label.toLowerCase()}
+                    </Button>
+                  ))}
+                </div>
+              </EmptyState>
+            </div>
+          ) : (
+            <Table aria-label="Saved analyses">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="first:pl-4">ID</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Kind</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Owner</TableHead>
+                  <TableHead className="pr-4">Updated</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+              </TableHeader>
+              <TableBody>
+                {visible.map((v) => (
+                  <TableRow
+                    key={v.id}
+                    selected={v.id === selected?.id}
+                    className="cursor-pointer"
+                    onClick={() => setSelectedId(v.id)}
+                  >
+                    <TableCell className="first:pl-4">
+                      <Link
+                        to="/analysis/$analysisId"
+                        params={{ analysisId: v.id }}
+                        className="mono"
+                      >
+                        {v.display_id ?? v.id.slice(0, 8)}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-medium">{v.name}</TableCell>
+                    <TableCell>
+                      <Status tone="analysis">{kindLabel(v)}</Status>
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {datasetName(v.spec.datasets[0]?.datasetId)}
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {names.userLabel(v.owner_user_id)}
+                    </TableCell>
+                    <TableCell className="pr-4 text-fg-muted">
+                      {v.updated_at.slice(0, 10)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
       </div>
+      {selected ? (
+        <aside
+          aria-label={`${selected.name} details`}
+          className="hidden w-[320px] shrink-0 flex-col gap-4 overflow-auto border-l border-border bg-surface p-4 xl:flex"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="mono text-label text-fg-muted">
+              {selected.display_id ?? selected.id.slice(0, 8)}
+            </span>
+            <div className="font-heading text-doc font-semibold">
+              {selected.name}
+            </div>
+            <Status tone="analysis">{kindLabel(selected)}</Status>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Button
+              size="sm"
+              variant="primary"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/analysis/$analysisId"
+                  params={{ analysisId: selected.id }}
+                />
+              }
+            >
+              Open
+            </Button>
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/analysis/new"
+                  search={{
+                    mode: 'chart',
+                    dataset: selected.spec.datasets[0]?.datasetId,
+                  }}
+                />
+              }
+            >
+              New from its data
+            </Button>
+          </div>
+          <div className="flex flex-col gap-2">
+            <h3 className="text-label font-medium text-fg-muted">Source</h3>
+            <span className="text-body">
+              {datasetName(selected.spec.datasets[0]?.datasetId)}
+            </span>
+          </div>
+          <Muted>Cited analyses are frozen: editing makes a new version.</Muted>
+        </aside>
+      ) : null}
     </div>
   )
 }

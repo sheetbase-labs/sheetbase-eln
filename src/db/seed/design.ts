@@ -476,6 +476,10 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignPipelines(db),
   },
   {
+    name: 'design analyses',
+    run: (db) => seedDesignAnalyses(db),
+  },
+  {
     name: 'design work items',
     run: (db) => seedDesignWorkItems(db),
   },
@@ -2421,6 +2425,104 @@ async function seedDesignProjectDetails(
         ),
       )
   }
+}
+
+/**
+ * Design analyses: saved analysis views over the design datasets, so the
+ * Analysis Studio shows charts to inspect instead of an empty list. The specs
+ * are built from the datasets' real schema fields.
+ */
+async function seedDesignAnalyses(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  await withDesignClaims(db, actorId, workspaceId, async (client) => {
+    const fields = await client.query(
+      `select f.field_id, f.key from api.dataset_schema_version_fields f
+         join api.dataset_schema_versions v on v.id = f.schema_version_id
+         join api.dataset_schema_definitions d on d.id = v.schema_id
+        where d.workspace_id = $1 and d.key = $2`,
+      [workspaceId, 'ambr_250_daily_reading'],
+    )
+    const fieldId = new Map<string, string>(
+      fields.rows.map((r: { key: string; field_id: string }) => [
+        r.key,
+        r.field_id,
+      ]),
+    )
+    const datasetId = DESIGN_DATASETS[0]?.id
+    const x = fieldId.get('day')
+    const y = fieldId.get('vcd')
+    const viability = fieldId.get('viability')
+    const glucose = fieldId.get('glucose')
+    const lactate = fieldId.get('lactate')
+    const series = fieldId.get('vessel')
+    if (!datasetId || !x || !y || !series) return
+
+    const view = (
+      type: 'line' | 'scatter',
+      yId: string,
+      xId: string,
+      name: string,
+      xLabel: string,
+      yLabel: string,
+    ) => ({
+      name,
+      spec: {
+        specVersion: 1,
+        type,
+        datasets: [{ datasetId }],
+        fields: {
+          x: { fieldId: xId },
+          y: { fieldId: yId },
+          series: { fieldId: series },
+          color: null,
+          size: null,
+          facet: null,
+        },
+        filters: [],
+        transformations: [],
+        typeParams: {},
+        display: {
+          axes: {
+            x: { label: xLabel, scale: 'linear' },
+            y: { label: yLabel, scale: 'linear' },
+          },
+          series: [],
+        },
+        overlays: { errorBars: null },
+      },
+    })
+
+    const views = [
+      view('line', y, x, 'VCD by day', 'Day', 'VCD (10⁶ cells/mL)'),
+      viability
+        ? view('line', viability, x, 'Viability over time', 'Day', 'Viability')
+        : null,
+      glucose && lactate
+        ? view(
+            'scatter',
+            lactate,
+            glucose,
+            'Glucose vs lactate',
+            'Glucose',
+            'Lactate',
+          )
+        : null,
+    ].filter((v): v is NonNullable<typeof v> => Boolean(v))
+
+    for (const v of views) {
+      await client.query(
+        `insert into api.analysis_views
+           (workspace_id, owner_user_id, name, spec, source_revisions)
+         values ($1,$2,$3,$4::jsonb,'[]'::jsonb)
+         on conflict (workspace_id, owner_user_id, name)
+           do update set spec = excluded.spec`,
+        [workspaceId, actorId, v.name, JSON.stringify(v.spec)],
+      )
+    }
+  })
 }
 
 /**

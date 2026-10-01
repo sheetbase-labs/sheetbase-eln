@@ -409,6 +409,7 @@ describe('ExportPanel', () => {
         selectedViewId={null}
         views={[]}
         user={{ id: 'u-1', name: 'Alice' }}
+        workspaceId="ws-1"
         materialised={{
           state: { kind: 'ok' },
           columns: [],

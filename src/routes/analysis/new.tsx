@@ -18,6 +18,20 @@
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
 import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
+import { RecordPicker } from '#/components/v3/record-picker/record-picker'
+import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
+import { insertBlock } from '#/lib/notebook-mutations'
+import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
+import { freezeAnalysisBlock } from '#/lib/analysis-definitions-data'
+import { toast } from '#/components/v3/ui/sonner'
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+} from '#/components/v3/ui/dialog'
 import { CompareView } from '#/components/viz/compare-view'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
@@ -153,7 +167,11 @@ function AnalysisStudio() {
   // definitions; the mode is session state, never persisted server-side.
   // VIEW-03 adds the compare mode: grouped time-series / distribution
   // inspection over the same live rows, promoting into the chart builder.
-  const [mode, setMode] = useState<'chart' | 'analyse' | 'compare'>('chart')
+  const [mode, setMode] = useState<'chart' | 'analyse' | 'compare'>(
+    search.mode === 'analyse' || search.mode === 'compare'
+      ? search.mode
+      : 'chart',
+  )
   const [compareConfig, setCompareConfig] =
     useState<ComparativeViewConfig | null>(null)
   // ASSIST-03: whether the live compare config was promoted through the
@@ -327,6 +345,7 @@ function AnalysisStudio() {
         onExportSettingsChange={setExportSettings}
         sources={sources}
         user={{ id: userId, name: context.user.name }}
+        workspaceId={workspaceId}
         materialised={analysisMaterialised}
         selection={chartSelection}
       />
@@ -686,6 +705,7 @@ function AnalysisInspector({
   onExportSettingsChange,
   sources,
   user,
+  workspaceId,
   materialised,
   selection,
 }: {
@@ -704,6 +724,7 @@ function AnalysisInspector({
   onExportSettingsChange: (settings: ExportSettings) => void
   sources: CanonicalDatasetSource[]
   user: { id: string; name: string }
+  workspaceId: string
   materialised: ReturnType<typeof materialiseLiveChart>
   selection: ChartSelection | null
 }) {
@@ -826,6 +847,7 @@ function AnalysisInspector({
               selectedViewId={selectedViewId}
               views={views}
               user={user}
+              workspaceId={workspaceId}
               materialised={materialised}
             />
           ),
@@ -962,6 +984,7 @@ interface ExportPanelProps {
   selectedViewId: string | null
   views: AnalysisViewWire[]
   user: { id: string; name: string }
+  workspaceId: string
   materialised: ReturnType<typeof materialiseLiveChart>
 }
 
@@ -974,9 +997,57 @@ export function ExportPanel({
   selectedViewId,
   views,
   user,
+  workspaceId,
   materialised,
 }: ExportPanelProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
+  const [citeOpen, setCiteOpen] = useState(false)
+  const [caption, setCaption] = useState('')
+  const [target, setTarget] = useState<PickerItem | null>(null)
+  const [citing, setCiting] = useState(false)
+
+  async function cite() {
+    if (!caption.trim() || !target) return
+    setCiting(true)
+    try {
+      const view = await saveAnalysisView(
+        analysisStudioDataClient,
+        {
+          id: selectedViewId ?? undefined,
+          name: viewName.trim() || caption.trim(),
+          spec,
+          source_revisions: captureSourceRevisions(sources, spec),
+          export_settings: settings,
+        },
+        workspaceId,
+        user.id,
+      )
+      const targetRecord = await fetchRecord(notebookDataClient, target.id)
+      const inserted = await insertBlock(notebookDataClient, {
+        recordId: target.id,
+        type: 'analysis',
+        payload: { title: caption.trim(), definitionId: view.id },
+        expectedStructureVersion: targetRecord?.structureVersion,
+      })
+      await freezeAnalysisBlock(notebookDataClient, {
+        blockId: inserted.block.id,
+        expectedVersion: inserted.block.version,
+      })
+      toast('Cited in a notebook', {
+        description: `${targetRecord?.identifier ?? 'The notebook'} now shows this analysis.`,
+      })
+      setCiteOpen(false)
+      setCaption('')
+      setTarget(null)
+    } catch (error) {
+      toast('Could not cite', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      })
+    } finally {
+      setCiting(false)
+    }
+  }
 
   function setSetting<TKey extends keyof ExportSettings>(
     key: TKey,
@@ -1156,6 +1227,65 @@ export function ExportPanel({
         <Icon name="download" size={14} /> Export{' '}
         {settings.format.toUpperCase()}
       </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="w-full"
+        onClick={() => setCiteOpen(true)}
+      >
+        Cite in a notebook…
+      </Button>
+      {citeOpen ? (
+        <Dialog open onOpenChange={(o) => (o ? undefined : setCiteOpen(false))}>
+          <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+            <DialogHeader
+              title="Save and cite"
+              description="Saves this analysis as a frozen version and inserts it into a notebook. The notebook’s own signing covers the citation."
+            />
+            <DialogBody>
+              <label className="flex flex-col gap-1 text-label">
+                <span className="font-medium text-fg">
+                  Caption
+                  <span aria-hidden="true" className="text-fg-muted">
+                    {' '}
+                    *
+                  </span>
+                </span>
+                <Input
+                  autoFocus
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="e.g. Step yield by filter load"
+                />
+              </label>
+              <div className="min-h-[220px] rounded-md border border-border">
+                <RecordPicker
+                  allowed={['Experiment']}
+                  exclude={[]}
+                  onPick={(items) => setTarget(items[0] ?? null)}
+                />
+              </div>
+              {target ? (
+                <span className="text-label text-fg-muted">
+                  Citing into {target.identifier} · {target.name}
+                </span>
+              ) : null}
+            </DialogBody>
+            <DialogFooter>
+              <DialogClose render={<Button type="button" />}>
+                Cancel
+              </DialogClose>
+              <Button
+                variant="primary"
+                disabled={citing || !caption.trim() || !target}
+                onClick={() => void cite()}
+              >
+                {citing ? 'Citing…' : 'Cite'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
       <SvgExporterAnchor svgRef={svgRef} />
     </div>
   )

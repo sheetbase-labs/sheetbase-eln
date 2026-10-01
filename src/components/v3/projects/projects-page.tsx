@@ -657,7 +657,7 @@ function ProjectPeek({ p, onClose }: { p: ProjectRow; onClose: () => void }) {
       : []),
   ]
   return (
-    <Inspector aria-label="Project details" className="w-[320px] gap-0 p-0">
+    <Inspector aria-label="Project details" className="w-[320px]">
       <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
         <div className="flex items-center gap-1.5">
           <span className="mono text-fg-muted">{p.id}</span>

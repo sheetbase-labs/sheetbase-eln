@@ -28,8 +28,12 @@ type Props = {
   title: React.ReactNode
   /** One or two sentences: what this area will do once the capability exists. */
   will: React.ReactNode
-  /** What exists today instead. At least one link; the first is the most useful. */
-  instead: CapabilityGapLink[]
+  /**
+   * What exists today instead. The first link is the most useful. Omit only
+   * when the gap is a single column or figure with no alternative destination
+   * (a page-level gap should still offer a real next step).
+   */
+  instead?: CapabilityGapLink[]
   /** Roadmap item, e.g. RM-112. Shown only when `admin` is true. */
   roadmap?: string
   admin?: boolean
@@ -86,15 +90,17 @@ export function CapabilityGap({
             {admin && roadmap ? <RoadmapChip id={roadmap} /> : null}
           </div>
           <p className="m-0 mt-0.5 text-fg-muted">{will}</p>
-          <p className="m-0 mt-1.5">
-            <span className="text-fg-muted">Today: </span>
-            {instead.map((l, i) => (
-              <span key={i}>
-                {i ? <span className="text-fg-muted"> · </span> : null}
-                <Link {...l.link}>{l.label}</Link>
-              </span>
-            ))}
-          </p>
+          {instead?.length ? (
+            <p className="m-0 mt-1.5">
+              <span className="text-fg-muted">Today: </span>
+              {instead.map((l, i) => (
+                <span key={i}>
+                  {i ? <span className="text-fg-muted"> · </span> : null}
+                  <Link {...l.link}>{l.label}</Link>
+                </span>
+              ))}
+            </p>
+          ) : null}
         </div>
       </div>
     )
@@ -120,36 +126,38 @@ export function CapabilityGap({
         <h2 className="text-section">{title}</h2>
         <p className="m-0 text-body leading-5 text-fg-muted">{will}</p>
       </div>
-      <div className="overflow-hidden rounded-md border border-border">
-        <div className="border-b border-border bg-surface-muted px-3 py-1.5 text-label font-medium text-fg-muted">
-          What you can use today
-        </div>
-        <ul className="m-0 list-none p-0">
-          {instead.map((l, i) => (
-            <li
-              key={i}
-              className="border-b border-border-subtle last:border-b-0"
-            >
-              <Link
-                {...l.link}
-                className="flex min-h-10 items-center gap-3 px-3 py-2 text-body text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-md:min-h-12"
+      {instead?.length ? (
+        <div className="overflow-hidden rounded-md border border-border">
+          <div className="border-b border-border bg-surface-muted px-3 py-1.5 text-label font-medium text-fg-muted">
+            What you can use today
+          </div>
+          <ul className="m-0 list-none p-0">
+            {instead.map((l, i) => (
+              <li
+                key={i}
+                className="border-b border-border-subtle last:border-b-0"
               >
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="font-medium text-link">{l.label}</span>
-                  {l.note ? (
-                    <span className="text-label text-fg-muted">{l.note}</span>
-                  ) : null}
-                </span>
-                <Icon
-                  name="chevronRight"
-                  size={14}
-                  className="shrink-0 text-fg-muted"
-                />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+                <Link
+                  {...l.link}
+                  className="flex min-h-10 items-center gap-3 px-3 py-2 text-body text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-md:min-h-12"
+                >
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="font-medium text-link">{l.label}</span>
+                    {l.note ? (
+                      <span className="text-label text-fg-muted">{l.note}</span>
+                    ) : null}
+                  </span>
+                  <Icon
+                    name="chevronRight"
+                    size={14}
+                    className="shrink-0 text-fg-muted"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <p className="m-0 text-caption text-fg-muted">
         New capabilities arrive in a validated release through change control.
         Nothing is missing from your records; this area simply isn’t switched on

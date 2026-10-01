@@ -141,8 +141,14 @@ function ExperimentLayout() {
             <Button
               className="max-lg:hidden"
               onClick={() => {
-                void navigator.clipboard.writeText(window.location.href)
-                toast('Link copied')
+                const url = window.location.href
+                navigator.clipboard.writeText(url).then(
+                  () => toast('Link copied'),
+                  () =>
+                    toast('Copy this link', {
+                      description: url,
+                    }),
+                )
               }}
             >
               Share

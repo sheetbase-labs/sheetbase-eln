@@ -20,7 +20,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import * as schema from '../schema'
 import { resolveDevUserIdentity } from '#/lib/dev-identity'
 import { monthSteps } from './month'
-import { designSteps } from './design'
+import { DESIGN_WORKSPACE_IDS, designSteps } from './design'
 import {
   seedNotebookSheetGrid,
   virusStabilitySheetFields,
@@ -2894,7 +2894,38 @@ async function main() {
   const withDesign = process.argv.includes('--design')
   const steps = [
     ...fixtureSteps,
-    ...(withDesign ? designSteps : []),
+    ...(withDesign
+      ? [
+          ...designSteps,
+          // The auth-free dev session defaults to the fixture workspace, which
+          // only carries minimal fixtures. Put it in the design Process
+          // Development workspace and make that the active one, so the dev
+          // surface shows the full design data set.
+          {
+            name: 'design dev session workspace',
+            run: async (db: ReturnType<typeof createDb>) => {
+              const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+              await db
+                .insert(schema.workspaceMemberships)
+                .values({ workspaceId, userId: DEV_USER.id, role: 'owner' })
+                .onConflictDoUpdate({
+                  target: [
+                    schema.workspaceMemberships.workspaceId,
+                    schema.workspaceMemberships.userId,
+                  ],
+                  set: { role: 'owner' },
+                })
+              await db
+                .insert(schema.userPreferences)
+                .values({ userId: DEV_USER.id, activeWorkspaceId: workspaceId })
+                .onConflictDoUpdate({
+                  target: schema.userPreferences.userId,
+                  set: { activeWorkspaceId: workspaceId },
+                })
+            },
+          },
+        ]
+      : []),
     ...(withDemo ? demoSteps : []),
     ...(withMonth ? monthSteps : []),
   ]

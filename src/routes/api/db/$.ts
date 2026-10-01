@@ -29,9 +29,24 @@ const handler = ({
   return handleProxyRequest(request, params._splat ?? '', {
     getSession: getAppSession,
     getWorkspaceForUser: async (userId) => {
-      const membership = await db.query.workspaceMemberships.findFirst({
-        where: eq(schema.workspaceMemberships.userId, userId),
-      })
+      // Match `getCurrentContext`: honour the user's chosen workspace while
+      // they are still a member, otherwise fall back to their first
+      // membership. `findFirst` picked an arbitrary row, so the data layer
+      // could scope to a different workspace than the UI context.
+      const [preference, memberships] = await Promise.all([
+        db.query.userPreferences.findFirst({
+          where: eq(schema.userPreferences.userId, userId),
+        }),
+        db.query.workspaceMemberships.findMany({
+          where: eq(schema.workspaceMemberships.userId, userId),
+        }),
+      ])
+      const membership =
+        (preference?.activeWorkspaceId
+          ? memberships.find(
+              (item) => item.workspaceId === preference.activeWorkspaceId,
+            )
+          : undefined) ?? memberships.at(0)
       return membership ? { id: membership.workspaceId } : null
     },
     mintToken: (input) => mintPostgrestToken(env.PGRST_JWT_SECRET, input),

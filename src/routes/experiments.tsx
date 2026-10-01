@@ -315,16 +315,10 @@ function Experiments() {
         <div className="px-4 py-3 md:px-6">
           <CapabilityGap
             variant="inline"
-            title="Open-issue counts aren’t tracked yet"
-            will="The number of open issues on each experiment will show here; today the model carries no count, so the column stays empty."
+            title="Open issues aren’t counted yet"
+            will="This column will show how many issues are open on each experiment. The count isn’t tracked yet, so it stays empty."
             roadmap={capabilityRoadmap.expOpenIssues}
             admin={admin}
-            instead={[
-              {
-                label: 'Open an experiment’s notebook',
-                link: { to: '/experiments' },
-              },
-            ]}
           />
         </div>
         <MobileList

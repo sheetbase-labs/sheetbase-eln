@@ -15,16 +15,11 @@ import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 
 export const capabilityKeys = [
-  'sampleMeasurements',
   'experimentResults',
-  'modelKinds',
-  'portalReports',
   'protocolDocuments',
   'pipelineSteps',
   'benchReading',
   'inboxKinds',
-  'searchTypes',
-  'instrumentCalibration',
 ] as const
 
 export type CapabilityKey = (typeof capabilityKeys)[number]
@@ -37,16 +32,11 @@ export const noCapabilities: Capabilities = Object.fromEntries(
 
 /** Roadmap item tracking each gap; CapabilityGap shows it to admins only. */
 export const capabilityRoadmap: Record<CapabilityKey, string> = {
-  sampleMeasurements: 'RM-112',
   experimentResults: 'RM-118',
-  modelKinds: 'RM-097',
-  portalReports: 'RM-131',
   protocolDocuments: 'RM-104',
   pipelineSteps: 'RM-125',
   benchReading: 'RM-109',
   inboxKinds: 'RM-116',
-  searchTypes: 'RM-121',
-  instrumentCalibration: 'RM-107',
 }
 
 /** Parse the deployment allow-list. Pure, so it is unit-testable. */

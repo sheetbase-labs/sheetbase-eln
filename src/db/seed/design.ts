@@ -488,6 +488,10 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignMilestones(db),
   },
   {
+    name: 'design sample measurements',
+    run: (db) => seedDesignMeasurements(db),
+  },
+  {
     name: 'design work items',
     run: (db) => seedDesignWorkItems(db),
   },
@@ -2433,6 +2437,38 @@ async function seedDesignProjectDetails(
         ),
       )
   }
+}
+
+/**
+ * Design sample measurements (RM-112): a few recorded values on the design
+ * samples, so the sample Measurements tab shows a table instead of an empty
+ * state.
+ */
+async function seedDesignMeasurements(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  await withDesignClaims(db, actorId, workspaceId, async (client) => {
+    const defs = [
+      { name: 'Capsid titre', value: 4.6e12, unit: 'vg/mL', method: 'ddPCR' },
+      { name: 'Viability', value: 92.4, unit: '%', method: 'Vi-CELL' },
+      { name: 'Turbidity', value: 14.2, unit: 'NTU', method: 'Benedict' },
+    ]
+    for (const sample of DESIGN_SAMPLES.slice(0, 5)) {
+      for (const d of defs.slice(0, 2)) {
+        const existing = await client.query(
+          'select 1 from api.sample_measurements where sample_record_id = $1 and name = $2 limit 1',
+          [sample.id, d.name],
+        )
+        if ((existing.rowCount ?? 0) > 0) continue
+        await client.query(
+          'select api.record_sample_measurement($1,$2,$3,$4,$5)',
+          [sample.id, d.name, d.value, d.unit, d.method],
+        )
+      }
+    }
+  })
 }
 
 /**

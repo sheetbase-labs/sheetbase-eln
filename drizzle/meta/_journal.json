@@ -1854,6 +1854,13 @@
       "when": 1790889800000,
       "tag": "0266_experiment_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 267,
+      "version": "7",
+      "when": 1790894319092,
+      "tag": "0267_goofy_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }

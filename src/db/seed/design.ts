@@ -484,6 +484,10 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignDatasetFlags(db),
   },
   {
+    name: 'design milestones',
+    run: (db) => seedDesignMilestones(db),
+  },
+  {
     name: 'design work items',
     run: (db) => seedDesignWorkItems(db),
   },
@@ -2428,6 +2432,114 @@ async function seedDesignProjectDetails(
           eq(schema.projects.id, project.id),
         ),
       )
+  }
+}
+
+/**
+ * Design milestones (PROJ-02): study_tasks of type milestone with their
+ * "done when" deliverables, so the project Milestones tab shows a timeline and
+ * list instead of an empty state. One is complete, one in progress, one not
+ * started.
+ */
+async function seedDesignMilestones(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const projectId = DESIGN_PROJECTS[0]?.id
+  if (!projectId) return
+
+  const milestones = [
+    {
+      id: '00000000-0000-4000-8000-000000001c00',
+      title: 'Process parameters locked',
+      status: 'in_progress',
+      dueAt: '2026-10-16T00:00:00Z',
+      progress: 50,
+      position: 0,
+      deliverables: [
+        {
+          id: '00000000-0000-4000-8000-000000001c10',
+          name: 'Operating ranges agreed',
+          status: 'delivered',
+        },
+        {
+          id: '00000000-0000-4000-8000-000000001c11',
+          name: 'QA sign-off',
+          status: 'planned',
+        },
+      ],
+    },
+    {
+      id: '00000000-0000-4000-8000-000000001c01',
+      title: 'Engineering run complete',
+      status: 'completed',
+      dueAt: '2026-11-06T00:00:00Z',
+      progress: 100,
+      position: 1,
+      deliverables: [
+        {
+          id: '00000000-0000-4000-8000-000000001c12',
+          name: 'Engineering batch released',
+          status: 'delivered',
+        },
+      ],
+    },
+    {
+      id: '00000000-0000-4000-8000-000000001c02',
+      title: 'Technology transfer pack',
+      status: 'not_started',
+      dueAt: '2026-12-04T00:00:00Z',
+      progress: 0,
+      position: 2,
+      deliverables: [
+        {
+          id: '00000000-0000-4000-8000-000000001c13',
+          name: 'Transfer protocol signed',
+          status: 'planned',
+        },
+        {
+          id: '00000000-0000-4000-8000-000000001c14',
+          name: 'Receiving site walkthrough',
+          status: 'planned',
+        },
+      ],
+    },
+  ] as const
+
+  for (const m of milestones) {
+    await db
+      .insert(schema.studyTasks)
+      .values({
+        id: m.id,
+        workspaceId,
+        projectId,
+        title: m.title,
+        taskType: 'milestone',
+        status: m.status,
+        priority: 'medium',
+        dueAt: new Date(m.dueAt),
+        position: m.position,
+        progressPercent: m.progress,
+      })
+      .onConflictDoUpdate({
+        target: schema.studyTasks.id,
+        set: { title: m.title, status: m.status },
+      })
+    for (const d of m.deliverables) {
+      await db
+        .insert(schema.studyDeliverables)
+        .values({
+          id: d.id,
+          workspaceId,
+          taskId: m.id,
+          name: d.name,
+          status: d.status,
+        })
+        .onConflictDoUpdate({
+          target: schema.studyDeliverables.id,
+          set: { name: d.name, status: d.status },
+        })
+    }
   }
 }
 

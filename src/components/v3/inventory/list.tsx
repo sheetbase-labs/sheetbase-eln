@@ -1,5 +1,13 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
+import { Button } from '#/components/v3/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
 import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { cn } from '#/lib/utils'
@@ -86,6 +94,126 @@ export function ListHeader({
   )
 }
 
+export type ViewOptions = {
+  sorts?: string[]
+  sort?: string
+  onSort?: (s: string) => void
+  showSortValue?: boolean
+  groupLabel?: string | false
+  filters?: string[]
+  fields?: string[]
+}
+
+export function ViewControls({
+  sorts,
+  sort,
+  onSort,
+  showSortValue = true,
+  groupLabel = 'none',
+  filters,
+}: ViewOptions) {
+  const [localSort, setLocalSort] = useState(sort ?? sorts?.[0])
+  const cur = sort ?? localSort
+  const pick = (s: string) => {
+    setLocalSort(s)
+    onSort?.(s)
+  }
+  const item = (on: boolean) => (on ? '' : 'pl-[30px]')
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button size="sm" variant="quiet" className="max-lg:hidden" />
+          }
+        >
+          Table
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[200px]">
+          <DropdownMenuItem icon="check">Table</DropdownMenuItem>
+          <DropdownMenuItem className="pl-[30px]" disabled hint="Later">
+            Board
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button size="sm" variant="quiet" className="max-md:hidden" />
+          }
+        >
+          Filter
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[220px]">
+          {(filters?.length ? filters : ['Status', 'Owner', 'Updated']).map(
+            (f) => (
+              <DropdownMenuItem key={f} className="pl-[30px]">
+                {f}…
+              </DropdownMenuItem>
+            ),
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {sorts?.length ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button size="sm" variant="quiet" className="max-md:hidden" />
+            }
+          >
+            {showSortValue ? `Sort: ${cur}` : 'Sort'}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[180px]">
+            {sorts.map((k) => (
+              <DropdownMenuItem
+                key={k}
+                icon={cur === k ? 'check' : undefined}
+                className={item(cur === k)}
+                onClick={() => pick(k)}
+              >
+                {k}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+      {groupLabel !== false ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button size="sm" variant="quiet" className="max-lg:hidden" />
+            }
+          >
+            {groupLabel ? `Group: ${groupLabel}` : 'Group'}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[180px]">
+            <DropdownMenuItem icon="check">No grouping</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+    </>
+  )
+}
+
+export function FieldsButton({ fields }: { fields: string[] }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button size="sm" variant="quiet" className="max-lg:hidden" />}
+      >
+        Fields
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[200px]">
+        {fields.map((f) => (
+          <DropdownMenuItem key={f} icon="check">
+            {f}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function ListToolbar({
   q,
   onSearch,
@@ -93,6 +221,7 @@ export function ListToolbar({
   label,
   children,
   right,
+  views,
 }: {
   q?: string
   onSearch: (q: string) => void
@@ -100,11 +229,13 @@ export function ListToolbar({
   label: string
   children?: React.ReactNode
   right?: React.ReactNode
+  views?: ViewOptions
 }) {
+  const lead = views ? <ViewControls {...views} /> : children
   return (
     <div className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6">
-      {children}
-      <label className={cn('block w-full md:w-[260px]', children && 'ml-3')}>
+      {lead}
+      <label className={cn('block w-full md:w-[260px]', lead && 'md:ml-3')}>
         <span className="sr-only">{label}</span>
         <Input
           type="search"
@@ -114,7 +245,8 @@ export function ListToolbar({
           onChange={(e) => onSearch(e.target.value)}
         />
       </label>
-      <span className="flex-1" />
+      <span className="flex-1 max-md:hidden" />
+      {views?.fields ? <FieldsButton fields={views.fields} /> : null}
       {right}
     </div>
   )

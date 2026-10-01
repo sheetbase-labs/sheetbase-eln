@@ -123,6 +123,23 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Reference-parity pass (UI port QA)**: every screen was compared against the
+  reference app (`sheetbase-app (5)`) by source token diff, computed-style diff
+  and visual side-by-side; findings and method are in
+  [`UI_PORT_QA.md`](UI_PORT_QA.md). Fixed the real drift: the ELN `body` now
+  carries the reference's 13px/18px base, so ported markup that relied on the
+  inherited size no longer renders 16px (e.g. the `/sheets/new` cards); the
+  shared `mono` utility drops its 16px line-height override; the base layer
+  gains the reference's `del`/`ins` diff marks; the shared `ListToolbar` gets
+  the reference's `ViewControls` (Table/Filter/Sort/Group) and `FieldsButton`
+  and the four registry lists (samples, materials, datasets, protocols) pass
+  `views`; the `/settings/usage` breakdown first cell regains its
+  `py-1.5 leading-[17px]`; `/settings/signatures` uses the default button size;
+  `/settings/audit` search is 240px; `/pipelines/agents` tabs regain `px-0.5`;
+  and the `/analysis/new` heading is `text-title`. Structural divergences
+  (Home, list actions/tabs/columns, audit/signature/settings structure) are
+  recorded in `UI_PORT_QA.md` and filed as issues rather than changed here.
+
 - **Retired `/admin`, `/configure` and `/planner`**: their replacements now
   exist and are the designated folds — `/settings/*` for `/admin` (SET-04.1),
   `/models` plus the model editor for `/configure` (MDL-02), and the project

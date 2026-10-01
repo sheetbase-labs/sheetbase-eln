@@ -161,6 +161,11 @@ function ProtocolsList() {
           q={search.q}
           label="Search protocols"
           placeholder="Search protocols"
+          views={{
+            sorts: ['Effective', 'ID', 'Protocol'],
+            showSortValue: false,
+            groupLabel: '',
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/protocols',

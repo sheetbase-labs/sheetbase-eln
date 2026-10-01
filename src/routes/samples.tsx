@@ -203,6 +203,10 @@ function SamplesList() {
           q={search.q}
           label="Search samples"
           placeholder="Search by ID, name, location"
+          views={{
+            sorts: ['Created', 'ID', 'Name'],
+            fields: ['ID', 'Name', 'Type', 'Quantity', 'Location', 'Status'],
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/samples',

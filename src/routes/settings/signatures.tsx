@@ -264,11 +264,7 @@ function PolicySection({
       title="Workspace policy"
       count={
         canManage ? (
-          <Button
-            size="sm"
-            disabled={save.isPending}
-            onClick={() => save.mutate()}
-          >
+          <Button disabled={save.isPending} onClick={() => save.mutate()}>
             Save changes
           </Button>
         ) : undefined

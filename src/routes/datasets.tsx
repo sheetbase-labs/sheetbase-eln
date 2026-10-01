@@ -164,6 +164,7 @@ function DatasetsList() {
           q={search.q}
           label="Search datasets"
           placeholder="Search datasets"
+          views={{ sorts: ['Updated', 'ID', 'Rows'] }}
           onSearch={(next) =>
             void navigate({
               to: '/datasets',

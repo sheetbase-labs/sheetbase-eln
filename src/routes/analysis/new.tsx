@@ -534,10 +534,7 @@ export function AnalysisStudioHeader({
       aria-labelledby="analysis-title"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <h1
-          id="analysis-title"
-          className="text-base font-semibold tracking-tight"
-        >
+        <h1 id="analysis-title" className="text-title">
           Analysis Studio
         </h1>
       </div>

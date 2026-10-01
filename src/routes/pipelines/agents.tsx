@@ -319,7 +319,7 @@ function AgentsRoute() {
                   search={{ view: t.view }}
                   aria-current={active ? 'page' : undefined}
                   className={
-                    'flex items-center gap-1.5 border-b-2 pb-1.5 text-body no-underline hover:no-underline ' +
+                    'flex items-center gap-1.5 border-b-2 px-0.5 pb-1.5 text-body no-underline hover:no-underline ' +
                     (active
                       ? 'border-link text-fg'
                       : 'border-transparent text-fg-muted hover:text-fg')

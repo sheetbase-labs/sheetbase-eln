@@ -145,7 +145,7 @@ function Audit() {
             </option>
           ))}
         </select>
-        <label className="block w-[260px]">
+        <label className="block w-[240px]">
           <span className="sr-only">Search audit log</span>
           <Input
             type="search"

@@ -361,7 +361,12 @@ function BreakdownTable({
                 <TableCell
                   key={i}
                   align={i > 0 ? 'right' : undefined}
-                  className="first:pl-3 last:pr-3"
+                  className={
+                    'first:pl-3 last:pr-3' +
+                    (i === 0
+                      ? ' min-w-[150px] whitespace-normal py-1.5 leading-[17px]'
+                      : '')
+                  }
                 >
                   {c}
                 </TableCell>

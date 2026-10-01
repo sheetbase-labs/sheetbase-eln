@@ -376,6 +376,10 @@
   body {
     @apply min-h-svh bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+    /* UI port (roadmap-4/ui-app3): the reference sets a 13px body; ported
+       markup relies on it where it has no explicit text-* class. */
+    font-size: 13px;
+    line-height: 18px;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     text-rendering: optimizeLegibility;
   }
@@ -395,6 +399,20 @@
 
   ::selection {
     background: var(--selection);
+  }
+
+  /* Diff marks, matching the reference base layer. */
+  del {
+    @apply text-fg-muted line-through;
+    background: var(--danger-wash);
+    padding: 0 1px;
+  }
+
+  ins {
+    @apply no-underline;
+    background: var(--success-wash);
+    border-bottom: 1px solid var(--success);
+    padding: 0 1px;
   }
 }
 
@@ -552,7 +570,6 @@
 @utility mono {
   font-family: var(--font-mono);
   font-size: 12px;
-  line-height: 16px;
 }
 
 @utility text-title {

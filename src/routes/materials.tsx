@@ -168,6 +168,11 @@ function MaterialsList() {
           q={search.q}
           label="Search materials"
           placeholder="Search by ID, material, supplier, lot"
+          views={{
+            sorts: ['Expiry', 'ID', 'Material'],
+            showSortValue: false,
+            groupLabel: '',
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/materials',

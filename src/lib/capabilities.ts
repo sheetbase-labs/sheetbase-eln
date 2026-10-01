@@ -24,7 +24,6 @@ export const capabilityKeys = [
   'benchReading',
   'inboxKinds',
   'searchTypes',
-  'expOpenIssues',
   'instrumentCalibration',
 ] as const
 
@@ -47,7 +46,6 @@ export const capabilityRoadmap: Record<CapabilityKey, string> = {
   benchReading: 'RM-109',
   inboxKinds: 'RM-116',
   searchTypes: 'RM-121',
-  expOpenIssues: 'RM-119',
   instrumentCalibration: 'RM-107',
 }
 

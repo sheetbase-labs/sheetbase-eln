@@ -101,6 +101,32 @@ export function useExperimentRecords(
   })
 }
 
+interface OpenIssueWire {
+  record_id: string
+  open_issues: number | string
+}
+
+/**
+ * RM-119: open-issue counts per experiment, the uncleared dataset value flags
+ * on the datasets the experiment produced (see `api.experiment_open_issue_counts`).
+ */
+export function useExperimentOpenIssues(
+  workspaceId: string | undefined,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'experiments', 'open-issues', workspaceId],
+    queryFn: async () => {
+      const rows = await client.list<OpenIssueWire>(
+        'rpc/experiment_open_issue_counts',
+        '?select=record_id,open_issues',
+      )
+      return new Map(rows.map((r) => [r.record_id, Number(r.open_issues)]))
+    },
+    staleTime: 15_000,
+  })
+}
+
 export function useProjectNameMap(client: DataClient = notebookDataClient) {
   return useQuery({
     queryKey: ['ui-port', 'experiments', 'projects'],

@@ -480,6 +480,10 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignAnalyses(db),
   },
   {
+    name: 'design dataset links and flags',
+    run: (db) => seedDesignDatasetFlags(db),
+  },
+  {
     name: 'design work items',
     run: (db) => seedDesignWorkItems(db),
   },
@@ -2425,6 +2429,87 @@ async function seedDesignProjectDetails(
         ),
       )
   }
+}
+
+/**
+ * Link design experiments to the datasets they produced and flag a few
+ * recorded values, so the experiments list's "Open issues" column shows real
+ * counts (RM-119) instead of an empty one.
+ */
+async function seedDesignDatasetFlags(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  await withDesignClaims(db, actorId, workspaceId, async (client) => {
+    const datasets = DESIGN_DATASETS.slice(0, 2)
+    const experiments = DESIGN_EXPERIMENTS
+    if (datasets.length === 0 || experiments.length === 0) return
+
+    for (let d = 0; d < datasets.length; d++) {
+      const dataset = datasets[d]
+      const meta = await client.query(
+        'select display_id from api.datasets where id = $1',
+        [dataset.id],
+      )
+      const displayId: string | undefined = meta.rows[0]?.display_id
+      if (!displayId) continue
+
+      // Link a slice of the design experiments to this dataset.
+      const linked = experiments.slice(d * 2, d * 2 + 3)
+      for (const exp of linked) {
+        await client.query(
+          `insert into api.record_links
+             (source_record_id, target_kind, target_identifier, link_type,
+              created_by_user_id)
+           values ($1,'dataset',$2,'dataset',$3)
+           on conflict (source_record_id, target_identifier, link_type)
+             do nothing`,
+          [exp.id, displayId, actorId],
+        )
+      }
+
+      // Flag a couple of recorded values as open issues.
+      const rows = await client.query(
+        'select id from api.dataset_rows where dataset_id = $1 order by id limit 3',
+        [dataset.id],
+      )
+      const fields = await client.query(
+        `select f.field_id from api.dataset_schema_version_fields f
+           join api.dataset_schema_versions v on v.id = f.schema_version_id
+           join api.dataset_schema_definitions s on s.id = v.schema_id
+          where s.workspace_id = $1 and s.key = $2
+          order by f.display_order`,
+        [workspaceId, dataset.schemaKey],
+      )
+      const fieldIds: string[] = fields.rows.map(
+        (r: { field_id: string }) => r.field_id,
+      )
+      const flagField = fieldIds[Math.min(3, fieldIds.length - 1)]
+      if (!flagField) continue
+
+      for (let i = 0; i < Math.min(rows.rows.length, 2); i++) {
+        const rowId: string = rows.rows[i].id
+        const existing = await client.query(
+          `select 1 from api.dataset_value_flags
+            where dataset_id = $1 and row_id = $2 and field_id = $3
+              and cleared_at is null`,
+          [dataset.id, rowId, flagField],
+        )
+        if ((existing.rowCount ?? 0) > 0) continue
+        await client.query('select api.flag_dataset_value($1,$2,$3,$4,$5,$6)', [
+          dataset.id,
+          rowId,
+          flagField,
+          i === 0 ? 'out_of_range' : 'missing_unit',
+          i === 0
+            ? 'Value outside the expected range'
+            : 'Unit missing on the recorded value',
+          null,
+        ])
+      }
+    }
+  })
 }
 
 /**

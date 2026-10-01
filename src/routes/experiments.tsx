@@ -9,9 +9,7 @@ import {
 } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
-import { CapabilityGap } from '#/components/v3/ui/capability-gap'
 import { Status } from '#/components/v3/ui/status'
-import { capabilityRoadmap } from '#/lib/capabilities'
 import { Input } from '#/components/v3/ui/input'
 import { Icon } from '#/components/v3/icons'
 import {
@@ -33,6 +31,7 @@ import { FilterChip } from '#/components/v3/projects/chip'
 import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
 import {
   toExperimentListRow,
+  useExperimentOpenIssues,
   useExperimentProtocols,
   useExperimentRecords,
   useProjectNameMap,
@@ -98,12 +97,12 @@ function ExperimentsRoute() {
 
 function Experiments() {
   const { context } = Route.useRouteContext()
-  const admin =
-    context.workspace?.role === 'owner' || context.workspace?.role === 'admin'
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const tab: Tab = search.tab ?? 'all'
   const records = useExperimentRecords(context.workspace?.id)
+  const openIssues = useExperimentOpenIssues(context.workspace?.id)
+  const issueCount = (recordId: string) => openIssues.data?.get(recordId) ?? 0
   const projects = useProjectNameMap()
   const experimentIds = useMemo(
     () => (records.data ?? []).map((r) => r.id),
@@ -312,15 +311,6 @@ function Experiments() {
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto border-t border-border">
-        <div className="px-4 py-3 md:px-6">
-          <CapabilityGap
-            variant="inline"
-            title="Open issues aren’t counted yet"
-            will="This column will show how many issues are open on each experiment. The count isn’t tracked yet, so it stays empty."
-            roadmap={capabilityRoadmap.expOpenIssues}
-            admin={admin}
-          />
-        </div>
         <MobileList
           className="md:hidden"
           label="Experiments"
@@ -410,8 +400,14 @@ function Experiments() {
                   <TableCell>
                     <Status tone={e.status.tone}>{e.status.label}</Status>
                   </TableCell>
-                  <TableCell className="text-fg-muted" title="Not tracked yet">
-                    —
+                  <TableCell
+                    className={
+                      issueCount(e.uuid) > 0
+                        ? 'text-warning-text'
+                        : 'text-fg-muted'
+                    }
+                  >
+                    {issueCount(e.uuid) > 0 ? issueCount(e.uuid) : '—'}
                   </TableCell>
                   <TableCell align="right" className="text-fg-muted">
                     {e.started}

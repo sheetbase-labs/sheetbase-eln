@@ -310,7 +310,7 @@ function InstrumentsList() {
                   value={search.type ?? ''}
                   onChange={(e) => setParam('type')(e.target.value)}
                 >
-                  <option value="">All</option>
+                  <option value="">Any</option>
                   {types.map((t) => (
                     <option key={t} value={t}>
                       {t}
@@ -326,7 +326,7 @@ function InstrumentsList() {
                   value={search.connection ?? ''}
                   onChange={(e) => setParam('connection')(e.target.value)}
                 >
-                  <option value="">All</option>
+                  <option value="">Any</option>
                   <option value="connected">Connected</option>
                   <option value="disconnected">Disconnected</option>
                   <option value="error">Error</option>
@@ -340,7 +340,7 @@ function InstrumentsList() {
                   value={search.calibration ?? ''}
                   onChange={(e) => setParam('calibration')(e.target.value)}
                 >
-                  <option value="">All</option>
+                  <option value="">Any</option>
                   <option value="ok">Current</option>
                   <option value="soon">Due in 14 days</option>
                   <option value="overdue">Overdue</option>

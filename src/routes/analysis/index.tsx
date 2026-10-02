@@ -29,6 +29,7 @@ import {
 } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
+import { notebookDataClient } from '#/lib/notebook-data'
 
 /**
  * UI port (roadmap-4/ui-app3): the Analysis Studio home. Lists the workspace's
@@ -39,9 +40,11 @@ import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 export const Route = createFileRoute('/analysis/')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tab?: 'mine' | 'drafts'; q?: string; state?: 'denied' } => ({
+  ): { tab?: 'mine' | 'cited' | 'drafts'; q?: string; state?: 'denied' } => ({
     tab:
-      search.tab === 'mine' || search.tab === 'drafts' ? search.tab : undefined,
+      search.tab === 'mine' || search.tab === 'cited' || search.tab === 'drafts'
+        ? search.tab
+        : undefined,
     q: typeof search.q === 'string' ? search.q : undefined,
     state: search.state === 'denied' ? 'denied' : undefined,
   }),
@@ -81,6 +84,23 @@ function AnalysisHome() {
     queryFn: () => fetchDatasetSummaries(),
     staleTime: 30_000,
   })
+  const citations = useQuery({
+    queryKey: ['ui-port', 'analysis', 'cited'],
+    queryFn: () =>
+      notebookDataClient.list<{ target_identifier: string }>(
+        'record_links',
+        '?link_type=eq.analysis&select=target_identifier',
+      ),
+  })
+  const citedIds = useMemo<Set<string>>(
+    () =>
+      new Set(
+        (citations.data ?? []).map(
+          (c: { target_identifier: string }) => c.target_identifier,
+        ),
+      ),
+    [citations.data],
+  )
   const rows = views.data ?? []
   const names = useUserNames(rows.map((r) => r.owner_user_id).filter(Boolean))
   const datasetName = (id: string | undefined) =>
@@ -91,6 +111,7 @@ function AnalysisHome() {
     () =>
       rows.filter((v) => {
         if (tab === 'mine' && v.owner_user_id !== userId) return false
+        if (tab === 'cited' && !citedIds.has(v.display_id ?? '')) return false
         if (tab === 'drafts' && v.version > 1) return false
         if (
           needle &&
@@ -190,6 +211,13 @@ function AnalysisHome() {
                 label: 'Mine',
                 count: rows.filter((v) => v.owner_user_id === userId).length,
                 link: { to: '/analysis', search: { tab: 'mine' } },
+              },
+              {
+                key: 'cited',
+                label: 'Cited in records',
+                count: rows.filter((v) => citedIds.has(v.display_id ?? ''))
+                  .length,
+                link: { to: '/analysis', search: { tab: 'cited' } },
               },
               {
                 key: 'drafts',

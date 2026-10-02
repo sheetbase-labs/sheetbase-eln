@@ -7,7 +7,7 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -46,13 +46,14 @@ import {
 } from '#/components/v3/pipelines/pipelines-data'
 import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
 
-const tabs = ['all', 'active', 'drafts', 'retired'] as const
+const tabs = ['all', 'mine', 'needsattention', 'scheduled', 'drafts'] as const
 type PipelineTab = (typeof tabs)[number]
 const tabLabel: Record<PipelineTab, string> = {
   all: 'All',
-  active: 'Active',
+  mine: 'Mine',
+  needsattention: 'Needs attention',
+  scheduled: 'Scheduled',
   drafts: 'Drafts',
-  retired: 'Retired',
 }
 
 /** UI port (roadmap-4/ui-app3): the Pipelines board on the AUTO-01/02/03
@@ -63,13 +64,9 @@ export const Route = createFileRoute('/pipelines')({
   ): { q?: string; tab?: PipelineTab; selected?: string } => ({
     q: typeof search.q === 'string' ? search.q : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
-    tab:
-      search.tab === 'active' ||
-      search.tab === 'drafts' ||
-      search.tab === 'retired' ||
-      search.tab === 'all'
-        ? search.tab
-        : undefined,
+    tab: (tabs as readonly string[]).includes(search.tab as string)
+      ? (search.tab as PipelineTab)
+      : undefined,
   }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -88,11 +85,17 @@ function PipelinesRoute() {
   return isIndex ? <PipelinesList /> : <Outlet />
 }
 
-function inTab(p: PipelineListRow, tab: PipelineTab): boolean {
+function inTab(
+  p: PipelineListRow,
+  tab: PipelineTab,
+  scheduledIds: Set<string>,
+  currentUserId: string,
+): boolean {
   if (tab === 'all') return true
-  if (tab === 'active') return !p.draft && p.lifecycle === 'active'
-  if (tab === 'drafts') return Boolean(p.draft)
-  return p.lifecycle === 'retired'
+  if (tab === 'mine') return p.created_by_user_id === currentUserId
+  if (tab === 'needsattention') return p.lastRun?.status === 'failed'
+  if (tab === 'scheduled') return scheduledIds.has(p.id)
+  return Boolean(p.draft)
 }
 
 function PipelinesList() {
@@ -105,17 +108,39 @@ function PipelinesList() {
   const rows = query.data ?? []
   const tab: PipelineTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
+  const currentUserId = context.user.id
+
+  const schedules = useQuery({
+    queryKey: ['ui-port', 'pipelines', 'scheduled-list'],
+    queryFn: () =>
+      notebookDataClient.list<{ definition_id: string; enabled: boolean }>(
+        'pipeline_schedules',
+        '?enabled=eq.true&select=definition_id,enabled',
+      ),
+  })
+  const scheduledIds = useMemo<Set<string>>(
+    () =>
+      new Set(
+        (schedules.data ?? []).map(
+          (s: { definition_id: string }) => s.definition_id,
+        ),
+      ),
+    [schedules.data],
+  )
 
   const counts = useMemo(
     () =>
       Object.fromEntries(
-        tabs.map((t) => [t, rows.filter((p) => inTab(p, t)).length]),
+        tabs.map((t) => [
+          t,
+          rows.filter((p) => inTab(p, t, scheduledIds, currentUserId)).length,
+        ]),
       ) as Record<PipelineTab, number>,
-    [rows],
+    [rows, scheduledIds, currentUserId],
   )
   const q = (search.q ?? '').trim().toLowerCase()
   const visible = rows
-    .filter((p) => inTab(p, tab))
+    .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
     .filter((p) => !q || `${p.key} ${p.name}`.toLowerCase().includes(q))
   const sel =
     visible.find((p) => p.id === (selected ?? search.selected)) ?? visible.at(0)

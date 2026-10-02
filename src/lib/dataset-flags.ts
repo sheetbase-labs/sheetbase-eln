@@ -13,6 +13,13 @@ import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 export type DatasetValueFlagKind =
   'out_of_range' | 'missing_unit' | 'above_curve' | 'high_cv'
 
+/**
+ * DSET-01 step 1 — who owns a flag. `manual` is set by a person through
+ * `flag_dataset_value`; `system` is derived from a Schema field rule during
+ * validation. Validation only ever writes/clears its own `system` flags.
+ */
+export type DatasetValueFlagSource = 'manual' | 'system'
+
 /** Wire shape of `api.dataset_value_flags` (snake_case via PostgREST). */
 export interface DatasetValueFlagWire {
   id: string
@@ -20,6 +27,7 @@ export interface DatasetValueFlagWire {
   row_id: string
   field_id: string
   kind: DatasetValueFlagKind
+  source: DatasetValueFlagSource
   reason: string
   comment: string | null
   set_at: string
@@ -32,6 +40,11 @@ export interface DatasetValueFlag {
   rowId: string
   fieldId: string
   kind: DatasetValueFlagKind
+  /**
+   * Optional on the domain type so older in-memory fixtures stay valid; the
+   * database and `DatasetValueFlagWire` always carry it.
+   */
+  source?: DatasetValueFlagSource
   reason: string
   comment: string | null
   setAt: string
@@ -46,6 +59,7 @@ export function toDatasetValueFlag(
     rowId: wire.row_id,
     fieldId: wire.field_id,
     kind: wire.kind,
+    source: wire.source,
     reason: wire.reason,
     comment: wire.comment,
     setAt: wire.set_at,
@@ -63,7 +77,7 @@ export async function fetchActiveDatasetFlags(
 ): Promise<DatasetValueFlag[]> {
   const rows = await client.list<DatasetValueFlagWire>(
     'dataset_value_flags',
-    `?dataset_id=eq.${encodeURIComponent(datasetId)}&cleared_at=is.null&select=id,dataset_id,row_id,field_id,kind,reason,comment,set_at,cleared_at`,
+    `?dataset_id=eq.${encodeURIComponent(datasetId)}&cleared_at=is.null&select=id,dataset_id,row_id,field_id,kind,source,reason,comment,set_at,cleared_at`,
   )
   return rows.map((row) => toDatasetValueFlag(row))
 }

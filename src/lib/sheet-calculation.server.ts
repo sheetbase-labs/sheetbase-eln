@@ -439,7 +439,7 @@ async function loadSnapshot(
       datasetIds.length > 0
         ? (
             await client.query<DatasetValueFlagWire>(
-              `SELECT id,dataset_id,row_id,field_id,kind,reason,comment,set_at,cleared_at
+              `SELECT id,dataset_id,row_id,field_id,kind,source,reason,comment,set_at,cleared_at
                  FROM api.dataset_value_flags
                 WHERE cleared_at IS NULL AND dataset_id = ANY($1::uuid[])`,
               [datasetIds],

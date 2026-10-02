@@ -33,6 +33,7 @@ describe('toDatasetValueFlag', () => {
       row_id: 'r1',
       field_id: 'titre',
       kind: 'high_cv',
+      source: 'manual' as const,
       reason: 'CV 24%',
       comment: 'repeat queued',
       set_at: '2026-09-25T09:40:00Z',

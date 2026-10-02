@@ -3376,6 +3376,7 @@ export const datasetValueFlags = api.table(
     rowId: uuid('row_id').notNull(),
     fieldId: uuid('field_id').notNull(),
     kind: text('kind').notNull(),
+    source: text('source').notNull().default('manual'),
     reason: text('reason').notNull(),
     comment: text('comment'),
     setByUserId: text('set_by_user_id').references(() => user.id, {
@@ -3393,6 +3394,10 @@ export const datasetValueFlags = api.table(
     check(
       'chk_dataset_value_flags_kind',
       sql`${table.kind} IN ('out_of_range', 'missing_unit', 'above_curve', 'high_cv')`,
+    ),
+    check(
+      'chk_dataset_value_flags_source',
+      sql`${table.source} IN ('manual', 'system')`,
     ),
     check(
       'chk_dataset_value_flags_reason',
@@ -3525,6 +3530,7 @@ export const datasetVersionFlags = api.table(
     rowId: uuid('row_id').notNull(),
     fieldId: uuid('field_id').notNull(),
     kind: text('kind').notNull(),
+    source: text('source').notNull().default('manual'),
     reason: text('reason').notNull(),
     comment: text('comment'),
     setByUserId: text('set_by_user_id').references(() => user.id, {
@@ -3533,8 +3539,18 @@ export const datasetVersionFlags = api.table(
     setAt: timestamp('set_at', { withTimezone: true, mode: 'date' }).notNull(),
   },
   (table) => [
+    check(
+      'chk_dataset_version_flags_source',
+      sql`${table.source} IN ('manual', 'system')`,
+    ),
     primaryKey({
-      columns: [table.datasetVersionId, table.rowId, table.fieldId, table.kind],
+      columns: [
+        table.datasetVersionId,
+        table.rowId,
+        table.fieldId,
+        table.kind,
+        table.source,
+      ],
     }),
   ],
 )

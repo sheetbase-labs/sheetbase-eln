@@ -6,6 +6,15 @@ import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Muted, Section } from '#/components/v3/ui/layout'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   CheckRow,
@@ -35,6 +44,25 @@ import type { SignaturePolicy } from '#/lib/signature-certification'
 /** UI port (roadmap-4/ui-app3): electronic signatures. You certify your own
  * signature for the workspace; owners and admins set the workspace policy.
  * Certification is a per-user attestation (SIGN-003), never a record write. */
+/** The three signature meanings, as the reference describes them. */
+const MEANING_ROWS = [
+  {
+    meaning: 'Authored',
+    who: 'The record author, before it is submitted',
+    usedFor: 'Your own records',
+  },
+  {
+    meaning: 'Reviewed',
+    who: 'A reviewer, after reading the record',
+    usedFor: 'The review step before approval',
+  },
+  {
+    meaning: 'Approved',
+    who: 'An approver, as the final decision',
+    usedFor: 'Releasing the record as evidence',
+  },
+] as const
+
 export const Route = createFileRoute('/settings/signatures')({
   component: Signatures,
 })
@@ -188,6 +216,29 @@ function Signatures() {
               </div>
             </>
           )}
+        </Section>
+
+        <Section title="Signature meanings" count={MEANING_ROWS.length}>
+          <TableBox className="max-w-[760px]">
+            <Table aria-label="Signature meanings">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Meaning</TableHead>
+                  <TableHead>Who can sign</TableHead>
+                  <TableHead>Used for</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {MEANING_ROWS.map((m) => (
+                  <TableRow key={m.meaning}>
+                    <TableCell className="font-medium">{m.meaning}</TableCell>
+                    <TableCell className="text-fg-muted">{m.who}</TableCell>
+                    <TableCell className="text-fg-muted">{m.usedFor}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableBox>
         </Section>
 
         <PolicySection

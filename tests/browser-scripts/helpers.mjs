@@ -39,7 +39,7 @@ export async function launch(viewport = { width: 1440, height: 900 }) {
 
 export async function go(page, path) {
   await page.goto(base + path, { waitUntil: 'domcontentloaded' })
-  await page.waitForTimeout(1200)
+  await page.waitForTimeout(1800)
 }
 
 export async function discover() {

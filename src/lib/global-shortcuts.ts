@@ -16,6 +16,8 @@ export interface GlobalShortcutHandlers {
   toggleRail: () => void
   navigate: (to: string) => void
   destinations: GlobalShortcutDestination[]
+  /** Optional: opens the shell's Create menu (the design's `C`). */
+  openCreate?: () => void
 }
 
 export function createGlobalShortcuts(
@@ -42,6 +44,20 @@ export function createGlobalShortcuts(
         handlers.openPalette()
       },
     },
+    ...(handlers.openCreate
+      ? [
+          {
+            id: 'create',
+            scope: 'global' as const,
+            keys: ['c'],
+            description: 'Create…',
+            handler: (event: KeyboardEvent) => {
+              event.preventDefault()
+              handlers.openCreate?.()
+            },
+          },
+        ]
+      : []),
     {
       id: 'help',
       scope: 'global',

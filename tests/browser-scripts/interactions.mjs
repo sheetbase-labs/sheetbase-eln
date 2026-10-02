@@ -5,6 +5,8 @@ import { base, check, discover, done, go, launch } from './helpers.mjs'
 
 const { browser, page, errors } = await launch()
 const ids = await discover()
+// The registry maps `mod` to ⌘ on macOS and Ctrl elsewhere (as the design says).
+const paletteKey = process.platform === 'darwin' ? 'Meta+k' : 'Control+k'
 
 await go(page, '/')
 await page.getByRole('button', { name: 'New', exact: true }).click()
@@ -60,7 +62,7 @@ await page
 await page.keyboard.press('Escape')
 
 await go(page, '/')
-await page.keyboard.press('Control+k')
+await page.keyboard.press(paletteKey)
 await page.waitForTimeout(400)
 check(
   await page.getByRole('dialog', { name: 'Search' }).isVisible(),
@@ -78,6 +80,53 @@ if (ids.sampleIdentifier) {
 } else {
   check(false, 'Search palette: no sample identifier discovered')
 }
+
+// SHELL-03: the single registry drives ?, the G sequence and suppression.
+await go(page, '/')
+await page.keyboard.press('?')
+await page.waitForTimeout(500)
+const shortcutsDialog = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
+check(
+  await shortcutsDialog.isVisible(),
+  '? opens the keyboard-shortcuts dialog',
+)
+check(
+  ((await shortcutsDialog.textContent()) ?? '').includes(
+    'Open the command palette',
+  ),
+  'shortcuts dialog is generated from the registry',
+)
+await page.keyboard.press('Escape')
+await page.waitForTimeout(400)
+check(
+  !(await shortcutsDialog.isVisible().catch(() => false)),
+  'Esc closes the shortcuts dialog',
+)
+
+// A shortcut is suppressed while typing in a field.
+await go(page, '/')
+await page.keyboard.press(paletteKey)
+await page.waitForTimeout(500)
+check(
+  await page.getByRole('dialog', { name: 'Search' }).isVisible(),
+  'palette reopens for the suppression check',
+)
+await page.keyboard.type('?')
+await page.waitForTimeout(300)
+check(
+  !(await shortcutsDialog.isVisible().catch(() => false)),
+  '? is suppressed while typing in the palette input',
+)
+await page.keyboard.press('Escape')
+await page.waitForTimeout(300)
+
+// G then H navigates Home.
+await go(page, '/inbox')
+await page.keyboard.press('g')
+await page.waitForTimeout(150)
+await page.keyboard.press('h')
+await page.waitForTimeout(900)
+check(new URL(page.url()).pathname === '/', 'G then H navigates Home')
 
 // SHELL-02: a second open tab follows the change (cross-tab storage event).
 const tabB = await page.context().newPage()

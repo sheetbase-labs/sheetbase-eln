@@ -55,4 +55,20 @@ describe('createGlobalShortcuts', () => {
     expect(handlers.openHelp).toHaveBeenCalledOnce()
     expect(handlers.toggleRail).toHaveBeenCalledOnce()
   })
+
+  it('adds the Create shortcut only when the shell can open Create', () => {
+    expect(
+      createGlobalShortcuts(makeHandlers()).some((d) => d.id === 'create'),
+    ).toBe(false)
+
+    const openCreate = vi.fn()
+    const definitions = createGlobalShortcuts({
+      ...makeHandlers(),
+      openCreate,
+    })
+    const create = definitions.find((d) => d.id === 'create')
+    expect(create?.keys).toEqual(['c'])
+    create?.handler?.(event())
+    expect(openCreate).toHaveBeenCalledOnce()
+  })
 })

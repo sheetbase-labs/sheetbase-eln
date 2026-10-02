@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { Icon } from '#/components/v3/icons'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Avatar } from '#/components/v3/ui/avatar'
@@ -21,7 +21,16 @@ import {
 } from '#/components/v3/ui/popover'
 import { useTheme } from '#/components/v3/lib/theme'
 import { createDataClient } from '#/lib/data-client'
-import { setUserAppearance } from '#/lib/user-preferences'
+import {
+  fetchUserPreferences,
+  setUserAppearance,
+  setUserPreference,
+} from '#/lib/user-preferences'
+import { createGlobalShortcuts } from '#/lib/global-shortcuts'
+import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
+import { OPEN_SHORTCUTS_EVENT } from '#/lib/shortcuts-dialog'
+import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
+import { ShortcutsDialog } from '#/components/shortcuts/shortcuts-dialog'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 import type { Notification } from '#/components/v3/types'
@@ -30,6 +39,18 @@ import type { NavItem } from './nav'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
+
+const SIDEBAR_COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
+
+/** The `G` then key destinations the design lists (plus the real routes). */
+const G_DESTINATIONS: GlobalShortcutDestination[] = [
+  { key: 'h', to: '/', label: 'Home' },
+  { key: 'i', to: '/inbox', label: 'Inbox' },
+  { key: 'e', to: '/experiments', label: 'Experiments' },
+  { key: 'p', to: '/projects', label: 'Projects' },
+  { key: 'a', to: '/samples', label: 'Samples' },
+  { key: 'd', to: '/datasets', label: 'Datasets' },
+]
 
 type ShellData = {
   me: { name: string; initials: string; role: string }
@@ -50,58 +71,126 @@ export function AppShell({
   data: ShellData
   children: React.ReactNode
 }) {
+  const navigate = useNavigate()
+  const theme = useTheme()
   const [menu, setMenu] = useState(false)
   const [search, setSearch] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+
+  // SHELL-01/03: the sidebar collapse is a per-user preference.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setSearch((open) => !open)
-      }
+    let saved = false
+    try {
+      saved = localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === '1'
+    } catch {
+      /* private mode / disabled storage */
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    setCollapsed(saved)
+    let cancelled = false
+    void fetchUserPreferences(createDataClient())
+      .then((preferences) => {
+        if (!cancelled && preferences) setCollapsed(preferences.navCollapsed)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
   }, [])
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((current) => {
+      const next = !current
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSE_KEY, next ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+      void setUserPreference(createDataClient(), {
+        appearance: theme.pref,
+        navCollapsed: next,
+      }).catch(() => undefined)
+      return next
+    })
+  }, [theme.pref])
+
+  // SHELL-03: one registry for the shell; the `?` dialog is generated from it.
+  const globalShortcuts = useMemo(
+    () =>
+      createGlobalShortcuts({
+        openPalette: () => setSearch(true),
+        openHelp: () => setHelpOpen(true),
+        openCreate: () => setCreateOpen(true),
+        toggleRail: toggleCollapsed,
+        navigate: (to) => void navigate({ to: to as never }),
+        destinations: G_DESTINATIONS,
+      }),
+    [navigate, toggleCollapsed],
+  )
+
+  // The Help page opens the same dialog through the shared event.
+  useEffect(() => {
+    const onOpen = () => setHelpOpen(true)
+    window.addEventListener(OPEN_SHORTCUTS_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_SHORTCUTS_EVENT, onOpen)
+  }, [])
+
   return (
-    <div className="flex h-dvh flex-col">
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
-      >
-        Skip to content
-      </a>
-      <TopBar
-        data={data}
-        onMenu={() => setMenu(true)}
-        onSearch={() => setSearch(true)}
-      />
-      <div className="flex min-h-0 flex-1">
-        <SideNav
-          pinned={data.pinned}
-          counts={data.counts}
-          className="hidden xl:flex"
+    <ShortcutProvider definitions={globalShortcuts}>
+      <div className="flex h-dvh flex-col">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
+        >
+          Skip to content
+        </a>
+        <TopBar
+          data={data}
+          onMenu={() => setMenu(true)}
+          onSearch={() => setSearch(true)}
+          createOpen={createOpen}
+          onCreateOpenChange={setCreateOpen}
         />
-        <NavRail className="hidden lg:flex xl:hidden" />
-        <main id="main" className="flex min-w-0 flex-1 bg-surface">
-          {children}
-        </main>
+        <div className="flex min-h-0 flex-1">
+          {collapsed ? (
+            <NavRail className="hidden lg:flex" />
+          ) : (
+            <>
+              <SideNav
+                pinned={data.pinned}
+                counts={data.counts}
+                className="hidden xl:flex"
+              />
+              <NavRail className="hidden lg:flex xl:hidden" />
+            </>
+          )}
+          <main id="main" className="flex min-w-0 flex-1 bg-surface">
+            {children}
+          </main>
+        </div>
+        <BottomTabs
+          onMenu={() => setMenu(true)}
+          unread={data.notifications.filter((n) => n.unread).length}
+        />
+        <Sheet open={menu} onOpenChange={setMenu}>
+          <SheetContent side="left" title="Sheetbase">
+            <SideNav
+              pinned={data.pinned}
+              counts={data.counts}
+              onNavigate={() => setMenu(false)}
+              className="h-full border-r-0"
+            />
+          </SheetContent>
+        </Sheet>
+        <SearchPalette open={search} onOpenChange={setSearch} />
+        <ShortcutsDialog
+          open={helpOpen}
+          onOpenChange={setHelpOpen}
+          definitions={globalShortcuts}
+        />
       </div>
-      <BottomTabs
-        onMenu={() => setMenu(true)}
-        unread={data.notifications.filter((n) => n.unread).length}
-      />
-      <Sheet open={menu} onOpenChange={setMenu}>
-        <SheetContent side="left" title="Sheetbase">
-          <SideNav
-            pinned={data.pinned}
-            counts={data.counts}
-            onNavigate={() => setMenu(false)}
-            className="h-full border-r-0"
-          />
-        </SheetContent>
-      </Sheet>
-      <SearchPalette open={search} onOpenChange={setSearch} />
-    </div>
+    </ShortcutProvider>
   )
 }
 
@@ -208,10 +297,14 @@ function TopBar({
   data,
   onMenu,
   onSearch,
+  createOpen,
+  onCreateOpenChange,
 }: {
   data: ShellData
   onMenu: () => void
   onSearch: () => void
+  createOpen: boolean
+  onCreateOpenChange: (open: boolean) => void
 }) {
   return (
     <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
@@ -261,16 +354,22 @@ function TopBar({
           <Kbd>⌘K</Kbd>
         </button>
       </div>
-      <NewMenu />
+      <NewMenu open={createOpen} onOpenChange={onCreateOpenChange} />
       <Notifications items={data.notifications} />
       <AccountMenu me={data.me} />
     </header>
   )
 }
 
-function NewMenu() {
+function NewMenu({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
         render={
           <Button

@@ -1,9 +1,18 @@
 # UI port QA — ELN vs `sheetbase-app (5)`
 
 **Status:** review complete. The visual/style drift is fixed (commits
-`5fe5782d`, `a35b61eb`); the structural divergences are filed as issues
-#208–#219. Method and findings are recorded below so every item can be
-re-checked.
+`5fe5782d`, `a35b61eb`); the structural divergences (#208–#219) were then
+worked off along with the capability build-out (see `UI_PORT.md`). Method and
+findings are recorded below so every item can be re-checked.
+
+**Resolved since (§4):** Home (#208), samples/materials Scan label + Import
+(#209), protocols tabs Effective/Mine/In review/Review due/Retired (#210),
+pipelines tabs All/Mine/Needs attention/Scheduled/Drafts (#211), analysis
+Cited in records tab (#212), agents heading + Proposals-first tabs (#213),
+audit Change and Reason columns (#214), signature meanings table (#215),
+Settings General Record IDs + Editing rules (#216), sheets/new Blank sheet
+card (#217), inbox kinds + Notification settings + Mark all seen (#218),
+instruments filter copy "Any" (#219).
 
 ## Method
 

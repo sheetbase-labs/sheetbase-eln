@@ -139,6 +139,10 @@ function Inbox() {
   const groups = useMemo(() => groupWorkItems(items), [items])
   const inTab = items.filter((i) => itemTab(i, seen) === tab)
   const visible = inTab.filter((i) => !type || kindToType(i.kind) === type)
+  const visibleKeys = useMemo(
+    () => new Set(visible.map((i) => itemKey(i))),
+    [visible],
+  )
   const shown = visible.filter((i) => later || !groups.later.includes(i))
   const hiddenLater = groups.later.filter(
     (i) => itemTab(i, seen) === tab && (!type || kindToType(i.kind) === type),
@@ -147,12 +151,20 @@ function Inbox() {
     () =>
       tab === 'needs-action'
         ? [
-            ['Today', groups.today],
-            ['Next 7 days', groups.nextSevenDays],
-            ['Later', later ? groups.later : []],
+            ['Today', groups.today.filter((i) => visibleKeys.has(itemKey(i)))],
+            [
+              'Next 7 days',
+              groups.nextSevenDays.filter((i) => visibleKeys.has(itemKey(i))),
+            ],
+            [
+              'Later',
+              later
+                ? groups.later.filter((i) => visibleKeys.has(itemKey(i)))
+                : [],
+            ],
           ]
         : [[null, shown]],
-    [tab, groups, later, shown],
+    [tab, groups, later, shown, visibleKeys],
   )
   const orderedRows = useMemo(
     () => sections.flatMap(([, group]) => group),
@@ -179,11 +191,7 @@ function Inbox() {
   }, [orderedRows])
   const move = useCallback((delta: number) => {
     setSelectedKey((current) =>
-      moveListSelection(
-        rowsRef.current.map(rowKey),
-        current,
-        delta,
-      ),
+      moveListSelection(rowsRef.current.map(rowKey), current, delta),
     )
   }, [])
   useShortcutScope('list')
@@ -311,7 +319,7 @@ function Inbox() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {shown.length === 0 && hiddenLater === 0 ? (
+          {orderedRows.length === 0 && hiddenLater === 0 ? (
             <div
               role="status"
               className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"

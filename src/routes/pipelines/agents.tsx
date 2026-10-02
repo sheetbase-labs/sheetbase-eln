@@ -73,7 +73,7 @@ function AgentsRoute() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
-  const view = search.view ?? 'workflows'
+  const view = search.view ?? 'proposals'
   const [proposalId, setProposalId] = useState<string | null>(
     search.proposal ?? null,
   )
@@ -282,8 +282,8 @@ function AgentsRoute() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs="Agent operations"
-        title="Agent operations"
+        crumbs="Agents"
+        title="Agents"
         meta={
           <>
             <span>{workflows.length} workflows</span>
@@ -295,14 +295,14 @@ function AgentsRoute() {
             {(
               [
                 {
-                  label: 'Workflows',
-                  view: undefined,
-                  count: workflows.length,
-                },
-                {
                   label: 'Proposals',
                   view: 'proposals' as const,
                   count: proposals.length,
+                },
+                {
+                  label: 'Workflows',
+                  view: 'workflows' as const,
+                  count: workflows.length,
                 },
                 {
                   label: 'Policies',
@@ -311,7 +311,7 @@ function AgentsRoute() {
                 },
               ] as const
             ).map((t) => {
-              const active = view === (t.view ?? 'workflows')
+              const active = view === t.view
               return (
                 <Link
                   key={t.label}

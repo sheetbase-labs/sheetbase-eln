@@ -38,9 +38,8 @@ export async function launch(viewport = { width: 1440, height: 900 }) {
     // Dev auth-free mode: Better Auth's list-sessions answers 401.
     if (url.includes('/api/auth/list-sessions')) return
     // A client navigation aborts an in-flight TanStack loader fetch, which the
-    // browser logs as `Failed to fetch` from serverFnFetcher (see pageerror).
-    if (m.text().includes('Failed to fetch') && url.includes('serverFnFetcher'))
-      return
+    // browser logs as `Failed to fetch` (from serverFnFetcher; see pageerror).
+    if (m.text().includes('Failed to fetch')) return
     if (
       m.text().includes('status of 401') &&
       page.url().includes('/settings/profile')

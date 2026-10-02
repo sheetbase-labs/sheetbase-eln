@@ -91,6 +91,13 @@ export interface RecentItem {
   lastActivityAt: string
   viewedAt: string | null
   editedAt: string | null
+  /**
+   * Canonical lifecycle/state for the object when it has one: a record's
+   * `status`, a dataset/sheet/template `lifecycle`, or a project's `status`.
+   * The Home "Continue working" table shows it as the Status column rather
+   * than inventing a second state store.
+   */
+  status: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -404,6 +411,7 @@ interface RecordLabelWire {
   kind: string
   identifier: string
   title: string
+  status: string
   archived_at: string | null
   deleted_at: string | null
 }
@@ -452,7 +460,7 @@ export async function resolveRecentItems(
       idsByKind.has('record')
         ? client.list<RecordLabelWire & { project_id: string | null }>(
             'records',
-            `?id=in.(${idsByKind.get('record')!.join(',')})&select=id,kind,identifier,title,archived_at,deleted_at`,
+            `?id=in.(${idsByKind.get('record')!.join(',')})&select=id,kind,identifier,title,status,archived_at,deleted_at`,
           )
         : Promise.resolve([]),
       idsByKind.has('dataset')
@@ -470,7 +478,7 @@ export async function resolveRecentItems(
       idsByKind.has('project')
         ? client.list<ProjectWire>(
             'projects',
-            `?id=in.(${idsByKind.get('project')!.join(',')})&select=id,key,title,archived_at`,
+            `?id=in.(${idsByKind.get('project')!.join(',')})&select=id,key,title,status,archived_at`,
           )
         : Promise.resolve([]),
       idsByKind.has('notebook_template')
@@ -488,6 +496,7 @@ export async function resolveRecentItems(
         kind: r.kind,
         identifier: r.identifier,
         title: r.title,
+        status: r.status,
         resumable: r.deleted_at === null && r.archived_at === null,
       },
     ]),
@@ -495,25 +504,39 @@ export async function resolveRecentItems(
   const datasetById = new Map(
     datasetRows.map((d) => [
       d.id,
-      { name: d.name, resumable: d.lifecycle === 'active' },
+      {
+        name: d.name,
+        status: d.lifecycle,
+        resumable: d.lifecycle === 'active',
+      },
     ]),
   )
   const sheetById = new Map(
     sheetRows.map((s) => [
       s.id,
-      { name: s.name, resumable: s.lifecycle === 'active' },
+      { name: s.name, status: s.lifecycle, resumable: s.lifecycle === 'active' },
     ]),
   )
   const templateById = new Map(
     templateRows.map((t) => [
       t.id,
-      { key: t.key, name: t.name, resumable: t.lifecycle === 'active' },
+      {
+        key: t.key,
+        name: t.name,
+        status: t.lifecycle,
+        resumable: t.lifecycle === 'active',
+      },
     ]),
   )
   const projectById = new Map(
     projectRows.map((p) => [
       p.id,
-      { key: p.key, title: p.title, resumable: p.archived_at === null },
+      {
+        key: p.key,
+        title: p.title,
+        status: p.status,
+        resumable: p.archived_at === null,
+      },
     ]),
   )
 
@@ -528,6 +551,7 @@ export async function resolveRecentItems(
           label: record.title,
           identifier: record.identifier,
           destination: recordDestination(record.kind, item.id),
+          status: record.status,
         })
         break
       }
@@ -539,6 +563,7 @@ export async function resolveRecentItems(
           label: dataset.name,
           identifier: null,
           destination: datasetPath(item.id),
+          status: dataset.status,
         })
         break
       }
@@ -550,6 +575,7 @@ export async function resolveRecentItems(
           label: sheet.name,
           identifier: null,
           destination: sheetPath(item.id),
+          status: sheet.status,
         })
         break
       }
@@ -561,6 +587,7 @@ export async function resolveRecentItems(
           label: project.title,
           identifier: project.key,
           destination: projectPath(item.id),
+          status: project.status,
         })
         break
       }
@@ -572,12 +599,71 @@ export async function resolveRecentItems(
           label: template.name,
           identifier: template.key,
           destination: notebookTemplatePath(item.id),
+          status: template.status,
         })
         break
       }
     }
   }
   return resolved
+}
+
+// ---------------------------------------------------------------------------
+// Presentation helpers — pure derivations over resolved items.
+// ---------------------------------------------------------------------------
+
+const OBJECT_NOUNS: Record<RecentObjectKind, string> = {
+  record: 'record',
+  dataset: 'dataset',
+  sheet: 'sheet',
+  project: 'project',
+  notebook_template: 'template',
+}
+
+/**
+ * A short, human description of the user's most recent action on an item, for
+ * the Home "Your last change" column. Derived from the resolved signal and
+ * object kind only; no additional read or state is introduced.
+ */
+export function describeRecentChange(
+  item: Pick<RecentItem, 'kind' | 'signal'>,
+): string {
+  const noun = OBJECT_NOUNS[item.kind]
+  if (item.signal === 'reviewed') return 'Submitted for review'
+  if (item.signal === 'edited') return `Edited ${noun}`
+  return `Viewed ${noun}`
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
+  planned: 'Planned',
+  in_progress: 'In progress',
+  in_review: 'In review',
+  under_review: 'In review',
+  review: 'In review',
+  approved: 'Approved',
+  locked: 'Locked',
+  paused: 'On hold',
+  failed: 'Failed',
+  complete: 'Complete',
+  completed: 'Complete',
+  active: 'Active',
+  archived: 'Archived',
+  retired: 'Retired',
+}
+
+/**
+ * Human label for an item's canonical status. Returns null when the object has
+ * no status; unknown values are title-cased rather than hidden.
+ */
+export function recentStatusLabel(
+  item: Pick<RecentItem, 'status'>,
+): string | null {
+  if (!item.status) return null
+  return (
+    STATUS_LABELS[item.status] ??
+    item.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  )
 }
 
 // ---------------------------------------------------------------------------

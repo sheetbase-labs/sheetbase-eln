@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '#/components/v3/ui/sonner'
@@ -13,6 +13,10 @@ import {
   DescriptionList,
 } from '#/components/v3/ui/layout'
 import { Kbd } from '#/components/v3/ui/kbd'
+import {
+  useRegisterShortcuts,
+  useShortcutScope,
+} from '#/components/shortcuts/shortcut-provider'
 import { cn } from '#/lib/utils'
 import { groupWorkItems, useWorkItems } from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
@@ -68,6 +72,28 @@ export function itemKey(item: WorkItem): string {
   return `${item.kind}:${item.recordId ?? item.identifier ?? item.title}`
 }
 
+/** The per-row identity used for selection and the rendered list key. */
+export function rowKey(item: WorkItem): string {
+  return item.recordId ?? item.identifier ?? item.title
+}
+
+/**
+ * Move an Inbox selection by `delta`, clamping at both ends. A null or unknown
+ * current selection is treated as the first row, so the first `J` advances off
+ * the row that is already implicitly highlighted.
+ */
+export function moveListSelection(
+  keys: readonly string[],
+  current: string | null,
+  delta: number,
+): string | null {
+  if (keys.length === 0) return null
+  const index = current ? keys.indexOf(current) : -1
+  const base = index === -1 ? 0 : index
+  const next = Math.min(keys.length - 1, Math.max(0, base + delta))
+  return keys[next]
+}
+
 function itemTab(item: WorkItem, seen: Set<string>): InboxTab {
   if (item.state === 'following' || item.kind === 'following')
     return 'following'
@@ -117,8 +143,24 @@ function Inbox() {
   const hiddenLater = groups.later.filter(
     (i) => itemTab(i, seen) === tab && (!type || kindToType(i.kind) === type),
   ).length
+  const sections: [string | null, WorkItem[]][] = useMemo(
+    () =>
+      tab === 'needs-action'
+        ? [
+            ['Today', groups.today],
+            ['Next 7 days', groups.nextSevenDays],
+            ['Later', later ? groups.later : []],
+          ]
+        : [[null, shown]],
+    [tab, groups, later, shown],
+  )
+  const orderedRows = useMemo(
+    () => sections.flatMap(([, group]) => group),
+    [sections],
+  )
   const selected =
-    shown.find((i) => (i.recordId ?? i.identifier) === selectedKey) ?? shown[0]
+    orderedRows.find((i) => rowKey(i) === selectedKey) ?? orderedRows[0]
+
   const tabCount = (t: InboxTab) =>
     items.filter((i) => itemTab(i, seen) === t).length
   const typeCount = (t: InboxType) =>
@@ -127,6 +169,45 @@ function Inbox() {
   const needsActionKeys = items
     .filter((i) => itemTab(i, seen) === 'needs-action')
     .map(itemKey)
+
+  // GAP 3 — J/K list navigation through the single shortcut registry. The
+  // ordered rows live in a ref so the registered handlers stay stable and the
+  // provider does not re-register on every render.
+  const rowsRef = useRef<WorkItem[]>(orderedRows)
+  useEffect(() => {
+    rowsRef.current = orderedRows
+  }, [orderedRows])
+  const move = useCallback((delta: number) => {
+    setSelectedKey((current) =>
+      moveListSelection(
+        rowsRef.current.map(rowKey),
+        current,
+        delta,
+      ),
+    )
+  }, [])
+  useShortcutScope('list')
+  useRegisterShortcuts(
+    useMemo(
+      () => [
+        {
+          id: 'inbox-next',
+          scope: 'list' as const,
+          keys: ['j'],
+          description: 'Next item',
+          handler: () => move(1),
+        },
+        {
+          id: 'inbox-prev',
+          scope: 'list' as const,
+          keys: ['k'],
+          description: 'Previous item',
+          handler: () => move(-1),
+        },
+      ],
+      [move],
+    ),
+  )
 
   const markSeen = useMutation({
     mutationFn: (keys: string[]) =>
@@ -140,15 +221,6 @@ function Inbox() {
         error instanceof Error ? error.message : 'Couldn’t mark them.',
       ),
   })
-
-  const sections: [string | null, WorkItem[]][] =
-    tab === 'needs-action'
-      ? [
-          ['Today', groups.today],
-          ['Next 7 days', groups.nextSevenDays],
-          ['Later', later ? groups.later : []],
-        ]
-      : [[null, shown]]
 
   return (
     <div className="flex min-w-0 flex-1">
@@ -277,7 +349,7 @@ function Inbox() {
                       ) : null}
                     </div>
                     {rows.map((i) => {
-                      const key = i.recordId ?? i.identifier ?? i.title
+                      const key = rowKey(i)
                       return (
                         <button
                           key={key}

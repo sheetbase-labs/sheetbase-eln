@@ -1896,6 +1896,13 @@
       "when": 1790925687483,
       "tag": "0272_sparkling_korvac",
       "breakpoints": true
+    },
+    {
+      "idx": 273,
+      "version": "7",
+      "when": 1790930000000,
+      "tag": "0273_inbox_scope_and_gov01",
+      "breakpoints": true
     }
   ]
 }

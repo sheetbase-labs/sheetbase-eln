@@ -49,9 +49,9 @@ beforeAll(async () => {
     [SCHEMA_VERSION, SCHEMA],
   )
   await migrator.query(
-    `insert into api.datasets(id,workspace_id,schema_version_id,name,primary_project_id)
-     values ($1,$2,$3,'WK dataset',null)`,
-    [DATASET, WS, SCHEMA_VERSION],
+    `insert into api.datasets(id,workspace_id,schema_version_id,name,primary_project_id,created_by_user_id)
+     values ($1,$2,$3,'WK dataset',null,$4)`,
+    [DATASET, WS, SCHEMA_VERSION, USER],
   )
   await migrator.query(
     `insert into api.dataset_rows(id,dataset_id,workspace_id) values ($1,$2,$3)`,

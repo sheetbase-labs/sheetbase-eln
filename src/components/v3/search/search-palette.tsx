@@ -1,39 +1,64 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 
 import { Dialog, DialogContent } from '#/components/v3/ui/dialog'
 import { Kbd } from '#/components/v3/ui/kbd'
+import { NativeSelect } from '#/components/v3/projects/select'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
+import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import { Highlight } from './highlight'
-import { executeSearch } from '#/lib/search'
-import type { SearchResult, SearchResultType } from '#/lib/search'
+import {
+  contextualSearchActions,
+  executeSearch,
+  filterBySearchScope,
+  groupSearchResults,
+  searchActionHref,
+  searchResultNewTabUrl,
+  SEARCH_SCOPE_ALL,
+} from '#/lib/search'
+import type {
+  SearchContextAction,
+  SearchResult,
+  SearchResultGroup,
+} from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { cn } from '#/lib/utils'
 
 /**
  * UI port (roadmap-4/ui-app3): the ⌘K search palette. Mounted once in the
- * shell; opens on ⌘K / Ctrl+K and from the top-bar search box. Results come
- * from the real `search` RPC (records, cell values, comments and file
- * contents) through the same-origin data boundary. Enter opens the first
- * result; ⌘↵ opens it in a new tab; "See all" goes to /search.
+ * shell; opens on ⌘K / Ctrl+K and from the top-bar search box. SRCH-02 adds
+ * the design's scope selector, grouped and truncated results, contextual
+ * actions, and keyboard parity: ↑↓ move, ↵ open, ⌘↵ open in a new tab, Esc
+ * closes and returns focus. The shell owns the Cmd-K shortcut, so this
+ * component installs no global key listener.
  */
-const GROUP_LABELS: Record<SearchResultType, string> = {
-  record: 'Records',
-  file: 'Files',
-  dataset: 'Datasets',
-  sheet: 'Sheets',
-  template: 'Templates',
+const MAX_PER_GROUP = 3
+const FETCH_LIMIT = 24
+
+const GROUP_ICONS: Record<SearchResultGroup, IconName> = {
+  Samples: 'tube',
+  'Sheet and dataset rows': 'table',
+  'Notebook text and comments': 'comment',
+  Records: 'box',
+  Files: 'download',
+  Templates: 'template',
 }
 
-const GROUP_ICONS: Record<SearchResultType, IconName> = {
-  record: 'box',
-  file: 'download',
-  dataset: 'database',
-  sheet: 'table',
-  template: 'template',
-}
+type PaletteEntry =
+  | { type: 'result'; result: SearchResult }
+  | { type: 'action'; action: SearchContextAction }
+
+type PaletteRow =
+  | { kind: 'header'; label: string; count?: number }
+  | {
+      kind: 'result'
+      entry: PaletteEntry
+      index: number
+      group: SearchResultGroup
+    }
+  | { kind: 'action'; entry: PaletteEntry; index: number }
 
 export function SearchPalette({
   open: openProp,
@@ -49,30 +74,38 @@ export function SearchPalette({
   const navigate = useNavigate()
   const listId = useId()
   const [q, setQ] = useState(initialQuery)
+  const [scope, setScope] = useState<string>(SEARCH_SCOPE_ALL)
   const [res, setRes] = useState<SearchResult[] | null>(null)
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const restoreFocusRef = useRef<HTMLElement | null>(null)
+  const projects = useProjectNameMap()
 
   const setOpen = (o: boolean) => {
     onOpenChange?.(o)
     if (openProp === undefined) setOpenState(o)
     if (!o) {
       setQ(initialQuery)
+      setScope(SEARCH_SCOPE_ALL)
       setRes(null)
     }
   }
 
+  // Esc is owned by the Dialog primitive, which calls onOpenChange(false).
+  // Capture the previously focused element before moving focus into the
+  // search input, then restore it when the palette closes. The input has no
+  // `autoFocus` so this capture still sees the pre-open element.
   useEffect(() => {
-    if (openProp !== undefined) return
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setOpenState((o) => !o)
-      }
+    if (open) {
+      const el = document.activeElement
+      restoreFocusRef.current =
+        el instanceof HTMLElement && el !== inputRef.current ? el : null
+      inputRef.current?.focus()
+    } else {
+      restoreFocusRef.current?.focus()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [openProp])
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -83,31 +116,106 @@ export function SearchPalette({
     }
     let live = true
     const t = setTimeout(() => {
-      void executeSearch(notebookDataClient, { query: term, limit: 8 }).then(
-        (rows) => {
-          if (live) {
-            setRes(rows)
-            setActive(0)
-          }
-        },
-      )
+      void executeSearch(notebookDataClient, {
+        query: term,
+        limit: FETCH_LIMIT,
+        projectId: scope === SEARCH_SCOPE_ALL ? undefined : scope,
+      }).then((rows) => {
+        if (live) {
+          setRes(rows)
+          setActive(0)
+        }
+      })
     }, 120)
     return () => {
       live = false
       clearTimeout(t)
     }
-  }, [q, open])
+  }, [q, open, scope])
 
   const items = res ?? []
+  const scoped = useMemo(
+    () =>
+      filterBySearchScope(
+        items,
+        scope === SEARCH_SCOPE_ALL ? undefined : scope,
+      ),
+    [items, scope],
+  )
+  const buckets = useMemo(
+    () => groupSearchResults(scoped, MAX_PER_GROUP),
+    [scoped],
+  )
+  const actions = useMemo(() => contextualSearchActions(scoped), [scoped])
+  const rows = useMemo<PaletteRow[]>(() => {
+    const out: PaletteRow[] = []
+    let index = 0
+    for (const bucket of buckets) {
+      out.push({ kind: 'header', label: bucket.group, count: bucket.total })
+      for (const result of bucket.results) {
+        out.push({
+          kind: 'result',
+          entry: { type: 'result', result },
+          index: index++,
+          group: bucket.group,
+        })
+      }
+    }
+    if (actions.length) {
+      out.push({ kind: 'header', label: 'Actions' })
+      for (const action of actions) {
+        out.push({
+          kind: 'action',
+          entry: { type: 'action', action },
+          index: index++,
+        })
+      }
+    }
+    return out
+  }, [buckets, actions])
+  const entryCount = rows.reduce(
+    (n, row) => (row.kind === 'header' ? n : n + 1),
+    0,
+  )
+  const entries = useMemo(
+    () => rows.flatMap((row) => (row.kind === 'header' ? [] : [row.entry])),
+    [rows],
+  )
+  const activeIndex = entryCount ? active % entryCount : 0
 
-  const go = (result: SearchResult | undefined, newTab = false) => {
-    if (!result) return
+  const go = (result: SearchResult, newTab = false) => {
     if (newTab) {
-      window.open(result.deepLink, '_blank', 'noopener')
+      window.open(
+        searchResultNewTabUrl(result.deepLink, window.location.origin),
+        '_blank',
+        'noopener,noreferrer',
+      )
       return
     }
     setOpen(false)
     void navigate({ to: result.deepLink as never })
+  }
+
+  const runAction = (action: SearchContextAction, newTab = false) => {
+    if (newTab) {
+      window.open(
+        searchResultNewTabUrl(searchActionHref(action), window.location.origin),
+        '_blank',
+        'noopener,noreferrer',
+      )
+      return
+    }
+    setOpen(false)
+    void navigate({
+      to: action.to as never,
+      search: action.search as never,
+    })
+  }
+
+  const activate = (entry: PaletteEntry | undefined, newTab = false) => {
+    if (!entry) return
+    if (entry.type === 'result') go(entry.result, newTab)
+    else runAction(entry.action, newTab)
   }
 
   const seeAll = () => {
@@ -118,22 +226,27 @@ export function SearchPalette({
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
-      if (!items.length) return
+      if (!entryCount) return
       const n =
-        (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) %
-        items.length
+        (activeIndex + (e.key === 'ArrowDown' ? 1 : -1) + entryCount) %
+        entryCount
       setActive(n)
       listRef.current
         ?.querySelector(`[data-index="${n}"]`)
         ?.scrollIntoView({ block: 'nearest' })
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (items.length) go(items[active], e.metaKey || e.ctrlKey)
+      if (entryCount) activate(entries[activeIndex], e.metaKey || e.ctrlKey)
       else if (q.trim()) seeAll()
     }
   }
 
-  let lastGroup = ''
+  const totalCount = items[0]?.totalCount
+  const seeAllLabel =
+    scope === SEARCH_SCOPE_ALL && totalCount
+      ? `See all ${totalCount} results`
+      : 'See all results'
+
   return (
     <Dialog
       open={open}
@@ -141,6 +254,7 @@ export function SearchPalette({
         setOpen(o)
         if (!o) {
           setQ(initialQuery)
+          setScope(SEARCH_SCOPE_ALL)
           setRes(null)
         }
       }}
@@ -157,26 +271,42 @@ export function SearchPalette({
           <label className="flex-1">
             <span className="sr-only">Search</span>
             <input
-              autoFocus
+              ref={inputRef}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder="Search experiments, samples, datasets"
               role="combobox"
-              aria-expanded={items.length > 0}
+              aria-expanded={entryCount > 0}
               aria-controls={listId}
               aria-activedescendant={
-                items.length ? `${listId}-${active}` : undefined
+                entryCount ? `${listId}-${activeIndex}` : undefined
               }
               aria-autocomplete="list"
               className="w-full border-0 bg-transparent font-sans text-[15px] text-fg outline-none placeholder:text-fg-faint"
             />
           </label>
+          <label className="shrink-0">
+            <span className="sr-only">Scope</span>
+            <NativeSelect
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+              aria-label="Search scope"
+              className="w-[150px] max-md:w-[128px]"
+            >
+              <option value={SEARCH_SCOPE_ALL}>In: all projects</option>
+              {[...(projects.data ?? new Map()).entries()].map(([id, name]) => (
+                <option key={id} value={id}>
+                  In: {name}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
           <DialogPrimitive.Close className="inline-flex h-9 cursor-pointer items-center rounded-md border-0 bg-transparent px-2 text-body text-link md:hidden">
             Cancel
           </DialogPrimitive.Close>
         </div>
-        {res && res.length === 0 ? (
+        {res !== null && q.trim() && entryCount === 0 ? (
           <div role="status" className="flex flex-col gap-2.5 px-5 py-7">
             <div className="font-semibold">No matches for “{q.trim()}”</div>
             <div className="text-body leading-[19px] text-fg-muted">
@@ -198,46 +328,67 @@ export function SearchPalette({
                 or a value like <span className="mono">C-150</span>.
               </div>
             ) : null}
-            {items.map((item, n) => {
-              const group = GROUP_LABELS[item.resultType]
-              const header = group !== lastGroup ? group : null
-              lastGroup = group
-              return (
-                <div key={`${item.resultType}-${item.recordId}`}>
-                  {header ? (
-                    <div
-                      role="presentation"
-                      className="flex justify-between px-3.5 pb-1 pt-2 text-[11px] font-medium text-fg-muted"
-                    >
-                      <span>{header}</span>
-                    </div>
-                  ) : null}
+            {rows.map((row) => {
+              if (row.kind === 'header') {
+                return (
                   <div
-                    id={`${listId}-${n}`}
-                    data-index={n}
-                    role="option"
-                    aria-selected={n === active}
-                    onMouseMove={() => setActive(n)}
-                    onClick={() => go(item)}
-                    className={cn(
-                      'mx-1 grid cursor-pointer grid-cols-[20px_1fr_auto] items-start gap-2.5 rounded-md px-2.5 py-1.5 text-body max-md:min-h-12 max-md:py-2',
-                      n === active && 'bg-selection',
-                    )}
+                    key={`header-${row.label}`}
+                    role="presentation"
+                    className="flex justify-between px-3.5 pb-1 pt-2 text-[11px] font-medium text-fg-muted"
                   >
-                    <span className="pt-px text-fg-muted">
-                      <Icon name={GROUP_ICONS[item.resultType]} size={14} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="mono mr-1.5 text-fg-muted">
-                        {item.identifier}
-                      </span>
-                      <Highlight text={item.title} q={q.trim()} />
-                      <span className="block truncate text-label text-fg-muted">
-                        {item.matchedContext}
-                      </span>
-                    </span>
-                    {n === active ? <Kbd>↵</Kbd> : <span />}
+                    <span>{row.label}</span>
+                    {row.count !== undefined ? (
+                      <span className="num">{row.count}</span>
+                    ) : null}
                   </div>
+                )
+              }
+              const isActive = row.index === activeIndex
+              const result =
+                row.entry.type === 'result' ? row.entry.result : null
+              const action =
+                row.entry.type === 'action' ? row.entry.action : null
+              const group = row.kind === 'result' ? row.group : null
+              return (
+                <div
+                  key={
+                    result
+                      ? `${result.resultType}-${result.recordId}`
+                      : action?.id
+                  }
+                  id={`${listId}-${row.index}`}
+                  data-index={row.index}
+                  role="option"
+                  aria-selected={isActive}
+                  onMouseMove={() => setActive(row.index)}
+                  onClick={() => activate(row.entry)}
+                  className={cn(
+                    'mx-1 grid cursor-pointer grid-cols-[20px_1fr_auto] items-start gap-2.5 rounded-md px-2.5 py-1.5 text-body max-md:min-h-12 max-md:py-2',
+                    isActive && 'bg-selection',
+                  )}
+                >
+                  <span className="pt-px text-fg-muted">
+                    <Icon
+                      name={group ? GROUP_ICONS[group] : 'plus'}
+                      size={14}
+                    />
+                  </span>
+                  <span className="min-w-0">
+                    {result ? (
+                      <>
+                        <span className="mono mr-1.5 text-fg-muted">
+                          {result.identifier}
+                        </span>
+                        <Highlight text={result.title} q={q.trim()} />
+                        <span className="block truncate text-label text-fg-muted">
+                          {result.matchedContext}
+                        </span>
+                      </>
+                    ) : (
+                      <span>{action?.label}</span>
+                    )}
+                  </span>
+                  {isActive ? <Kbd>↵</Kbd> : <span />}
                 </div>
               )
             })}
@@ -256,13 +407,13 @@ export function SearchPalette({
           <span className="max-md:hidden">
             <Kbd>Esc</Kbd> close
           </span>
-          {res && res.length > 0 ? (
+          {items.length > 0 ? (
             <button
               type="button"
               onClick={seeAll}
               className="ml-auto cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
             >
-              See all results
+              {seeAllLabel}
             </button>
           ) : null}
         </div>

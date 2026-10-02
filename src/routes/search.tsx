@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
@@ -12,14 +12,27 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import { Sheet, SheetContent, SheetTrigger } from '#/components/v3/ui/sheet'
 import { Highlight } from '#/components/v3/search/highlight'
+import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import { cn } from '#/lib/utils'
-import { executeSearch, searchDidYouMean, searchQueryKeys } from '#/lib/search'
-import type { SearchResult } from '#/lib/search'
+import {
+  executeSearch,
+  filterSearchResults,
+  parseMatchedContext,
+  searchDidYouMean,
+  searchQueryKeys,
+  searchResultGroup,
+  urlFiltersToSearchFilters,
+  SEARCH_PAGE_SIZE,
+  SEARCH_RESULT_GROUPS,
+} from '#/lib/search'
+import type { SearchResult, SearchResultGroup } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /** UI port (roadmap-4/ui-app3): the Search results page, wired to the real
  * `search` RPC (records, cell values, comments and file contents) with
- * did-you-mean from `search_did_you_mean`. */
+ * did-you-mean from `search_did_you_mean`. SRCH-02 pushes the URL facets
+ * (type, project, updated) into the RPC and pages with `p_limit`/`p_offset`
+ * instead of fetching a fixed 100 rows and slicing locally. */
 
 interface SearchSearch {
   q?: string
@@ -52,26 +65,6 @@ export const Route = createFileRoute('/search')({
   component: SearchPage,
 })
 
-const GROUPS = [
-  'Samples',
-  'Sheet and dataset rows',
-  'Notebook text and comments',
-  'Records',
-  'Files',
-  'Templates',
-] as const
-type Group = (typeof GROUPS)[number]
-
-function groupOf(result: SearchResult): Group {
-  if (result.resultType === 'file') return 'Files'
-  if (result.resultType === 'template') return 'Templates'
-  if (result.resultType === 'dataset' || result.resultType === 'sheet')
-    return 'Sheet and dataset rows'
-  if (result.matchedField === 'block_text') return 'Notebook text and comments'
-  if (result.kind === 'sample') return 'Samples'
-  return 'Records'
-}
-
 function statusTone(status: string): Tone {
   switch (status) {
     case 'approved':
@@ -98,14 +91,48 @@ function SearchPage() {
   const [draft, setDraft] = useState(q)
   useEffect(() => setDraft(q), [q])
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const projectNames = useProjectNameMap()
 
-  const query = useQuery({
-    queryKey: searchQueryKeys.search({ query: q, limit: 100 }),
-    queryFn: () => executeSearch(notebookDataClient, { query: q, limit: 100 }),
+  // The RPC filters are derived from the URL on every render; TanStack Query
+  // hashes the key structurally, so an equal filter set never refetches.
+  const baseFilters = urlFiltersToSearchFilters(
+    {
+      q,
+      type: search.type,
+      project: search.project,
+      updated: search.updated,
+      archived: search.archived,
+    },
+    0,
+    SEARCH_PAGE_SIZE,
+  )
+
+  const query = useInfiniteQuery({
+    queryKey: searchQueryKeys.search(baseFilters),
+    queryFn: ({ pageParam }) =>
+      executeSearch(notebookDataClient, { ...baseFilters, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      // `.at(0)` is typed as possibly-undefined, unlike `[0]`, so the empty
+      // final page ends pagination without an unsafe index read.
+      const total = lastPage.at(0)?.totalCount
+      const loaded = allPages.reduce((sum, page) => sum + page.length, 0)
+      return total !== undefined && loaded < total ? loaded : undefined
+    },
     enabled: q.trim().length > 0,
     staleTime: 10_000,
   })
-  const results = query.data ?? []
+
+  const loaded = useMemo(() => query.data?.pages.flat() ?? [], [query.data])
+  // Archived is the one facet the RPC cannot express, so the loaded page is
+  // always filtered client-side against the URL. This is the authoritative
+  // facet filter; the RPC narrowing may be a superset.
+  const results = filterSearchResults(loaded, {
+    type: search.type,
+    project: search.project,
+    updated: search.updated,
+    archived: search.archived,
+  })
 
   const suggestionQuery = useQuery({
     queryKey: ['did-you-mean', q],
@@ -115,26 +142,20 @@ function SearchPage() {
   })
 
   const facets = useMemo(() => {
-    const types = new Map<Group, number>()
+    const types = new Map<SearchResultGroup, number>()
+    const projects = new Map<string, number>()
     for (const r of results) {
-      const g = groupOf(r)
+      const g = searchResultGroup(r)
       types.set(g, (types.get(g) ?? 0) + 1)
+      if (r.projectId)
+        projects.set(r.projectId, (projects.get(r.projectId) ?? 0) + 1)
     }
-    return { types }
+    return { types, projects }
   }, [results])
 
   const typeFilter = search.type ?? []
+  const projectFilter = search.project ?? []
   const updatedFilter = search.updated ?? 'any'
-  const now = Date.now()
-  const filtered = results.filter((r) => {
-    if (typeFilter.length && !typeFilter.includes(groupOf(r))) return false
-    if (search.archived ? false : r.archived) return false
-    if (updatedFilter === '7d') {
-      const updated = Date.parse(r.updatedAt)
-      if (!Number.isNaN(updated) && now - updated > 7 * 86_400_000) return false
-    }
-    return true
-  })
 
   const setSearch = (patch: Partial<SearchSearch>) =>
     void navigate({
@@ -142,7 +163,7 @@ function SearchPage() {
       search: (s) => ({ ...s, ...patch }),
       replace: true,
     })
-  const toggleType = (g: Group, on: boolean) =>
+  const toggleType = (g: SearchResultGroup, on: boolean) =>
     setSearch({
       type: on
         ? [...typeFilter, g]
@@ -150,9 +171,18 @@ function SearchPage() {
           ? typeFilter.filter((t) => t !== g)
           : undefined,
     })
+  const toggleProject = (id: string, on: boolean) =>
+    setSearch({
+      project: on
+        ? [...projectFilter, id]
+        : projectFilter.filter((p) => p !== id).length
+          ? projectFilter.filter((p) => p !== id)
+          : undefined,
+    })
 
   const activeFilters =
     typeFilter.length +
+    projectFilter.length +
     (updatedFilter === '7d' ? 1 : 0) +
     (search.archived ? 1 : 0)
 
@@ -168,7 +198,7 @@ function SearchPage() {
           checked={!typeFilter.length}
           onChange={() => setSearch({ type: undefined })}
         />
-        {GROUPS.filter((g) => facets.types.get(g)).map((g) => (
+        {SEARCH_RESULT_GROUPS.filter((g) => facets.types.get(g)).map((g) => (
           <FacetRow
             key={g}
             label={g}
@@ -178,6 +208,22 @@ function SearchPage() {
           />
         ))}
       </fieldset>
+      {facets.projects.size ? (
+        <fieldset className="m-0 flex flex-col gap-0.5 border-0 p-0">
+          <legend className="px-1.5 pb-1 text-label font-medium text-fg-muted">
+            Project
+          </legend>
+          {[...facets.projects.entries()].map(([id, count]) => (
+            <FacetRow
+              key={id}
+              label={projectNames.data?.get(id) ?? id}
+              count={count}
+              checked={projectFilter.includes(id)}
+              onChange={(on) => toggleProject(id, on)}
+            />
+          ))}
+        </fieldset>
+      ) : null}
       <div className="flex flex-col gap-0.5">
         <div className="px-1.5 pb-1 text-label font-medium text-fg-muted">
           Updated
@@ -276,7 +322,7 @@ function SearchPage() {
                 Results for “{q}”
               </h1>
               <span className="num text-body text-fg-muted">
-                {filtered.length}
+                {results.length}
               </span>
               <span className="flex-1" />
               <span className="text-label text-fg-muted max-md:hidden">
@@ -288,7 +334,7 @@ function SearchPage() {
               access
             </div>
 
-            {!query.isLoading && filtered.length === 0 ? (
+            {!query.isLoading && results.length === 0 && !query.hasNextPage ? (
               <NoResults
                 q={q}
                 archived={Boolean(search.archived)}
@@ -298,13 +344,19 @@ function SearchPage() {
                 )}
                 onArchived={() => setSearch({ archived: true })}
                 onClear={() =>
-                  setSearch({ type: undefined, updated: undefined })
+                  setSearch({
+                    type: undefined,
+                    project: undefined,
+                    updated: undefined,
+                  })
                 }
               />
             ) : null}
 
-            {GROUPS.map((group) => {
-              const items = filtered.filter((r) => groupOf(r) === group)
+            {SEARCH_RESULT_GROUPS.map((group) => {
+              const items = results.filter(
+                (r) => searchResultGroup(r) === group,
+              )
               if (!items.length) return null
               return (
                 <section key={group} aria-label={group}>
@@ -324,6 +376,17 @@ function SearchPage() {
                 </section>
               )
             })}
+
+            {query.hasNextPage ? (
+              <div className="mt-4">
+                <Button
+                  onClick={() => void query.fetchNextPage()}
+                  disabled={query.isFetchingNextPage}
+                >
+                  {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
+                </Button>
+              </div>
+            ) : null}
           </>
         )}
       </div>
@@ -352,6 +415,7 @@ function FacetRow({
 }
 
 function Result({ result, q }: { result: SearchResult; q: string }) {
+  const context = parseMatchedContext(result.matchedContext)
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b border-border-subtle py-2.5 md:grid-cols-[minmax(0,1fr)_200px_90px] xl:grid-cols-[minmax(0,1fr)_260px_90px]">
       <div className="min-w-0">
@@ -361,7 +425,20 @@ function Result({ result, q }: { result: SearchResult; q: string }) {
           ) : null}
           <Highlight text={result.title} q={q} />
         </Link>
-        <div className="text-label text-fg-muted">{result.matchedContext}</div>
+        <div className="text-label text-fg-muted">
+          {context.map((segment, i) =>
+            segment.highlighted ? (
+              <mark
+                key={i}
+                className="rounded-[2px] bg-highlight px-px text-fg"
+              >
+                {segment.text}
+              </mark>
+            ) : (
+              <span key={i}>{segment.text}</span>
+            ),
+          )}
+        </div>
         <div className="text-label text-fg-muted">
           {result.matchedField.replace(/_/g, ' ')}
         </div>

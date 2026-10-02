@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest'
 import type { FieldDefinition } from './field-definition'
 import {
   evaluateSheetCalculation,
+  flaggedValueForProvenance,
   sheetCalculationDependenciesFromExpression,
   sheetInstanceCalculationSchema,
 } from './sheet-calculation'
+import { buildFlagIndex } from './dataset-flags'
+import type { DatasetValueFlag } from './dataset-flags'
 
 const RECOVERED = '21000000-0000-4000-8000-000000000001'
 const INPUT = '21000000-0000-4000-8000-000000000002'
@@ -282,5 +285,97 @@ describe('sheetCalculationDependenciesFromExpression', () => {
         columns: eightLocals,
       }),
     ).toEqual([])
+  })
+})
+
+describe('flagged value exclusion in ƒx evaluation', () => {
+  const DATASET = '31000000-0000-4000-8000-000000000001'
+  const ROW = '32000000-0000-4000-8000-000000000001'
+  const FIELD = '33000000-0000-4000-8000-000000000001'
+  const provenance = {
+    sourceKind: 'dataset',
+    sourceDatasetId: DATASET,
+    sourceRowId: ROW,
+    sourceFieldId: FIELD,
+  }
+  const flagged: DatasetValueFlag = {
+    id: '34000000-0000-4000-8000-000000000001',
+    datasetId: DATASET,
+    rowId: ROW,
+    fieldId: FIELD,
+    kind: 'out_of_range',
+    reason: 'Above top standard',
+    comment: null,
+    setAt: '2026-09-25T09:40:00Z',
+  }
+
+  it('resolves a flag only for the flagged Dataset value', () => {
+    const index = buildFlagIndex([flagged])
+    expect(flaggedValueForProvenance(provenance, index)).toEqual(flagged)
+    // Cleared/absent flag: the value is not excluded.
+    expect(flaggedValueForProvenance(provenance, new Map())).toBeUndefined()
+    // Record and unmatched provenance can never carry a Dataset value flag.
+    expect(
+      flaggedValueForProvenance(
+        { sourceKind: 'record', sourceRowId: ROW, sourceFieldId: FIELD },
+        index,
+      ),
+    ).toBeUndefined()
+    expect(
+      flaggedValueForProvenance(
+        { sourceKind: 'dataset', sourceRowId: null, sourceFieldId: FIELD },
+        index,
+      ),
+    ).toBeUndefined()
+  })
+
+  it('returns EXCLUDED and keeps provenance for a flagged dependency', () => {
+    const result = evaluateSheetCalculation({
+      calculationId: OUTPUT,
+      expression: '=A1',
+      outputField: field(OUTPUT),
+      inputs: [
+        {
+          dependency: { kind: 'column', id: RECOVERED },
+          field: field(RECOVERED),
+          state: 'excluded',
+          provenance,
+        },
+      ],
+    })
+    expect(result).toMatchObject({ status: 'error', errorCode: 'EXCLUDED' })
+    if (result.status === 'error')
+      expect(result.dependencyProvenance).toEqual([provenance])
+  })
+
+  it('restores the computed value once the flag is cleared', () => {
+    const present = {
+      dependency: { kind: 'column' as const, id: RECOVERED },
+      field: field(RECOVERED),
+      state: 'present' as const,
+      value: 8,
+      provenance,
+    }
+    const index = buildFlagIndex([flagged])
+    const excluded = evaluateSheetCalculation({
+      calculationId: OUTPUT,
+      expression: '=A1',
+      outputField: field(OUTPUT),
+      inputs: [{ ...present, state: 'excluded' }],
+    })
+    expect(excluded).toMatchObject({ status: 'error', errorCode: 'EXCLUDED' })
+    // Clearing the flag leaves the provenance but no index entry, so a present
+    // input evaluates normally again.
+    expect(flaggedValueForProvenance(provenance, index)).toEqual(flagged)
+    expect(
+      flaggedValueForProvenance(provenance, buildFlagIndex([])),
+    ).toBeUndefined()
+    const restored = evaluateSheetCalculation({
+      calculationId: OUTPUT,
+      expression: '=A1',
+      outputField: field(OUTPUT),
+      inputs: [present],
+    })
+    expect(restored).toMatchObject({ status: 'value', value: 8 })
   })
 })

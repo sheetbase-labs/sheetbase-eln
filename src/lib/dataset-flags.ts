@@ -114,6 +114,37 @@ export interface ExcludedValue {
   flag: DatasetValueFlag
 }
 
+export interface ExclusionSummary {
+  /** Distinct flagged values dropped. */
+  valueCount: number
+  /** Distinct rows with at least one dropped value. */
+  rowCount: number
+  /** Flag kinds present, codepoint-sorted and unique. */
+  kinds: DatasetValueFlagKind[]
+}
+
+/**
+ * DSET-01.2 — count what exclusion dropped so a surface can report "3 values
+ * on 2 rows excluded" instead of silently shrinking its input set.
+ */
+export function summariseExcludedValues(
+  excluded: readonly ExcludedValue[],
+): ExclusionSummary {
+  const values = new Set<string>()
+  const rows = new Set<string>()
+  const kinds = new Set<DatasetValueFlagKind>()
+  for (const item of excluded) {
+    values.add(flagKey(item.rowId, item.fieldId))
+    rows.add(item.rowId)
+    kinds.add(item.flag.kind)
+  }
+  return {
+    valueCount: values.size,
+    rowCount: rows.size,
+    kinds: Array.from(kinds).sort(),
+  }
+}
+
 /**
  * Drops rows whose identifying value is flagged, reporting which values were
  * excluded so a surface can say how many were left out.

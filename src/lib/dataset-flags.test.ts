@@ -6,6 +6,7 @@ import {
   filterRowsByFlags,
   flagKey,
   isValueFlagged,
+  summariseExcludedValues,
   toDatasetValueFlag,
 } from './dataset-flags'
 import type { DatasetValueFlag } from './dataset-flags'
@@ -76,6 +77,35 @@ describe('excluding flagged values', () => {
     expect(excluded).toEqual([
       { rowId: 'r2', fieldId: 'titre', flag: index.get('r2:titre') },
     ])
+  })
+
+  it('summarises excluded values as counts and kinds, deduplicated', () => {
+    const flagged = flag({ rowId: 'r2', fieldId: 'titre' })
+    const summary = summariseExcludedValues([
+      { rowId: 'r2', fieldId: 'titre', flag: flagged },
+      // Same flagged value reached from two calculations must count once.
+      { rowId: 'r2', fieldId: 'titre', flag: flagged },
+      {
+        rowId: 'r3',
+        fieldId: 'viability',
+        flag: flag({
+          id: 'f2',
+          rowId: 'r3',
+          fieldId: 'viability',
+          kind: 'missing_unit',
+        }),
+      },
+    ])
+    expect(summary).toEqual({
+      valueCount: 2,
+      rowCount: 2,
+      kinds: ['missing_unit', 'out_of_range'],
+    })
+    expect(summariseExcludedValues([])).toEqual({
+      valueCount: 0,
+      rowCount: 0,
+      kinds: [],
+    })
   })
 })
 

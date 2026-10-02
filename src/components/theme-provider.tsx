@@ -5,6 +5,11 @@ import * as React from 'react'
 import { createDataClient } from '#/lib/data-client'
 import { fetchUserPreferences, setUserAppearance } from '#/lib/user-preferences'
 import type { Appearance } from '#/lib/user-preferences'
+import {
+  applyThemePref,
+  initTheme,
+  useTheme as useThemeStore,
+} from '#/components/v3/lib/theme'
 
 type Theme = Appearance
 
@@ -15,43 +20,13 @@ interface ThemeContextValue {
 
 const ThemeContext = React.createContext<ThemeContextValue | null>(null)
 
-const THEME_STORAGE_KEY = 'sheetbase-theme'
-
-function readCachedTheme(): Theme {
-  try {
-    const value = localStorage.getItem(THEME_STORAGE_KEY)
-    if (value === 'light' || value === 'dark' || value === 'system')
-      return value
-  } catch {
-    /* private mode / disabled storage */
-  }
-  return 'system'
-}
-
-function applyTheme(theme: Theme) {
-  const root = document.documentElement
-  const dark =
-    theme === 'dark' ||
-    (theme === 'system' &&
-      window.matchMedia('(prefers-color-scheme: dark)').matches)
-  root.classList.toggle('dark', dark)
-}
-
-function cacheTheme(theme: Theme) {
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, theme)
-  } catch {
-    /* ignore */
-  }
-}
-
 /**
  * Theme provider for the application shell (SHELL-02).
  *
- * The appearance setting is per user (System/Light/Dark). `localStorage` is an
- * instant cache for the no-flash script; the server value is the source of
- * truth and is read once signed in, then written back through
- * `set_user_appearance` on change.
+ * Appearance is per user (System/Light/Dark). The shared store
+ * (`#/components/v3/lib/theme`) owns the cache, the DOM and the cross-tab and
+ * System listeners; this provider adds the server read/write so the server
+ * preference is the source of truth once signed in.
  */
 export function ThemeProvider({
   children,
@@ -60,32 +35,26 @@ export function ThemeProvider({
   children: React.ReactNode
   authenticated?: boolean
 }) {
-  const [theme, setThemeState] = React.useState<Theme>('system')
+  const { pref, setPref } = useThemeStore()
   const client = React.useMemo(
     () => (typeof window === 'undefined' ? null : createDataClient()),
     [],
   )
+  const adopted = React.useRef(false)
 
   React.useEffect(() => {
-    const cached = readCachedTheme()
-    setThemeState(cached)
-    applyTheme(cached)
+    initTheme()
   }, [])
 
-  // Adopt the server value when it differs from the local cache.
+  // Adopt the server value once when it differs from the local cache.
   React.useEffect(() => {
-    if (!authenticated || !client) return
+    if (!authenticated || !client || adopted.current) return
     let cancelled = false
     void fetchUserPreferences(client)
       .then((preferences) => {
         if (cancelled || !preferences) return
-        const appearance = preferences.appearance
-        setThemeState((current) => {
-          if (current === appearance) return current
-          applyTheme(appearance)
-          cacheTheme(appearance)
-          return appearance
-        })
+        adopted.current = true
+        if (preferences.appearance !== pref) setPref(preferences.appearance)
       })
       .catch(() => {
         /* offline or signed out: keep the cached theme */
@@ -93,25 +62,23 @@ export function ThemeProvider({
     return () => {
       cancelled = true
     }
-  }, [authenticated, client])
+  }, [authenticated, client, pref, setPref])
 
   const setTheme = React.useCallback(
     (next: Theme) => {
-      setThemeState(next)
-      cacheTheme(next)
-      applyTheme(next)
+      setPref(next)
       if (authenticated && client) {
         void setUserAppearance(client, next).catch(() => {
           /* keep the local choice even if the write fails */
         })
       }
     },
-    [authenticated, client],
+    [authenticated, client, setPref],
   )
 
   const value = React.useMemo<ThemeContextValue>(
-    () => ({ theme, setTheme }),
-    [theme, setTheme],
+    () => ({ theme: pref, setTheme }),
+    [pref, setTheme],
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
@@ -124,3 +91,5 @@ export function useTheme() {
   }
   return value
 }
+
+export { applyThemePref }

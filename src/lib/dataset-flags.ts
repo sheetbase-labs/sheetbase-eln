@@ -179,3 +179,51 @@ export function excludeFlaggedValues<T>(
   }
   return { rows: kept, excluded }
 }
+
+// ---------------------------------------------------------------------------
+// DSET-01.4 — request repeat
+// ---------------------------------------------------------------------------
+
+export interface RequestRepeatInput {
+  /** Source sample record the dilution is derived from. */
+  sourceRecordId: string
+  /** Dataset the planned repeat rows are added to. */
+  datasetId: string
+  scheduledAt?: string | null
+  /** How many planned rows to create (1–96). */
+  plannedRowCount?: number
+  /** Optional coordinates of the flagged measurement being repeated. */
+  sourceRowId?: string | null
+  sourceFieldId?: string | null
+  title?: string | null
+  /** Derived-sample properties (quantity, quantityUnit, storageLocation, …). */
+  properties?: Record<string, unknown>
+}
+
+export interface RequestRepeatResult {
+  sample: Record<string, unknown>
+  plannedRowIds: string[]
+  idempotent: boolean
+}
+
+/**
+ * DSET-01.4 — atomically derive a dilution sample (LAB-01) and plan the
+ * Dataset rows that will hold the repeat measurement, linked to the source
+ * sample. The RPC is writer-gated and rejects a duplicate request for the same
+ * measurement and schedule.
+ */
+export async function requestRepeat(
+  client: DataClient = notebookDataClient,
+  input: RequestRepeatInput,
+): Promise<RequestRepeatResult> {
+  return client.rpc<RequestRepeatResult>('request_repeat', {
+    p_source_record_id: input.sourceRecordId,
+    p_dataset_id: input.datasetId,
+    p_scheduled_at: input.scheduledAt ?? null,
+    p_planned_row_count: input.plannedRowCount ?? 1,
+    p_source_row_id: input.sourceRowId ?? null,
+    p_source_field_id: input.sourceFieldId ?? null,
+    p_title: input.title ?? null,
+    p_properties: input.properties ?? {},
+  })
+}

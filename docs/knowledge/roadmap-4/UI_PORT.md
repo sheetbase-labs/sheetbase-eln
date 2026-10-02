@@ -123,6 +123,39 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 
 ## Progress
 
+- **Capability gaps built out (no gap banners left to gate)**: the screens that
+  showed an honest `CapabilityGap` are now real, each DB-first with a migration,
+  RLS, an RPC and a contract test, and the capability flag retired:
+  - **Open issues (RM-119)**: `api.experiment_open_issue_counts()` counts the
+    uncleared dataset value flags on the datasets an experiment produced; the
+    experiments list shows the count (migration `0264`).
+  - **Sample measurements (RM-112)**: `api.sample_measurements` +
+    `record_sample_measurement`; the sample Measurements tab lists and records
+    values (migration `0267`).
+  - **Experiment results (RM-118)**: `records.decision`/`decision_notes` +
+    `set_experiment_decision`; the Results tab shows the cited analyses, the
+    datasets produced and the decision (migration `0268`).
+  - **Inbox kinds (RM-116)**: `api.my_work_items` also returns data issues
+    (uncleared flags) and expiring materials, workspace-wide; the Inbox gains
+    those type tabs (migrations `0269`/`0270`).
+  - **Bench reading (RM-109 / MOB-02)**: `/readings/new` records a value against
+    a sample through `record_sample_measurement`.
+  - **Pipeline steps (RM-125)**: the Steps tab edits the stored version
+    configuration and saves/publishes a draft through the pipeline RPCs.
+  - **Protocol documents + training (RM-104)**: the Document tab renders the
+    protocol's rich-text blocks; migration `0271` adds `api.protocol_training` +
+    `record_protocol_training` and the Training tab lists who is trained.
+    The capability registry (`#/lib/capabilities`) now has no keys; the only
+    remaining `CapabilityGap` is the deployment support bundle.
+
+- **Sidebar, Home and new-experiment fields**: the shell nav carries live
+  **Datasets errors** and **Pipelines failed** counts; Home matches the reference
+  (status chip row, Awaiting your review, Continue working, inspector with
+  Today / Needs attention / Recent activity); the new-experiment form records a
+  reviewer and planned end and links the protocol and copied materials
+  (migration `0266`). The dev session runs in the design Process Development
+  workspace so the whole seeded platform is visible.
+
 - **Reference-parity pass (UI port QA)**: every screen was compared against the
   reference app (`sheetbase-app (5)`) by source token diff, computed-style diff
   and visual side-by-side; findings and method are in

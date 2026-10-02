@@ -496,6 +496,10 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignResults(db),
   },
   {
+    name: 'design protocol training',
+    run: (db) => seedDesignProtocolTraining(db),
+  },
+  {
     name: 'design work items',
     run: (db) => seedDesignWorkItems(db),
   },
@@ -2441,6 +2445,95 @@ async function seedDesignProjectDetails(
         ),
       )
   }
+}
+
+/**
+ * Design protocol training (RM-104): record who is trained on a design
+ * protocol, so the protocol Training tab shows a real list.
+ */
+async function seedDesignProtocolTraining(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  await withDesignClaims(db, actorId, workspaceId, async (client) => {
+    const protocol = DESIGN_PROTOCOLS.at(0)
+    if (!protocol) return
+
+    // A controlled document: the record's rich-text blocks.
+    const hasDoc = await client.query(
+      'select 1 from api.blocks where record_id = $1 limit 1',
+      [protocol.id],
+    )
+    if ((hasDoc.rowCount ?? 0) === 0) {
+      const doc = {
+        type: 'doc',
+        content: [
+          {
+            type: 'heading',
+            attrs: { level: 2 },
+            content: [{ type: 'text', text: 'Purpose' }],
+          },
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'Transfect HEK293 cells with the PEI:DNA complex and record viability and titre at 72 h.',
+              },
+            ],
+          },
+          {
+            type: 'heading',
+            attrs: { level: 2 },
+            content: [{ type: 'text', text: 'Procedure' }],
+          },
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'Seed 3 × 10⁵ cells/mL, add the complex at a 1:3 ratio, then sample daily for viability.',
+              },
+            ],
+          },
+          {
+            type: 'heading',
+            attrs: { level: 2 },
+            content: [{ type: 'text', text: 'Acceptance criteria' }],
+          },
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'Viability ≥ 90 % and titre within 20 % of the reference batch.',
+              },
+            ],
+          },
+        ],
+      }
+      await client.query(
+        `insert into api.blocks
+           (record_id, type, payload, payload_schema_version, "order", version, created_by_user_id)
+         values ($1,'rich_text',$2::jsonb,1,1,1,$3)`,
+        [protocol.id, JSON.stringify({ doc }), actorId],
+      )
+    }
+
+    const records = [
+      { user: DESIGN_USER_IDS.priya, status: 'trained' },
+      { user: DESIGN_USER_IDS.mei, status: 'trained' },
+      { user: DESIGN_USER_IDS.tom, status: 'required' },
+    ]
+    for (const t of records) {
+      await client.query('select api.record_protocol_training($1,$2,$3)', [
+        protocol.id,
+        t.user,
+        t.status,
+      ])
+    }
+  })
 }
 
 /**

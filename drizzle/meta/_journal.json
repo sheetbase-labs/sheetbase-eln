@@ -1882,6 +1882,13 @@
       "when": 1790897000000,
       "tag": "0270_inbox_workspace_scoped",
       "breakpoints": true
+    },
+    {
+      "idx": 271,
+      "version": "7",
+      "when": 1790901514058,
+      "tag": "0271_stiff_emma_frost",
+      "breakpoints": true
     }
   ]
 }

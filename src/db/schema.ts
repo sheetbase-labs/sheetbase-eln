@@ -3449,6 +3449,46 @@ export const sampleMeasurements = api.table(
 )
 
 /**
+ * protocol_training (RM-104) — who is trained on a protocol record. Members
+ * read; writes go through `record_protocol_training`.
+ */
+export const protocolTraining = api.table(
+  'protocol_training',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    protocolRecordId: uuid('protocol_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('required'),
+    trainedAt: timestamp('trained_at', { withTimezone: true, mode: 'date' }),
+    dueAt: timestamp('due_at', { withTimezone: true, mode: 'date' }),
+    notes: text('notes'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_protocol_training_protocol_user').on(
+      table.protocolRecordId,
+      table.userId,
+    ),
+    check(
+      'chk_protocol_training_status',
+      sql`${table.status} IN ('required', 'trained', 'expired')`,
+    ),
+    index('idx_protocol_training_protocol').on(table.protocolRecordId),
+    index('idx_protocol_training_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
  * dataset_version_flags (DSET-01.1) — the active value flags frozen into a
  * snapshot at capture, so a review sees the flags as they were.
  */

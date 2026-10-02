@@ -14,7 +14,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 
-export const capabilityKeys = ['protocolDocuments'] as const
+export const capabilityKeys = [] as const
 
 export type CapabilityKey = (typeof capabilityKeys)[number]
 export type Capabilities = Record<CapabilityKey, boolean>
@@ -22,12 +22,10 @@ export type Capabilities = Record<CapabilityKey, boolean>
 /** The all-off baseline: what the UI shows when nothing is enabled. */
 export const noCapabilities: Capabilities = Object.fromEntries(
   capabilityKeys.map((key) => [key, false]),
-) as Capabilities
+)
 
 /** Roadmap item tracking each gap; CapabilityGap shows it to admins only. */
-export const capabilityRoadmap: Record<CapabilityKey, string> = {
-  protocolDocuments: 'RM-104',
-}
+export const capabilityRoadmap: Record<CapabilityKey, string> = {}
 
 /** Parse the deployment allow-list. Pure, so it is unit-testable. */
 export function capabilitiesFromEnv(
@@ -41,7 +39,7 @@ export function capabilitiesFromEnv(
   )
   return Object.fromEntries(
     capabilityKeys.map((key) => [key, enabled.has(key)]),
-  ) as Capabilities
+  )
 }
 
 const getCapabilitiesFn = createServerFn({ method: 'GET' }).handler(async () =>

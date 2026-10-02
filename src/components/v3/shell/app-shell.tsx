@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { Icon } from '#/components/v3/icons'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Avatar } from '#/components/v3/ui/avatar'
@@ -8,7 +8,9 @@ import { Kbd } from '#/components/v3/ui/kbd'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuLinkItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -23,6 +25,7 @@ import { useTheme } from '#/components/v3/lib/theme'
 import { createDataClient } from '#/lib/data-client'
 import {
   fetchUserPreferences,
+  setActiveWorkspace,
   setUserAppearance,
   setUserPreference,
 } from '#/lib/user-preferences'
@@ -58,6 +61,9 @@ type ShellData = {
   pinned: { id: string; name: string; tone: 'progress' | 'review' }[]
   /** Live counts keyed by nav label: Inbox, Datasets, Pipelines. */
   counts?: { inbox?: string; datasets?: string; pipelines?: string }
+  /** SHELL-01: the caller's active workspace and all their memberships. */
+  workspace?: { id: string; name: string } | null
+  workspaces?: { id: string; name: string }[]
 }
 
 /**
@@ -72,6 +78,7 @@ export function AppShell({
   children: React.ReactNode
 }) {
   const navigate = useNavigate()
+  const router = useRouter()
   const theme = useTheme()
   const [menu, setMenu] = useState(false)
   const [search, setSearch] = useState(false)
@@ -115,6 +122,20 @@ export function AppShell({
     })
   }, [theme.pref])
 
+  // SHELL-01: switch the active workspace, then re-resolve the shell context
+  // (and every workspace-scoped query) for the new workspace.
+  const switchWorkspace = useCallback(
+    async (workspaceId: string) => {
+      try {
+        await setActiveWorkspace(createDataClient(), workspaceId)
+      } catch {
+        /* keep the current workspace if the switch is refused */
+      }
+      router.invalidate()
+    },
+    [router],
+  )
+
   // SHELL-03: one registry for the shell; the `?` dialog is generated from it.
   const globalShortcuts = useMemo(
     () =>
@@ -151,6 +172,9 @@ export function AppShell({
           onSearch={() => setSearch(true)}
           createOpen={createOpen}
           onCreateOpenChange={setCreateOpen}
+          onSwitchWorkspace={(workspaceId) => {
+            void switchWorkspace(workspaceId)
+          }}
         />
         <div className="flex min-h-0 flex-1">
           {collapsed ? (
@@ -299,12 +323,14 @@ function TopBar({
   onSearch,
   createOpen,
   onCreateOpenChange,
+  onSwitchWorkspace,
 }: {
   data: ShellData
   onMenu: () => void
   onSearch: () => void
   createOpen: boolean
   onCreateOpenChange: (open: boolean) => void
+  onSwitchWorkspace: (workspaceId: string) => void
 }) {
   return (
     <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
@@ -334,6 +360,11 @@ function TopBar({
         </svg>
         Sheetbase
       </Link>
+      <WorkspaceSwitcher
+        workspace={data.workspace ?? null}
+        workspaces={data.workspaces ?? []}
+        onSwitch={onSwitchWorkspace}
+      />
       <div className="flex min-w-0 flex-1 justify-end md:justify-center">
         <Button
           variant="quiet"
@@ -358,6 +389,57 @@ function TopBar({
       <Notifications items={data.notifications} />
       <AccountMenu me={data.me} />
     </header>
+  )
+}
+
+/**
+ * SHELL-01: the top-bar workspace switcher. Lists the caller's memberships and
+ * sets the active workspace for the session; a non-member workspace is refused
+ * by the `set_active_workspace` RPC.
+ */
+function WorkspaceSwitcher({
+  workspace,
+  workspaces,
+  onSwitch,
+}: {
+  workspace: { id: string; name: string } | null
+  workspaces: { id: string; name: string }[]
+  onSwitch: (workspaceId: string) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="quiet"
+            size="sm"
+            aria-label="Switch workspace"
+            className="hidden max-w-52 gap-1.5 text-fg-muted sm:flex"
+          />
+        }
+      >
+        <span className="truncate">{workspace?.name ?? 'No workspace'}</span>
+        <Icon name="chevronDown" size={14} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-[240px]">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+          {workspaces.map((item) => (
+            <DropdownMenuItem
+              key={item.id}
+              icon={item.id === workspace?.id ? 'check' : undefined}
+              onClick={() => {
+                if (item.id !== workspace?.id) onSwitch(item.id)
+              }}
+            >
+              {item.name}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

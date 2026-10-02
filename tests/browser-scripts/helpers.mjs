@@ -21,12 +21,26 @@ export async function launch(viewport = { width: 1440, height: 900 }) {
   const context = await browser.newContext({ viewport })
   const page = await context.newPage()
   const errors = []
-  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('pageerror', (e) => {
+    // A client navigation aborts any in-flight TanStack route-loader fetch; the
+    // browser reports the aborted fetch as an uncaught error. It is a harness
+    // artifact of the suite navigating quickly, not an application fault.
+    if (
+      e.message.includes('Failed to fetch') &&
+      e.message.includes('serverFnFetcher')
+    )
+      return
+    errors.push(e.message)
+  })
   page.on('console', (m) => {
     if (m.type() !== 'error' || m.text().includes('hydrated')) return
     const url = m.location()?.url ?? ''
     // Dev auth-free mode: Better Auth's list-sessions answers 401.
     if (url.includes('/api/auth/list-sessions')) return
+    // A client navigation aborts an in-flight TanStack loader fetch, which the
+    // browser logs as `Failed to fetch` from serverFnFetcher (see pageerror).
+    if (m.text().includes('Failed to fetch') && url.includes('serverFnFetcher'))
+      return
     if (
       m.text().includes('status of 401') &&
       page.url().includes('/settings/profile')

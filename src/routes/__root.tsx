@@ -240,12 +240,21 @@ function RootRouteComponent() {
           tone: 'progress' | 'review'
         }[],
         counts: shellCounts,
+        workspace: auth.workspace
+          ? { id: auth.workspace.id, name: auth.workspace.name }
+          : null,
+        workspaces: auth.workspaces.map((workspace) => ({
+          id: workspace.id,
+          name: workspace.name,
+        })),
       }
     : {
         me: { name: '', initials: '', role: '' },
         notifications: [],
         pinned: [],
         counts: {},
+        workspace: null,
+        workspaces: [],
       }
 
   return (

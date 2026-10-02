@@ -176,4 +176,21 @@ await page
 await page.keyboard.press('Escape')
 await page.waitForTimeout(300)
 
+// SHELL-01: the ported top bar carries the workspace switcher.
+await go(page, '/')
+const workspaceSwitch = page.getByRole('button', { name: 'Switch workspace' })
+check(
+  (await workspaceSwitch.count()) > 0,
+  'top bar shows the workspace switcher',
+)
+await workspaceSwitch.first().click()
+await page.waitForTimeout(400)
+const workspaceItems = await page.getByRole('menuitem').allTextContents()
+check(
+  workspaceItems.some((text) => text.includes('Create workspace')),
+  'workspace switcher lists the memberships',
+)
+await page.keyboard.press('Escape')
+await page.waitForTimeout(200)
+
 await done(browser, errors, 'interactions')

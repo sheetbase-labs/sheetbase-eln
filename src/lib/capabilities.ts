@@ -14,11 +14,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 
-export const capabilityKeys = [
-  'protocolDocuments',
-  'pipelineSteps',
-  'benchReading',
-] as const
+export const capabilityKeys = ['protocolDocuments', 'pipelineSteps'] as const
 
 export type CapabilityKey = (typeof capabilityKeys)[number]
 export type Capabilities = Record<CapabilityKey, boolean>
@@ -32,7 +28,6 @@ export const noCapabilities: Capabilities = Object.fromEntries(
 export const capabilityRoadmap: Record<CapabilityKey, string> = {
   protocolDocuments: 'RM-104',
   pipelineSteps: 'RM-125',
-  benchReading: 'RM-109',
 }
 
 /** Parse the deployment allow-list. Pure, so it is unit-testable. */

@@ -42,7 +42,7 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const context = await getCurrentContext(getRequestHeaders())
   if (!context?.workspace) return { context, counts: {} }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
-  const counts = await getShellCounts(context.workspace.id)
+  const counts = await getShellCounts(context.workspace.id, context.user.id)
   return { context, counts }
 })
 

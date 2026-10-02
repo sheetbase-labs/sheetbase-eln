@@ -12,8 +12,35 @@ export interface ShellCounts {
 
 export async function getShellCounts(
   workspaceId: string,
+  userId: string,
 ): Promise<ShellCounts> {
   const client = db.$client
+  // The Inbox view reads the caller's claims, so run it in a transaction with
+  // the claims set for the pool connection.
+  const inboxCount = await (async () => {
+    const c = await client.connect()
+    try {
+      await c.query('begin')
+      await c.query("select set_config('request.jwt.claims', $1, true)", [
+        JSON.stringify({
+          sub: userId,
+          workspace_id: workspaceId,
+          role: 'authenticated',
+        }),
+      ])
+      const r = await c.query<{ n: string }>(
+        "select count(*)::int as n from api.my_work_items where state <> 'following'",
+      )
+      await c.query('commit')
+      return Number(r.rows[0]?.n ?? 0)
+    } catch {
+      await c.query('rollback').catch(() => {})
+      return 0
+    } finally {
+      c.release()
+    }
+  })()
+
   const [flags, failed] = await Promise.all([
     client.query<{ n: string }>(
       `select count(*)::int as n from api.dataset_value_flags
@@ -36,6 +63,7 @@ export async function getShellCounts(
   const flagCount = num(flags)
   const failedCount = num(failed)
   return {
+    ...(inboxCount > 0 ? { inbox: String(inboxCount) } : {}),
     ...(flagCount > 0
       ? { datasets: `${flagCount} ${flagCount === 1 ? 'error' : 'errors'}` }
       : {}),

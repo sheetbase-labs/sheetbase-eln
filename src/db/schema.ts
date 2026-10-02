@@ -3155,6 +3155,12 @@ export const datasetRows = api.table(
       .default(sql`1`),
     /** DSET-01.3 — a planned row (repeat requested) holds no values yet. */
     status: text('status').notNull().default('recorded'),
+    /**
+     * DSET-01.3 — stable import matching key. A later import whose row carries
+     * the same key (scoped to this Dataset) fills the planned row instead of
+     * inserting a duplicate. NULL for ordinary rows.
+     */
+    plannedKey: text('planned_key'),
     scheduledAt: timestamp('scheduled_at', {
       withTimezone: true,
       mode: 'date',
@@ -3167,6 +3173,13 @@ export const datasetRows = api.table(
       'chk_dataset_rows_status',
       sql`${table.status} IN ('planned', 'recorded')`,
     ),
+    check(
+      'chk_dataset_rows_planned_key',
+      sql`${table.plannedKey} IS NULL OR length(${table.plannedKey}) BETWEEN 1 AND 200`,
+    ),
+    uniqueIndex('uq_dataset_rows_planned_key')
+      .on(table.datasetId, table.plannedKey)
+      .where(sql`${table.status} = 'planned' AND ${table.plannedKey} IS NOT NULL`),
     index('idx_dataset_rows_dataset').on(table.datasetId),
     index('idx_dataset_rows_workspace').on(table.workspaceId),
   ],

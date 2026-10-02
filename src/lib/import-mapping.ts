@@ -33,6 +33,12 @@ export interface MappedImportRow {
   values: Record<string, unknown>
   title?: string
   status?: string
+  /**
+   * DSET-01.3 — optional sample/well key. When set, a Dataset import fills a
+   * matching active planned row instead of creating a duplicate. Ignored for
+   * Record imports.
+   */
+  plannedKey?: string
 }
 
 export interface MappedImport {

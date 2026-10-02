@@ -54,6 +54,12 @@ export interface DatasetCommitRow {
   rowId: string
   expectedRevision?: number
   values: Record<string, unknown>
+  /**
+   * DSET-01.3 — optional sample/well key for creates. A matching active
+   * planned row in the same Dataset is filled (planned→recorded) instead of a
+   * new row being inserted. Rejected on updates.
+   */
+  plannedKey?: string
 }
 
 export interface DatasetCommitResult {

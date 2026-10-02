@@ -78,6 +78,7 @@ async function commitDatasetImport(
     operation: 'create' as const,
     rowId: row.rowId,
     values: row.values,
+    ...(row.plannedKey ? { plannedKey: row.plannedKey } : {}),
   }))
   const validated = await validateDatasetRowBatch(client, {
     datasetId: target.datasetId,

@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from '#/components/v3/ui/sonner'
+import { notebookDataClient } from '#/lib/notebook-data'
 
 import { Button } from '#/components/v3/ui/button'
 import { Dot, Status } from '#/components/v3/ui/status'
@@ -60,10 +63,16 @@ function labelFor(kind: WorkItemKind, state: string): string {
   return 'Following'
 }
 
-function itemTab(item: WorkItem): InboxTab {
+/** Stable key for an Inbox item across reloads. */
+export function itemKey(item: WorkItem): string {
+  return `${item.kind}:${item.recordId ?? item.identifier ?? item.title}`
+}
+
+function itemTab(item: WorkItem, seen: Set<string>): InboxTab {
   if (item.state === 'following' || item.kind === 'following')
     return 'following'
-  if (item.state === 'done_today') return 'done-today'
+  if (seen.has(itemKey(item)) || item.state === 'done_today')
+    return 'done-today'
   return 'needs-action'
 }
 
@@ -87,18 +96,50 @@ function Inbox() {
   const [later, setLater] = useState(false)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
 
+  const queryClient = useQueryClient()
+  const seenQuery = useQuery({
+    queryKey: ['ui-port', 'inbox', 'seen'],
+    queryFn: async () => {
+      const rows = await notebookDataClient.list<{ item_key: string }>(
+        'work_item_views',
+        '?select=item_key',
+      )
+      return new Set(rows.map((r) => r.item_key))
+    },
+    staleTime: 15_000,
+  })
+  const seen = seenQuery.data ?? new Set<string>()
+
   const groups = useMemo(() => groupWorkItems(items), [items])
-  const inTab = items.filter((i) => itemTab(i) === tab)
+  const inTab = items.filter((i) => itemTab(i, seen) === tab)
   const visible = inTab.filter((i) => !type || kindToType(i.kind) === type)
   const shown = visible.filter((i) => later || !groups.later.includes(i))
   const hiddenLater = groups.later.filter(
-    (i) => itemTab(i) === tab && (!type || kindToType(i.kind) === type),
+    (i) => itemTab(i, seen) === tab && (!type || kindToType(i.kind) === type),
   ).length
   const selected =
     shown.find((i) => (i.recordId ?? i.identifier) === selectedKey) ?? shown[0]
-  const tabCount = (t: InboxTab) => items.filter((i) => itemTab(i) === t).length
+  const tabCount = (t: InboxTab) =>
+    items.filter((i) => itemTab(i, seen) === t).length
   const typeCount = (t: InboxType) =>
     inTab.filter((i) => kindToType(i.kind) === t).length
+
+  const needsActionKeys = items
+    .filter((i) => itemTab(i, seen) === 'needs-action')
+    .map(itemKey)
+
+  const markSeen = useMutation({
+    mutationFn: (keys: string[]) =>
+      notebookDataClient.rpc('mark_work_items_seen', { p_item_keys: keys }),
+    onSuccess: () => {
+      toast('Marked as seen')
+      void queryClient.invalidateQueries({ queryKey: ['ui-port', 'inbox'] })
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : 'Couldn’t mark them.',
+      ),
+  })
 
   const sections: [string | null, WorkItem[]][] =
     tab === 'needs-action'
@@ -118,6 +159,19 @@ function Inbox() {
             <span className="ml-1 text-body text-fg-muted max-md:hidden">
               Everything waiting on you, across projects
             </span>
+            <span className="flex-1" />
+            <Button
+              nativeButton={false}
+              render={<Link to="/settings/notifications" />}
+            >
+              Notification settings
+            </Button>
+            <Button
+              disabled={markSeen.isPending || needsActionKeys.length === 0}
+              onClick={() => markSeen.mutate(needsActionKeys)}
+            >
+              Mark all seen
+            </Button>
           </div>
           <div
             role="tablist"

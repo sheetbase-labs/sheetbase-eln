@@ -3449,6 +3449,30 @@ export const sampleMeasurements = api.table(
 )
 
 /**
+ * work_item_views (RM-116) — which Inbox work items a person has seen, so
+ * "Mark all seen" clears the needs-action list. Own rows only.
+ */
+export const workItemViews = api.table(
+  'work_item_views',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    itemKey: text('item_key').notNull(),
+    seenAt: timestamp('seen_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.itemKey] }),
+    index('idx_work_item_views_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
  * protocol_training (RM-104) — who is trained on a protocol record. Members
  * read; writes go through `record_protocol_training`.
  */

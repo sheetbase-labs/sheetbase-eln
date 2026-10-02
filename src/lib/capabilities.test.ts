@@ -15,18 +15,17 @@ describe('capabilities', () => {
 
   it('enables only the keys in the allow-list', () => {
     const caps = capabilitiesFromEnv({
-      SHEETBASE_CAPABILITIES: 'pipelineSteps, protocolDocuments',
+      SHEETBASE_CAPABILITIES: 'protocolDocuments, notARealCapability',
     })
-    expect(caps.pipelineSteps).toBe(true)
     expect(caps.protocolDocuments).toBe(true)
     expect(Object.keys(caps)).toHaveLength(capabilityKeys.length)
   })
 
   it('ignores unknown keys and whitespace', () => {
     const caps = capabilitiesFromEnv({
-      SHEETBASE_CAPABILITIES: '  pipelineSteps , notARealCapability ,,',
+      SHEETBASE_CAPABILITIES: '  protocolDocuments , notARealCapability ,,',
     })
-    expect(caps.pipelineSteps).toBe(true)
+    expect(caps.protocolDocuments).toBe(true)
     expect(Object.keys(caps)).toEqual([...capabilityKeys])
   })
 

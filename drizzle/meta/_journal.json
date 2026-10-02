@@ -1903,6 +1903,13 @@
       "when": 1790930000000,
       "tag": "0273_inbox_scope_and_gov01",
       "breakpoints": true
+    },
+    {
+      "idx": 274,
+      "version": "7",
+      "when": 1790931000000,
+      "tag": "0274_schedule_bookkeeping_not_audited",
+      "breakpoints": true
     }
   ]
 }

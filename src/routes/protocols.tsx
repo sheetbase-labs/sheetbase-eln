@@ -39,13 +39,14 @@ import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
 import type { Tone } from '#/components/v3/ui/status'
 
-const tabs = ['all', 'active', 'review', 'drafts'] as const
+const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'retired'] as const
 type ProtocolTab = (typeof tabs)[number]
 const tabLabel: Record<ProtocolTab, string> = {
-  all: 'All',
-  active: 'Active',
-  review: 'In review',
-  drafts: 'Drafts',
+  effective: 'Effective',
+  mine: 'Mine',
+  inreview: 'In review',
+  reviewdue: 'Review due',
+  retired: 'Retired',
 }
 
 /** UI port (roadmap-4/ui-app3): the Protocols list on protocol-template
@@ -57,13 +58,9 @@ export const Route = createFileRoute('/protocols')({
   ): { q?: string; tab?: ProtocolTab; selected?: string } => ({
     q: typeof search.q === 'string' ? search.q : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
-    tab:
-      search.tab === 'active' ||
-      search.tab === 'review' ||
-      search.tab === 'drafts' ||
-      search.tab === 'all'
-        ? search.tab
-        : undefined,
+    tab: (tabs as readonly string[]).includes(search.tab as string)
+      ? (search.tab as ProtocolTab)
+      : undefined,
   }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -101,14 +98,31 @@ export function protocolStatus(status: string): { tone: Tone; label: string } {
   }
 }
 
-function inTab(status: string, tab: ProtocolTab): boolean {
-  if (tab === 'all') return true
-  if (tab === 'active') return status === 'active'
-  if (tab === 'review') return status === 'under_review'
-  return status === 'draft'
+interface ProtocolTabInput {
+  status: string
+  ownerId: string
+  reviewDueAt: string | null
+}
+
+function inTab(
+  r: ProtocolTabInput,
+  tab: ProtocolTab,
+  currentUserId: string,
+): boolean {
+  if (tab === 'effective') return r.status === 'active'
+  if (tab === 'mine') return r.ownerId === currentUserId
+  if (tab === 'inreview') return r.status === 'under_review'
+  if (tab === 'reviewdue')
+    return (
+      r.status === 'under_review' &&
+      r.reviewDueAt !== null &&
+      Date.parse(r.reviewDueAt) <= Date.now()
+    )
+  return r.status === 'archived'
 }
 
 function ProtocolsList() {
+  const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const [selected, setSelected] = useState<string | null>(null)
@@ -120,18 +134,35 @@ function ProtocolsList() {
   })
   const rows = query.data ?? []
   const names = useUserNames(rows.map((r) => r.createdByUserId).filter(Boolean))
-  const tab: ProtocolTab = search.tab ?? 'all'
+  const currentUserId = context.user.id
+  const tab: ProtocolTab = search.tab ?? 'effective'
+  const tabInput = useMemo(
+    () =>
+      rows.map((r) => ({
+        status: r.status,
+        ownerId: r.createdByUserId,
+        reviewDueAt: (r.properties.review_due_at as string | undefined) ?? null,
+      })),
+    [rows],
+  )
   const counts = useMemo(
     () =>
       Object.fromEntries(
-        tabs.map((t) => [t, rows.filter((r) => inTab(r.status, t)).length]),
+        tabs.map((t) => [
+          t,
+          tabInput.filter((r) => inTab(r, t, currentUserId)).length,
+        ]),
       ) as Record<ProtocolTab, number>,
-    [rows],
+    [tabInput, currentUserId],
   )
   const q = (search.q ?? '').trim().toLowerCase()
   const visible = rows
-    .filter((r) => inTab(r.status, tab))
-    .filter((r) => !q || `${r.identifier} ${r.title}`.toLowerCase().includes(q))
+    .map((r, i) => ({ r, input: tabInput[i] }))
+    .filter(({ input }) => inTab(input, tab, currentUserId))
+    .filter(
+      ({ r }) => !q || `${r.identifier} ${r.title}`.toLowerCase().includes(q),
+    )
+    .map(({ r }) => r)
   const sel =
     visible.find((r) => r.id === (selected ?? search.selected)) ?? visible.at(0)
 
@@ -151,7 +182,10 @@ function ProtocolsList() {
                 count: counts[t],
                 link: {
                   to: '/protocols',
-                  search: { tab: t === 'all' ? undefined : t, q: search.q },
+                  search: {
+                    tab: t === 'effective' ? undefined : t,
+                    q: search.q,
+                  },
                 },
               }))}
             />

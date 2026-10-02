@@ -82,6 +82,55 @@ export async function fetchActiveDatasetFlags(
   return rows.map((row) => toDatasetValueFlag(row))
 }
 
+// ---------------------------------------------------------------------------
+// DSET-01.1 — manual flag set/clear
+// ---------------------------------------------------------------------------
+
+export interface FlagDatasetValueInput {
+  datasetId: string
+  rowId: string
+  fieldId: string
+  /** Defaults to `out_of_range`. */
+  kind?: DatasetValueFlagKind
+  reason: string
+  comment?: string | null
+}
+
+/**
+ * Set or update the active `manual` flag on a value. The value is never
+ * edited; it stays as recorded and is excluded until the flag is cleared.
+ * The RPC is writer-gated and requires a non-empty reason.
+ */
+export async function flagDatasetValue(
+  client: DataClient = notebookDataClient,
+  input: FlagDatasetValueInput,
+): Promise<DatasetValueFlag> {
+  const wire = await client.rpc<DatasetValueFlagWire>('flag_dataset_value', {
+    p_dataset_id: input.datasetId,
+    p_row_id: input.rowId,
+    p_field_id: input.fieldId,
+    p_kind: input.kind ?? 'out_of_range',
+    p_reason: input.reason,
+    p_comment: input.comment ?? null,
+  })
+  return toDatasetValueFlag(wire)
+}
+
+/**
+ * Clear an active flag by id. Works for both `manual` and `system` flags so a
+ * person can override a rule-derived flag; the RPC is writer-gated.
+ */
+export async function clearDatasetValueFlag(
+  client: DataClient = notebookDataClient,
+  flagId: string,
+): Promise<DatasetValueFlag> {
+  const wire = await client.rpc<DatasetValueFlagWire>(
+    'clear_dataset_value_flag',
+    { p_flag_id: flagId },
+  )
+  return toDatasetValueFlag(wire)
+}
+
 /** Stable key for a flagged value. */
 export function flagKey(rowId: string, fieldId: string): string {
   return `${rowId}:${fieldId}`

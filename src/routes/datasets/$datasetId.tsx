@@ -94,9 +94,21 @@ function DatasetLayout() {
           <LinkTabs
             tabs={[
               {
+                label: 'Overview',
+                link: { to: '/datasets/$datasetId', params },
+              },
+              {
+                label: 'Data',
+                link: { to: '/datasets/$datasetId/rows', params },
+              },
+              {
                 label: 'Snapshots',
                 count: versions.data?.length,
                 link: { to: '/datasets/$datasetId/snapshots', params },
+              },
+              {
+                label: 'Compare',
+                link: { to: '/datasets/$datasetId/compare', params },
               },
             ]}
           />

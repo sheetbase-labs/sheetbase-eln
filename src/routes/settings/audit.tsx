@@ -170,6 +170,8 @@ function Audit() {
               <TableHead>Actor</TableHead>
               <TableHead>Operation</TableHead>
               <TableHead>Entity</TableHead>
+              <TableHead>Change</TableHead>
+              <TableHead>Reason</TableHead>
               <TableHead>Record</TableHead>
               <TableHead>Project</TableHead>
             </TableRow>
@@ -185,6 +187,12 @@ function Audit() {
                 </TableCell>
                 <TableCell>{r.operation}</TableCell>
                 <TableCell>{r.entityType}</TableCell>
+                <TableCell className="max-w-[240px] whitespace-normal text-fg-muted">
+                  {describeChange(r.payload)}
+                </TableCell>
+                <TableCell className="max-w-[160px] whitespace-normal text-fg-muted">
+                  {reasonOf(r.payload)}
+                </TableCell>
                 <TableCell className="mono text-[11px]">
                   {r.recordId ?? '—'}
                 </TableCell>
@@ -213,6 +221,30 @@ function Audit() {
       </div>
     </>
   )
+}
+
+/** The first field-level change in an event payload, with its count. */
+function describeChange(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return '—'
+  const changes = (payload as { changes?: unknown }).changes
+  if (!changes || typeof changes !== 'object') return '—'
+  const entries = Object.entries(changes as Record<string, unknown>)
+  if (entries.length === 0) return '—'
+  const [field, raw] = entries[0]
+  const pair = (raw ?? {}) as { from?: unknown; to?: unknown }
+  const from = pair.from == null ? '∅' : String(pair.from)
+  const to = pair.to == null ? '∅' : String(pair.to)
+  const extra = entries.length > 1 ? ` (+${entries.length - 1})` : ''
+  return `${field}: ${from} → ${to}${extra}`
+}
+
+/** The reason recorded on an event, when the operation needs one. */
+function reasonOf(payload: unknown): string {
+  if (payload && typeof payload === 'object') {
+    const reason = (payload as { reason?: unknown }).reason
+    if (typeof reason === 'string' && reason.trim()) return reason
+  }
+  return '—'
 }
 
 function paths(value: unknown): string {

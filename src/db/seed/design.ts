@@ -3204,6 +3204,24 @@ async function seedDesignPipelines(
           }
         }
       }
+
+      // A schedule for the first two pipelines.
+      if (p.key === 'clarification_step_yield') {
+        const hasSchedule = await client.query(
+          'select 1 from api.pipeline_schedules where definition_id = $1 limit 1',
+          [definitionId],
+        )
+        if ((hasSchedule.rowCount ?? 0) === 0) {
+          await client.query(
+            `select api.create_pipeline_schedule($1,$2,'daily',$3::jsonb,true)`,
+            [
+              workspaceId,
+              definitionId,
+              JSON.stringify({ time: '09:10', timezone: 'Europe/London' }),
+            ],
+          )
+        }
+      }
     }
   })
 }

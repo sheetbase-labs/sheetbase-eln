@@ -7,6 +7,15 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
 import { NativeSelect } from '#/components/v3/projects/select'
 import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import {
   DATE_FORMATS,
   NUMBER_FORMATS,
   fetchWorkspaceGeneral,
@@ -157,33 +166,72 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
 
       <div className="flex flex-col gap-2">
         <div>
-          <h3 className="text-label font-medium text-fg">
-            Identifier prefixes
-          </h3>
+          <h3 className="text-label font-medium text-fg">Record IDs</h3>
           <p className="m-0 text-label text-fg-muted">
-            Prefix for each kind. Numbers continue from the last used and are
-            never reused.
+            Prefix for each record kind. Numbers continue from the last used and
+            are never reused, even for deleted drafts.
           </p>
         </div>
-        <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
-          {ID_PREFIX_KINDS.map((kind) => (
-            <Field key={kind} label={kind.replace(/_/g, ' ')} className="gap-1">
-              <Input
-                aria-label={`${kind} prefix`}
-                value={form.idPrefixes[kind] ?? ''}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    idPrefixes: {
-                      ...current.idPrefixes,
-                      [kind]: event.target.value.toUpperCase(),
-                    },
-                  }))
-                }
-              />
-            </Field>
-          ))}
-        </div>
+        <TableBox className="max-w-2xl">
+          <Table aria-label="Record IDs">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Record</TableHead>
+                <TableHead>Prefix</TableHead>
+                <TableHead>Example</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ID_PREFIX_KINDS.map((kind) => {
+                const prefix = form.idPrefixes[kind] ?? ''
+                return (
+                  <TableRow key={kind}>
+                    <TableCell className="capitalize">
+                      {kind.replace(/_/g, ' ')}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        aria-label={`${kind} prefix`}
+                        value={prefix}
+                        className="h-[26px] w-28"
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            idPrefixes: {
+                              ...current.idPrefixes,
+                              [kind]: event.target.value.toUpperCase(),
+                            },
+                          }))
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="mono text-fg-muted">
+                      {prefix ? `${prefix}-2025-0001` : '—'}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </TableBox>
+      </div>
+
+      <div className="flex max-w-2xl flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">Editing rules</h3>
+        <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-body">
+          <li>
+            Every signed record is locked; a change needs an amendment and a new
+            review.
+          </li>
+          <li>
+            A change to a saved value records the reason in History with the old
+            and the new value.
+          </li>
+          <li>
+            Edits from an offline device sync when it reconnects; conflicts are
+            shown to both people.
+          </li>
+        </ul>
       </div>
     </Section>
   )

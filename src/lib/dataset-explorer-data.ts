@@ -777,6 +777,18 @@ export interface DatasetVersionChange {
   added: number
   removed: number
   changed: number
+  /** DSET-03.2 — individual value-flag additions, removals and changes. */
+  flags: number
+}
+
+/** DSET-03.2 — one flag-level change on a compared row. */
+export interface DatasetVersionFlagDelta {
+  fieldId: string
+  kind: string
+  source: string
+  change: 'added' | 'removed' | 'changed'
+  from?: { reason: string; comment: string | null }
+  to?: { reason: string; comment: string | null }
 }
 
 export interface DatasetVersionRetention {
@@ -817,6 +829,7 @@ export async function compareDatasetVersions(
     rowId: string
     kind: string
     fields: Array<{ fieldId: string; from: unknown; to: unknown }>
+    flagFields: DatasetVersionFlagDelta[]
   }>
 }> {
   return client.rpc('compare_dataset_versions', {

@@ -19,6 +19,7 @@ const VERSION_B = '00000000-0000-4000-8000-000000000a12'
 const ROW_1 = '00000000-0000-4000-8000-000000000a13'
 const ROW_2 = '00000000-0000-4000-8000-000000000a14'
 const ROW_3 = '00000000-0000-4000-8000-000000000a15'
+const ROW_4 = '00000000-0000-4000-8000-000000000a16'
 const USER = 'compare-user'
 
 let migrator: Client
@@ -64,16 +65,38 @@ beforeAll(async () => {
   await migrator.query(
     `INSERT INTO api.dataset_version_rows (dataset_version_id, row_id, revision) VALUES
       ('${VERSION_A}', '${ROW_1}', 1), ('${VERSION_A}', '${ROW_2}', 1),
-      ('${VERSION_B}', '${ROW_1}', 1), ('${VERSION_B}', '${ROW_3}', 1)`,
+      ('${VERSION_A}', '${ROW_4}', 1),
+      ('${VERSION_B}', '${ROW_1}', 1), ('${VERSION_B}', '${ROW_3}', 1),
+      ('${VERSION_B}', '${ROW_4}', 1)`,
   )
+  // ROW_1 values are identical in both snapshots; only its flags change.
+  // ROW_4 values AND flags are identical, so it must be omitted.
   await migrator.query(
     `INSERT INTO api.dataset_version_values (dataset_version_id, row_id, field_id, ordinal, numeric_value, boolean_value) VALUES
       ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 0, 1.0, NULL),
       ('${VERSION_A}', '${ROW_1}', '${FIELD_FLAG}', 0, NULL, false),
       ('${VERSION_A}', '${ROW_2}', '${FIELD_TITRE}', 0, 2.0, NULL),
+      ('${VERSION_A}', '${ROW_4}', '${FIELD_TITRE}', 0, 4.0, NULL),
+      ('${VERSION_A}', '${ROW_4}', '${FIELD_FLAG}', 0, NULL, true),
       ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 0, 1.0, NULL),
-      ('${VERSION_B}', '${ROW_1}', '${FIELD_FLAG}', 0, NULL, true),
-      ('${VERSION_B}', '${ROW_3}', '${FIELD_TITRE}', 0, 3.0, NULL)`,
+      ('${VERSION_B}', '${ROW_1}', '${FIELD_FLAG}', 0, NULL, false),
+      ('${VERSION_B}', '${ROW_3}', '${FIELD_TITRE}', 0, 3.0, NULL),
+      ('${VERSION_B}', '${ROW_4}', '${FIELD_TITRE}', 0, 4.0, NULL),
+      ('${VERSION_B}', '${ROW_4}', '${FIELD_FLAG}', 0, NULL, true)`,
+  )
+  // Canonical flag-only changes on ROW_1: cleared, added, reason changed and
+  // source changed (which surfaces as removed manual + added system).
+  await migrator.query(
+    `INSERT INTO api.dataset_version_flags
+       (dataset_version_id, row_id, field_id, kind, source, reason, set_by_user_id, set_at) VALUES
+      ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 'out_of_range', 'manual', 'A cleared manual', '${USER}', now()),
+      ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 'high_cv', 'manual', 'CV 9%', '${USER}', now()),
+      ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 'missing_unit', 'manual', 'no unit', '${USER}', now()),
+      ('${VERSION_A}', '${ROW_4}', '${FIELD_FLAG}', 'out_of_range', 'manual', 'identical', '${USER}', now()),
+      ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 'above_curve', 'manual', 'above standard', '${USER}', now()),
+      ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 'high_cv', 'manual', 'CV 12%', '${USER}', now()),
+      ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 'missing_unit', 'system', 'no unit', '${USER}', now()),
+      ('${VERSION_B}', '${ROW_4}', '${FIELD_FLAG}', 'out_of_range', 'manual', 'identical', '${USER}', now())`,
   )
 })
 
@@ -92,35 +115,103 @@ async function asAuthenticated(): Promise<Client> {
   return client
 }
 
+interface FlagDelta {
+  fieldId: string
+  kind: string
+  source: string
+  change: 'added' | 'removed' | 'changed'
+  from?: { reason: string; comment: string | null }
+  to?: { reason: string; comment: string | null }
+}
+
 interface CompareResult {
-  counts: { added: number; removed: number; changed: number }
+  counts: { added: number; removed: number; changed: number; flags: number }
   columns: unknown[]
   rows: Array<{
     rowId: string
     kind: string
     fields: Array<{ fieldId: string; from: unknown; to: unknown }>
+    flagFields: FlagDelta[]
   }>
 }
 
 describe('api.compare_dataset_versions', () => {
-  it('classifies added, removed and changed rows with per-field changes', async () => {
+  it('reports a flag-only change on unchanged values with per-flag deltas', async () => {
     const client = await asAuthenticated()
     const { rows } = await client.query<{ result: CompareResult }>(
       `SELECT api.compare_dataset_versions($1, $2, 100, 0) AS result`,
       [VERSION_A, VERSION_B],
     )
     const result = rows[0]!.result
-    expect(result.counts).toEqual({ added: 1, removed: 1, changed: 1 })
+    expect(result.counts).toEqual({
+      added: 1,
+      removed: 1,
+      changed: 1,
+      flags: 5,
+    })
 
     const changed = result.rows.find((row) => row.rowId === ROW_1)
     expect(changed?.kind).toBe('changed')
-    // Only the flag changed; the titre value is untouched.
-    expect(changed?.fields).toEqual([
-      { fieldId: FIELD_FLAG, from: false, to: true },
-    ])
+    // The titre and boolean values are identical; only the flags differ.
+    expect(changed?.fields).toEqual([])
+
+    const deltas = changed?.flagFields ?? []
+    expect(deltas).toHaveLength(5)
+    // Cleared flag.
+    expect(deltas).toContainEqual(
+      expect.objectContaining({
+        fieldId: FIELD_TITRE,
+        kind: 'out_of_range',
+        source: 'manual',
+        change: 'removed',
+      }),
+    )
+    // Added flag.
+    expect(deltas).toContainEqual(
+      expect.objectContaining({
+        fieldId: FIELD_TITRE,
+        kind: 'above_curve',
+        source: 'manual',
+        change: 'added',
+      }),
+    )
+    // Reason changed on an otherwise identical flag.
+    const reason = deltas.find(
+      (delta) => delta.kind === 'high_cv' && delta.source === 'manual',
+    )
+    expect(reason?.change).toBe('changed')
+    expect(reason?.from?.reason).toBe('CV 9%')
+    expect(reason?.to?.reason).toBe('CV 12%')
+    // Source changed manual -> system: removed old, added new.
+    expect(deltas).toContainEqual(
+      expect.objectContaining({
+        kind: 'missing_unit',
+        source: 'manual',
+        change: 'removed',
+      }),
+    )
+    expect(deltas).toContainEqual(
+      expect.objectContaining({
+        kind: 'missing_unit',
+        source: 'system',
+        change: 'added',
+      }),
+    )
 
     expect(result.rows.find((row) => row.rowId === ROW_2)?.kind).toBe('removed')
     expect(result.rows.find((row) => row.rowId === ROW_3)?.kind).toBe('added')
+  })
+
+  it('omits a row whose values and flags are identical', async () => {
+    const client = await asAuthenticated()
+    const { rows } = await client.query<{ result: CompareResult }>(
+      `SELECT api.compare_dataset_versions($1, $2, 100, 0) AS result`,
+      [VERSION_A, VERSION_B],
+    )
+    const result = rows[0]!.result
+    expect(result.rows.some((row) => row.rowId === ROW_4)).toBe(false)
+    // ROW_4's identical flag is not counted as a change either.
+    expect(result.counts.flags).toBe(5)
   })
 
   it('refuses an unknown version', async () => {
@@ -137,7 +228,12 @@ describe('api.compare_dataset_versions', () => {
 interface VersionListRow {
   id: string
   rowCount: number
-  change: { added: number; removed: number; changed: number } | null
+  change: {
+    added: number
+    removed: number
+    changed: number
+    flags: number
+  } | null
 }
 
 describe('api.dataset_version_list', () => {
@@ -149,8 +245,13 @@ describe('api.dataset_version_list', () => {
     )
     const list = rows[0]!.result
     expect(list.map((version) => version.id)).toEqual([VERSION_B, VERSION_A])
-    expect(list[0]!.change).toEqual({ added: 1, removed: 1, changed: 1 })
-    expect(list[0]!.rowCount).toBe(2)
+    expect(list[0]!.change).toEqual({
+      added: 1,
+      removed: 1,
+      changed: 1,
+      flags: 5,
+    })
+    expect(list[0]!.rowCount).toBe(3)
     expect(list[1]!.change).toBeNull()
   })
 })
@@ -228,7 +329,7 @@ describe('api.prune_dataset_versions', () => {
       `SELECT pruned_row_count FROM api.dataset_version_prunes WHERE dataset_version_id = $1`,
       [VERSION_B],
     )
-    expect(record.rows[0]!.pruned_row_count).toBe(2)
+    expect(record.rows[0]!.pruned_row_count).toBe(3)
 
     const audit = await migrator.query<{ operation: string }>(
       `SELECT operation FROM api.change_events WHERE entity_type = 'dataset_version' AND entity_uuid = $1`,

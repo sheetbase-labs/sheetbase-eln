@@ -17,22 +17,36 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { stickyCell, stickyHead } from '#/components/v3/inventory/list'
+import { FLAG_KIND_LABELS } from '#/components/v3/datasets/value-actions'
 import { useDatasetVersions } from '../$datasetId'
+
+/** DSET-03.2 — one flag-level change on a compared row. A kind or source
+ * change arrives as the old flag removed and the new one added. */
+interface FlagDelta {
+  fieldId: string
+  kind: string
+  source: string
+  change: 'added' | 'removed' | 'changed'
+  from?: { reason: string; comment: string | null }
+  to?: { reason: string; comment: string | null }
+}
 
 interface ComparePayload {
   versionA: string
   versionB: string
-  counts: { added: number; removed: number; changed: number }
+  counts: { added: number; removed: number; changed: number; flags: number }
   columns: { fieldId: string; kind: string }[]
   rows: {
     rowId: string
     kind: 'added' | 'removed' | 'changed'
     fields: { fieldId: string; from: unknown; to: unknown }[]
+    flagFields: FlagDelta[]
   }[]
 }
 
 /** UI port (roadmap-4/ui-app3): the dataset Compare tab, wired to
- * compare_dataset_versions. */
+ * compare_dataset_versions. Flag-only changes (added, cleared or changed
+ * reason/kind/source) are shown alongside value changes. */
 export const Route = createFileRoute('/datasets/$datasetId/compare')({
   validateSearch: (
     search: Record<string, unknown>,
@@ -49,6 +63,47 @@ const label = {
   changed: 'Changed',
 } as const
 const badgeVariant = { added: 'add', removed: 'del', changed: 'chg' } as const
+
+/** A value change or a flag change rendered on the same diff row. */
+interface DiffEntry {
+  key: string
+  isFlag: boolean
+  fieldId: string | null
+  kind?: string
+  source?: string
+  from: unknown
+  to: unknown
+}
+
+/** Human label for a flag kind, falling back to the raw value if unknown. */
+function flagKindLabel(kind: string): string {
+  const labels: Record<string, string | undefined> = FLAG_KIND_LABELS
+  return labels[kind] ?? kind
+}
+
+function entriesForRow(row: ComparePayload['rows'][number]): DiffEntry[] {
+  const entries: DiffEntry[] = row.fields.map((field) => ({
+    key: `value-${field.fieldId}`,
+    isFlag: false,
+    fieldId: field.fieldId,
+    from: field.from,
+    to: field.to,
+  }))
+  for (const flag of row.flagFields) {
+    entries.push({
+      key: `flag-${flag.fieldId}-${flag.kind}-${flag.source}-${flag.change}`,
+      isFlag: true,
+      fieldId: flag.fieldId,
+      kind: flag.kind,
+      source: flag.source,
+      from: flag.from?.reason ?? null,
+      to: flag.to?.reason ?? null,
+    })
+  }
+  return entries.length
+    ? entries
+    : [{ key: 'none', isFlag: false, fieldId: null, from: null, to: null }]
+}
 
 function Compare() {
   const { datasetId } = Route.useParams()
@@ -134,6 +189,7 @@ function Compare() {
           ['Rows changed', data?.counts.changed ?? 0],
           ['Rows removed', data?.counts.removed ?? 0],
           ['Columns changed', data?.columns.length ?? 0],
+          ['Flag changes', data?.counts.flags ?? 0],
         ].map(([l, n]) => (
           <div
             key={l}
@@ -160,8 +216,8 @@ function Compare() {
             </TableHeader>
             <TableBody>
               {data.rows.map((r) =>
-                (r.fields.length ? r.fields : [null]).map((f, i) => (
-                  <TableRow key={`${r.rowId}-${f?.fieldId ?? i}`}>
+                entriesForRow(r).map((entry) => (
+                  <TableRow key={`${r.rowId}-${entry.key}`}>
                     <TableCell className={cn('first:pl-3', stickyCell)}>
                       <Badge variant={badgeVariant[r.kind]}>
                         {label[r.kind]}
@@ -170,12 +226,26 @@ function Compare() {
                     <TableCell className="mono">
                       {r.rowId.slice(0, 8)}
                     </TableCell>
-                    <TableCell>{f ? f.fieldId.slice(0, 8) : '—'}</TableCell>
+                    <TableCell>
+                      {entry.isFlag ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Icon name="warn" size={12} />
+                          {flagKindLabel(entry.kind ?? '')}
+                          <span className="text-fg-muted">
+                            · {entry.source}
+                          </span>
+                        </span>
+                      ) : entry.fieldId ? (
+                        entry.fieldId.slice(0, 8)
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                     <TableCell align="right">
-                      {f ? (
+                      {entry.isFlag || entry.fieldId ? (
                         <Diff
-                          before={String(f.from ?? '')}
-                          after={String(f.to ?? '')}
+                          before={String(entry.from ?? '')}
+                          after={String(entry.to ?? '')}
                         />
                       ) : (
                         '—'
@@ -193,7 +263,8 @@ function Compare() {
 
       <Muted>
         Comparing {from} with {to}. Field names show their ids until the schema
-        label join is added.
+        label join is added. Flag changes list the flag kind, source and the
+        reason before and after.
       </Muted>
     </div>
   )

@@ -55,7 +55,6 @@ export type CanonicalSearchResultType =
 
 export function searchResultDestination(
   resultType: CanonicalSearchResultType,
-  kind: string,
   recordId: string,
 ): string {
   switch (resultType) {
@@ -66,7 +65,9 @@ export function searchResultDestination(
     case 'template':
       return notebookTemplatePath(recordId)
     default:
-      return recordDestination(kind, recordId)
+      // The palette opens the record itself (its notebook), not the owning
+      // registry with the row selected.
+      return recordPath(recordId)
   }
 }
 

@@ -41,12 +41,12 @@ describe('canonical navigation destinations', () => {
     expect(notebookTemplatePath('template-id')).toBe(
       '/templates?template=template-id',
     )
-    expect(
-      searchResultDestination('template', 'notebook_template', 'template-id'),
-    ).toBe('/templates?template=template-id')
-    expect(
-      searchResultDestination('record', 'notebook_template', 'record-id'),
-    ).toBe('/records/record-id')
+    expect(searchResultDestination('template', 'template-id')).toBe(
+      '/templates?template=template-id',
+    )
+    expect(searchResultDestination('record', 'record-id')).toBe(
+      '/records/record-id',
+    )
   })
 
   it('encodes IDs without depending on display labels', () => {

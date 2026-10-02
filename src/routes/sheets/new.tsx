@@ -69,6 +69,13 @@ const starts = [
     body: 'CSV or Excel. Values stay local until you keep them.',
     to: '/import' as const,
   },
+  {
+    icon: 'table' as const,
+    title: 'Blank sheet',
+    body: 'Start with local columns only, then promote them into a dataset.',
+    blank: true,
+    to: '/sheets/new' as const,
+  },
 ]
 
 function NewSheet() {
@@ -126,24 +133,49 @@ function NewSheet() {
             className="py-0"
           />
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {starts.map((o) => (
-              <Link
-                key={o.title}
-                to={o.to}
-                className="flex min-h-14 gap-2.5 rounded-md border border-border bg-surface p-3 text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
-              >
-                <span className="mt-px shrink-0 text-fg-muted">
-                  <Icon name={o.icon} size={16} />
-                </span>
-                <span>
-                  <b className="block font-medium">{o.title}</b>
-                  <span className="text-caption text-fg-muted">{o.body}</span>
-                </span>
-              </Link>
-            ))}
+            {starts.map((o) =>
+              'blank' in o && o.blank ? (
+                <button
+                  key={o.title}
+                  type="button"
+                  onClick={() => {
+                    document
+                      .getElementById('new-sheet')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    document.getElementById('new-sheet-name')?.focus()
+                  }}
+                  className="flex min-h-14 cursor-pointer gap-2.5 rounded-md border border-border bg-surface p-3 text-left text-fg hover:bg-surface-hover"
+                >
+                  <span className="mt-px shrink-0 text-fg-muted">
+                    <Icon name={o.icon} size={16} />
+                  </span>
+                  <span>
+                    <b className="block font-medium">{o.title}</b>
+                    <span className="text-caption text-fg-muted">{o.body}</span>
+                  </span>
+                </button>
+              ) : (
+                <Link
+                  key={o.title}
+                  to={o.to}
+                  className="flex min-h-14 gap-2.5 rounded-md border border-border bg-surface p-3 text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
+                >
+                  <span className="mt-px shrink-0 text-fg-muted">
+                    <Icon name={o.icon} size={16} />
+                  </span>
+                  <span>
+                    <b className="block font-medium">{o.title}</b>
+                    <span className="text-caption text-fg-muted">{o.body}</span>
+                  </span>
+                </Link>
+              ),
+            )}
           </div>
 
-          <div className="mt-2 flex flex-col gap-3 rounded-md border border-border p-3">
+          <div
+            id="new-sheet"
+            className="mt-2 flex flex-col gap-3 rounded-md border border-border p-3"
+          >
             <Field label="Project" required>
               <select
                 className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
@@ -159,7 +191,11 @@ function NewSheet() {
               </select>
             </Field>
             <Field label="Name">
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                id="new-sheet-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </Field>
             <Button
               variant="primary"

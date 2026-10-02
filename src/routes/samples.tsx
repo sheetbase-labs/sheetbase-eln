@@ -174,6 +174,16 @@ function SamplesList() {
           actions={
             <>
               <Button
+                icon="scan"
+                nativeButton={false}
+                render={<Link to="/scan" />}
+              >
+                Scan label
+              </Button>
+              <Button nativeButton={false} render={<Link to="/import" />}>
+                Import
+              </Button>
+              <Button
                 variant="primary"
                 onClick={() =>
                   navigate({ to: '/samples', search: { new: true } })

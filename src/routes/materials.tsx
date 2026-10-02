@@ -140,13 +140,22 @@ function MaterialsList() {
           title="Materials"
           total={page.data?.total}
           actions={
-            <Button
-              variant="primary"
-              disabled={!sel}
-              onClick={() => setReceiveOpen(true)}
-            >
-              Receive lot
-            </Button>
+            <>
+              <Button
+                icon="scan"
+                nativeButton={false}
+                render={<Link to="/scan" />}
+              >
+                Scan label
+              </Button>
+              <Button
+                variant="primary"
+                disabled={!sel}
+                onClick={() => setReceiveOpen(true)}
+              >
+                Receive lot
+              </Button>
+            </>
           }
           tabs={
             <SearchTabs

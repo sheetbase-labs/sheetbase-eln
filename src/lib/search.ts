@@ -152,7 +152,7 @@ export function toSearchResult(row: SearchResultWire): SearchResult {
     matchedContext: row.matched_context,
     matchedField: row.matched_field as MatchedField,
     rank: Number(row.rank),
-    deepLink: searchResultDestination(resultType, row.kind, row.record_id),
+    deepLink: searchResultDestination(resultType, row.record_id),
     totalCount: Number(row.total_count),
   }
 }
@@ -195,10 +195,9 @@ export function buildSearchRpcArgs(
  */
 export function searchResultDeepLink(
   resultType: SearchResultType,
-  kind: string,
   recordId: string,
 ): string {
-  return searchResultDestination(resultType, kind, recordId)
+  return searchResultDestination(resultType, recordId)
 }
 
 /**

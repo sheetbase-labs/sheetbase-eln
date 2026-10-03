@@ -70,3 +70,18 @@ owner authorization.
   (`0c6754af`, `6c11aefb`); client `node:zlib` regression fixed; design Cell
   bank seeded; prettier cleanup (`66f068dc`). Tracker 28/85. MDL-02 found
   `in-progress` (02.1, 02.3 remain) despite the earlier handoff.
+- 2026-10-03: MDL-02.1 partial — Rules and Usage tabs for workspace record
+  models (`e2f1dea3`), screens 102x2, models area green. Recorded blockers in
+  nod `subtask-257`:
+  - **Relations route blocked:** `api.model_relationship_rules.source_model_key`
+    references `api.model_kinds` only, so a workspace record model cannot be a
+    relationship source. Needs a schema/domain decision (extend to
+    `record_models` or keep relations built-in-only).
+  - **Frame split:** the dataset-schema (uuid) frame has no rules/relations/
+    usage tabs, and `model_rules` does not read `dataset_schema_version_fields`.
+    Decide whether the design's model editor is the ADR-0051 record-model frame
+    (likely) and port accordingly.
+  - **Impact discovery:** `api.discover_model_dependencies` resolves
+    `model_kinds` only and 403s on a workspace model key. Extend it to
+    `record_models` (host `api.records`, kind = key) to complete the Usage tab
+    and MDL-01's "works like built-in kinds" exit.

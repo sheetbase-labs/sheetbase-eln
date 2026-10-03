@@ -358,29 +358,29 @@ describe('SCI-01 distribution chart types', () => {
     return {
       state: { kind: 'ok' as const },
       columns: [],
-      rows: [],
+      rows: [
+        { c2: 70, c3: '4C' },
+        { c2: 80, c3: '4C' },
+        { c2: 80, c3: '4C' },
+        { c2: 90, c3: '4C' },
+      ],
       series: [
         {
           identifier: '4C',
           label: '4 °C',
           color: '#006EDC',
-          points: [
-            { x: 70, y: 0, yError: null, label: '4C' },
-            { x: 80, y: 2, yError: null, label: '4C' },
-            { x: 90, y: 3, yError: null, label: '4C' },
-          ],
+          points: [],
         },
       ],
       xLabel: 'Bin start',
-      yLabel: 'Count',
+      yLabel: 'Log titer',
       xUnit: undefined,
       yUnit: undefined,
       droppedPoints: 0,
-      bins: { edges: [70, 80, 90, 100] },
     }
   }
 
-  it('renders a histogram with bars per bin and a selection hook', () => {
+  it('renders a histogram from the package bin primitive with a selection hook', () => {
     const onSelect = vi.fn()
     render(
       <ChartRenderer
@@ -392,9 +392,45 @@ describe('SCI-01 distribution chart types', () => {
       />,
     )
     expect(screen.getByText('Histogram')).toBeTruthy()
-    const plot = screen.getByLabelText(/Histogram\. 1 series/)
-    expect(plot).toBeTruthy()
+    // The package draws the bins; the hit layer carries a title per bin.
+    expect(document.querySelector('svg.sb-figure')).toBeTruthy()
+    expect(
+      document.querySelectorAll('svg.sb-figure rect').length,
+    ).toBeGreaterThan(0)
     expect(screen.getByText('4 °C')).toBeTruthy() // legend entry
+  })
+
+  it('renders a violin from the package density primitive', () => {
+    const materialised = {
+      ...okMaterialised(),
+      rows: [
+        { c2: 93, c3: '4 °C' },
+        { c2: 96, c3: '4 °C' },
+        { c2: 96, c3: '4 °C' },
+        { c2: 100, c3: '4 °C' },
+      ],
+      series: [
+        {
+          identifier: '4 °C',
+          label: '4 °C',
+          color: '#006EDC',
+          points: [],
+        },
+      ],
+    }
+    render(
+      <ChartRenderer
+        title="Violin"
+        spec={{ ...distSpec, type: 'violin' }}
+        materialised={materialised}
+        frozen={null}
+      />,
+    )
+    // The package draws the KDE and its box overlay; the hit layer summarises it.
+    expect(document.querySelector('svg.sb-figure')).toBeTruthy()
+    expect(document.querySelector('svg title')?.textContent).toContain(
+      'median 96',
+    )
   })
 
   it('renders a box plot with one labelled group from the package primitive', () => {

@@ -10,10 +10,9 @@
  * sampling, frozen snapshots) into that shape, so `chart-renderer.tsx` never
  * hand-rolls scales or colours.
  *
- * What the package's v3 figure cannot express (see COMP-07's report):
- *  - histogram: `buildFigure` has no histogram kind; `histogram` falls through
- *    to the numeric branch, so the ELN keeps its own binned renderer;
- *  - violin: no density primitive at all; the ELN draws its box summary.
+ * Every ELN chart kind maps to a v3 figure primitive (see COMP-07's report):
+ * point/line, bar (grouped/stacked/normalised), summary, box, histogram (the
+ * 0.4.0 bin primitive), violin (the 0.4.0 density primitive) and heatmap.
  *
  * Options the package's v3 figure ignores (so the ELN reports rather than fakes
  * them): per-series colours / palette (series tokens are chosen by index),
@@ -66,29 +65,30 @@ const BAR: Partial<Record<ChartType, true>> = {
 
 const BOX: Partial<Record<ChartType, true>> = { box: true }
 const HEATMAP: Partial<Record<ChartType, true>> = { heatmap: true }
+/** Distribution kinds with their own v3 primitives (0.4.0). */
+const HISTOGRAM: Partial<Record<ChartType, true>> = { histogram: true }
+const VIOLIN: Partial<Record<ChartType, true>> = { violin: true }
 
 /**
  * Chart types the package's v3 figure draws. `bar` covers the ELN's `bar`,
  * `grouped_bar`, `stacked_bar` and `summary` (a bar chart of a statistic);
- * `box` and `heatmap` map to the package's box and heatmap primitives.
+ * `box`, `histogram`, `violin` and `heatmap` map to the package's box, bin,
+ * density and heatmap primitives.
  */
 export const PACKAGE_FIGURE_TYPES: readonly ChartType[] = [
   ...Object.keys(POINT_LINE),
   ...Object.keys(BAR),
   ...Object.keys(BOX),
+  ...Object.keys(HISTOGRAM),
+  ...Object.keys(VIOLIN),
   ...Object.keys(HEATMAP),
 ] as ChartType[]
 
 /**
- * Chart types the package's v3 figure genuinely has no primitive for, so the
- * ELN keeps its own renderer. `histogram` has no bin primitive (the package's
- * `histogram` kind belongs to the legacy `buildChart`, not `buildFigure`) and
- * `violin` has no density primitive.
+ * Chart types the package's v3 figure genuinely has no primitive for. Empty at
+ * 0.4.0: the histogram bin and violin density primitives complete the set.
  */
-export const PACKAGE_UNSUPPORTED_TYPES: readonly ChartType[] = [
-  'histogram',
-  'violin',
-]
+export const PACKAGE_UNSUPPORTED_TYPES: readonly ChartType[] = []
 
 export function supportsPackageFigure(type: ChartType): boolean {
   return PACKAGE_FIGURE_TYPES.includes(type)
@@ -103,6 +103,8 @@ export function supportsPackageFigure(type: ChartType): boolean {
 export function packageFigureKind(type: ChartType): PackageChartKind {
   if (BAR[type]) return 'bar'
   if (BOX[type]) return 'box'
+  if (HISTOGRAM[type]) return 'histogram'
+  if (VIOLIN[type]) return 'violin'
   if (HEATMAP[type]) return 'heatmap'
   if (
     type === 'line' ||
@@ -149,6 +151,13 @@ function columnMeta(
  *    materialised rows, so the package recomputes the same Tukey summary the
  *    ELN's materialiser produced (identical quantile + 1.5×IQR rules). The
  *    category carries the ELN's resolved series label.
+ *  - histogram: one row per raw observation (`__x`, `__series`) so the package
+ *    bins the same values the ELN materialiser binned, honouring `binWidth`
+ *    over `bins` and grouping by series identifier.
+ *  - violin: one row per raw observation (`__category`, `__y`, `__series`) so
+ *    the package's KDE groups the same values the ELN materialiser grouped; the
+ *    category carries the resolved series label (the band label) while the
+ *    identifier keeps the series identity (colour + selection).
  *  - heatmap: one row per non-empty aggregated cell (`__x`, `__y`, `__value`)
  *    from the ELN's materialised grid, in the grid's own label order.
  */
@@ -158,6 +167,9 @@ export function buildPackageDataset(
 ): PackageDataset {
   if (spec.type === 'heatmap') return buildHeatmapDataset(materialised)
   if (spec.type === 'box') return buildBoxDataset(spec, materialised)
+  if (spec.type === 'histogram')
+    return buildHistogramDataset(spec, materialised)
+  if (spec.type === 'violin') return buildViolinDataset(spec, materialised)
   return buildSeriesDataset(spec, materialised)
 }
 
@@ -255,6 +267,88 @@ function buildBoxDataset(
   }
 }
 
+function buildHistogramDataset(
+  spec: ChartSpec,
+  materialised: MaterialisedChart,
+): PackageDataset {
+  const yFieldId = spec.fields.y.fieldId
+  const seriesFieldId = spec.fields.series?.fieldId ?? null
+  const rows: Record<string, unknown>[] = []
+  for (const row of materialised.rows) {
+    const value = numeric(row[yFieldId])
+    if (value === null) continue
+    rows.push({
+      [PACKAGE_X_COLUMN]: value,
+      [PACKAGE_SERIES_COLUMN]: seriesFieldId
+        ? String(row[seriesFieldId] ?? '—')
+        : 'all',
+    })
+  }
+  return {
+    name: materialised.yLabel,
+    source: 'eln-materialised-chart',
+    rows,
+    columns: [
+      columnMeta(
+        PACKAGE_X_COLUMN,
+        'number',
+        new Set(rows.map((r) => r[PACKAGE_X_COLUMN])).size,
+      ),
+      columnMeta(
+        PACKAGE_SERIES_COLUMN,
+        'string',
+        new Set(rows.map((r) => r[PACKAGE_SERIES_COLUMN])).size,
+      ),
+    ],
+  }
+}
+
+function buildViolinDataset(
+  spec: ChartSpec,
+  materialised: MaterialisedChart,
+): PackageDataset {
+  const yFieldId = spec.fields.y.fieldId
+  const seriesFieldId = spec.fields.series?.fieldId ?? null
+  // The package band label is the category value, so carry the ELN's resolved
+  // series label; the identifier stays the grouping key for colour + selection.
+  const labelByIdentifier = new Map(
+    materialised.series.map((s) => [s.identifier, s.label]),
+  )
+  const rows: Record<string, unknown>[] = []
+  for (const row of materialised.rows) {
+    const value = numeric(row[yFieldId])
+    if (value === null) continue
+    const key = seriesFieldId ? String(row[seriesFieldId] ?? '—') : 'all'
+    rows.push({
+      [PACKAGE_CATEGORY_COLUMN]: labelByIdentifier.get(key) ?? key,
+      [PACKAGE_Y_COLUMN]: value,
+      [PACKAGE_SERIES_COLUMN]: key,
+    })
+  }
+  return {
+    name: materialised.yLabel,
+    source: 'eln-materialised-chart',
+    rows,
+    columns: [
+      columnMeta(
+        PACKAGE_CATEGORY_COLUMN,
+        'string',
+        new Set(rows.map((r) => r[PACKAGE_CATEGORY_COLUMN])).size,
+      ),
+      columnMeta(
+        PACKAGE_Y_COLUMN,
+        'number',
+        new Set(rows.map((r) => r[PACKAGE_Y_COLUMN])).size,
+      ),
+      columnMeta(
+        PACKAGE_SERIES_COLUMN,
+        'string',
+        new Set(rows.map((r) => r[PACKAGE_SERIES_COLUMN])).size,
+      ),
+    ],
+  }
+}
+
 function buildHeatmapDataset(materialised: MaterialisedChart): PackageDataset {
   const heatmap = materialised.heatmap
   const rows: Record<string, unknown>[] = []
@@ -340,18 +434,28 @@ export function buildPackageChartSpec(
   const isHeatmap = kind === 'heatmap'
   const isBox = kind === 'box'
   const isBar = kind === 'bar'
-  const grouped = isBar || POINT_LINE[spec.type] === true
+  const isHistogram = kind === 'histogram'
+  const isViolin = kind === 'violin'
+  // A categorical x axis (box, violin) has no numeric domain or scale.
+  const bandX = isHeatmap || isBox || isViolin
+  const grouped = isBar || isHistogram || POINT_LINE[spec.type] === true
   return {
     kind,
-    x: isBox ? PACKAGE_CATEGORY_COLUMN : PACKAGE_X_COLUMN,
-    y: PACKAGE_Y_COLUMN,
-    // Box rows group by their category so each box keeps its series identity
-    // (`FigureBoxPlot.seriesId`) for the selection model.
+    // Histogram bins the y-field values, so its numeric x is the value column;
+    // violin's x is the series band and its y the observed values.
+    x: isHistogram
+      ? PACKAGE_X_COLUMN
+      : isBox || isViolin
+        ? PACKAGE_CATEGORY_COLUMN
+        : PACKAGE_X_COLUMN,
+    y: isHistogram ? undefined : PACKAGE_Y_COLUMN,
     group: grouped
       ? PACKAGE_SERIES_COLUMN
       : isBox
         ? PACKAGE_CATEGORY_COLUMN
-        : undefined,
+        : isViolin
+          ? PACKAGE_SERIES_COLUMN
+          : undefined,
     aggregate: isHeatmap ? 'sum' : 'none',
     size: isHeatmap ? PACKAGE_VALUE_COLUMN : undefined,
     showPoints: isBox ? spec.typeParams.box?.showOutliers !== false : true,
@@ -364,18 +468,28 @@ export function buildPackageChartSpec(
     barGap: 0.1,
     barRadius: 2,
     barLayout: isBar ? packageBarLayout(spec) : 'grouped',
-    histogramBins: 10,
+    // Bin count is ignored when an explicit width is given (the package's
+    // `binEdges` rule, matching the ELN materialiser's `binWidth` precedence).
+    histogramBins: spec.typeParams.histogram?.bins ?? 10,
+    histogramBinWidth: spec.typeParams.histogram?.binWidth,
+    // The ELN histogram spec has no density option; counts are always shown.
+    histogramDensity: false,
+    // No ELN bandwidth knob: the package's Silverman automatic matches the
+    // ELN's own `gaussianKde`.
+    violinBandwidth: undefined,
     palette: [],
-    xLabel: materialised.xLabel,
-    yLabel: materialised.yLabel,
-    xUnit: materialised.xUnit,
-    yUnit: materialised.yUnit,
-    xMin: isHeatmap || isBox ? undefined : spec.display.axes.x.min,
-    xMax: isHeatmap || isBox ? undefined : spec.display.axes.x.max,
-    yMin: isHeatmap ? undefined : spec.display.axes.y.min,
-    yMax: isHeatmap ? undefined : spec.display.axes.y.max,
-    xScale: isHeatmap || isBox ? undefined : spec.display.axes.x.scale,
-    yScale: isHeatmap ? undefined : spec.display.axes.y.scale,
+    // A histogram's measured values ride the numeric x axis, so its axis title
+    // is the y-field label/unit and the count axis keeps the package default.
+    xLabel: isHistogram ? materialised.yLabel : materialised.xLabel,
+    yLabel: isHistogram ? undefined : materialised.yLabel,
+    xUnit: isHistogram ? materialised.yUnit : materialised.xUnit,
+    yUnit: isHistogram ? undefined : materialised.yUnit,
+    xMin: bandX ? undefined : spec.display.axes.x.min,
+    xMax: bandX ? undefined : spec.display.axes.x.max,
+    yMin: isHeatmap || isHistogram ? undefined : spec.display.axes.y.min,
+    yMax: isHeatmap || isHistogram ? undefined : spec.display.axes.y.max,
+    xScale: bandX ? undefined : spec.display.axes.x.scale,
+    yScale: isHeatmap || isHistogram ? undefined : spec.display.axes.y.scale,
     refLines: toPackageReferenceLines(spec.overlays.references),
   }
 }
@@ -413,8 +527,10 @@ export function buildPackageFigure(
   const figure = buildFigure(dataset, packageSpec, {
     width: options.width ?? FIGURE_LAYOUT.width,
     height: options.height ?? FIGURE_LAYOUT.height,
-    // Box categories are self-labelling, so the design omits the x-axis title.
-    showXAxisTitle: options.showXAxisTitle ?? spec.type !== 'box',
+    // Box and violin categories are self-labelling, so the design omits the
+    // x-axis title for both.
+    showXAxisTitle:
+      options.showXAxisTitle ?? (spec.type !== 'box' && spec.type !== 'violin'),
     showYAxisTitle: options.showYAxisTitle ?? true,
   })
   if (!figure) return null

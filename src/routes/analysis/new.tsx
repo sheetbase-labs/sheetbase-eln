@@ -38,7 +38,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PanelLeft, PanelLeftClose, Save, Sigma, Trash2 } from 'lucide-react'
 
-import type { ChartSelection } from '#/components/viz/chart-plots'
+import type { ChartSelection } from '#/components/viz/chart-renderer'
 import { AnalysisPanel } from '#/components/viz/analysis-panel'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { Icon } from '#/components/v3/icons'

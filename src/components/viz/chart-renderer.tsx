@@ -4,8 +4,6 @@ import type { FigureModel } from '@sheetbase-labs/sheetbase-explorer'
 
 import { cn } from '#/lib/utils'
 import { ChartFrame } from './chart-frame'
-import { BoxPlotChart, HistogramPlot } from './chart-plots'
-import type { ChartSelection, PlotSelectionProps } from './chart-plots'
 import { CHART_PALETTE, formatScientific } from '#/lib/chart-spec'
 import type {
   ChartSpec,
@@ -24,13 +22,11 @@ import {
 /**
  * SCI-004 — Chart renderer inside `ChartFrame` (decision 0029).
  *
- * Every chart the package's v3 figure can draw is rendered by
- * `sheetbase-explorer`'s `FigureSvg` from the materialised rows, so marks,
- * series, axes, units and the grid come from the package and its v3 tokens:
- * point/line types, bar (grouped/stacked), summary, box and heatmap. Only the
- * marks the package has no primitive for keep an ELN renderer — the histogram
- * (no bin primitive) and the violin (no density primitive) in `chart-plots`.
- * The overlay in `PackageFigurePlot` adds the marks the figure model cannot
+ * Every chart kind the ELN specifies is rendered by `sheetbase-explorer`'s
+ * `FigureSvg` from the materialised rows, so marks, series, axes, units and the
+ * grid come from the package and its v3 tokens: point/line types, bar
+ * (grouped/stacked), summary, box, histogram, violin and heatmap. The overlay
+ * in `PackageFigurePlot` adds the marks the figure model cannot
  * carry: reference bands, an identity line, annotations, error bars and the
  * reference lines the package does not draw itself.
  *
@@ -44,6 +40,18 @@ import {
  *  - Series are distinguishable by colour AND symbol so non-colour
  *    perception still works (DESIGN.md "non-colour distinctions").
  */
+
+/** A selected plot element: one point/bar/bin/violin of one series. */
+export interface ChartSelection {
+  seriesIdentifier: string
+  /** Index within the series points (bin index for histograms, 0 for violins). */
+  index: number
+}
+
+export interface PlotSelectionProps {
+  selection: ChartSelection | null
+  onSelect: (selection: ChartSelection | null) => void
+}
 
 export interface ChartRendererProps {
   title: string
@@ -262,7 +270,6 @@ function ChartPlot({
   facetTotal?: number
   selectionProps: PlotSelectionProps
 }) {
-  const type = spec?.type ?? 'line'
   if (facets && facets.length > 0) {
     return (
       <div className="w-full">
@@ -295,30 +302,9 @@ function ChartPlot({
     )
   }
 
-  if (type === 'histogram') {
-    return (
-      <HistogramPlot
-        series={materialised.series}
-        height={height}
-        xLabel={spec?.display.axes.x.label ?? 'Bin start'}
-        yLabel="Count"
-        selectionProps={selectionProps}
-      />
-    )
-  }
-  // Violin has no package primitive; the ELN keeps drawing its box summary.
-  if (type === 'violin') {
-    return (
-      <BoxPlotChart
-        series={materialised.series}
-        height={height}
-        logScale={spec?.display.axes.y.scale === 'log'}
-        selectionProps={selectionProps}
-      />
-    )
-  }
-  // Everything else the package's v3 figure draws: point/line, bar
-  // (grouped/stacked), summary, box and heatmap.
+  // Every kind — including histogram and violin — is drawn by the package's
+  // v3 figure: point/line, bar (grouped/stacked), summary, box, histogram,
+  // violin and heatmap.
   return (
     <PackageFigurePlot
       spec={spec}
@@ -559,8 +545,9 @@ function PackageFigurePlot({
 /**
  * Transparent, clickable hit targets over the package figure's marks, so the
  * shared selection model follows a click. One target per mark: a point circle,
- * a bar/box rectangle or a heatmap cell. The target also carries a `<title>`,
- * giving the mark a tooltip and an accessible name the package's shapes lack.
+ * a bar/bin/box/violin rectangle or a heatmap cell. The target also carries a
+ * `<title>`, giving the mark a tooltip and an accessible name the package's
+ * shapes lack.
  */
 function plotHitTargets(
   figure: FigureModel,
@@ -589,13 +576,20 @@ function plotHitTargets(
       )
     })
   })
+  // Histogram bars carry a bin label ("0–10") as their category, not a point
+  // x, so map the label back to the per-series bin index the selection uses.
+  const binIndexByLabel = new Map(
+    (figure.bins ?? []).map((bin) => [bin.label, bin.index]),
+  )
   figure.bars?.forEach((bar) => {
     const series = materialised.series.find(
       (item) => item.identifier === bar.seriesId,
     )
+    const pointIndex = series
+      ? series.points.findIndex((point) => String(point.x) === bar.category)
+      : -1
     const index =
-      series?.points.findIndex((point) => String(point.x) === bar.category) ??
-      -1
+      pointIndex >= 0 ? pointIndex : (binIndexByLabel.get(bar.category) ?? -1)
     targets.push(
       <rect
         key={`hit-bar-${bar.seriesId}-${bar.category}`}
@@ -646,6 +640,36 @@ function plotHitTargets(
       >
         <title>
           {`${series?.label ?? box.category}: median ${formatScientific(box.median)}; IQR ${formatScientific(box.q1)}–${formatScientific(box.q3)}; whiskers ${formatScientific(box.whiskerLow)}–${formatScientific(box.whiskerHigh)}`}
+        </title>
+      </rect>,
+    )
+  })
+  figure.violins?.forEach((violin) => {
+    const series = materialised.series.find(
+      (item) =>
+        item.identifier === violin.seriesId || item.label === violin.category,
+    )
+    targets.push(
+      <rect
+        key={`hit-violin-${violin.seriesId}-${violin.category}`}
+        x={violin.x}
+        y={figure.plot.y}
+        width={violin.width}
+        height={figure.plot.height}
+        fill="transparent"
+        className={series ? 'cursor-pointer' : undefined}
+        onClick={
+          series
+            ? () =>
+                selectionProps.onSelect({
+                  seriesIdentifier: series.identifier,
+                  index: 0,
+                })
+            : undefined
+        }
+      >
+        <title>
+          {`${series?.label ?? violin.category}: median ${formatScientific(violin.box.median)}; IQR ${formatScientific(violin.box.q1)}–${formatScientific(violin.box.q3)}; whiskers ${formatScientific(violin.box.whiskerLow)}–${formatScientific(violin.box.whiskerHigh)}`}
         </title>
       </rect>,
     )

@@ -99,7 +99,7 @@ function twoSeries(): MaterialisedChart {
 }
 
 describe('supportsPackageFigure', () => {
-  it('accepts the point/line, bar, summary, box and heatmap types', () => {
+  it('accepts every ELN chart type', () => {
     for (const type of PACKAGE_FIGURE_TYPES) {
       expect(supportsPackageFigure(type)).toBe(true)
     }
@@ -108,11 +108,11 @@ describe('supportsPackageFigure', () => {
     }
   })
 
-  it('reports the types the package has no v3 primitive for', () => {
-    expect(PACKAGE_UNSUPPORTED_TYPES).toEqual(['histogram', 'violin'])
+  it('has a v3 primitive for every ELN chart type', () => {
+    expect(PACKAGE_UNSUPPORTED_TYPES).toEqual([])
   })
 
-  it('returns null for a type the package cannot express', () => {
+  it('returns null only when there are no materialised rows to bin or plot', () => {
     const chart = materialised([series('A', [{ x: 0, y: 1 }])])
     expect(buildPackageFigure(makeSpec('histogram'), chart)).toBeNull()
     expect(buildPackageFigure(makeSpec('violin'), chart)).toBeNull()
@@ -179,6 +179,53 @@ describe('buildPackageDataset', () => {
       { __category: 'Alpha', __y: 2 },
       { __category: 'Alpha', __y: 3 },
       { __category: 'Beta', __y: 10 },
+    ])
+  })
+
+  it('builds histogram rows from the raw observations, grouped by series', () => {
+    const chart: MaterialisedChart = {
+      ...materialised([]),
+      rows: [
+        { c2: 70, c3: 'A' },
+        { c2: 80, c3: 'A' },
+        { c2: 80, c3: 'A' },
+        { c2: 90, c3: 'B' },
+      ],
+      series: [series('A', []), series('B', [])],
+    }
+    const dataset = buildPackageDataset(makeSpec('histogram'), chart)
+    expect(dataset.columns.map((c) => c.key)).toEqual(['__x', '__series'])
+    expect(dataset.rows).toEqual([
+      { __x: 70, __series: 'A' },
+      { __x: 80, __series: 'A' },
+      { __x: 80, __series: 'A' },
+      { __x: 90, __series: 'B' },
+    ])
+  })
+
+  it('builds violin rows from the raw observations, labelled by series', () => {
+    const chart: MaterialisedChart = {
+      ...materialised([]),
+      rows: [
+        { c2: 1, c3: 'A' },
+        { c2: 2, c3: 'A' },
+        { c2: 10, c3: 'B' },
+      ],
+      series: [
+        series('A', [], { label: 'Alpha' }),
+        series('B', [], { label: 'Beta' }),
+      ],
+    }
+    const dataset = buildPackageDataset(makeSpec('violin'), chart)
+    expect(dataset.columns.map((c) => c.key)).toEqual([
+      '__category',
+      '__y',
+      '__series',
+    ])
+    expect(dataset.rows).toEqual([
+      { __category: 'Alpha', __y: 1, __series: 'A' },
+      { __category: 'Alpha', __y: 2, __series: 'A' },
+      { __category: 'Beta', __y: 10, __series: 'B' },
     ])
   })
 
@@ -339,6 +386,51 @@ describe('package figure per chart type', () => {
     expect(figure?.scaleLegend?.max).toBe(4)
   })
 
+  it('histogram: bins the values with the requested count and a count axis', () => {
+    const chart: MaterialisedChart = {
+      ...materialised([]),
+      rows: [
+        { c2: 70, c3: 'A' },
+        { c2: 80, c3: 'A' },
+        { c2: 80, c3: 'A' },
+        { c2: 90, c3: 'B' },
+      ],
+      series: [series('A', []), series('B', [])],
+    }
+    const figure = buildPackageFigure(
+      makeSpec('histogram', { typeParams: { histogram: { bins: 3 } } }),
+      chart,
+    )
+    expect(figure).not.toBeNull()
+    expect(figure?.bins).toHaveLength(3)
+    expect(figure?.bars?.length).toBeGreaterThan(0)
+    // The measured values ride the numeric x axis; the count axis keeps the
+    // package's "Count" default.
+    expect(figure?.xTitle).toBe('Titre (log10)')
+    expect(figure?.yTitle).toBe('Count')
+  })
+
+  it('violin: a KDE per series with a box overlay and no x-axis title', () => {
+    const chart: MaterialisedChart = {
+      ...materialised([]),
+      rows: [
+        { c2: 1, c3: 'A' },
+        { c2: 2, c3: 'A' },
+        { c2: 3, c3: 'A' },
+        { c2: 4, c3: 'A' },
+        { c2: 5, c3: 'A' },
+      ],
+      series: [series('A', [], { label: 'Alpha' })],
+    }
+    const figure = buildPackageFigure(makeSpec('violin'), chart)
+    expect(figure?.violins).toHaveLength(1)
+    expect(figure?.violins?.[0].seriesId).toBe('A')
+    expect(figure?.violins?.[0].category).toBe('Alpha')
+    expect(figure?.violins?.[0].density.length).toBeGreaterThan(4)
+    expect(figure?.xTitle).toBe('')
+    expect(figure?.y.title).toBe('Titre (log10)')
+  })
+
   it('honours display.gridlines=false by clearing the model gridlines', () => {
     const on = buildPackageFigure(makeSpec('line'), twoSeries())
     expect(on?.gridlines.length).toBeGreaterThan(0)
@@ -408,6 +500,10 @@ describe('buildPackageChartSpec', () => {
     )
     expect(buildPackageChartSpec(makeSpec('summary'), chart).kind).toBe('bar')
     expect(buildPackageChartSpec(makeSpec('box'), chart).kind).toBe('box')
+    expect(buildPackageChartSpec(makeSpec('histogram'), chart).kind).toBe(
+      'histogram',
+    )
+    expect(buildPackageChartSpec(makeSpec('violin'), chart).kind).toBe('violin')
     expect(buildPackageChartSpec(makeSpec('heatmap'), chart).kind).toBe(
       'heatmap',
     )
@@ -418,6 +514,21 @@ describe('buildPackageChartSpec', () => {
         makeSpec('bar', { typeParams: { bar: { stacking: 'stacked' } } }),
       ),
     ).toBe('stacked')
+  })
+
+  it('maps histogram bins/binWidth and never requests density', () => {
+    const bins = buildPackageChartSpec(
+      makeSpec('histogram', { typeParams: { histogram: { bins: 25 } } }),
+      materialised([]),
+    )
+    expect(bins.histogramBins).toBe(25)
+    expect(bins.histogramBinWidth).toBeUndefined()
+    expect(bins.histogramDensity).toBe(false)
+    const width = buildPackageChartSpec(
+      makeSpec('histogram', { typeParams: { histogram: { binWidth: 5 } } }),
+      materialised([]),
+    )
+    expect(width.histogramBinWidth).toBe(5)
   })
 })
 

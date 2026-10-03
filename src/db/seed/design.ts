@@ -11,7 +11,11 @@ import { Client } from 'pg'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
-import { DESIGN_CREDENTIAL_IDS, DESIGN_SESSION_IDS } from './identities'
+import {
+  DESIGN_CREDENTIAL_IDS,
+  DESIGN_SESSION_IDS,
+  DESIGN_WEBHOOK_IDS,
+} from './identities'
 
 /** Fixed clock for the design seed: Friday 25 Sep 2026, 09:40 Europe/London. */
 export const DESIGN_CLOCK = new Date('2026-09-25T09:40:00+01:00')
@@ -589,6 +593,11 @@ export const designSteps: Array<SeedStep> = [
     },
   },
   {
+    // After `design experiments` so the consume purpose (EXP-0139) exists.
+    name: 'design sample custody',
+    run: (db) => seedDesignSampleCustody(db),
+  },
+  {
     name: 'design templates',
     run: async (db) => {
       for (const template of DESIGN_TEMPLATES) {
@@ -740,8 +749,18 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignConnectorsAndTokens(db),
   },
   {
+    name: 'design webhook deliveries',
+    run: (db) => seedDesignWebhookDeliveries(db),
+  },
+  {
     name: 'design client portal',
     run: (db) => seedDesignClientPortal(db),
+  },
+  {
+    // Last: snapshotting a dataset stamps `updated_at`, so pin the design
+    // clock's dates once every dataset step has run.
+    name: 'design clock',
+    run: (db) => seedDesignClock(db),
   },
 ]
 
@@ -1365,11 +1384,15 @@ const DESIGN_SAMPLES = [
     customFields: { construct: 'AAV9', batch: 'R1.0' },
   },
   {
+    // SampleConsumed: the design's fully-used viral harvest. The record carries
+    // its final state (0 mL, consumed); `seedDesignSampleCustody` writes the
+    // canonical register/consume ledger at the design clock's dates.
     id: '00000000-0000-4000-8000-00000000036c',
     identifier: 'SMP-2210',
-    title: 'LVV-CAR-T drug substance',
-    status: 'available',
-    customFields: { construct: 'LVV', batch: 'DS-01' },
+    title: 'LVV harvest H-22',
+    status: 'consumed',
+    customFields: { construct: 'LVV', batch: 'H-22' },
+    properties: { quantity: 0, quantityUnit: 'mL' },
   },
   {
     id: '00000000-0000-4000-8000-00000000036d',
@@ -1816,6 +1839,21 @@ const DESIGN_PROJECTS: ReadonlyArray<{
     key: 'release-testing-aav9',
     title: 'Release testing, AAV9',
   },
+  {
+    // Created here (before the design datasets) as well as in the project
+    // details step, because the AAV full/empty and LVV chromatography datasets
+    // link to them and the dataset insert checks the project's workspace.
+    id: '00000000-0000-4000-8000-000000000328',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    key: 'aav-full-empty-assay-qualification',
+    title: 'AAV full/empty assay qualification',
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000032e',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    key: 'lvv-downstream-chromatography',
+    title: 'LVV downstream chromatography',
+  },
 ]
 
 /**
@@ -1847,6 +1885,9 @@ interface DesignDataset {
   fields: ReadonlyArray<DesignDatasetField>
   snapshotLabels: ReadonlyArray<string>
   rows: () => Array<Record<string, unknown>>
+  /** Design-clock updated time; the list shows it as the dataset's "Updated". */
+  updatedAt: Date
+  createdAt?: Date
 }
 
 const AMBR_FIELDS: ReadonlyArray<DesignDatasetField> = [
@@ -1948,30 +1989,65 @@ const BENCH_READING_FIELDS: ReadonlyArray<DesignDatasetField> = [
   { key: 'note', label: 'Note', logicalType: 'text' },
 ]
 
-const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
+/**
+ * DSET — the remaining datasets the design's Datasets list shows. Each carries
+ * the exact row count from the design so the list's Rows column matches.
+ */
+const FILTRATION_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'run', label: 'Run', logicalType: 'text', required: true },
+  { key: 'time_min', label: 'Time', logicalType: 'integer', unit: 'min' },
   {
-    id: '00000000-0000-4000-8000-000000000380',
-    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
-    actorId: DESIGN_USER_IDS.gareth,
-    projectId: '00000000-0000-4000-8000-000000000322',
-    displayId: 'DS-0298',
-    schemaKey: 'ambr_250_daily_reading',
-    schemaName: 'Ambr 250 daily reading',
-    name: 'Ambr 250 daily readings, AMB-25-118',
-    description: 'Imported daily from Ambr 250 export',
-    fields: AMBR_FIELDS,
-    snapshotLabels: [
-      'Import · AMB-25-118_day1_am.csv',
-      'Import · AMB-25-118_day2_am.csv',
-      'Import · AMB-25-118_day3_am.csv',
-      'Import · AMB-25-118_day4_pm.csv',
-      'Import · AMB-25-118_day5_am.csv',
-      'Import · AMB-25-118_day6_am.csv',
-      'Import · AMB-25-118_day7_am.csv',
-    ],
-    rows: ambrRows,
+    key: 'pressure_bar',
+    label: 'Pressure',
+    logicalType: 'decimal',
+    unit: 'bar',
+  },
+  { key: 'flow_lpm', label: 'Flow', logicalType: 'decimal', unit: 'L/min' },
+]
+
+const VICELL_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
+  {
+    key: 'vcd',
+    label: 'VCD',
+    logicalType: 'decimal',
+    unit: '×10⁶ cells/mL',
+  },
+  { key: 'viability', label: 'Viability', logicalType: 'decimal', unit: '%' },
+]
+
+const DDPCR_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
+  {
+    key: 'dilution',
+    label: 'Dilution',
+    logicalType: 'integer',
+    required: true,
   },
   {
+    key: 'genome_titre',
+    label: 'Genome titre',
+    logicalType: 'decimal',
+    unit: '×10¹⁰ vg/mL',
+    required: true,
+  },
+]
+
+const AUC_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
+  { key: 'ratio', label: 'Full/empty ratio', logicalType: 'decimal' },
+]
+
+const CHROMATOGRAPHY_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'fraction', label: 'Fraction', logicalType: 'text', required: true },
+  { key: 'volume_ml', label: 'Volume', logicalType: 'decimal', unit: 'mL' },
+  { key: 'purity', label: 'Purity', logicalType: 'decimal', unit: '%' },
+]
+
+const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
+  {
+    // DatasetsList (app-3 order): the seven rows the design's list opens with,
+    // inserted in that order. Row counts match the design's Rows column.
     id: '00000000-0000-4000-8000-000000000381',
     workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
     actorId: DESIGN_USER_IDS.gareth,
@@ -1982,6 +2058,8 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
     name: 'ELISA capsid titre and turbidity',
     description: 'Plate-based capsid titre with harvest turbidity',
     fields: ELISA_FIELDS,
+    updatedAt: new Date('2026-09-25T09:12:00+01:00'),
+    createdAt: new Date('2026-09-18T09:00:00+01:00'),
     snapshotLabels: [
       'Import · ELISA plate 1',
       'Import · ELISA plate 2',
@@ -2002,6 +2080,160 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
     rows: elisaRows,
   },
   {
+    id: '00000000-0000-4000-8000-0000000003f0',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000320',
+    displayId: 'DS-0310',
+    schemaKey: 'filtration_pressure_log',
+    schemaName: 'Filtration run',
+    name: 'Filtration pressure log',
+    description: 'Transmembrane pressure and flux during clarification',
+    fields: FILTRATION_FIELDS,
+    updatedAt: new Date('2026-09-25T08:40:00+01:00'),
+    createdAt: new Date('2026-09-25T08:12:00+01:00'),
+    snapshotLabels: [],
+    rows: () => filtrationRows(27),
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000380',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000322',
+    displayId: 'DS-0298',
+    schemaKey: 'ambr_250_daily_reading',
+    schemaName: 'Ambr 250 daily reading',
+    name: 'Ambr 250 daily readings, AMB-25-118',
+    description: 'Imported daily from Ambr 250 export',
+    fields: AMBR_FIELDS,
+    updatedAt: new Date('2026-09-24T09:12:00+01:00'),
+    createdAt: new Date('2026-09-18T08:40:00+01:00'),
+    snapshotLabels: [
+      'Import · AMB-25-118_day1_am.csv',
+      'Import · AMB-25-118_day2_am.csv',
+      'Import · AMB-25-118_day3_am.csv',
+      'Import · AMB-25-118_day4_pm.csv',
+      'Import · AMB-25-118_day5_am.csv',
+      'Import · AMB-25-118_day6_am.csv',
+      'Import · AMB-25-118_day7_am.csv',
+    ],
+    rows: ambrRows,
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003f2',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000324',
+    displayId: 'DS-0305',
+    schemaKey: 'vicell_viability',
+    schemaName: 'ViCell',
+    name: 'HEK293 WCB viability panel',
+    description: 'Viable cell density and viability across the WCB panel',
+    fields: VICELL_FIELDS,
+    updatedAt: new Date('2026-09-24T08:05:00+01:00'),
+    createdAt: new Date('2026-09-19T13:20:00+01:00'),
+    snapshotLabels: [],
+    rows: () => vicellRows(48),
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003f3',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000320',
+    displayId: 'DS-0303',
+    schemaKey: 'vicell_viability',
+    schemaName: 'ViCell',
+    name: 'ViCell, transfection sweep',
+    description: 'Viability at harvest for the transfection ratio sweep',
+    fields: VICELL_FIELDS,
+    updatedAt: new Date('2026-09-23T17:20:00+01:00'),
+    createdAt: new Date('2026-09-23T16:40:00+01:00'),
+    snapshotLabels: [],
+    rows: () => vicellRows(8),
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003f4',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000320',
+    displayId: 'DS-0302',
+    schemaKey: 'ddpcr_titre',
+    schemaName: 'ddPCR titre',
+    name: 'ddPCR titre, transfection sweep',
+    description: 'Genome titre by ddPCR for the transfection ratio sweep',
+    fields: DDPCR_FIELDS,
+    updatedAt: new Date('2026-09-23T15:58:00+01:00'),
+    createdAt: new Date('2026-09-23T15:20:00+01:00'),
+    snapshotLabels: [],
+    rows: () => ddpcrRows(16),
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003f5',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000320',
+    displayId: 'DS-0297',
+    schemaKey: 'vicell_viability',
+    schemaName: 'ViCell',
+    name: 'ViCell, harvest timing',
+    description: 'Viability at 48, 72 and 96 h harvest',
+    fields: VICELL_FIELDS,
+    updatedAt: new Date('2026-09-22T11:30:00+01:00'),
+    createdAt: new Date('2026-09-22T10:50:00+01:00'),
+    snapshotLabels: [],
+    rows: () => vicellRows(9),
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003f6',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000320',
+    displayId: 'DS-0296',
+    schemaKey: 'ddpcr_titre',
+    schemaName: 'ddPCR titre',
+    name: 'ddPCR titre, harvest timing',
+    description: 'Genome titre at 48, 72 and 96 h harvest',
+    fields: DDPCR_FIELDS,
+    updatedAt: new Date('2026-09-22T10:15:00+01:00'),
+    createdAt: new Date('2026-09-22T09:40:00+01:00'),
+    snapshotLabels: [],
+    rows: () => ddpcrRows(18),
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003f7',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000328',
+    displayId: 'DS-0290',
+    schemaKey: 'auc_full_empty_ratio',
+    schemaName: 'AUC',
+    name: 'AUC full/empty ratio',
+    description:
+      'Full and empty capsid ratio by analytical ultracentrifugation',
+    fields: AUC_FIELDS,
+    updatedAt: new Date('2026-09-19T14:00:00+01:00'),
+    createdAt: new Date('2026-09-19T13:10:00+01:00'),
+    snapshotLabels: [],
+    rows: () => aucRows(30),
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000003f8',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-00000000032e',
+    displayId: 'DS-0287',
+    schemaKey: 'chromatography_fraction',
+    schemaName: 'Chromatography fraction',
+    name: 'AEX screen fractions',
+    description: 'Fraction volumes and purity from the AEX resin screen',
+    fields: CHROMATOGRAPHY_FIELDS,
+    updatedAt: new Date('2026-09-18T16:45:00+01:00'),
+    createdAt: new Date('2026-09-18T15:30:00+01:00'),
+    snapshotLabels: [],
+    rows: () => chromatographyRows(64),
+  },
+  {
+    // MOB-02's planned plate; kept last so it does not displace a design row.
     id: '00000000-0000-4000-8000-00000000038a',
     workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
     actorId: DESIGN_USER_IDS.gareth,
@@ -2012,6 +2244,7 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
     name: 'Bench ELISA, planned plate PR-01',
     description: 'Planned wells a bench reading fills by key',
     fields: BENCH_READING_FIELDS,
+    updatedAt: new Date('2026-09-25T09:40:00+01:00'),
     // The planned rows are added by `seedDesignBenchReadingRows` after the
     // Dataset exists, so there is nothing to snapshot here.
     snapshotLabels: [],
@@ -2126,6 +2359,48 @@ function elisaRows(): Array<Record<string, unknown>> {
     })
   })
   return rows
+}
+
+/** Deterministic rows for the datasets the design's list shows. */
+function filtrationRows(count: number): Array<Record<string, unknown>> {
+  return Array.from({ length: count }, (_, i) => ({
+    run: `R-${String(i + 1).padStart(2, '0')}`,
+    time_min: i * 5,
+    pressure_bar: Number((0.8 + (i % 7) * 0.12).toFixed(2)),
+    flow_lpm: Number((2 + (i % 5) * 0.25).toFixed(2)),
+  }))
+}
+
+function vicellRows(count: number): Array<Record<string, unknown>> {
+  return Array.from({ length: count }, (_, i) => ({
+    sample: `S-${String(i + 1).padStart(3, '0')}`,
+    vcd: Number((4.2 + (i % 9) * 0.7).toFixed(1)),
+    viability: Number((96.8 - (i % 11) * 1.4).toFixed(1)),
+  }))
+}
+
+function ddpcrRows(count: number): Array<Record<string, unknown>> {
+  return Array.from({ length: count }, (_, i) => ({
+    sample: `S-${String(i + 1).padStart(3, '0')}`,
+    dilution: [10, 100, 1000][i % 3],
+    genome_titre: Number((3.1 + (i % 13) * 0.42).toFixed(2)),
+  }))
+}
+
+function aucRows(count: number): Array<Record<string, unknown>> {
+  return Array.from({ length: count }, (_, i) => ({
+    sample: `S-${String(i + 1).padStart(3, '0')}`,
+    ratio: Number((78.5 + (i % 15) * 1.1).toFixed(1)),
+  }))
+}
+
+function chromatographyRows(count: number): Array<Record<string, unknown>> {
+  const letters = 'ABCDEFGH'
+  return Array.from({ length: count }, (_, i) => ({
+    fraction: `${letters[Math.floor(i / 8)]}${(i % 8) + 1}`,
+    volume_ml: Number((12 + (i % 7) * 3.5).toFixed(1)),
+    purity: Number((88 + (i % 10) * 1.1).toFixed(1)),
+  }))
 }
 
 function datasetFieldsWire(dataset: DesignDataset) {
@@ -2245,8 +2520,8 @@ async function seedDesignDatasets(
 
         await client.query(
           `insert into api.datasets
-           (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id, display_id)
-         values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+           (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id, display_id, created_at, updated_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [
             dataset.id,
             dataset.workspaceId,
@@ -2256,6 +2531,8 @@ async function seedDesignDatasets(
             dataset.projectId,
             dataset.actorId,
             dataset.displayId,
+            dataset.createdAt ?? dataset.updatedAt,
+            dataset.updatedAt,
           ],
         )
 
@@ -2291,7 +2568,7 @@ async function seedDesignDatasets(
               dataset.id,
               revision.rows[0].revision,
               JSON.stringify(rows),
-              `design-${dataset.schemaKey}`,
+              `design-${dataset.displayId}`,
             ],
           )
         }
@@ -3288,6 +3565,91 @@ async function seedDesignResults(
 }
 
 /**
+ * SampleConsumed — the append-only custody ledger the design shows for
+ * SMP-2210: 900 mL registered on 2 Sep, then fully used in EXP-0139 with a
+ * final 420 mL withdrawal on 11 Sep. The samples step already leaves the record
+ * in its final state (quantity 0, consumed); this step writes the
+ * `sample_events` rows at the design clock's dates. The canonical
+ * register/consume RPCs stamp `now()`, so the historical ledger is written
+ * directly and only while the ledger is empty — a reseed converges.
+ */
+async function seedDesignSampleCustody(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const sampleId = '00000000-0000-4000-8000-00000000036c' // SMP-2210
+  const experimentId = '00000000-0000-4000-8000-0000000003c1' // EXP-0139
+
+  const existing = await db
+    .select({ id: schema.sampleEvents.id })
+    .from(schema.sampleEvents)
+    .where(eq(schema.sampleEvents.recordId, sampleId))
+    .limit(1)
+  if (existing.length > 0) return
+
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.priya,
+    workspaceId,
+    async (client) => {
+      await client.query(
+        `insert into api.sample_events
+           (workspace_id, record_id, operation, quantity_delta, quantity_before,
+            quantity_after, quantity_unit, to_location, actor_user_id, notes,
+            created_at)
+         values ($1,$2,'create',900,0,900,'mL','CR-2 shelf 2',$3,
+                 '900 mL, CR-2 shelf 2', $4)`,
+        [
+          workspaceId,
+          sampleId,
+          DESIGN_USER_IDS.priya,
+          new Date('2026-09-02T15:00:00+01:00'),
+        ],
+      )
+    },
+    DESIGN_SESSION_IDS.priya,
+  )
+
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.gareth,
+    workspaceId,
+    async (client) => {
+      await client.query(
+        `insert into api.sample_events
+           (workspace_id, record_id, operation, quantity_delta, quantity_before,
+            quantity_after, quantity_unit, actor_user_id, purpose_record_id,
+            created_at)
+         values ($1,$2,'consume',-480,900,420,'mL',$3,$4,$5)`,
+        [
+          workspaceId,
+          sampleId,
+          DESIGN_USER_IDS.gareth,
+          experimentId,
+          new Date('2026-09-05T11:00:00+01:00'),
+        ],
+      )
+      await client.query(
+        `insert into api.sample_events
+           (workspace_id, record_id, operation, quantity_delta, quantity_before,
+            quantity_after, quantity_unit, actor_user_id, purpose_record_id,
+            notes, created_at)
+         values ($1,$2,'consume',-420,420,0,'mL',$3,$4,$5,$6)`,
+        [
+          workspaceId,
+          sampleId,
+          DESIGN_USER_IDS.gareth,
+          experimentId,
+          'in EXP-0139 (AEX resin screen)',
+          new Date('2026-09-11T10:40:00+01:00'),
+        ],
+      )
+    },
+    DESIGN_SESSION_IDS.gareth,
+  )
+}
+
+/**
  * Design sample measurements (RM-112): a few recorded values on the design
  * samples, so the sample Measurements tab shows a table instead of an empty
  * state.
@@ -3428,37 +3790,74 @@ async function seedDesignMilestones(
 }
 
 /**
- * Link design experiments to the datasets they produced and flag a few
- * recorded values, so the experiments list's "Open issues" column shows real
- * counts (RM-119) instead of an empty one.
+ * Link design experiments to the datasets they produced, so the Datasets list's
+ * Experiment column (and the experiment Datasets tab) has a source, and flag
+ * exactly the values the design's Validation column shows: DS-0311 "1 out of
+ * range", DS-0298 "2 columns missing units", every other row "Valid".
  */
+const DESIGN_DATASET_EXPERIMENTS: Record<string, string> = {
+  'DS-0311': 'EXP-0142',
+  'DS-0310': 'EXP-0142',
+  'DS-0298': 'EXP-0140',
+  'DS-0305': 'EXP-0130',
+  'DS-0303': 'EXP-0138',
+  'DS-0302': 'EXP-0138',
+  'DS-0297': 'EXP-0133',
+  'DS-0296': 'EXP-0133',
+  'DS-0290': 'EXP-0125',
+  'DS-0287': 'EXP-0139',
+}
+
+/** Open issues per design dataset: field key + flag kind. */
+const DESIGN_DATASET_FLAGS: Record<
+  string,
+  ReadonlyArray<{ fieldKey: string; kind: string; reason: string }>
+> = {
+  'DS-0311': [
+    {
+      fieldKey: 'capsid_titre',
+      kind: 'out_of_range',
+      reason: 'Value outside the expected range',
+    },
+  ],
+  'DS-0298': [
+    {
+      fieldKey: 'glucose',
+      kind: 'missing_unit',
+      reason: 'Unit missing on the recorded value',
+    },
+    {
+      fieldKey: 'osmolality',
+      kind: 'missing_unit',
+      reason: 'Unit missing on the recorded value',
+    },
+  ],
+}
+
 async function seedDesignDatasetFlags(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
   const actorId = DESIGN_USER_IDS.gareth
   await withDesignClaims(db, actorId, workspaceId, async (client) => {
-    const datasets = DESIGN_DATASETS.slice(0, 2)
-    const experiments = DESIGN_EXPERIMENTS
-    if (datasets.length === 0 || experiments.length === 0) return
+    const experimentIdByIdentifier = new Map<string, string>(
+      DESIGN_EXPERIMENTS.map((e) => [e.identifier, e.id]),
+    )
 
-    for (let d = 0; d < datasets.length; d++) {
-      const dataset = datasets[d]
-      const meta = await client.query(
-        'select display_id from api.datasets where id = $1',
-        [dataset.id],
+    for (const [displayId, experimentIdentifier] of Object.entries(
+      DESIGN_DATASET_EXPERIMENTS,
+    )) {
+      const dataset = DESIGN_DATASETS.find((d) => d.displayId === displayId)
+      if (!dataset) continue
+      const experimentId = experimentIdByIdentifier.get(experimentIdentifier)
+      if (!experimentId) continue
+
+      // Link the experiment that produced the dataset.
+      const lockState = await client.query(
+        'select locked_at from api.records where id = $1',
+        [experimentId],
       )
-      const displayId: string | undefined = meta.rows[0]?.display_id
-      if (!displayId) continue
-
-      // Link a slice of the design experiments to this dataset.
-      const linked = experiments.slice(d * 2, d * 2 + 3)
-      for (const exp of linked) {
-        const lockState = await client.query(
-          'select locked_at from api.records where id = $1',
-          [exp.id],
-        )
-        if (lockState.rows[0]?.locked_at) continue
+      if (!lockState.rows[0]?.locked_at) {
         await client.query(
           `insert into api.record_links
              (source_record_id, target_kind, target_identifier, link_type,
@@ -3466,46 +3865,50 @@ async function seedDesignDatasetFlags(
            values ($1,'dataset',$2,'dataset',$3)
            on conflict (source_record_id, target_identifier, link_type)
              do nothing`,
-          [exp.id, displayId, actorId],
+          [experimentId, displayId, actorId],
         )
       }
 
-      // Flag a couple of recorded values as open issues.
+      const flags = DESIGN_DATASET_FLAGS[displayId] ?? []
+      if (flags.length === 0) continue
+
       const rows = await client.query(
-        'select id from api.dataset_rows where dataset_id = $1 order by id limit 3',
+        'select id from api.dataset_rows where dataset_id = $1 order by id limit 1',
         [dataset.id],
       )
+      const rowId: string | undefined = rows.rows[0]?.id
+      if (!rowId) continue
+
       const fields = await client.query(
-        `select f.field_id from api.dataset_schema_version_fields f
+        `select f.field_id, f.key from api.dataset_schema_version_fields f
            join api.dataset_schema_versions v on v.id = f.schema_version_id
            join api.dataset_schema_definitions s on s.id = v.schema_id
-          where s.workspace_id = $1 and s.key = $2
-          order by f.display_order`,
+          where s.workspace_id = $1 and s.key = $2`,
         [workspaceId, dataset.schemaKey],
       )
-      const fieldIds: string[] = fields.rows.map(
-        (r: { field_id: string }) => r.field_id,
+      const fieldIdByKey = new Map<string, string>(
+        fields.rows.map((r: { field_id: string; key: string }) => [
+          r.key,
+          r.field_id,
+        ]),
       )
-      const flagField = fieldIds[Math.min(3, fieldIds.length - 1)]
-      if (!flagField) continue
 
-      for (let i = 0; i < Math.min(rows.rows.length, 2); i++) {
-        const rowId: string = rows.rows[i].id
+      for (const flag of flags) {
+        const fieldId = fieldIdByKey.get(flag.fieldKey)
+        if (!fieldId) continue
         const existing = await client.query(
           `select 1 from api.dataset_value_flags
             where dataset_id = $1 and row_id = $2 and field_id = $3
               and cleared_at is null`,
-          [dataset.id, rowId, flagField],
+          [dataset.id, rowId, fieldId],
         )
         if ((existing.rowCount ?? 0) > 0) continue
         await client.query('select api.flag_dataset_value($1,$2,$3,$4,$5,$6)', [
           dataset.id,
           rowId,
-          flagField,
-          i === 0 ? 'out_of_range' : 'missing_unit',
-          i === 0
-            ? 'Value outside the expected range'
-            : 'Unit missing on the recorded value',
+          fieldId,
+          flag.kind,
+          flag.reason,
           null,
         ])
       }
@@ -3537,7 +3940,9 @@ async function seedDesignAnalyses(
         r.field_id,
       ]),
     )
-    const datasetId = DESIGN_DATASETS[0]?.id
+    const datasetId = DESIGN_DATASETS.find(
+      (d) => d.schemaKey === 'ambr_250_daily_reading',
+    )?.id
     const x = fieldId.get('day')
     const y = fieldId.get('vcd')
     const viability = fieldId.get('viability')
@@ -4544,6 +4949,178 @@ async function seedDesignConnectorsAndTokens(
 }
 
 /**
+ * IntegrationDeliveries — the Document-management webhook and its failing
+ * delivery history. The design shows five attempts against
+ * https://dms.cdmo.example/api/ingest for `record.signed`: four still retrying
+ * and one delivered. Deliveries have no create RPC (the delivery engine owns
+ * that write), so they are written directly with stable ids, like the API
+ * tokens above, and carry the design clock's times.
+ */
+async function seedDesignWebhookDeliveries(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+
+  await db
+    .insert(schema.webhookSubscriptions)
+    .values({
+      id: DESIGN_WEBHOOK_IDS.subscription,
+      workspaceId,
+      key: 'document-management',
+      description: 'Controlled copies of signed PDFs',
+      url: 'https://dms.cdmo.example/api/ingest',
+      eventTypes: ['record.signed'],
+      maxRetries: 25,
+      failureThreshold: 100,
+      status: 'active',
+      createdByUserId: DESIGN_USER_IDS.tom,
+      updatedByUserId: DESIGN_USER_IDS.tom,
+      createdAt: new Date('2026-08-01T09:00:00+01:00'),
+      updatedAt: DESIGN_CLOCK,
+    })
+    .onConflictDoUpdate({
+      target: [
+        schema.webhookSubscriptions.workspaceId,
+        schema.webhookSubscriptions.key,
+      ],
+      set: {
+        description: 'Controlled copies of signed PDFs',
+        url: 'https://dms.cdmo.example/api/ingest',
+        eventTypes: ['record.signed'],
+        maxRetries: 25,
+        failureThreshold: 100,
+        status: 'active',
+      },
+    })
+
+  const deliveries: Array<{
+    identifier: string
+    version: number
+    createdAt: Date
+    attempt: number
+    status: 'retrying' | 'delivered'
+    responseStatus: number | null
+    errorCode: string | null
+    errorMessage: string | null
+    nextAttemptAt: Date | null
+    deliveredAt: Date | null
+  }> = [
+    {
+      identifier: 'EXP-0141',
+      version: 1,
+      createdAt: new Date('2026-09-26T09:40:00+01:00'),
+      attempt: 4,
+      status: 'retrying',
+      responseStatus: 503,
+      errorCode: null,
+      errorMessage: null,
+      nextAttemptAt: new Date('2026-09-26T10:10:00+01:00'),
+      deliveredAt: null,
+    },
+    {
+      identifier: 'EXP-0139',
+      version: 2,
+      createdAt: new Date('2026-09-26T08:15:00+01:00'),
+      attempt: 6,
+      status: 'retrying',
+      responseStatus: 503,
+      errorCode: null,
+      errorMessage: null,
+      nextAttemptAt: new Date('2026-09-26T10:10:00+01:00'),
+      deliveredAt: null,
+    },
+    {
+      identifier: 'EXP-0138',
+      version: 1,
+      createdAt: new Date('2026-09-25T17:02:00+01:00'),
+      attempt: 9,
+      status: 'retrying',
+      responseStatus: null,
+      errorCode: 'timeout',
+      errorMessage: 'Timed out after 30 s',
+      nextAttemptAt: new Date('2026-09-26T10:10:00+01:00'),
+      deliveredAt: null,
+    },
+    {
+      identifier: 'EXP-0137',
+      version: 1,
+      createdAt: new Date('2026-09-25T06:00:00+01:00'),
+      attempt: 12,
+      status: 'retrying',
+      responseStatus: 503,
+      errorCode: null,
+      errorMessage: null,
+      nextAttemptAt: new Date('2026-09-26T10:10:00+01:00'),
+      deliveredAt: null,
+    },
+    {
+      identifier: 'EXP-0136',
+      version: 1,
+      createdAt: new Date('2026-09-24T16:40:00+01:00'),
+      attempt: 1,
+      status: 'delivered',
+      responseStatus: 200,
+      errorCode: null,
+      errorMessage: null,
+      nextAttemptAt: null,
+      deliveredAt: new Date('2026-09-24T16:40:05+01:00'),
+    },
+  ]
+
+  for (const [index, delivery] of deliveries.entries()) {
+    const payload = {
+      event: 'record.signed',
+      record: {
+        identifier: delivery.identifier,
+        version: delivery.version,
+      },
+    }
+    await db
+      .insert(schema.webhookDeliveries)
+      .values({
+        id: DESIGN_WEBHOOK_IDS.deliveries[index],
+        workspaceId,
+        subscriptionId: DESIGN_WEBHOOK_IDS.subscription,
+        changeEventId: `00000000-0000-4000-8000-00000000074${index}`,
+        eventType: 'record.signed',
+        payload,
+        body: JSON.stringify(payload),
+        signature: 'design-seed',
+        attempt: delivery.attempt,
+        status: delivery.status,
+        responseStatus: delivery.responseStatus,
+        responseBody:
+          delivery.responseStatus === 503 ? 'Service unavailable' : null,
+        errorCode: delivery.errorCode,
+        errorMessage: delivery.errorMessage,
+        nextAttemptAt: delivery.nextAttemptAt,
+        deliveredAt: delivery.deliveredAt,
+        createdAt: delivery.createdAt,
+        updatedAt: delivery.deliveredAt ?? delivery.createdAt,
+      })
+      .onConflictDoNothing()
+  }
+}
+
+/**
+ * DSYS-05.1 — pin the seeded datasets' timestamps to the design clock. A
+ * dataset's `updated_at` is stamped by `snapshot_dataset`, so this runs after
+ * every dataset step and keeps date-bearing list rows from drifting with
+ * wall-clock time.
+ */
+async function seedDesignClock(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  for (const dataset of DESIGN_DATASETS) {
+    await db.execute(sql`
+      update api.datasets
+         set created_at = ${dataset.createdAt ?? dataset.updatedAt},
+             updated_at = ${dataset.updatedAt}
+       where id = ${dataset.id}`)
+  }
+}
+
+/**
  * DSYS-05 — the client portal (ClientPortal): approved records shared with the
  * CL-017 client, the report documents, the message thread and the client's
  * portal membership. Shares and messages go through `share_record_with_client`
@@ -4671,7 +5248,41 @@ async function seedDesignClientPortal(
           message.body,
         ])
       }
+
+      // The design's portal is on. `client_portal_projects` only returns a
+      // project while its portal switch is on (PORTAL-01), so without this the
+      // CL-017 users saw "No shared projects yet" even though shares existed.
+      await client.query(
+        'select api.update_project_settings($1,null,null,true)',
+        [projectId],
+      )
     },
     DESIGN_SESSION_IDS.gareth,
   )
+
+  // Pin the design clock's dates; the report/share/message RPCs stamp now(),
+  // so every reseed would otherwise drift with wall-clock time. The share and
+  // message tables grant SELECT only to `authenticated`, so the owner
+  // connection writes the two timestamps after the RPCs have run.
+  const sharedAtByIdentifier: Array<[string, Date]> = [
+    ['RPT-2026-0001', new Date('2026-09-25T09:40:00+01:00')],
+    ['RPT-2026-0002', new Date('2026-09-20T10:00:00+01:00')],
+    ['RPT-2026-0003', new Date('2026-09-02T09:00:00+01:00')],
+    ['EXP-0136', new Date('2026-09-20T09:00:00+01:00')],
+    ['EXP-0133', new Date('2026-09-20T09:00:00+01:00')],
+  ]
+  for (const [identifier, sharedAt] of sharedAtByIdentifier) {
+    await db.execute(sql`
+      update api.client_portal_shares s
+         set shared_at = ${sharedAt}
+        from api.records r
+       where r.id = s.record_id
+         and s.client_id = ${clientRow.id}
+         and r.identifier = ${identifier}`)
+  }
+  await db.execute(sql`
+    update api.client_portal_messages
+       set created_at = ${new Date('2026-09-25T09:40:00+01:00')}
+     where client_id = ${clientRow.id}
+       and body = ${'Transfection ratio report is approved and attached. Clarification results expected 29 Sep.'}`)
 }

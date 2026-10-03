@@ -171,3 +171,18 @@ export const DESIGN_CREDENTIAL_IDS = {
   expiring: '00000000-0000-4000-8000-000000000701',
   expired: '00000000-0000-4000-8000-000000000702',
 } as const
+
+// DSYS-05 — the Document-management webhook and its failing delivery history
+// (IntegrationDeliveries). Deliveries have no create RPC (the delivery engine
+// owns that), so the seed writes them directly with stable ids, like the
+// tokens above.
+export const DESIGN_WEBHOOK_IDS = {
+  subscription: '00000000-0000-4000-8000-000000000730',
+  deliveries: [
+    '00000000-0000-4000-8000-000000000731',
+    '00000000-0000-4000-8000-000000000732',
+    '00000000-0000-4000-8000-000000000733',
+    '00000000-0000-4000-8000-000000000734',
+    '00000000-0000-4000-8000-000000000735',
+  ],
+} as const

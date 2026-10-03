@@ -22,6 +22,8 @@ import {
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
 import { sampleStatus } from '#/components/v3/samples/samples-data'
+import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
+import { SampleHoldMeter } from '#/components/v3/samples/sample-hold-meter'
 import { consumeSample, fetchSample, transferSample } from '#/lib/samples'
 import type { SampleRecord } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -192,6 +194,12 @@ function SampleLayout() {
               ],
             ]}
           />
+        </InspectorSection>
+        <InspectorSection title="Label">
+          <SampleLabelCard record={sample} />
+        </InspectorSection>
+        <InspectorSection title="Hold time">
+          <SampleHoldMeter record={sample} />
         </InspectorSection>
         {sample.notes ? (
           <InspectorSection title="Notes">

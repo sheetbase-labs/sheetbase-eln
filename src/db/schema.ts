@@ -820,10 +820,10 @@ export const records = api.table(
       table.projectId,
       table.identifier,
     ),
-    check(
-      'chk_records_kind',
-      sql`${table.kind} IN ('experiment', 'protocol_template', 'report', 'sample', 'reagent', 'file', 'notebook_template', 'study')`,
-    ),
+    // `kind` is validated by the `guard_record_kind` trigger (ADR-0051
+    // / MDL-01 step 2): it must be a built-in `model_kinds` record kind or a
+    // `record_models` key owned by this record's workspace. A fixed CHECK
+    // cannot query the model registries, so the allowlist is a trigger.
     index('idx_records_workspace_id').on(table.workspaceId),
     index('idx_records_project_id').on(table.projectId),
     index('idx_records_folder_id').on(table.folderId),
@@ -1656,10 +1656,12 @@ export const recordFieldDefinitions = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    // Compatibility name: this is the model key.
-    kind: text('kind')
-      .notNull()
-      .references(() => modelKinds.key, { onDelete: 'restrict' }),
+    // Compatibility name: this is the model key. ADR-0051 / MDL-01 step 2
+    // allows a built-in `model_kinds` key or a workspace-owned
+    // `record_models` key in the same workspace; the
+    // `record_field_definitions_kind_guard` trigger enforces that, so the
+    // column carries no single-table foreign key.
+    kind: text('kind').notNull(),
     // Stable slug; the key in the model host's custom_fields object. Immutable
     // once active rows reference it; rename the label, not the field_name.
     fieldName: text('field_name').notNull(),

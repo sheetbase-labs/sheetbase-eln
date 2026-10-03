@@ -1994,6 +1994,13 @@
       "when": 1791010000000,
       "tag": "0286_strong_the_executioner",
       "breakpoints": true
+    },
+    {
+      "idx": 287,
+      "version": "7",
+      "when": 1791011000000,
+      "tag": "0287_workable_mercury",
+      "breakpoints": true
     }
   ]
 }

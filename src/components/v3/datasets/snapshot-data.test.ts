@@ -7,22 +7,54 @@ import { describe, expect, it } from 'vitest'
 
 import {
   countSnapshotCitations,
+  describeKeepError,
+  describePruneWarning,
   describeSnapshotCitations,
   describeSnapshotError,
+  describeSnapshotKeeping,
   describeSnapshotRetention,
   describeSnapshotSource,
+  describeSnapshotTombstone,
   hasMoreSnapshotCompareRows,
+  isSnapshotPrunable,
+  isSnapshotTombstone,
+  mostUrgentPruneWarning,
   snapshotCompareTotalRows,
 } from './snapshot-data'
 import type {
   DatasetVersionCitations,
   DatasetVersionRetention,
 } from '#/lib/dataset-explorer-data'
+import type { SnapshotVersion } from './snapshot-data'
 
 const policy = { citedYears: 15, uncitedYears: 2 }
 
 function retention(reason: string): DatasetVersionRetention {
   return { reason, keptUntil: '2038-01-01T00:00:00.000Z', policy }
+}
+
+function summary(overrides: Partial<SnapshotVersion> = {}): SnapshotVersion {
+  return {
+    id: 'v-5',
+    label: 'S-5',
+    createdAt: '2026-09-01T00:00:00.000Z',
+    createdByUserId: 'u-1',
+    createdByCredentialId: null,
+    createdByName: 'Gareth P.',
+    sourceDatasetRevision: 12,
+    rowCount: 40,
+    contentHash: 'sha256:abc',
+    rowsRemovedAt: null,
+    change: null,
+    retention: {
+      reason: 'uncited_after_archive',
+      keptUntil: '2026-10-03T00:00:00.000Z',
+      policy,
+    },
+    source: null,
+    citedBy: { signedRevisions: [], pipelineRuns: [], analyses: [] },
+    ...overrides,
+  }
 }
 
 describe('describeSnapshotRetention', () => {
@@ -176,5 +208,144 @@ describe('describeSnapshotError', () => {
   it('falls back to the error message then generic copy', () => {
     expect(describeSnapshotError(new Error('boom'))).toBe('boom')
     expect(describeSnapshotError(null)).toBe('Please try again.')
+  })
+})
+
+describe('snapshot prune warning (DSET-04.3)', () => {
+  const now = new Date('2026-09-01T00:00:00.000Z')
+
+  it('only treats an uncited-after-archive snapshot as prunable', () => {
+    expect(isSnapshotPrunable(retention('uncited_after_archive'))).toBe(true)
+    expect(isSnapshotPrunable(retention('kept'))).toBe(false)
+    expect(isSnapshotPrunable(retention('cited_by_signed_record'))).toBe(false)
+    expect(isSnapshotPrunable(retention('active'))).toBe(false)
+  })
+
+  it('names the removal date from the read model, not a constant', () => {
+    const warning = describePruneWarning(summary(), now)
+    expect(warning).toMatchObject({
+      versionId: 'v-5',
+      label: 'S-5',
+      overdue: false,
+    })
+    expect(warning?.title).toBe('S-5 is due for row removal on 2026-10-03.')
+    expect(warning?.detail).toContain('cited by a signed record')
+  })
+
+  it('reports an overdue removal once the due date has passed', () => {
+    const warning = describePruneWarning(
+      summary(),
+      new Date('2026-11-01T00:00:00.000Z'),
+    )
+    expect(warning?.overdue).toBe(true)
+    expect(warning?.title).toBe(
+      'S-5 is overdue for row removal (was due 2026-10-03).',
+    )
+  })
+
+  it('warns for neither a kept nor an already-removed snapshot', () => {
+    expect(
+      describePruneWarning(
+        summary({ retention: retention('kept') }),
+        now,
+      ),
+    ).toBeNull()
+    expect(
+      describePruneWarning(
+        summary({ rowsRemovedAt: '2026-09-12T00:00:00.000Z' }),
+        now,
+      ),
+    ).toBeNull()
+  })
+
+  it('acts on the most urgent prunable snapshot', () => {
+    const warning = mostUrgentPruneWarning(
+      [
+        summary({
+          id: 'v-later',
+          label: 'S-6',
+          retention: {
+            reason: 'uncited_after_archive',
+            keptUntil: '2027-01-01T00:00:00.000Z',
+            policy,
+          },
+        }),
+        summary({ id: 'v-kept', label: 'S-7', retention: retention('kept') }),
+        summary({
+          id: 'v-sooner',
+          label: 'S-5',
+          retention: {
+            reason: 'uncited_after_archive',
+            keptUntil: '2026-10-03T00:00:00.000Z',
+            policy,
+          },
+        }),
+      ],
+      now,
+    )
+    expect(warning?.versionId).toBe('v-sooner')
+  })
+
+  it('has no warning when nothing is prunable', () => {
+    expect(
+      mostUrgentPruneWarning(
+        [summary({ retention: retention('kept') })],
+        now,
+      ),
+    ).toBeNull()
+  })
+})
+
+describe('snapshot tombstone (DSET-04.3)', () => {
+  it('is true only once rowsRemovedAt is reported', () => {
+    expect(isSnapshotTombstone(summary({ rowsRemovedAt: null }))).toBe(false)
+    expect(
+      isSnapshotTombstone(
+        summary({ rowsRemovedAt: '2026-09-12T00:00:00.000Z' }),
+      ),
+    ).toBe(true)
+    expect(isSnapshotTombstone(null)).toBe(false)
+  })
+
+  it('states the removal, the rule and what still resolves', () => {
+    const tombstone = describeSnapshotTombstone(
+      summary({ rowsRemovedAt: '2026-09-12T00:00:00.000Z' }),
+    )
+    expect(tombstone).toMatchObject({
+      label: 'Rows removed',
+      tone: 'stored',
+      removedAt: '2026-09-12',
+      rule: 'Uncited, 2 years after archive',
+    })
+    expect(tombstone.detail).toContain('Rows removed 2026-09-12')
+    expect(tombstone.why).toContain('Links and citations still open this page')
+  })
+
+  it('describes a tombstoned snapshot as rows removed, not prunable', () => {
+    const keeping = describeSnapshotKeeping(
+      summary({ rowsRemovedAt: '2026-09-12T00:00:00.000Z' }),
+    )
+    expect(keeping).toMatchObject({ label: 'Rows removed', tone: 'stored' })
+    expect(keeping?.detail).toContain('history are kept')
+  })
+
+  it('falls back to the retention view for a live snapshot', () => {
+    expect(describeSnapshotKeeping(summary())).toMatchObject({
+      label: 'Prunable',
+      tone: 'warn',
+    })
+    expect(describeSnapshotKeeping(null)).toBeNull()
+  })
+})
+
+describe('describeKeepError', () => {
+  it('explains permission and reason refusals', () => {
+    expect(describeKeepError({ code: '42501' })).toMatch(/permission/)
+    expect(describeKeepError({ code: '22023' })).toMatch(/1 and 500/)
+  })
+
+  it('falls back to the error message then generic copy', () => {
+    expect(describeKeepError(new Error('boom'))).toBe('boom')
+    expect(describeKeepError(null)).toBe('Please try again.')
   })
 })

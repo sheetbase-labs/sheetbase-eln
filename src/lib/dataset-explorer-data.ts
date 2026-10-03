@@ -874,6 +874,24 @@ export async function listDatasetVersionSummaries(
   })
 }
 
+/**
+ * DSET-04.3 — keep a snapshot's rows from retention. The RPC requires a
+ * trimmed reason (1–500 characters) and is writer-gated server-side; the
+ * reason is stored beside the snapshot and pushes removal out by the
+ * workspace's uncited retention period. A signed citation still takes
+ * precedence.
+ */
+export async function keepDatasetVersion(
+  client: DataClient,
+  versionId: string,
+  reason: string,
+): Promise<void> {
+  await client.rpc('keep_dataset_version', {
+    p_version_id: versionId,
+    p_reason: reason.trim(),
+  })
+}
+
 export async function compareDatasetVersions(
   client: DataClient,
   versionA: string,

@@ -88,6 +88,140 @@ export function describeSnapshotRetention(
   }
 }
 
+/**
+ * DSET-04.3 — true only for the one retention reason that can lose its rows.
+ * A hand keep, a signed citation or an active Dataset is never prunable.
+ */
+export function isSnapshotPrunable(
+  retention: DatasetVersionRetention | null | undefined,
+): boolean {
+  return retention?.reason === 'uncited_after_archive'
+}
+
+export interface SnapshotPruneWarning {
+  versionId: string
+  label: string
+  /** ISO date the rows become eligible for removal, if reported. */
+  dueAt: string | null
+  /** True once the due date has passed and the rows are eligible now. */
+  overdue: boolean
+  /** Sentence naming the snapshot and its removal date. */
+  title: string
+  /** The "not cited…" consequence and the offered action. */
+  detail: string
+}
+
+/**
+ * DSET-04.3 — the warning a reviewer sees before retention removes rows. Null
+ * for cited/kept/active snapshots and for snapshots already tombstoned. The
+ * removal date comes from the read model's `keptUntil`, never a constant.
+ */
+export function describePruneWarning(
+  version: Pick<
+    SnapshotVersion,
+    'id' | 'label' | 'retention' | 'rowsRemovedAt'
+  >,
+  now: Date = new Date(),
+): SnapshotPruneWarning | null {
+  if (version.rowsRemovedAt || !isSnapshotPrunable(version.retention)) return null
+  const dueAt = version.retention.keptUntil
+  const overdue = dueAt ? new Date(dueAt).getTime() <= now.getTime() : false
+  const title = overdue
+    ? `${version.label} is overdue for row removal (was due ${formatDate(dueAt)}).`
+    : `${version.label} is due for row removal on ${formatDate(dueAt)}.`
+  return {
+    versionId: version.id,
+    label: version.label,
+    dueAt,
+    overdue,
+    title,
+    detail: 'It isn’t cited by a signed record. Keep it if you still need it.',
+  }
+}
+
+/**
+ * DSET-04.3 — the most urgent prunable snapshot, so the warning acts on the
+ * one closest to losing its rows. Overdue snapshots sort before scheduled
+ * ones; ties fall back to the earliest reported due date.
+ */
+export function mostUrgentPruneWarning(
+  versions: readonly SnapshotVersion[],
+  now: Date = new Date(),
+): SnapshotPruneWarning | null {
+  const warnings = versions
+    .map((version) => describePruneWarning(version, now))
+    .filter((warning): warning is SnapshotPruneWarning => warning !== null)
+  if (warnings.length === 0) return null
+  const dueTime = (warning: SnapshotPruneWarning) =>
+    warning.dueAt ? new Date(warning.dueAt).getTime() : Number.POSITIVE_INFINITY
+  warnings.sort((a, b) => dueTime(a) - dueTime(b))
+  return warnings[0]
+}
+
+export interface SnapshotTombstoneView {
+  label: 'Rows removed'
+  tone: Tone
+  /** ISO date the job removed the rows. */
+  removedAt: string
+  /** One-line identity/consequence statement. */
+  detail: string
+  /** The retention rule that applied, from the workspace policy. */
+  rule: string
+  /** Why the rows were removed, and what still resolves. */
+  why: string
+}
+
+/** True once the retention job has removed this snapshot's rows. */
+export function isSnapshotTombstone(
+  version: Pick<SnapshotVersion, 'rowsRemovedAt'> | null | undefined,
+): boolean {
+  return Boolean(version?.rowsRemovedAt)
+}
+
+/**
+ * DSET-04.3 — the tombstone view for a snapshot whose rows were removed. The
+ * identity, hash and history remain; the frozen row data is gone. This is
+ * built from `rowsRemovedAt` and the retention policy, so it never claims
+ * rows still exist.
+ */
+export function describeSnapshotTombstone(
+  version: Pick<SnapshotVersion, 'rowsRemovedAt' | 'retention'>,
+): SnapshotTombstoneView {
+  const removedAt = formatDate(version.rowsRemovedAt)
+  const policy = version.retention.policy
+  return {
+    label: 'Rows removed',
+    tone: 'stored',
+    removedAt,
+    detail: `Rows removed ${removedAt}. The snapshot’s ID and history are kept.`,
+    rule: policy
+      ? `Uncited, ${policy.uncitedYears} years after archive`
+      : 'Uncited after archive',
+    why: 'No signed record cited this snapshot, so the retention job removed its rows. Links and citations still open this page; the data itself is gone.',
+  }
+}
+
+/**
+ * DSET-04.3 — one truthful "keeping" view for a list row or the inspector. A
+ * tombstoned snapshot reports rows removed rather than its now-past retention
+ * schedule, so the UI never shows a prunable snapshot with no rows left.
+ */
+export function describeSnapshotKeeping(
+  version: SnapshotVersion | null | undefined,
+): SnapshotRetentionView | null {
+  if (!version) return null
+  if (isSnapshotTombstone(version)) {
+    const tombstone = describeSnapshotTombstone(version)
+    return {
+      label: tombstone.label,
+      tone: tombstone.tone,
+      detail: tombstone.detail,
+      policy: describeRetentionPolicy(version.retention),
+    }
+  }
+  return describeSnapshotRetention(version.retention)
+}
+
 /** Describe the producer of a snapshot from the read model. */
 export function describeSnapshotSource(
   source: DatasetVersionSource | null | undefined,
@@ -190,6 +324,23 @@ export function describeSnapshotError(cause: unknown): string {
     if (code === '42501')
       return 'You do not have permission to snapshot this dataset.'
     if (code === '22023') return 'Archived datasets cannot be snapshotted.'
+  }
+  if (cause instanceof Error && cause.message) return cause.message
+  return 'Please try again.'
+}
+
+/**
+ * DSET-04.3 — friendly copy for a failed keep. The keep RPC requires a writer
+ * and a reason; the client validates the reason, so this mainly translates
+ * the server's permission refusal.
+ */
+export function describeKeepError(cause: unknown): string {
+  if (cause && typeof cause === 'object' && 'code' in cause) {
+    const code = (cause as { code?: unknown }).code
+    if (code === '42501')
+      return 'You do not have permission to keep this snapshot, or it is not in the active workspace.'
+    if (code === '22023')
+      return 'Enter a reason between 1 and 500 characters to keep this snapshot.'
   }
   if (cause instanceof Error && cause.message) return cause.message
   return 'Please try again.'

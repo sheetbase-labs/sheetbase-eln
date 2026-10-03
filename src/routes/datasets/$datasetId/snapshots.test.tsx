@@ -18,6 +18,7 @@ const dataClient = vi.hoisted(() => ({
   rpc: vi.fn(),
 }))
 const product = vi.hoisted(() => ({ snapshotDataset: vi.fn() }))
+const explorer = vi.hoisted(() => ({ keepDatasetVersion: vi.fn() }))
 const sonner = vi.hoisted(() => ({ toast: vi.fn() }))
 const routeContext = vi.hoisted(() => ({
   value: {
@@ -76,6 +77,11 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
 vi.mock('#/lib/dataset-product', async (importOriginal) => ({
   ...(await importOriginal()),
   snapshotDataset: product.snapshotDataset,
+}))
+
+vi.mock('#/lib/dataset-explorer-data', async (importOriginal) => ({
+  ...(await importOriginal()),
+  keepDatasetVersion: explorer.keepDatasetVersion,
 }))
 
 vi.mock('#/components/v3/ui/sonner', () => ({
@@ -162,6 +168,7 @@ beforeEach(() => {
     id: 'v-3',
     label: 'Gareth P. · saved by hand',
   })
+  explorer.keepDatasetVersion.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -256,5 +263,110 @@ describe('dataset snapshots route', () => {
     expect(compare.getAttribute('href')).toBe(
       '/datasets/ds-1/compare?from=v-1&to=v-2',
     )
+  })
+
+  it('warns before removal and keeps a prunable snapshot with a reason', async () => {
+    const user = userEvent.setup()
+    dataClient.rpc.mockResolvedValue([
+      version({
+        id: 'v-9',
+        label: 'S-5',
+        rowCount: 40,
+        retention: {
+          reason: 'uncited_after_archive',
+          keptUntil: '2027-10-03T00:00:00.000Z',
+          policy: { citedYears: 15, uncitedYears: 2 },
+        },
+        citedBy: { signedRevisions: [], pipelineRuns: [], analyses: [] },
+      }),
+    ])
+    renderRoute()
+
+    await screen.findByText('S-5')
+    expect(
+      screen.getByText('S-5 is due for row removal on 2027-10-03.'),
+    ).toBeTruthy()
+
+    await user.click(screen.getAllByRole('button', { name: 'Keep S-5' })[0])
+    const dialog = await screen.findByRole('dialog')
+    await user.type(
+      within(dialog).getByRole('textbox'),
+      'Still needed for the 2027 review',
+    )
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Keep snapshot' }),
+    )
+
+    await waitFor(() =>
+      expect(explorer.keepDatasetVersion).toHaveBeenCalledWith(
+        dataClient,
+        'v-9',
+        'Still needed for the 2027 review',
+      ),
+    )
+    await waitFor(() =>
+      expect(sonner.toast).toHaveBeenCalledWith(
+        'Snapshot S-5 kept',
+        expect.objectContaining({
+          description: expect.stringContaining('not be removed by retention'),
+        }),
+      ),
+    )
+  })
+
+  it('does not offer Keep to a non-writer but still shows the warning', async () => {
+    routeContext.value = {
+      workspace: { id: 'ws-1', name: 'Process Development', role: 'viewer' },
+      user: { name: 'Gareth P.', email: 'gareth@example.com' },
+    }
+    dataClient.rpc.mockResolvedValue([
+      version({
+        id: 'v-9',
+        label: 'S-5',
+        rowCount: 40,
+        retention: {
+          reason: 'uncited_after_archive',
+          keptUntil: '2027-10-03T00:00:00.000Z',
+          policy: { citedYears: 15, uncitedYears: 2 },
+        },
+        citedBy: { signedRevisions: [], pipelineRuns: [], analyses: [] },
+      }),
+    ])
+    renderRoute()
+
+    await screen.findByText('S-5')
+    expect(
+      screen.getByText('S-5 is due for row removal on 2027-10-03.'),
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: 'Keep S-5' }),
+    ).toBeNull()
+  })
+
+  it('reports a tombstoned snapshot clearly instead of an empty view', async () => {
+    dataClient.rpc.mockResolvedValue([
+      version({
+        id: 'v-3',
+        label: 'S-3',
+        rowCount: 0,
+        rowsRemovedAt: '2026-09-12T00:00:00.000Z',
+        retention: {
+          reason: 'uncited_after_archive',
+          keptUntil: '2026-01-01T00:00:00.000Z',
+          policy: { citedYears: 15, uncitedYears: 2 },
+        },
+        citedBy: { signedRevisions: [], pipelineRuns: [], analyses: [] },
+      }),
+    ])
+    renderRoute()
+
+    await screen.findByText('S-3')
+    expect(screen.getAllByText('Rows removed').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(/Links and citations still open this page/),
+    ).toBeTruthy()
+    expect(screen.getByText(/nothing left to compare/)).toBeTruthy()
+    // The warning banner targets the prunable snapshot, not the tombstone.
+    expect(screen.queryByText(/due for row removal/)).toBeNull()
   })
 })

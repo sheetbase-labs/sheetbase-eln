@@ -33,14 +33,20 @@ import { toast } from '#/components/v3/ui/sonner'
 import { stickyCell, stickyHead } from '#/components/v3/inventory/list'
 import {
   countSnapshotCitations,
+  describeKeepError,
   describeRetentionPolicy,
   describeSnapshotCitations,
   describeSnapshotError,
-  describeSnapshotRetention,
+  describeSnapshotKeeping,
   describeSnapshotSource,
+  describeSnapshotTombstone,
+  isSnapshotPrunable,
+  isSnapshotTombstone,
+  mostUrgentPruneWarning,
 } from '#/components/v3/datasets/snapshot-data'
 import type { SnapshotVersion } from '#/components/v3/datasets/snapshot-data'
 import { hasCapability } from '#/lib/capability'
+import { keepDatasetVersion } from '#/lib/dataset-explorer-data'
 import { snapshotDataset } from '#/lib/dataset-product'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { cn } from '#/lib/utils'
@@ -50,7 +56,9 @@ import { datasetVersionsQueryKey, useDatasetVersions } from '../$datasetId'
  * dataset_version_list. DSET-03.1: retention, producer, hash and cited-by are
  * read from the model rather than hardcoded. DSET-03.3 adds the manual
  * "Create snapshot" action, the complete inspector and a link to compare the
- * selected snapshot against another. */
+ * selected snapshot against another. DSET-04.3 adds the prune warning with a
+ * reason-bearing "Keep", and the tombstone state for a snapshot whose rows the
+ * retention job removed. */
 export const Route = createFileRoute('/datasets/$datasetId/snapshots')({
   component: Snapshots,
 })
@@ -67,10 +75,13 @@ function Snapshots() {
   const [selected, setSelected] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [compareWith, setCompareWith] = useState<string | null>(null)
+  const [keepTarget, setKeepTarget] = useState<SnapshotVersion | null>(null)
   const current = rows.find((v) => v.id === selected) ?? rows.at(0)
   const index = current ? rows.indexOf(current) : -1
   const previous = index >= 0 ? rows[index + 1] : undefined
-  const retention = describeSnapshotRetention(current?.retention)
+  const keeping = describeSnapshotKeeping(current)
+  const tombstone = current ? isSnapshotTombstone(current) : false
+  const pruneWarning = mostUrgentPruneWarning(rows)
   const citations = countSnapshotCitations(current?.citedBy)
   const citationLines = describeSnapshotCitations(current?.citedBy)
   const citedCount =
@@ -132,6 +143,25 @@ function Snapshots() {
       }),
   })
 
+  const keep = useMutation({
+    mutationFn: (input: { version: SnapshotVersion; reason: string }) =>
+      keepDatasetVersion(notebookDataClient, input.version.id, input.reason),
+    onSuccess: (_result, input) => {
+      setKeepTarget(null)
+      void queryClient.invalidateQueries({
+        queryKey: datasetVersionsQueryKey(datasetId),
+      })
+      toast(`Snapshot ${input.version.label} kept`, {
+        description:
+          'Its rows will not be removed by retention while the keep is in force.',
+      })
+    },
+    onError: (cause) =>
+      toast('Could not keep the snapshot', {
+        description: describeKeepError(cause),
+      }),
+  })
+
   const others = rows.filter((v) => v.id !== current?.id)
   const compareTarget =
     compareWith && others.some((v) => v.id === compareWith)
@@ -141,6 +171,29 @@ function Snapshots() {
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-6">
+        {pruneWarning ? (
+          <Notice
+            tone="warn"
+            title={pruneWarning.title}
+            action={
+              canWrite ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const target = rows.find(
+                      (v) => v.id === pruneWarning.versionId,
+                    )
+                    if (target) setKeepTarget(target)
+                  }}
+                >
+                  Keep {pruneWarning.label}
+                </Button>
+              ) : undefined
+            }
+          >
+            {pruneWarning.detail}
+          </Notice>
+        ) : null}
         <Notice icon="lock">
           A snapshot never changes. Records, analyses and pipeline runs cite the
           snapshot they used, so later imports can’t alter what was reviewed.
@@ -175,7 +228,8 @@ function Snapshots() {
               </TableHeader>
               <TableBody>
                 {rows.map((v) => {
-                  const view = describeSnapshotRetention(v.retention)
+                  const view = describeSnapshotKeeping(v)
+                  const removed = isSnapshotTombstone(v)
                   return (
                     <TableRow
                       key={v.id}
@@ -194,12 +248,20 @@ function Snapshots() {
                       <TableCell>
                         {v.createdAt.slice(0, 16).replace('T', ' ')}
                       </TableCell>
-                      <TableCell align="right">{v.rowCount}</TableCell>
+                      <TableCell align="right">
+                        {removed ? (
+                          <span className="text-fg-muted">Removed</span>
+                        ) : (
+                          v.rowCount
+                        )}
+                      </TableCell>
                       <TableCell className="num">
                         {v.sourceDatasetRevision}
                       </TableCell>
                       <TableCell>
-                        <Status tone={view.tone}>{view.label}</Status>
+                        {view ? (
+                          <Status tone={view.tone}>{view.label}</Status>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   )
@@ -216,8 +278,8 @@ function Snapshots() {
         )}
         {!canWrite ? (
           <Notice tone="info" icon={false}>
-            You have read access to this dataset, so new snapshots cannot be
-            created. Ask a workspace writer.
+            You have read access to this dataset, so snapshots cannot be
+            created or kept. Ask a workspace writer.
           </Notice>
         ) : null}
       </div>
@@ -229,7 +291,7 @@ function Snapshots() {
               labelWidth={96}
               items={[
                 ['Saved', current.createdAt.slice(0, 16).replace('T', ' ')],
-                ['Rows', String(current.rowCount)],
+                ['Rows', tombstone ? 'Removed' : String(current.rowCount)],
                 ['Source revision', String(current.sourceDatasetRevision)],
                 [
                   'Made by',
@@ -276,19 +338,50 @@ function Snapshots() {
             </div>
           </InspectorSection>
           <InspectorSection title="Content hash">
-            <span className="mono break-all text-[11px] leading-[16px]">
-              {current.contentHash}
-            </span>
+            {tombstone ? (
+              <Muted>
+                Not shown after removal. The snapshot’s identity and history are
+                kept, but the hash was derived from the rows that are now gone.
+              </Muted>
+            ) : (
+              <span className="mono break-all text-[11px] leading-[16px]">
+                {current.contentHash}
+              </span>
+            )}
           </InspectorSection>
-          <InspectorSection title="Keeping">
-            <div className="flex flex-col gap-2">
-              <Status tone={retention.tone}>{retention.label}</Status>
-              <Muted>{retention.detail}</Muted>
-              <Muted>{describeRetentionPolicy(current.retention)}</Muted>
-            </div>
+          <InspectorSection title={tombstone ? 'What’s left' : 'Keeping'}>
+            {keeping ? (
+              <div className="flex flex-col gap-2">
+                <Status tone={keeping.tone}>{keeping.label}</Status>
+                <Muted>{keeping.detail}</Muted>
+                {tombstone ? (
+                  <>
+                    <Muted>
+                      Rule: {describeSnapshotTombstone(current).rule}
+                    </Muted>
+                    <Muted>{describeSnapshotTombstone(current).why}</Muted>
+                  </>
+                ) : (
+                  <Muted>{describeRetentionPolicy(current.retention)}</Muted>
+                )}
+                {canWrite &&
+                !tombstone &&
+                isSnapshotPrunable(current.retention) ? (
+                  <Button size="sm" onClick={() => setKeepTarget(current)}>
+                    Keep {current.label}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </InspectorSection>
           <InspectorSection title="Compare">
-            {others.length && compareTarget ? (
+            {tombstone ? (
+              <Muted>
+                The rows were removed, so there is nothing left to compare. The
+                snapshot’s ID and history above identify exactly what was
+                frozen.
+              </Muted>
+            ) : others.length && compareTarget ? (
               <div className="flex flex-col gap-2">
                 <label className="sr-only" htmlFor="compare-with">
                   Compare with
@@ -330,6 +423,18 @@ function Snapshots() {
         defaultLabel={`${context.user.name} · saved by hand`}
         busy={create.isPending}
         onSubmit={(label) => create.mutate(label)}
+      />
+
+      <KeepSnapshotDialog
+        key={keepTarget?.id ?? 'none'}
+        snapshot={keepTarget}
+        onOpenChange={(open) => {
+          if (!open) setKeepTarget(null)
+        }}
+        busy={keep.isPending}
+        onSubmit={(reason) => {
+          if (keepTarget) keep.mutate({ version: keepTarget, reason })
+        }}
       />
     </>
   )
@@ -418,6 +523,104 @@ function CreateSnapshotDialog({
             disabled={busy || invalid}
           >
             Save snapshot
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface KeepSnapshotDialogProps {
+  snapshot: SnapshotVersion | null
+  onOpenChange: (open: boolean) => void
+  busy?: boolean
+  onSubmit: (reason: string) => void
+}
+
+const KEEP_REASON_MAX = 500
+
+/**
+ * DSET-04.3 — "Keep" a snapshot from retention. A reason is required because
+ * the RPC stores it beside the snapshot and rejects an empty one; the value
+ * is trimmed and length-checked here so the refusal never reaches the user as
+ * a raw database error.
+ */
+function KeepSnapshotDialog({
+  snapshot,
+  onOpenChange,
+  busy = false,
+  onSubmit,
+}: KeepSnapshotDialogProps) {
+  const formId = 'keep-snapshot'
+  const [reason, setReason] = useState('')
+  const [touched, setTouched] = useState(false)
+  const trimmed = reason.trim()
+  const invalid = trimmed.length < 1 || trimmed.length > KEEP_REASON_MAX
+
+  return (
+    <Dialog
+      open={snapshot !== null}
+      onOpenChange={(next) => {
+        if (!next) {
+          setReason('')
+          setTouched(false)
+        }
+        onOpenChange(next)
+      }}
+    >
+      <DialogContent className="w-[min(460px,calc(100vw-32px))]">
+        <DialogHeader
+          title={snapshot ? `Keep ${snapshot.label}` : 'Keep snapshot'}
+          description="Retention will not remove this snapshot’s rows while the keep is in force."
+        />
+        <DialogBody>
+          <Notice tone="info" icon={false}>
+            Keeping records why the rows are still needed. A signed record
+            citing the snapshot is retained for longer and still takes
+            precedence over a keep.
+          </Notice>
+          <form
+            id={formId}
+            className="flex flex-col gap-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!invalid) onSubmit(trimmed)
+            }}
+          >
+            <Field
+              label="Reason"
+              required
+              error={
+                touched && invalid
+                  ? `Enter a reason up to ${KEEP_REASON_MAX} characters.`
+                  : undefined
+              }
+              hint="Stored with the snapshot and shown in its history."
+            >
+              <Input
+                value={reason}
+                autoFocus
+                disabled={busy}
+                maxLength={KEEP_REASON_MAX}
+                aria-invalid={touched && invalid}
+                onChange={(e) => {
+                  setReason(e.target.value)
+                  setTouched(true)
+                }}
+                placeholder="e.g. Still needed for the 2027 stability review"
+              />
+            </Field>
+          </form>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button />}>Cancel</DialogClose>
+          <Button
+            type="submit"
+            form={formId}
+            variant="primary"
+            disabled={busy || invalid}
+          >
+            {busy ? 'Keeping…' : 'Keep snapshot'}
           </Button>
         </DialogFooter>
       </DialogContent>

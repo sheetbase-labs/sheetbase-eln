@@ -19,6 +19,8 @@ import {
   getNextDatasetPageParam,
   fetchDatasetRowPage,
   fetchDatasetSummaries,
+  keepDatasetVersion,
+  listDatasetVersionSummaries,
   resolveDatasetDeepLinkSelection,
   sanitizeDatasetView,
   validateTransformations,
@@ -563,5 +565,39 @@ describe('resolveDatasetDeepLinkSelection', () => {
         summariesLoaded: false,
       }),
     ).toEqual({ selectedDatasetId: null, flipToArchived: false })
+  })
+})
+
+describe('snapshot version reads and keeps (DSET-04.3)', () => {
+  it('lists snapshots through dataset_version_list', async () => {
+    let call: { name: string; args: Record<string, unknown> } | undefined
+    const client = {
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        call = { name, args }
+        return []
+      },
+    } as unknown as DataClient
+
+    await listDatasetVersionSummaries(client, 'd-1')
+    expect(call).toEqual({
+      name: 'dataset_version_list',
+      args: { p_dataset_id: 'd-1' },
+    })
+  })
+
+  it('keeps a snapshot through keep_dataset_version with a trimmed reason', async () => {
+    let call: { name: string; args: Record<string, unknown> } | undefined
+    const client = {
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        call = { name, args }
+        return {}
+      },
+    } as unknown as DataClient
+
+    await keepDatasetVersion(client, 'v-1', '  Still needed  ')
+    expect(call).toEqual({
+      name: 'keep_dataset_version',
+      args: { p_version_id: 'v-1', p_reason: 'Still needed' },
+    })
   })
 })

@@ -244,6 +244,45 @@ export function fromRecordRevision(d: Record<string, any>): RecordRevision {
   };
 }
 
+// ── RecordModel ────────────────────────────────────────────────────────────
+
+/**
+ * A workspace-defined record model identity (ADR-0051). Built-in kinds stay
+ * in the migration-owned model catalogue; these rows are workspace-owned and
+ * GET-only for external credentials.
+ */
+export interface RecordModel {
+  id: string;
+  workspaceId: string;
+  key: string;
+  name: string;
+  identifierPrefix: string;
+  lifecycle: string;
+  currentVersion: number;
+  createdAt: string;
+  updatedAt: string;
+  description?: string | null;
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+}
+
+export function fromRecordModel(d: Record<string, any>): RecordModel {
+  return {
+    id: d.id,
+    workspaceId: d.workspace_id,
+    key: d.key,
+    name: d.name,
+    identifierPrefix: d.identifier_prefix,
+    lifecycle: d.lifecycle,
+    currentVersion: d.current_version,
+    createdAt: d.created_at,
+    updatedAt: d.updated_at,
+    description: d.description ?? null,
+    createdByUserId: d.created_by_user_id ?? null,
+    updatedByUserId: d.updated_by_user_id ?? null,
+  };
+}
+
 // ── DatasetRow ─────────────────────────────────────────────────────────────
 
 export interface DatasetRow {

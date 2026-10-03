@@ -146,6 +146,9 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   record_links: { read: 'projects:read', write: 'projects:write' },
   revisions: { read: 'projects:read' },
   record_field_definitions: { read: 'projects:read' },
+  // MDL-01: workspace-defined model identity (ADR-0051) is GET-only for API
+  // keys; authoring is owner/session (`schema.edit`), never `api_client`.
+  record_models: { read: 'projects:read' },
   datasets: { read: 'datasets:read', write: 'datasets:write' },
   dataset_versions: { read: 'datasets:read' },
   sheet_instances: { read: 'sheets:read' },

@@ -164,6 +164,45 @@ class DatasetVersion:
 
 
 @dataclass(frozen=True)
+class RecordModel:
+    """A workspace-defined record model identity (ADR-0051).
+
+    Built-in kinds stay in the migration-owned model catalogue; these rows are
+    workspace-owned and GET-only for external credentials.
+    """
+
+    id: UUID
+    workspace_id: UUID
+    key: str
+    name: str
+    identifier_prefix: str
+    lifecycle: str
+    current_version: int
+    created_at: datetime
+    updated_at: datetime
+    description: Optional[str] = None
+    created_by_user_id: Optional[str] = None
+    updated_by_user_id: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> RecordModel:
+        return cls(
+            id=UUID(d["id"]),
+            workspace_id=UUID(d["workspace_id"]),
+            key=d["key"],
+            name=d["name"],
+            identifier_prefix=d["identifier_prefix"],
+            lifecycle=d["lifecycle"],
+            current_version=d["current_version"],
+            created_at=_parse_dt(d["created_at"]),  # type: ignore[arg-type]
+            updated_at=_parse_dt(d["updated_at"]),  # type: ignore[arg-type]
+            description=d.get("description"),
+            created_by_user_id=d.get("created_by_user_id"),
+            updated_by_user_id=d.get("updated_by_user_id"),
+        )
+
+
+@dataclass(frozen=True)
 class SchemaField:
     """A field definition within a dataset schema version.
 

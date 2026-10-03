@@ -92,6 +92,7 @@ export type {
   DatasetRow,
   SchemaField,
   RecordRevision,
+  RecordModel,
   SheetInstance,
   SearchResult,
   CommitResult,

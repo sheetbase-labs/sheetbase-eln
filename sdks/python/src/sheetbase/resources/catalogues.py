@@ -12,6 +12,23 @@ class CataloguesResource:
     def __init__(self, transport: Any) -> None:
         self._transport = transport
 
+    # ── Record Models (MDL-01) ──────────────────────────────────────────
+
+    def list_record_models(
+        self, *, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        return self._transport.get(
+            "/api/db/record_models",
+            params={"limit": limit, "offset": offset},
+        )
+
+    def get_record_model(self, model_id: str) -> Optional[dict[str, Any]]:
+        rows = self._transport.get(
+            "/api/db/record_models",
+            params={"id": f"eq.{model_id}", "limit": 1},
+        )
+        return rows[0] if rows else None
+
     # ── Dataset Schema ──────────────────────────────────────────────────
 
     def list_schema_definitions(

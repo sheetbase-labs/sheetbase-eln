@@ -6,7 +6,6 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import type Handsontable from 'handsontable/base'
 
 import type { FieldDefinition } from '#/lib/field-definition'
 import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
@@ -14,6 +13,7 @@ import type {
   SheetbaseGridCellChange,
   SheetbaseGridColumn,
   SheetbaseGridFilter,
+  SheetbaseGridHandle,
   SheetbaseGridMenuEntry,
   SheetbaseGridRecordEditor,
   SheetbaseGridSelection,
@@ -576,9 +576,9 @@ export function CanonicalSheetEditor({
     setColumnLabel('')
   }
 
-  async function deleteSelectedRow() {
-    const rowKey = matrix.rowKeys[selected.row]
-    if (!rowKey || matrix.rowKinds[selected.row] !== 'local') return
+  async function deleteLocalRowAt(rowIndex: number) {
+    const rowKey = matrix.rowKeys[rowIndex]
+    if (!rowKey || matrix.rowKinds[rowIndex] !== 'local') return
     const current = instanceRef.current
     const nextValues = { ...current.state.localValues }
     delete nextValues[rowKey]
@@ -589,6 +589,10 @@ export function CanonicalSheetEditor({
       sheetInstanceDataClient,
     )
     queryClient.setQueryData(['sheet-instance', instance.id], next)
+  }
+
+  async function deleteSelectedRow() {
+    await deleteLocalRowAt(selected.row)
   }
 
   async function deleteSelectedColumn() {
@@ -847,18 +851,42 @@ export function CanonicalSheetEditor({
   const addColumnRef = useRef(addColumn)
   const deleteRowRef = useRef(deleteSelectedRow)
   const deleteColumnRef = useRef(deleteSelectedColumn)
+  const deleteLocalRowAtRef = useRef(deleteLocalRowAt)
   addRowRef.current = addRow
   addColumnRef.current = addColumn
   deleteRowRef.current = deleteSelectedRow
   deleteColumnRef.current = deleteSelectedColumn
+  deleteLocalRowAtRef.current = deleteLocalRowAt
 
-  // GRID-02/GRID-04: the record-picker write-back still uses the live engine
-  // instance (deferred to COMP-06 step 2's neutral handle). onReady stays
-  // identity-stable so the memoised grid client never re-renders.
-  const hotInstanceRef = useRef<Handsontable | null>(null)
-  const handleGridReady = useCallback((hot: Handsontable | null) => {
-    hotInstanceRef.current = hot
+  // COMP-06.2/.3: the table backend hands back a neutral imperative handle.
+  // The vendor instance (transitional) rides on `handle.vendor` for the
+  // record-picker write-back used only by the Handsontable backend.
+  const gridHandleRef = useRef<SheetbaseGridHandle | null>(null)
+  const handleGridReady = useCallback((handle: SheetbaseGridHandle | null) => {
+    gridHandleRef.current = handle
   }, [])
+
+  // COMP-06.2: the engine's own row menu drives insert/delete. A bound Sheet
+  // only owns local rows, so bound rows fail the delete preflight; the host
+  // persists the change and the rebuilt rows flow back through `rows`.
+  const handleBeforeRowsRemove = useCallback(
+    (rowIndex: number) => {
+      if (!canWrite) return false
+      return matrixRef.current.rowKinds[rowIndex] === 'local'
+        ? undefined
+        : false
+    },
+    [canWrite],
+  )
+  const handleRowsRemoved = useCallback((rowIndex: number) => {
+    void deleteLocalRowAtRef.current(rowIndex)
+  }, [])
+  const handleRowsInserted = useCallback(
+    (_rowIndex: number, amount: number) => {
+      for (let index = 0; index < amount; index += 1) void addRowRef.current()
+    },
+    [],
+  )
 
   // COMP-06 step 1: the caller speaks Sheetbase terms only. Validation, write
   // attribution and presentation persistence stay here; the wrapper maps the
@@ -1517,6 +1545,9 @@ export function CanonicalSheetEditor({
             onFiltersChange={handleFiltersChange}
             onOpenRecordPicker={handleOpenRecordPicker}
             onNothingToClear={handleNothingToClear}
+            onBeforeRowsRemove={handleBeforeRowsRemove}
+            onRowsRemoved={handleRowsRemoved}
+            onRowsInserted={handleRowsInserted}
             onReady={handleGridReady}
           />
         </div>
@@ -1591,7 +1622,20 @@ export function CanonicalSheetEditor({
                   // like any other edit.
                   picker.editor.commit(result.id)
                 } else {
-                  hotInstanceRef.current?.setDataAtCell(
+                  // Transitional Handsontable path (the table backend always
+                  // supplies an editor): write through the vendor instance the
+                  // neutral handle carries.
+                  const vendor = gridHandleRef.current?.vendor as
+                    | {
+                        setDataAtCell?: (
+                          row: number,
+                          column: number,
+                          value: string,
+                          source?: string,
+                        ) => void
+                      }
+                    | undefined
+                  vendor?.setDataAtCell?.(
                     picker.cell.row,
                     picker.cell.col,
                     result.id,

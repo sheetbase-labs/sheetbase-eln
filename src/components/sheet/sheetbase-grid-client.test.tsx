@@ -10,7 +10,10 @@ import {
   vi,
 } from 'vitest'
 
-import type { SheetbaseGridClientProps } from './sheetbase-grid'
+import type {
+  SheetbaseGridClientProps,
+  SheetbaseGridHandle,
+} from './sheetbase-grid'
 import { SheetbaseGridClient } from './sheetbase-grid-client'
 
 class ResizeObserverStub {
@@ -104,7 +107,7 @@ function mixedProps(overrides: ClientOverrides = {}): SheetbaseGridClientProps {
 }
 
 function mountGrid(props: SheetbaseGridClientProps = mixedProps()) {
-  const ready: Array<Handsontable | null> = []
+  const ready: Array<SheetbaseGridHandle | null> = []
   const result = render(
     <>
       <p id="grid-help">Keyboard help</p>
@@ -115,14 +118,14 @@ function mountGrid(props: SheetbaseGridClientProps = mixedProps()) {
         ariaLabel="Purification summary Sheet"
         descriptionId="grid-help"
         cutStatusId="cut-status"
-        onReady={(instance) => {
-          ready.push(instance)
+        onReady={(handle) => {
+          ready.push(handle)
         }}
       />
       <button type="button">After grid</button>
     </>,
   )
-  const hot = ready.at(-1)
+  const hot = ready.at(-1)?.vendor as Handsontable | undefined
   if (!hot) throw new Error('Handsontable did not initialise.')
   return { ...result, hot }
 }

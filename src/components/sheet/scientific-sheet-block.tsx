@@ -35,7 +35,9 @@ import { SheetbaseTableGrid } from './sheetbase-grid'
 import type {
   SheetbaseGridCellChange,
   SheetbaseGridCellValue,
+  SheetbaseGridClipboardRange,
   SheetbaseGridColumn,
+  SheetbaseGridHandle,
   SheetbaseGridMenuEntry,
   SheetbaseGridSelection,
   SheetbaseGridWriteSource,
@@ -1512,6 +1514,13 @@ export function ScientificSheetBlock({
   const copySourceRef = useRef<{ startRow: number; startCol: number } | null>(
     null,
   )
+  // COMP-06.3: the table backend hands back a neutral imperative handle; the
+  // Add-row path uses it to select and reveal the row it just appended.
+  const gridHandleRef = useRef<SheetbaseGridHandle | null>(null)
+  const handleGridReady = useCallback((handle: SheetbaseGridHandle | null) => {
+    gridHandleRef.current = handle
+  }, [])
+  const revealRowRef = useRef<number | null>(null)
   // Add Row: creates a provisional row optimistically in the query cache,
   // registers it with the coordinator for persistence, and selects its
   // first editable cell. The coordinator sends the insert RPC and swaps
@@ -1519,17 +1528,11 @@ export function ScientificSheetBlock({
   const addRow = useCallback(() => {
     if (readOnly || !table) return
     const provisionalId = `prov:${crypto.randomUUID()}`
-    queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => [
-      ...old,
-      { id: provisionalId, version: 0 },
-    ])
+    queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => {
+      revealRowRef.current = old.length
+      return [...old, { id: provisionalId, version: 0 }]
+    })
     coordinator.registerProvisionalRow(provisionalId)
-    // COMP-06 step 2: the table backend owns selection and scrolling. No
-    // imperative select/scroll is exposed through `SheetbaseGridProps`, so the
-    // old post-insert focus (`selectCell`/`scrollViewportTo`) cannot be carried
-    // over yet: the provisional row is still added and re-rendered, but the
-    // engine decides where the active cell lands. See the ticket's deferred
-    // list for the neutral handle this needs.
   }, [readOnly, table, coordinator, queryClient, allRowsKey])
   // Row deletion: captures row IDs before removal, then persists via
   // deleteScientificRows. If the DB trigger blocks deletion (formula
@@ -1665,6 +1668,36 @@ export function ScientificSheetBlock({
   )
   const columnWidthsKey = `sheetbase:column-widths:${tableId}`
   const columnOrderKey = `sheetbase:column-order:${tableId}`
+  // The first editable column is where an added row lands its active cell.
+  const firstEditableColumnIndex = useMemo(
+    () =>
+      sheetColumns.findIndex(
+        (column) => !column.readOnly && column.source !== 'calculated',
+      ),
+    [sheetColumns],
+  )
+  // Select and reveal a row the Add-row path appended, once the rebuilt rows
+  // have reached the engine (the child's `replaceData` effect runs first).
+  useEffect(() => {
+    const handle = gridHandleRef.current
+    const target = revealRowRef.current
+    if (!handle || target == null) return
+    revealRowRef.current = null
+    if (firstEditableColumnIndex < 0) return
+    const rowIndex = Math.min(target, Math.max(0, sheetRows.length - 1))
+    handle.selectCell(rowIndex, firstEditableColumnIndex)
+    handle.scrollCellIntoView(rowIndex, firstEditableColumnIndex)
+  }, [sheetRows.length, firstEditableColumnIndex])
+  const insertRows = useCallback(
+    (amount: number) => {
+      for (let index = 0; index < amount; index += 1) addRow()
+    },
+    [addRow],
+  )
+  const handleRowsInserted = useCallback(
+    (_rowIndex: number, amount: number) => insertRows(amount),
+    [insertRows],
+  )
   const initialColumnWidths = useMemo(() => {
     if (!table) return undefined
     const stored = readColumnPreferences<Partial<Record<string, number>>>(
@@ -1763,15 +1796,7 @@ export function ScientificSheetBlock({
   )
 
   const preserveFormulaClipboard = useCallback(
-    (
-      data: SheetbaseGridCellValue[][],
-      range: {
-        startRow: number
-        startColumn: number
-        endRow: number
-        endColumn: number
-      },
-    ) => {
+    (data: SheetbaseGridCellValue[][], range: SheetbaseGridClipboardRange) => {
       if (!table) return
       // Record the source start for paste-time reference translation.
       copySourceRef.current = {
@@ -1787,11 +1812,12 @@ export function ScientificSheetBlock({
         ) {
           const rowIndex = range.startRow + rowOffset
           const row = rows.at(rowIndex)
-          // The table backend renders columns in the passed `columns` order
-          // (the adapter has no reorder surface), so the display column index
-          // maps straight onto `table.columns` — no vendor physical-column
-          // lookup is needed.
-          const column = table.columns.at(range.startColumn + colOffset)
+          // Resolve the display column through its stable id (the adapter may
+          // apply a persisted column order), falling back to the natural order.
+          const columnId = range.columnIds?.[colOffset]
+          const column = columnId
+            ? table.columns.find((candidate) => candidate.id === columnId)
+            : table.columns.at(range.startColumn + colOffset)
           if (!row || !column || typeof row.id !== 'string') continue
           const formula = formulaByCellRef.current.get(`${row.id}/${column.id}`)
           const source = formula?.source_expression ?? row[column.field_name]
@@ -2004,6 +2030,8 @@ export function ScientificSheetBlock({
         onColumnOrderChange={handleColumnOrderChange}
         onBeforeRowsRemove={handleBeforeRemoveRow}
         onRowsRemoved={handleAfterRemoveRow}
+        onRowsInserted={handleRowsInserted}
+        onReady={handleGridReady}
       />
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">

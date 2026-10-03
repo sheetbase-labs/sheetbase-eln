@@ -48,9 +48,9 @@ vi.mock('./sheetbase-grid', () => {
       beforeCellsChange,
       onCellsChange,
     })
-    // Stand-in engine instance so the workspace can write the picked Record
-    // UUID through the grid's own change pipeline (deferred to step 2).
-    onReady?.({ setDataAtCell })
+    // Stand-in neutral handle: the transitional vendor instance carries the
+    // Handsontable write-back the workspace still supports.
+    onReady?.({ vendor: { setDataAtCell } })
     return (
       <table>
         <thead>

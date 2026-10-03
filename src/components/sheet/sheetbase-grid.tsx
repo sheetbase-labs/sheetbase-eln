@@ -1,4 +1,3 @@
-import type Handsontable from 'handsontable/base'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Component, useEffect, useId, useState } from 'react'
 
@@ -6,9 +5,10 @@ import { Component, useEffect, useId, useState } from 'react'
  * COMP-06 step 1 — the caller-facing contract for a scientific Sheet grid is
  * written in Sheetbase terms (columns with a source and a type, rows, per-cell
  * state and write callbacks). It does not mention the rendering engine: the
- * Handsontable-specific settings live inside `sheetbase-grid-client.tsx`,
- * which translates these props onto Handsontable until later steps swap the
- * implementation onto `sheetbase-table`. Callers never build vendor settings.
+ * vendor settings live inside the backend clients, which translate these props
+ * onto `sheetbase-table` (`sheetbase-table-grid-client.tsx`) or, transitionally
+ * until COMP-06 step 5, onto Handsontable (`sheetbase-grid-client.tsx`).
+ * Callers never build vendor settings.
  */
 
 /** One cell value as the grid stores and displays it. */
@@ -156,30 +156,61 @@ export interface SheetbaseGridFormulas {
   sheetName: string
 }
 
-/** Clipboard hooks for formula-preserving copy/cut/paste. */
+/** The display range a clipboard operation covers, with its column ids. */
+export interface SheetbaseGridClipboardRange {
+  startRow: number
+  startColumn: number
+  endRow: number
+  endColumn: number
+  /** Display columns covered by the range, in order (may repeat a column). */
+  columnIds?: readonly (string | undefined)[]
+}
+
+/**
+ * Clipboard hooks for formula-preserving copy/cut/paste. A hook may mutate the
+ * `data` matrix in place and/or return a replacement matrix; the backend uses
+ * whichever it receives so a transformed payload (a rewritten formula source
+ * on copy, a shifted relative reference on paste) reaches the clipboard and
+ * the applied change.
+ */
 export interface SheetbaseGridClipboard {
   onCopy?: (
     data: SheetbaseGridCellValue[][],
-    range: {
-      startRow: number
-      startColumn: number
-      endRow: number
-      endColumn: number
-    },
-  ) => void
+    range: SheetbaseGridClipboardRange,
+  ) => SheetbaseGridCellValue[][] | void
   onCut?: (
     data: SheetbaseGridCellValue[][],
-    range: {
-      startRow: number
-      startColumn: number
-      endRow: number
-      endColumn: number
-    },
-  ) => void
+    range: SheetbaseGridClipboardRange,
+  ) => SheetbaseGridCellValue[][] | void
   onPaste?: (
     data: SheetbaseGridCellValue[][],
     target: { row: number; column: number },
+  ) => SheetbaseGridCellValue[][] | void
+}
+
+/**
+ * Imperative handle for the live grid. `selectCell`/`selectCellAddress` select
+ * and reveal a cell; `scrollCellIntoView` reveals one without changing the
+ * selection. The `sheetbase-table` backend passes its own `SpreadsheetHandle`;
+ * the transitional Handsontable backend wraps its instance and exposes it on
+ * `vendor` for the vendor-only write-backs still being migrated (COMP-06).
+ */
+export interface SheetbaseGridHandle {
+  /** Select a displayed cell and reveal it. */
+  selectCell: (
+    row: number,
+    column: number,
+    options?: { extend?: boolean },
   ) => void
+  /** Select a stored cell by A1 address; `false` when it cannot be resolved. */
+  selectCellAddress: (
+    address: string,
+    options?: { extend?: boolean },
+  ) => boolean
+  /** Scroll a displayed cell into view without changing the selection. */
+  scrollCellIntoView: (row: number, column: number) => void
+  /** Transitional vendor instance (Handsontable); absent on `sheetbase-table`. */
+  readonly vendor?: unknown
 }
 
 export interface SheetbaseGridProps {
@@ -261,9 +292,17 @@ export interface SheetbaseGridProps {
   onSelectionChange?: (selection: SheetbaseGridSelection | null) => void
   onColumnResize?: (columnId: string, width: number) => void
   onColumnOrderChange?: (columnIds: string[]) => void
+  /** Preflight hook for row insertion; return `false` to block it. */
+  onBeforeRowsInsert?: (rowIndex: number, amount: number) => boolean | void
+  /** Fired after rows are inserted (a bound grid defers persistence). */
+  onRowsInserted?: (
+    rowIndex: number,
+    amount: number,
+    source: SheetbaseGridWriteSource,
+  ) => void
   /** Preflight hook for row removal; return `false` to block it. */
   onBeforeRowsRemove?: (rowIndex: number, amount: number) => boolean | void
-  /** Fired after rows are removed. */
+  /** Fired after rows are removed (a bound grid defers persistence). */
   onRowsRemoved?: (
     rowIndex: number,
     amount: number,
@@ -284,11 +323,10 @@ export interface SheetbaseGridProps {
     editor?: SheetbaseGridRecordEditor,
   ) => void
   /**
-   * Transitional: the live engine instance, for imperative operations the
-   * neutral contract does not yet cover. COMP-06 step 2 replaces this with a
-   * neutral handle.
+   * Fired after mount with the neutral imperative handle (and with `null` on
+   * teardown). Callers drive selection/scroll through it — no vendor settings.
    */
-  onReady?: (instance: Handsontable | null) => void
+  onReady?: (handle: SheetbaseGridHandle | null) => void
   /**
    * DOM id of the live region that announces clipboard/cut status. Backends
    * without an internal status surface (the table backend) write to it.
@@ -358,11 +396,11 @@ function GridFailure({ message }: { message: string }) {
 }
 
 /**
- * Which engine renders the neutral props. Transitional for COMP-06 step 2:
- * the canonical and ad-hoc sheet surfaces run on `sheetbase-table`; the
- * notebook `scientific-sheet-block` still runs on Handsontable until step 3.
- * Callers pick by exporting the matching component — the props themselves
- * stay vendor-neutral.
+ * Which engine renders the neutral props. The canonical, ad-hoc and notebook
+ * sheet surfaces all run on `sheetbase-table` (COMP-06 steps 2-3); the
+ * Handsontable backend remains only for its own tests until step 5 removes the
+ * package. Callers pick by exporting the matching component — the props
+ * themselves stay vendor-neutral.
  */
 export type SheetbaseGridBackend = 'handsontable' | 'sheetbase-table'
 
@@ -372,9 +410,9 @@ const DEFAULT_DESCRIPTION =
   'Spreadsheet. Tab moves forward and Shift+Tab moves back; at a horizontal edge, Tab returns to the page. Arrow keys move, and Shift+Arrow extends the active range. Control or Command with an arrow moves to an edge. Home and End move within a row; Control or Command with Home or End moves to a grid corner. Page Up and Page Down move by a viewport. Enter or F2 starts editing, Enter commits, and Escape cancels. Control or Command+A selects all cells, Control+Space selects a column, and Shift+Space selects a row. Control or Command-click adds a range; keyboard commands affect the last active range. Copy and cut use only the active range. Cut is blocked when that range contains read-only or derived cells.'
 
 /**
- * The Handsontable backend. COMP-06 step 2 moved the canonical and ad-hoc
- * sheet surfaces to `SheetbaseTableGrid`; this remains only for the notebook
- * `scientific-sheet-block` surface until step 3.
+ * The Handsontable backend. COMP-06 steps 2-3 moved the canonical, ad-hoc and
+ * notebook sheet surfaces to `SheetbaseTableGrid`; this export remains only for
+ * the vendor client's own tests until step 5 removes the package.
  */
 export function SheetbaseGrid(props: SheetbaseGridProps) {
   return <SheetbaseGridShell {...props} backend="handsontable" />

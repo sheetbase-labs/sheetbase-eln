@@ -15,9 +15,11 @@ import { registerAllModules } from 'handsontable/registry'
 
 import type {
   SheetbaseGridCellChange,
+  SheetbaseGridCellValue,
   SheetbaseGridClientProps,
   SheetbaseGridColumn,
   SheetbaseGridFilter,
+  SheetbaseGridHandle,
   SheetbaseGridMenuContext,
   SheetbaseGridMenuEntry,
   SheetbaseGridMenuItem,
@@ -29,6 +31,78 @@ import { createRecordPickerEditor } from './record-picker-editor'
 import { FormulaReferenceEditor } from './formula-reference-editor'
 
 registerAllModules()
+
+/** A1 column label → zero-based column index (`A` → 0, `AA` → 26). */
+function columnIndexFromLabel(label: string): number {
+  let index = 0
+  for (const char of label.toUpperCase()) {
+    const code = char.charCodeAt(0) - 64
+    if (code < 1 || code > 26) return -1
+    index = index * 26 + code
+  }
+  return index - 1
+}
+
+/** Parse a plain A1 address (`$B$3` → row 2, column 1); `null` when malformed. */
+function parseA1Address(
+  address: string,
+): { row: number; column: number } | null {
+  const match = /^\$?([A-Za-z]{1,3})\$?(\d+)$/.exec(address.trim())
+  if (!match) return null
+  const column = columnIndexFromLabel(match[1])
+  if (column < 0) return null
+  return { row: Number(match[2]) - 1, column }
+}
+
+/** Wrap a Handsontable instance in the neutral handle the contract exposes. */
+function handsontableHandle(hot: Handsontable): SheetbaseGridHandle {
+  const handle: SheetbaseGridHandle = {
+    selectCell: (row, column, options) => {
+      const range = hot.getSelectedRangeLast()
+      if (
+        options?.extend &&
+        range &&
+        range.from.row != null &&
+        range.from.col != null
+      ) {
+        hot.selectCell(range.from.row, range.from.col, row, column, false)
+        return
+      }
+      hot.selectCell(row, column, row, column, false)
+    },
+    selectCellAddress: (address, options) => {
+      const parsed = parseA1Address(address)
+      if (!parsed) return false
+      const row = hot.toVisualRow(parsed.row)
+      const column = hot.toVisualColumn(parsed.column)
+      handle.selectCell(row, column, options)
+      return true
+    },
+    scrollCellIntoView: (row, column) => {
+      hot.scrollViewportTo(row, column)
+    },
+    vendor: hot,
+  }
+  return handle
+}
+
+/**
+ * Handsontable mutates the `data` matrix it will copy/paste, so a hook's
+ * replacement matrix is written back into that same matrix in place.
+ */
+function applyClipboardTransform(
+  data: CellValue[][],
+  returned: SheetbaseGridCellValue[][] | void,
+): void {
+  if (!returned) return
+  data.forEach((target, rowIndex) => {
+    const values = returned.at(rowIndex)
+    if (!values) return
+    values.forEach((value, columnIndex) => {
+      target[columnIndex] = value
+    })
+  })
+}
 
 /**
  * The Handsontable settings surface stays internal to this module: callers
@@ -232,8 +306,7 @@ function displayRenderer(column: SheetbaseGridColumn) {
     value: unknown,
   ) => {
     const text = column.displayText?.(value)
-    td.textContent =
-      text ?? (value == null ? '' : String(value as string | number))
+    td.textContent = text ?? (value == null ? '' : String(value))
     return td
   }
 }
@@ -308,7 +381,7 @@ function SheetbaseGridClientBase(props: SheetbaseGridClientProps) {
     if (!hot) return
     hot.rootElement.setAttribute('aria-label', ariaLabel)
     hot.rootElement.setAttribute('aria-describedby', descriptionId)
-    onReady?.(hot)
+    onReady?.(handsontableHandle(hot))
     return () => onReady?.(null)
   }, [ariaLabel, descriptionId, onReady])
 
@@ -459,24 +532,30 @@ function SheetbaseGridClientBase(props: SheetbaseGridClientProps) {
       ? (data: CellValue[][], coords: RangeType[]) => {
           const range = coords.at(0)
           if (!range) return
-          clipboardCopy(data, {
-            startRow: range.startRow,
-            startColumn: range.startCol,
-            endRow: range.endRow,
-            endColumn: range.endCol,
-          })
+          applyClipboardTransform(
+            data,
+            clipboardCopy(data, {
+              startRow: range.startRow,
+              startColumn: range.startCol,
+              endRow: range.endRow,
+              endColumn: range.endCol,
+            }),
+          )
         }
       : undefined
     const clipboardCutHandler = clipboardCut
       ? (data: CellValue[][], coords: RangeType[]) => {
           const range = coords.at(0)
           if (!range) return
-          clipboardCut(data, {
-            startRow: range.startRow,
-            startColumn: range.startCol,
-            endRow: range.endRow,
-            endColumn: range.endCol,
-          })
+          applyClipboardTransform(
+            data,
+            clipboardCut(data, {
+              startRow: range.startRow,
+              startColumn: range.startCol,
+              endRow: range.endRow,
+              endColumn: range.endCol,
+            }),
+          )
         }
       : undefined
     if (clipboardCopyHandler) settings.beforeCopy = clipboardCopyHandler
@@ -484,10 +563,13 @@ function SheetbaseGridClientBase(props: SheetbaseGridClientProps) {
       settings.beforePaste = (data: CellValue[][], coords: RangeType[]) => {
         const target = coords.at(0)
         if (!target) return
-        clipboardPaste(data, {
-          row: target.startRow,
-          column: target.startCol,
-        })
+        applyClipboardTransform(
+          data,
+          clipboardPaste(data, {
+            row: target.startRow,
+            column: target.startCol,
+          }),
+        )
       }
     }
 

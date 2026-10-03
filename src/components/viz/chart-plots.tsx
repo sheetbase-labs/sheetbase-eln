@@ -1,36 +1,23 @@
 import { seriesStyle } from '@sheetbase-labs/sheetbase-explorer'
 
-import { cn } from '#/lib/utils'
 import { formatScientific } from '#/lib/chart-spec'
-import type {
-  ChartAnnotation,
-  FrozenBoxStats,
-  HeatmapMatrix,
-  MaterialisedSeries,
-  ReferenceOverlay,
-} from '#/lib/chart-spec'
+import type { FrozenBoxStats, MaterialisedSeries } from '#/lib/chart-spec'
 
 /**
- * SCI-01 distribution and grid plots: histogram (binned counts), bar and
- * summary plots (categorical measures), box (Tukey five-number summaries) and
- * heatmap (aggregated value grid). They render inside `ChartFrame` next to the
- * package point/line figures in `chart-renderer`, share the v3 series tokens
- * (never literal colours) and scientific formatting, and report clicks through
- * the shared selection model so the tabular alternative and the plot stay in
- * sync.
- *
- * The package's `FigureSvg` has primitives for markers and polylines only, so
- * bar-shaped marks are drawn here from the materialised points — see COMP-07's
- * `deferred` note.
+ * SCI-01 distribution plots the package's v3 figure has no primitive for:
+ * histogram (binned counts) and violin (the ELN draws the group's box summary —
+ * the package has no density primitive). Bar, summary, box and heatmap are now
+ * drawn by `sheetbase-explorer`'s `FigureSvg` in `chart-renderer`; these
+ * renderers share the v3 series tokens (never literal colours) and scientific
+ * formatting, and report clicks through the shared selection model so the
+ * tabular alternative and the plot stay in sync.
  *
  * Accessibility:
- *  - Bar plots and box plots are inline SVG with labelled axes and per-mark
- *    `<title>`/`aria-label` summaries.
- *  - The heatmap is a semantic `<table>` — the visual IS the accessible
- *    alternative, so no separate table is rendered for it.
+ *  - The histogram is inline SVG with labelled axes and a per-bar `<title>`.
+ *  - The violin's box marks carry per-group `<title>` summaries.
  */
 
-/** A selected plot element: one point/bar/bin/cell of one series. */
+/** A selected plot element: one point/bar/bin of one series. */
 export interface ChartSelection {
   seriesIdentifier: string
   /** Index within the series points (bin index for histograms). */
@@ -42,15 +29,35 @@ export interface PlotSelectionProps {
   onSelect: (selection: ChartSelection | null) => void
 }
 
-// ---------------------------------------------------------------------------
-// Bar plots (bar, grouped_bar, stacked_bar, summary)
-// ---------------------------------------------------------------------------
-
 const PLOT_WIDTH = 560
 const PLOT_PAD_LEFT = 64
 const PLOT_PAD_RIGHT = 16
 const PLOT_PAD_TOP = 12
 const PLOT_PAD_BOTTOM = 28
+
+function linearTicks(min: number, max: number, count: number): number[] {
+  return Array.from(
+    { length: count + 1 },
+    (_, i) => min + ((max - min) / count) * i,
+  )
+}
+
+function logTicks(min: number, max: number): number[] {
+  const ticks: number[] = []
+  const lmin = Math.ceil(Math.log10(min))
+  const lmax = Math.floor(Math.log10(max))
+  for (let e = lmin; e <= lmax; e++) ticks.push(10 ** e)
+  return ticks.length > 0 ? ticks : [min, max]
+}
+
+function describeSeriesCount(series: MaterialisedSeries[]): string {
+  const parts = series.map((s) => `${s.label}: ${s.points.length} bins`)
+  return `${series.length} series — ${parts.join('; ')}.`
+}
+
+// ---------------------------------------------------------------------------
+// Histogram (inline SVG)
+// ---------------------------------------------------------------------------
 
 function xPositions(series: MaterialisedSeries[]): number[] {
   const set = new Set<number>()
@@ -62,98 +69,47 @@ function xPositions(series: MaterialisedSeries[]): number[] {
   return [...set].sort((a, b) => a - b)
 }
 
-function errorExtent(point: { y: number | null; yError?: number | null }): {
-  lo: number
-  hi: number
-} | null {
-  if (point.y === null || point.yError === null || point.yError === undefined)
-    return null
-  return { lo: point.y - point.yError, hi: point.y + point.yError }
-}
-
-export function BarPlotChart({
+export function HistogramPlot({
   series,
   height,
-  stacking,
   xLabel,
   yLabel,
-  yUnit,
-  ariaLabel,
-  annotations = [],
-  references = [],
   selectionProps,
 }: {
   series: MaterialisedSeries[]
   height: number
-  /** `stacked` sums the series per x; otherwise they sit side by side. */
-  stacking: 'grouped' | 'stacked'
   xLabel: string
   yLabel: string
-  yUnit?: string
-  ariaLabel: string
-  /** Text labels pinned at data coordinates (Cartesian types only). */
-  annotations?: ChartAnnotation[]
-  /** Horizontal/vertical reference lines and shaded bands. */
-  references?: ReferenceOverlay[]
   selectionProps: PlotSelectionProps
 }) {
+  const ariaLabel = `Histogram. ${describeSeriesCount(series)}`
   const positions = xPositions(series)
-  const plottable = positions.length > 0 && series.length > 0
-  if (!plottable)
+  if (positions.length === 0 || series.length === 0)
     return <div role="img" aria-label={ariaLabel} style={{ height }} />
 
-  const perPosition = positions.map((x) => {
-    const values: Array<{
-      point: MaterialisedSeries['points'][number]
-      index: number
-    } | null> = series.map((s) => {
+  const perPosition = positions.map((x) => ({
+    x,
+    values: series.map((s) => {
       const index = s.points.findIndex((p) => p.x === x && p.y !== null)
       return index === -1 ? null : { point: s.points[index], index }
-    })
-    const stackedTotal = values.reduce(
-      (acc, entry) => acc + (entry?.point.y ?? 0),
-      0,
-    )
-    const tops = values.map((entry) => {
-      const error = entry ? errorExtent(entry.point) : null
-      return error ? error.hi : (entry?.point.y ?? 0)
-    })
-    const bottoms = values.map((entry) => {
-      const error = entry ? errorExtent(entry.point) : null
-      return error ? error.lo : (entry?.point.y ?? 0)
-    })
-    return {
-      x,
-      values,
-      hi: stacking === 'stacked' ? stackedTotal : Math.max(...tops, 0),
-      lo: Math.min(0, ...bottoms),
-    }
-  })
-
-  const rawMax = Math.max(0, ...perPosition.map((p) => p.hi))
-  const rawMin = Math.min(0, ...perPosition.map((p) => p.lo))
-  const pad = (rawMax - rawMin || Math.abs(rawMax) || 1) * 0.06
-  const min = rawMin
+    }),
+  }))
+  const rawMax = Math.max(
+    0,
+    ...perPosition.flatMap((position) =>
+      position.values.map((entry) => entry?.point.y ?? 0),
+    ),
+  )
+  const pad = (rawMax || 1) * 0.06
   const max = rawMax + pad
-
   const innerW = PLOT_WIDTH - PLOT_PAD_LEFT - PLOT_PAD_RIGHT
   const innerH = height - PLOT_PAD_TOP - PLOT_PAD_BOTTOM
-  const toPx = (v: number) =>
-    PLOT_PAD_TOP + innerH - ((v - min) / (max - min || 1)) * innerH
+  const toPx = (v: number) => PLOT_PAD_TOP + innerH - (v / (max || 1)) * innerH
 
   const band = innerW / positions.length
   const groupWidth = band * 0.72
   const barWidth = groupWidth / series.length
-  const ticks = linearTicks(min, max, 4)
-  const firstCenter = PLOT_PAD_LEFT + band / 2
-  const lastCenter = PLOT_PAD_LEFT + band * (positions.length - 1) + band / 2
-  const xDataToPx = (v: number) =>
-    positions.length <= 1
-      ? firstCenter
-      : firstCenter +
-        ((v - positions[0]) /
-          (positions[positions.length - 1] - positions[0] || 1)) *
-          (lastCenter - firstCenter)
+  const ticks = linearTicks(0, max, 4)
 
   return (
     <div role="img" aria-label={ariaLabel} className="w-full">
@@ -183,38 +139,8 @@ export function BarPlotChart({
             </text>
           </g>
         ))}
-        <g pointerEvents="none">
-          {references.map((overlay, index) => {
-            if (overlay.kind !== 'band') return null
-            return overlay.axis === 'y' ? (
-              <rect
-                key={`band-${index}`}
-                x={PLOT_PAD_LEFT}
-                width={innerW}
-                y={toPx(overlay.hi)}
-                height={Math.max(0, toPx(overlay.lo) - toPx(overlay.hi))}
-                fill="var(--muted)"
-                fillOpacity={0.25}
-              />
-            ) : (
-              <rect
-                key={`band-${index}`}
-                y={PLOT_PAD_TOP}
-                height={innerH}
-                x={xDataToPx(overlay.lo)}
-                width={Math.max(
-                  0,
-                  xDataToPx(overlay.hi) - xDataToPx(overlay.lo),
-                )}
-                fill="var(--muted)"
-                fillOpacity={0.25}
-              />
-            )
-          })}
-        </g>
         {perPosition.map((position, pi) => {
           const center = PLOT_PAD_LEFT + band * pi + band / 2
-          let stackTop = 0
           return (
             <g key={position.x}>
               {position.values.map((entry, si) => {
@@ -226,16 +152,9 @@ export function BarPlotChart({
                     series[si].identifier &&
                   selectionProps.selection.index === entry.index
                 const dimmed = selectionProps.selection !== null && !selected
-                const x0 =
-                  stacking === 'stacked'
-                    ? center - groupWidth / 2
-                    : center - groupWidth / 2 + si * barWidth
-                const yTop = toPx(
-                  stacking === 'stacked' ? stackTop + value : value,
-                )
-                const yBase = toPx(stacking === 'stacked' ? stackTop : 0)
-                if (stacking === 'stacked') stackTop += value
-                const error = errorExtent(entry.point)
+                const x0 = center - groupWidth / 2 + si * barWidth
+                const yTop = toPx(value)
+                const yBase = toPx(0)
                 return (
                   <g key={series[si].identifier} opacity={dimmed ? 0.45 : 1}>
                     <rect
@@ -259,127 +178,12 @@ export function BarPlotChart({
                         {`${series[si].label} · ${xLabel} ${formatScientific(position.x)}: ${formatScientific(value)}`}
                       </title>
                     </rect>
-                    {error ? (
-                      <g stroke={token} strokeWidth={1.5}>
-                        <line
-                          x1={x0 + (barWidth - 1) / 2}
-                          x2={x0 + (barWidth - 1) / 2}
-                          y1={toPx(error.hi)}
-                          y2={toPx(error.lo)}
-                        />
-                        <line
-                          x1={x0 + (barWidth - 1) / 2 - 4}
-                          x2={x0 + (barWidth - 1) / 2 + 4}
-                          y1={toPx(error.hi)}
-                          y2={toPx(error.hi)}
-                        />
-                        <line
-                          x1={x0 + (barWidth - 1) / 2 - 4}
-                          x2={x0 + (barWidth - 1) / 2 + 4}
-                          y1={toPx(error.lo)}
-                          y2={toPx(error.lo)}
-                        />
-                      </g>
-                    ) : null}
                   </g>
                 )
               })}
             </g>
           )
         })}
-        {/* Guides and labels the bar marks cannot carry themselves. */}
-        <g pointerEvents="none">
-          {references.map((overlay, index) => {
-            if (overlay.kind === 'hline') {
-              const y = toPx(overlay.value)
-              return (
-                <g key={`hover-${index}`}>
-                  <line
-                    x1={PLOT_PAD_LEFT}
-                    x2={PLOT_WIDTH - PLOT_PAD_RIGHT}
-                    y1={y}
-                    y2={y}
-                    stroke="var(--muted-foreground)"
-                    strokeDasharray="4 4"
-                  />
-                  <text
-                    x={PLOT_WIDTH - PLOT_PAD_RIGHT}
-                    y={y - 4}
-                    textAnchor="end"
-                    fontSize={10}
-                    fill="var(--muted-foreground)"
-                  >
-                    {overlay.label}
-                  </text>
-                </g>
-              )
-            }
-            if (overlay.kind === 'vline') {
-              const x = xDataToPx(overlay.value)
-              return (
-                <g key={`vline-${index}`}>
-                  <line
-                    x1={x}
-                    x2={x}
-                    y1={PLOT_PAD_TOP}
-                    y2={PLOT_PAD_TOP + innerH}
-                    stroke="var(--muted-foreground)"
-                    strokeDasharray="4 4"
-                  />
-                  <text
-                    x={x}
-                    y={PLOT_PAD_TOP + 10}
-                    textAnchor="middle"
-                    fontSize={10}
-                    fill="var(--muted-foreground)"
-                  >
-                    {overlay.label}
-                  </text>
-                </g>
-              )
-            }
-            if (overlay.kind === 'identity') {
-              const lo = Math.min(positions[0], min)
-              const hi = Math.max(positions[positions.length - 1], max)
-              return (
-                <line
-                  key={`identity-${index}`}
-                  x1={xDataToPx(lo)}
-                  y1={toPx(lo)}
-                  x2={xDataToPx(hi)}
-                  y2={toPx(hi)}
-                  stroke="var(--muted-foreground)"
-                  strokeDasharray="2 6"
-                />
-              )
-            }
-            return null
-          })}
-          {annotations.map((annotation, index) => {
-            const cx = xDataToPx(annotation.x)
-            const cy = toPx(annotation.y)
-            return (
-              <g key={`annotation-${index}`}>
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={4}
-                  fill="var(--foreground)"
-                  stroke="var(--background)"
-                />
-                <text
-                  x={cx}
-                  y={cy - 6}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fill="var(--muted-foreground)"
-                >
-                  {annotation.label}
-                </text>
-              </g>
-            )
-          })}
-        </g>
         <text
           x={PLOT_WIDTH / 2}
           y={height - 4}
@@ -397,41 +201,15 @@ export function BarPlotChart({
           fontSize={11}
           fill="var(--muted-foreground)"
         >
-          {yUnit ? `${yLabel} (${yUnit})` : yLabel}
+          {yLabel}
         </text>
       </svg>
     </div>
   )
 }
 
-export function HistogramPlot({
-  series,
-  height,
-  xLabel,
-  yLabel,
-  selectionProps,
-}: {
-  series: MaterialisedSeries[]
-  height: number
-  xLabel: string
-  yLabel: string
-  selectionProps: PlotSelectionProps
-}) {
-  return (
-    <BarPlotChart
-      series={series}
-      height={height}
-      stacking="grouped"
-      xLabel={xLabel}
-      yLabel={yLabel}
-      ariaLabel={`Histogram. ${describeSeriesCount(series)}`}
-      selectionProps={selectionProps}
-    />
-  )
-}
-
 // ---------------------------------------------------------------------------
-// Box plot (inline SVG)
+// Violin (the group's box summary, inline SVG)
 // ---------------------------------------------------------------------------
 
 export function BoxPlotChart({
@@ -620,151 +398,4 @@ export function BoxPlotChart({
       </svg>
     </div>
   )
-}
-
-function linearTicks(min: number, max: number, count: number): number[] {
-  return Array.from(
-    { length: count + 1 },
-    (_, i) => min + ((max - min) / count) * i,
-  )
-}
-
-function logTicks(min: number, max: number): number[] {
-  const ticks: number[] = []
-  const lmin = Math.ceil(Math.log10(min))
-  const lmax = Math.floor(Math.log10(max))
-  for (let e = lmin; e <= lmax; e++) ticks.push(10 ** e)
-  return ticks.length > 0 ? ticks : [min, max]
-}
-
-// ---------------------------------------------------------------------------
-// Heatmap (semantic table with a sequential colour scale)
-// ---------------------------------------------------------------------------
-
-const HEAT_LOW = { r: 240, g: 246, b: 255 }
-const HEAT_HIGH = { r: 0, g: 110, b: 220 }
-
-export function heatColor(t: number): string {
-  const clamped = Math.min(1, Math.max(0, t))
-  const r = Math.round(HEAT_LOW.r + (HEAT_HIGH.r - HEAT_LOW.r) * clamped)
-  const g = Math.round(HEAT_LOW.g + (HEAT_HIGH.g - HEAT_LOW.g) * clamped)
-  const b = Math.round(HEAT_LOW.b + (HEAT_HIGH.b - HEAT_LOW.b) * clamped)
-  return `rgb(${r}, ${g}, ${b})`
-}
-
-export function HeatmapPlot({
-  heatmap,
-  valueLabel,
-  selectionProps,
-}: {
-  heatmap: HeatmapMatrix
-  valueLabel: string
-  selectionProps: PlotSelectionProps
-}) {
-  const span =
-    heatmap.max !== null && heatmap.min !== null
-      ? heatmap.max - heatmap.min || 1
-      : 1
-  const cellMap = new Map(
-    heatmap.cells.map((c) => [`${c.x},${c.y}`, c] as const),
-  )
-  const yLabels = heatmap.yLabels ?? ['']
-  return (
-    <div className="overflow-x-auto">
-      <table className="border-collapse text-xs">
-        <caption className="sr-only">
-          {`Heatmap grid of ${valueLabel} (${heatmap.aggregate}) with ${heatmap.xLabels.length} × ${yLabels.length} cells.`}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col" className="px-2 py-1" />
-            {heatmap.xLabels.map((label) => (
-              <th
-                key={label}
-                scope="col"
-                className="px-2 py-1 text-left font-medium text-muted-foreground"
-              >
-                {label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {yLabels.map((yLabel, y) => (
-            <tr key={yLabel} className="odd:bg-background">
-              <th
-                scope="row"
-                className="whitespace-nowrap px-2 py-1 text-left font-medium text-muted-foreground"
-              >
-                {yLabel}
-              </th>
-              {heatmap.xLabels.map((xLabel, x) => {
-                const cell = cellMap.get(`${x},${y}`)
-                const value = cell?.value ?? null
-                const background =
-                  value === null
-                    ? 'var(--muted)'
-                    : heatColor((value - (heatmap.min ?? 0)) / span)
-                const selected =
-                  selectionProps.selection !== null &&
-                  selectionProps.selection.seriesIdentifier === 'heatmap' &&
-                  selectionProps.selection.index ===
-                    y * heatmap.xLabels.length + x
-                return (
-                  <td key={xLabel} className="p-0">
-                    <button
-                      type="button"
-                      className={cn(
-                        'm-0.5 min-w-14 rounded-[4px] px-2 py-1 font-mono tabular-nums transition-[outline]',
-                        selected && 'outline outline-2 outline-foreground',
-                      )}
-                      style={{
-                        background,
-                        color:
-                          value !== null &&
-                          (value - (heatmap.min ?? 0)) / span > 0.6
-                            ? 'white'
-                            : 'var(--foreground)',
-                      }}
-                      onClick={() =>
-                        selectionProps.onSelect(
-                          selected
-                            ? null
-                            : {
-                                seriesIdentifier: 'heatmap',
-                                index: y * heatmap.xLabels.length + x,
-                              },
-                        )
-                      }
-                      aria-pressed={selected}
-                      title={
-                        cell
-                          ? `${xLabel} × ${yLabel}: ${formatScientific(value)} (${cell.count} rows)`
-                          : `${xLabel} × ${yLabel}: no data`
-                      }
-                    >
-                      {value === null ? '—' : formatScientific(value)}
-                    </button>
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Colour scale {formatScientific(heatmap.min)} →{' '}
-        {formatScientific(heatmap.max)}
-        {heatmap.aggregate !== 'count'
-          ? `; ${heatmap.aggregate} of ${valueLabel}`
-          : '; row count'}
-        .
-      </p>
-    </div>
-  )
-}
-
-function describeSeriesCount(series: MaterialisedSeries[]): string {
-  const parts = series.map((s) => `${s.label}: ${s.points.length} bins`)
-  return `${series.length} series — ${parts.join('; ')}.`
 }

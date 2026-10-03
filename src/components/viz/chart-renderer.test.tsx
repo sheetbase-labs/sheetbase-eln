@@ -124,7 +124,7 @@ describe('ChartRenderer', () => {
     expect(document.querySelectorAll('circle').length).toBeGreaterThan(0)
   })
 
-  it('renders a bar chart', () => {
+  it('renders a bar chart from the package bar primitive', () => {
     render(
       <ChartRenderer
         title="Bar"
@@ -134,7 +134,7 @@ describe('ChartRenderer', () => {
       />,
     )
     expect(document.querySelector('[role="img"]')).toBeTruthy()
-    // Bar chart renders bar rectangles (the package figure has no bar mark).
+    // The package's bar marks are SVG rectangles.
     expect(document.querySelectorAll('svg rect').length).toBeGreaterThan(0)
   })
 
@@ -397,9 +397,15 @@ describe('SCI-01 distribution chart types', () => {
     expect(screen.getByText('4 °C')).toBeTruthy() // legend entry
   })
 
-  it('renders a box plot with one labelled group and reports Tukey stats in titles', () => {
+  it('renders a box plot with one labelled group from the package primitive', () => {
     const materialised = {
       ...okMaterialised(),
+      rows: [
+        { c2: 93, c3: '4C' },
+        { c2: 96, c3: '4C' },
+        { c2: 96, c3: '4C' },
+        { c2: 100, c3: '4C' },
+      ],
       series: [
         {
           identifier: '4C',
@@ -413,9 +419,9 @@ describe('SCI-01 distribution chart types', () => {
               label: '4C',
               box: {
                 lo: 93,
-                q1: 94.5,
+                q1: 95.25,
                 median: 96,
-                q3: 97.75,
+                q3: 97,
                 hi: 100,
                 outliers: [],
                 n: 4,
@@ -433,13 +439,14 @@ describe('SCI-01 distribution chart types', () => {
         frozen={null}
       />,
     )
-    expect(document.querySelector('svg title')).toBeTruthy()
+    // The package draws the box; the hit layer carries its summary in a title.
+    expect(document.querySelector('svg.sb-figure')).toBeTruthy()
     expect(document.querySelector('svg title')?.textContent).toContain(
       'median 96',
     )
   })
 
-  it('renders a heatmap as an accessible table with selectable cells', () => {
+  it('renders a heatmap from the package primitive with an accessible table', () => {
     const onSelect = vi.fn()
     const materialised = {
       ...okMaterialised(),
@@ -465,15 +472,46 @@ describe('SCI-01 distribution chart types', () => {
         onSelectionChange={onSelect}
       />,
     )
-    // The heatmap IS a table (accessible alternative built in) alongside the
-    // generic data-table alternative.
-    expect(screen.getAllByRole('table').length).toBeGreaterThanOrEqual(2)
+    // The visual is the package's heatmap figure.
+    expect(document.querySelector('svg.sb-figure')).toBeTruthy()
+    // The accessible alternative is the aggregated grid as a table.
+    expect(screen.getAllByRole('table').length).toBeGreaterThanOrEqual(1)
     const cell = screen.getByTitle('20C × 0–36: 2 (2 rows)')
     fireEvent.click(cell)
     expect(onSelect).toHaveBeenCalledWith({
       seriesIdentifier: 'heatmap',
       index: 0,
     })
+  })
+
+  it('renders grouped and stacked bars through the package bar layout', () => {
+    const twoSeries = {
+      ...okMaterialised(),
+      series: [
+        ...okMaterialised().series,
+        {
+          identifier: '−20 °C',
+          label: '−20 °C',
+          color: '#00A659',
+          points: [
+            { x: 0, y: 3, yError: null, label: '−20 °C' },
+            { x: 28, y: 2, yError: null, label: '−20 °C' },
+          ],
+        },
+      ],
+    }
+    for (const type of ['grouped_bar', 'stacked_bar'] as const) {
+      cleanup()
+      render(
+        <ChartRenderer
+          title={type}
+          spec={{ ...spec, type }}
+          materialised={twoSeries}
+          frozen={null}
+        />,
+      )
+      expect(document.querySelectorAll('svg.sb-figure rect').length).toBe(4)
+    }
   })
 
   it('surfaces omitted rows instead of plotting silent gaps', () => {

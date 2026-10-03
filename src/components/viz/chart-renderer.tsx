@@ -1,41 +1,46 @@
 import * as React from 'react'
 import { FigureSvg, seriesStyle } from '@sheetbase-labs/sheetbase-explorer'
+import type { FigureModel } from '@sheetbase-labs/sheetbase-explorer'
 
 import { cn } from '#/lib/utils'
 import { ChartFrame } from './chart-frame'
-import {
-  BarPlotChart,
-  BoxPlotChart,
-  HeatmapPlot,
-  HistogramPlot,
-} from './chart-plots'
+import { BoxPlotChart, HistogramPlot } from './chart-plots'
 import type { ChartSelection, PlotSelectionProps } from './chart-plots'
 import { CHART_PALETTE, formatScientific } from '#/lib/chart-spec'
 import type {
   ChartSpec,
   FacetedChart,
   FrozenChart,
+  HeatmapMatrix,
   MaterialisedChart,
   MaterialisedSeries,
 } from '#/lib/chart-spec'
-import { buildPackageFigure, figureValueToPx } from '#/lib/chart-package'
+import {
+  buildPackageFigure,
+  figureCategoryToPx,
+  figureValueToPx,
+} from '#/lib/chart-package'
 
 /**
  * SCI-004 — Chart renderer inside `ChartFrame` (decision 0029).
  *
- * Point/line charts (line, scatter, scatter_line, connected_scatter, strip)
- * are drawn by `sheetbase-explorer`'s v3 figure from the materialised rows, so
- * series, markers, reference lines, axes and units come from the package and
- * its v3 tokens. Mark shapes the package's `FigureSvg` has no primitive for
- * (bar, histogram, summary, box, violin, heatmap) are drawn here from the same
- * materialised points — see COMP-07's `deferred` note.
+ * Every chart the package's v3 figure can draw is rendered by
+ * `sheetbase-explorer`'s `FigureSvg` from the materialised rows, so marks,
+ * series, axes, units and the grid come from the package and its v3 tokens:
+ * point/line types, bar (grouped/stacked), summary, box and heatmap. Only the
+ * marks the package has no primitive for keep an ELN renderer — the histogram
+ * (no bin primitive) and the violin (no density primitive) in `chart-plots`.
+ * The overlay in `PackageFigurePlot` adds the marks the figure model cannot
+ * carry: reference bands, an identity line, annotations, error bars and the
+ * reference lines the package does not draw itself.
  *
  * Accessibility:
  *  - `ChartFrame` owns the figure semantics (role=figure, labelled title,
  *    sr-only `alt` description).
  *  - The plot carries an accessible label that summarises the plotted series.
- *  - The tabular alternative (`ChartTableAlternative`) renders the exact
- *    rows the chart plots, so the data is reachable without the visual.
+ *  - The tabular alternative (`ChartTableAlternative`, `HeatmapTableAlternative`)
+ *    renders the exact rows the chart plots, so the data is reachable without
+ *    the visual.
  *  - Series are distinguishable by colour AND symbol so non-colour
  *    perception still works (DESIGN.md "non-colour distinctions").
  */
@@ -193,10 +198,17 @@ export function ChartRenderer({
           ) : null}
         </div>
       )}
-      {showTableAlternative &&
-      materialised.state.kind === 'ok' &&
-      materialised.rows.length > 0 ? (
-        <ChartTableAlternative materialised={materialised} />
+      {showTableAlternative && materialised.state.kind === 'ok' ? (
+        materialised.heatmap ? (
+          <HeatmapTableAlternative
+            heatmap={materialised.heatmap}
+            valueLabel={materialised.yLabel}
+            selection={selection}
+            onSelect={onSelectionChange ?? (() => {})}
+          />
+        ) : materialised.rows.length > 0 ? (
+          <ChartTableAlternative materialised={materialised} />
+        ) : null
       ) : null}
     </ChartFrame>
   )
@@ -294,7 +306,8 @@ function ChartPlot({
       />
     )
   }
-  if (type === 'violin' || type === 'box') {
+  // Violin has no package primitive; the ELN keeps drawing its box summary.
+  if (type === 'violin') {
     return (
       <BoxPlotChart
         series={materialised.series}
@@ -304,42 +317,8 @@ function ChartPlot({
       />
     )
   }
-  if (type === 'heatmap') {
-    if (!materialised.heatmap)
-      return (
-        <ChartStateMessage tone="muted">
-          No heatmap grid available.
-        </ChartStateMessage>
-      )
-    return (
-      <HeatmapPlot
-        heatmap={materialised.heatmap}
-        valueLabel={materialised.yLabel}
-        selectionProps={selectionProps}
-      />
-    )
-  }
-  if (
-    type === 'bar' ||
-    type === 'grouped_bar' ||
-    type === 'stacked_bar' ||
-    type === 'summary'
-  ) {
-    return (
-      <BarPlotChart
-        series={materialised.series}
-        height={height}
-        stacking={type === 'stacked_bar' ? 'stacked' : 'grouped'}
-        xLabel={materialised.xLabel}
-        yLabel={materialised.yLabel}
-        yUnit={materialised.yUnit}
-        ariaLabel={`${type.replace(/_/g, ' ')} chart. ${describeSeries(materialised)}`}
-        annotations={spec?.display.annotations ?? []}
-        references={spec?.overlays.references ?? []}
-        selectionProps={selectionProps}
-      />
-    )
-  }
+  // Everything else the package's v3 figure draws: point/line, bar
+  // (grouped/stacked), summary, box and heatmap.
   return (
     <PackageFigurePlot
       spec={spec}
@@ -352,8 +331,11 @@ function ChartPlot({
 
 /**
  * The package's v3 figure, rendered by `FigureSvg`, with a transparent hit
- * layer over the model's point positions so the shared selection model still
- * follows a click or the arrow keys (the package figure itself is static).
+ * layer over the model's marks so the shared selection model still follows a
+ * click or the arrow keys (the package figure itself is static). An overlay
+ * carries the marks the figure model has no primitive for: shaded reference
+ * bands, an identity line, annotations, error bars and the reference lines the
+ * package does not draw itself.
  */
 function PackageFigurePlot({
   spec,
@@ -389,19 +371,36 @@ function PackageFigurePlot({
   if (!figure)
     return (
       <ChartStateMessage tone="muted">
-        This chart has no numeric x/y points to plot.
+        {spec?.type === 'heatmap'
+          ? 'No heatmap grid available.'
+          : 'This chart has no numeric x/y points to plot.'}
       </ChartStateMessage>
     )
+  const type = spec?.type ?? 'line'
   const xScale = spec?.display.axes.x.scale ?? 'linear'
   const yScale = spec?.display.axes.y.scale ?? 'linear'
   const plot = figure.plot
+  // A band x axis (bar/box/heatmap) has no numeric scale; its categories sit at
+  // band centres.
+  const bandX = (figure.x.bands?.length ?? 0) > 0
   const yPx = (value: number) => {
     const px = figureValueToPx(figure, 'y', yScale, value)
     return Math.min(plot.y + plot.height, Math.max(plot.y, px))
   }
-  const xPx = (value: number) => figureValueToPx(figure, 'x', xScale, value)
+  const xPx = (value: number) =>
+    bandX
+      ? figureCategoryToPx(figure, value)
+      : figureValueToPx(figure, 'x', xScale, value)
   const references = spec?.overlays.references ?? []
   const annotations = spec?.display.annotations ?? []
+  // Bar categories are numeric (so x guides are meaningful); box and heatmap
+  // categories are labels, and a heatmap has no numeric y either.
+  const numericX = type !== 'heatmap' && type !== 'box'
+  const numericY = type !== 'heatmap'
+  // The package figure draws reference lines itself on numeric axes (x and y)
+  // and on bar/box (y only); only the remainder needs an overlay.
+  const packageRefLines: 'both' | 'y' | 'none' =
+    type === 'heatmap' ? 'none' : bandX ? 'y' : 'both'
   const errorPoints = materialised.series.flatMap((series) =>
     series.points
       .filter(
@@ -421,17 +420,19 @@ function PackageFigurePlot({
         handlePlotKeyDown(event, materialised, selectionProps)
       }
     >
-      <FigureSvg figure={figure} ariaLabel={figure.ariaLabel} />
+      {/* One root SVG wraps the package figure and the ELN's overlay marks,
+          so the figure export serialises exactly what is shown. */}
       <svg
-        className="absolute inset-0 h-full w-full"
+        className="h-full w-full"
         viewBox={`0 0 ${width} ${height}`}
         aria-hidden="true"
       >
-        {/* Marks the package's figure model has no primitive for: shaded
-            reference bands, an identity line, annotations and error bars. */}
+        <FigureSvg figure={figure} ariaLabel={figure.ariaLabel} />
         <g pointerEvents="none">
           {references.map((overlay, index) => {
             if (overlay.kind === 'band') {
+              if (overlay.axis === 'y' && !numericY) return null
+              if (overlay.axis === 'x' && !numericX) return null
               return overlay.axis === 'y' ? (
                 <rect
                   key={`band-${index}`}
@@ -455,6 +456,7 @@ function PackageFigurePlot({
               )
             }
             if (overlay.kind === 'identity') {
+              if (!numericX || !numericY) return null
               const [d0, d1] = figure.x.domain
               return (
                 <line
@@ -465,6 +467,42 @@ function PackageFigurePlot({
                   y2={yPx(d1)}
                   stroke="var(--muted-foreground)"
                   strokeDasharray="2 6"
+                />
+              )
+            }
+            if (
+              overlay.kind === 'hline' &&
+              packageRefLines === 'none' &&
+              numericY
+            ) {
+              const y = yPx(overlay.value)
+              return (
+                <line
+                  key={`hline-${index}`}
+                  x1={plot.x}
+                  x2={plot.x + plot.width}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--muted-foreground)"
+                  strokeDasharray="4 4"
+                />
+              )
+            }
+            if (
+              overlay.kind === 'vline' &&
+              packageRefLines !== 'both' &&
+              numericX
+            ) {
+              const x = xPx(overlay.value)
+              return (
+                <line
+                  key={`vline-${index}`}
+                  x1={x}
+                  x2={x}
+                  y1={plot.y}
+                  y2={plot.y + plot.height}
+                  stroke="var(--muted-foreground)"
+                  strokeDasharray="4 4"
                 />
               )
             }
@@ -487,6 +525,7 @@ function PackageFigurePlot({
             )
           })}
           {annotations.map((annotation, index) => {
+            if (!numericX || !numericY) return null
             const cx = xPx(annotation.x)
             const cy = yPx(annotation.y)
             return (
@@ -511,29 +550,134 @@ function PackageFigurePlot({
             )
           })}
         </g>
-        {figure.series.flatMap((series) =>
-          series.points.map((point) =>
-            point.py === undefined ? null : (
-              <circle
-                key={`${series.id}-${point.rowId ?? point.index}`}
-                cx={point.px}
-                cy={point.py}
-                r={9}
-                fill="transparent"
-                className="cursor-pointer"
-                onClick={() =>
-                  selectionProps.onSelect({
-                    seriesIdentifier: series.id,
-                    index: point.index,
-                  })
-                }
-              />
-            ),
-          ),
-        )}
+        <g>{plotHitTargets(figure, materialised, selectionProps)}</g>
       </svg>
     </div>
   )
+}
+
+/**
+ * Transparent, clickable hit targets over the package figure's marks, so the
+ * shared selection model follows a click. One target per mark: a point circle,
+ * a bar/box rectangle or a heatmap cell. The target also carries a `<title>`,
+ * giving the mark a tooltip and an accessible name the package's shapes lack.
+ */
+function plotHitTargets(
+  figure: FigureModel,
+  materialised: MaterialisedChart,
+  selectionProps: PlotSelectionProps,
+): React.ReactNode[] {
+  const targets: React.ReactNode[] = []
+  figure.series.forEach((series) => {
+    series.points.forEach((point) => {
+      if (point.py === undefined) return
+      targets.push(
+        <circle
+          key={`hit-${series.id}-${point.rowId ?? point.index}`}
+          cx={point.px}
+          cy={point.py}
+          r={9}
+          fill="transparent"
+          className="cursor-pointer"
+          onClick={() =>
+            selectionProps.onSelect({
+              seriesIdentifier: series.id,
+              index: point.index,
+            })
+          }
+        />,
+      )
+    })
+  })
+  figure.bars?.forEach((bar) => {
+    const series = materialised.series.find(
+      (item) => item.identifier === bar.seriesId,
+    )
+    const index =
+      series?.points.findIndex((point) => String(point.x) === bar.category) ??
+      -1
+    targets.push(
+      <rect
+        key={`hit-bar-${bar.seriesId}-${bar.category}`}
+        x={bar.x}
+        y={bar.y}
+        width={bar.width}
+        height={bar.height}
+        fill="transparent"
+        className={index >= 0 ? 'cursor-pointer' : undefined}
+        onClick={
+          index >= 0
+            ? () =>
+                selectionProps.onSelect({
+                  seriesIdentifier: bar.seriesId,
+                  index,
+                })
+            : undefined
+        }
+      >
+        <title>
+          {`${series?.label ?? bar.seriesId} · ${bar.category}: ${formatScientific(bar.value)}`}
+        </title>
+      </rect>,
+    )
+  })
+  figure.boxes?.forEach((box) => {
+    const series = materialised.series.find(
+      (item) => item.identifier === box.seriesId || item.label === box.seriesId,
+    )
+    targets.push(
+      <rect
+        key={`hit-box-${box.seriesId}-${box.category}`}
+        x={box.x}
+        y={Math.min(box.yWhiskerLow, box.yWhiskerHigh)}
+        width={box.width}
+        height={Math.max(1, Math.abs(box.yWhiskerLow - box.yWhiskerHigh))}
+        fill="transparent"
+        className={series ? 'cursor-pointer' : undefined}
+        onClick={
+          series
+            ? () =>
+                selectionProps.onSelect({
+                  seriesIdentifier: series.identifier,
+                  index: 0,
+                })
+            : undefined
+        }
+      >
+        <title>
+          {`${series?.label ?? box.category}: median ${formatScientific(box.median)}; IQR ${formatScientific(box.q1)}–${formatScientific(box.q3)}; whiskers ${formatScientific(box.whiskerLow)}–${formatScientific(box.whiskerHigh)}`}
+        </title>
+      </rect>,
+    )
+  })
+  const heatmap = materialised.heatmap
+  figure.heat?.forEach((cell) => {
+    if (!heatmap) return
+    const xIndex = heatmap.xLabels.indexOf(cell.x)
+    const yIndex = (heatmap.yLabels ?? ['']).indexOf(cell.y)
+    if (xIndex < 0 || yIndex < 0) return
+    const index = yIndex * heatmap.xLabels.length + xIndex
+    targets.push(
+      <rect
+        key={`hit-heat-${cell.x}-${cell.y}`}
+        x={cell.rect.x}
+        y={cell.rect.y}
+        width={cell.rect.width}
+        height={cell.rect.height}
+        fill="transparent"
+        className="cursor-pointer"
+        onClick={() =>
+          selectionProps.onSelect({
+            seriesIdentifier: 'heatmap',
+            index,
+          })
+        }
+      >
+        <title>{`${cell.x} × ${cell.y}: ${formatScientific(cell.value)}`}</title>
+      </rect>,
+    )
+  })
+  return targets
 }
 
 function handlePlotKeyDown(
@@ -640,6 +784,112 @@ function ChartTableAlternative({
           </tbody>
         </table>
       </div>
+    </details>
+  )
+}
+
+/**
+ * Accessible alternative for a package-rendered heatmap: the ELN's aggregated
+ * grid as a semantic table. The visual is now the package's SVG, so the cell
+ * values live here, and each cell is still selectable so the shared selection
+ * model stays in sync with the figure.
+ */
+function HeatmapTableAlternative({
+  heatmap,
+  valueLabel,
+  selection,
+  onSelect,
+}: {
+  heatmap: HeatmapMatrix
+  valueLabel: string
+  selection: ChartSelection | null
+  onSelect: (selection: ChartSelection | null) => void
+}) {
+  const cellByPosition = new Map(
+    heatmap.cells.map((cell) => [`${cell.x},${cell.y}`, cell]),
+  )
+  const yLabels = heatmap.yLabels ?? ['']
+  const cellCount = heatmap.cells.filter((cell) => cell.value !== null).length
+  return (
+    <details className="group mt-3">
+      <summary className="cursor-pointer text-xs text-muted-foreground">
+        Show data table ({cellCount} cells)
+      </summary>
+      <div className="mt-2 overflow-x-auto">
+        <table className="border-collapse text-xs">
+          <caption className="sr-only">
+            {`Heatmap grid of ${valueLabel} (${heatmap.aggregate}) with ${heatmap.xLabels.length} × ${yLabels.length} cells.`}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col" className="px-2 py-1" />
+              {heatmap.xLabels.map((label) => (
+                <th
+                  key={label}
+                  scope="col"
+                  className="px-2 py-1 text-left font-medium text-muted-foreground"
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {yLabels.map((yLabel, y) => (
+              <tr key={yLabel} className="odd:bg-background">
+                <th
+                  scope="row"
+                  className="whitespace-nowrap px-2 py-1 text-left font-medium text-muted-foreground"
+                >
+                  {yLabel}
+                </th>
+                {heatmap.xLabels.map((xLabel, x) => {
+                  const cell = cellByPosition.get(`${x},${y}`)
+                  const value = cell?.value ?? null
+                  const index = y * heatmap.xLabels.length + x
+                  const selected =
+                    selection?.seriesIdentifier === 'heatmap' &&
+                    selection.index === index
+                  return (
+                    <td key={xLabel} className="p-0">
+                      <button
+                        type="button"
+                        className={cn(
+                          'm-0.5 min-w-14 rounded-[4px] px-2 py-1 font-mono tabular-nums transition-[outline]',
+                          selected && 'outline outline-2 outline-foreground',
+                        )}
+                        onClick={() =>
+                          onSelect(
+                            selected
+                              ? null
+                              : { seriesIdentifier: 'heatmap', index },
+                          )
+                        }
+                        aria-pressed={selected}
+                        title={
+                          cell
+                            ? `${xLabel} × ${yLabel}: ${formatScientific(value)} (${cell.count} rows)`
+                            : `${xLabel} × ${yLabel}: no data`
+                        }
+                      >
+                        {value === null ? '—' : formatScientific(value)}
+                      </button>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Colour scale {formatScientific(heatmap.min)} →{' '}
+        {formatScientific(heatmap.max)}
+        {heatmap.aggregate !== 'count'
+          ? `; ${heatmap.aggregate} of ${valueLabel}`
+          : '; row count'}
+        .
+      </p>
     </details>
   )
 }

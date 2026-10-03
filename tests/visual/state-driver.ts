@@ -1,5 +1,3 @@
-import { config } from 'dotenv'
-import { Client } from 'pg'
 import type { Page } from 'playwright/test'
 
 import {
@@ -10,8 +8,6 @@ import {
 import type { DesignState, DesignStateSpec } from './design-states'
 import { signInAsDesignUser } from './sign-in'
 
-config({ path: ['.env.local', '.env'] })
-
 /**
  * DSYS-06 — drive the parity browser into a design screen's state.
  *
@@ -21,6 +17,11 @@ config({ path: ['.env.local', '.env'] })
  * session, the design clock, the theme, the viewport — and then applies the
  * state. A state the app cannot be driven into throws
  * `UnsupportedDesignStateError` instead of silently comparing the wrong page.
+ *
+ * Routes in `DESIGN_STATES` use the design's display identifiers
+ * (PRJ-/EXP-/SMP-/DS-/SHT-/INS-/CB-/PL-). The app resolves them in the route
+ * beforeLoad and redirects to the canonical UUID, so navigating the raw design
+ * route exercises that routing rather than a test-side rewrite.
  */
 
 /** Thrown when a declared state has no driver, or cannot be reached. */
@@ -31,107 +32,11 @@ export class UnsupportedDesignStateError extends Error {
   }
 }
 
-const IDENTIFIER = /\b([A-Z]{2,4})-(\d{2,5})\b/
-
 /**
- * Tables that hold the design's display identifiers. Routes in
- * `DESIGN_STATES` use those IDs (as the design does); the app addresses rows by
- * UUID, so the driver resolves them at test time.
+ * Display-identifier routing lives in the app (route beforeLoad resolves the
+ * design ID to the canonical UUID and redirects), so parity navigates the raw
+ * design route and no longer rewrites it here.
  */
-const IDENTIFIER_TABLES: Record<string, { table: string; column: string }> = {
-  PRJ: { table: 'api.projects', column: 'display_id' },
-  DS: { table: 'api.datasets', column: 'display_id' },
-  SHT: { table: 'api.sheet_instances', column: 'display_id' },
-  PL: { table: 'api.pipeline_definitions', column: 'display_id' },
-  INS: { table: 'api.instruments', column: 'display_id' },
-  EXP: { table: 'api.records', column: 'identifier' },
-  SMP: { table: 'api.records', column: 'identifier' },
-  CB: { table: 'api.records', column: 'identifier' },
-}
-
-let client: Client | undefined
-let connecting: Promise<Client> | undefined
-
-async function connection(): Promise<Client> {
-  if (client) return client
-  connecting ??= (async () => {
-    const databaseUrl = process.env.DATABASE_URL
-    if (!databaseUrl) {
-      throw new Error('DATABASE_URL is required to resolve design routes')
-    }
-    const next = new Client({ connectionString: databaseUrl })
-    await next.connect()
-    client = next
-    return next
-  })()
-  return connecting
-}
-
-/** Close the route resolver's connection (called from the spec's teardown). */
-export async function closeDesignRouteResolver(): Promise<void> {
-  const current = client
-  client = undefined
-  connecting = undefined
-  if (current) await current.end()
-}
-
-async function scalar(
-  sql: string,
-  params: ReadonlyArray<string>,
-): Promise<string | null> {
-  const db = await connection()
-  const result = await db.query<{ id: string }>(sql, params)
-  return result.rows[0]?.id ?? null
-}
-
-/**
- * Rewrite a design route's display IDs to the row UUIDs the app resolves.
- * `/review/<EXP-id>` and `/evidence/<EXP-id>` address the record's latest
- * revision, not the record row.
- */
-export async function resolveDesignRoute(route: string): Promise<string> {
-  const match = IDENTIFIER.exec(route)
-  if (!match) return route
-  const token = match[0]
-  const prefix = match[1] ?? ''
-
-  if (route.startsWith('/review/') || route.startsWith('/evidence/')) {
-    const id = await scalar(
-      `select r.id as id from api.revisions r
-         join api.records rec on rec.id = r.record_id
-        where rec.identifier = $1
-        order by r.created_at desc
-        limit 1`,
-      [token],
-    )
-    if (!id) {
-      throw new UnsupportedDesignStateError(
-        'record',
-        `${token} has no seeded revision for ${route}`,
-      )
-    }
-    return route.replace(token, id)
-  }
-
-  const spec = IDENTIFIER_TABLES[prefix]
-  if (!spec) {
-    throw new UnsupportedDesignStateError(
-      'record',
-      `no identifier resolver for "${prefix}" in ${route}`,
-    )
-  }
-  const id = await scalar(
-    `select id as id from ${spec.table} where ${spec.column} = $1 limit 1`,
-    [token],
-  )
-  if (!id) {
-    throw new UnsupportedDesignStateError(
-      'record',
-      `${token} is not seeded; add it to the design seed before mapping ${route}`,
-    )
-  }
-  return route.replace(token, id)
-}
 
 /** Wait for SSR chrome and client queries to settle. */
 async function settle(page: Page): Promise<void> {
@@ -280,7 +185,9 @@ export async function visitDesignState(
   }
 
   await signInAsDesignUser(page, userId)
-  await page.goto(await resolveDesignRoute(state.route))
+  // Raw design route: the app's beforeLoad resolves the display ID to the
+  // canonical UUID and redirects, so this exercises the real routing.
+  await page.goto(state.route)
   if (spec.kind !== 'loading') await settle(page)
   await applyState(page, spec)
 }

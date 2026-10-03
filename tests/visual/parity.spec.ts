@@ -5,7 +5,7 @@ import {
   DESIGN_SCREEN_SIZES,
   DESIGN_STATES,
 } from './design-states'
-import { closeDesignRouteResolver, visitDesignState } from './state-driver'
+import { visitDesignState } from './state-driver'
 
 /**
  * Visual parity suite (DSYS-06). Each mapped design screen opens its route as
@@ -29,10 +29,6 @@ for (const state of DESIGN_STATES) {
     await expect(page).toHaveScreenshot(`${state.screen}-${state.theme}.png`)
   })
 }
-
-test.afterAll(async () => {
-  await closeDesignRouteResolver()
-})
 
 test('parity coverage', () => {
   const screens = Object.keys(DESIGN_SCREEN_SIZES)

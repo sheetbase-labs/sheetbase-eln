@@ -55,13 +55,13 @@ needs explicit approval and green CI.
 
 ## Ordered workstreams (from the handoff execution order)
 
-1. **Acceptance + shell:** DSYS-05/06, SHELL-01/02/03. *(DSYS-05.4/06.2 and
-   SHELL-01.2 need owner decisions — design states, role→nav map.)*
+1. **Acceptance + shell:** DSYS-05/06, SHELL-01/02/03. _(DSYS-05.4/06.2 and
+   SHELL-01.2 need owner decisions — design states, role→nav map.)_
 2. **Scientific correctness:** DSET-01/03/04, LAB-03, MOB-02, LAB-07.
-   *(DSET-01.1's `missing_unit`/`above_curve`/`high_cv` need a rule-config
-   decision.)*
+   _(DSET-01.1's `missing_unit`/`above_curve`/`high_cv` need a rule-config
+   decision.)_
 3. **Shared contracts + scientific workflows:** COMP-01–07, SHEET-01–05,
-   MDL-01–04. *(MDL-02.1 routes and MDL-02.3 field editor remain.)*
+   MDL-01–04. _(MDL-02.1 routes and MDL-02.3 field editor remain.)_
 4. **Projects, experiments, import, lab, settings:** PROJ, EXP, DSET-05/06,
    LAB, SET.
 5. **Governed + automation:** REV, PORTAL, PIPE.

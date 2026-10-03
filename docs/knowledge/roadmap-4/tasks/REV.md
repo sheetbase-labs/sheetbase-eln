@@ -1,6 +1,8 @@
 # REV — Review, Signatures and Evidence
 
-**Status (2026-09-27):** Proposed; not assigned. REV-03 and REV-05 follow [DEC-04](DEC.md), which accepted GXP-01 / [ADR-0045](../../decisions/0045-regulated-intended-use-control-model.md) on 2026-09-27.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#rev) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. REV-03 and REV-05 follow [DEC-04](DEC.md), which accepted GXP-01 / [ADR-0045](../../decisions/0045-regulated-intended-use-control-model.md) on 2026-09-27.
 
 ## Programme goal
 
@@ -23,7 +25,9 @@ and let anyone see exactly what was signed next to what has changed since.
 
 ## REV-01 — Review workspace
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#rev-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -77,7 +81,9 @@ comments at once; checklist completion is stored with the decision.
 
 ## REV-02 — Signature meanings and author signing
 
-**Status:** proposed; [DEC-04](DEC.md) accepted 2026-09-27 (meanings Authored, Witnessed, Reviewed, Reviewed and approved; role-restricted).
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#rev-02).
+
+**Original decision/dependency note:** [DEC-04](DEC.md) accepted 2026-09-27 (meanings Authored, Witnessed, Reviewed, Reviewed and approved; role-restricted).
 
 ### Design
 
@@ -116,7 +122,9 @@ time, meaning and exact revision digest.
 
 ## REV-03 — Signing with password re-entry and signature certification
 
-**Status:** proposed; [DEC-04](DEC.md) accepted 2026-09-27 (password re-entry, signing token, certification, 3-attempt / 15-minute lockout).
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#rev-03).
+
+**Original decision/dependency note:** [DEC-04](DEC.md) accepted 2026-09-27 (password re-entry, signing token, certification, 3-attempt / 15-minute lockout).
 
 ### Design
 
@@ -158,7 +166,9 @@ before first signature; the auth method is recorded on each signature.
 
 ## REV-04 — Evidence versus live
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#rev-04).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -198,7 +208,9 @@ snapshots (never live state); differences are computed, not stored.
 
 ## REV-05 — Tamper-evident audit trail
 
-**Status:** proposed; [DEC-04](DEC.md) accepted 2026-09-27 (SHA-256 hash chain, nightly verification at 06:00, 15-year retention).
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#rev-05).
+
+**Original decision/dependency note:** [DEC-04](DEC.md) accepted 2026-09-27 (SHA-256 hash chain, nightly verification at 06:00, 15-year retention).
 
 ### Design
 

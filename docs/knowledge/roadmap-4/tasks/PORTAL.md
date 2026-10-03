@@ -1,6 +1,8 @@
 # PORTAL — Client Portal
 
-**Status (2026-09-27):** Proposed; not assigned. Follows [DEC-05](DEC.md), accepted 2026-09-27 as [ADR-0049](../../decisions/0049-client-users.md).
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#portal) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. Follows [DEC-05](DEC.md), accepted 2026-09-27 as [ADR-0049](../../decisions/0049-client-users.md).
 
 ## Programme goal
 
@@ -15,7 +17,9 @@ access" in admin covers connectors and extensions, not people.
 
 ## PORTAL-01 — Client identity and access decision
 
-**Status:** accepted 2026-09-27 as [ADR-0049](../../decisions/0049-client-users.md).
+**Status (2026-10-02):** accepted; nod `done`. [Evidence and remaining work](../RECONCILIATION.md#portal-01).
+
+**Original decision/dependency note:** accepted 2026-09-27 as [ADR-0049](../../decisions/0049-client-users.md).
 
 ### Design
 
@@ -36,7 +40,9 @@ An accepted ADR with an RLS test plan.
 
 ## PORTAL-02 — Portal
 
-**Status:** proposed; depends on PORTAL-01 ([ADR-0049](../../decisions/0049-client-users.md), accepted 2026-09-27), REV-02.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#portal-02).
+
+**Original decision/dependency note:** depends on PORTAL-01 ([ADR-0049](../../decisions/0049-client-users.md), accepted 2026-09-27), REV-02.
 
 ### Design
 

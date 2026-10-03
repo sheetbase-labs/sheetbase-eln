@@ -1,6 +1,8 @@
 # COMP — Sheetbase Components in the ELN
 
-**Status (2026-09-27):** Proposed; not assigned. Work happens in both repositories: `sheetbase-labs/sheetbase-components` (packages) and this one (integration). Changing the packages is in scope; they are changed at source to fit v3, not overridden from the ELN.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#comp) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. Work happens in both repositories: `sheetbase-labs/sheetbase-components` (packages) and this one (integration). Changing the packages is in scope; they are changed at source to fit v3, not overridden from the ELN.
 
 ## Programme goal
 
@@ -40,7 +42,9 @@ change. COMP-01..04 are PRs there; COMP-05..07 are PRs here. Recipe 5.10 in
 
 ## COMP-01 — v3 theme contract (components repo)
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#comp-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 
@@ -109,7 +113,9 @@ token (checked by the lint rule and by COMP-02/03 visual tests).
 
 ## COMP-02 — Table to v3 (components repo)
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#comp-02).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 
@@ -187,7 +193,9 @@ and matches the corresponding region of the design render.
 
 ## COMP-03 — Charts to v3 (components repo)
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#comp-03).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -233,7 +241,9 @@ data in the components repo.
 
 ## COMP-04 — Filter builder to v3 (components repo)
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#comp-04).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -272,7 +282,9 @@ The design's filter builder and chip row are reproduced from the package.
 
 ## COMP-05 — Releases and consumption
 
-**Status:** proposed; [DEC-12](DEC.md) decided 2026-09-27 — private, no public publish.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#comp-05).
+
+**Original decision/dependency note:** [DEC-12](DEC.md) decided 2026-09-27 — private, no public publish.
 
 ### Scope
 
@@ -317,7 +329,9 @@ and a package release that changes a v3 screen fails the ELN parity suite.
 
 ## COMP-06 — Replace Handsontable
 
-**Status:** proposed; [DEC-02](DEC.md) accepted [ADR-0048](../../decisions/0048-sheet-grid-on-sheetbase-table.md) option (b) on 2026-09-27 — the server adopts the `sheetbase-table` engine and HyperFormula/Handsontable are removed.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#comp-06).
+
+**Original decision/dependency note:** [DEC-02](DEC.md) accepted [ADR-0048](../../decisions/0048-sheet-grid-on-sheetbase-table.md) option (b) on 2026-09-27 — the server adopts the `sheetbase-table` engine and HyperFormula/Handsontable are removed.
 
 ### Scope
 
@@ -388,7 +402,9 @@ Handsontable is gone from the dependency tree.
 
 ## COMP-07 — Replace Recharts
 
-**Status:** proposed.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#comp-07).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Scope
 

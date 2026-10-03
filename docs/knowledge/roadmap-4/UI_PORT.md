@@ -1,5 +1,14 @@
 # UI port — sheetbase-app-3 into the ELN
 
+> **Reconciled 2 October 2026:** this document retains the port/QA history.
+> Current task completion and remaining requirements are in
+> [RECONCILIATION.md](RECONCILIATION.md) and [NEXT.md](NEXT.md). Historical
+> “complete” and “no gap banners” statements describe the port scope at that
+> time; they do not close the original Roadmap 4 capability or acceptance exits.
+> The original parity registry currently maps no states. DSYS-06 owns the
+> reference/test-contract reconciliation; the earlier port strategy statement
+> does not itself establish a replacement acceptance gate.
+
 **Status (2026-09-28):** active plan. Supersedes the vendored-HTML parity work.
 Branch: `roadmap-4/ui-app3`. Decision: **A** — the ELN keeps the backend
 (Postgres / PostgREST / RLS / RPCs); the UI from `../sheetbase-app-3` is ported
@@ -823,3 +832,31 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   cover create/move, viewer denial, invalid name and cross-project parent.
 - Still open for the area: the design fields the backend lacks (milestones,
   member summary, started date) and per-project roles beyond the access level.
+
+## Shell completion slices (2 October 2026, branch `GWP/roadmap-4-shell`)
+
+- **SHELL-02 — appearance (done).** One shared appearance store
+  (`src/components/v3/lib/theme.ts`) now owns the `sheetbase-theme` cache, the
+  `.dark` class, `data-theme`/`data-theme-pref`, and listens for `storage`
+  (another tab) and `prefers-color-scheme` (live System while the preference is
+  System). The ELN `ThemeProvider` and the v3 shell both use it. Unit tests cover
+  apply, cross-tab adoption and both System cases; the interactions suite proves
+  another open tab follows and a separate browser context loads the server
+  preference. Commits `cf2e89ca`, `0cdd9f51`.
+- **SHELL-03 — shortcuts, global half.** The v3 `AppShell` mounts one
+  `ShortcutProvider` (no ad-hoc keydown). `createGlobalShortcuts` now includes
+  the design's `C`/Create, the `?` dialog is generated from the same definitions,
+  `mod+\` collapses the rail with the per-user preference, and the Help page opens
+  the dialog through `OPEN_SHORTCUTS_EVENT`. Browser checks cover `?`, the
+  registry-generated dialog, Esc, input suppression and `G` then `H`; the palette
+  key is platform-correct. Remaining: the list / notebook / review scopes are
+  registered by their owning screens. Commit `e0cd7537`.
+- **SHELL-01 — active workspace.** The v3 top bar lists the caller's memberships
+  and sets the active workspace through `set_active_workspace`, then re-resolves
+  the shell context. Backend selection, RLS and the member-only DB test already
+  existed. Commit `5ee7667b`.
+- **Owner decisions still open:** (1) the role → navigation map — the design says
+  "sections a role cannot open are left out" but defines no ELN role map, so
+  role-filtered nav needs that decision; (2) DSYS-05/06 — mapping the 126 design
+  screens to `DESIGN_STATES` and re-certifying the reference/test contract after
+  the app-3 port (requires a fresh design-seeded database).

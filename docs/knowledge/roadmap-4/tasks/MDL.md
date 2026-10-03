@@ -1,6 +1,8 @@
 # MDL — Models and Records from Models
 
-**Status (2026-09-27):** Proposed; not assigned. MDL-01 follows [DEC-07](DEC.md), accepted 2026-09-27 as [ADR-0051](../../decisions/0051-workspace-defined-record-models.md).
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#mdl) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. MDL-01 follows [DEC-07](DEC.md), accepted 2026-09-27 as [ADR-0051](../../decisions/0051-workspace-defined-record-models.md).
 
 ## Programme goal
 
@@ -21,7 +23,9 @@ from those definitions.
 
 ## MDL-01 — Workspace-defined record models
 
-**Status:** proposed; [DEC-07](DEC.md) accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): generic record host, versioned schemas, cell banks workspace-defined, materials built-in.
+**Status (2026-10-03):** done; nod `done` — closed 2026-10-03 by `4e69f5b6` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#mdl-01).
+
+**Original decision/dependency note:** [DEC-07](DEC.md) accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): generic record host, versioned schemas, cell banks workspace-defined, materials built-in.
 
 ### Design
 
@@ -70,7 +74,9 @@ history and the API like built-in kinds.
 
 ## MDL-02 — Model editor
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#mdl-02).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -120,7 +126,9 @@ never rewritten; migration of open experiments is explicit and audited.
 
 ## MDL-03 — Approval of model versions
 
-**Status:** proposed; may interact with GXP-01.
+**Status (2026-10-03):** done; nod `done` — closed 2026-10-03 by `085ded29` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#mdl-03).
+
+**Original decision/dependency note:** may interact with GXP-01.
 
 ### Design
 
@@ -159,7 +167,9 @@ the approval trail is part of the model's history.
 
 ## MDL-04 — Model lists, generated forms and record pages
 
-**Status:** proposed; depends on MDL-01.
+**Status (2026-10-03):** done; nod `done` — closed 2026-10-03 by `6c11aefb` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#mdl-04).
+
+**Original decision/dependency note:** depends on MDL-01.
 
 ### Design
 

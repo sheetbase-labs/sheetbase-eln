@@ -1,10 +1,16 @@
 ---
 title: Roadmap 4 — developer guide
-status: proposed
-last_reviewed: 2026-09-27
+status: active guide
+last_reviewed: 2026-10-02
 ---
 
 # Roadmap 4 developer guide
+
+**Current status:** start with [NEXT.md](NEXT.md) and the
+[2 October reconciliation](RECONCILIATION.md). Original recipes below retain
+planning context; the adopted app-3 port and per-task remaining work take
+precedence over obsolete restyle-in-place instructions. Task exits remain
+unwaived until explicitly reconciled.
 
 Read this before picking up any Roadmap 4 task. It explains how the codebase
 is put together, how a Roadmap 4 task flows from design screen to merged PR,

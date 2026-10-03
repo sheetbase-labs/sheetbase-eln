@@ -1,6 +1,8 @@
 # SHELL — Application Shell, Navigation and Interaction
 
-**Status (2026-09-27):** Proposed; not assigned. Depends on DSYS-02/03.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#shell) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. Depends on DSYS-02/03.
 
 ## Programme goal
 
@@ -20,7 +22,9 @@ feedback model.
 
 ## SHELL-01 — New shell and navigation
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#shell-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 
@@ -108,7 +112,9 @@ shell in both themes.
 
 ## SHELL-02 — Appearance setting
 
-**Status:** proposed.
+**Status (2026-10-02):** done; nod `done` — closed 2026-10-02 by `0cdd9f51` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#shell-02).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 
@@ -155,7 +161,9 @@ devices; there is no other theme control.
 
 ## SHELL-03 — Keyboard shortcuts and command palette frame
 
-**Status:** proposed. The ⌘K search palette is ported and reads the real `search` RPC; the single shortcut registry, the `?` shortcuts dialog and the remaining shortcuts remain.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#shell-03).
+
+**Original decision/dependency note:** Original proposal. The ⌘K search palette is ported and reads the real `search` RPC; the single shortcut registry, the `?` shortcuts dialog and the remaining shortcuts remain.
 
 ### Goal
 
@@ -207,7 +215,9 @@ where the design says otherwise.
 
 ## SHELL-04 — Decide the fate of surfaces outside the design
 
-**Status:** proposed; [DEC-03](DEC.md) decided 2026-09-27 (route decisions below).
+**Status (2026-10-02):** superseded; nod `cancelled`. [Evidence and remaining work](../RECONCILIATION.md#shell-04).
+
+**Original decision/dependency note:** [DEC-03](DEC.md) decided 2026-09-27 (route decisions below).
 
 ### Goal
 
@@ -269,7 +279,9 @@ surfaces that exist in the design.
 
 ## SHELL-05 — Narrow screens
 
-**Status:** proposed.
+**Status (2026-10-02):** implemented-unverified; nod `done`. [Evidence and remaining work](../RECONCILIATION.md#shell-05).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 

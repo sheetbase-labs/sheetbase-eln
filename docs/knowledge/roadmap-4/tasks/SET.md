@@ -1,6 +1,8 @@
 # SET — Workspace and Account Settings
 
-**Status (2026-09-27):** Proposed; not assigned. Groups in SET-02 follow [DEC-06](DEC.md); lockout in SET-03 follows [DEC-04](DEC.md), accepted 2026-09-27.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#set) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. Groups in SET-02 follow [DEC-06](DEC.md); lockout in SET-03 follows [DEC-04](DEC.md), accepted 2026-09-27.
 
 ## Programme goal
 
@@ -20,7 +22,9 @@ about it, where every switch is enforced on the server.
 
 ## SET-01 — Workspace general settings
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#set-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -59,7 +63,9 @@ IDs and is audited.
 
 ## SET-02 — Members, roles, groups and project access
 
-**Status:** proposed; groups per [DEC-06](DEC.md), accepted 2026-09-27 ([ADR-0050](../../decisions/0050-workspace-groups-and-project-access.md)); client rows per [DEC-05](DEC.md), accepted 2026-09-27 ([ADR-0049](../../decisions/0049-client-users.md)).
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#set-02).
+
+**Original decision/dependency note:** groups per [DEC-06](DEC.md), accepted 2026-09-27 ([ADR-0050](../../decisions/0050-workspace-groups-and-project-access.md)); client rows per [DEC-05](DEC.md), accepted 2026-09-27 ([ADR-0049](../../decisions/0049-client-users.md)).
 
 ### Design
 
@@ -101,7 +107,9 @@ effect immediately and is audited.
 
 ## SET-03 — Profile, sessions and sign-in security
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#set-03).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -140,7 +148,9 @@ Better Auth configuration and covered by tests.
 
 ## SET-04 — Integrations and API
 
-**Status:** proposed; mostly restyling existing capability.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#set-04).
+
+**Original decision/dependency note:** mostly restyling existing capability.
 
 ### Design
 

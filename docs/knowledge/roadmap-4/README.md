@@ -1,7 +1,7 @@
 ---
 title: Sheetbase Roadmap 4
-status: proposed
-last_reviewed: 2026-09-27
+status: active — incomplete
+last_reviewed: 2026-10-02
 ---
 
 # Roadmap 4 — Design-led Product
@@ -9,12 +9,15 @@ last_reviewed: 2026-09-27
 > **Make Sheetbase look and work exactly like UI system v3: every screen,
 > every state, every capability.**
 
-**Status: proposal only.** Nothing here is assigned or activated until the
-repository-wide [`../NEXT.md`](../NEXT.md) activates it. Roadmap 4 is
-self-contained: once active, its own [`NEXT.md`](NEXT.md) and nod tracker own
-its queue. This is the Roadmap 4
-proposal that earlier status documents refer to; it had been discussed but not
-written up before 27 September 2026.
+**Status: active and incomplete.** The app-3 UI port is underway on
+`roadmap-4/ui-app3`; source and tracker were reconciled at `9bbd305c` on
+2 October 2026. [RECONCILIATION.md](RECONCILIATION.md) records all 86 task
+dispositions. [NEXT.md](NEXT.md) and nod own the remaining queue, under the
+repository-wide [current handoff](../NEXT.md).
+
+The adopted port changes implementation method. The original acceptance
+contract below still needs reconciliation with that method under DSYS-06;
+this status update does not waive it.
 
 ## Why
 
@@ -47,7 +50,7 @@ all of it.
    code and replaces the current UI: token map, component packages, route map,
    verification.
 4. [`tasks/DEC.md`](tasks/DEC.md) — the decisions taken first, including
-   proposed [ADR-0047](../decisions/0047-ui-system-v3-adoption.md) and
+   accepted [ADR-0047](../decisions/0047-ui-system-v3-adoption.md) and
    [ADR-0048](../decisions/0048-sheet-grid-on-sheetbase-table.md).
 5. [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) — dependencies, waves and delivery
    rules.
@@ -88,6 +91,6 @@ all of it.
   (Roadmap 3) and the pipeline extension in ADR-0046.
 - Takes GXP-01 (ADR-0045) and the relevant parts of ENT-ORG (ADR-0044) to a
   decision in DEC-04..06 because the design depends on them.
-- The outstanding verification items in [`../NEXT.md`](../NEXT.md) (REUSE-02
-  CI failure, whole-workflow acceptance) should be resolved before or alongside
+- The outstanding verification items in [`../NEXT.md`](../NEXT.md) (historical REUSE-02
+  evidence, whole-workflow acceptance) should be resolved before or alongside
   wave A, since Roadmap 4 rebuilds the screens those workflows run through.

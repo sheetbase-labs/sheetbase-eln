@@ -1,6 +1,8 @@
 # SRCH — Search and Command Palette
 
-**Status (2026-09-27):** Proposed; not assigned. Extends FIND and ADR-0033.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#srch) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. Extends FIND and ADR-0033.
 
 ## Programme goal
 
@@ -16,7 +18,9 @@ not indexed; there is no global palette.
 
 ## SRCH-01 — Search coverage
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#srch-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -90,7 +94,9 @@ the project).
 
 ## SRCH-02 — ⌘K palette and results page
 
-**Status:** proposed; frame in SHELL-03.
+**Status (2026-10-02):** done; nod `done` — closed 2026-10-02 by `91601b87` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#srch-02).
+
+**Original decision/dependency note:** frame in SHELL-03.
 
 ### Design
 

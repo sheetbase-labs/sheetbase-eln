@@ -1,6 +1,8 @@
 # LAB — Samples, Materials, Instruments and Protocols
 
-**Status (2026-09-27):** Proposed; not assigned. LAB-05 follows [DEC-10](DEC.md); LAB-04 follows [DEC-07](DEC.md).
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#lab) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. LAB-05 follows [DEC-10](DEC.md); LAB-04 follows [DEC-07](DEC.md).
 
 ## Programme goal
 
@@ -25,7 +27,9 @@ which protocol version people are trained on.
 
 ## LAB-01 — Withdrawals and reservations
 
-**Status:** proposed.
+**Status (2026-10-03):** done; nod `done` — closed 2026-10-03 by `58018eb1` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#lab-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -72,7 +76,9 @@ the server.
 
 ## LAB-02 — Hold time, quarantine and release
 
-**Status:** proposed.
+**Status (2026-10-03):** done; nod `done` — closed 2026-10-03 by `3e7cadf5` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#lab-02).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -115,7 +121,9 @@ is automatic and audited as System.
 
 ## LAB-03 — Sample record pages
 
-**Status:** proposed. **DEC-03:** absorbs the `/lineage` provenance explorer into the Lineage tab and evidence pages; the standalone route retires.
+**Status (2026-10-03):** done; nod `done` — closed 2026-10-03 by `a303d027` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#lab-03).
+
+**Original decision/dependency note:** Original proposal. **DEC-03:** absorbs the `/lineage` provenance explorer into the Lineage tab and evidence pages; the standalone route retires.
 
 ### Design
 
@@ -159,7 +167,9 @@ link to their row; the seeded SMP-2231 matches the design.
 
 ## LAB-04 — Materials and lots
 
-**Status:** proposed; [DEC-07](DEC.md) accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): materials are built-in, not workspace-defined. **DEC-03:** absorbs `/storage` locations; the standalone route is retired by the UI port (locations show on materials).
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#lab-04).
+
+**Original decision/dependency note:** [DEC-07](DEC.md) accepted 2026-09-27 ([ADR-0051](../../decisions/0051-workspace-defined-record-models.md)): materials are built-in, not workspace-defined. **DEC-03:** absorbs `/storage` locations; the standalone route is retired by the UI port (locations show on materials).
 
 ### Design
 
@@ -198,7 +208,9 @@ refused on the server; expiry reminders appear in WORK-01.
 
 ## LAB-05 — Labels and scanning
 
-**Status:** proposed; [DEC-10](DEC.md) accepted 2026-09-27: the lab has no specific printers, so printing is browser print (no print gateway) and the 2D code payload is `https://<host>/r/<identifier>`. The UI port added `/scan`, resolving records and instruments by canonical identifier, aliases (`api.record_aliases`, LAB-06) or a typed fallback with camera BarcodeDetector; label templates, printing and the `/r/<identifier>` resolver remain.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#lab-05).
+
+**Original decision/dependency note:** [DEC-10](DEC.md) accepted 2026-09-27: the lab has no specific printers, so printing is browser print (no print gateway) and the 2D code payload is `https://<host>/r/<identifier>`. The UI port added `/scan`, resolving records and instruments by canonical identifier, aliases (`api.record_aliases`, LAB-06) or a typed fallback with camera BarcodeDetector; label templates, printing and the `/r/<identifier>` resolver remain.
 
 ### Design
 
@@ -240,7 +252,9 @@ recorded in the sample's History.
 
 ## LAB-06 — Instruments: identity, calibration and qualification
 
-**Status:** proposed. **DEC-03:** absorbs `/instrument-monitor`; the standalone route retires. The UI port added the `/instruments` list and `/instruments/$instrumentId` detail over the existing `api.instruments` / `api.instrument_runs` tables, retired `/instrument-monitor`, modelled record aliases ("also known as") in `api.record_aliases` for scanning, and added calibration (`api.instrument_calibrations`, RLS, `record_instrument_calibration`) with last/due/history on the instrument page; qualification, used-by and the run telemetry surface remain.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#lab-06).
+
+**Original decision/dependency note:** Original proposal. **DEC-03:** absorbs `/instrument-monitor`; the standalone route retires. The UI port added the `/instruments` list and `/instruments/$instrumentId` detail over the existing `api.instruments` / `api.instrument_runs` tables, retired `/instrument-monitor`, modelled record aliases ("also known as") in `api.record_aliases` for scanning, and added calibration (`api.instrument_calibrations`, RLS, `record_instrument_calibration`) with last/due/history on the instrument page; qualification, used-by and the run telemetry surface remain.
 
 ### Design
 
@@ -284,7 +298,9 @@ Renaming an instrument breaks no link and leaves signed text unchanged
 
 ## LAB-07 — Controlled protocols
 
-**Status:** proposed; controlled-document rules may interact with GXP-01.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#lab-07).
+
+**Original decision/dependency note:** controlled-document rules may interact with GXP-01.
 
 ### Design
 

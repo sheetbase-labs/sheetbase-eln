@@ -1,6 +1,8 @@
 # PROJ — Projects, Folders, Files and Membership
 
-**Status (2026-09-27):** Proposed; not assigned.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#proj) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below.
 
 ## Programme goal
 
@@ -18,7 +20,9 @@ at a glance, and set the rules records in it follow.
 
 ## PROJ-01 — Project properties and list
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#proj-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -76,7 +80,9 @@ state; archived projects are read-only and excluded unless asked for.
 
 ## PROJ-02 — Milestones
 
-**Status:** proposed. **DEC-03:** absorbs `/planner` study tasks; the standalone route retires. The UI port reconciled the project Overview's Milestones with `study_deliverables` (reached through `study_tasks.project_id`) as a read-only list; the milestone RPCs (create/reorder/update/link evidence) and the ProjectDetail/LVV/Ambr design remain.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#proj-02).
+
+**Original decision/dependency note:** Original proposal. **DEC-03:** absorbs `/planner` study tasks; the standalone route retires. The UI port reconciled the project Overview's Milestones with `study_deliverables` (reached through `study_tasks.project_id`) as a read-only list; the milestone RPCs (create/reorder/update/link evidence) and the ProjectDetail/LVV/Ambr design remain.
 
 ### Design
 
@@ -117,7 +123,9 @@ them where configured; the design's project overview renders from real data.
 
 ## PROJ-03 — Members, roles and project settings
 
-**Status:** proposed; client rows depend on PORTAL. **DEC-06:** project access is by workspace groups ([ADR-0050](../../decisions/0050-workspace-groups-and-project-access.md), accepted 2026-09-27); **DEC-05:** client-portal access is a fourth rule column.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#proj-03).
+
+**Original decision/dependency note:** client rows depend on PORTAL. **DEC-06:** project access is by workspace groups ([ADR-0050](../../decisions/0050-workspace-groups-and-project-access.md), accepted 2026-09-27); **DEC-05:** client-portal access is a fourth rule column.
 
 ### Design
 
@@ -167,7 +175,9 @@ database tests; archiving is reversible only by an admin and is audited.
 
 ## PROJ-04 — Folders and files
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#proj-04).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 

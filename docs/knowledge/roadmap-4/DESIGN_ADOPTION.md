@@ -1,16 +1,22 @@
 ---
 title: Roadmap 4 — adopting UI system v3
-status: proposed
-last_reviewed: 2026-09-27
+status: original strategy — implementation method superseded by app-3 port
+last_reviewed: 2026-10-02
 ---
 
 # Adopting UI system v3 and replacing the current interface
 
 This is the strategy for getting the Sheetbase UI system v3 design into the
 repository and making it the product's only interface. The decision it relies
-on is recorded as proposed [ADR-0047](../decisions/0047-ui-system-v3-adoption.md).
+on is recorded as accepted [ADR-0047](../decisions/0047-ui-system-v3-adoption.md).
 The design itself is vendored at
 [`../design/ui-system-v3/`](../design/ui-system-v3/README.md).
+
+**Current interpretation (2 October):** this document retains the original
+strategy and acceptance contract. The adopted [app-3 port](UI_PORT.md) replaces
+the restyle-in-place implementation method. [The reconciliation](RECONCILIATION.md)
+records current gaps; DSYS-06 owns mapping the reference and tests to that method.
+The parity requirements below are not currently proved by the empty registry.
 
 ## The bar: exactly v3, fully working
 
@@ -142,7 +148,7 @@ flow in `sheetbase-components/docs/publishing.md` already exists; the packages
 go to a private registry rather than public npm. Handsontable, its React
 wrapper and `VITE_HANDSONTABLE_LICENSE_KEY` are removed when the last grid moves.
 
-Formula authority needs a decision before the grid swap (proposed
+Formula authority was decided before the grid swap (accepted
 [ADR-0048](../decisions/0048-sheet-grid-on-sheetbase-table.md)): today
 HyperFormula evaluates formulas on the server (`calculation.server.ts`,
 ADR-0021/0022) and in the Handsontable grid. `sheetbase-table` has its own

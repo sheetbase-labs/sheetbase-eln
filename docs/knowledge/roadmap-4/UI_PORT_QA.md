@@ -1,5 +1,14 @@
 # UI port QA — ELN vs `sheetbase-app (5)`
 
+> **Reconciled 2 October 2026:** this document retains the port/QA history.
+> Current task completion and remaining requirements are in
+> [RECONCILIATION.md](RECONCILIATION.md) and [NEXT.md](NEXT.md). Historical
+> “complete” and “no gap banners” statements describe the port scope at that
+> time; they do not close the original Roadmap 4 capability or acceptance exits.
+> The original parity registry currently maps no states. DSYS-06 owns the
+> reference/test-contract reconciliation; the earlier port strategy statement
+> does not itself establish a replacement acceptance gate.
+
 **Status:** review complete. The visual/style drift is fixed (commits
 `5fe5782d`, `a35b61eb`); the structural divergences (#208–#219) were then
 worked off along with the capability build-out (see `UI_PORT.md`). Method and

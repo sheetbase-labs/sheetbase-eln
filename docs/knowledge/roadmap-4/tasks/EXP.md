@@ -1,6 +1,8 @@
 # EXP — Experiments and Notebooks
 
-**Status (2026-09-27):** Proposed; not assigned.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#exp) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below.
 
 ## Programme goal
 
@@ -23,7 +25,9 @@ connection drops.
 
 ## EXP-01 — Experiment page frame and tabs
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#exp-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -83,7 +87,9 @@ seeded data; each tab is a URL.
 
 ## EXP-02 — Overview: plan, progress and readiness
 
-**Status:** proposed; protocol steps depend on LAB-07.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#exp-02).
+
+**Original decision/dependency note:** protocol steps depend on LAB-07.
 
 ### Design
 
@@ -130,7 +136,9 @@ enforces; every item links to the exact location that resolves it.
 
 ## EXP-03 — New experiment from a protocol
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#exp-03).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -181,7 +189,9 @@ History; the protocol version is pinned to the experiment.
 
 ## EXP-04 — Notebook working surface
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#exp-04).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -239,7 +249,9 @@ cannot enter edit mode by any route (tested at RPC level).
 
 ## EXP-05 — Offline editing and conflict resolution
 
-**Status:** proposed; [DEC-09](DEC.md) accepted 2026-09-27 ([ADR-0018](../../decisions/0018-notebook-autosave-and-conflict.md) amendment): IndexedDB device store, replay with expected revisions, block- and cell-level conflicts, drafts retained after sign-out until discarded.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#exp-05).
+
+**Original decision/dependency note:** [DEC-09](DEC.md) accepted 2026-09-27 ([ADR-0018](../../decisions/0018-notebook-autosave-and-conflict.md) amendment): IndexedDB device store, replay with expected revisions, block- and cell-level conflicts, drafts retained after sign-out until discarded.
 
 ### Design
 
@@ -298,7 +310,9 @@ History.
 
 ## EXP-06 — History tab
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#exp-06).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 

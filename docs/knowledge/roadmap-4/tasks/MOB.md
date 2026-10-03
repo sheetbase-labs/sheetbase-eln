@@ -1,6 +1,8 @@
 # MOB — Phone at the Bench
 
-**Status (2026-09-27):** Proposed; not assigned. Depends on WORK-01, LAB-01 and LAB-05.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#mob) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. Depends on WORK-01, LAB-01 and LAB-05.
 
 ## Programme goal
 
@@ -14,7 +16,9 @@ phone layout, no camera scanning and no bench-specific flow.
 
 ## MOB-01 — Phone shell
 
-**Status:** proposed. The UI port added the phone bottom bar (Today, Scan, Inbox, Menu), the drawer, and the inspector/dialog bottom sheets; `tests/browser-scripts/phone.mjs` checks them at 390, 834 and 1100. Today/Inbox compact content and the 600px phone-bar back button remain.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#mob-01).
+
+**Original decision/dependency note:** Original proposal. The UI port added the phone bottom bar (Today, Scan, Inbox, Menu), the drawer, and the inspector/dialog bottom sheets; `tests/browser-scripts/phone.mjs` checks them at 390, 834 and 1100. Today/Inbox compact content and the 600px phone-bar back button remain.
 
 ### Design
 
@@ -53,7 +57,9 @@ target and contrast checks.
 
 ## MOB-02 — Bench flows
 
-**Status:** proposed. The UI port added `/scan` (typed and camera lookup of canonical identifiers, result card with an open action); withdraw, record reading and the evidence/model record phone views remain.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#mob-02).
+
+**Original decision/dependency note:** Original proposal. The UI port added `/scan` (typed and camera lookup of canonical identifiers, result card with an open action); withdraw, record reading and the evidence/model record phone views remain.
 
 ### Design
 

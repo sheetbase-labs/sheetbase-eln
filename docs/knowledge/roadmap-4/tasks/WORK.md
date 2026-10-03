@@ -1,6 +1,8 @@
 # WORK — Home, Inbox, Schedule and Notifications
 
-**Status (2026-09-27):** Proposed; not assigned. WORK-01 is a dependency for Home, Inbox, the phone Inbox and navigation counts.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#work) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. WORK-01 is a dependency for Home, Inbox, the phone Inbox and navigation counts.
 
 ## Programme goal
 
@@ -19,7 +21,9 @@ built from it, a schedule of their bookings, and notifications they control.
 
 ## WORK-01 — Work items
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#work-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 
@@ -94,7 +98,9 @@ dismiss; a user never sees an item for an object they cannot read.
 
 ## WORK-02 — Home and Inbox pages
 
-**Status:** proposed.
+**Status (2026-10-02):** done; nod `done` — closed 2026-10-02 by `468b7e95` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#work-02).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -146,7 +152,9 @@ dashboard and `/reviews` list are deleted.
 
 ## WORK-03 — Notifications and preferences
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#work-03).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -199,7 +207,9 @@ not in-app items.
 
 ## WORK-04 — Schedule
 
-**Status:** proposed; booking checks depend on LAB-06.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#work-04).
+
+**Original decision/dependency note:** booking checks depend on LAB-06.
 
 ### Design
 

@@ -1,13 +1,16 @@
 ---
 title: Roadmap 4 programme map
-status: proposed
-last_reviewed: 2026-09-27
+status: active — incomplete
+last_reviewed: 2026-10-02
 ---
 
 # Roadmap 4 programme map
 
-Dependencies and a suggested order. This is not an assignment; see
-[`../NEXT.md`](../NEXT.md).
+Original dependency shape and waves, retained as planning context. Current
+priority is in [NEXT.md](NEXT.md); [RECONCILIATION.md](RECONCILIATION.md) records
+actual remaining work and the subset of hard dependencies added to nod.
+All DEC decisions are recorded accepted. The delivery rules remain the original
+contract; DSYS-06 must reconcile its test reference with the adopted app-3 port.
 
 ## Dependency shape
 
@@ -52,7 +55,7 @@ DSYS-05 design seed ──▶ DSYS-06 parity suite ────┤
 | D    | The physical lab                   | LAB-01..07, EXP-02, EXP-03, WORK-04, MOB-01..02                                                         |
 | E    | Governance, automation and clients | MDL-01..04, PIPE-02..05, EXP-05, SET-02, PORTAL-01..02                                                  |
 
-Wave 0 is short and runs first so that no later wave waits on a decision.
+Wave 0 decisions are recorded complete; downstream capabilities remain open.
 Waves overlap; the order within a wave follows the dependency shape.
 
 ## Delivery rules for this roadmap

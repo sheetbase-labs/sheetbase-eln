@@ -1,17 +1,25 @@
 # Roadmap 4 Tasks
 
-Roadmap 4 proposes **86 numbered tasks across 17 capability streams**. Each
+Roadmap 4 contains **86 numbered tasks across 17 capability streams**. Each
 stream file states the baseline, then each task's goal, design references,
 scope, where to start in the code, PR-sized steps, how to check the work,
 and exit. Read [`../GUIDE.md`](../GUIDE.md) first. Design references are paths under
 [`../../design/ui-system-v3/`](../../design/ui-system-v3/README.md).
 
-## Status — 27 September 2026
+## Status — 2 October 2026 audit · current 28 of 85
 
-**Proposal only.** Live status for every task and step is in the nod tracker
-(`../.nod/`), shown in [`../CHECKLIST.md`](../CHECKLIST.md) and summarised in
-[`../NEXT.md`](../NEXT.md). The **Status** lines in the stream files record
-what a task waits on, not progress.
+**Active and incomplete.** [RECONCILIATION.md](../RECONCILIATION.md) audits all
+86 original task definitions against the `9bbd305c` source. At that audit nod
+recorded 17 done, 52 in progress, 16 todo and one cancelled duplicate
+(SHELL-04 → DEC-03). Eleven tasks have closed since; the tracker now records
+**28 of 85 active tasks and 87 of 266 steps done** (see
+[CHECKLIST.md](../CHECKLIST.md) and the [update since the
+audit](../RECONCILIATION.md#update-since-this-audit)). Four done tasks retain
+historical implementation completion without fresh full acceptance.
+
+The [checklist](../CHECKLIST.md) and [NEXT](../NEXT.md) are generated from nod.
+Stream status lines summarize this dated audit; their baseline and original
+scope notes retain planning context and do not describe current absence.
 
 | Programme                | Stream / tasks             | Count | Notes                                                                   |
 | ------------------------ | -------------------------- | ----: | ----------------------------------------------------------------------- |

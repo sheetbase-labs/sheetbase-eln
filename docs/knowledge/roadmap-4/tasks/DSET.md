@@ -1,6 +1,8 @@
 # DSET — Datasets, Value Quality, Snapshots and Import
 
-**Status (2026-09-27):** Proposed; not assigned.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#dset) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below.
 
 ## Programme goal
 
@@ -20,7 +22,9 @@ what they did.
 
 ## DSET-01 — Value flags and repeats
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#dset-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -79,7 +83,9 @@ duplicated, by a later import (DSET-05).
 
 ## DSET-02 — Dataset explorer
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#dset-02).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -126,7 +132,9 @@ snapshot, clears the inbox item and records the reason.
 
 ## DSET-03 — Snapshots and comparison
 
-**Status:** proposed.
+**Status (2026-10-03):** done; nod `done` — closed 2026-10-03 by `4bf62ec0` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#dset-03).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -170,7 +178,9 @@ value.
 
 ## DSET-04 — Snapshot retention
 
-**Status:** proposed; [DEC-11](DEC.md) accepted 2026-09-27: snapshots cited by a signed record are kept 15 years from signing (QA to confirm); uncited snapshots lose their rows 2 years after the dataset is archived, keeping ID, hash and history.
+**Status (2026-10-03):** done; nod `done` — closed 2026-10-03 by `cda5daec` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#dset-04).
+
+**Original decision/dependency note:** [DEC-11](DEC.md) accepted 2026-09-27: snapshots cited by a signed record are kept 15 years from signing (QA to confirm); uncited snapshots lose their rows 2 years after the dataset is archived, keeping ID, hash and history.
 
 ### Design
 
@@ -211,7 +221,9 @@ its tombstone.
 
 ## DSET-05 — Import flow
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#dset-05).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -269,7 +281,9 @@ design; a failed import writes nothing and keeps the file for retry.
 
 ## DSET-06 — Parsers per instrument
 
-**Status:** proposed.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#dset-06).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 

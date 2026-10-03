@@ -1,6 +1,8 @@
 # SHEET — Working Sheets, Templates and Analysis
 
-**Status (2026-09-27):** Proposed; not assigned.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#sheet) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below.
 
 ## Programme goal
 
@@ -23,7 +25,9 @@ existing work, and analyses say when their inputs have moved.
 
 ## SHEET-01 — Working sheet surface
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#sheet-01).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -72,7 +76,9 @@ pinned snapshot is an explicit, audited action.
 
 ## SHEET-02 — Promote local columns
 
-**Status:** proposed; approval depends on MDL-03.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#sheet-02).
+
+**Original decision/dependency note:** approval depends on MDL-03.
 
 ### Design
 
@@ -119,7 +125,9 @@ returned promotion leaves the sheet and dataset unchanged.
 
 ## SHEET-03 — Sheet-cell and range comments
 
-**Status:** proposed; closes the NEXT.md collaboration gap.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#sheet-03).
+
+**Original decision/dependency note:** closes the NEXT.md collaboration gap.
 
 ### Design
 
@@ -159,7 +167,9 @@ upgrade, and is listed in the record's comment tab.
 
 ## SHEET-04 — Templates
 
-**Status:** proposed; largely restyling existing REUSE capability.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#sheet-04).
+
+**Original decision/dependency note:** largely restyling existing REUSE capability.
 
 ### Design
 
@@ -204,7 +214,9 @@ signed notebooks cannot be updated; REUSE-02 baseline failure is fixed first.
 
 ## SHEET-05 — Analysis workspace
 
-**Status:** proposed; lifts the single-dataset visualisation limit.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#sheet-05).
+
+**Original decision/dependency note:** lifts the single-dataset visualisation limit.
 
 ### Design
 

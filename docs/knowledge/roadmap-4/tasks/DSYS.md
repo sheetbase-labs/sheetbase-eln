@@ -1,6 +1,8 @@
 # DSYS — Design System Adoption
 
-**Status (2026-09-27):** DSYS-01 delivered with the Roadmap 4 proposal; DSYS-02..06 proposed. Adoption depends on [ADR-0047](../../decisions/0047-ui-system-v3-adoption.md) being accepted. Strategy: [`../DESIGN_ADOPTION.md`](../DESIGN_ADOPTION.md).
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#dsys) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** DSYS-01 delivered with the Roadmap 4 proposal; DSYS-02..06 proposed. Adoption depends on [ADR-0047](../../decisions/0047-ui-system-v3-adoption.md) being accepted. Strategy: [`../DESIGN_ADOPTION.md`](../DESIGN_ADOPTION.md).
 
 ## Programme goal
 
@@ -19,7 +21,9 @@ tokens and components in `src/`, with the same evidence standards as ADR-0007.
 
 ## DSYS-01 — Vendor the design reference and render it
 
-**Status:** delivered with this proposal.
+**Status (2026-10-02):** implemented-unverified; nod `done`. [Evidence and remaining work](../RECONCILIATION.md#dsys-01).
+
+**Original decision/dependency note:** delivered with this proposal.
 
 ### Goal
 
@@ -39,7 +43,9 @@ network; repeated renders are byte-identical.
 
 ## DSYS-02 — Tokens
 
-**Status:** proposed; after [DEC-01](DEC.md).
+**Status (2026-10-02):** implemented-unverified; nod `done`. [Evidence and remaining work](../RECONCILIATION.md#dsys-02).
+
+**Original decision/dependency note:** after [DEC-01](DEC.md).
 
 ### Goal
 
@@ -156,7 +162,9 @@ colour.
 
 ## DSYS-03 — Primitives restyled in place
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#dsys-03).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 
@@ -242,7 +250,9 @@ Lucide usage is limited to icons the design lacks.
 
 ## DSYS-04 — New design components
 
-**Status:** proposed.
+**Status (2026-10-02):** implemented-unverified; nod `done`. [Evidence and remaining work](../RECONCILIATION.md#dsys-04).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 
@@ -294,7 +304,9 @@ or a documented mapping to an existing primitive.
 
 ## DSYS-05 — Design-data seed
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#dsys-05).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 
@@ -370,7 +382,9 @@ the real data layer; the check reports no unmatched values.
 
 ## DSYS-06 — Visual parity suite
 
-**Status:** proposed.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#dsys-06).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Goal
 

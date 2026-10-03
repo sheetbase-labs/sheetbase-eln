@@ -1,6 +1,8 @@
 # PIPE — Pipelines with People in the Loop
 
-**Status (2026-09-27):** Proposed; not assigned. Builds on the implemented engine; read [`../../handoffs/python-sql-pipelines.md`](../../handoffs/python-sql-pipelines.md) first and do not build a second engine.
+**Status (2026-10-02):** Reconciled against `9bbd305c`; see [task evidence](../RECONCILIATION.md#pipe) and [live tracker](../CHECKLIST.md). Baseline sections describe the original planning snapshot, not current absence.
+
+**Original scope note (2026-09-27):** Original proposal. Current status is reconciled below. Builds on the implemented engine; read [`../../handoffs/python-sql-pipelines.md`](../../handoffs/python-sql-pipelines.md) first and do not build a second engine.
 
 ## Programme goal
 
@@ -24,7 +26,9 @@ needs judgement.
 
 ## PIPE-01 — Pipeline screens
 
-**Status:** proposed. **DEC-03:** absorbs the `/agent-operations` agent surface at `/pipelines/agents`; the standalone route is retired. The UI port delivered that agent surface (workflows, proposals, policies) on the existing RPCs; the pipeline list, editor, triggers and run screens remain.
+**Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#pipe-01).
+
+**Original decision/dependency note:** Original proposal. **DEC-03:** absorbs the `/agent-operations` agent surface at `/pipelines/agents`; the standalone route is retired. The UI port delivered that agent surface (workflows, proposals, policies) on the existing RPCs; the pipeline list, editor, triggers and run screens remain.
 
 ### Design
 
@@ -86,7 +90,9 @@ default and is stated on every run.
 
 ## PIPE-02 — Waiting for a person
 
-**Status:** proposed; [DEC-08](DEC.md) accepted 2026-09-27 ([ADR-0052](../../decisions/0052-pipelines-that-pause-for-a-person.md)): autonomy is the default, the confirm step is opt-in, and the pipeline author configures the no-answer behaviour per step.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#pipe-02).
+
+**Original decision/dependency note:** [DEC-08](DEC.md) accepted 2026-09-27 ([ADR-0052](../../decisions/0052-pipelines-that-pause-for-a-person.md)): autonomy is the default, the confirm step is opt-in, and the pipeline author configures the no-answer behaviour per step.
 
 ### Design
 
@@ -133,7 +139,9 @@ timeouts clean up temporary data.
 
 ## PIPE-03 — ELN actions as proposals
 
-**Status:** proposed.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#pipe-03).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -177,7 +185,9 @@ accept and reject are audited with the run number.
 
 ## PIPE-04 — File and figure outputs
 
-**Status:** proposed.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#pipe-04).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 
@@ -218,7 +228,9 @@ run end unless kept; resource limits are enforced by the runner and reported.
 
 ## PIPE-05 — Notification channels
 
-**Status:** proposed.
+**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#pipe-05).
+
+**Original decision/dependency note:** Original proposal.
 
 ### Design
 

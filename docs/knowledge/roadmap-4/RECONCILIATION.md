@@ -340,7 +340,22 @@ Specification: [tasks/DSYS.md](tasks/DSYS.md).
 - [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml):168
 - [`docs/knowledge/roadmap-4/UI_PORT.md`](UI_PORT.md):1
 
-**Remaining:** Parity scaffolding exists but maps zero screen/theme cases; coverage arithmetic passes with everything pending. Adopted app-3 port also changed the reference method. Record the reference/test-contract reconciliation, then prove mapped comparisons and a deliberate-drift failure. Do not silently weaken the original exit.
+**Remaining:** The suite is now a real gate: 35 screens (70 comparisons) are
+mapped through a state driver that reproduces the renderer's session, theme,
+viewport and clock; the coverage test fails on an unlisted screen, a duplicate
+or an empty pending reason; and each mapped comparison is a documented
+expected-failure carrying its measured ratio and causes, with the ratchet
+proven (a screen that starts passing fails the run). All 70 currently diverge
+at 2–4% (gate 0.1%) for four systemic reasons: **(1) body font** — fixed; the
+ELN's `@theme` declared `--font-sans` inside `@layer theme`, which loses to the
+unlayered `:root` in the package bundle, so app chrome rendered in Instrument
+Sans; **(2) shell chrome** — nav counts, the topbar New control and the pinned
+projects section differ on every shelled screen; **(3) seeded content** —
+dataset list/columns, the consumed sample state, portal shares, webhook
+deliveries and the design clock do not match; **(4) detail routes resolve
+UUIDs only**, so the design's display identifiers render not-found. Causes 2
+and 4 are ELN implementation gaps, 3 is a seed gap. The remaining screens need
+states or seed the driver cannot reach yet.
 
 ## COMP
 

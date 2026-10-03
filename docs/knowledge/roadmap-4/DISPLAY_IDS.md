@@ -30,3 +30,11 @@ value. Until then the identifier appears only in the design copy.
 
 `pnpm design:coverage` reports these families separately from the stored ones
 so the gap stays visible without masking real seed misses.
+
+## Gate
+
+`pnpm design:coverage` is a gate, not just a report: it exits non-zero when a
+required id family has no seeded value, or when a required design value (the
+working sheet, the review experiment, the datasets the screens cite) is absent.
+`--require=PFX` and `--expect=ID` declare extra requirements, and
+`--report-only` restores the old always-zero behaviour.

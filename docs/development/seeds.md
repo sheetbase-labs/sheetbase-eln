@@ -23,6 +23,17 @@ parity suite (Roadmap 4, DSYS-05). Lives in `src/db/seed/design.ts` as
 `designSteps`, on a fixed clock (Friday 25 September 2026, Europe/London) so
 relative times render as the design does. Only applied with `--design`.
 
+The design steps also seed the states the parity screens need: the working and
+empty sheets (SHT-0019/SHT-0020, via `create_sheet_instance`), the review
+lifecycle (preview → `submit_record_revision` → `run_revision_checks` →
+`approve_review`/`request_changes_on_review` → `sign_revision`, plus a
+`create_amendment` for the frozen-vs-live history), project folders and files,
+integrations and API tokens, and the client portal (shares, reports and
+messages). Domain rows go through the canonical RPCs; a claims connection
+carries a session id so the review/sign guards pass. `pnpm design:coverage`
+gates on required families and required design values and exits non-zero on a
+miss (`--report-only` restores the old report).
+
 Rules:
 
 - Tests never assert against demonstration data. Tests create the rows they

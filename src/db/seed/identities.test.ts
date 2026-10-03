@@ -5,6 +5,8 @@ import {
   DEMO_VIRUS_STABILITY_PROJECT_ID,
   DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID,
   DEMO_VIRUS_STABILITY_RECORD_ID,
+  DESIGN_CREDENTIAL_IDS,
+  DESIGN_SESSION_IDS,
   FIXTURE_PROJECT_ID,
   FIXTURE_USER_ID,
   FIXTURE_WORKSPACE_ID,
@@ -57,5 +59,19 @@ describe('seed identities', () => {
     expect(new Set(blockIds).size).toBe(blockIds.length)
     expect(blockIds).not.toContain(DEMO_VIRUS_STABILITY_RECORD_ID)
     expect(blockIds).not.toContain(DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID)
+  })
+
+  it('gives the design credentials zero-prefixed UUIDs and named sessions', () => {
+    for (const id of Object.values(DESIGN_CREDENTIAL_IDS)) {
+      expect(id).toMatch(uuidPattern)
+      expect(id.startsWith('00000000-')).toBe(true)
+    }
+    expect(new Set(Object.values(DESIGN_CREDENTIAL_IDS)).size).toBe(
+      Object.values(DESIGN_CREDENTIAL_IDS).length,
+    )
+    for (const id of Object.values(DESIGN_SESSION_IDS)) {
+      expect(id.length).toBeGreaterThan(0)
+      expect(id.startsWith('design-session-')).toBe(true)
+    }
   })
 })

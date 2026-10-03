@@ -8,9 +8,10 @@
  */
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
+import { DESIGN_CREDENTIAL_IDS, DESIGN_SESSION_IDS } from './identities'
 
 /** Fixed clock for the design seed: Friday 25 Sep 2026, 09:40 Europe/London. */
 export const DESIGN_CLOCK = new Date('2026-09-25T09:40:00+01:00')
@@ -176,7 +177,7 @@ export const designSteps: Array<SeedStep> = [
               schema.workspaceMemberships.workspaceId,
               schema.workspaceMemberships.userId,
             ],
-            set: { role: membership.role },
+            set: { role: membership.role, clientId: null },
           })
       }
     },
@@ -541,7 +542,7 @@ export const designSteps: Array<SeedStep> = [
     name: 'design experiments',
     run: async (db) => {
       for (const experiment of DESIGN_EXPERIMENTS) {
-        await db
+        const insertedRecord = await db
           .insert(schema.records)
           .values({
             id: experiment.id,
@@ -553,15 +554,9 @@ export const designSteps: Array<SeedStep> = [
             status: experiment.status,
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
-          .onConflictDoUpdate({
-            target: schema.records.id,
-            set: {
-              title: experiment.title,
-              status: experiment.status,
-              deletedAt: null,
-              archivedAt: null,
-            },
-          })
+          .onConflictDoNothing()
+          .returning({ id: schema.records.id })
+        if (insertedRecord.length === 0) continue
         for (const block of experiment.blocks ?? []) {
           await db
             .insert(schema.blocks)
@@ -588,10 +583,7 @@ export const designSteps: Array<SeedStep> = [
               },
               createdByUserId: DESIGN_USER_IDS.gareth,
             })
-            .onConflictDoUpdate({
-              target: schema.blocks.id,
-              set: { payload: { doc: block.text }, order: block.order },
-            })
+            .onConflictDoNothing()
         }
       }
     },
@@ -726,6 +718,30 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design project details',
     run: (db) => seedDesignProjectDetails(db),
+  },
+  {
+    name: 'design sessions',
+    run: (db) => seedDesignSessions(db),
+  },
+  {
+    name: 'design sheets',
+    run: (db) => seedDesignSheets(db),
+  },
+  {
+    name: 'design review lifecycle',
+    run: (db) => seedDesignReviewLifecycle(db),
+  },
+  {
+    name: 'design folders and files',
+    run: (db) => seedDesignFoldersAndFiles(db),
+  },
+  {
+    name: 'design connectors and tokens',
+    run: (db) => seedDesignConnectorsAndTokens(db),
+  },
+  {
+    name: 'design client portal',
+    run: (db) => seedDesignClientPortal(db),
   },
 ]
 
@@ -2142,6 +2158,7 @@ async function withDesignClaims<T>(
   actorId: string,
   workspaceId: string,
   fn: (client: Client) => Promise<T>,
+  sessionId?: string,
 ): Promise<T> {
   const poolCs = db.$client.options.connectionString
   const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
@@ -2160,6 +2177,7 @@ async function withDesignClaims<T>(
         sub: actorId,
         workspace_id: workspaceId,
         role: 'authenticated',
+        ...(sessionId ? { session_id: sessionId } : {}),
       }),
     ])
     return await fn(client)
@@ -2227,8 +2245,8 @@ async function seedDesignDatasets(
 
         await client.query(
           `insert into api.datasets
-           (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id)
-         values ($1,$2,$3,$4,$5,$6,$7)`,
+           (id, workspace_id, schema_version_id, name, description, primary_project_id, created_by_user_id, display_id)
+         values ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [
             dataset.id,
             dataset.workspaceId,
@@ -2237,6 +2255,7 @@ async function seedDesignDatasets(
             dataset.description,
             dataset.projectId,
             dataset.actorId,
+            dataset.displayId,
           ],
         )
 
@@ -2356,40 +2375,8 @@ async function seedDesignWorkItems(
     })
     .onConflictDoNothing()
 
-  // EXP-0138 waits for Gareth's review (submitted by Priya S.).
-  await db
-    .insert(schema.revisions)
-    .values({
-      id: '00000000-0000-4000-8000-000000000400',
-      recordId: DESIGN_EXPERIMENTS[0].id,
-      workspaceId: PROCESS,
-      structureVersion: 1,
-      metadataVersion: 2,
-      metadataSnapshot: {},
-      blockSnapshot: [],
-      integrityDigest: 'a'.repeat(64),
-      reason: 'submit',
-      createdByUserId: DESIGN_USER_IDS.priya,
-    })
-    .onConflictDoNothing()
-  await db
-    .insert(schema.reviewSubmissions)
-    .values({
-      id: '00000000-0000-4000-8000-000000000401',
-      workspaceId: PROCESS,
-      recordId: DESIGN_EXPERIMENTS[0].id,
-      revisionId: '00000000-0000-4000-8000-000000000400',
-      state: 'submitted',
-      workflowDefinitionKey: 'default-review',
-      workflowDefinitionVersion: 1,
-      assignedReviewerUserIds: [DESIGN_USER_IDS.gareth],
-      submittedByUserId: DESIGN_USER_IDS.priya,
-      submittedSessionId: 'design-seed',
-      submittedRole: 'authenticated',
-      submittedAt: new Date(DESIGN_CLOCK.getTime() - 3 * 3_600_000),
-      idempotencyKey: 'design-exp-0138-review',
-    })
-    .onConflictDoNothing()
+  // Reviews waiting on Gareth are created through the canonical submit RPC by
+  // `seedDesignReviewLifecycle`; the Inbox reads those rows.
 
   // The records Gareth follows (they show as "Following").
   for (const [index, recordId] of [
@@ -2955,6 +2942,7 @@ async function seedDesignProjectDetails(
         and(
           eq(schema.records.workspaceId, PROCESS),
           eq(schema.records.identifier, identifier),
+          isNull(schema.records.lockedAt),
         ),
       )
   }
@@ -3466,6 +3454,11 @@ async function seedDesignDatasetFlags(
       // Link a slice of the design experiments to this dataset.
       const linked = experiments.slice(d * 2, d * 2 + 3)
       for (const exp of linked) {
+        const lockState = await client.query(
+          'select locked_at from api.records where id = $1',
+          [exp.id],
+        )
+        if (lockState.rows[0]?.locked_at) continue
         await client.query(
           `insert into api.record_links
              (source_record_id, target_kind, target_identifier, link_type,
@@ -3787,4 +3780,898 @@ async function seedDesignPipelines(
       }
     }
   })
+}
+
+// ---------------------------------------------------------------------------
+// DSYS-05.5+ — working sheets, review lifecycle, folders/files, integrations
+// and the client portal. All domain rows go through the canonical RPCs; the
+// claims connection carries a session id so the review/sign guards pass.
+// ---------------------------------------------------------------------------
+
+/**
+ * DSYS-05 — authentication sessions for the design actors. The review, sign,
+ * submit and amendment RPCs require a live session in `internal.session`
+ * (the re-authentication guard), exactly as a signed-in browser would have.
+ */
+async function seedDesignSessions(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const sessions: Array<{ id: string; userId: string }> = [
+    { id: DESIGN_SESSION_IDS.gareth, userId: DESIGN_USER_IDS.gareth },
+    { id: DESIGN_SESSION_IDS.priya, userId: DESIGN_USER_IDS.priya },
+    { id: DESIGN_SESSION_IDS.mei, userId: DESIGN_USER_IDS.mei },
+    { id: DESIGN_SESSION_IDS.sam, userId: DESIGN_USER_IDS.sam },
+  ]
+  const expiresAt = new Date(DESIGN_CLOCK.getTime() + 90 * 86_400_000)
+  for (const session of sessions) {
+    await db
+      .insert(schema.session)
+      .values({
+        id: session.id,
+        token: session.id,
+        userId: session.userId,
+        expiresAt,
+      })
+      .onConflictDoUpdate({
+        target: schema.session.id,
+        set: { userId: session.userId, expiresAt },
+      })
+  }
+}
+
+function designSheetField(
+  fieldId: string,
+  key: string,
+  label: string,
+  logicalType: 'text' | 'decimal' | 'integer' | 'boolean',
+  _unit?: string,
+) {
+  return {
+    fieldId,
+    key,
+    label,
+    description: null,
+    logicalType,
+    nullable: true,
+    defaultValue: null,
+    cardinality: 'one' as const,
+    quantity: null,
+    validation: {},
+    category: null,
+    relationship: null,
+    computation: { mode: 'stored' as const },
+    lifecycle: 'active' as const,
+  }
+}
+
+const CLARIFICATION_SHEET_FIELDS = [
+  designSheetField(
+    '00000000-0000-4000-8000-000000000710',
+    'filter_train',
+    'Filter train',
+    'text',
+  ),
+  designSheetField(
+    '00000000-0000-4000-8000-000000000711',
+    'load',
+    'Load',
+    'decimal',
+    'L/m²',
+  ),
+  designSheetField(
+    '00000000-0000-4000-8000-000000000712',
+    'turbidity',
+    'Turbidity',
+    'decimal',
+    'NTU',
+  ),
+  designSheetField(
+    '00000000-0000-4000-8000-000000000713',
+    'capsid_titre',
+    'Capsid titre',
+    'decimal',
+    'cp/mL',
+  ),
+  designSheetField(
+    '00000000-0000-4000-8000-000000000714',
+    'step_yield',
+    'Step yield',
+    'decimal',
+    '%',
+  ),
+  designSheetField(
+    '00000000-0000-4000-8000-000000000715',
+    'visual_clarity',
+    'Visual clarity',
+    'text',
+  ),
+  designSheetField(
+    '00000000-0000-4000-8000-000000000716',
+    'adj_yield',
+    'Adj. yield',
+    'decimal',
+    '%',
+  ),
+  designSheetField(
+    '00000000-0000-4000-8000-000000000717',
+    'keep',
+    'Keep?',
+    'decimal',
+    '%',
+  ),
+] as const
+
+const CLARIFICATION_SHEET_ROWS: ReadonlyArray<
+  [string, number, number, number, number, string, number | null, number | null]
+> = [
+  ['A-50', 50, 6.2, 7.4e11, 86.0, 'Clear', 85, 1],
+  ['A-100', 100, 9.8, 7.1e11, 82.6, 'Clear', 82, 1],
+  ['A-150', 150, 18.4, 6.5e11, 75.6, 'Slight haze', null, null],
+  ['B-50', 50, 4.1, 7.8e11, 90.7, 'Clear', 90, 1],
+  ['B-100', 100, 5.6, 7.6e11, 88.4, 'Clear', 88, 1],
+  ['B-150', 150, 8.9, 7.3e11, 84.9, 'Clear', 84, 1],
+  ['C-50', 50, 12.7, 6.9e11, 80.2, 'Slight haze', 79, 1],
+  ['C-100', 100, 24.3, 6.2e11, 72.1, 'Hazy', null, null],
+  ['C-150', 150, 61.5, 5.4e11, 62.8, 'Hazy', null, null],
+]
+
+function designSheetState(input: {
+  name: string
+  fields: ReadonlyArray<ReturnType<typeof designSheetField>>
+  rows: ReadonlyArray<Record<string, string | number | null>>
+}): Record<string, unknown> {
+  const localValues: Record<string, Record<string, unknown>> = {}
+  for (const row of input.rows) {
+    const rowKey = randomUUID()
+    const values: Record<string, unknown> = {}
+    for (const field of input.fields) {
+      const value = row[field.key]
+      if (value !== undefined && value !== null) values[field.fieldId] = value
+    }
+    localValues[rowKey] = values
+  }
+  return {
+    bindings: [],
+    localFields: input.fields,
+    localValues,
+    calculationOverrides: {},
+    presentation: {
+      columnOrder: input.fields.map((field) => field.fieldId),
+      hiddenColumnIds: [],
+      columnWidths: {},
+      frozenColumnCount: 0,
+      density: 'standard',
+      filters: [],
+      sorts: [],
+    },
+    provenance: { createdFrom: 'ad_hoc' },
+  }
+}
+
+/**
+ * DSYS-05 — the design's working sheets. `create_sheet_instance` is the
+ * canonical writer; the sequence is pinned so the two design ids (SHT-0019,
+ * SHT-0020) are reproduced, which the coverage gate and the parity suite
+ * assert. The Clarification sheet carries the design's nine rows as local
+ * columns; the second is the empty "Untitled sheet".
+ */
+async function seedDesignSheets(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  const projectId = DESIGN_PROJECTS[0]?.id ?? null
+
+  const existing = await db
+    .select({ name: schema.sheetInstances.name })
+    .from(schema.sheetInstances)
+    .where(eq(schema.sheetInstances.workspaceId, workspaceId))
+  if (existing.some((row) => row.name === 'Clarification working sheet')) return
+
+  // Pin the SHT sequence so the first design sheet is SHT-0019.
+  await db.execute(
+    sql`insert into internal.id_sequences (workspace_id, kind, last_number)
+        values (${workspaceId}, 'display:sheet', 18)
+        on conflict (workspace_id, kind) do update set last_number = 18`,
+  )
+
+  const clarificationRows = CLARIFICATION_SHEET_ROWS.map((row) => ({
+    filter_train: row[0],
+    load: row[1],
+    turbidity: row[2],
+    capsid_titre: row[3],
+    step_yield: row[4],
+    visual_clarity: row[5],
+    adj_yield: row[6],
+    keep: row[7],
+  }))
+  await withDesignClaims(
+    db,
+    actorId,
+    workspaceId,
+    async (client) => {
+      await client.query(
+        'select * from api.create_sheet_instance($1,$2,$3,$4,$5,$6,$7::jsonb)',
+        [
+          workspaceId,
+          'Clarification working sheet',
+          'Working sheet, not a dataset. Columns pinned to DS-0311 snapshot S-15.',
+          null,
+          projectId,
+          null,
+          JSON.stringify(
+            designSheetState({
+              name: 'Clarification working sheet',
+              fields: CLARIFICATION_SHEET_FIELDS,
+              rows: clarificationRows,
+            }),
+          ),
+        ],
+      )
+      await client.query(
+        'select * from api.create_sheet_instance($1,$2,$3,$4,$5,$6,$7::jsonb)',
+        [
+          workspaceId,
+          'Untitled sheet',
+          null,
+          null,
+          projectId,
+          null,
+          JSON.stringify(
+            designSheetState({
+              name: 'Untitled sheet',
+              fields: [
+                designSheetField(
+                  '00000000-0000-4000-8000-000000000718',
+                  'column_1',
+                  'Column 1',
+                  'text',
+                ),
+              ],
+              rows: [],
+            }),
+          ),
+        ],
+      )
+    },
+    DESIGN_SESSION_IDS.gareth,
+  )
+}
+
+interface DesignReviewTarget {
+  recordId: string
+  identifier: string
+  submitActorId: string
+  submitSessionId: string
+  reviewerIds: string[]
+  outcome: 'approve-sign' | 'request-changes' | 'submit-only'
+  signerName?: string
+  note: string
+}
+
+/**
+ * DSYS-05 — the review lifecycle the Review/NbSigned screens show, driven by
+ * the canonical RPCs (preview → submit → run checks → approve/request changes
+ * → sign). Each step is guarded so a reseed converges: once a submission has
+ * left `submitted`, the step leaves it alone.
+ */
+async function seedDesignReviewLifecycle(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+
+  const targets: DesignReviewTarget[] = [
+    {
+      recordId: '00000000-0000-4000-8000-000000000350', // EXP-0138
+      identifier: 'EXP-0138',
+      submitActorId: DESIGN_USER_IDS.priya,
+      submitSessionId: DESIGN_SESSION_IDS.priya,
+      reviewerIds: [DESIGN_USER_IDS.gareth],
+      outcome: 'approve-sign',
+      signerName: 'Gareth P.',
+      note: 'Results meet acceptance criteria. Approved for release.',
+    },
+    {
+      recordId: '00000000-0000-4000-8000-000000000352', // EXP-0136
+      identifier: 'EXP-0136',
+      submitActorId: DESIGN_USER_IDS.priya,
+      submitSessionId: DESIGN_SESSION_IDS.priya,
+      reviewerIds: [DESIGN_USER_IDS.gareth],
+      outcome: 'approve-sign',
+      signerName: 'Gareth P.',
+      note: 'Approved; seeding density conclusion is supported.',
+    },
+    {
+      recordId: '00000000-0000-4000-8000-0000000003b9', // EXP-0127
+      identifier: 'EXP-0127',
+      submitActorId: DESIGN_USER_IDS.priya,
+      submitSessionId: DESIGN_SESSION_IDS.priya,
+      reviewerIds: [DESIGN_USER_IDS.mei],
+      outcome: 'request-changes',
+      note: 'Please clarify the statistical method used for the replicate analysis.',
+    },
+    {
+      recordId: '00000000-0000-4000-8000-0000000003bc', // EXP-0130
+      identifier: 'EXP-0130',
+      submitActorId: DESIGN_USER_IDS.sam,
+      submitSessionId: DESIGN_SESSION_IDS.sam,
+      reviewerIds: [DESIGN_USER_IDS.gareth],
+      outcome: 'submit-only',
+      note: 'Awaiting review.',
+    },
+  ]
+
+  const sessionFor = (userId: string): string => {
+    if (userId === DESIGN_USER_IDS.gareth) return DESIGN_SESSION_IDS.gareth
+    if (userId === DESIGN_USER_IDS.mei) return DESIGN_SESSION_IDS.mei
+    if (userId === DESIGN_USER_IDS.sam) return DESIGN_SESSION_IDS.sam
+    if (userId === DESIGN_USER_IDS.priya) return DESIGN_SESSION_IDS.priya
+    throw new Error(`no design session for ${userId}`)
+  }
+
+  for (const target of targets) {
+    const key = `design-review-${target.identifier.toLowerCase()}`
+
+    // Phase 1 — the author submits (or the idempotent retry resolves the
+    // existing submission).
+    const submission = await withDesignClaims(
+      db,
+      target.submitActorId,
+      workspaceId,
+      async (client) => {
+        const existing = await client.query<{
+          submission_id: string
+          state: string
+          revision_id: string
+          integrity_digest: string
+        }>(
+          `select s.id as submission_id, s.state, r.id as revision_id, r.integrity_digest
+             from api.review_submissions s
+             join api.revisions r on r.id = s.revision_id
+            where s.record_id = $1 and s.idempotency_key = $2
+            limit 1`,
+          [target.recordId, key],
+        )
+        if (existing.rows[0]) {
+          return {
+            submissionId: existing.rows[0].submission_id,
+            state: existing.rows[0].state,
+            revisionId: existing.rows[0].revision_id,
+            digest: existing.rows[0].integrity_digest,
+          }
+        }
+
+        const preview = await client.query<{ source_digest: string }>(
+          "select api.preview_submission_digest($1)->>'sourceDigest' as source_digest",
+          [target.recordId],
+        )
+        const sourceDigest = preview.rows[0]?.source_digest
+        if (!sourceDigest) throw new Error(`no digest for ${target.identifier}`)
+        const submitted = await client.query<{
+          result: {
+            revision: { id: string; integrityDigest: string }
+            submission: { id: string; state: string }
+          }
+        }>(
+          `select api.submit_record_revision(
+             $1,$2,'default-scientific-review',1,$3::text[],true,$4,$5
+           ) as result`,
+          [target.recordId, sourceDigest, target.reviewerIds, key, null],
+        )
+        const result = submitted.rows[0]?.result
+        if (!result) throw new Error(`submit failed for ${target.identifier}`)
+        return {
+          submissionId: result.submission.id,
+          state: result.submission.state,
+          revisionId: result.revision.id,
+          digest: result.revision.integrityDigest,
+        }
+      },
+      target.submitSessionId,
+    )
+
+    // Phase 2 — the assigned reviewer runs checks, then decides and (for an
+    // approval) signs. Approval and signing are reviewer-only guards, so they
+    // must run as the reviewer, never as the author.
+    if (target.outcome !== 'submit-only' && submission.state === 'submitted') {
+      const reviewerId = target.reviewerIds[0]
+      if (!reviewerId) throw new Error(`no reviewer for ${target.identifier}`)
+      await withDesignClaims(
+        db,
+        reviewerId,
+        workspaceId,
+        async (client) => {
+          await client.query(
+            `select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)`,
+            [submission.revisionId, `${key}-checks`],
+          )
+          if (target.outcome === 'request-changes') {
+            await client.query(
+              'select api.request_changes_on_review($1,$2,$3,$4) as result',
+              [
+                submission.submissionId,
+                target.note,
+                'submitted',
+                submission.digest,
+              ],
+            )
+            return
+          }
+          const approved = await client.query(
+            'select api.approve_review($1,$2,$3,$4) as result',
+            [
+              submission.submissionId,
+              target.note,
+              'submitted',
+              submission.digest,
+            ],
+          )
+          if (!approved.rows[0]?.result) {
+            throw new Error(`approve failed for ${target.identifier}`)
+          }
+          const signed = await client.query(
+            'select api.sign_revision($1,$2,$3,$4) as result',
+            [
+              submission.submissionId,
+              'approve-for-record',
+              target.signerName ?? 'Gareth P.',
+              submission.digest,
+            ],
+          )
+          if (!signed.rows[0]?.result) {
+            throw new Error(`sign failed for ${target.identifier}`)
+          }
+        },
+        sessionFor(reviewerId),
+      )
+    }
+
+    // The frozen-vs-live amendment: EXP-0136 is signed (locked) above, so an
+    // amendment records the 'amend' revision and supersedes the locked one.
+    if (target.identifier === 'EXP-0136') {
+      await withDesignClaims(
+        db,
+        DESIGN_USER_IDS.gareth,
+        workspaceId,
+        async (client) => {
+          const locked = await client.query<{ locked_at: string | null }>(
+            'select locked_at from api.records where id = $1',
+            [target.recordId],
+          )
+          if (!locked.rows[0]?.locked_at) return
+          const existingAmend = await client.query(
+            `select 1 from api.revisions
+              where record_id = $1 and reason = 'amend' limit 1`,
+            [target.recordId],
+          )
+          if ((existingAmend.rowCount ?? 0) > 0) return
+          await client.query('select api.create_amendment($1,$2)', [
+            target.recordId,
+            'Corrected the seeding-density footnote after signature (frozen vs live).',
+          ])
+        },
+        DESIGN_SESSION_IDS.gareth,
+      )
+    }
+  }
+}
+
+const DESIGN_FOLDER_NAMES = {
+  upstream: 'Upstream',
+  transfection: 'Transfection',
+  harvest: 'Harvest',
+  downstream: 'Downstream',
+  clarification: 'Clarification',
+  tff: 'TFF and polish',
+  analytical: 'Analytical',
+  reports: 'Reports for CL-017',
+} as const
+
+/**
+ * DSYS-05 — project folders and files (ProjectFolders/FolderMove/ProjectFiles),
+ * plus the folder links that put the design's records in them. Folders and the
+ * record moves go through `create_project_folder` / `move_records_to_folder`;
+ * files go through `create_file_upload`.
+ */
+async function seedDesignFoldersAndFiles(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  const projectId = DESIGN_PROJECTS[0]?.id
+  if (!projectId) return
+
+  const existingFolders = await db
+    .select({ id: schema.folders.id, name: schema.folders.name })
+    .from(schema.folders)
+    .where(eq(schema.folders.projectId, projectId))
+  const byName = new Map(existingFolders.map((f) => [f.name, f.id]))
+
+  await withDesignClaims(
+    db,
+    actorId,
+    workspaceId,
+    async (client) => {
+      const ensureFolder = async (
+        name: string,
+        parentName?: string,
+      ): Promise<string> => {
+        const cached = byName.get(name)
+        if (cached) return cached
+        const parentId = parentName ? byName.get(parentName) : null
+        const created = await client.query<{ id: string }>(
+          'select * from api.create_project_folder($1,$2,$3)',
+          [projectId, name, parentId ?? null],
+        )
+        const id = created.rows[0]?.id
+        if (!id) throw new Error(`folder ${name} not created`)
+        byName.set(name, id)
+        return id
+      }
+
+      await ensureFolder(DESIGN_FOLDER_NAMES.upstream)
+      await ensureFolder(DESIGN_FOLDER_NAMES.transfection)
+      await ensureFolder(DESIGN_FOLDER_NAMES.harvest)
+      const downstream = await ensureFolder(DESIGN_FOLDER_NAMES.downstream)
+      const clarification = await ensureFolder(
+        DESIGN_FOLDER_NAMES.clarification,
+        DESIGN_FOLDER_NAMES.downstream,
+      )
+      await ensureFolder(
+        DESIGN_FOLDER_NAMES.tff,
+        DESIGN_FOLDER_NAMES.downstream,
+      )
+      await ensureFolder(DESIGN_FOLDER_NAMES.analytical)
+      await ensureFolder(DESIGN_FOLDER_NAMES.reports)
+      void downstream
+
+      const moves: Array<[string, string]> = [
+        [
+          '00000000-0000-4000-8000-000000000350',
+          DESIGN_FOLDER_NAMES.transfection,
+        ],
+        [
+          '00000000-0000-4000-8000-000000000352',
+          DESIGN_FOLDER_NAMES.transfection,
+        ],
+        ['00000000-0000-4000-8000-000000000353', DESIGN_FOLDER_NAMES.harvest],
+        ['00000000-0000-4000-8000-000000000351', clarification],
+        ['00000000-0000-4000-8000-0000000003c5', clarification],
+      ]
+      for (const [recordId, folderName] of moves) {
+        const folderId = byName.get(folderName)
+        if (!folderId) continue
+        await client.query(
+          'select api.move_records_to_folder($1,$2::uuid[],$3)',
+          [projectId, [recordId], folderId],
+        )
+      }
+
+      const files: Array<{
+        id: string
+        name: string
+        mediaType: string
+        byteSize: number
+        storageKey: string
+      }> = [
+        {
+          id: '00000000-0000-4000-8000-000000000720',
+          name: 'PR-01 plate reader export.csv',
+          mediaType: 'text/csv',
+          byteSize: 184_320,
+          storageKey: `${workspaceId}/00000000-0000-4000-8000-000000000720/${'1'.padStart(32, '0')}`,
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000721',
+          name: 'TB-02 turbidity export.csv',
+          mediaType: 'text/csv',
+          byteSize: 96_512,
+          storageKey: `${workspaceId}/00000000-0000-4000-8000-000000000721/${'2'.padStart(32, '0')}`,
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000722',
+          name: 'Clarification filter datasheet.pdf',
+          mediaType: 'application/pdf',
+          byteSize: 524_288,
+          storageKey: `${workspaceId}/00000000-0000-4000-8000-000000000722/${'3'.padStart(32, '0')}`,
+        },
+      ]
+      for (const file of files) {
+        const existing = await client.query(
+          'select 1 from api.file_objects where id = $1 limit 1',
+          [file.id],
+        )
+        if ((existing.rowCount ?? 0) > 0) continue
+        await client.query(
+          'select * from api.create_file_upload($1,$2,$3,$4,$5,$6,$7,$8)',
+          [
+            projectId,
+            file.name,
+            file.mediaType,
+            file.byteSize,
+            file.storageKey,
+            null,
+            'local',
+            file.id,
+          ],
+        )
+      }
+    },
+    DESIGN_SESSION_IDS.gareth,
+  )
+}
+
+/**
+ * DSYS-05 — integrations and API tokens (SettingsIntegrations, IntegrationConnect,
+ * TokenCreate/TokenExpired). Connectors go through `register_connector`; tokens
+ * have no create RPC (the server issues them) so they are written directly with
+ * stable ids, including an unused and an already-expired one.
+ */
+async function seedDesignConnectorsAndTokens(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+
+  await withDesignClaims(
+    db,
+    actorId,
+    workspaceId,
+    async (client) => {
+      const connectors: Array<{
+        key: string
+        name: string
+        type: 'instrument' | 'storage' | 'webhook' | 'database' | 'custom'
+        direction: 'inbound' | 'outbound' | 'bidirectional'
+        parserId?: string
+        config: Record<string, unknown>
+      }> = [
+        {
+          key: 'qc-lims',
+          name: 'QC LIMS',
+          type: 'custom',
+          direction: 'inbound',
+          config: {
+            description: 'Release results (bioburden, endotoxin) onto samples',
+          },
+        },
+        {
+          key: 'microsoft-teams',
+          name: 'Microsoft Teams',
+          type: 'webhook',
+          direction: 'outbound',
+          config: { description: 'Pipeline and review notifications' },
+        },
+        {
+          key: 'instrument-gateway',
+          name: 'Instrument gateway',
+          type: 'instrument',
+          direction: 'inbound',
+          parserId: 'generic-instrument',
+          config: {
+            description: 'PR-01, TB-02 and ViCell exports as webhooks',
+          },
+        },
+        {
+          key: 'document-management',
+          name: 'Document management',
+          type: 'storage',
+          direction: 'outbound',
+          config: { description: 'Controlled copies of signed PDFs' },
+        },
+      ]
+      for (const connector of connectors) {
+        const existing = await client.query(
+          'select 1 from api.connectors where workspace_id = $1 and key = $2',
+          [workspaceId, connector.key],
+        )
+        if ((existing.rowCount ?? 0) > 0) continue
+        await client.query(
+          'select * from api.register_connector($1,$2,$3,$4,$5,$6::jsonb,$7)',
+          [
+            workspaceId,
+            connector.key,
+            connector.name,
+            connector.type,
+            connector.direction,
+            JSON.stringify(connector.config),
+            connector.parserId ?? null,
+          ],
+        )
+      }
+    },
+    DESIGN_SESSION_IDS.gareth,
+  )
+
+  const tokens: Array<{
+    id: string
+    prefix: string
+    name: string
+    kind: 'service' | 'personal'
+    scopes: string[]
+    createdByUserId: string
+    lastUsedAt: Date | null
+    expiresAt: Date | null
+  }> = [
+    {
+      id: DESIGN_CREDENTIAL_IDS.unused,
+      prefix: 'd5n00001',
+      name: 'Plate-map exporter',
+      kind: 'service',
+      scopes: ['datasets:read'],
+      createdByUserId: DESIGN_USER_IDS.mei,
+      lastUsedAt: null,
+      expiresAt: new Date('2026-12-12T00:00:00Z'),
+    },
+    {
+      id: DESIGN_CREDENTIAL_IDS.expiring,
+      prefix: 'd5n00002',
+      name: 'Stability export',
+      kind: 'service',
+      scopes: ['datasets:read', 'datasets:write'],
+      createdByUserId: DESIGN_USER_IDS.tom,
+      lastUsedAt: new Date('2026-09-24T09:10:00+01:00'),
+      expiresAt: new Date('2026-09-24T12:00:00+01:00'),
+    },
+    {
+      id: DESIGN_CREDENTIAL_IDS.expired,
+      prefix: 'd5n00003',
+      name: 'Jupyter, Gareth',
+      kind: 'personal',
+      scopes: ['projects:read', 'datasets:read'],
+      createdByUserId: DESIGN_USER_IDS.gareth,
+      lastUsedAt: new Date('2026-09-24T17:00:00+01:00'),
+      expiresAt: new Date('2026-10-30T00:00:00Z'),
+    },
+  ]
+  for (const token of tokens) {
+    await db
+      .insert(schema.apiCredentials)
+      .values({
+        id: token.id,
+        workspaceId,
+        kind: token.kind,
+        displayPrefix: token.prefix,
+        secretHash: `seed-${token.prefix}`,
+        name: token.name,
+        scopes: token.scopes,
+        createdByUserId: token.createdByUserId,
+        lastUsedAt: token.lastUsedAt,
+        expiresAt: token.expiresAt,
+      })
+      .onConflictDoNothing()
+  }
+}
+
+/**
+ * DSYS-05 — the client portal (ClientPortal): approved records shared with the
+ * CL-017 client, the report documents, the message thread and the client's
+ * portal membership. Shares and messages go through `share_record_with_client`
+ * and `post_client_portal_message`; reports through `create_report_definition`.
+ */
+async function seedDesignClientPortal(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+
+  const clientRow = (
+    await db
+      .select({ id: schema.clients.id })
+      .from(schema.clients)
+      .where(
+        and(
+          eq(schema.clients.workspaceId, workspaceId),
+          eq(schema.clients.code, 'CL-017'),
+        ),
+      )
+      .limit(1)
+  )[0]
+  if (!clientRow) return
+
+  // The client users are portal viewers, not internal viewers.
+  for (const userId of [DESIGN_USER_IDS.clientAna, DESIGN_USER_IDS.clientBen]) {
+    await db
+      .insert(schema.workspaceMemberships)
+      .values({
+        workspaceId,
+        userId,
+        role: 'client_viewer',
+        clientId: clientRow.id,
+      })
+      .onConflictDoUpdate({
+        target: [
+          schema.workspaceMemberships.workspaceId,
+          schema.workspaceMemberships.userId,
+        ],
+        set: { role: 'client_viewer', clientId: clientRow.id },
+      })
+  }
+
+  const projectId = DESIGN_PROJECTS[0]?.id
+  if (!projectId) return
+
+  await withDesignClaims(
+    db,
+    actorId,
+    workspaceId,
+    async (client) => {
+      // Reports: create, populate a section, approve, then share the record.
+      const reports: Array<{ title: string; section: string }> = [
+        {
+          title: 'Transfection ratio report',
+          section: 'Genome titre by PEI:DNA ratio',
+        },
+        {
+          title: 'Upstream process lock summary',
+          section: 'Process lock evidence',
+        },
+        { title: 'Monthly progress, August', section: 'August highlights' },
+      ]
+      for (const report of reports) {
+        const existing = await client.query(
+          `select d.id, d.record_id from api.report_definitions d
+            where d.workspace_id = $1 and d.title = $2 limit 1`,
+          [workspaceId, report.title],
+        )
+        let reportId: string
+        let recordId: string
+        if (existing.rows[0]) {
+          reportId = existing.rows[0].id
+          recordId = existing.rows[0].record_id
+        } else {
+          const created = await client.query<{ id: string; record_id: string }>(
+            'select * from api.create_report_definition($1,$2,$3,$4,$5)',
+            [workspaceId, report.title, null, projectId, null],
+          )
+          reportId = created.rows[0].id
+          recordId = created.rows[0].record_id
+          await client.query(
+            'select * from api.add_report_section($1,$2,$3,$4,$5,$6)',
+            [workspaceId, reportId, report.section, null, 'text', 'free_text'],
+          )
+        }
+        await client.query(
+          'select * from api.update_report_definition($1,$2,$3,$4,$5)',
+          [workspaceId, reportId, null, null, 'approved'],
+        )
+        await client.query('select api.share_record_with_client($1,$2)', [
+          clientRow.id,
+          recordId,
+        ])
+      }
+
+      // The approved experiment records the design shares.
+      for (const recordId of [
+        '00000000-0000-4000-8000-000000000352', // EXP-0136
+        '00000000-0000-4000-8000-000000000353', // EXP-0133
+      ]) {
+        await client.query('select api.share_record_with_client($1,$2)', [
+          clientRow.id,
+          recordId,
+        ])
+      }
+
+      const messages = [
+        {
+          projectId,
+          body: 'Transfection ratio report is approved and attached. Clarification results expected 29 Sep.',
+        },
+      ]
+      for (const message of messages) {
+        const existing = await client.query(
+          `select 1 from api.client_portal_messages
+            where client_id = $1 and body = $2 limit 1`,
+          [clientRow.id, message.body],
+        )
+        if ((existing.rowCount ?? 0) > 0) continue
+        await client.query('select api.post_client_portal_message($1,$2,$3)', [
+          clientRow.id,
+          message.projectId,
+          message.body,
+        ])
+      }
+    },
+    DESIGN_SESSION_IDS.gareth,
+  )
 }

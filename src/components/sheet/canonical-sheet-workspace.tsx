@@ -1,5 +1,4 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
-import type { ComponentType } from 'react'
 import {
   keepPreviousData,
   useMutation,
@@ -10,13 +9,12 @@ import { Link } from '@tanstack/react-router'
 import type Handsontable from 'handsontable/base'
 
 import type { FieldDefinition } from '#/lib/field-definition'
-import { SheetbaseGrid } from '#/components/sheet/sheetbase-grid'
+import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
 import type {
   SheetbaseGridCellChange,
   SheetbaseGridColumn,
   SheetbaseGridFilter,
   SheetbaseGridMenuEntry,
-  SheetbaseGridProps,
   SheetbaseGridRecordEditor,
   SheetbaseGridSelection,
   SheetbaseGridSort,
@@ -274,13 +272,10 @@ export function CanonicalSheetEditor({
   instance,
   projectId,
   readOnly = false,
-  gridComponent: GridComponent = SheetbaseGrid,
 }: {
   instance: SheetInstance
   projectId: string | null
   readOnly?: boolean
-  /** Presentation engine. Defaults to the canonical Handsontable grid. */
-  gridComponent?: ComponentType<SheetbaseGridProps>
 }) {
   const queryClient = useQueryClient()
   const instanceRef = useRef(instance)
@@ -906,13 +901,17 @@ export function CanonicalSheetEditor({
               : 'Edit'
       for (const change of changes) {
         const column = columnsById.get(change.columnId)
-        if (!column) continue
-        if (!column.editable) {
+        // COMP-06.2 / sheetbase-table 0.4.0: a bulk operation's intended
+        // target set marks cells the backend will not write (`editable:false`)
+        // so one read-only or derived target refuses the whole operation
+        // instead of letting the editable subset land.
+        if (change.editable === false || (column && !column.editable)) {
           setWriteStatus(
             `${verb} rejected: the range contains read-only or derived cells.`,
           )
           return false
         }
+        if (!column) continue
         const value = parseSheetCellInput(column.field, change.next)
         const invalid = validateCanonicalCell(column.field, value)
         if (invalid) {
@@ -1488,7 +1487,7 @@ export function CanonicalSheetEditor({
         </p>
       ) : (
         <div className="min-h-0 flex-1">
-          <GridComponent
+          <SheetbaseTableGrid
             ariaLabel="Sheet"
             columns={sheetColumns}
             rows={sheetRows}

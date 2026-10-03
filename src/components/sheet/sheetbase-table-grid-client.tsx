@@ -52,9 +52,9 @@ import type {
  *   presentation-persistence seams.
  *
  * The grid is configured as a *bound* dataset (`recordIdForRow` present) so
- * every write keeps its record identity. Bound grids defer ordering and
- * filtering to the host; see the COMP-06 hand-off notes for the behaviours the
- * package does not yet expose.
+ * every write keeps its record identity. Under `sortMode="local"` the package
+ * derives a view→source row mapping, so ordering and filtering change only the
+ * displayed rows and never move values between records.
  */
 
 /** Readonly TSV values as the neutral contract's mutable cell-value matrix. */
@@ -347,8 +347,12 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
 
   // Presentation state: the package notifies through `onSortChange` /
   // `onFiltersChange`; the adapter carries the caller's persisted clauses in
-  // and back out. Non-neutral operators (contains, between, …) are not
-  // representable in `SheetbaseGridFilter` and are dropped.
+  // and back out. Under `sortMode="local"` (below) the package derives a
+  // view→source row mapping for the identity-keyed bound grid, so sorting and
+  // filtering reorder/hide displayed rows without moving values between
+  // records — every bound write keeps its record identity.
+  // Non-neutral operators (contains, between, …) are not representable in
+  // `SheetbaseGridFilter` and are dropped.
   const query = useMemo<DatasetQuery>(() => {
     const sort: SortClause[] = (sorts ?? [])
       .filter((entry) => displayIds.has(entry.columnId))
@@ -455,6 +459,10 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
             change.fieldId ?? current.columns.at(change.column)?.id ?? '',
           previous: change.before ?? null,
           next: change.next ?? null,
+          // 0.4.0 whole-operation veto: the bulk intended target set marks
+          // cells the grid will not write so the host can refuse the whole
+          // operation rather than let the editable subset land.
+          editable: change.editable === false ? false : undefined,
         }),
       )
       const result = current.beforeCellsChange?.(neutral, toWriteSource(source))
@@ -578,6 +586,11 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       customEditors={customEditors}
       clipboard={clipboardConfig}
       query={query}
+      // 0.4.0: view-level local ordering/filtering for the identity-keyed
+      // bound grid, so persisted sorts/filters change the visible row order
+      // and membership while record identity (and every bound write) stays
+      // intact.
+      sortMode="local"
       beforeCellsChange={handleBeforeCellsChange}
       onSortChange={(next: readonly SortClause[]) => {
         propsRef.current.onSortsChange?.(

@@ -74,8 +74,9 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
 
 // The grid is replaced with a props recorder: change flows are simulated by
 // invoking the captured Sheetbase write callbacks exactly as the grid would.
+// COMP-06 step 2: CanonicalSheetEditor renders the `sheetbase-table` backend.
 vi.mock('./sheetbase-grid', () => ({
-  SheetbaseGrid: ({
+  SheetbaseTableGrid: ({
     columns,
     rows,
     beforeCellsChange,

@@ -2713,6 +2713,106 @@ export const datasetSchemaVersionFields = api.table(
   ],
 )
 
+// MDL-03.1: reusable approval requests. The object kind is generic so a
+// version, parser, protocol or promotion can share one request/decision store
+// without a second approval engine. Required role(s) are the governed
+// workspace roles; a request must be completed before its publish sibling
+// will activate the object. Decisions are the immutable trail.
+export const approvalRequests = api.table(
+  'approval_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Generic governed object, e.g. dataset_schema_version, parser_version,
+    // protocol_version, local_field_promotion.
+    objectKind: text('object_kind').notNull(),
+    objectId: uuid('object_id').notNull(),
+    // Immutable revision of the object at submission, when the object has one.
+    objectRevision: bigint('object_revision', { mode: 'number' }),
+    requiredApproverRoles: text('required_approver_roles')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    requiredApprovals: integer('required_approvals').notNull().default(1),
+    requireIndependence: boolean('require_independence').notNull().default(true),
+    state: text('state').notNull().default('pending'),
+    reason: text('reason'),
+    decisionReason: text('decision_reason'),
+    approvedByUserIds: text('approved_by_user_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    submittedByUserId: text('submitted_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    submittedAt: timestamp('submitted_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+    decidedByUserId: text('decided_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    decidedAt: timestamp('decided_at', { withTimezone: true, mode: 'date' }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_approval_requests_state',
+      sql`${table.state} IN ('pending','approved','returned','withdrawn')`,
+    ),
+    check(
+      'chk_approval_requests_kind',
+      sql`${table.objectKind} ~ '^[a-z][a-z0-9_]{0,63}$'`,
+    ),
+    check(
+      'chk_approval_requests_required_approvals',
+      sql`${table.requiredApprovals} >= 1`,
+    ),
+    check(
+      'chk_approval_requests_roles',
+      sql`${table.requiredApproverRoles} <@ ARRAY['owner','admin','member','steward','scientist','analyst','reviewer','viewer']::text[]`,
+    ),
+    index('idx_approval_requests_workspace').on(table.workspaceId),
+    index('idx_approval_requests_object').on(table.objectKind, table.objectId),
+    uniqueIndex('uq_approval_requests_pending_object')
+      .on(table.objectKind, table.objectId)
+      .where(sql`${table.state} = 'pending'`),
+  ],
+)
+
+export const approvalRequestDecisions = api.table(
+  'approval_request_decisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => approvalRequests.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    decision: text('decision').notNull(),
+    reason: text('reason'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_approval_request_decisions_decision',
+      sql`${table.decision} IN ('approved','returned')`,
+    ),
+    index('idx_approval_request_decisions_request').on(table.requestId),
+  ],
+)
+
 export const configurationChangeLog = api.table(
   'configuration_change_log',
   {

@@ -72,6 +72,7 @@ describe('countByKind', () => {
       run_failed: 1,
       data_issue: 1,
       material_expiring: 1,
+      approval_requested: 0,
       following: 1,
     })
   })

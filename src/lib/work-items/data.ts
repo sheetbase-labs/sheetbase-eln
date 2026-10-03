@@ -17,6 +17,7 @@ export type WorkItemKind =
   | 'run_failed'
   | 'data_issue'
   | 'material_expiring'
+  | 'approval_requested'
   | 'following'
 export type WorkItemState =
   'needs_action' | 'following' | 'overdue' | 'done_today'
@@ -52,6 +53,7 @@ const KINDS: readonly WorkItemKind[] = [
   'run_failed',
   'data_issue',
   'material_expiring',
+  'approval_requested',
   'following',
 ]
 const STATES: readonly WorkItemState[] = [
@@ -140,6 +142,7 @@ export function countByKind(
     run_failed: 0,
     data_issue: 0,
     material_expiring: 0,
+    approval_requested: 0,
     following: 0,
   }
   for (const item of items) counts[item.kind] += 1

@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { CellValue } from 'handsontable'
-import type Handsontable from 'handsontable/base'
 import {
   shiftFormulaReferences,
   toA1,
@@ -33,9 +31,10 @@ import {
 import { Input } from '#/components/v3/ui/input'
 import { Textarea } from '#/components/v3/inventory/list'
 import { Icon } from '#/components/v3/icons'
-import { SheetbaseGrid } from './sheetbase-grid'
+import { SheetbaseTableGrid } from './sheetbase-grid'
 import type {
   SheetbaseGridCellChange,
+  SheetbaseGridCellValue,
   SheetbaseGridColumn,
   SheetbaseGridMenuEntry,
   SheetbaseGridSelection,
@@ -943,16 +942,6 @@ export function ScientificSheetBlock({
       })
     },
   })
-  const hotRef = useRef<Handsontable | null>(null)
-  // Stable callback for the grid's onReady event. This MUST be stable
-  // (useCallback with no deps) so that SheetbaseGridClient's memo check
-  // passes — otherwise every parent re-render (selection change, draft
-  // update, etc.) would flow through as a new onReady prop, break the
-  // memo, re-render HotTable, and trigger updateSettings, which kills
-  // ongoing interactions like the autofill drag.
-  const handleGridReady = useCallback((instance: Handsontable | null) => {
-    hotRef.current = instance
-  }, [])
   const queryClient = useQueryClient()
   const tableQuery = useQuery({
     queryKey: scientificQueryKeys.table(tableId),
@@ -1570,16 +1559,12 @@ export function ScientificSheetBlock({
       { id: provisionalId, version: 0 },
     ])
     coordinator.registerProvisionalRow(provisionalId)
-    // Select the first editable cell of the new row after the grid re-renders.
-    setTimeout(() => {
-      const hot = hotRef.current
-      if (!hot) return
-      const rowIndex = hot.countRows() - 1
-      if (table.columns.length > 0) {
-        hot.selectCell(rowIndex, 0, rowIndex, 0, true)
-        hot.scrollViewportTo(rowIndex, 0, false, false)
-      }
-    }, 0)
+    // COMP-06 step 2: the table backend owns selection and scrolling. No
+    // imperative select/scroll is exposed through `SheetbaseGridProps`, so the
+    // old post-insert focus (`selectCell`/`scrollViewportTo`) cannot be carried
+    // over yet: the provisional row is still added and re-rendered, but the
+    // engine decides where the active cell lands. See the ticket's deferred
+    // list for the neutral handle this needs.
   }, [readOnly, table, coordinator, queryClient, allRowsKey])
   // Row deletion: captures row IDs before removal, then persists via
   // deleteScientificRows. If the DB trigger blocks deletion (formula
@@ -1825,7 +1810,7 @@ export function ScientificSheetBlock({
 
   const preserveFormulaClipboard = useCallback(
     (
-      data: CellValue[][],
+      data: SheetbaseGridCellValue[][],
       range: {
         startRow: number
         startColumn: number
@@ -1848,15 +1833,14 @@ export function ScientificSheetBlock({
         ) {
           const rowIndex = range.startRow + rowOffset
           const row = rows.at(rowIndex)
-          const visualColumn = range.startColumn + colOffset
-          const physicalColumn =
-            hotRef.current?.toPhysicalColumn(visualColumn) ?? visualColumn
-          const column = table.columns.at(physicalColumn)
+          // The table backend renders columns in the passed `columns` order
+          // (the adapter has no reorder surface), so the display column index
+          // maps straight onto `table.columns` — no vendor physical-column
+          // lookup is needed.
+          const column = table.columns.at(range.startColumn + colOffset)
           if (!row || !column || typeof row.id !== 'string') continue
           const formula = formulaByCellRef.current.get(`${row.id}/${column.id}`)
-          const source =
-            formula?.source_expression ??
-            hotRef.current?.getSourceDataAtCell(rowIndex, physicalColumn)
+          const source = formula?.source_expression ?? row[column.field_name]
           if (typeof source === 'string' && source.startsWith('='))
             data[rowOffset][colOffset] = source
         }
@@ -1866,7 +1850,10 @@ export function ScientificSheetBlock({
   )
 
   const handlePaste = useCallback(
-    (data: CellValue[][], target: { row: number; column: number }) => {
+    (
+      data: SheetbaseGridCellValue[][],
+      target: { row: number; column: number },
+    ) => {
       // Translate relative A1 references in pasted formulas by the row/column
       // offset between the copy source and paste target.
       const source = copySourceRef.current
@@ -2034,7 +2021,7 @@ export function ScientificSheetBlock({
         </section>
       )}
 
-      <SheetbaseGrid
+      <SheetbaseTableGrid
         columns={sheetColumns}
         rows={sheetRows}
         ariaLabel={table.name}
@@ -2064,7 +2051,6 @@ export function ScientificSheetBlock({
         onColumnOrderChange={handleColumnOrderChange}
         onBeforeRowsRemove={handleBeforeRemoveRow}
         onRowsRemoved={handleAfterRemoveRow}
-        onReady={handleGridReady}
       />
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">

@@ -309,7 +309,7 @@ Specification: [tasks/MDL.md](tasks/MDL.md) · nod `epic-251`
   - [x] MDL-01.2 Records of a workspace model created through create_model_record with field… `subtask-254`
   - [x] MDL-01.3 Public API and SDK exposure `subtask-255`
 - [ ] **MDL-02** Model editor — **in progress** `task-256`
-  - [ ] MDL-02.1 Routes /models `subtask-257`
+  - [ ] MDL-02.1 Routes /models — **in progress** `subtask-257`
   - [x] MDL-02.2 Rules `subtask-258`
   - [ ] MDL-02.3 Field editor with reason-for-change, impact `subtask-259`
   - [x] MDL-02.4 Versions tab `subtask-260`

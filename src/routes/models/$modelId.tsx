@@ -194,6 +194,20 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
                     params,
                   },
                 },
+                {
+                  label: 'Rules',
+                  link: {
+                    to: '/models/$modelId/rules',
+                    params,
+                  },
+                },
+                {
+                  label: 'Usage',
+                  link: {
+                    to: '/models/$modelId/usage',
+                    params,
+                  },
+                },
               ]}
             />
           }

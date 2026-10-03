@@ -62,6 +62,26 @@ if (ids.recordModel) {
     'records list offers CSV export',
   )
 
+  // MDL-02.1 — the model Rules and Usage tabs.
+  await go(page, `/models/${key}/rules`)
+  check(
+    (await page.getByRole('heading', { level: 1 }).count()) === 1,
+    'rules tab shows one h1',
+  )
+  check(
+    (await page.getByRole('button', { name: /add rule/i }).count()) > 0,
+    'rules tab offers to add a rule',
+  )
+  await go(page, `/models/${key}/usage`)
+  check(
+    (await page.getByRole('heading', { level: 1 }).count()) === 1,
+    'usage tab shows one h1',
+  )
+  check(
+    (await page.getByText(/used by/i).count()) > 0,
+    'usage tab has a Used by section',
+  )
+
   // MDL-04.2 — the generated new-record form.
   await go(page, `/models/${key}/records/new`)
   check(

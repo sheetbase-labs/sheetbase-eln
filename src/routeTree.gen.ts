@@ -99,6 +99,7 @@ import { Route as ModelsModelIdIndexRouteImport } from './routes/models/$modelId
 import { Route as ModelsModelIdDatasetsRouteImport } from './routes/models/$modelId/datasets'
 import { Route as ModelsModelIdEditRouteImport } from './routes/models/$modelId/edit'
 import { Route as ModelsModelIdFieldsRouteImport } from './routes/models/$modelId/fields'
+import { Route as ModelsModelIdRecordsRouteImport } from './routes/models/$modelId/records'
 import { Route as ModelsModelIdVersionsRouteImport } from './routes/models/$modelId/versions'
 import { Route as PipelinesPipelineIdIndexRouteImport } from './routes/pipelines/$pipelineId/index'
 import { Route as PipelinesPipelineIdStepsRouteImport } from './routes/pipelines/$pipelineId/steps'
@@ -590,6 +591,11 @@ const ModelsModelIdFieldsRoute = ModelsModelIdFieldsRouteImport.update({
   path: '/fields',
   getParentRoute: () => ModelsModelIdRoute,
 } as any)
+const ModelsModelIdRecordsRoute = ModelsModelIdRecordsRouteImport.update({
+  id: '/records',
+  path: '/records',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
 const ModelsModelIdVersionsRoute = ModelsModelIdVersionsRouteImport.update({
   id: '/versions',
   path: '/versions',
@@ -869,6 +875,7 @@ export interface FileRoutesByFullPath {
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
+  '/models/$modelId/records': typeof ModelsModelIdRecordsRoute
   '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
@@ -984,6 +991,7 @@ export interface FileRoutesByTo {
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
+  '/models/$modelId/records': typeof ModelsModelIdRecordsRoute
   '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
@@ -1111,6 +1119,7 @@ export interface FileRoutesById {
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
+  '/models/$modelId/records': typeof ModelsModelIdRecordsRoute
   '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
@@ -1239,6 +1248,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
+    | '/models/$modelId/records'
     | '/models/$modelId/versions'
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
@@ -1354,6 +1364,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
+    | '/models/$modelId/records'
     | '/models/$modelId/versions'
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
@@ -1480,6 +1491,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
+    | '/models/$modelId/records'
     | '/models/$modelId/versions'
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
@@ -2210,6 +2222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ModelsModelIdFieldsRouteImport
       parentRoute: typeof ModelsModelIdRoute
     }
+    '/models/$modelId/records': {
+      id: '/models/$modelId/records'
+      path: '/records'
+      fullPath: '/models/$modelId/records'
+      preLoaderRoute: typeof ModelsModelIdRecordsRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
     '/models/$modelId/versions': {
       id: '/models/$modelId/versions'
       path: '/versions'
@@ -2565,6 +2584,7 @@ interface ModelsModelIdRouteChildren {
   ModelsModelIdDatasetsRoute: typeof ModelsModelIdDatasetsRoute
   ModelsModelIdEditRoute: typeof ModelsModelIdEditRoute
   ModelsModelIdFieldsRoute: typeof ModelsModelIdFieldsRoute
+  ModelsModelIdRecordsRoute: typeof ModelsModelIdRecordsRoute
   ModelsModelIdVersionsRoute: typeof ModelsModelIdVersionsRoute
   ModelsModelIdIndexRoute: typeof ModelsModelIdIndexRoute
 }
@@ -2573,6 +2593,7 @@ const ModelsModelIdRouteChildren: ModelsModelIdRouteChildren = {
   ModelsModelIdDatasetsRoute: ModelsModelIdDatasetsRoute,
   ModelsModelIdEditRoute: ModelsModelIdEditRoute,
   ModelsModelIdFieldsRoute: ModelsModelIdFieldsRoute,
+  ModelsModelIdRecordsRoute: ModelsModelIdRecordsRoute,
   ModelsModelIdVersionsRoute: ModelsModelIdVersionsRoute,
   ModelsModelIdIndexRoute: ModelsModelIdIndexRoute,
 }

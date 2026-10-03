@@ -16,6 +16,12 @@
  * inline strings, ISO date text) and Parquet via parquet-wasm.
  */
 import { ZipWriter } from './zip'
+import type { ExportField, ExportRow } from './delimited'
+
+// The dependency-free delimited helpers live in `./delimited` so client code
+// can build a CSV without pulling `node:zlib` (via `./zip`) into the browser.
+export { delimitedHeaderLine, delimitedRowLine, formatCell } from './delimited'
+export type { ExportField, ExportRow } from './delimited'
 
 export const EXPORT_FORMATS = [
   'csv',
@@ -37,24 +43,6 @@ export function isExportFormat(value: unknown): value is ExportFormat {
 
 /** Hard cap for formats that materialise column arrays (Parquet). */
 export const PARQUET_MAX_ROWS = 200_000
-
-export interface ExportField {
-  /** Stable field identity (uuid) — doubles as the raw values key. */
-  id: string
-  key: string
-  label: string
-  logicalType: string
-  nullable: boolean
-  /** Display unit from canonical quantity metadata (e.g. storageUnit). */
-  unit: string | null
-}
-
-/** Canonical Dataset row mapped onto machine-readable field keys. */
-export interface ExportRow {
-  rowId: string
-  revision: number | string
-  values: Record<string, unknown>
-}
 
 // ---------------------------------------------------------------------------
 // Metadata envelope.
@@ -120,49 +108,6 @@ export const VERSION_STATE_NOTE =
 // ---------------------------------------------------------------------------
 // Value formatting.
 // ---------------------------------------------------------------------------
-
-/**
- * Render one typed cell for delimited output. Category/reference values stay
- * as their stable option/target ids; resolving them to display labels would
- * require a second read path, so exports keep stable identities.
- */
-export function formatCell(field: ExportField, value: unknown): string {
-  if (value === null || value === undefined) return ''
-  if (field.logicalType === 'boolean') {
-    if (value === true) return 'true'
-    if (value === false) return 'false'
-  }
-  return typeof value === 'string' ? value : String(value)
-}
-
-function csvEscape(text: string, delimiter: string): string {
-  if (
-    text.includes('"') ||
-    text.includes(delimiter) ||
-    text.includes('\n') ||
-    text.includes('\r')
-  ) {
-    return `"${text.replaceAll('"', '""')}"`
-  }
-  return text
-}
-
-export function delimitedHeaderLine(
-  fields: ExportField[],
-  delimiter: string,
-): string {
-  return fields.map((f) => csvEscape(f.label, delimiter)).join(delimiter)
-}
-
-export function delimitedRowLine(
-  fields: ExportField[],
-  row: ExportRow,
-  delimiter: string,
-): string {
-  return fields
-    .map((f) => csvEscape(formatCell(f, row.values[f.id]), delimiter))
-    .join(delimiter)
-}
 
 /** Canonical row object used by JSON/NDJSON exports (keyed by field id). */
 export function rowJsonObject(row: ExportRow): Record<string, unknown> {

@@ -8,7 +8,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 
@@ -295,6 +295,142 @@ export const designSteps: Array<SeedStep> = [
             },
           })
       }
+    },
+  },
+  {
+    name: 'design cell bank model',
+    run: async (db) => {
+      // A workspace-defined model (ADR-0051): identity first, then its fields
+      // and options, then the records whose `custom_fields` those fields
+      // validate. The kind guard resolves `cell_bank` through `record_models`.
+      await db
+        .insert(schema.recordModels)
+        .values({
+          id: DESIGN_CELL_BANK_MODEL.id,
+          workspaceId: PROCESS,
+          key: DESIGN_CELL_BANK_MODEL.key,
+          name: DESIGN_CELL_BANK_MODEL.name,
+          description: DESIGN_CELL_BANK_MODEL.description,
+          identifierPrefix: DESIGN_CELL_BANK_MODEL.identifierPrefix,
+          lifecycle: DESIGN_CELL_BANK_MODEL.lifecycle,
+          currentVersion: DESIGN_CELL_BANK_MODEL.currentVersion,
+          createdByUserId: DESIGN_USER_IDS.gareth,
+          updatedByUserId: DESIGN_USER_IDS.gareth,
+        })
+        .onConflictDoUpdate({
+          target: [schema.recordModels.workspaceId, schema.recordModels.key],
+          set: {
+            name: DESIGN_CELL_BANK_MODEL.name,
+            description: DESIGN_CELL_BANK_MODEL.description,
+            identifierPrefix: DESIGN_CELL_BANK_MODEL.identifierPrefix,
+            lifecycle: DESIGN_CELL_BANK_MODEL.lifecycle,
+            currentVersion: DESIGN_CELL_BANK_MODEL.currentVersion,
+          },
+        })
+
+      for (const field of DESIGN_CELL_BANK_FIELDS) {
+        await db
+          .insert(schema.recordFieldDefinitions)
+          .values({
+            id: field.id,
+            workspaceId: PROCESS,
+            kind: DESIGN_CELL_BANK_MODEL.key,
+            fieldName: field.fieldName,
+            label: field.label,
+            displayOrder: field.displayOrder,
+            logicalType: field.logicalType,
+            nullable: field.nullable,
+            unit: field.unit ?? null,
+            validation: field.validation ?? {},
+            lifecycle: 'active',
+            createdByUserId: DESIGN_USER_IDS.gareth,
+            ...(field.createdAt ? { createdAt: field.createdAt } : {}),
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.recordFieldDefinitions.workspaceId,
+              schema.recordFieldDefinitions.kind,
+              schema.recordFieldDefinitions.fieldName,
+            ],
+            set: {
+              label: field.label,
+              displayOrder: field.displayOrder,
+              logicalType: field.logicalType,
+              nullable: field.nullable,
+              unit: field.unit ?? null,
+              validation: field.validation ?? {},
+              lifecycle: 'active',
+              ...(field.createdAt ? { createdAt: field.createdAt } : {}),
+            },
+          })
+        for (const [index, option] of (field.options ?? []).entries()) {
+          await db
+            .insert(schema.modelFieldOptions)
+            .values({
+              definitionId: field.id,
+              key: option.key,
+              label: option.label,
+              displayOrder: index + 1,
+              lifecycle: 'active',
+            })
+            .onConflictDoUpdate({
+              target: [
+                schema.modelFieldOptions.definitionId,
+                schema.modelFieldOptions.key,
+              ],
+              set: {
+                label: option.label,
+                displayOrder: index + 1,
+                lifecycle: 'active',
+              },
+            })
+        }
+      }
+
+      for (const record of DESIGN_CELL_BANK_RECORDS) {
+        await db
+          .insert(schema.records)
+          .values({
+            id: record.id,
+            workspaceId: PROCESS,
+            projectId: DESIGN_PROJECTS[0].id,
+            kind: DESIGN_CELL_BANK_MODEL.key,
+            identifier: record.identifier,
+            title: record.title,
+            status: record.status,
+            customFields: record.customFields,
+            createdAt: record.createdAt,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: [schema.records.projectId, schema.records.identifier],
+            set: {
+              title: record.title,
+              status: record.status,
+              customFields: record.customFields,
+              createdAt: record.createdAt,
+              deletedAt: null,
+              archivedAt: null,
+            },
+          })
+      }
+
+      // Continue the CB- sequence after the seeded lots, so a new record is
+      // CB-0013+ rather than re-issuing an existing identifier.
+      const lastNumber = Math.max(
+        ...DESIGN_CELL_BANK_RECORDS.map((record) =>
+          Number(record.identifier.split('-')[1]),
+        ),
+      )
+      await db.execute(sql`
+        INSERT INTO internal.id_sequences (workspace_id, kind, last_number)
+        VALUES (${PROCESS}, ${'model:cb'}, ${lastNumber})
+        ON CONFLICT (workspace_id, kind)
+        DO UPDATE SET last_number = greatest(
+          internal.id_sequences.last_number,
+          ${lastNumber}
+        )
+      `)
     },
   },
   {
@@ -1284,6 +1420,279 @@ const DESIGN_SAMPLES = [
     title: 'Import sample',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'IM-01' },
+  },
+]
+
+/**
+ * MDL-01/MDL-04 — the design "Cell bank" is a workspace-defined record model
+ * (ADR-0051), not a built-in kind. `ModelRecords`/`RecordDetail`/`RecordNew`
+ * render its records list, detail and generated form; seeding it here gives the
+ * dev/design surface real data and lets the record-model routes be checked in
+ * the browser. Fields are the canonical `record_field_definitions`; values live
+ * in each record's `custom_fields`.
+ */
+const DESIGN_CELL_BANK_MODEL = {
+  id: '00000000-0000-4000-8000-000000000600',
+  key: 'cell_bank',
+  name: 'Cell bank',
+  description:
+    'A frozen bank of cells with its passage, storage and release tests.',
+  identifierPrefix: 'CB',
+  lifecycle: 'published',
+  currentVersion: 4,
+} as const
+
+const DESIGN_CELL_BANK_FIELDS: ReadonlyArray<{
+  id: string
+  fieldName: string
+  label: string
+  displayOrder: number
+  logicalType: 'text' | 'integer' | 'decimal' | 'date' | 'category'
+  nullable: boolean
+  unit?: unknown
+  validation?: Record<string, unknown>
+  options?: ReadonlyArray<{ key: string; label: string }>
+  /** Later than the records below, so the detail "added in a later version"
+   * banner has a real example (mycoplasma arrived in model v4). */
+  createdAt?: Date
+}> = [
+  {
+    id: '00000000-0000-4000-8000-000000000601',
+    fieldName: 'cell_line',
+    label: 'Cell line',
+    displayOrder: 1,
+    logicalType: 'category',
+    nullable: false,
+    options: [
+      { key: 'hek293', label: 'HEK293' },
+      { key: 'hek293t', label: 'HEK293T' },
+      { key: 'cho_k1', label: 'CHO-K1' },
+      { key: 'sf9', label: 'Sf9' },
+    ],
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000602',
+    fieldName: 'passage',
+    label: 'Passage',
+    displayOrder: 2,
+    logicalType: 'integer',
+    nullable: false,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000603',
+    fieldName: 'parent_bank',
+    label: 'Parent bank',
+    displayOrder: 3,
+    logicalType: 'text',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000604',
+    fieldName: 'vials',
+    label: 'Vials',
+    displayOrder: 4,
+    logicalType: 'integer',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000605',
+    fieldName: 'vials_left',
+    label: 'Vials left',
+    displayOrder: 5,
+    logicalType: 'integer',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000606',
+    fieldName: 'location',
+    label: 'Location',
+    displayOrder: 6,
+    logicalType: 'text',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000607',
+    fieldName: 'frozen_on',
+    label: 'Frozen on',
+    displayOrder: 7,
+    logicalType: 'date',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000608',
+    fieldName: 'sterility',
+    label: 'Sterility',
+    displayOrder: 8,
+    logicalType: 'category',
+    nullable: true,
+    options: [
+      { key: 'negative', label: 'Negative' },
+      { key: 'positive', label: 'Positive' },
+      { key: 'pending', label: 'Pending' },
+    ],
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000609',
+    fieldName: 'mycoplasma',
+    label: 'Mycoplasma',
+    displayOrder: 9,
+    logicalType: 'category',
+    nullable: true,
+    options: [
+      { key: 'negative', label: 'Negative' },
+      { key: 'positive', label: 'Positive' },
+      { key: 'pending', label: 'Pending' },
+    ],
+    createdAt: new Date('2026-09-19T09:00:00+01:00'),
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000060a',
+    fieldName: 'identity_str',
+    label: 'Identity (STR)',
+    displayOrder: 10,
+    logicalType: 'category',
+    nullable: true,
+    options: [
+      { key: 'match_100', label: 'Match, 100 %' },
+      { key: 'match', label: 'Match' },
+      { key: 'not_done', label: 'Not done' },
+    ],
+  },
+]
+
+const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
+  id: string
+  identifier: string
+  title: string
+  status: string
+  customFields: Record<string, unknown>
+  createdAt: Date
+}> = [
+  {
+    id: '00000000-0000-4000-8000-000000000620',
+    identifier: 'CB-0006',
+    title: 'HEK293 WCB lot 1',
+    status: 'Depleted',
+    createdAt: new Date('2026-05-02T10:00:00+01:00'),
+    customFields: {
+      cell_line: 'hek293',
+      passage: 12,
+      vials: 50,
+      vials_left: 0,
+      location: null,
+      frozen_on: '2026-05-02',
+      sterility: 'negative',
+      mycoplasma: 'negative',
+      identity_str: 'match_100',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000621',
+    identifier: 'CB-0007',
+    title: 'CHO-K1 MCB',
+    status: 'Quarantine',
+    createdAt: new Date('2026-05-20T10:00:00+01:00'),
+    customFields: {
+      cell_line: 'cho_k1',
+      passage: 6,
+      vials: 20,
+      vials_left: 12,
+      location: 'LN2-1 · rack B',
+      frozen_on: '2026-05-20',
+      sterility: 'negative',
+      mycoplasma: 'positive',
+      identity_str: 'match',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000622',
+    identifier: 'CB-0008',
+    title: 'HEK293T WCB lot 5',
+    status: 'Depleted',
+    createdAt: new Date('2026-06-05T10:00:00+01:00'),
+    customFields: {
+      cell_line: 'hek293t',
+      passage: 15,
+      vials: 40,
+      vials_left: 0,
+      location: null,
+      frozen_on: '2026-06-05',
+      sterility: 'negative',
+      mycoplasma: 'negative',
+      identity_str: 'match_100',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000623',
+    identifier: 'CB-0009',
+    title: 'Sf9 WCB lot 1',
+    status: 'In review',
+    createdAt: new Date('2026-06-24T10:00:00+01:00'),
+    customFields: {
+      cell_line: 'sf9',
+      passage: 20,
+      vials: 40,
+      vials_left: 22,
+      location: 'LN2-2 · rack D',
+      frozen_on: '2026-06-24',
+      sterility: 'negative',
+      mycoplasma: 'pending',
+      identity_str: 'match',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000624',
+    identifier: 'CB-0010',
+    title: 'HEK293 MCB',
+    status: 'Released',
+    createdAt: new Date('2026-07-14T10:00:00+01:00'),
+    customFields: {
+      cell_line: 'hek293',
+      passage: 8,
+      vials: 20,
+      vials_left: 18,
+      location: 'LN2-1 · rack A',
+      frozen_on: '2026-07-14',
+      sterility: 'negative',
+      mycoplasma: 'negative',
+      identity_str: 'match_100',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000625',
+    identifier: 'CB-0011',
+    title: 'HEK293 WCB lot 2',
+    status: 'Low stock',
+    createdAt: new Date('2026-08-01T10:00:00+01:00'),
+    customFields: {
+      cell_line: 'hek293',
+      passage: 12,
+      vials: 50,
+      vials_left: 4,
+      location: 'LN2-2 · rack C',
+      frozen_on: '2026-08-01',
+      sterility: 'negative',
+      mycoplasma: 'negative',
+      identity_str: 'match_100',
+    },
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000626',
+    identifier: 'CB-0012',
+    title: 'HEK293 WCB lot 3',
+    status: 'Released',
+    createdAt: new Date('2026-08-02T10:00:00+01:00'),
+    customFields: {
+      cell_line: 'hek293',
+      passage: 12,
+      parent_bank: 'CB-0010 HEK293 MCB',
+      vials: 50,
+      vials_left: 31,
+      location: 'LN2-2 · rack C',
+      frozen_on: '2026-08-02',
+      sterility: 'negative',
+      identity_str: 'match_100',
+    },
   },
 ]
 

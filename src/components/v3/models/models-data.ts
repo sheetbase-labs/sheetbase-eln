@@ -13,6 +13,10 @@ import type {
   CanonicalDatasetSchemaVersion,
 } from '#/lib/dataset-schema-definition-rpc'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { displayModelFieldValue, fetchModelFields } from '#/lib/model-fields'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
+import { delimitedHeaderLine, delimitedRowLine } from '#/lib/export/delimited'
+import type { ExportField, ExportRow } from '#/lib/export/delimited'
 
 /**
  * UI port (roadmap-4/ui-app3): the Models board reads the canonical dataset
@@ -32,6 +36,8 @@ export function modelStatus(lifecycle: string): { tone: Tone; label: string } {
   switch (lifecycle) {
     case 'active':
       return { tone: 'ok', label: 'Active' }
+    case 'published':
+      return { tone: 'ok', label: 'Published' }
     case 'draft':
       return { tone: 'draft', label: 'Draft' }
     case 'retired':
@@ -222,3 +228,278 @@ export function useModelDatasets(
 }
 
 export type { CanonicalDatasetSchemaField, CanonicalDatasetSchemaVersion }
+
+// ---------------------------------------------------------------------------
+// MDL-04.1 — records of a workspace-defined record model (ADR-0051).
+//
+// A workspace model is a `record_models` row keyed by its stable `key`. Its
+// active `record_field_definitions` (kind = key) are the list columns; its
+// records are `api.records` rows with `kind = key`, scoped by workspace RLS.
+// The helpers here are pure so the list/CSV behaviour is unit-testable without
+// a live client.
+// ---------------------------------------------------------------------------
+
+export interface WorkspaceRecordModel {
+  id: string
+  workspace_id: string
+  key: string
+  name: string
+  description: string | null
+  identifier_prefix: string
+  lifecycle: string
+  current_version: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ModelKindRef {
+  key: string
+  label: string
+  identity_table: string
+  record_kind: string | null
+}
+
+export interface RecordModelRecord {
+  id: string
+  identifier: string
+  title: string
+  kind: string
+  status: string
+  custom_fields: Record<string, unknown> | null
+  properties: Record<string, unknown> | null
+  tags: string[]
+  updated_at: string
+  archived_at: string | null
+}
+
+export const recordModelQueryKeys = {
+  model: (key: string) => ['ui-port', 'record-models', 'model', key] as const,
+  kind: (key: string) => ['ui-port', 'record-models', 'kind', key] as const,
+  fields: (key: string) => ['ui-port', 'record-models', 'fields', key] as const,
+  records: (key: string) =>
+    ['ui-port', 'record-models', 'records', key] as const,
+}
+
+const WORKSPACE_MODEL_COLUMNS =
+  'id,workspace_id,key,name,description,identifier_prefix,lifecycle,current_version,created_at,updated_at'
+
+const RECORD_MODEL_RECORD_COLUMNS =
+  'id,identifier,title,kind,status,custom_fields,properties,tags,updated_at,archived_at'
+
+/** Resolve a workspace-defined record model by its stable key. RLS keeps this
+ * workspace-scoped; another workspace's model reads as not found. */
+export function useWorkspaceRecordModel(
+  key: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: recordModelQueryKeys.model(key),
+    queryFn: () =>
+      client
+        .list<WorkspaceRecordModel>(
+          'record_models',
+          `?key=eq.${encodeURIComponent(key)}&select=${WORKSPACE_MODEL_COLUMNS}`,
+        )
+        .then((rows) => rows[0] ?? null),
+    enabled: Boolean(key),
+    staleTime: 15_000,
+  })
+}
+
+/** Resolve a built-in `model_kinds` row, so a built-in key can be told apart
+ * from a workspace model and linked to its existing surface. */
+export function useBuiltInModelKind(
+  key: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: recordModelQueryKeys.kind(key),
+    queryFn: () =>
+      client
+        .list<ModelKindRef>(
+          'model_kinds',
+          `?key=eq.${encodeURIComponent(key)}&select=key,label,identity_table,record_kind`,
+        )
+        .then((rows) => rows[0] ?? null),
+    enabled: Boolean(key),
+    staleTime: 60_000,
+  })
+}
+
+/** The model's active field definitions in display order — the list columns. */
+export function useRecordModelFields(
+  key: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: recordModelQueryKeys.fields(key),
+    queryFn: () => fetchModelFields(client, key),
+    enabled: Boolean(key),
+    staleTime: 15_000,
+  })
+}
+
+/** Records of the model. `kind` is the model key; RLS scopes the workspace. */
+export function useRecordModelRecords(
+  key: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: recordModelQueryKeys.records(key),
+    queryFn: () =>
+      client.list<RecordModelRecord>(
+        'records',
+        `?kind=eq.${encodeURIComponent(key)}&deleted_at=is.null&order=updated_at.desc&select=${RECORD_MODEL_RECORD_COLUMNS}`,
+      ),
+    enabled: Boolean(key),
+    staleTime: 15_000,
+  })
+}
+
+/** Built-in kind surfaces. Built-ins keep their own list routes; a workspace
+ * model key can never shadow one (create_workspace_model refuses it). */
+type BuiltInKindSurface =
+  | '/samples'
+  | '/materials'
+  | '/protocols'
+  | '/experiments'
+  | '/templates'
+  | '/models'
+
+export const BUILT_IN_KIND_SURFACES: Partial<
+  Record<string, { to: BuiltInKindSurface; label: string }>
+> = {
+  sample: { to: '/samples', label: 'Samples' },
+  reagent: { to: '/materials', label: 'Materials' },
+  protocol_template: { to: '/protocols', label: 'Protocols' },
+  experiment: { to: '/experiments', label: 'Experiments' },
+  notebook_template: { to: '/templates', label: 'Templates' },
+}
+
+/**
+ * Workspace models store field values in `custom_fields`; the legacy registry
+ * `properties` object is an honest fallback so older records still render.
+ */
+export function recordFieldValue(
+  record: Pick<RecordModelRecord, 'custom_fields' | 'properties'>,
+  fieldName: string,
+): unknown {
+  const custom = record.custom_fields?.[fieldName]
+  if (custom !== undefined) return custom
+  return record.properties?.[fieldName]
+}
+
+/** Free text a row matches on: identifier, title, status and shown field values. */
+export function buildRecordSearchText(
+  record: RecordModelRecord,
+  fields: ModelFieldDefinition[],
+): string {
+  return [
+    record.identifier,
+    record.title,
+    record.status,
+    ...fields.map((field) =>
+      displayModelFieldValue(field, recordFieldValue(record, field.fieldName)),
+    ),
+  ]
+    .join(' ')
+    .toLowerCase()
+}
+
+export interface RecordModelFilters {
+  q?: string
+  status?: string
+  fieldName?: string
+  fieldValue?: string
+}
+
+export function filterRecordModelRecords(
+  records: RecordModelRecord[],
+  fields: ModelFieldDefinition[],
+  filters: RecordModelFilters,
+): RecordModelRecord[] {
+  const q = (filters.q ?? '').trim().toLowerCase()
+  const status = filters.status ?? ''
+  const field = fields.find((f) => f.fieldName === filters.fieldName) ?? null
+  const fieldValue = (filters.fieldValue ?? '').trim().toLowerCase()
+  return records.filter((record) => {
+    if (status && record.status !== status) return false
+    if (field && fieldValue) {
+      const shown = displayModelFieldValue(
+        field,
+        recordFieldValue(record, field.fieldName),
+      ).toLowerCase()
+      if (!shown.includes(fieldValue)) return false
+    }
+    if (q && !buildRecordSearchText(record, fields).includes(q)) return false
+    return true
+  })
+}
+
+/** Distinct statuses present in the data, for the status filter. */
+export function recordStatusOptions(records: RecordModelRecord[]): string[] {
+  return [...new Set(records.map((r) => r.status).filter(Boolean))].sort()
+}
+
+/** Export the visible rows as CSV via the canonical delimited serializers. */
+export function recordModelCsv(
+  records: RecordModelRecord[],
+  fields: ModelFieldDefinition[],
+): string {
+  const exportFields: ExportField[] = [
+    {
+      id: '__identifier',
+      key: 'identifier',
+      label: 'ID',
+      logicalType: 'text',
+      nullable: false,
+      unit: null,
+    },
+    {
+      id: '__title',
+      key: 'title',
+      label: 'Name',
+      logicalType: 'text',
+      nullable: false,
+      unit: null,
+    },
+    {
+      id: '__status',
+      key: 'status',
+      label: 'Status',
+      logicalType: 'text',
+      nullable: false,
+      unit: null,
+    },
+    ...fields.map((field) => ({
+      id: `field:${field.fieldName}`,
+      key: field.fieldName,
+      label: field.label,
+      logicalType: field.logicalType,
+      nullable: field.nullable,
+      unit: null,
+    })),
+  ]
+  const rows: ExportRow[] = records.map((record) => ({
+    rowId: record.id,
+    revision: '',
+    values: {
+      __identifier: record.identifier,
+      __title: record.title,
+      __status: record.status,
+      ...Object.fromEntries(
+        fields.map((field) => {
+          const shown = displayModelFieldValue(
+            field,
+            recordFieldValue(record, field.fieldName),
+          )
+          return [`field:${field.fieldName}`, shown === '—' ? '' : shown]
+        }),
+      ),
+    },
+  }))
+  return [
+    delimitedHeaderLine(exportFields, ','),
+    ...rows.map((row) => delimitedRowLine(exportFields, row, ',')),
+  ].join('\n')
+}

@@ -54,6 +54,7 @@ async function discover() {
       revisions,
       sheets,
       instruments,
+      recordModels,
     ] = await Promise.all([
       get('/api/db/rpc/project_list_summary?limit=1'),
       get('/api/db/records?kind=eq.experiment&limit=1&select=id'),
@@ -69,6 +70,7 @@ async function discover() {
       get('/api/db/revisions?limit=1&select=id'),
       get('/api/db/sheet_instances?limit=1&select=id'),
       get('/api/db/instruments?limit=1&select=id'),
+      get('/api/db/record_models?limit=1&select=key'),
     ])
     return {
       project: projects[0]?.id,
@@ -85,6 +87,7 @@ async function discover() {
       revision: revisions[0]?.id,
       sheet: sheets[0]?.id,
       instrument: instruments[0]?.id,
+      recordModel: recordModels[0]?.key,
     }
   })
   await page.close()
@@ -189,6 +192,12 @@ function routes(ids) {
       `/models/${ids.model}/datasets`,
       `/models/${ids.model}/edit`,
       `/models/${ids.model}/edit?state=denied`,
+    )
+  if (ids.recordModel)
+    list.push(
+      // MDL-01/MDL-04: a workspace-defined record model is keyed, not a uuid.
+      `/models/${ids.recordModel}`,
+      `/models/${ids.recordModel}/records`,
     )
   if (ids.pipeline)
     list.push(

@@ -1833,6 +1833,12 @@ export const sampleEvents = api.table(
     actorUserId: text('actor_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    // LAB-01 step 1: the record (normally an experiment) a quantity-bearing
+    // event was performed for. Set by `api.consume_sample` /
+    // `api.withdraw_sample`; null for non-purpose operations.
+    purposeRecordId: uuid('purpose_record_id').references(() => records.id, {
+      onDelete: 'set null',
+    }),
     notes: text('notes'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()

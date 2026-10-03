@@ -21,6 +21,7 @@ function event(overrides: Partial<SampleEvent> = {}): SampleEvent {
     fromLocation: null,
     toLocation: null,
     actorUserId: 'u1',
+    purposeRecordId: null,
     notes: null,
     createdAt: '2026-09-23T09:15:00.000Z',
     ...overrides,

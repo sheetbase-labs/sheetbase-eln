@@ -1973,6 +1973,13 @@
       "when": 1791007000000,
       "tag": "0283_sample_hold_fields_editable",
       "breakpoints": true
+    },
+    {
+      "idx": 284,
+      "version": "7",
+      "when": 1791008000000,
+      "tag": "0284_sample_withdraw",
+      "breakpoints": true
     }
   ]
 }

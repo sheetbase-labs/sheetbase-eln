@@ -475,6 +475,7 @@ export interface SampleEventWire {
   from_location: string | null
   to_location: string | null
   actor_user_id: string | null
+  purpose_record_id: string | null
   notes: string | null
   created_at: string
 }
@@ -490,6 +491,8 @@ export interface SampleEvent {
   fromLocation: string | null
   toLocation: string | null
   actorUserId: string | null
+  /** LAB-01: the experiment a quantity event was performed for, when set. */
+  purposeRecordId: string | null
   notes: string | null
   createdAt: string
 }
@@ -509,6 +512,7 @@ export function toSampleEvent(row: SampleEventWire): SampleEvent {
     fromLocation: row.from_location,
     toLocation: row.to_location,
     actorUserId: row.actor_user_id,
+    purposeRecordId: row.purpose_record_id ?? null,
     notes: row.notes,
     createdAt: row.created_at,
   }
@@ -815,6 +819,8 @@ export interface ConsumeSampleInput {
    * `allowedUseExperimentIds` or the withdrawal is refused (SB004).
    */
   experimentId?: string
+  /** LAB-01: the record the consumed quantity was used for (durable purpose). */
+  purposeRecordId?: string
 }
 
 export async function consumeSample(
@@ -827,8 +833,69 @@ export async function consumeSample(
     p_expected_metadata_version: input.expectedMetadataVersion,
     p_notes: input.notes ?? null,
     p_experiment_id: input.experimentId ?? null,
+    p_purpose_record_id: input.purposeRecordId ?? null,
   })
   return toSampleRecord(row)
+}
+
+/** LAB-01: optional new container derived from a withdrawal. */
+export interface NewSampleContainerInput {
+  title?: string
+  barcode?: string
+  storageLocation?: string
+  sampleType?: string
+}
+
+export interface WithdrawSampleInput {
+  recordId: string
+  quantity: number
+  /** The experiment the withdrawn volume is used for (required, server-checked). */
+  purposeExperimentId: string
+  unit?: string
+  notes?: string
+  expectedMetadataVersion: number
+  /** When set, a derived container sample is created and linked in the same tx. */
+  newContainer?: NewSampleContainerInput
+}
+
+export interface WithdrawSampleResult {
+  /** The updated source sample. */
+  sample: SampleRecord
+  /** The derived container's id, or null when none was requested. */
+  derivedSampleId: string | null
+  derivedSample: SampleRecord | null
+}
+
+/**
+ * LAB-01 step 1: withdraw volume for a purpose experiment on top of the
+ * canonical consume event. The server refuses over-withdrawal (reporting the
+ * available amount) and reserved volume, keeps the hold/quarantine/allowed-use
+ * refusals, and can create a linked derived container in one transaction.
+ */
+export async function withdrawSample(
+  client: DataClient,
+  input: WithdrawSampleInput,
+): Promise<WithdrawSampleResult> {
+  const result = await client.rpc<{
+    sample: RecordWire
+    derivedSampleId: string | null
+    derivedSample: RecordWire | null
+  }>('withdraw_sample', {
+    p_record_id: input.recordId,
+    p_quantity: input.quantity,
+    p_expected_metadata_version: input.expectedMetadataVersion,
+    p_purpose_experiment_id: input.purposeExperimentId,
+    p_unit: input.unit ?? null,
+    p_notes: input.notes ?? null,
+    p_new_container: input.newContainer ?? null,
+  })
+  return {
+    sample: toSampleRecord(result.sample),
+    derivedSampleId: result.derivedSampleId ?? null,
+    derivedSample: result.derivedSample
+      ? toSampleRecord(result.derivedSample)
+      : null,
+  }
 }
 
 export interface TransferSampleInput {

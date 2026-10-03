@@ -66,6 +66,7 @@ function event(overrides: Partial<SampleEvent> = {}): SampleEvent {
     fromLocation: null,
     toLocation: null,
     actorUserId: 'u-9',
+    purposeRecordId: null,
     notes: 'AEX resin screen',
     createdAt: '2026-09-11T10:40:00.000Z',
     ...overrides,

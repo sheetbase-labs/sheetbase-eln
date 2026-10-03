@@ -185,9 +185,9 @@ stay until the releases age past the policy window.
 
 Still to do:
 
-- The screens still run Handsontable and Recharts. `sheetbase-explorer` and
-  `sheetbase-advanced-search` are installed but not rendered yet — wiring the
-  grids, charts and filter builder into the product is COMP-06/07.
+- The sheet surfaces run on `sheetbase-table` (COMP-06) and the charts on
+  `sheetbase-explorer` (COMP-07). `sheetbase-advanced-search` is installed but
+  not rendered yet — wiring its filter builder into the product is COMP-06.
 - `sheetbase-schemaeditor` and `sheetbase-rulesengine` are not consumed at all.
 - Every pnpm command still prints the ignored project-level credential warning
   from `.npmrc` while the placeholder line is committed. It is harmless — the

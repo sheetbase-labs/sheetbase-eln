@@ -26,6 +26,7 @@ import type {
 } from '@sheetbase-labs/sheetbase-table'
 import { memo, useEffect, useMemo, useRef } from 'react'
 
+import { createFormulaReferenceEditor } from './formula-reference-editor'
 import type {
   SheetbaseGridCellChange,
   SheetbaseGridCellValue,
@@ -652,9 +653,11 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   )
 
   const customEditors = useMemo<SpreadsheetCustomEditor[] | undefined>(() => {
-    if (!onOpenRecordPicker) return undefined
-    return [
-      {
+    const editors: SpreadsheetCustomEditor[] = []
+    // The Record picker is the more specific match (relationship fields), so
+    // it is checked before the formula editor.
+    if (onOpenRecordPicker) {
+      editors.push({
         matches: ({ field }) => field?.dataType === 'relationship',
         render: (context) => (
           <RecordPickerOpener
@@ -666,9 +669,25 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
             onOpen={openRecordPicker}
           />
         ),
-      },
-    ]
-  }, [onOpenRecordPicker, openRecordPicker])
+      })
+    }
+    // COMP-06 step 3: formula-enabled columns edit through the ELN
+    // formula-reference editor (in-cell `=…` entry, arrow/click reference
+    // picking, and function autocomplete from the shared function list).
+    if (
+      orderedColumns.some(
+        (column) => column.formula === true && column.readOnly !== true,
+      )
+    ) {
+      editors.push(
+        createFormulaReferenceEditor(({ point }) => {
+          const column = orderedColumns.at(point.column)
+          return column?.formula === true && column.readOnly !== true
+        }),
+      )
+    }
+    return editors.length > 0 ? editors : undefined
+  }, [onOpenRecordPicker, openRecordPicker, orderedColumns])
 
   // Neutral handle + structural row hooks. Bound grids route row structure to
   // the host, so the caller's preflight/persistence seams run here.

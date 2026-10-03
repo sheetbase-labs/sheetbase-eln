@@ -1,8 +1,6 @@
 @import '@fontsource-variable/instrument-sans';
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
-@import 'handsontable/styles/handsontable.css';
-@import 'handsontable/styles/ht-theme-main.css';
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
@@ -522,30 +520,32 @@
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
 }
 
-/* Handsontable is always mounted through SheetbaseGrid. These overrides keep
-   the vendor grid on the same compact, scientific-data visual language as the
-   rest of the application while preserving Handsontable's interaction CSS. */
-.sheetbase-grid.ht-theme-main {
-  --ht-font-family: var(--font-sans);
-  --ht-font-size: 13px;
-  --ht-font-size-small: 12px;
-  --ht-line-height: 18px;
-  --ht-line-height-small: 16px;
-  --ht-border-color: var(--border);
-  --ht-accent-color: var(--primary);
-  --ht-foreground-color: var(--foreground);
-  --ht-foreground-secondary-color: var(--muted-foreground);
-  --ht-background-color: var(--card);
-  --ht-background-secondary-color: var(--muted);
-  --ht-cell-selection-background-color: var(--selection);
-  --ht-cell-read-only-background-color: var(--muted);
-  --ht-header-font-weight: 600;
-  --ht-border-radius: var(--radius-sm);
+/* COMP-06 step 3 — the ELN in-cell formula editor.
+ *
+ * Formula-enabled columns edit through a hosted input (`.custom-editor-host`)
+ * that renders its own reference highlights and function-suggestion dropdown.
+ * The grid still renders its static formula layers from the editor's opening
+ * draft (tokens, reference outlines, its own suggestion list); those sit above
+ * the host by z-index and would otherwise show stale content, so they are
+ * hidden while a hosted editor is open. */
+.grid-canvas:has(.custom-editor-host) .cell-formula-tokens,
+.grid-canvas:has(.custom-editor-host) .formula-reference,
+.grid-canvas:has(.custom-editor-host) .formula-suggestions {
+  display: none;
+}
 
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-variant-numeric: tabular-nums lining-nums;
+/* The hosted input fills its cell editor host and inherits the host's mono
+   typography; the host (`.cell-editor`) owns the border, background and focus
+   outline. */
+.sheetbase-formula-editor {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
 }
 
 @keyframes accordion-down {

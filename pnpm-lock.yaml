@@ -34,9 +34,6 @@ importers:
       '@fontsource-variable/jetbrains-mono':
         specifier: ^5.3.0
         version: 5.3.0
-      '@handsontable/react-wrapper':
-        specifier: 18.0.0
-        version: 18.0.0(handsontable@18.0.0)
       '@liveblocks/client':
         specifier: ^3.24.1
         version: 3.24.1(@types/json-schema@7.0.15)
@@ -151,9 +148,6 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@types/pg@8.20.0)(kysely@0.29.4)(pg@8.22.0)
-      handsontable:
-        specifier: 18.0.0
-        version: 18.0.0
       jose:
         specifier: ^6.2.3
         version: 6.2.3
@@ -1163,11 +1157,6 @@ packages:
 
   '@fontsource-variable/jetbrains-mono@5.3.0':
     resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
-
-  '@handsontable/react-wrapper@18.0.0':
-    resolution: {integrity: sha512-Cy+uFLFB04WJ3YtifqAm0+4Ya65hjNS4as15bT/YDnhqxIV/LW/73zDLJ2YBC2sJ4X0sx2FL/UbTWHJA+Co/eg==}
-    peerDependencies:
-      handsontable: ^18.0.0
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -4701,9 +4690,6 @@ packages:
       crossws:
         optional: true
 
-  handsontable@18.0.0:
-    resolution: {integrity: sha512-U4H6gDrwGTfjahSyoGHhFHZvOZWB7ReQ3iBvJUIcZPdqdppdZ+FSYNovw+3MH1guJfGgRIhoLYnbSm8Gd6Ft8w==}
-
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
@@ -7108,10 +7094,6 @@ snapshots:
   '@fontsource-variable/inter@5.2.8': {}
 
   '@fontsource-variable/jetbrains-mono@5.3.0': {}
-
-  '@handsontable/react-wrapper@18.0.0(handsontable@18.0.0)':
-    dependencies:
-      handsontable: 18.0.0
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -10654,8 +10636,6 @@ snapshots:
     dependencies:
       rou3: 0.8.1
       srvx: 0.11.22
-
-  handsontable@18.0.0: {}
 
   has-flag@4.0.0:
     optional: true

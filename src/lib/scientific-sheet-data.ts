@@ -20,7 +20,7 @@ export interface ScientificColumnWire {
   unit: unknown
   validation: Record<string, unknown>
   width: number | null
-  /** Optional Handsontable numeric format override (for example `0.0E+0`). */
+  /** Optional numeric format override (for example `0.0E+0`). */
   format?: string | null
   options: ScientificOptionWire[]
 }

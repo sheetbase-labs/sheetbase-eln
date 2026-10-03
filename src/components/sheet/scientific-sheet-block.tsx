@@ -192,7 +192,7 @@ function writeColumnPreferences(key: string, value: unknown): void {
  * table data changes, so a `tableWorkbook` reference held across a render can
  * briefly predate the row/column identity it is asked to look up. An
  * unguarded `locate()` throws `Unknown stable cell identity.` and crashes
- * render, which cascades into Handsontable's destroy path (`Cannot read
+ * render, which cascades into the grid's teardown path (`Cannot read
  * properties of undefined (reading 'off')`). Returning `null` lets the UI
  * degrade gracefully until the rebuilt workbook arrives.
  *
@@ -1422,24 +1422,22 @@ export function ScientificSheetBlock({
 
   // gridData: canonical rows + formula overlays, WITHOUT drafts.
   //
-  // This is the data passed to Handsontable via settings.data. It is
-  // deliberately NOT overlaid with draft (optimistic) values because
-  // Handsontable's editor already writes optimistic values to its internal
-  // data source via saveValue(). If we also put drafts in settings.data,
-  // every setDrafts() call (fired synchronously inside afterChange, which
-  // fires inside super.finishEditing()) would give settings.data a new array
-  // identity. That causes the HotTable wrapper to call updateSettings({data}),
-  // which triggers loadData(), which disrupts the editor mid-commit — the
-  // editor is in WAITING state (validation pending) and never completes its
-  // close cycle. The editor stays open, blocking autofill and all other
-  // grid interactions.
+  // This is the data passed to the grid's `rows` prop. It is deliberately NOT
+  // overlaid with draft (optimistic) values because the grid's own editor
+  // already writes optimistic values to its internal data source as the edit
+  // commits. If we also put drafts in the rows prop, every setDrafts() call
+  // (fired synchronously inside the change hook) would give the rows array a
+  // new identity. The adapter would then push a `replaceData` into the live
+  // grid mid-commit, disrupting the editor while its validation is still
+  // pending so it never completes its close cycle — leaving the editor open
+  // and blocking autofill and all other grid interactions.
   //
-  // By keeping drafts OUT of gridData, settings.data keeps the same array
-  // reference across draft changes. The settings memo doesn't recompute,
-  // HotTable doesn't call updateSettings, and the editor closes normally.
-  // Drafts are still tracked in React state (for refetch recovery and
-  // coordinator cleanup) and overlaid in `localRows` for the footer row
-  // count and localRowsRef — just not in the data passed to Handsontable.
+  // By keeping drafts OUT of gridData, the rows prop keeps the same array
+  // reference across draft changes, so the adapter does not re-push data
+  // during a commit. Drafts are still tracked in React state (for refetch
+  // recovery and coordinator cleanup) and overlaid in `localRows` for the
+  // footer row count and localRowsRef — just not in the data passed to the
+  // grid.
   const gridData = useMemo(() => {
     const detached: Array<Record<string, unknown>> = (
       allRowsQuery.data ?? []
@@ -1487,7 +1485,7 @@ export function ScientificSheetBlock({
 
   // localRows: gridData + draft overlays. Used for localRowsRef (read by
   // afterChange/afterSelectionEnd callbacks to get row IDs) and the footer
-  // row count. NOT passed to Handsontable — see gridData comment above.
+  // row count. NOT passed to the grid — see gridData comment above.
   const localRows = useMemo(() => {
     const detached = gridData.map((row) => ({ ...row }))
     for (const draft of Object.values(drafts)) {
@@ -1611,7 +1609,7 @@ export function ScientificSheetBlock({
         void refreshCalculationRef.current(true)
       } catch (error) {
         // The DB trigger blocks deletion of rows with formula dependencies.
-        // Refetch to restore the row in the grid (Handsontable already
+        // Refetch to restore the row in the grid (the grid already
         // removed it locally) and surface the error. Drafts are preserved
         // because they live in React state, not the query cache.
         await queryClient.invalidateQueries({ queryKey: allRowsKey })

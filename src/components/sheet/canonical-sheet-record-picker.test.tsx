@@ -22,7 +22,6 @@ globalThis.ResizeObserver = class {
 Element.prototype.scrollIntoView = () => {}
 
 const gridRender = vi.hoisted(() => vi.fn())
-const setDataAtCell = vi.hoisted(() => vi.fn())
 
 vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -40,7 +39,6 @@ vi.mock('./sheetbase-grid', () => {
     onOpenRecordPicker,
     beforeCellsChange,
     onCellsChange,
-    onReady,
   }: GridPropsCapture) => {
     gridRender({
       columns,
@@ -48,9 +46,6 @@ vi.mock('./sheetbase-grid', () => {
       beforeCellsChange,
       onCellsChange,
     })
-    // Stand-in neutral handle: the transitional vendor instance carries the
-    // Handsontable write-back the workspace still supports.
-    onReady?.({ vendor: { setDataAtCell } })
     return (
       <table>
         <thead>
@@ -65,7 +60,7 @@ vi.mock('./sheetbase-grid', () => {
       </table>
     )
   }
-  return { SheetbaseGrid: Recorder, SheetbaseTableGrid: Recorder }
+  return { SheetbaseTableGrid: Recorder }
 })
 
 interface GridPropsCapture {
@@ -82,14 +77,13 @@ interface GridPropsCapture {
       columnIndex: number
       columnId: string
     },
-    editor?: { commit: (value: unknown) => void; cancel: () => void },
+    editor: { commit: (value: unknown) => void; cancel: () => void },
   ) => void
   beforeCellsChange?: (
     changes: SheetbaseGridCellChange[],
     source: string,
   ) => boolean | undefined
   onCellsChange?: (changes: SheetbaseGridCellChange[], source: string) => void
-  onReady?: (instance: unknown) => void
 }
 
 const refFieldId = '15000000-0000-4000-8000-000000000001'
@@ -161,24 +155,10 @@ function captureProps(): GridPropsCapture {
   return gridRender.mock.lastCall?.[0] as GridPropsCapture
 }
 
-/** Simulate the grid opening the Record picker for a cell edit. */
-function openPicker(props: GridPropsCapture, columnIndex: number) {
-  const column = props.columns?.[columnIndex]
-  expect(column).toBeTruthy()
-  act(() => {
-    props.onOpenRecordPicker?.({
-      rowIndex: 0,
-      columnIndex,
-      columnId: column!.id,
-    })
-  })
-}
-
 beforeEach(() => {
   vi.mocked(searchSheetRecords).mockReset()
   vi.mocked(mutateSheetLocalState).mockReset()
   gridRender.mockClear()
-  setDataAtCell.mockClear()
 })
 
 afterEach(cleanup)
@@ -203,39 +183,7 @@ describe('GRID-03 canonical Record picker editor', () => {
     expect(props.onOpenRecordPicker).toEqual(expect.any(Function))
   })
 
-  it('opens the shared model-scoped picker from the cell edit and writes the canonical UUID', async () => {
-    const user = userEvent.setup()
-    vi.mocked(searchSheetRecords).mockResolvedValue([hit])
-    vi.mocked(mutateSheetLocalState).mockResolvedValue(refInstance())
-    renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
-    const props = captureProps()
-
-    openPicker(props, 0)
-
-    // The picker opens for the field's own relationship target, not a sheet
-    // default, and the search is the bounded server-backed RPC.
-    expect(await screen.findByRole('combobox')).toBeTruthy()
-    expect(searchSheetRecords).toHaveBeenCalledWith(
-      { modelKey: 'sample', query: '' },
-      expect.anything(),
-    )
-    const combobox = screen.getByRole('combobox')
-    act(() => {
-      combobox.focus()
-    })
-    await user.keyboard('{Enter}')
-
-    // Selection persists the canonical Record UUID through the grid pipeline.
-    expect(setDataAtCell).toHaveBeenCalledWith(
-      0,
-      0,
-      recordUuid,
-      'sheetbase.record-picker',
-    )
-    expect(setDataAtCell).toHaveBeenCalledTimes(1)
-  })
-
-  it('writes the picked Record through the backend editor handle when one is supplied', async () => {
+  it('writes the picked Record through the backend editor handle', async () => {
     const user = userEvent.setup()
     vi.mocked(searchSheetRecords).mockResolvedValue([hit])
     vi.mocked(mutateSheetLocalState).mockResolvedValue(refInstance())
@@ -246,8 +194,7 @@ describe('GRID-03 canonical Record picker editor', () => {
     const column = props.columns?.[0]
 
     // COMP-06 steps 2-3: the table backend owns the cell editor and hands the
-    // workspace its commit/cancel, so the pick flows through the grid gate
-    // instead of the vendor instance.
+    // workspace its commit/cancel, so the pick flows through the grid gate.
     act(() => {
       props.onOpenRecordPicker?.(
         { rowIndex: 0, columnIndex: 0, columnId: column!.id },
@@ -263,7 +210,6 @@ describe('GRID-03 canonical Record picker editor', () => {
 
     expect(commit).toHaveBeenCalledWith(recordUuid)
     expect(cancel).not.toHaveBeenCalled()
-    expect(setDataAtCell).not.toHaveBeenCalled()
   })
 
   it('displays the human label after a pick and the raw UUID when unknown', () => {
@@ -328,7 +274,6 @@ describe('GRID-03 canonical Record picker editor', () => {
       .join(' ')
     expect(statuses).toContain('Edit rejected: invalid_value in Sample')
     expect(statuses).toContain('kept its previous value')
-    expect(setDataAtCell).not.toHaveBeenCalled()
   })
 
   it('clears the cell to a canonical null through the edit pipeline', async () => {

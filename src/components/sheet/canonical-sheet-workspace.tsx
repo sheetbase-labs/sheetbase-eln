@@ -13,7 +13,6 @@ import type {
   SheetbaseGridCellChange,
   SheetbaseGridColumn,
   SheetbaseGridFilter,
-  SheetbaseGridHandle,
   SheetbaseGridMenuEntry,
   SheetbaseGridRecordEditor,
   SheetbaseGridSelection,
@@ -143,7 +142,7 @@ export function recordCellDisplayText(
 /**
  * COMP-06 — the vendor-neutral column contract. The wrapper maps each neutral
  * type onto the engine (including the Record picker editor and display
- * renderers), so callers never build Handsontable column settings.
+ * renderers), so callers never build engine column settings.
  */
 function sheetbaseColumn(
   column: CanonicalSheetGridColumn,
@@ -164,8 +163,8 @@ function sheetbaseColumn(
   if (kind === 'checkbox') return { ...base, type: 'checkbox' }
   if (kind === 'number') return { ...base, type: 'number' }
   if (kind === 'date') return { ...base, type: 'date' }
-  // GRID-03 review fix: Handsontable 18's `date` cell type cannot hold or
-  // produce a time and rejects canonical `…Z` instants on edit, which would
+  // GRID-03 review fix: the previous grid's `date` cell type could not hold or
+  // produce a time and rejected canonical `…Z` instants on edit, which would
   // make timestamp columns uneditable. Timestamps keep the text editor;
   // parseSheetCellInput coerces bare input to a canonical UTC instant before
   // validation (bare input is interpreted as UTC because the grid carries no
@@ -311,7 +310,7 @@ export function CanonicalSheetEditor({
   const [picker, setPicker] = useState<{
     modelKey: string
     cell: { row: number; col: number } | null
-    /** Grid-side editor handle when the backend owns the cell editor. */
+    /** Grid-side editor handle when the pick originated in a cell. */
     editor?: SheetbaseGridRecordEditor
   } | null>(null)
   const recordLabelsRef = useRef<
@@ -858,14 +857,6 @@ export function CanonicalSheetEditor({
   deleteColumnRef.current = deleteSelectedColumn
   deleteLocalRowAtRef.current = deleteLocalRowAt
 
-  // COMP-06.2/.3: the table backend hands back a neutral imperative handle.
-  // The vendor instance (transitional) rides on `handle.vendor` for the
-  // record-picker write-back used only by the Handsontable backend.
-  const gridHandleRef = useRef<SheetbaseGridHandle | null>(null)
-  const handleGridReady = useCallback((handle: SheetbaseGridHandle | null) => {
-    gridHandleRef.current = handle
-  }, [])
-
   // COMP-06.2: the engine's own row menu drives insert/delete. A bound Sheet
   // only owns local rows, so bound rows fail the delete preflight; the host
   // persists the change and the rebuilt rows flow back through `rows`.
@@ -890,7 +881,7 @@ export function CanonicalSheetEditor({
 
   // COMP-06 step 1: the caller speaks Sheetbase terms only. Validation, write
   // attribution and presentation persistence stay here; the wrapper maps the
-  // neutral callbacks onto the rendering engine (Handsontable, for now).
+  // neutral callbacks onto the rendering engine.
   const sheetColumns = useMemo(
     () =>
       matrix.columns.map((column) =>
@@ -1100,7 +1091,7 @@ export function CanonicalSheetEditor({
   const handleOpenRecordPicker = useCallback(
     (
       cell: { rowIndex: number; columnIndex: number; columnId: string },
-      editor?: SheetbaseGridRecordEditor,
+      editor: SheetbaseGridRecordEditor,
     ) => {
       const column = matrixRef.current.columns.at(cell.columnIndex)
       const targetModelKey = recordPickerTargetModelKey(column?.field ?? null)
@@ -1110,7 +1101,7 @@ export function CanonicalSheetEditor({
         !column.editable ||
         !targetModelKey
       ) {
-        editor?.cancel()
+        editor.cancel()
         return
       }
       setPicker({
@@ -1548,7 +1539,6 @@ export function CanonicalSheetEditor({
             onBeforeRowsRemove={handleBeforeRowsRemove}
             onRowsRemoved={handleRowsRemoved}
             onRowsInserted={handleRowsInserted}
-            onReady={handleGridReady}
           />
         </div>
       )}
@@ -1616,32 +1606,10 @@ export function CanonicalSheetEditor({
                 title: result.title,
               }
               if (picker.cell) {
-                if (picker.editor) {
-                  // The backend owns the cell editor: commit through its own
-                  // pre-commit gate so the picked id is validated and written
-                  // like any other edit.
-                  picker.editor.commit(result.id)
-                } else {
-                  // Transitional Handsontable path (the table backend always
-                  // supplies an editor): write through the vendor instance the
-                  // neutral handle carries.
-                  const vendor = gridHandleRef.current?.vendor as
-                    | {
-                        setDataAtCell?: (
-                          row: number,
-                          column: number,
-                          value: string,
-                          source?: string,
-                        ) => void
-                      }
-                    | undefined
-                  vendor?.setDataAtCell?.(
-                    picker.cell.row,
-                    picker.cell.col,
-                    result.id,
-                    'sheetbase.record-picker',
-                  )
-                }
+                // The backend owns the cell editor: commit through its own
+                // pre-commit gate so the picked id is validated and written
+                // like any other edit.
+                picker.editor?.commit(result.id)
               } else {
                 link.mutate(result.id)
               }

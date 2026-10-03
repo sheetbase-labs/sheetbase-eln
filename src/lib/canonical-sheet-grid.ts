@@ -282,14 +282,14 @@ export function applySheetPresentation(
 
 /**
  * GRID-02/GRID-03 — resolve a change set (paste, fill, clear, single edit)
- * against the typed column contract before Handsontable applies anything.
+ * against the typed column contract before the grid applies anything.
  * Every value is coerced through `parseSheetCellInput` (canonical category
  * option, UTC instant, thousands-separated number) and validated. A bulk or
  * single write is accepted only when every target cell is editable and every
  * value parses and validates; otherwise the whole operation fails closed, so
  * the visible grid can never diverge from the authoritative state. The
  * returned change list carries the coerced canonical values for the caller to
- * apply back onto Handsontable's change array.
+ * apply back onto the grid's change array.
  */
 export type BulkChangeRejection =
   | { kind: 'read_only_column'; label: string }
@@ -348,8 +348,8 @@ export function firstBulkChangeRejection(
  * GRID-02 — compute the change list for a "clear contents" bulk operation.
  *
  * Returns `[row, col, null]` triples for every editable, non-empty cell in
- * the selection (Handsontable's `setDataAtCell` change format reads element
- * `[2]` as the new value). Read-only/derived columns and already-empty cells
+ * the selection (the bulk change format reads element `[2]` as the new value).
+ * Read-only/derived columns and already-empty cells
  * are skipped, so clearing never mints phantom spare-row entries and the
  * workspace `beforeChange` validation remains the fail-closed gate for
  * required fields. Column resolution mirrors GRID-02's `toPhysicalRow` row
@@ -420,7 +420,7 @@ export function categoryCellDisplayText(
 }
 
 /**
- * GRID-04 — typed mapping between Handsontable 18's Filters plugin state and
+ * GRID-04 — typed mapping between the grid Filters plugin state and
  * `presentation.filters`.
  *
  * The plugin's condition collection is deterministic and serialisable:
@@ -460,7 +460,7 @@ function isFilterValue(
 }
 
 /**
- * GRID-04 — convert a Handsontable `afterFilter` conditions stack into
+ * GRID-04 — convert a grid `afterFilter` conditions stack into
  * canonical `presentation.filters`. Column coordinates resolve through the
  * composed matrix's physical column order; only equality-shaped conditions
  * under a plain AND group are captured (the `true`/`false` checkbox conditions

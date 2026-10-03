@@ -107,8 +107,8 @@ Stability notebook can own two managed sheets; typed columns, units,
 validation, CSV import, literals and durable formulas survive display-name
 changes; within-sheet and cross-sheet calculations use stable identities;
 validation, stale-version, circular-reference and stale-cache states remain
-explicit; and an attributed external API edit reaches both Handsontable grids
-and their dependent HyperFormula results through the live-event stream.
+explicit; and an attributed external API edit reaches both sheet grids
+and their dependent calculation results through the live-event stream.
 
 The browser proof inserts a short-lived Better Auth session directly, just as
 the OAuth callback would after provider consent. It never contacts GitHub and

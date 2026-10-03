@@ -28,8 +28,7 @@ vi.mock('#/lib/sheet-instance-data', async (importOriginal) => ({
 // The grid is replaced with a props recorder: the workspace is exercised
 // through the neutral Sheetbase contract (columns, rows, write callbacks and
 // presentation callbacks), never through engine settings. COMP-06 steps 2-3:
-// the ad-hoc surface must render `SheetbaseTableGrid`; the Handsontable export
-// throws so this suite fails if the backend ever regresses.
+// the ad-hoc surface renders `SheetbaseTableGrid`.
 vi.mock('./sheetbase-grid', () => {
   const Recorder = (props: Record<string, any>) => {
     gridRender(props)
@@ -49,12 +48,7 @@ vi.mock('./sheetbase-grid', () => {
       </table>
     )
   }
-  return {
-    SheetbaseGrid: () => {
-      throw new Error('The ad-hoc sheet must use the sheetbase-table backend.')
-    },
-    SheetbaseTableGrid: Recorder,
-  }
+  return { SheetbaseTableGrid: Recorder }
 })
 
 afterEach(() => {

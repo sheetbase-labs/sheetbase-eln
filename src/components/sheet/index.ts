@@ -1,7 +1,6 @@
-export { SheetbaseGrid, SheetbaseTableGrid } from './sheetbase-grid'
+export { SheetbaseTableGrid } from './sheetbase-grid'
 export type {
   SheetbaseCellState,
-  SheetbaseGridBackend,
   SheetbaseGridCellChange,
   SheetbaseGridColumn,
   SheetbaseGridColumnSource,

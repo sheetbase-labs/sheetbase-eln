@@ -545,7 +545,7 @@ describe('clear contents with visual→physical columns (GRID-04)', () => {
   })
 })
 
-describe('Handsontable filter ⇄ presentation.filters mapping (GRID-04)', () => {
+describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
   const columns = [{ id: 'col-a' }, { id: 'col-b' }, { id: 'col-c' }]
   const columnIds = new Set(columns.map((column) => column.id))
   const emptyPresentation = {

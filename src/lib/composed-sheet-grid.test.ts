@@ -4,7 +4,7 @@ import { composedSheetGridMatrix } from './composed-sheet-grid'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
 
 describe('composed Sheet grid matrix', () => {
-  it('projects bound columns for a Handsontable surface', () => {
+  it('projects bound columns for a grid surface', () => {
     const snapshot = {
       instanceId: '30000000-0000-4000-8000-000000000010',
       revision: 1,

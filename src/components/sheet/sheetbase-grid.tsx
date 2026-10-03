@@ -5,10 +5,9 @@ import { Component, useEffect, useId, useState } from 'react'
  * COMP-06 step 1 — the caller-facing contract for a scientific Sheet grid is
  * written in Sheetbase terms (columns with a source and a type, rows, per-cell
  * state and write callbacks). It does not mention the rendering engine: the
- * vendor settings live inside the backend clients, which translate these props
- * onto `sheetbase-table` (`sheetbase-table-grid-client.tsx`) or, transitionally
- * until COMP-06 step 5, onto Handsontable (`sheetbase-grid-client.tsx`).
- * Callers never build vendor settings.
+ * engine settings live inside the backend client, which translates these props
+ * onto `sheetbase-table` (`sheetbase-table-grid-client.tsx`). Callers never
+ * build engine settings.
  */
 
 /** One cell value as the grid stores and displays it. */
@@ -191,9 +190,7 @@ export interface SheetbaseGridClipboard {
 /**
  * Imperative handle for the live grid. `selectCell`/`selectCellAddress` select
  * and reveal a cell; `scrollCellIntoView` reveals one without changing the
- * selection. The `sheetbase-table` backend passes its own `SpreadsheetHandle`;
- * the transitional Handsontable backend wraps its instance and exposes it on
- * `vendor` for the vendor-only write-backs still being migrated (COMP-06).
+ * selection. The `sheetbase-table` backend passes its own `SpreadsheetHandle`.
  */
 export interface SheetbaseGridHandle {
   /** Select a displayed cell and reveal it. */
@@ -209,8 +206,6 @@ export interface SheetbaseGridHandle {
   ) => boolean
   /** Scroll a displayed cell into view without changing the selection. */
   scrollCellIntoView: (row: number, column: number) => void
-  /** Transitional vendor instance (Handsontable); absent on `sheetbase-table`. */
-  readonly vendor?: unknown
 }
 
 export interface SheetbaseGridProps {
@@ -311,8 +306,9 @@ export interface SheetbaseGridProps {
   /**
    * Opens the shared Record picker for a `record` cell. Coordinates are the
    * cell's display position so the caller can write the picked value back
-   * through the same change pipeline. A backend that owns a cell editor passes
-   * `editor`, whose `commit` writes the picked value through its own gate.
+   * through the same change pipeline. The backend owns the cell editor and
+   * passes `editor`, whose `commit` writes the picked value through its own
+   * gate.
    */
   onOpenRecordPicker?: (
     cell: {
@@ -320,7 +316,7 @@ export interface SheetbaseGridProps {
       columnIndex: number
       columnId: string
     },
-    editor?: SheetbaseGridRecordEditor,
+    editor: SheetbaseGridRecordEditor,
   ) => void
   /**
    * Fired after mount with the neutral imperative handle (and with `null` on
@@ -340,19 +336,6 @@ export interface SheetbaseGridProps {
  */
 export type SheetbaseCellState =
   'invalid' | 'flagged' | 'pending' | 'derived' | 'readonly' | 'unsynced'
-
-export interface SheetbaseGridClientProps extends SheetbaseGridProps {
-  licenseKey: string
-  ariaLabel: string
-  descriptionId: string
-  cutStatusId: string
-  /** Internal test seam: render every row regardless of the viewport. */
-  renderAllRows?: boolean
-  /** Internal test seam: render every column regardless of the viewport. */
-  renderAllColumns?: boolean
-}
-
-type ClientGrid = ComponentType<SheetbaseGridClientProps>
 
 interface GridBoundaryProps {
   children: ReactNode
@@ -395,86 +378,50 @@ function GridFailure({ message }: { message: string }) {
   )
 }
 
-/**
- * Which engine renders the neutral props. The canonical, ad-hoc and notebook
- * sheet surfaces all run on `sheetbase-table` (COMP-06 steps 2-3); the
- * Handsontable backend remains only for its own tests until step 5 removes the
- * package. Callers pick by exporting the matching component — the props
- * themselves stay vendor-neutral.
- */
-export type SheetbaseGridBackend = 'handsontable' | 'sheetbase-table'
-
 type TableClientGrid = ComponentType<SheetbaseGridProps>
 
 const DEFAULT_DESCRIPTION =
   'Spreadsheet. Tab moves forward and Shift+Tab moves back; at a horizontal edge, Tab returns to the page. Arrow keys move, and Shift+Arrow extends the active range. Control or Command with an arrow moves to an edge. Home and End move within a row; Control or Command with Home or End moves to a grid corner. Page Up and Page Down move by a viewport. Enter or F2 starts editing, Enter commits, and Escape cancels. Control or Command+A selects all cells, Control+Space selects a column, and Shift+Space selects a row. Control or Command-click adds a range; keyboard commands affect the last active range. Copy and cut use only the active range. Cut is blocked when that range contains read-only or derived cells.'
 
 /**
- * The Handsontable backend. COMP-06 steps 2-3 moved the canonical, ad-hoc and
- * notebook sheet surfaces to `SheetbaseTableGrid`; this export remains only for
- * the vendor client's own tests until step 5 removes the package.
- */
-export function SheetbaseGrid(props: SheetbaseGridProps) {
-  return <SheetbaseGridShell {...props} backend="handsontable" />
-}
-
-/**
- * COMP-06 step 2 — the same neutral props rendered by `sheetbase-table`, used
- * by the canonical and ad-hoc sheet surfaces.
+ * COMP-06 step 2 — the neutral props rendered by `sheetbase-table`, used by
+ * the canonical, ad-hoc and notebook sheet surfaces. The props stay
+ * vendor-neutral; the engine client is loaded lazily so its bundle is split out
+ * of the initial route payload.
  */
 export function SheetbaseTableGrid(props: SheetbaseGridProps) {
-  return <SheetbaseGridShell {...props} backend="sheetbase-table" />
+  return <SheetbaseGridShell {...props} />
 }
 
 function SheetbaseGridShell({
-  backend,
   ariaLabel = 'Scientific data sheet',
   description = DEFAULT_DESCRIPTION,
   onReady,
   ...props
-}: SheetbaseGridProps & { backend: SheetbaseGridBackend }) {
+}: SheetbaseGridProps) {
   const descriptionId = useId()
   const cutStatusId = useId()
-  const [HotGrid, setHotClient] = useState<ClientGrid | null>(null)
   const [TableGrid, setTableGrid] = useState<TableClientGrid | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
-  const licenseKey = import.meta.env.VITE_HANDSONTABLE_LICENSE_KEY?.trim()
 
   useEffect(() => {
     let active = true
-    if (backend === 'sheetbase-table') {
-      import('./sheetbase-table-grid-client')
-        .then(({ SheetbaseTableGridClient }) => {
-          if (active) setTableGrid(() => SheetbaseTableGridClient)
-        })
-        .catch((error: unknown) => {
-          console.error(
-            'Sheetbase table grid client bundle failed to load.',
-            error,
-          )
-          if (active) setLoadFailed(true)
-        })
-      return () => {
-        active = false
-      }
-    }
-    if (!licenseKey) return
-    import('./sheetbase-grid-client')
-      .then(({ SheetbaseGridClient }) => {
-        if (active) setHotClient(() => SheetbaseGridClient)
+    import('./sheetbase-table-grid-client')
+      .then(({ SheetbaseTableGridClient }) => {
+        if (active) setTableGrid(() => SheetbaseTableGridClient)
       })
       .catch((error: unknown) => {
-        console.error('Sheetbase grid client bundle failed to load.', error)
+        console.error(
+          'Sheetbase table grid client bundle failed to load.',
+          error,
+        )
         if (active) setLoadFailed(true)
       })
     return () => {
       active = false
     }
-  }, [backend, licenseKey])
+  }, [])
 
-  if (backend === 'handsontable' && !licenseKey) {
-    return <GridFailure message="A Handsontable licence is not configured." />
-  }
   if (loadFailed) {
     return <GridFailure message="The grid client could not be loaded." />
   }
@@ -493,23 +440,12 @@ function SheetbaseGridShell({
         id={cutStatusId}
         aria-live="polite"
       />
-      {backend === 'sheetbase-table' && TableGrid ? (
+      {TableGrid ? (
         <GridBoundary>
           <TableGrid
             {...props}
             ariaLabel={ariaLabel}
             cutStatusId={cutStatusId}
-            onReady={onReady}
-          />
-        </GridBoundary>
-      ) : backend === 'handsontable' && HotGrid && licenseKey ? (
-        <GridBoundary>
-          <HotGrid
-            {...props}
-            ariaLabel={ariaLabel}
-            descriptionId={descriptionId}
-            cutStatusId={cutStatusId}
-            licenseKey={licenseKey}
             onReady={onReady}
           />
         </GridBoundary>

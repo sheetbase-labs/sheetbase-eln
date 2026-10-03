@@ -69,8 +69,8 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
         accessorFn: (record) => record.title,
         cell: ({ row }) => (
           <Link
-            to="/records/$recordId"
-            params={{ recordId: row.original.id }}
+            to="/models/$modelId/records/$recordId"
+            params={{ modelId: modelKey, recordId: row.original.id }}
             className="text-link"
           >
             {row.original.title}
@@ -106,7 +106,7 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
         meta: { className: 'max-w-[240px]' },
       })),
     ]
-  }, [fields])
+  }, [fields, modelKey])
 
   const exportCsv = () => {
     const csv = recordModelCsv(visible, fields)
@@ -176,6 +176,19 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
         onClick={exportCsv}
       >
         Export CSV
+      </Button>
+      <Button
+        variant="primary"
+        size="sm"
+        nativeButton={false}
+        render={
+          <Link
+            to="/models/$modelId/records/new"
+            params={{ modelId: modelKey }}
+          />
+        }
+      >
+        New {model.data?.name ?? 'record'}
       </Button>
     </>
   )

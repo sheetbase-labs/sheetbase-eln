@@ -415,6 +415,52 @@ export const designSteps: Array<SeedStep> = [
           })
       }
 
+      // MDL-02 rules, shown inline by the MDL-04 generated form and enforced
+      // by the canonical write/submit paths.
+      const rules = [
+        {
+          id: '00000000-0000-4000-8000-00000000060b',
+          name: 'Working banks',
+          fieldKeys: ['passage'],
+          condition: { field: 'passage', op: 'gt', value: 30 },
+          effect: 'warn',
+          message: 'Working banks must be at passage 30 or lower',
+        },
+        {
+          id: '00000000-0000-4000-8000-00000000060c',
+          name: 'Vials left',
+          fieldKeys: ['vials_left'],
+          condition: { field: 'vials_left', op: 'lt', value: 0 },
+          effect: 'block',
+          message: "Vials left can't go below 0",
+        },
+      ]
+      for (const rule of rules) {
+        await db
+          .insert(schema.modelRules)
+          .values({
+            id: rule.id,
+            workspaceId: PROCESS,
+            modelKey: DESIGN_CELL_BANK_MODEL.key,
+            name: rule.name,
+            fieldKeys: rule.fieldKeys,
+            condition: rule.condition,
+            effect: rule.effect,
+            message: rule.message,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: schema.modelRules.id,
+            set: {
+              name: rule.name,
+              fieldKeys: rule.fieldKeys,
+              condition: rule.condition,
+              effect: rule.effect,
+              message: rule.message,
+            },
+          })
+      }
+
       // Continue the CB- sequence after the seeded lots, so a new record is
       // CB-0013+ rather than re-issuing an existing identifier.
       const lastNumber = Math.max(

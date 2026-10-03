@@ -106,6 +106,15 @@ export async function discover() {
         `/api/db/dataset_versions?dataset_id=eq.${datasets[0].id}&select=id,label&order=created_at.desc&limit=3`,
       )
     }
+    let recordModelRecord
+    let recordModelRecordIdentifier
+    if (recordModels[0]?.key) {
+      const rows = await get(
+        `/api/db/records?kind=eq.${recordModels[0].key}&limit=1&select=id,identifier`,
+      )
+      recordModelRecord = rows[0]?.id
+      recordModelRecordIdentifier = rows[0]?.identifier
+    }
     return {
       project: projects[0]?.id,
       experiment: experiments[0]?.id,
@@ -123,6 +132,8 @@ export async function discover() {
       instrument: instruments[0]?.id,
       alias: aliases[0]?.alias,
       recordModel: recordModels[0]?.key,
+      recordModelRecord,
+      recordModelRecordIdentifier,
       versions,
     }
   })

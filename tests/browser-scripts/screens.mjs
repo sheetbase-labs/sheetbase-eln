@@ -72,6 +72,13 @@ async function discover() {
       get('/api/db/instruments?limit=1&select=id'),
       get('/api/db/record_models?limit=1&select=key'),
     ])
+    let recordModelRecord
+    if (recordModels[0]?.key) {
+      const rows = await get(
+        `/api/db/records?kind=eq.${recordModels[0].key}&limit=1&select=id`,
+      )
+      recordModelRecord = rows[0]?.id
+    }
     return {
       project: projects[0]?.id,
       experiment: experiments[0]?.id,
@@ -88,6 +95,7 @@ async function discover() {
       sheet: sheets[0]?.id,
       instrument: instruments[0]?.id,
       recordModel: recordModels[0]?.key,
+      recordModelRecord,
     }
   })
   await page.close()
@@ -193,12 +201,18 @@ function routes(ids) {
       `/models/${ids.model}/edit`,
       `/models/${ids.model}/edit?state=denied`,
     )
-  if (ids.recordModel)
+  if (ids.recordModel) {
+    // MDL-01/MDL-04: a workspace-defined record model is keyed, not a uuid.
     list.push(
-      // MDL-01/MDL-04: a workspace-defined record model is keyed, not a uuid.
       `/models/${ids.recordModel}`,
       `/models/${ids.recordModel}/records`,
+      `/models/${ids.recordModel}/records/new`,
     )
+    if (ids.recordModelRecord)
+      list.push(
+        `/models/${ids.recordModel}/records/${ids.recordModelRecord}`,
+      )
+  }
   if (ids.pipeline)
     list.push(
       `/pipelines/${ids.pipeline}`,

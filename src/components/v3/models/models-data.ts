@@ -13,8 +13,18 @@ import type {
   CanonicalDatasetSchemaVersion,
 } from '#/lib/dataset-schema-definition-rpc'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { displayModelFieldValue, fetchModelFields } from '#/lib/model-fields'
+import {
+  displayModelFieldValue,
+  fetchModelFields,
+  modelFieldValuesFromInput,
+  parseModelFieldInput,
+  validateModelFieldValue,
+} from '#/lib/model-fields'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
+import { fetchModelRules } from '#/lib/model-rules'
+import type { ModelRule } from '#/lib/model-rules'
+import { fetchRecordTimeline } from '#/lib/sign-002'
+import type { TimelineEventWire } from '#/lib/sign-002'
 import { delimitedHeaderLine, delimitedRowLine } from '#/lib/export/delimited'
 import type { ExportField, ExportRow } from '#/lib/export/delimited'
 
@@ -268,6 +278,7 @@ export interface RecordModelRecord {
   custom_fields: Record<string, unknown> | null
   properties: Record<string, unknown> | null
   tags: string[]
+  created_at: string
   updated_at: string
   archived_at: string | null
 }
@@ -284,7 +295,7 @@ const WORKSPACE_MODEL_COLUMNS =
   'id,workspace_id,key,name,description,identifier_prefix,lifecycle,current_version,created_at,updated_at'
 
 const RECORD_MODEL_RECORD_COLUMNS =
-  'id,identifier,title,kind,status,custom_fields,properties,tags,updated_at,archived_at'
+  'id,identifier,title,kind,status,custom_fields,properties,tags,created_at,updated_at,archived_at'
 
 /** Resolve a workspace-defined record model by its stable key. RLS keeps this
  * workspace-scoped; another workspace's model reads as not found. */
@@ -503,3 +514,188 @@ export function recordModelCsv(
     ...rows.map((row) => delimitedRowLine(exportFields, row, ',')),
   ].join('\n')
 }
+
+// ---------------------------------------------------------------------------
+// MDL-04.2/.3 — generated form, record page and related reads.
+// ---------------------------------------------------------------------------
+
+export interface RecordModelProject {
+  id: string
+  key: string
+  title: string
+}
+
+/** Incoming link (who uses this record), with the source record resolved. */
+export interface RecordModelUsedBy {
+  linkType: string
+  createdAt: string
+  source: {
+    id: string
+    identifier: string
+    title: string
+    kind: string
+  } | null
+}
+
+export const recordModelDetailQueryKeys = {
+  rules: (key: string) => ['ui-port', 'record-models', 'rules', key] as const,
+  projects: ['ui-port', 'record-models', 'projects'] as const,
+  record: (id: string) => ['ui-port', 'record-models', 'record', id] as const,
+  usedBy: (id: string) => ['ui-port', 'record-models', 'used-by', id] as const,
+  timeline: (id: string) =>
+    ['ui-port', 'record-models', 'timeline', id] as const,
+}
+
+/** Rules for a workspace model, evaluated client-side for inline form hints. */
+export function useModelRules(
+  key: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: recordModelDetailQueryKeys.rules(key),
+    queryFn: () => fetchModelRules(client, key),
+    enabled: Boolean(key),
+    staleTime: 30_000,
+  })
+}
+
+/** Projects a new record can be filed under. */
+export function useRecordModelProjects(client: DataClient = notebookDataClient) {
+  return useQuery({
+    queryKey: recordModelDetailQueryKeys.projects,
+    queryFn: () =>
+      client.list<RecordModelProject>(
+        'projects',
+        '?select=id,key,title&order=created_at.asc',
+      ),
+    staleTime: 60_000,
+  })
+}
+
+export function useRecordModelRecord(
+  recordId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: recordModelDetailQueryKeys.record(recordId),
+    queryFn: () =>
+      client
+        .list<RecordModelRecord>(
+          'records',
+          `?id=eq.${encodeURIComponent(recordId)}&select=${RECORD_MODEL_RECORD_COLUMNS}`,
+        )
+        .then((rows) => rows[0] ?? null),
+    enabled: Boolean(recordId),
+    staleTime: 15_000,
+  })
+}
+
+/** Records that link to this one, with the source record resolved. */
+export function useRecordModelUsedBy(
+  recordId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: recordModelDetailQueryKeys.usedBy(recordId),
+    queryFn: () =>
+      client.list<RecordModelUsedBy>(
+        'record_links',
+        `?target_record_id=eq.${encodeURIComponent(recordId)}&select=link_type,created_at,source:source_record_id(id,identifier,title,kind)&order=created_at.desc`,
+      ),
+    enabled: Boolean(recordId),
+    staleTime: 15_000,
+  })
+}
+
+/** The canonical record timeline (change events, revisions, reviews…). */
+export function useRecordModelTimeline(
+  recordId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: recordModelDetailQueryKeys.timeline(recordId),
+    queryFn: () => fetchRecordTimeline(client, recordId),
+    enabled: Boolean(recordId),
+    staleTime: 15_000,
+  })
+}
+
+/**
+ * The identifier the next record will get, e.g. `CB-0013`. The durable counter
+ * lives server-side in `internal.id_sequences`, which is not exposed; this is
+ * an estimate from the highest identifier already visible, and the server
+ * assigns the real value on save.
+ */
+export function recordModelNextIdentifier(
+  prefix: string,
+  records: Pick<RecordModelRecord, 'identifier'>[],
+): string {
+  const highest = records.reduce((max, record) => {
+    const match = /-(\d+)$/.exec(record.identifier)
+    return match ? Math.max(max, Number(match[1])) : max
+  }, 0)
+  return `${prefix}-${String(highest + 1).padStart(4, '0')}`
+}
+
+/** Client-side errors for a generated form, keyed by field name. */
+export function modelFieldInputErrors(
+  fields: ModelFieldDefinition[],
+  values: Record<string, string | boolean>,
+): Record<string, string> {
+  const errors: Record<string, string> = {}
+  for (const field of fields) {
+    const fallback = field.logicalType === 'boolean' ? false : ''
+    const raw = values[field.fieldName] ?? fallback
+    // A blank value with a server default is valid: the RPC fills it in.
+    if (raw === '' && field.defaultValue !== null && field.defaultValue !== undefined)
+      continue
+    const parsed = parseModelFieldInput(field, raw)
+    const error = validateModelFieldValue(field, parsed)
+    if (error) errors[field.fieldName] = error
+  }
+  return errors
+}
+
+const MODEL_FIELD_ERROR_MESSAGES: Record<string, string> = {
+  required_value: 'A required value is missing.',
+  numeric_validation: 'The value is outside the allowed range.',
+  text_validation: 'The text does not match the field’s rules.',
+  invalid_value_type: 'The value type does not match the field.',
+  invalid_value: 'That value is not allowed.',
+  invalid_reference: 'The linked record was not found in this workspace.',
+  invalid_category_option: 'That category option is not available.',
+  invalid_cardinality: 'The number of values is wrong for this field.',
+}
+
+/** Human message for a kernel validation code; unknown codes stay visible. */
+export function modelFieldErrorMessage(code: string): string {
+  return MODEL_FIELD_ERROR_MESSAGES[code] ?? `Couldn’t save (${code}).`
+}
+
+/** Build the `custom_fields` object the RPC receives, omitting blank values. */
+export function buildRecordModelCustomFields(
+  fields: ModelFieldDefinition[],
+  values: Record<string, string | boolean>,
+): Record<string, unknown> {
+  return modelFieldValuesFromInput(fields, values, true)
+}
+
+/**
+ * Active fields the model gained after this record was created and that the
+ * record does not yet carry — the "added in a later version" banner.
+ */
+export function laterAddedModelFields(
+  fields: ModelFieldDefinition[],
+  record: Pick<RecordModelRecord, 'created_at' | 'custom_fields' | 'properties'>,
+): ModelFieldDefinition[] {
+  const created = Date.parse(record.created_at)
+  if (!Number.isFinite(created)) return []
+  return fields.filter((field) => {
+    if (!field.createdAt) return false
+    const fieldCreated = Date.parse(field.createdAt)
+    if (!Number.isFinite(fieldCreated) || fieldCreated <= created) return false
+    return recordFieldValue(record, field.fieldName) === undefined
+  })
+}
+
+export type { TimelineEventWire, ModelRule }

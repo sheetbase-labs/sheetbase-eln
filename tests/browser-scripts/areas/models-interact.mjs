@@ -61,6 +61,44 @@ if (ids.recordModel) {
     (await page.getByRole('button', { name: /export csv/i }).count()) > 0,
     'records list offers CSV export',
   )
+
+  // MDL-04.2 — the generated new-record form.
+  await go(page, `/models/${key}/records/new`)
+  check(
+    (await page.getByRole('heading', { level: 1 }).count()) === 1,
+    'new-record form shows one h1',
+  )
+  check(
+    (await page.getByText(/on save/i).count()) > 0,
+    'new-record form previews the ID',
+  )
+  const passage = page.getByLabel('Passage')
+  if (await passage.count()) {
+    await passage.fill('34')
+    await page.waitForTimeout(500)
+    check(
+      (await page.getByText(/passage 30 or lower/i).count()) > 0,
+      'the model rule shows inline on the form',
+    )
+    await passage.fill('')
+  }
+
+  // MDL-04.3 — the record page.
+  if (ids.recordModelRecord) {
+    await go(page, `/models/${key}/records/${ids.recordModelRecord}`)
+    check(
+      (await page.getByRole('heading', { level: 1 }).count()) === 1,
+      'record page shows one h1',
+    )
+    for (const section of ['Details', 'Used by', 'History']) {
+      check(
+        (await page.getByRole('heading', { name: section }).count()) > 0,
+        `record page has a ${section} section`,
+      )
+    }
+  } else {
+    console.log('note: no record of the workspace model — skipped detail checks')
+  }
 } else {
   console.log('note: no workspace record model — skipped record-model checks')
 }

@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildModelRows,
+  buildRecordModelCustomFields,
   filterRecordModelRecords,
+  laterAddedModelFields,
+  modelFieldInputErrors,
   modelStatus,
   recordFieldValue,
   recordModelCsv,
+  recordModelNextIdentifier,
   recordStatusOptions,
 } from './models-data'
 import type { RecordModelRecord } from './models-data'
@@ -137,6 +141,7 @@ function record(
     custom_fields: {},
     properties: {},
     tags: [],
+    created_at: '2026-08-01T00:00:00Z',
     updated_at: '2026-09-01T00:00:00Z',
     archived_at: null,
     ...overrides,
@@ -280,5 +285,92 @@ describe('recordModelCsv', () => {
     const csv = recordModelCsv([record()], fields)
     const [, row] = csv.split('\n')
     expect(row).toBe('CB-0001,Bank one,Released,,')
+  })
+})
+
+describe('recordModelNextIdentifier', () => {
+  it('continues after the highest visible identifier', () => {
+    expect(
+      recordModelNextIdentifier('CB', [
+        { identifier: 'CB-0012' },
+        { identifier: 'CB-0006' },
+      ]),
+    ).toBe('CB-0013')
+  })
+
+  it('starts at 0001 when the model has no records', () => {
+    expect(recordModelNextIdentifier('CB', [])).toBe('CB-0001')
+  })
+})
+
+describe('modelFieldInputErrors', () => {
+  const requiredInteger = modelField({
+    fieldName: 'passage',
+    logicalType: 'integer',
+    nullable: false,
+  })
+
+  it('reports a required field with no value', () => {
+    expect(modelFieldInputErrors([requiredInteger], {})).toHaveProperty(
+      'passage',
+    )
+  })
+
+  it('accepts a valid value', () => {
+    expect(modelFieldInputErrors([requiredInteger], { passage: '12' })).toEqual(
+      {},
+    )
+  })
+
+  it('reports a value of the wrong type', () => {
+    expect(
+      modelFieldInputErrors([requiredInteger], { passage: 'twelve' }),
+    ).toHaveProperty('passage')
+  })
+})
+
+describe('buildRecordModelCustomFields', () => {
+  it('coerces values and omits blank optional fields', () => {
+    const optionalText = modelField({
+      fieldName: 'location',
+      logicalType: 'text',
+      nullable: true,
+    })
+    expect(
+      buildRecordModelCustomFields([modelField(), optionalText], {
+        passage: '12',
+        location: '',
+      }),
+    ).toEqual({ passage: 12 })
+  })
+})
+
+describe('laterAddedModelFields', () => {
+  const base = modelField({
+    fieldName: 'passage',
+    createdAt: '2026-01-01T00:00:00Z',
+  })
+  const added = modelField({
+    fieldName: 'mycoplasma',
+    logicalType: 'category',
+    createdAt: '2026-09-19T00:00:00Z',
+  })
+
+  it('returns fields created after the record that it does not carry', () => {
+    const row = record({
+      created_at: '2026-08-01T00:00:00Z',
+      custom_fields: { passage: 12 },
+    })
+    expect(laterAddedModelFields([base, added], row).map((f) => f.fieldName)).toEqual(
+      ['mycoplasma'],
+    )
+  })
+
+  it('ignores a later field once the record has a value for it', () => {
+    const row = record({
+      created_at: '2026-08-01T00:00:00Z',
+      custom_fields: { passage: 12, mycoplasma: 'negative' },
+    })
+    expect(laterAddedModelFields([base, added], row)).toEqual([])
   })
 })

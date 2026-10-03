@@ -1,17 +1,7 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-} from '#/components/v3/ui/dialog'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field, Input } from '#/components/v3/ui/input'
 import {
   Table,
   TableBody,
@@ -21,46 +11,28 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { toast } from '#/components/v3/ui/sonner'
+import { fetchSampleMeasurements } from '#/lib/samples'
+import type { SampleMeasurement } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { useUserNames } from '#/lib/user-names'
 
-/** UI port (RM-112): a sample's recorded measurements, with a Record
- * measurement action writing through `record_sample_measurement`. */
+/**
+ * LAB-03: the sample Measurements tab is a read-only view of authoritative
+ * values. Each value is aggregated from a Dataset row linked to the sample or
+ * from an integration/QC result, and links back to its source row. Values
+ * cannot be typed here; the standalone bench-reading surface lives elsewhere
+ * (MOB-02).
+ */
 export const Route = createFileRoute('/samples/$sampleId/measurements')({
   component: MeasurementsTab,
 })
 
-interface MeasurementWire {
-  id: string
-  name: string
-  value: number | string
-  unit: string | null
-  method: string | null
-  measured_at: string
-  notes: string | null
-  created_by_user_id: string | null
-}
-
 function MeasurementsTab() {
   const { sampleId } = Route.useParams()
-  const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-
-  const list = useQuery({
+  const measurements = useQuery({
     queryKey: ['ui-port', 'sample-measurements', sampleId],
-    queryFn: () =>
-      notebookDataClient.list<MeasurementWire>(
-        'sample_measurements',
-        `?sample_record_id=eq.${encodeURIComponent(sampleId)}&order=measured_at.desc&select=id,name,value,unit,method,measured_at,notes,created_by_user_id`,
-      ),
+    queryFn: () => fetchSampleMeasurements(notebookDataClient, sampleId),
   })
-
-  const rows = list.data ?? []
-  const userIds = rows
-    .map((r) => r.created_by_user_id)
-    .filter((x): x is string => Boolean(x))
-  const { userLabel } = useUserNames(userIds, { id: '', name: '' })
+  const rows = measurements.data ?? []
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
@@ -68,45 +40,46 @@ function MeasurementsTab() {
         <h2 className="text-section">
           Measurements <span className="num text-fg-muted">{rows.length}</span>
         </h2>
-        <span className="flex-1" />
-        <Button variant="primary" onClick={() => setOpen(true)}>
-          Record measurement
-        </Button>
       </div>
+      <p className="m-0 -mt-4 text-label text-fg-muted">
+        Values come from datasets and QC; they can’t be typed here.
+      </p>
 
       {rows.length ? (
         <TableBox>
           <Table aria-label="Measurements">
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Measurement</TableHead>
                 <TableHead align="right">Value</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead>Method</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Result</TableHead>
                 <TableHead>Measured</TableHead>
-                <TableHead>By</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.name}</TableCell>
+              {rows.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell className="font-medium">{m.measurement}</TableCell>
                   <TableCell align="right" className="num">
-                    {String(r.value)}
+                    {m.valueText ?? (m.value != null ? String(m.value) : '—')}
                   </TableCell>
                   <TableCell className="text-fg-muted">
-                    {r.unit ?? '—'}
+                    {m.unit ?? '—'}
                   </TableCell>
                   <TableCell className="text-fg-muted">
-                    {r.method ?? '—'}
+                    {m.method ?? '—'}
+                  </TableCell>
+                  <TableCell>
+                    <MeasurementSource measurement={m} />
+                  </TableCell>
+                  <TableCell className="text-fg-muted">
+                    {m.result ?? '—'}
                   </TableCell>
                   <TableCell className="num text-fg-muted">
-                    {r.measured_at.slice(0, 10)}
-                  </TableCell>
-                  <TableCell className="text-fg-muted">
-                    {r.created_by_user_id
-                      ? userLabel(r.created_by_user_id)
-                      : '—'}
+                    {m.measuredAt.slice(0, 10)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -117,119 +90,54 @@ function MeasurementsTab() {
         <EmptyState
           className="py-2"
           title="No measurements yet"
-          body="Assay results recorded against this sample appear here."
+          body="Values recorded against this sample in a dataset or QC appear here, with a link to their source row."
         />
       )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[min(440px,calc(100vw-32px))]">
-          <DialogHeader
-            title="Record measurement"
-            description="A value measured against this sample."
-          />
-          <RecordForm
-            onDone={() => {
-              setOpen(false)
-              void queryClient.invalidateQueries({
-                queryKey: ['ui-port', 'sample-measurements', sampleId],
-              })
-            }}
-            sampleId={sampleId}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
 
-function RecordForm({
-  sampleId,
-  onDone,
+/**
+ * A source cell that always links back to where the value came from: the
+ * Dataset row/field that produced it, or the instrument whose run recorded the
+ * QC result. A source without a resolvable destination is shown as plain text
+ * rather than a dead link.
+ */
+function MeasurementSource({
+  measurement,
 }: {
-  sampleId: string
-  onDone: () => void
+  measurement: SampleMeasurement
 }) {
-  const [name, setName] = useState('')
-  const [value, setValue] = useState('')
-  const [unit, setUnit] = useState('')
-  const [method, setMethod] = useState('')
-  const [notes, setNotes] = useState('')
-  const [touched, setTouched] = useState(false)
+  const { provenance, source } = measurement
+  const label = source ?? '—'
 
-  const save = useMutation({
-    mutationFn: () =>
-      notebookDataClient.rpc('record_sample_measurement', {
-        p_sample_record_id: sampleId,
-        p_name: name.trim(),
-        p_value: Number(value),
-        p_unit: unit.trim() || null,
-        p_method: method.trim() || null,
-        p_measured_at: new Date().toISOString(),
-        p_notes: notes.trim() || null,
-      }),
-    onSuccess: () => {
-      toast('Measurement recorded')
-      onDone()
-    },
-    onError: (error: unknown) => {
-      toast.error(
-        error instanceof Error ? error.message : 'Couldn’t record it.',
-      )
-    },
-  })
+  if (provenance.kind === 'dataset' && provenance.datasetId) {
+    return (
+      <Link
+        to="/datasets/$datasetId/rows"
+        params={{ datasetId: provenance.datasetId }}
+        search={{
+          row: provenance.rowId ?? undefined,
+          field: provenance.fieldId ?? undefined,
+        }}
+        className="text-link"
+      >
+        {label}
+      </Link>
+    )
+  }
 
-  const nameError =
-    touched && name.trim().length < 2 ? 'Name the measurement.' : undefined
-  const valueError =
-    touched && (value.trim() === '' || Number.isNaN(Number(value)))
-      ? 'Enter a numeric value.'
-      : undefined
+  if (provenance.kind === 'integration' && provenance.instrumentId) {
+    return (
+      <Link
+        to="/instruments/$instrumentId"
+        params={{ instrumentId: provenance.instrumentId }}
+        className="text-link"
+      >
+        {label}
+      </Link>
+    )
+  }
 
-  return (
-    <>
-      <DialogBody>
-        <Field label="Name" required error={nameError}>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-        </Field>
-        <div className="flex gap-2">
-          <Field label="Value" required error={valueError}>
-            <Input
-              value={value}
-              inputMode="decimal"
-              onChange={(e) => setValue(e.target.value)}
-            />
-          </Field>
-          <Field label="Unit">
-            <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
-          </Field>
-        </div>
-        <Field label="Method">
-          <Input value={method} onChange={(e) => setMethod(e.target.value)} />
-        </Field>
-        <Field label="Notes" hint="Optional.">
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </Field>
-      </DialogBody>
-      <DialogFooter>
-        <span className="flex-1" />
-        <Button onClick={onDone}>Cancel</Button>
-        <Button
-          variant="primary"
-          disabled={save.isPending}
-          onClick={() => {
-            setTouched(true)
-            if (
-              name.trim().length < 2 ||
-              value.trim() === '' ||
-              Number.isNaN(Number(value))
-            )
-              return
-            save.mutate()
-          }}
-        >
-          {save.isPending ? 'Recording…' : 'Record'}
-        </Button>
-      </DialogFooter>
-    </>
-  )
+  return <span className="text-fg-muted">{label}</span>
 }

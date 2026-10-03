@@ -505,6 +505,57 @@ export async function fetchSampleEvents(
     .then((rows) => rows.map(toSampleEvent))
 }
 
+// ---------------------------------------------------------------------------
+// LAB-03 — authoritative measurement provenance.
+//
+// The sample Measurements tab reads `api.sample_measurement_provenance`: values
+// aggregated from Dataset rows linked to the sample and from integration/QC
+// results, each carrying the row/source that produced it. It is read-only and
+// deliberately does not read the standalone `sample_measurements` table, which
+// remains the bench-reading surface (MOB-02).
+// ---------------------------------------------------------------------------
+
+export interface SampleMeasurementProvenance {
+  kind: 'dataset' | 'integration'
+  datasetId: string | null
+  datasetDisplayId: string | null
+  datasetName: string | null
+  rowId: string | null
+  fieldId: string | null
+  fieldKey: string | null
+  /** Integration source: the QC check id. */
+  sourceId: string | null
+  runId: string | null
+  runIdentifier: string | null
+  instrumentId: string | null
+  instrumentName: string | null
+}
+
+export interface SampleMeasurement {
+  id: string
+  measurement: string
+  value: number | null
+  valueText: string | null
+  unit: string | null
+  method: string | null
+  source: string | null
+  result: string | null
+  measuredAt: string
+  provenance: SampleMeasurementProvenance
+}
+
+/** Fetch the aggregated, read-only measurements for a sample with provenance. */
+export async function fetchSampleMeasurements(
+  client: DataClient,
+  sampleRecordId: string,
+): Promise<SampleMeasurement[]> {
+  const rows = await client.rpc<SampleMeasurement[] | null>(
+    'sample_measurement_provenance',
+    { p_sample_record_id: sampleRecordId },
+  )
+  return rows ?? []
+}
+
 /**
  * Linked experiments: incoming `record_links` with link_type='sample' whose
  * target is this sample. Returns the source records (experiments) summarised.

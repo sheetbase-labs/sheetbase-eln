@@ -476,6 +476,10 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignDatasets(db),
   },
   {
+    name: 'design bench reading rows',
+    run: (db) => seedDesignBenchReadingRows(db),
+  },
+  {
     name: 'design pipelines',
     run: (db) => seedDesignPipelines(db),
   },
@@ -1355,6 +1359,8 @@ interface DesignDatasetField {
   logicalType: 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'timestamp'
   unit?: string
   required?: boolean
+  /** Canonical field validation wire, e.g. soft `extensions.systemFlags`. */
+  validation?: Record<string, unknown>
 }
 
 interface DesignDataset {
@@ -1444,6 +1450,33 @@ const ELISA_FIELDS: ReadonlyArray<DesignDatasetField> = [
   { key: 'note', label: 'Note', logicalType: 'text' },
 ]
 
+/**
+ * MOB-02 — fields for the bench-reading demonstration Dataset. `sample` is the
+ * text sample binding the bench flow recognises, `dilution` and `note` are the
+ * optional extras, and `capsid_titre` carries the soft out-of-range rule: an
+ * above-max value is accepted and gets a `system` flag rather than failing.
+ */
+const BENCH_READING_FIELDS: ReadonlyArray<DesignDatasetField> = [
+  { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
+  { key: 'well', label: 'Well', logicalType: 'text' },
+  { key: 'dilution', label: 'Dilution', logicalType: 'integer' },
+  {
+    key: 'capsid_titre',
+    label: 'Capsid titre',
+    logicalType: 'decimal',
+    unit: '×10¹⁰ vg/mL',
+    required: true,
+    validation: {
+      extensions: {
+        systemFlags: {
+          out_of_range: { min: 0, max: 5.6 },
+        },
+      },
+    },
+  },
+  { key: 'note', label: 'Note', logicalType: 'text' },
+]
+
 const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
   {
     id: '00000000-0000-4000-8000-000000000380',
@@ -1496,6 +1529,22 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
       'Pipeline PL-0011 run #88 · plate 4 export (final)',
     ],
     rows: elisaRows,
+  },
+  {
+    id: '00000000-0000-4000-8000-00000000038a',
+    workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
+    actorId: DESIGN_USER_IDS.gareth,
+    projectId: '00000000-0000-4000-8000-000000000320',
+    displayId: 'DS-0320',
+    schemaKey: 'bench_reading_elisa',
+    schemaName: 'Bench ELISA reading',
+    name: 'Bench ELISA, planned plate PR-01',
+    description: 'Planned wells a bench reading fills by key',
+    fields: BENCH_READING_FIELDS,
+    // The planned rows are added by `seedDesignBenchReadingRows` after the
+    // Dataset exists, so there is nothing to snapshot here.
+    snapshotLabels: [],
+    rows: () => [],
   },
 ]
 
@@ -1614,6 +1663,7 @@ function datasetFieldsWire(dataset: DesignDataset) {
     label: field.label,
     logical_type: field.logicalType,
     nullable: !field.required,
+    validation: field.validation ?? {},
     ...(field.unit
       ? {
           quantity: {
@@ -1788,6 +1838,51 @@ async function seedDesignDatasets(
       },
     )
   }
+}
+
+/**
+ * MOB-02 — the keyed planned rows the bench reading flow fills on seeded data.
+ *
+ * `seedDesignDatasets` only inserts a Dataset's rows while creating it, so a
+ * separate step adds (and re-adds) the planned rows for the bench-reading
+ * Dataset. It fills the canonical planned-row model through the same
+ * `plan_dataset_row` RPC the product uses and is idempotent: a row whose key
+ * already exists — planned or already recorded — is left untouched.
+ */
+const BENCH_READING_DATASET_ID = '00000000-0000-4000-8000-00000000038a'
+
+const BENCH_READING_PLANNED_KEYS: ReadonlyArray<string> = [
+  'SMP-2231',
+  'SMP-2232',
+  'SMP-2233',
+  'SMP-2234',
+]
+
+async function seedDesignBenchReadingRows(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  await withDesignClaims(db, actorId, workspaceId, async (client) => {
+    const dataset = await client.query(
+      'select id from api.datasets where id = $1 and lifecycle = $2',
+      [BENCH_READING_DATASET_ID, 'active'],
+    )
+    if ((dataset.rowCount ?? 0) === 0) return
+
+    for (const plannedKey of BENCH_READING_PLANNED_KEYS) {
+      const existing = await client.query(
+        'select 1 from api.dataset_rows where dataset_id = $1 and planned_key = $2 limit 1',
+        [BENCH_READING_DATASET_ID, plannedKey],
+      )
+      if ((existing.rowCount ?? 0) > 0) continue
+      await client.query('select api.plan_dataset_row($1,$2,$3)', [
+        BENCH_READING_DATASET_ID,
+        DESIGN_CLOCK,
+        plannedKey,
+      ])
+    }
+  })
 }
 
 /**

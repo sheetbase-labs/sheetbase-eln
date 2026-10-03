@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '#/components/v3/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -17,6 +17,7 @@ import {
   useRegisterShortcuts,
   useShortcutScope,
 } from '#/components/shortcuts/shortcut-provider'
+import { listShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
 import { groupWorkItems, useWorkItems } from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
@@ -182,38 +183,44 @@ function Inbox() {
     .filter((i) => itemTab(i, seen) === 'needs-action')
     .map(itemKey)
 
-  // GAP 3 — J/K list navigation through the single shortcut registry. The
-  // ordered rows live in a ref so the registered handlers stay stable and the
-  // provider does not re-register on every render.
+  // SHELL-03.3 — the List scope through the single shortcut registry. The
+  // ordered rows and the current selection live in refs so the registered
+  // handlers stay stable and the provider does not re-register every render.
+  const navigate = useNavigate()
+  const filterRef = useRef<HTMLDivElement>(null)
   const rowsRef = useRef<WorkItem[]>(orderedRows)
+  const selectedKeyRef = useRef<string | null>(selectedKey)
   useEffect(() => {
     rowsRef.current = orderedRows
-  }, [orderedRows])
+    selectedKeyRef.current = selectedKey
+  }, [orderedRows, selectedKey])
   const move = useCallback((delta: number) => {
     setSelectedKey((current) =>
       moveListSelection(rowsRef.current.map(rowKey), current, delta),
     )
   }, [])
+  const openSelected = useCallback(() => {
+    const item =
+      rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
+      rowsRef.current.at(0)
+    if (item) void navigate(itemLink(item) as never)
+  }, [navigate])
   useShortcutScope('list')
   useRegisterShortcuts(
     useMemo(
-      () => [
-        {
-          id: 'inbox-next',
-          scope: 'list' as const,
-          keys: ['j'],
-          description: 'Next item',
-          handler: () => move(1),
-        },
-        {
-          id: 'inbox-prev',
-          scope: 'list' as const,
-          keys: ['k'],
-          description: 'Previous item',
-          handler: () => move(-1),
-        },
-      ],
-      [move],
+      () =>
+        listShortcuts({
+          moveUp: () => move(-1),
+          moveDown: () => move(1),
+          next: () => move(1),
+          previous: () => move(-1),
+          open: openSelected,
+          filter: () =>
+            filterRef.current
+              ?.querySelector<HTMLButtonElement>('button')
+              ?.focus(),
+        }),
+      [move, openSelected],
     ),
   )
 
@@ -284,6 +291,7 @@ function Inbox() {
         </header>
 
         <div
+          ref={filterRef}
           role="toolbar"
           aria-label="Filter by type"
           className="flex items-center gap-1 overflow-x-auto border-b border-border px-4 py-2 [scrollbar-width:none] md:px-6 [&>button]:shrink-0"

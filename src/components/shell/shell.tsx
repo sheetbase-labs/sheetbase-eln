@@ -53,7 +53,7 @@ import { createGlobalShortcuts } from '#/lib/global-shortcuts'
 import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
 import { OPEN_SHORTCUTS_EVENT } from '#/lib/shortcuts-dialog'
 import { ShortcutProvider } from '../shortcuts/shortcut-provider'
-import { ShortcutsDialog } from '../shortcuts/shortcuts-dialog'
+import { RegistryShortcutsDialog } from '../shortcuts/shortcuts-dialog'
 import { PageHeader } from './page-header'
 import { createDataClient } from '#/lib/data-client'
 import { listRecentPipelineRuns } from '#/lib/pipelines/data'
@@ -957,11 +957,7 @@ export function AppShell({
             />
           )}
         </div>
-        <ShortcutsDialog
-          open={helpOpen}
-          onOpenChange={setHelpOpen}
-          definitions={globalShortcuts}
-        />
+        <RegistryShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
       </TooltipProvider>
     </ShortcutProvider>
   )

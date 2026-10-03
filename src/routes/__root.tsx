@@ -133,6 +133,8 @@ function RootRouteComponent() {
     '/readings/new',
     '/sheets/$sheetId',
     '/sheets/new',
+    '/records/$recordId',
+    '/records/$recordId/',
     '/records/$recordId/notebook',
     '/schedule',
     '/search',

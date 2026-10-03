@@ -30,6 +30,12 @@ describe('parseBinding', () => {
     })
     expect(parseBinding('?', 'mac')).toMatchObject({ key: '?' })
   })
+
+  it('aliases the design’s named keys to KeyboardEvent.key values', () => {
+    expect(parseBinding('space', 'mac')).toMatchObject({ key: ' ' })
+    expect(parseBinding('esc', 'mac')).toMatchObject({ key: 'escape' })
+    expect(parseBinding('arrowup', 'mac')).toMatchObject({ key: 'arrowup' })
+  })
 })
 
 describe('bindingMatches', () => {
@@ -46,6 +52,26 @@ describe('bindingMatches', () => {
     ).toBe(true)
     expect(
       bindingMatches(key({ key: 'k', metaKey: true }), 'mod+k', 'other'),
+    ).toBe(false)
+  })
+
+  it('matches a bare key with or without Shift', () => {
+    // The design's `?` is Shift+/ on most layouts.
+    expect(bindingMatches(key({ key: '?', shiftKey: true }), '?', 'mac')).toBe(
+      true,
+    )
+    expect(bindingMatches(key({ key: 'c', shiftKey: true }), 'c', 'mac')).toBe(
+      true,
+    )
+    // `space` is the alias for the space bar, never a sequence separator.
+    expect(bindingMatches(key({ key: ' ' }), 'space', 'mac')).toBe(true)
+    // A declared modifier still pins the Shift state exactly.
+    expect(
+      bindingMatches(
+        key({ key: 'Enter', metaKey: true, shiftKey: true }),
+        'mod+enter',
+        'mac',
+      ),
     ).toBe(false)
   })
 })
@@ -80,7 +106,19 @@ describe('formatShortcut', () => {
   it('uses glyphs on macOS and words elsewhere', () => {
     expect(formatShortcut('mod+k', 'mac')).toBe('⌘K')
     expect(formatShortcut('mod+k', 'other')).toBe('Ctrl+K')
-    expect(formatShortcut('mod+shift+enter', 'mac')).toBe('⌘⇧ENTER')
+    expect(formatShortcut('mod+shift+enter', 'mac')).toBe('⌘⇧↵')
+  })
+
+  it('spells the design’s named keys', () => {
+    expect(formatShortcut('space', 'mac')).toBe('Space')
+    expect(formatShortcut('escape', 'mac')).toBe('Esc')
+    expect(formatShortcut('arrowup', 'mac')).toBe('↑')
+    expect(formatShortcut('arrowdown', 'mac')).toBe('↓')
+    expect(formatShortcut('tab', 'mac')).toBe('Tab')
+  })
+
+  it('reads a sequence as “G then H”', () => {
+    expect(formatShortcut('g h', 'mac')).toBe('G then H')
   })
 })
 

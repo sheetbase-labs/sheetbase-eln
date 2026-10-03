@@ -13,6 +13,8 @@ import type {
   RevisionDiffResult,
   RevisionTableDiffSummary,
 } from '#/lib/revision-diff'
+import { useRegisterShortcuts } from '#/components/shortcuts/shortcut-provider'
+import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
 
 export interface RevisionDiffReviewProps {
@@ -410,6 +412,22 @@ export function RevisionDiffReview({
     const next = Math.min(Math.max(index, 0), visibleChanges.length - 1)
     setActiveIndex(next)
   }
+
+  // SHELL-03.3 — the Review scope's "Next and previous change" (N/P). The
+  // handlers step the diff's own selection; they only fire while the review
+  // workspace has set the `review` scope, so the same component used in a
+  // record history tab does not react to stray N/P keystrokes.
+  useRegisterShortcuts(
+    React.useMemo(
+      () =>
+        reviewShortcuts({
+          nextChange: () =>
+            setActiveIndex((i) => Math.min(i + 1, visibleChanges.length - 1)),
+          previousChange: () => setActiveIndex((i) => Math.max(i - 1, 0)),
+        }),
+      [visibleChanges.length],
+    ),
+  )
 
   return (
     <section

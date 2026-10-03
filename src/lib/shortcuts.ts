@@ -9,6 +9,9 @@
  *   'g h'        a sequence: G then H
  *   '?'          a single character, no modifiers
  *   'mod+\'      the navigation rail toggle
+ *   'space'      the space bar (never a literal space — that would read as a
+ *                sequence separator)
+ *   'arrowup'    named keys, aliased the way the design spells them
  */
 
 export type ShortcutScope = 'global' | 'list' | 'notebook' | 'review'
@@ -34,6 +37,35 @@ interface ParsedBinding {
   shift: boolean
 }
 
+/**
+ * The design writes several keys as short words or glyphs. Bindings use the
+ * canonical `KeyboardEvent.key` name (or a readable shorthand) and these maps
+ * translate both ways, so `'space'` matches `event.key === ' '` and formats as
+ * the design's `Space`.
+ */
+const KEY_ALIASES: Record<string, string> = {
+  space: ' ',
+  spacebar: ' ',
+  esc: 'escape',
+  up: 'arrowup',
+  down: 'arrowdown',
+  left: 'arrowleft',
+  right: 'arrowright',
+}
+
+const KEY_LABELS: Record<string, string | undefined> = {
+  ' ': 'Space',
+  escape: 'Esc',
+  enter: '↵',
+  tab: 'Tab',
+  arrowup: '↑',
+  arrowdown: '↓',
+  arrowleft: '←',
+  arrowright: '→',
+  backspace: '⌫',
+  delete: 'Del',
+}
+
 export function currentPlatform(): Platform {
   if (typeof navigator === 'undefined') return 'other'
   return /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent)
@@ -46,7 +78,8 @@ export function parseBinding(
   platform: Platform,
 ): ParsedBinding {
   const parts = binding.split('+')
-  const key = parts.pop() ?? ''
+  const rawKey = parts.pop() ?? ''
+  const key = KEY_ALIASES[rawKey.toLowerCase()] ?? rawKey
   const parsed: ParsedBinding = {
     key,
     meta: false,
@@ -73,12 +106,17 @@ export function bindingMatches(
   platform: Platform,
 ): boolean {
   const parsed = parseBinding(binding, platform)
+  // A binding with no modifier tokens matches its key with or without Shift:
+  // the design's `?` is Shift+/ on most layouts, and `C` (Create) must fire
+  // for an uppercase C. Any declared modifier makes the Shift state exact.
+  const hasModifiers = parsed.meta || parsed.ctrl || parsed.alt || parsed.shift
+  const shiftMatches = hasModifiers ? event.shiftKey === parsed.shift : true
   return (
     event.key.toLowerCase() === parsed.key.toLowerCase() &&
     event.metaKey === parsed.meta &&
     event.ctrlKey === parsed.ctrl &&
     event.altKey === parsed.alt &&
-    event.shiftKey === parsed.shift
+    shiftMatches
   )
 }
 
@@ -116,13 +154,19 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 
 /** Human-readable label for the shortcuts dialog. */
 export function formatShortcut(binding: string, platform: Platform): string {
+  // A sequence reads "G then H", matching the design's wording.
+  const steps = sequenceSteps(binding)
+  if (steps.length > 1) {
+    return steps.map((step) => formatShortcut(step, platform)).join(' then ')
+  }
   const parsed = parseBinding(binding, platform)
   const parts: string[] = []
   if (parsed.meta) parts.push('⌘')
   if (parsed.ctrl) parts.push('Ctrl')
   if (parsed.alt) parts.push('⌥')
   if (parsed.shift) parts.push('⇧')
-  const key = parsed.key === '\\' ? '\\' : parsed.key.toUpperCase()
+  const label = KEY_LABELS[parsed.key]
+  const key = label ?? (parsed.key === '\\' ? '\\' : parsed.key.toUpperCase())
   parts.push(key)
   return platform === 'mac' ? parts.join('') : parts.join('+')
 }

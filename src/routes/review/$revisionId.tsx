@@ -124,6 +124,11 @@ import {
   deriveSignatureApplicability,
 } from '#/lib/review-lifecycle'
 import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
+import {
+  useRegisterShortcuts,
+  useShortcutScope,
+} from '#/components/shortcuts/shortcut-provider'
+import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
 
 /**
@@ -237,6 +242,32 @@ export function ReviewWorkspaceRoute() {
   const currentUserId = context.user.id
   const currentUserName = context.user.name
   const activeTab = search.tab ?? 'diff'
+
+  // SHELL-03.3 — the Review scope. The diff registers N/P itself (it owns the
+  // change selection); this route adds R to start a reply on the first open
+  // thread in the comments panel. Approve and sign has no combined action in
+  // the workspace (approve and sign are separate dialogs), so ⌘⇧↵ is not
+  // registered rather than pointing at the wrong action.
+  useShortcutScope('review')
+  useRegisterShortcuts(
+    useMemo(
+      () =>
+        reviewShortcuts({
+          reply: () => {
+            const trigger = document.querySelector<HTMLButtonElement>(
+              '[aria-label="Reply to thread"]',
+            )
+            trigger?.click()
+            requestAnimationFrame(() => {
+              document
+                .querySelector<HTMLTextAreaElement>('[aria-label="Reply body"]')
+                ?.focus()
+            })
+          },
+        }),
+      [],
+    ),
+  )
 
   // --- Data queries -------------------------------------------------------
 

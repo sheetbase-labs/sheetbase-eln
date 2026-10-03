@@ -7,13 +7,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#/components/ui/dialog'
+import { useShortcuts } from './shortcut-provider'
 import { formatShortcut, currentPlatform } from '#/lib/shortcuts'
 import type { ShortcutDefinition, ShortcutScope } from '#/lib/shortcuts'
 
 const SCOPE_LABEL: Record<ShortcutScope, string> = {
   global: 'Anywhere',
   list: 'Lists',
-  notebook: 'Notebook',
+  notebook: 'Notebook and sheets',
   review: 'Review',
 }
 
@@ -76,5 +77,27 @@ export function ShortcutsDialog({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * The shell's `?` dialog. It reads the provider's live registry rather than a
+ * fixed list, so scoped shortcuts registered by whichever screen is mounted
+ * appear in the dialog too.
+ */
+export function RegistryShortcutsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}): ReactNode {
+  const { registry } = useShortcuts()
+  return (
+    <ShortcutsDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      definitions={registry.definitions}
+    />
   )
 }

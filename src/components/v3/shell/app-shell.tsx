@@ -33,7 +33,7 @@ import { createGlobalShortcuts } from '#/lib/global-shortcuts'
 import type { GlobalShortcutDestination } from '#/lib/global-shortcuts'
 import { OPEN_SHORTCUTS_EVENT } from '#/lib/shortcuts-dialog'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
-import { ShortcutsDialog } from '#/components/shortcuts/shortcuts-dialog'
+import { RegistryShortcutsDialog } from '#/components/shortcuts/shortcuts-dialog'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 import type { Notification } from '#/components/v3/types'
@@ -227,11 +227,7 @@ export function AppShell({
           </SheetContent>
         </Sheet>
         <SearchPalette open={search} onOpenChange={setSearch} />
-        <ShortcutsDialog
-          open={helpOpen}
-          onOpenChange={setHelpOpen}
-          definitions={globalShortcuts}
-        />
+        <RegistryShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
       </div>
     </ShortcutProvider>
   )

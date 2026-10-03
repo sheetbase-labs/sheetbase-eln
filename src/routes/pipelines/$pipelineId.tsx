@@ -25,14 +25,20 @@ import {
   usePipelineVersions,
   versionStatus,
 } from '#/components/v3/pipelines/pipelines-data'
+import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 
 /** UI port (roadmap-4/ui-app3): the pipeline detail frame. */
 export const Route = createFileRoute('/pipelines/$pipelineId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }
+    await resolveIdentifierParam({
+      entity: 'pipeline',
+      ref: params.pipelineId,
+      href: location.href,
+    })
     return { context }
   },
   component: PipelineLayout,

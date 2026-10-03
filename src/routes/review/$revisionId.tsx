@@ -72,6 +72,7 @@ import {
   reviewsDataClient,
   workflowStepsFor,
 } from '#/lib/reviews'
+import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { formatDate } from '#/lib/notebook-data'
 import {
   fetchReviewCheckResults,
@@ -176,11 +177,16 @@ type WorkspaceSearch = z.infer<typeof workspaceSearchSchema>
 
 export const Route = createFileRoute('/review/$revisionId')({
   validateSearch: workspaceSearchSchema,
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }
+    await resolveIdentifierParam({
+      entity: 'review',
+      ref: params.revisionId,
+      href: location.href,
+    })
     return { context }
   },
   component: ReviewWorkspaceRoute,

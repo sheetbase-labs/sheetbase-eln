@@ -22,6 +22,7 @@ import {
   fetchSheetInstance,
   sheetInstanceDataClient,
 } from '#/lib/sheet-instance-data'
+import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 
 /** UI port (roadmap-4/ui-app3): the working sheet renders inside app-3's shell
  * with its own header, replacing the legacy useShell wrapper. The canonical
@@ -31,9 +32,14 @@ export const Route = createFileRoute('/sheets/$sheetId')({
     projectId:
       typeof search.projectId === 'string' ? search.projectId : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
+    await resolveIdentifierParam({
+      entity: 'sheet',
+      ref: params.sheetId,
+      href: location.href,
+    })
     return { context }
   },
   component: ComposedSheetRoute,

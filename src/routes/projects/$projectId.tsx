@@ -8,15 +8,21 @@ import {
   fetchProjectMembers,
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
+import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 
 /** UI port (roadmap-4/ui-app3): the project detail frame. Overview and
  * Settings are ported; Folders and Members tabs land with theirs. */
 export const Route = createFileRoute('/projects/$projectId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }
+    await resolveIdentifierParam({
+      entity: 'project',
+      ref: params.projectId,
+      href: location.href,
+    })
     return { context }
   },
   component: ProjectLayout,

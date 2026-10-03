@@ -9,15 +9,21 @@ import {
   useDatasetSummaries,
 } from '#/components/v3/datasets/datasets-data'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 
 /** UI port (roadmap-4/ui-app3): the dataset detail frame. Snapshots is ported;
  * Rows and Compare follow. */
 export const Route = createFileRoute('/datasets/$datasetId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }
+    await resolveIdentifierParam({
+      entity: 'dataset',
+      ref: params.datasetId,
+      href: location.href,
+    })
     return { context }
   },
   component: DatasetLayout,

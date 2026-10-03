@@ -7,13 +7,19 @@ import {
 } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type Handsontable from 'handsontable/base'
-import type { BaseEditor } from 'handsontable/editors/baseEditor'
-import type { BaseRenderer } from 'handsontable/renderers'
 
 import type { FieldDefinition } from '#/lib/field-definition'
 import { SheetbaseGrid } from '#/components/sheet/sheetbase-grid'
+import type {
+  SheetbaseGridCellChange,
+  SheetbaseGridColumn,
+  SheetbaseGridFilter,
+  SheetbaseGridMenuEntry,
+  SheetbaseGridSelection,
+  SheetbaseGridSort,
+  SheetbaseGridWriteSource,
+} from '#/components/sheet/sheetbase-grid'
 import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
-import { createRecordPickerEditor } from '#/components/sheet/record-picker-editor'
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
@@ -27,19 +33,10 @@ import {
   canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
   categoryCellDisplayText,
-  clearContentsUpdates,
-  filterAdditionsToDisplayColumns,
-  hotFiltersToPresentationFilters,
   parseSheetCellInput,
-  preserveHiddenColumnFilters,
-  presentationFiltersToHotAdditions,
-  resolveCanonicalCellChanges,
   validateCanonicalCell,
 } from '#/lib/canonical-sheet-grid'
-import type {
-  CanonicalSheetGridColumn,
-  HotFilterConditionStack,
-} from '#/lib/canonical-sheet-grid'
+import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import { fetchComposedSheetPaged } from '#/lib/sheet-composition-data'
 import type {
   ComposedSheetPagedSnapshot,
@@ -114,21 +111,6 @@ function clampColumnWidth(width: number): number {
   return Math.min(2_000, Math.max(40, Math.round(width)))
 }
 
-/** Visual-coordinate selection ranges handed to context/dropdown callbacks. */
-type MenuSelection = Array<{
-  start: { row: number | null; col: number | null }
-  end: { row: number | null; col: number | null }
-}>
-
-function categoryCellRenderer(field: FieldDefinition): BaseRenderer {
-  // GRID-03: category cells store the canonical option id but display the
-  // human label. Display only — the value never changes here.
-  return (_instance, td, _row, _col, _prop, value) => {
-    td.textContent = categoryCellDisplayText(field, value)
-    return td
-  }
-}
-
 /**
  * GRID-03 — the target Model key of a Record-reference field's relationship,
  * or null when the field is not a Model-scoped reference.
@@ -157,70 +139,64 @@ export function recordCellDisplayText(
   return snapshot ? formatRecordReferenceLabel(snapshot) : recordId
 }
 
-/** GRID-03 — display renderer for Record-reference cells (label, not UUID). */
-function recordCellRenderer(
+/**
+ * COMP-06 — the vendor-neutral column contract. The wrapper maps each neutral
+ * type onto the engine (including the Record picker editor and display
+ * renderers), so callers never build Handsontable column settings.
+ */
+function sheetbaseColumn(
+  column: CanonicalSheetGridColumn,
+  canWrite: boolean,
   labels: () => Record<
     string,
     { identifier: string; title: string } | undefined
   >,
-): BaseRenderer {
-  return (_instance, td, _row, _col, _prop, value) => {
-    td.textContent = recordCellDisplayText(labels(), value)
-    return td
-  }
-}
-
-function handsontableType(
-  column: CanonicalSheetGridColumn,
-  recordPicker?: {
-    editor: typeof BaseEditor
-    renderer: BaseRenderer
-  } | null,
-): {
-  type: string
-  dateFormat?: string
-  correctFormat?: boolean
-  source?: string[]
-  editor?: typeof BaseEditor
-  renderer?: BaseRenderer
-} {
+): SheetbaseGridColumn {
   const kind = column.presentation.kind
-  if (kind === 'checkbox') return { type: 'checkbox' }
-  if (kind === 'number') return { type: 'numeric' }
-  if (kind === 'date') return { type: 'date' }
-  // GRID-03 review fix: Handsontable 18's `date` cell type is a native
-  // <input type="date"> — it cannot hold or produce a time and rejects
-  // canonical `…Z` instants on edit, which would make timestamp columns
-  // uneditable. Timestamps keep the text editor; parseSheetCellInput coerces
-  // bare input to a canonical UTC instant before validation (bare input is
-  // interpreted as UTC because the grid carries no timezone context).
-  if (kind === 'datetime-local') return { type: 'text' }
-  if (kind === 'record-picker' && recordPicker) {
+  const readOnly = !canWrite || !column.editable
+  const base: Omit<SheetbaseGridColumn, 'type'> = {
+    id: column.id,
+    label: canonicalSheetColumnHeader(column),
+    source: column.origin === 'calculation' ? 'calculated' : column.origin,
+    readOnly,
+  }
+  if (kind === 'checkbox') return { ...base, type: 'checkbox' }
+  if (kind === 'number') return { ...base, type: 'number' }
+  if (kind === 'date') return { ...base, type: 'date' }
+  // GRID-03 review fix: Handsontable 18's `date` cell type cannot hold or
+  // produce a time and rejects canonical `…Z` instants on edit, which would
+  // make timestamp columns uneditable. Timestamps keep the text editor;
+  // parseSheetCellInput coerces bare input to a canonical UTC instant before
+  // validation (bare input is interpreted as UTC because the grid carries no
+  // timezone context).
+  if (kind === 'datetime-local') return { ...base, type: 'datetime' }
+  if (kind === 'record-picker' && canWrite) {
     // GRID-03: Record/reference cells edit through the shared search-select
     // Record picker. Selection writes the canonical Record UUID through the
     // normal change pipeline; the human label is display only.
     return {
-      type: 'text',
-      editor: recordPicker.editor,
-      renderer: recordPicker.renderer,
+      ...base,
+      type: 'record',
+      displayText: (value) => recordCellDisplayText(labels(), value),
     }
   }
   if (kind === 'category-select' && column.field) {
     // GRID-03: the dropdown is seeded from the field's canonical vocabulary
     // (active embedded options). Vocabulary-backed fields without a local
     // option list keep a text editor — the server still owns validation.
-    const source = selectableFieldOptions(column.field, null).map(
+    const options = selectableFieldOptions(column.field, null).map(
       (option) => option.label,
     )
-    if (source.length > 0) {
+    if (options.length > 0) {
       return {
-        type: 'dropdown',
-        source,
-        renderer: categoryCellRenderer(column.field),
+        ...base,
+        type: 'select',
+        options,
+        displayText: (value) => categoryCellDisplayText(column.field, value),
       }
     }
   }
-  return { type: 'text' }
+  return { ...base, type: 'text' }
 }
 
 export function CanonicalSheetWorkspace({
@@ -461,11 +437,6 @@ export function CanonicalSheetEditor({
   )
   const matrixRef = useRef(matrix)
   matrixRef.current = matrix
-  // GRID-04 #113: the canonical matrix behind the display projection —
-  // filters resolve condition column IDs through it so a saved filter on a
-  // hidden column survives.
-  const canonicalMatrixRef = useRef(canonicalMatrix)
-  canonicalMatrixRef.current = canonicalMatrix
   const compositionRef = useRef<ComposedSheetSnapshot | null>(composedSnapshot)
   compositionRef.current = composedSnapshot
 
@@ -878,39 +849,225 @@ export function CanonicalSheetEditor({
   deleteRowRef.current = deleteSelectedRow
   deleteColumnRef.current = deleteSelectedColumn
 
-  // GRID-02/GRID-04: the clear-contents context-menu action edits through the
-  // grid's own change pipeline, so it needs the live instance. The ref pattern
-  // keeps the memoised settings stable; onReady stays identity-stable so the
-  // memoised grid client never re-renders (editors stay alive).
+  // GRID-02/GRID-04: the record-picker write-back still uses the live engine
+  // instance (deferred to COMP-06 step 2's neutral handle). onReady stays
+  // identity-stable so the memoised grid client never re-renders.
   const hotInstanceRef = useRef<Handsontable | null>(null)
-  // GRID-04: set while saved filters are being (re)applied through the Filters
-  // plugin, so the resulting `afterFilter` echo never re-persists the state it
-  // was restoring.
-  const applyingFiltersRef = useRef(false)
-  // GRID-04: Handsontable reports visual indexes; sorting, filters, hidden
-  // columns and manual column moves all shift them. Resolve to the composed
-  // matrix's physical coordinates before any column/row attribution so
-  // presentation changes never scramble writes — the same contract GRID-02
-  // established for rows with `toPhysicalRow`.
-  const physicalRow = useCallback((visualRow: number) => {
-    const mapped = hotInstanceRef.current?.toPhysicalRow(visualRow)
-    return typeof mapped === 'number' && mapped >= 0 ? mapped : visualRow
-  }, [])
-  const physicalColumn = useCallback((visualColumn: number) => {
-    const mapped = hotInstanceRef.current?.toPhysicalColumn(visualColumn)
-    return typeof mapped === 'number' && mapped >= 0 ? mapped : visualColumn
-  }, [])
   const handleGridReady = useCallback((hot: Handsontable | null) => {
     hotInstanceRef.current = hot
   }, [])
 
+  // COMP-06 step 1: the caller speaks Sheetbase terms only. Validation, write
+  // attribution and presentation persistence stay here; the wrapper maps the
+  // neutral callbacks onto the rendering engine (Handsontable, for now).
+  const sheetColumns = useMemo(
+    () =>
+      matrix.columns.map((column) =>
+        sheetbaseColumn(column, canWrite, () => recordLabelsRef.current),
+      ),
+    [matrix, canWrite],
+  )
+  const sheetRows = useMemo(
+    () =>
+      matrix.rowKeys.map((rowKey, index) => ({
+        id: rowKey,
+        cells: matrix.data[index] ?? [],
+      })),
+    [matrix],
+  )
+
+  // GRID-02/GRID-03: every write source — bulk paste/fill/clear and single
+  // typed edits alike — is coerced and validated against the typed column
+  // contract before the grid applies anything. An invalid value rejects the
+  // whole change, so the cell visibly keeps its previous value and the
+  // canonical reason is announced: the visible grid can never diverge from
+  // the authoritative state.
+  const handleBeforeCellsChange = useCallback(
+    (
+      changes: SheetbaseGridCellChange[],
+      source: SheetbaseGridWriteSource,
+    ) => {
+      if (changes.length === 0) return undefined
+      const columnsById = new Map(
+        matrixRef.current.columns.map((column) => [column.id, column]),
+      )
+      const verb =
+        source === 'paste'
+          ? 'Paste'
+          : source === 'fill'
+            ? 'Fill'
+            : source === 'clear'
+              ? 'Clear'
+              : 'Edit'
+      for (const change of changes) {
+        const column = columnsById.get(change.columnId)
+        if (!column) continue
+        if (!column.editable) {
+          setWriteStatus(
+            `${verb} rejected: the range contains read-only or derived cells.`,
+          )
+          return false
+        }
+        const value = parseSheetCellInput(column.field, change.next)
+        const invalid = validateCanonicalCell(column.field, value)
+        if (invalid) {
+          setWriteStatus(
+            `${verb} rejected: ${invalid} in ${column.label}. The cell kept its previous value.`,
+          )
+          return false
+        }
+        // GRID-03: apply the coerced canonical value (category option id, UTC
+        // instant, grouped-number) so the grid shows what will be written,
+        // not the raw editor output.
+        change.next = value
+      }
+      return undefined
+    },
+    [],
+  )
+
+  const handleCellsChange = useCallback(
+    (
+      changes: readonly SheetbaseGridCellChange[],
+      source: SheetbaseGridWriteSource,
+    ) => {
+      if (source === 'load' || !canWrite) return
+      const currentMatrix = matrixRef.current
+      const snapshot = compositionRef.current
+      const localCells: Array<{
+        rowKey: string
+        fieldId: string
+        value: unknown
+      }> = []
+      const pending: Record<string, Record<string, unknown>> = {}
+      const created = new Map<number, string>()
+      const columnsById = new Map(
+        currentMatrix.columns.map((column) => [column.id, column]),
+      )
+      for (const change of changes) {
+        const column = columnsById.get(change.columnId)
+        if (!column || !column.editable) continue
+        let rowKey = change.rowId ?? created.get(change.rowIndex)
+        if (!rowKey) {
+          rowKey = crypto.randomUUID()
+          created.set(change.rowIndex, rowKey)
+        }
+        const value = parseSheetCellInput(column.field, change.next)
+        // GRID-03 safety net: beforeChange already rejected and reverted
+        // invalid values for every write source, so this branch only fires if
+        // a change reaches the change handler without passing through it.
+        const invalid = validateCanonicalCell(column.field, value)
+        if (invalid) {
+          setWriteStatus(`Invalid value (${invalid}) in ${column.label}.`)
+          continue
+        }
+        if (column.origin === 'bound' && snapshot) {
+          pending[rowKey] = { ...pending[rowKey], [column.id]: value }
+        } else {
+          localCells.push({ rowKey, fieldId: column.id, value })
+        }
+      }
+      if (Object.keys(pending).length > 0) {
+        setPendingValues((current) => {
+          const next = { ...current }
+          for (const [rowKey, cells] of Object.entries(pending)) {
+            next[rowKey] = { ...next[rowKey], ...cells }
+          }
+          return next
+        })
+      }
+      if (localCells.length > 0) {
+        const newRows = [...created.values()].map((rowKey) => ({
+          kind: 'local' as const,
+          rowKey,
+        }))
+        void persistLocalCells(localCells, {
+          rows: newRows.length > 0 ? newRows : undefined,
+        }).catch((error: unknown) => {
+          setWriteStatus(
+            errorText(error) ?? `Local write ${sheetCellWriteError(error)}.`,
+          )
+        })
+      }
+    },
+    [canWrite],
+  )
+
+  // GRID-04: selection is stored in physical coordinates so delete, provenance
+  // and status resolve the column/row the user actually selected, whatever the
+  // current sort/filter/move state is.
+  const handleSelectionChange = useCallback(
+    (selection: SheetbaseGridSelection | null) => {
+      if (!selection) return
+      const columnIndex = matrixRef.current.columns.findIndex(
+        (column) => column.id === selection.columnId,
+      )
+      setSelected({
+        row: selection.rowIndex,
+        col: columnIndex >= 0 ? columnIndex : 0,
+      })
+    },
+    [],
+  )
+
+  // GRID-04: persist resized column widths (presentation state only).
+  const handleColumnResize = useCallback(
+    (columnId: string, newSize: number) => {
+      const current = instanceRef.current.state.presentation.columnWidths
+      void persistPresentation({
+        columnWidths: { ...current, [columnId]: clampColumnWidth(newSize) },
+      })
+    },
+    // persistPresentation reads refs and the query client only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+
+  // GRID-04: persist the new column order as stable column IDs. The wrapper
+  // resets its own visual index map afterwards (`resetColumnOrderOnChange`),
+  // so the rebuilt rows already carry the persisted order.
+  const handleColumnOrderChange = useCallback(
+    (columnIds: string[]) => {
+      void persistPresentation({ columnOrder: columnIds })
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+
+  // GRID-04: sorting and filtering are visual only; the wrapper owns the
+  // engine conversion, the caller persists stable ids and skips identical
+  // restores so a replayed view never re-writes state.
+  const handleSortsChange = useCallback(
+    (sorts: SheetbaseGridSort[]) => {
+      if (
+        JSON.stringify(sorts) ===
+        JSON.stringify(instanceRef.current.state.presentation.sorts)
+      )
+        return
+      void persistPresentation({ sorts })
+    },
+    // persistPresentation reads refs and the query client only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+  const handleFiltersChange = useCallback(
+    (filters: SheetbaseGridFilter[]) => {
+      if (
+        JSON.stringify(filters) ===
+        JSON.stringify(instanceRef.current.state.presentation.filters)
+      )
+        return
+      void persistPresentation({ filters })
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+
   // GRID-03: editing a record-picker cell opens the shared Record picker
-  // scoped to the column's own relationship target. The opener only reads
-  // refs, so it stays identity-stable and the memoised grid settings (and its
-  // editors) never re-create.
-  const openPickerForCell = useCallback(
-    (cell: { row: number; col: number }) => {
-      const column = matrixRef.current.columns.at(cell.col)
+  // scoped to the column's own relationship target.
+  const handleOpenRecordPicker = useCallback(
+    (cell: { rowIndex: number; columnIndex: number; columnId: string }) => {
+      const column = matrixRef.current.columns.at(cell.columnIndex)
       const targetModelKey = recordPickerTargetModelKey(column?.field ?? null)
       if (
         !column ||
@@ -920,496 +1077,115 @@ export function CanonicalSheetEditor({
       ) {
         return
       }
-      setPicker({ modelKey: targetModelKey, cell })
+      setPicker({
+        modelKey: targetModelKey,
+        cell: { row: cell.rowIndex, col: cell.columnIndex },
+      })
     },
     [],
   )
-  const recordPicker = useMemo(
-    () => ({
-      editor: createRecordPickerEditor(openPickerForCell),
-      renderer: recordCellRenderer(() => recordLabelsRef.current),
-    }),
-    [openPickerForCell],
+
+  const handleNothingToClear = useCallback(() => {
+    setWriteStatus(
+      'Nothing to clear: the selection has no editable, non-empty cells.',
+    )
+  }, [])
+
+  const columnMenu = useMemo<SheetbaseGridMenuEntry[]>(
+    () => [
+      'separator',
+      {
+        id: 'freeze-to-column',
+        label: 'Freeze up to this column',
+        disabled: () => !canWrite,
+        onSelect: (context) => {
+          const anchor = context.ranges[0]?.columnIds[0]
+          if (!anchor) return
+          const index = matrixRef.current.columns.findIndex(
+            (column) => column.id === anchor,
+          )
+          if (index < 0) return
+          void persistPresentation({
+            frozenColumnCount: Math.min(
+              matrixRef.current.columns.length,
+              index + 1,
+            ),
+          })
+        },
+      },
+      {
+        id: 'unfreeze-columns',
+        label: 'Unfreeze columns',
+        disabled: () => presentation.frozenColumnCount === 0,
+        onSelect: () => {
+          void persistPresentation({ frozenColumnCount: 0 })
+        },
+      },
+      'separator',
+      {
+        id: 'hide-columns',
+        label: 'Hide selected columns',
+        disabled: () => !canWrite,
+        onSelect: (context) => {
+          const range = context.ranges[0]
+          if (!range || range.columnIds.length === 0) return
+          const hidden = new Set(
+            instanceRef.current.state.presentation.hiddenColumnIds,
+          )
+          for (const columnId of range.columnIds) hidden.add(columnId)
+          void persistPresentation({ hiddenColumnIds: [...hidden] })
+        },
+      },
+    ],
+    [canWrite, presentation.frozenColumnCount],
   )
 
-  const settings = useMemo(() => {
-    // GRID-04: persisted sorts restore as the columnSorting initial config.
-    // Handsontable sorts rows client-side over the composed matrix; the
-    // physical data order (and therefore rowKey attribution) is untouched.
-    const sortInitialConfig = presentation.sorts.flatMap((sort) => {
-      const column = matrix.columns.findIndex(
-        (item) => item.id === sort.columnId,
-      )
-      return column >= 0 ? [{ column, sortOrder: sort.direction }] : []
-    })
-    return {
-      data: matrix.data,
-      // GRID-03: quantity columns surface their storage unit in the header
-      // (display only; units are never converted client-side).
-      colHeaders: matrix.columns.map(canonicalSheetColumnHeader),
-      columns: matrix.columns.map((column) => ({
-        ...handsontableType(column, canWrite ? recordPicker : null),
-        readOnly: !canWrite || !column.editable,
-      })),
-      rowHeaders: true,
-      // GRID-04: manual widths need non-stretching columns; the last column
-      // still stretches so the grid keeps filling the workspace.
-      stretchH: 'last' as const,
-      colWidths: (visualColumn: number) => {
-        const column = matrix.columns.at(physicalColumn(visualColumn))
-        return column
-          ? instanceRef.current.state.presentation.columnWidths[column.id]
-          : undefined
-      },
-      height: '100%',
-      copyPaste: true,
-      fillHandle: true,
-      minSpareRows: canWrite ? 1 : 0,
-      // GRID-04: multi-column sort is visual only — it reorders rows through
-      // Handsontable's row index map and is persisted as presentation state,
-      // never as Dataset or analysis semantics.
-      columnSorting:
-        sortInitialConfig.length > 0
-          ? { initialConfig: sortInitialConfig }
-          : true,
-      filters: true,
-      dropdownMenu: {
-        items: {
-          filter_by_condition: {},
-          filter_operators: {},
-          filter_by_condition2: {},
-          filter_by_value: {},
-          filter_action_bar: {},
-          sp_filters: { name: '---------' },
-          freeze_to_column: {
-            name: 'Freeze up to this column',
-            disabled: () => !canWrite,
-            callback: (_key: string, selection: MenuSelection) => {
-              const start = selection.at(0)?.start.col
-              if (typeof start !== 'number' || start < 0) return
-              void persistPresentation({
-                frozenColumnCount: Math.min(
-                  matrixRef.current.columns.length,
-                  start + 1,
-                ),
-              })
-            },
-          },
-          unfreeze_columns: {
-            name: 'Unfreeze columns',
-            disabled: () => presentation.frozenColumnCount === 0,
-            callback: () => {
-              void persistPresentation({ frozenColumnCount: 0 })
-            },
-          },
-          sp_presentation: { name: '---------' },
-          hide_column: {
-            name: 'Hide selected columns',
-            disabled: () => !canWrite,
-            callback: (_key: string, selection: MenuSelection) => {
-              const range = selection.at(0)
-              if (!range) return
-              // GRID-04 review fix: never coerce null coordinates into
-              // "hide column 0" — a header menu always carries the anchor.
-              if (range.start.col == null || range.end.col == null) return
-              const from = Math.min(range.start.col, range.end.col)
-              const to = Math.max(range.start.col, range.end.col)
-              const hidden = new Set(
-                instanceRef.current.state.presentation.hiddenColumnIds,
-              )
-              for (let col = from; col <= to; col += 1) {
-                const column = matrixRef.current.columns.at(physicalColumn(col))
-                if (column) hidden.add(column.id)
-              }
-              void persistPresentation({
-                hiddenColumnIds: [...hidden],
-              })
-            },
-          },
+  const contextMenu = useMemo<SheetbaseGridMenuEntry[]>(
+    () => [
+      {
+        id: 'insert-row',
+        label: 'Insert row',
+        disabled: () => !canWrite,
+        onSelect: () => {
+          void addRowRef.current()
         },
       },
-      // GRID-04: drag-to-reorder is presentation-only. The composed matrix is
-      // rebuilt in the persisted order (applySheetPresentation), so after each
-      // move the plugin's visual index map is reset and the new order is
-      // persisted as column IDs — Handsontable never becomes a second
-      // authority for column identity, and toPhysicalColumn keeps write
-      // attribution correct in the meantime.
-      manualColumnMove: true,
-      manualColumnResize: true,
-      fixedColumnsStart: Math.min(
-        presentation.frozenColumnCount,
-        matrix.columns.length,
-      ),
-      autoWrapRow: false,
-      // GRID-02/GRID-03: every write source — bulk paste/fill/clear and
-      // single typed edits alike — is coerced and validated against the
-      // typed column contract before Handsontable applies anything. An
-      // invalid value cancels the whole change, so the cell visibly keeps
-      // its previous value and the canonical reason is announced: the
-      // visible grid can never diverge from the authoritative state.
-      // GRID-04: change columns arrive as visual indexes; they are mapped
-      // onto the composed matrix before the typed contract is resolved so a
-      // moved or hidden column never misattributes a write.
-      beforeChange: (
-        changes: Array<[number, string | number, unknown, unknown]> | null,
-        source: string,
-      ) => {
-        if (!changes || changes.length === 0) return undefined
-        const result = resolveCanonicalCellChanges(
-          matrixRef.current.columns,
-          changes.map((change) => {
-            const columnIndex =
-              typeof change[1] === 'number' ? change[1] : Number(change[1])
-            if (!Number.isFinite(columnIndex)) return change
-            return [
-              change[0],
-              physicalColumn(columnIndex),
-              change[2],
-              change[3],
-            ]
-          }),
-        )
-        if (!result.rejection) {
-          // GRID-03: apply the coerced canonical values (category option id,
-          // UTC instant, grouped-number) so the grid shows what will be
-          // written, not the raw editor output.
-          for (let index = 0; index < changes.length; index += 1) {
-            changes[index][3] = result.changes[index]?.[3]
-          }
-          return undefined
-        }
-        const verb =
-          source === 'CopyPaste.paste'
-            ? 'Paste'
-            : source === 'Autofill.fill'
-              ? 'Fill'
-              : source === 'sheetbase.clear-contents'
-                ? 'Clear'
-                : 'Edit'
-        setWriteStatus(
-          result.rejection.kind === 'read_only_column'
-            ? `${verb} rejected: the range contains read-only or derived cells.`
-            : `${verb} rejected: ${result.rejection.detail} in ${result.rejection.label}. The cell kept its previous value.`,
-        )
-        // Nullify the entries instead of only returning false: Handsontable
-        // 18's undo plugin records any non-null change set regardless of a
-        // false return, so a bare rejection would leave a no-op undo step
-        // whose Ctrl+Z re-persists unchanged values to the server.
-        for (let index = 0; index < changes.length; index += 1) {
-          changes[index] = null as unknown as (typeof changes)[number]
-        }
-        return false
-      },
-      contextMenu: {
-        items: {
-          insert_row: {
-            name: 'Insert row',
-            callback: () => {
-              void addRowRef.current()
-            },
-          },
-          insert_column: {
-            name: 'Insert column',
-            callback: () => {
-              void addColumnRef.current()
-            },
-          },
-          remove_row: {
-            name: 'Delete local row',
-            callback: () => {
-              void deleteRowRef.current()
-            },
-          },
-          remove_col: {
-            name: 'Retire local column',
-            callback: () => {
-              void deleteColumnRef.current()
-            },
-          },
-          sp1: { name: '---------' },
-          copy: {},
-          cut: {},
-          sp2: { name: '---------' },
-          clear_contents: {
-            name: 'Clear contents',
-            disabled: () => !canWrite,
-            callback: () => {
-              // GRID-02: clearing writes nulls through the same per-cell
-              // semantics as editing (parse → validate → authoritative
-              // target). Read-only/derived cells and empty spare-row cells
-              // are skipped; the workspace beforeChange bulk-validation
-              // rejects the whole operation if any cleared cell violates
-              // the typed contract (e.g. a required field), so the visible
-              // grid never diverges from the authoritative state.
-              const hot = hotInstanceRef.current
-              if (!hot) return
-              const ranges = hot.getSelectedRange()
-              if (!ranges || ranges.length === 0) return
-              const updates = clearContentsUpdates(
-                matrixRef.current.columns,
-                ranges,
-                (row, col) => hot.getDataAtCell(row, col),
-                physicalColumn,
-              )
-              if (updates.length === 0) {
-                setWriteStatus(
-                  'Nothing to clear: the selection has no editable, non-empty cells.',
-                )
-                return
-              }
-              hot.setDataAtCell(updates, 'sheetbase.clear-contents')
-            },
-          },
+      {
+        id: 'insert-column',
+        label: 'Insert column',
+        disabled: () => !canWrite,
+        onSelect: () => {
+          void addColumnRef.current()
         },
       },
-      // GRID-04: selection is stored in physical coordinates so delete,
-      // provenance and status resolve the column/row the user actually
-      // selected, whatever the current sort/filter/move state is.
-      afterSelectionEnd: (row: number, col: number) => {
-        if (row >= 0 && col >= 0)
-          setSelected({ row: physicalRow(row), col: physicalColumn(col) })
+      {
+        id: 'delete-row',
+        label: 'Delete local row',
+        disabled: () => !canWrite,
+        onSelect: () => {
+          void deleteRowRef.current()
+        },
       },
-      afterChange: (
-        changes: Array<[number, string | number, unknown, unknown]> | null,
-        source: string,
-      ) => {
-        if (!changes || source === 'loadData' || !canWrite) return
-        const currentMatrix = matrixRef.current
-        const snapshot = compositionRef.current
-        const localCells: Array<{
-          rowKey: string
-          fieldId: string
-          value: unknown
-        }> = []
-        const pending: Record<string, Record<string, unknown>> = {}
-        const created = new Map<number, string>()
-        // GRID-02: Handsontable reports visual row indexes; with column
-        // sorting active they diverge from the canonical matrix's physical
-        // order. Resolve the physical row first so a change is attributed to
-        // the rowKey it was actually edited on — never a neighbour's.
-        // GRID-04: columns resolve through the same visual→physical mapping
-        // so moved or hidden columns keep write attribution too.
-        for (const change of changes) {
-          const columnIndex =
-            typeof change[1] === 'number' ? change[1] : Number(change[1])
-          const column = currentMatrix.columns.at(
-            Number.isFinite(columnIndex) ? physicalColumn(columnIndex) : -1,
-          )
-          if (!column || !column.editable) continue
-          const physicalIndex = physicalRow(change[0])
-          let rowKey =
-            currentMatrix.rowKeys[physicalIndex] ?? created.get(physicalIndex)
-          if (!rowKey) {
-            rowKey = crypto.randomUUID()
-            created.set(physicalIndex, rowKey)
-          }
-          const value = parseSheetCellInput(column.field, change[3])
-          // GRID-03 safety net: beforeChange already rejected and reverted
-          // invalid values for every write source, so this branch only fires
-          // if a change reaches afterChange without passing through it.
-          const invalid = validateCanonicalCell(column.field, value)
-          if (invalid) {
-            setWriteStatus(`Invalid value (${invalid}) in ${column.label}.`)
-            continue
-          }
-          if (column.origin === 'bound' && snapshot) {
-            pending[rowKey] = { ...pending[rowKey], [column.id]: value }
-          } else {
-            localCells.push({ rowKey, fieldId: column.id, value })
-          }
-        }
-        if (Object.keys(pending).length > 0) {
-          setPendingValues((current) => {
-            const next = { ...current }
-            for (const [rowKey, cells] of Object.entries(pending)) {
-              next[rowKey] = { ...next[rowKey], ...cells }
-            }
-            return next
-          })
-        }
-        if (localCells.length > 0) {
-          const newRows = [...created.values()].map((rowKey) => ({
-            kind: 'local' as const,
-            rowKey,
-          }))
-          void persistLocalCells(localCells, {
-            rows: newRows.length > 0 ? newRows : undefined,
-          }).catch((error: unknown) => {
-            setWriteStatus(
-              errorText(error) ?? `Local write ${sheetCellWriteError(error)}.`,
-            )
-          })
-        }
+      {
+        id: 'delete-column',
+        label: 'Retire local column',
+        disabled: () => !canWrite,
+        onSelect: () => {
+          void deleteColumnRef.current()
+        },
       },
-      // GRID-04: persist resized column widths (presentation state only).
-      afterColumnResize: (newSize: number, visualColumn: number) => {
-        const column = matrixRef.current.columns.at(
-          physicalColumn(visualColumn),
-        )
-        if (!column) return
-        const current = instanceRef.current.state.presentation.columnWidths
-        void persistPresentation({
-          columnWidths: { ...current, [column.id]: clampColumnWidth(newSize) },
-        })
+      'separator',
+      'copy',
+      'cut',
+      'separator',
+      {
+        id: 'clear-contents',
+        label: 'Clear contents',
+        disabled: () => !canWrite,
       },
-      // GRID-04: persist the new column order as stable column IDs and reset
-      // the plugin's visual index map — the rebuilt matrix already carries
-      // the persisted order, so the map must stay identity or the next
-      // data reload would double-apply the move.
-      afterColumnMove: (
-        _movedColumns: number[],
-        _finalIndex: number,
-        _dropIndex: number | undefined,
-        movePossible: boolean,
-        orderChanged: boolean,
-      ) => {
-        const hot = hotInstanceRef.current
-        if (!hot || !movePossible || !orderChanged) return
-        const count = hot.countCols()
-        // GRID-04 review fix: the ManualColumnMove plugin has ALREADY applied
-        // its index-mapper move by the time this hook runs, so the new order
-        // must be read through the mapper BEFORE it is reset to identity —
-        // resetting first collapses toPhysicalColumn to identity and the
-        // pre-move order gets persisted (the drag would silently snap back).
-        const order: string[] = []
-        for (let visual = 0; visual < count; visual += 1) {
-          const column = matrixRef.current.columns.at(physicalColumn(visual))
-          if (column) order.push(column.id)
-        }
-        hot.columnIndexMapper.setIndexesSequence(
-          Array.from({ length: count }, (_, index) => index),
-        )
-        void persistPresentation({ columnOrder: order })
-      },
-      // GRID-04: sorting is visual only. Persist the destination sort config
-      // (mapped back to stable column IDs); an equality guard stops the
-      // restored initialConfig from re-writing identical state.
-      afterColumnSort: (
-        _currentSortConfig: Array<{ column: number; sortOrder: string }>,
-        destinationSortConfigs: Array<{ column: number; sortOrder: string }>,
-      ) => {
-        const sorts: SheetPresentation['sorts'] = []
-        for (const config of destinationSortConfigs) {
-          if (config.sortOrder !== 'asc' && config.sortOrder !== 'desc')
-            continue
-          const column = matrixRef.current.columns.at(
-            physicalColumn(config.column),
-          )
-          if (column)
-            sorts.push({ columnId: column.id, direction: config.sortOrder })
-        }
-        const previous = instanceRef.current.state.presentation.sorts
-        if (JSON.stringify(sorts) === JSON.stringify(previous)) return
-        void persistPresentation({ sorts })
-      },
-      // GRID-04: dropdown-menu filter state is captured as presentation
-      // state. `afterFilter` hands over the plugin's conditions stack keyed
-      // by physical column index; it is mapped to stable column ids (equality
-      // operators only — see `hotFiltersToPresentationFilters`) and persisted
-      // with the same equality guard as sorts. Restores echo through this
-      // hook; `applyingFiltersRef` keeps that from re-writing identical
-      // state, and the JSON guard catches any identical user action.
-      afterFilter: (conditionsStack: HotFilterConditionStack[]) => {
-        if (applyingFiltersRef.current) return
-        const captured = hotFiltersToPresentationFilters(
-          conditionsStack,
-          matrixRef.current.columns,
-        )
-        // GRID-04 #113: a hidden column has no grid column at all, so its
-        // condition cannot exist in the plugin's stack — carry the previous
-        // persisted filters for hidden columns across, or they would be
-        // silently dropped by any later capture.
-        const filters = preserveHiddenColumnFilters(
-          captured,
-          instanceRef.current.state.presentation.filters,
-          canonicalMatrixRef.current.columns,
-          matrixRef.current.columns,
-        )
-        const previous = instanceRef.current.state.presentation.filters
-        if (JSON.stringify(filters) === JSON.stringify(previous)) return
-        void persistPresentation({ filters })
-      },
-    }
-  }, [
-    matrix,
-    canWrite,
-    presentation,
-    physicalRow,
-    physicalColumn,
-    recordPicker,
-  ])
-
-  // GRID-04: whenever the display column set changes (reorder persisted,
-  // hide/show, column added/retired), the grid is rebuilt from the canonical
-  // matrix in presentation order — make sure the manualColumnMove plugin's
-  // visual index map never lingers over a different matrix shape.
-  const columnIdsKey = matrix.columns.map((column) => column.id).join('|')
-  useEffect(() => {
-    const hot = hotInstanceRef.current
-    if (!hot) return
-    const mapper = hot.columnIndexMapper
-    const identity = Array.from(
-      { length: hot.countCols() },
-      (_, index) => index,
-    )
-    const current = mapper.getIndexesSequence()
-    if (
-      current.length !== identity.length ||
-      current.some((p, i) => p !== identity[i])
-    ) {
-      mapper.setIndexesSequence(identity)
-    }
-  }, [columnIdsKey])
-
-  // GRID-04: saved filters are applied through the Filters plugin on mount
-  // and re-applied after every grid rebuild — a presentation change reloads
-  // Handsontable's data (new matrix identity), which clears in-session plugin
-  // state, so the persisted presentation must be replayed onto the fresh grid.
-  // The apply sets `applyingFiltersRef` first: `filter()` fires `afterFilter`
-  // synchronously and that echo must not re-persist restored state.
-  const filtersKey = JSON.stringify(presentation.filters)
-  useEffect(() => {
-    const hot = hotInstanceRef.current
-    if (!hot) return
-    const filtersPlugin = hot.getPlugin('filters') as
-      | {
-          clearConditions: () => void
-          addCondition: (
-            column: number,
-            name: string,
-            args: unknown[],
-            operation?: string,
-          ) => void
-          filter: () => void
-        }
-      | undefined
-    if (!filtersPlugin) return
-    const filters = instanceRef.current.state.presentation.filters
-    applyingFiltersRef.current = true
-    try {
-      filtersPlugin.clearConditions()
-      // GRID-04 #113: resolve condition columns through the CANONICAL
-      // column list, not the display subset — a saved filter on a hidden
-      // column must survive the replay (it is applied the moment the
-      // column is shown again), instead of being silently dropped.
-      const canonicalColumns = canonicalMatrixRef.current.columns
-      for (const addition of filterAdditionsToDisplayColumns(
-        presentationFiltersToHotAdditions(filters, canonicalColumns),
-        canonicalColumns,
-        matrix.columns,
-      )) {
-        filtersPlugin.addCondition(
-          addition.column,
-          addition.name,
-          addition.args,
-          'conjunction',
-        )
-      }
-      filtersPlugin.filter()
-    } finally {
-      applyingFiltersRef.current = false
-    }
-  }, [matrix, filtersKey])
+    ],
+    [canWrite],
+  )
 
   useEffect(() => {
     if (composition.error) {
@@ -1704,7 +1480,34 @@ export function CanonicalSheetEditor({
         <div className="min-h-0 flex-1">
           <SheetbaseGrid
             ariaLabel="Sheet"
-            settings={settings}
+            columns={sheetColumns}
+            rows={sheetRows}
+            rowHeaders
+            stretch="last"
+            height="fill"
+            spareRows={canWrite ? 1 : 0}
+            columnWidth={(columnId) =>
+              instanceRef.current.state.presentation.columnWidths[columnId]
+            }
+            reorderable
+            resizable
+            resetColumnOrderOnChange
+            sorting
+            sorts={presentation.sorts}
+            filtering
+            filters={presentation.filters}
+            frozenColumns={presentation.frozenColumnCount}
+            columnMenuItems={columnMenu}
+            contextMenuItems={contextMenu}
+            beforeCellsChange={handleBeforeCellsChange}
+            onCellsChange={handleCellsChange}
+            onSelectionChange={handleSelectionChange}
+            onColumnResize={handleColumnResize}
+            onColumnOrderChange={handleColumnOrderChange}
+            onSortsChange={handleSortsChange}
+            onFiltersChange={handleFiltersChange}
+            onOpenRecordPicker={handleOpenRecordPicker}
+            onNothingToClear={handleNothingToClear}
             onReady={handleGridReady}
           />
         </div>

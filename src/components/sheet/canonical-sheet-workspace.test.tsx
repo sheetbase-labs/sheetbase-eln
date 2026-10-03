@@ -18,6 +18,7 @@ import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 
+import type { SheetbaseGridCellChange } from './sheetbase-grid'
 import { CanonicalSheetEditor } from './canonical-sheet-workspace'
 
 const rpcMock = vi.hoisted(() => vi.fn())
@@ -71,22 +72,28 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   }),
 }))
 
-// The grid is replaced with a settings recorder: change flows are simulated
-// by invoking the captured Handsontable hooks exactly as the grid would.
+// The grid is replaced with a props recorder: change flows are simulated by
+// invoking the captured Sheetbase write callbacks exactly as the grid would.
 vi.mock('./sheetbase-grid', () => ({
   SheetbaseGrid: ({
-    settings,
+    columns,
+    rows,
+    beforeCellsChange,
+    onCellsChange,
   }: {
-    settings: Record<string, unknown> & { colHeaders?: string[] }
+    columns: Array<{ id: string; label: string }>
+    rows: Array<{ id?: string }>
+    beforeCellsChange?: unknown
+    onCellsChange?: unknown
   }) => {
-    gridRender(settings)
+    gridRender({ columns, rows, beforeCellsChange, onCellsChange })
     return (
       <table>
         <thead>
           <tr>
-            {(settings.colHeaders ?? []).map((header) => (
-              <th key={header} scope="col">
-                {header}
+            {columns.map((column) => (
+              <th key={column.id} scope="col">
+                {column.label}
               </th>
             ))}
           </tr>
@@ -262,28 +269,45 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
     // The composed Sheet carries both a local column and the two
     // Dataset-bound columns.
     await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const settings = gridRender.mock.lastCall?.[0] as {
-      colHeaders: string[]
-      beforeChange: (
-        changes: Array<[number, number, unknown, unknown]>,
+    const props = gridRender.mock.lastCall?.[0] as {
+      columns: Array<{ id: string; label: string }>
+      rows: Array<{ id?: string }>
+      beforeCellsChange: (
+        changes: SheetbaseGridCellChange[],
         source: string,
       ) => boolean | undefined
-      afterChange: (
-        changes: Array<[number, number, unknown, unknown]>,
+      onCellsChange: (
+        changes: SheetbaseGridCellChange[],
         source: string,
       ) => void
     }
-    expect(settings.colHeaders).toEqual(['sample', 'comparison', 'Observation'])
+    expect(props.columns.map((column) => column.label)).toEqual([
+      'sample',
+      'comparison',
+      'Observation',
+    ])
 
     // A paste touching both governed columns: the typed bulk-write gate
     // accepts both values (UUID-shaped record references, type-valid), so
     // the change reaches the edit pipeline.
     const paste = [
-      [0, 0, 'old-a', '21000000-0000-4000-8000-0000000000c1'],
-      [0, 1, 'old-b', '21000000-0000-4000-8000-0000000000c2'],
-    ] as Array<[number, number, unknown, unknown]>
-    expect(settings.beforeChange(paste, 'CopyPaste.paste')).toBeUndefined()
-    settings.afterChange(paste, 'CopyPaste.paste')
+      {
+        rowIndex: 0,
+        rowId: props.rows[0].id,
+        columnId: props.columns[0].id,
+        previous: 'old-a',
+        next: '21000000-0000-4000-8000-0000000000c1',
+      },
+      {
+        rowIndex: 0,
+        rowId: props.rows[0].id,
+        columnId: props.columns[1].id,
+        previous: 'old-b',
+        next: '21000000-0000-4000-8000-0000000000c2',
+      },
+    ]
+    expect(props.beforeCellsChange(paste, 'paste')).toBeUndefined()
+    props.onCellsChange(paste, 'paste')
 
     const writeBack = await screen.findByRole('button', { name: 'Write back' })
     await waitFor(() => expect(writeBack.hasAttribute('disabled')).toBe(false))
@@ -423,22 +447,36 @@ describe('CanonicalSheetWorkspace — explain surface (ASSIST-01)', () => {
     )
 
     await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const settings = gridRender.mock.lastCall?.[0] as {
-      beforeChange: (
-        changes: Array<[number, number, unknown, unknown]>,
+    const props = gridRender.mock.lastCall?.[0] as {
+      columns: Array<{ id: string; label: string }>
+      rows: Array<{ id?: string }>
+      beforeCellsChange: (
+        changes: SheetbaseGridCellChange[],
         source: string,
       ) => boolean | undefined
-      afterChange: (
-        changes: Array<[number, number, unknown, unknown]>,
+      onCellsChange: (
+        changes: SheetbaseGridCellChange[],
         source: string,
       ) => void
     }
     const paste = [
-      [0, 0, 'old-a', '21000000-0000-4000-8000-0000000000c1'],
-      [0, 1, 'old-b', '21000000-0000-4000-8000-0000000000c2'],
-    ] as Array<[number, number, unknown, unknown]>
-    expect(settings.beforeChange(paste, 'CopyPaste.paste')).toBeUndefined()
-    settings.afterChange(paste, 'CopyPaste.paste')
+      {
+        rowIndex: 0,
+        rowId: props.rows[0].id,
+        columnId: props.columns[0].id,
+        previous: 'old-a',
+        next: '21000000-0000-4000-8000-0000000000c1',
+      },
+      {
+        rowIndex: 0,
+        rowId: props.rows[0].id,
+        columnId: props.columns[1].id,
+        previous: 'old-b',
+        next: '21000000-0000-4000-8000-0000000000c2',
+      },
+    ]
+    expect(props.beforeCellsChange(paste, 'paste')).toBeUndefined()
+    props.onCellsChange(paste, 'paste')
 
     const writeBack = await screen.findByRole('button', { name: 'Write back' })
     await waitFor(() => expect(writeBack.hasAttribute('disabled')).toBe(false))

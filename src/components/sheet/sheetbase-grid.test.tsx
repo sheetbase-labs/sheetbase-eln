@@ -7,15 +7,22 @@ import { SheetbaseGrid } from './sheetbase-grid'
 vi.mock('./sheetbase-grid-client', () => ({
   SheetbaseGridClient: ({
     licenseKey,
-    settings,
+    rows,
   }: {
     licenseKey: string
-    settings: { data?: unknown[] }
+    rows: Array<{ cells: unknown[] }>
   }) => {
-    if (settings.data?.[0] === 'throw') throw new Error('initialisation failed')
+    if (rows[0]?.cells[0] === 'throw') throw new Error('initialisation failed')
     return <div data-testid="handsontable">{licenseKey}</div>
   },
 }))
+
+function gridProps(cells: unknown[]) {
+  return {
+    columns: [{ id: 'sample', label: 'Sample', source: 'local' as const, type: 'text' as const }],
+    rows: [{ id: 'row-1', cells }],
+  }
+}
 
 afterEach(() => {
   cleanup()
@@ -26,7 +33,7 @@ afterEach(() => {
 describe('SheetbaseGrid', () => {
   it('renders a clear failure state without a licence', () => {
     vi.stubEnv('VITE_HANDSONTABLE_LICENSE_KEY', '')
-    render(<SheetbaseGrid settings={{ data: [['Sample', 1]] }} />)
+    render(<SheetbaseGrid {...gridProps(['Sample', 1])} />)
     expect(screen.getByRole('alert').textContent).toContain(
       'A Handsontable licence is not configured.',
     )
@@ -35,10 +42,7 @@ describe('SheetbaseGrid', () => {
   it('loads the vendor grid only after mounting in the browser', async () => {
     vi.stubEnv('VITE_HANDSONTABLE_LICENSE_KEY', 'test-commercial-key')
     render(
-      <SheetbaseGrid
-        ariaLabel="Assay results Sheet"
-        settings={{ data: [['Sample', 1]] }}
-      />,
+      <SheetbaseGrid ariaLabel="Assay results Sheet" {...gridProps(['Sample', 1])} />,
     )
     const region = screen.getByRole('region', {
       name: 'Assay results Sheet',
@@ -55,9 +59,7 @@ describe('SheetbaseGrid', () => {
 
   it('server-renders only the stable loading state', () => {
     vi.stubEnv('VITE_HANDSONTABLE_LICENSE_KEY', 'test-commercial-key')
-    const html = renderToString(
-      <SheetbaseGrid settings={{ data: [['Sample', 1]] }} />,
-    )
+    const html = renderToString(<SheetbaseGrid {...gridProps(['Sample', 1])} />)
     expect(html).toContain('Preparing scientific sheet')
     expect(html).not.toContain('data-testid="handsontable"')
   })
@@ -65,7 +67,7 @@ describe('SheetbaseGrid', () => {
   it('contains client initialisation failures', async () => {
     vi.stubEnv('VITE_HANDSONTABLE_LICENSE_KEY', 'test-commercial-key')
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    render(<SheetbaseGrid settings={{ data: ['throw'] }} />)
+    render(<SheetbaseGrid {...gridProps(['throw'])} />)
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toContain(
         'The scientific sheet could not start.',

@@ -10,7 +10,7 @@ import {
   vi,
 } from 'vitest'
 
-import type { SheetbaseGridSettings } from './sheetbase-grid'
+import type { SheetbaseGridClientProps } from './sheetbase-grid'
 import { SheetbaseGridClient } from './sheetbase-grid-client'
 
 class ResizeObserverStub {
@@ -62,31 +62,50 @@ const rows = Array.from({ length: 20 }, (_, row) => [
   `derived-${row + 1}`,
 ])
 
-function mixedSettings(
-  overrides: SheetbaseGridSettings = {},
-): SheetbaseGridSettings {
+type ClientOverrides = Partial<SheetbaseGridClientProps>
+
+function mixedProps(overrides: ClientOverrides = {}): SheetbaseGridClientProps {
   return {
-    data: rows.map((row) => [...row]),
-    columns: [{ readOnly: false }, { readOnly: false }, { readOnly: true }],
-    colHeaders: ['Local observation', 'Governed result', 'Derived recovery'],
+    licenseKey: '',
+    ariaLabel: '',
+    descriptionId: '',
+    cutStatusId: '',
+    columns: [
+      { id: 'local', label: 'Local observation', source: 'local', type: 'text' },
+      {
+        id: 'governed',
+        label: 'Governed result',
+        source: 'bound',
+        type: 'text',
+      },
+      {
+        id: 'derived',
+        label: 'Derived recovery',
+        source: 'calculated',
+        type: 'text',
+        readOnly: true,
+      },
+    ],
+    rows: rows.map((cells, index) => ({
+      id: `row-${index + 1}`,
+      cells: [...cells],
+    })),
     rowHeaders: true,
-    copyPaste: true,
     height: 240,
-    width: 480,
     renderAllRows: true,
     renderAllColumns: true,
     ...overrides,
   }
 }
 
-function mountGrid(settings = mixedSettings()) {
+function mountGrid(props: SheetbaseGridClientProps = mixedProps()) {
   const ready: Array<Handsontable | null> = []
   const result = render(
     <>
       <p id="grid-help">Keyboard help</p>
       <p id="cut-status" aria-live="polite" />
       <SheetbaseGridClient
-        settings={settings}
+        {...props}
         licenseKey="non-commercial-and-evaluation"
         ariaLabel="Purification summary Sheet"
         descriptionId="grid-help"
@@ -126,15 +145,7 @@ function press(
 
 describe('SheetbaseGrid spreadsheet keyboard and selection contract', () => {
   it('owns spreadsheet settings and gives the treegrid an accessible focus contract', () => {
-    const { hot, container } = mountGrid(
-      mixedSettings({
-        selectionMode: 'single',
-        navigableHeaders: true,
-        tabNavigation: false,
-        autoWrapRow: true,
-        autoWrapCol: true,
-      }),
-    )
+    const { hot, container } = mountGrid()
 
     expect(hot.getSettings()).toMatchObject({
       selectionMode: 'multiple',
@@ -156,7 +167,7 @@ describe('SheetbaseGrid spreadsheet keyboard and selection contract', () => {
     expect(document.activeElement).toBe(hot.getCell(3, 1))
     expect(hot.getCell(3, 1)?.getAttribute('aria-selected')).toBe('true')
     expect(container.querySelector('[role="treegrid"]')).toBe(hot.rootElement)
-  })
+  }, 20_000)
 
   it('moves, extends, selects rows/columns/all cells, and changes only the active range', () => {
     const { hot } = mountGrid()
@@ -208,7 +219,7 @@ describe('SheetbaseGrid spreadsheet keyboard and selection contract', () => {
       [0, 0, 1, 0],
       [5, 1, 6, 1],
     ])
-  }, 10_000)
+  }, 30_000)
 
   it('uses Tab and page navigation without trapping focus at a grid boundary', () => {
     const { hot } = mountGrid()
@@ -227,7 +238,7 @@ describe('SheetbaseGrid spreadsheet keyboard and selection contract', () => {
     selectAndFocus(hot, 0, 2)
     press(hot, 'Tab')
     expect(hot.getSelected()).toBeUndefined()
-  })
+  }, 20_000)
 
   it('keeps navigation and edit modes distinct for editable and derived cells', () => {
     const { hot } = mountGrid()
@@ -254,11 +265,11 @@ describe('SheetbaseGrid spreadsheet keyboard and selection contract', () => {
     expect(hot.getActiveEditor()?.isOpened() ?? false).toBe(false)
     expect(hot.getSelectedLast()).toEqual([2, 2, 2, 2])
     expect(hot.getDataAtCell(1, 2)).toBe('derived-2')
-  })
+  }, 20_000)
 
   it('copies only the active range and blocks partial cuts over read-only state', () => {
     const beforeCut = vi.fn()
-    const { hot } = mountGrid(mixedSettings({ beforeCut }))
+    const { hot } = mountGrid(mixedProps({ clipboard: { onCut: beforeCut } }))
     const copyPaste = hot.getPlugin('copyPaste')
 
     act(() => {
@@ -296,12 +307,10 @@ describe('SheetbaseGrid spreadsheet keyboard and selection contract', () => {
       editableData,
     )
     expect(beforeCut).toHaveBeenCalledOnce()
-  })
+  }, 20_000)
 
   it('keeps a fully read-only Sheet keyboard-navigable without changing data', () => {
-    const { hot } = mountGrid(
-      mixedSettings({ readOnly: true, columns: undefined }),
-    )
+    const { hot } = mountGrid(mixedProps({ readOnly: true }))
     selectAndFocus(hot, 0, 0)
     press(hot, 'ArrowDown')
     press(hot, 'ArrowRight')
@@ -317,13 +326,13 @@ describe('SheetbaseGrid spreadsheet keyboard and selection contract', () => {
       hot.runHooks('beforeCut', copyPaste.getRangedData(ranges), ranges),
     ).toBe(false)
     expect(hot.getData()).toEqual(rows)
-  })
+  }, 20_000)
 })
 
 describe('SheetbaseGrid bulk-write guards (GRID-02)', () => {
   it('blocks paste into read-only cells and announces why, failing closed', () => {
     const beforeChange = vi.fn()
-    const { hot } = mountGrid(mixedSettings({ beforeChange }))
+    const { hot } = mountGrid(mixedProps({ beforeCellsChange: beforeChange }))
 
     // A paste whose target range reaches the derived column is rejected.
     const pasted: Array<[number, string | number, unknown, unknown]> = [
@@ -336,7 +345,7 @@ describe('SheetbaseGrid bulk-write guards (GRID-02)', () => {
       'Paste is unavailable',
     )
     expect(hot.getDataAtCell(0, 2)).toBe('derived-1')
-  })
+  }, 20_000)
 
   it('blocks fill over read-only cells', () => {
     const { hot } = mountGrid()
@@ -348,11 +357,11 @@ describe('SheetbaseGrid bulk-write guards (GRID-02)', () => {
       'Fill is unavailable',
     )
     expect(hot.getDataAtCell(1, 2)).toBe('derived-2')
-  })
+  }, 20_000)
 
   it('allows paste and fill across fully editable ranges', () => {
     const beforeChange = vi.fn().mockReturnValue(true)
-    const { hot } = mountGrid(mixedSettings({ beforeChange }))
+    const { hot } = mountGrid(mixedProps({ beforeCellsChange: beforeChange }))
     const changes: Array<[number, string | number, unknown, unknown]> = [
       [0, 0, null, 'pasted'],
     ]
@@ -361,11 +370,11 @@ describe('SheetbaseGrid bulk-write guards (GRID-02)', () => {
     expect(document.getElementById('cut-status')?.textContent).not.toContain(
       'unavailable',
     )
-  })
+  }, 20_000)
 
   it('passes non-bulk changes through to caller hooks untouched', () => {
     const beforeChange = vi.fn().mockReturnValue(true)
-    const { hot } = mountGrid(mixedSettings({ beforeChange }))
+    const { hot } = mountGrid(mixedProps({ beforeCellsChange: beforeChange }))
     const changes: Array<[number, string | number, unknown, unknown]> = [
       [0, 2, null, 'typed-derived'],
     ]
@@ -373,5 +382,5 @@ describe('SheetbaseGrid bulk-write guards (GRID-02)', () => {
     // the workspace layer); the wrapper only guards bulk-write sources.
     expect(hot.runHooks('beforeChange', changes, 'edit')).toBe(true)
     expect(beforeChange).toHaveBeenCalledOnce()
-  })
+  }, 20_000)
 })

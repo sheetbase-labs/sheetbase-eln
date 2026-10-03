@@ -27,23 +27,33 @@ function GridKeyboardFixture() {
       <div className="min-h-0 flex-1">
         <SheetbaseGrid
           ariaLabel="Purification summary Sheet"
-          settings={{
-            data,
-            columns: [
-              { readOnly: false },
-              { readOnly: false },
-              { readOnly: true },
-            ],
-            colHeaders: [
-              'Local observation',
-              'Governed result',
-              'Derived recovery',
-            ],
-            rowHeaders: true,
-            copyPaste: true,
-            height: '100%',
-            width: '100%',
-          }}
+          columns={[
+            {
+              id: 'local',
+              label: 'Local observation',
+              source: 'local',
+              type: 'text',
+            },
+            {
+              id: 'governed',
+              label: 'Governed result',
+              source: 'bound',
+              type: 'text',
+            },
+            {
+              id: 'derived',
+              label: 'Derived recovery',
+              source: 'calculated',
+              type: 'text',
+              readOnly: true,
+            },
+          ]}
+          rows={data.map((cells, index) => ({
+            id: `row-${index + 1}`,
+            cells,
+          }))}
+          rowHeaders
+          height="fill"
           onReady={(hot) => {
             window.sheetbaseTestGrid = hot
           }}

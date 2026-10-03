@@ -267,6 +267,8 @@ export const designSteps: Array<SeedStep> = [
     name: 'design samples',
     run: async (db) => {
       for (const sample of DESIGN_SAMPLES) {
+        const properties =
+          'properties' in sample ? sample.properties : undefined
         await db
           .insert(schema.records)
           .values({
@@ -278,6 +280,7 @@ export const designSteps: Array<SeedStep> = [
             title: sample.title,
             status: sample.status,
             customFields: sample.customFields,
+            ...(properties ? { properties } : {}),
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
           .onConflictDoUpdate({
@@ -286,6 +289,7 @@ export const designSteps: Array<SeedStep> = [
               title: sample.title,
               status: sample.status,
               customFields: sample.customFields,
+              ...(properties ? { properties } : {}),
               deletedAt: null,
               archivedAt: null,
             },
@@ -1042,6 +1046,15 @@ const DESIGN_SAMPLES = [
       construct: 'AAV9',
       batch: 'HL-0934',
       concentration: 4.6e12,
+    },
+    // DSET/LAB-02 hold data so the hold meter matches the design at the frozen
+    // design clock (25 Sep 2026): 5 of 14 days used, use by 04 Oct. Hold fields
+    // live in `properties` (guarded by model_base_fields), not custom_fields.
+    properties: {
+      holdCondition: '2–8 °C',
+      holdStartedAt: '2026-09-20T00:00:00Z',
+      holdDurationDays: 14,
+      holdUntil: '2026-10-04T00:00:00Z',
     },
   },
   {

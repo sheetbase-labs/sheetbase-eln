@@ -68,8 +68,17 @@ function resolveAsset(pathname: string): string | null {
   return file.startsWith(CANVAS + sep) ? file : null
 }
 
-/** Rewrites @fontsource CSS to the family names and URLs the screens use. */
-async function fontCss(): Promise<string> {
+/**
+ * Rewrites @fontsource CSS to the family names and URLs the screens use.
+ *
+ * The CSS is fulfilled for `https://fonts.googleapis.com/**`, so the font URLs
+ * must be absolute: a root-relative `/fonts/...` would resolve against the
+ * stylesheet's own origin (`fonts.googleapis.com`) and be answered by the
+ * wildcard route with this same CSS instead of a `font/woff2` body, which makes
+ * every face fail to decode and the screens silently fall back to a system
+ * font.
+ */
+async function fontCss(base: string): Promise<string> {
   const parts = await Promise.all(
     FONTS.map(async ({ family, pkg }) => {
       const css = await readFile(
@@ -78,7 +87,7 @@ async function fontCss(): Promise<string> {
       )
       return css
         .replace(/font-family: '[^']+';/g, `font-family: '${family}';`)
-        .replace(/url\(\.\/files\//g, `url(/fonts/${pkg}/`)
+        .replace(/url\(\.\/files\//g, `url(${base}/fonts/${pkg}/`)
     }),
   )
   return parts.join('\n')
@@ -94,7 +103,6 @@ async function main() {
     .filter(({ name }) => wanted.size === 0 || wanted.has(name))
   if (boards.length === 0) throw new Error('No matching design screens')
 
-  const fonts = await fontCss()
   const server = createServer((req, res) => {
     const file = resolveAsset(new URL(req.url ?? '/', 'http://x').pathname)
     if (!file) {
@@ -113,6 +121,7 @@ async function main() {
   })
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  const fonts = await fontCss(base)
 
   await mkdir(OUT, { recursive: true })
   const browser = await chromium.launch({
@@ -127,6 +136,11 @@ async function main() {
         reducedMotion: 'reduce',
       })
       await context.addInitScript((value) => {
+        // The application reads `sheetbase-theme` (src/components/v3/lib/theme.ts,
+        // `THEME_STORAGE_KEY`); the vendored design snapshot's component runtime
+        // reads `sheetbase.theme` and resolves the canvas `data-theme` from it.
+        // Seed both so the reference states the same appearance the app does.
+        localStorage.setItem('sheetbase-theme', value)
         localStorage.setItem('sheetbase.theme', value)
       }, theme)
       await context.route('https://fonts.googleapis.com/**', (route) =>
@@ -144,6 +158,21 @@ async function main() {
         await page.setViewportSize({ width: board.w, height: board.h })
         await page.goto(`${base}/${name}.dc.html`, { waitUntil: 'networkidle' })
         await page.evaluate(() => document.fonts.ready)
+        const fontFaults = await page.evaluate(() => {
+          const faults: string[] = []
+          for (const face of document.fonts) {
+            if (face.status === 'error') {
+              faults.push(`${face.family} ${face.weight} failed`)
+            }
+          }
+          // Every screen renders Latin text, so the synthesised `Inter` face
+          // must be usable; a `false` here means the screens fell back.
+          if (!document.fonts.check("16px 'Inter'")) {
+            faults.push('Inter is not loaded')
+          }
+          return faults
+        })
+        errors.push(...fontFaults)
         await page.waitForTimeout(250)
         await page.screenshot({
           path: join(OUT, `${name}-${theme}.png`),

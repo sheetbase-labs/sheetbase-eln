@@ -202,6 +202,13 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
                   },
                 },
                 {
+                  label: 'Relations',
+                  link: {
+                    to: '/models/$modelId/relations',
+                    params,
+                  },
+                },
+                {
                   label: 'Usage',
                   link: {
                     to: '/models/$modelId/usage',

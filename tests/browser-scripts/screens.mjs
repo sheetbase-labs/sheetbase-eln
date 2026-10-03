@@ -208,6 +208,7 @@ function routes(ids) {
       `/models/${ids.recordModel}/records`,
       `/models/${ids.recordModel}/records/new`,
       `/models/${ids.recordModel}/rules`,
+      `/models/${ids.recordModel}/relations`,
       `/models/${ids.recordModel}/usage`,
     )
     if (ids.recordModelRecord)

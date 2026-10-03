@@ -179,6 +179,7 @@ function RootRouteComponent() {
     '/models/$modelId/records/new',
     '/models/$modelId/records/$recordId',
     '/models/$modelId/rules',
+    '/models/$modelId/relations',
     '/models/$modelId/usage',
     '/models/$modelId/datasets',
     '/models/$modelId/edit',

@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 /**
  * MODEL-03 — Model relationship rules: typed links a Model's records accept.
  *
- * Rules live in `api.model_relationship_rules` (workspace-scoped, both keys
- * reference the canonical `model_kinds`; the links stay authoritative in
+ * Rules live in `api.model_relationship_rules` (workspace-scoped; the source
+ * is a built-in `model_kinds` key or a same-workspace `record_models` key, the
+ * target a built-in `model_kinds` key; the links stay authoritative in
  * `record_links`). Enforcement is server-side in
  * `internal.assert_model_relationship_rule`, which fails closed with
  * SB080 (undeclared type/target pair) and SB081 (maximum exceeded)

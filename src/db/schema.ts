@@ -1748,8 +1748,10 @@ export const modelFieldOptions = api.table(
  * `record_field_definitions.relationship` is per reference-field grain
  * (one target model, one/many cardinality) — not per-model link
  * acceptance with count bounds. This table extends the canonical Models
- * without a parallel ontology: both keys reference `model_kinds`, and the
- * links themselves stay authoritative in `record_links`.
+ * without a parallel ontology: the source is a built-in `model_kinds` key or
+ * a same-workspace `record_models` key (ADR-0051), the target is a built-in
+ * `model_kinds` key, and the links themselves stay authoritative in
+ * `record_links`.
  *
  * Enforcement grain: the world closes per source Model. A source model
  * with no declared rules keeps current behaviour untouched; a model with
@@ -1763,9 +1765,10 @@ export const modelRelationshipRules = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    sourceModelKey: text('source_model_key')
-      .notNull()
-      .references(() => modelKinds.key, { onDelete: 'restrict' }),
+    // Built-in `model_kinds.key` or workspace `record_models.key` (ADR-0051);
+    // the `model_relationship_rules_source_guard` trigger enforces that union.
+    // The column carries no single-table foreign key (0292).
+    sourceModelKey: text('source_model_key').notNull(),
     linkType: text('link_type').notNull(),
     targetModelKey: text('target_model_key')
       .notNull()

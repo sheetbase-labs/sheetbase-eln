@@ -100,6 +100,7 @@ import { Route as ModelsModelIdDatasetsRouteImport } from './routes/models/$mode
 import { Route as ModelsModelIdEditRouteImport } from './routes/models/$modelId/edit'
 import { Route as ModelsModelIdFieldsRouteImport } from './routes/models/$modelId/fields'
 import { Route as ModelsModelIdRecordsRouteImport } from './routes/models/$modelId/records'
+import { Route as ModelsModelIdRelationsRouteImport } from './routes/models/$modelId/relations'
 import { Route as ModelsModelIdRulesRouteImport } from './routes/models/$modelId/rules'
 import { Route as ModelsModelIdUsageRouteImport } from './routes/models/$modelId/usage'
 import { Route as ModelsModelIdVersionsRouteImport } from './routes/models/$modelId/versions'
@@ -601,6 +602,11 @@ const ModelsModelIdRecordsRoute = ModelsModelIdRecordsRouteImport.update({
   path: '/records',
   getParentRoute: () => ModelsModelIdRoute,
 } as any)
+const ModelsModelIdRelationsRoute = ModelsModelIdRelationsRouteImport.update({
+  id: '/relations',
+  path: '/relations',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
 const ModelsModelIdRulesRoute = ModelsModelIdRulesRouteImport.update({
   id: '/rules',
   path: '/rules',
@@ -908,6 +914,7 @@ export interface FileRoutesByFullPath {
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
   '/models/$modelId/records': typeof ModelsModelIdRecordsRouteWithChildren
+  '/models/$modelId/relations': typeof ModelsModelIdRelationsRoute
   '/models/$modelId/rules': typeof ModelsModelIdRulesRoute
   '/models/$modelId/usage': typeof ModelsModelIdUsageRoute
   '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
@@ -1028,6 +1035,7 @@ export interface FileRoutesByTo {
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
+  '/models/$modelId/relations': typeof ModelsModelIdRelationsRoute
   '/models/$modelId/rules': typeof ModelsModelIdRulesRoute
   '/models/$modelId/usage': typeof ModelsModelIdUsageRoute
   '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
@@ -1161,6 +1169,7 @@ export interface FileRoutesById {
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
   '/models/$modelId/records': typeof ModelsModelIdRecordsRouteWithChildren
+  '/models/$modelId/relations': typeof ModelsModelIdRelationsRoute
   '/models/$modelId/rules': typeof ModelsModelIdRulesRoute
   '/models/$modelId/usage': typeof ModelsModelIdUsageRoute
   '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
@@ -1295,6 +1304,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
     | '/models/$modelId/records'
+    | '/models/$modelId/relations'
     | '/models/$modelId/rules'
     | '/models/$modelId/usage'
     | '/models/$modelId/versions'
@@ -1415,6 +1425,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
+    | '/models/$modelId/relations'
     | '/models/$modelId/rules'
     | '/models/$modelId/usage'
     | '/models/$modelId/versions'
@@ -1547,6 +1558,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
     | '/models/$modelId/records'
+    | '/models/$modelId/relations'
     | '/models/$modelId/rules'
     | '/models/$modelId/usage'
     | '/models/$modelId/versions'
@@ -2289,6 +2301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ModelsModelIdRecordsRouteImport
       parentRoute: typeof ModelsModelIdRoute
     }
+    '/models/$modelId/relations': {
+      id: '/models/$modelId/relations'
+      path: '/relations'
+      fullPath: '/models/$modelId/relations'
+      preLoaderRoute: typeof ModelsModelIdRelationsRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
     '/models/$modelId/rules': {
       id: '/models/$modelId/rules'
       path: '/rules'
@@ -2695,6 +2714,7 @@ interface ModelsModelIdRouteChildren {
   ModelsModelIdEditRoute: typeof ModelsModelIdEditRoute
   ModelsModelIdFieldsRoute: typeof ModelsModelIdFieldsRoute
   ModelsModelIdRecordsRoute: typeof ModelsModelIdRecordsRouteWithChildren
+  ModelsModelIdRelationsRoute: typeof ModelsModelIdRelationsRoute
   ModelsModelIdRulesRoute: typeof ModelsModelIdRulesRoute
   ModelsModelIdUsageRoute: typeof ModelsModelIdUsageRoute
   ModelsModelIdVersionsRoute: typeof ModelsModelIdVersionsRoute
@@ -2706,6 +2726,7 @@ const ModelsModelIdRouteChildren: ModelsModelIdRouteChildren = {
   ModelsModelIdEditRoute: ModelsModelIdEditRoute,
   ModelsModelIdFieldsRoute: ModelsModelIdFieldsRoute,
   ModelsModelIdRecordsRoute: ModelsModelIdRecordsRouteWithChildren,
+  ModelsModelIdRelationsRoute: ModelsModelIdRelationsRoute,
   ModelsModelIdRulesRoute: ModelsModelIdRulesRoute,
   ModelsModelIdUsageRoute: ModelsModelIdUsageRoute,
   ModelsModelIdVersionsRoute: ModelsModelIdVersionsRoute,

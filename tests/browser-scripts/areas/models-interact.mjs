@@ -72,6 +72,15 @@ if (ids.recordModel) {
     (await page.getByRole('button', { name: /add rule/i }).count()) > 0,
     'rules tab offers to add a rule',
   )
+  await go(page, `/models/${key}/relations`)
+  check(
+    (await page.getByRole('heading', { level: 1 }).count()) === 1,
+    'relations tab shows one h1',
+  )
+  check(
+    (await page.getByRole('button', { name: /add relation/i }).count()) > 0,
+    'relations tab offers to add a relation',
+  )
   await go(page, `/models/${key}/usage`)
   check(
     (await page.getByRole('heading', { level: 1 }).count()) === 1,

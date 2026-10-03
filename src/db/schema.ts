@@ -1882,6 +1882,72 @@ export const sampleEvents = api.table(
 )
 
 /**
+ * sample_reservations (LAB-01 step 2) — volume held for a planned experiment.
+ *
+ * A reservation is separate from the canonical consume/quantity ledger in
+ * `api.sample_events`: it does not change `records.properties.quantity`.
+ * Instead it holds part of the sample's current volume for a named experiment
+ * so `internal.sample_reserved_quantity` can subtract it from the free balance
+ * and `api.withdraw_sample` refuses a withdrawal into reserved volume.
+ *
+ * `state` is `active` (holding), `cancelled` (released by a person) or
+ * `fulfilled` (the planned use was consumed; retained for history). Only
+ * `active` rows count toward reserved volume. Workspace members read; writing
+ * requires the `record.create` writer capability, enforced by RLS, with the
+ * create/cancel RPCs as the only application writers.
+ */
+export const sampleReservations = api.table(
+  'sample_reservations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    sampleRecordId: uuid('sample_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    // The planned experiment the reserved volume is held for.
+    experimentRecordId: uuid('experiment_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    quantity: numeric('quantity').notNull(),
+    unit: text('unit'),
+    // True for a reservation created against a planned (not yet run) use.
+    planned: boolean('planned').notNull().default(true),
+    // active | cancelled | fulfilled
+    state: text('state').notNull().default('active'),
+    notes: text('notes'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    cancelledByUserId: text('cancelled_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    cancelledAt: timestamp('cancelled_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_sample_reservations_quantity',
+      sql`${table.quantity} > 0`,
+    ),
+    check(
+      'chk_sample_reservations_state',
+      sql`${table.state} IN ('active','cancelled','fulfilled')`,
+    ),
+    index('idx_sample_reservations_sample').on(
+      table.sampleRecordId,
+      table.state,
+    ),
+    index('idx_sample_reservations_experiment').on(table.experimentRecordId),
+    index('idx_sample_reservations_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
  * sample_release_rules (LAB-02 step 2) — workspace-owned release-check rule
  * sets, one row per sample type (`'*'` is the workspace-wide default). `rules`
  * is a bounded JSONB array of checks evaluated against a sample's

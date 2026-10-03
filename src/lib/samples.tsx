@@ -518,6 +518,96 @@ export function toSampleEvent(row: SampleEventWire): SampleEvent {
   }
 }
 
+// LAB-01 step 2 — reservations and the used/reserved/free balance.
+
+export type SampleReservationState = 'active' | 'cancelled' | 'fulfilled'
+
+export interface SampleReservationWire {
+  id: string
+  workspace_id: string
+  sample_record_id: string
+  experiment_record_id: string
+  quantity: string
+  unit: string | null
+  planned: boolean
+  state: string
+  notes: string | null
+  created_by_user_id: string | null
+  cancelled_by_user_id: string | null
+  cancelled_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SampleReservation {
+  id: string
+  sampleRecordId: string
+  experimentRecordId: string
+  quantity: number
+  unit: string | null
+  planned: boolean
+  state: SampleReservationState
+  notes: string | null
+  createdByUserId: string | null
+  cancelledByUserId: string | null
+  cancelledAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export function toSampleReservation(
+  row: SampleReservationWire,
+): SampleReservation {
+  return {
+    id: row.id,
+    sampleRecordId: row.sample_record_id,
+    experimentRecordId: row.experiment_record_id,
+    quantity: Number(row.quantity),
+    unit: row.unit,
+    planned: row.planned,
+    state: row.state as SampleReservationState,
+    notes: row.notes,
+    createdByUserId: row.created_by_user_id,
+    cancelledByUserId: row.cancelled_by_user_id,
+    cancelledAt: row.cancelled_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+/**
+ * LAB-01 step 2: the authoritative used / reserved / free balance for a sample,
+ * as returned by `api.sample_quantity_balances`. `used` is the cumulative
+ * consumed volume from the canonical sample_events ledger; `reserved` is the
+ * sum of active reservations; `free` is the current quantity minus reserved.
+ */
+export interface SampleQuantityBalances {
+  sampleRecordId: string
+  unit: string | null
+  current: number
+  used: number
+  reserved: number
+  free: number
+}
+
+function toNumber(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+export function toSampleQuantityBalances(
+  raw: Record<string, unknown>,
+): SampleQuantityBalances {
+  return {
+    sampleRecordId: String(raw.sampleRecordId ?? ''),
+    unit: asString(raw.unit),
+    current: toNumber(raw.current),
+    used: toNumber(raw.used),
+    reserved: toNumber(raw.reserved),
+    free: toNumber(raw.free),
+  }
+}
+
 export interface SampleLinkWire {
   id: string
   source_record_id: string
@@ -558,6 +648,10 @@ export const sampleQueryKeys = {
     ['reg-002', 'samples', 'events', recordId] as const,
   links: (recordId: string) =>
     ['reg-002', 'samples', 'links', recordId] as const,
+  reservations: (recordId: string) =>
+    ['reg-002', 'samples', 'reservations', recordId] as const,
+  balances: (recordId: string) =>
+    ['reg-002', 'samples', 'balances', recordId] as const,
 }
 
 export interface SamplePage {
@@ -602,6 +696,31 @@ export async function fetchSampleEvents(
       `?record_id=eq.${recordId}&order=created_at.desc&limit=50`,
     )
     .then((rows) => rows.map(toSampleEvent))
+}
+
+/** LAB-01 step 2: list the reservations held for a sample (newest first). */
+export async function fetchSampleReservations(
+  client: DataClient,
+  recordId: string,
+): Promise<SampleReservation[]> {
+  return client
+    .list<SampleReservationWire>(
+      'sample_reservations',
+      `?sample_record_id=eq.${recordId}&order=created_at.desc&select=id,workspace_id,sample_record_id,experiment_record_id,quantity,unit,planned,state,notes,created_by_user_id,cancelled_by_user_id,cancelled_at,created_at,updated_at`,
+    )
+    .then((rows) => rows.map(toSampleReservation))
+}
+
+/** LAB-01 step 2: the authoritative used/reserved/free balance for a sample. */
+export async function fetchSampleQuantityBalances(
+  client: DataClient,
+  recordId: string,
+): Promise<SampleQuantityBalances> {
+  const raw = await client.rpc<Record<string, unknown> | null>(
+    'sample_quantity_balances',
+    { p_record_id: recordId },
+  )
+  return toSampleQuantityBalances(raw ?? {})
 }
 
 // ---------------------------------------------------------------------------
@@ -896,6 +1015,64 @@ export async function withdrawSample(
       ? toSampleRecord(result.derivedSample)
       : null,
   }
+}
+
+export interface CreateSampleReservationInput {
+  /** The sample holding the volume. */
+  recordId: string
+  /** The planned experiment the volume is held for (server-checked). */
+  experimentId: string
+  quantity: number
+  unit?: string
+  /** True for a reservation against a planned (not yet run) use. */
+  planned?: boolean
+  notes?: string
+}
+
+/**
+ * LAB-01 step 2: reserve volume for a planned experiment. The server refuses a
+ * reservation above the free (current - reserved) balance, a mismatched unit,
+ * an archived sample, a cross-workspace experiment and viewers.
+ */
+export async function createSampleReservation(
+  client: DataClient,
+  input: CreateSampleReservationInput,
+): Promise<SampleReservation> {
+  const row = await client.rpc<SampleReservationWire>(
+    'create_sample_reservation',
+    {
+      p_record_id: input.recordId,
+      p_experiment_id: input.experimentId,
+      p_quantity: input.quantity,
+      p_unit: input.unit ?? null,
+      p_planned: input.planned ?? true,
+      p_notes: input.notes ?? null,
+    },
+  )
+  return toSampleReservation(row)
+}
+
+export interface CancelSampleReservationInput {
+  reservationId: string
+  notes?: string
+}
+
+/**
+ * LAB-01 step 2: cancel an active reservation, releasing the held volume for
+ * withdrawal. Cancelling is an audited state change, never a delete.
+ */
+export async function cancelSampleReservation(
+  client: DataClient,
+  input: CancelSampleReservationInput,
+): Promise<SampleReservation> {
+  const row = await client.rpc<SampleReservationWire>(
+    'cancel_sample_reservation',
+    {
+      p_reservation_id: input.reservationId,
+      p_notes: input.notes ?? null,
+    },
+  )
+  return toSampleReservation(row)
 }
 
 export interface TransferSampleInput {

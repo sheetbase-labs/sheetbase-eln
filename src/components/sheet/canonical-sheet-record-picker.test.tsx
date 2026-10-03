@@ -76,11 +76,14 @@ interface GridPropsCapture {
     readOnly?: boolean
     displayText?: (value: unknown) => string | undefined
   }>
-  onOpenRecordPicker?: (cell: {
-    rowIndex: number
-    columnIndex: number
-    columnId: string
-  }) => void
+  onOpenRecordPicker?: (
+    cell: {
+      rowIndex: number
+      columnIndex: number
+      columnId: string
+    },
+    editor?: { commit: (value: unknown) => void; cancel: () => void },
+  ) => void
   beforeCellsChange?: (
     changes: SheetbaseGridCellChange[],
     source: string,
@@ -230,6 +233,37 @@ describe('GRID-03 canonical Record picker editor', () => {
       'sheetbase.record-picker',
     )
     expect(setDataAtCell).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes the picked Record through the backend editor handle when one is supplied', async () => {
+    const user = userEvent.setup()
+    vi.mocked(searchSheetRecords).mockResolvedValue([hit])
+    vi.mocked(mutateSheetLocalState).mockResolvedValue(refInstance())
+    renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
+    const props = captureProps()
+    const commit = vi.fn()
+    const cancel = vi.fn()
+    const column = props.columns?.[0]
+
+    // COMP-06 steps 2-3: the table backend owns the cell editor and hands the
+    // workspace its commit/cancel, so the pick flows through the grid gate
+    // instead of the vendor instance.
+    act(() => {
+      props.onOpenRecordPicker?.(
+        { rowIndex: 0, columnIndex: 0, columnId: column!.id },
+        { commit, cancel },
+      )
+    })
+    expect(await screen.findByRole('combobox')).toBeTruthy()
+    const combobox = screen.getByRole('combobox')
+    act(() => {
+      combobox.focus()
+    })
+    await user.keyboard('{Enter}')
+
+    expect(commit).toHaveBeenCalledWith(recordUuid)
+    expect(cancel).not.toHaveBeenCalled()
+    expect(setDataAtCell).not.toHaveBeenCalled()
   })
 
   it('displays the human label after a pick and the raw UUID when unknown', () => {

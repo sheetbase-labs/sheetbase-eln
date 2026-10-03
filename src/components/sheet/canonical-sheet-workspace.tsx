@@ -17,6 +17,7 @@ import type {
   SheetbaseGridFilter,
   SheetbaseGridMenuEntry,
   SheetbaseGridProps,
+  SheetbaseGridRecordEditor,
   SheetbaseGridSelection,
   SheetbaseGridSort,
   SheetbaseGridWriteSource,
@@ -315,6 +316,8 @@ export function CanonicalSheetEditor({
   const [picker, setPicker] = useState<{
     modelKey: string
     cell: { row: number; col: number } | null
+    /** Grid-side editor handle when the backend owns the cell editor. */
+    editor?: SheetbaseGridRecordEditor
   } | null>(null)
   const recordLabelsRef = useRef<
     Record<string, { identifier: string; title: string } | undefined>
@@ -1068,7 +1071,10 @@ export function CanonicalSheetEditor({
   // GRID-03: editing a record-picker cell opens the shared Record picker
   // scoped to the column's own relationship target.
   const handleOpenRecordPicker = useCallback(
-    (cell: { rowIndex: number; columnIndex: number; columnId: string }) => {
+    (
+      cell: { rowIndex: number; columnIndex: number; columnId: string },
+      editor?: SheetbaseGridRecordEditor,
+    ) => {
       const column = matrixRef.current.columns.at(cell.columnIndex)
       const targetModelKey = recordPickerTargetModelKey(column?.field ?? null)
       if (
@@ -1077,11 +1083,13 @@ export function CanonicalSheetEditor({
         !column.editable ||
         !targetModelKey
       ) {
+        editor?.cancel()
         return
       }
       setPicker({
         modelKey: targetModelKey,
         cell: { row: cell.rowIndex, col: cell.columnIndex },
+        editor,
       })
     },
     [],
@@ -1578,12 +1586,19 @@ export function CanonicalSheetEditor({
                 title: result.title,
               }
               if (picker.cell) {
-                hotInstanceRef.current?.setDataAtCell(
-                  picker.cell.row,
-                  picker.cell.col,
-                  result.id,
-                  'sheetbase.record-picker',
-                )
+                if (picker.editor) {
+                  // The backend owns the cell editor: commit through its own
+                  // pre-commit gate so the picked id is validated and written
+                  // like any other edit.
+                  picker.editor.commit(result.id)
+                } else {
+                  hotInstanceRef.current?.setDataAtCell(
+                    picker.cell.row,
+                    picker.cell.col,
+                    result.id,
+                    'sheetbase.record-picker',
+                  )
+                }
               } else {
                 link.mutate(result.id)
               }

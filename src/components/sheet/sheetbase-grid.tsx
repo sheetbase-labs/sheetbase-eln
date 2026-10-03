@@ -127,6 +127,19 @@ export type SheetbaseGridMenuEntry =
   SheetbaseGridBuiltinMenuItem | SheetbaseGridMenuItem
 
 /**
+ * Grid-side handle for a Record-picker cell edit. The backend owns the open
+ * editor; the caller (which owns the shared Record picker UI) writes the
+ * picked stored value back through `commit`, so it passes the same pre-commit
+ * validation gate as every other edit.
+ */
+export interface SheetbaseGridRecordEditor {
+  /** Write the picked stored value (the canonical Record id). */
+  commit: (value: unknown) => void
+  /** Dismiss the grid's editor without writing. */
+  cancel: () => void
+}
+
+/**
  * Transitional: the formula engine is still the vendor engine owned by the
  * calling workspace. COMP-06 step 4 moves calculation authority into the grid.
  */
@@ -247,19 +260,28 @@ export interface SheetbaseGridProps {
   /**
    * Opens the shared Record picker for a `record` cell. Coordinates are the
    * cell's display position so the caller can write the picked value back
-   * through the same change pipeline.
+   * through the same change pipeline. A backend that owns a cell editor passes
+   * `editor`, whose `commit` writes the picked value through its own gate.
    */
-  onOpenRecordPicker?: (cell: {
-    rowIndex: number
-    columnIndex: number
-    columnId: string
-  }) => void
+  onOpenRecordPicker?: (
+    cell: {
+      rowIndex: number
+      columnIndex: number
+      columnId: string
+    },
+    editor?: SheetbaseGridRecordEditor,
+  ) => void
   /**
    * Transitional: the live engine instance, for imperative operations the
    * neutral contract does not yet cover. COMP-06 step 2 replaces this with a
    * neutral handle.
    */
   onReady?: (instance: Handsontable | null) => void
+  /**
+   * DOM id of the live region that announces clipboard/cut status. Backends
+   * without an internal status surface (the table backend) write to it.
+   */
+  cutStatusId?: string
 }
 
 /**
@@ -418,7 +440,12 @@ function SheetbaseGridShell({
       />
       {backend === 'sheetbase-table' && TableGrid ? (
         <GridBoundary>
-          <TableGrid {...props} ariaLabel={ariaLabel} onReady={onReady} />
+          <TableGrid
+            {...props}
+            ariaLabel={ariaLabel}
+            cutStatusId={cutStatusId}
+            onReady={onReady}
+          />
         </GridBoundary>
       ) : backend === 'handsontable' && HotGrid && licenseKey ? (
         <GridBoundary>

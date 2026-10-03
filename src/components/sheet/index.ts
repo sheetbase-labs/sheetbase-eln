@@ -13,5 +13,6 @@ export type {
   SheetbaseGridRow,
   SheetbaseGridSelection,
   SheetbaseGridSort,
+  SheetbaseGridRecordEditor,
   SheetbaseGridWriteSource,
 } from './sheetbase-grid'

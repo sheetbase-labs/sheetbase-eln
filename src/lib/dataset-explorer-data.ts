@@ -791,9 +791,59 @@ export interface DatasetVersionFlagDelta {
   to?: { reason: string; comment: string | null }
 }
 
+export interface DatasetVersionRetentionPolicy {
+  /** Workspace retention period for snapshots cited by a signed record. */
+  citedYears: number
+  /** Workspace retention period for uncited snapshots after archive. */
+  uncitedYears: number
+}
+
 export interface DatasetVersionRetention {
   reason: string
   keptUntil: string | null
+  /** DSET-03.1 — the workspace policy the reason is computed from. */
+  policy?: DatasetVersionRetentionPolicy
+}
+
+/**
+ * DSET-03.1 — what produced a snapshot. `pipeline_run` carries the run that
+ * recorded the version as an output; otherwise the snapshot was saved by hand
+ * (`manual`) or through the API (`api`). Imports do not yet record a
+ * structured producer link, so they surface as `manual`/`api` until DSET-05/06.
+ */
+export interface DatasetVersionSource {
+  kind: 'pipeline_run' | 'manual' | 'api'
+  runId: string | null
+  definitionName: string | null
+  triggerKind: string | null
+  status: string | null
+  label: string | null
+  startedAt: string | null
+}
+
+export interface DatasetVersionCitedRevision {
+  revisionId: string
+  signedAt: string
+  signerUserId: string
+}
+
+export interface DatasetVersionCitedRun {
+  runId: string
+  status: string
+  triggerKind: string
+  startedAt: string
+}
+
+export interface DatasetVersionCitedAnalysis {
+  blockId: string
+  recordId: string
+}
+
+/** DSET-03.1 — the signed records, analyses and pipeline runs citing a snapshot. */
+export interface DatasetVersionCitations {
+  signedRevisions: DatasetVersionCitedRevision[]
+  pipelineRuns: DatasetVersionCitedRun[]
+  analyses: DatasetVersionCitedAnalysis[]
 }
 
 export interface DatasetVersionSummary {
@@ -801,10 +851,18 @@ export interface DatasetVersionSummary {
   label: string
   createdAt: string
   createdByUserId: string | null
+  createdByCredentialId: string | null
+  createdByName: string | null
   sourceDatasetRevision: number
   rowCount: number
+  /** DSET-03.1 — deterministic sha256 over the frozen rows/values/flags. */
+  contentHash: string
+  /** Set when the retention job removed this snapshot's rows. */
+  rowsRemovedAt: string | null
   change: DatasetVersionChange | null
   retention: DatasetVersionRetention
+  source: DatasetVersionSource | null
+  citedBy: DatasetVersionCitations
 }
 
 export async function listDatasetVersionSummaries(

@@ -134,8 +134,8 @@ describe('ChartRenderer', () => {
       />,
     )
     expect(document.querySelector('[role="img"]')).toBeTruthy()
-    // Bar chart renders visible SVG shapes.
-    expect(document.querySelectorAll('svg path').length).toBeGreaterThan(0)
+    // Bar chart renders bar rectangles (the package figure has no bar mark).
+    expect(document.querySelectorAll('svg rect').length).toBeGreaterThan(0)
   })
 
   it('renders a snapshot badge when frozen', () => {
@@ -187,6 +187,9 @@ describe('ChartRenderer', () => {
     )
     expect(screen.getByText('Snapshot')).toBeTruthy()
     expect(screen.queryByText('Live')).toBeNull()
+    // The figure is still drawn by the package from the materialised (frozen)
+    // points, so a record citing this version renders the same figure.
+    expect(document.querySelector('svg.sb-figure')).toBeTruthy()
   })
 
   it('renders an accessible tabular alternative with the plotted points', () => {
@@ -539,10 +542,9 @@ describe('SCI-02 fit overlay rendering', () => {
         frozen={null}
       />,
     )
-    // The model curve renders as a real line layer.
-    expect(document.querySelectorAll('.recharts-line').length).toBeGreaterThan(
-      0,
-    )
+    // The model curve renders as a real line layer (the package figure draws
+    // a polyline for the `renderAs: 'line'` series).
+    expect(document.querySelectorAll('polyline').length).toBeGreaterThan(0)
     // The fit series keeps its legend entry (and a data-table row).
     expect(screen.getAllByText('Fit').length).toBeGreaterThan(0)
   })

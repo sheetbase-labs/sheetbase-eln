@@ -12,12 +12,16 @@
  * Sheetbase components (@sheetbase-labs/*, COMP-05).
  *
  * `sheetbase-table/styles.css` bundles the packages' own default preset, so it
- * loads first; `themes/v3.css` declares the same 101 variables with the v3
- * values and replaces them in source order. The host mapping further down
- * binds the variables that have an ELN token onto it, so one theme drives the
- * ELN and the packages. See docs/development/sheetbase-components.md.
+ * loads first; `sheetbase-explorer/styles.css` adds the explorer figure and
+ * chart classes (`.sb-figure*`) over the same preset; `themes/v3.css` declares
+ * the same 101 variables with the v3 values and replaces them in source order.
+ * The host mapping further down binds the variables that have an ELN token
+ * onto it, so one theme drives the ELN and the packages. Figures are wrapped
+ * in `.sheetbase-scope` so that mapping applies. See
+ * docs/development/sheetbase-components.md.
  */
 @import '@sheetbase-labs/sheetbase-table/styles.css';
+@import '@sheetbase-labs/sheetbase-explorer/styles.css';
 @import '@sheetbase-labs/sheetbase-shared/themes/v3.css';
 
 @custom-variant dark (&:is(.dark *));

@@ -30,7 +30,7 @@ import type {
   AnalysisResult,
   RegressionFitRow,
 } from '#/lib/analysis-definition'
-import { CHART_PALETTE, formatScientific } from '#/lib/chart-spec'
+import { formatScientific } from '#/lib/chart-spec'
 import type { ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
 import {
   analysisDefinitionQueryKeys,
@@ -898,8 +898,8 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
   const min = Math.min(...xs)
   const max = Math.max(...xs)
 
-  const observed = CHART_PALETTE[0].toLowerCase()
-  const fitColor = CHART_PALETTE[1].toLowerCase()
+  const observed = 'var(--series-a)'
+  const fitColor = 'var(--series-b)'
   const xLabel =
     predictorTransform === 'none'
       ? 'Predictor'
@@ -931,11 +931,11 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
           y: { label: yLabel, scale: 'linear' },
         },
         series: [
-          { identifier: 'observed', label: 'Observed', color: '#006edc' },
+          { identifier: 'observed', label: 'Observed', color: observed },
           {
             identifier: 'fit',
             label: `Fit · ${fit.equation}`,
-            color: '#00a659',
+            color: fitColor,
           },
         ],
         legend: { visible: true },

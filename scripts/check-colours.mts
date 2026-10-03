@@ -25,8 +25,6 @@ const ALLOWLIST = new Set([
   'src/routes/lineage.tsx',
   // Gantt bar status colours; the planner surface retires (DEC-03).
   'src/components/planner/planner-timeline.tsx',
-  // Chart series defaults; COMP-07 moves charts to sheetbase-explorer.
-  'src/components/viz/analysis-panel.tsx',
 ])
 
 const PALETTE =

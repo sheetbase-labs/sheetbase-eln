@@ -32,6 +32,20 @@ const emailSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// DSET-04.2: Dataset snapshot retention sweep. Calls
+// api.prune_dataset_versions on an interval with the privileged app
+// connection; guarded like the pipeline scheduler and never started under
+// test runners unless explicitly enabled.
+const datasetRetentionSchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startDatasetRetentionScheduler } = await import(
+      '#/lib/dataset-retention-scheduler.server'
+    )
+    startDatasetRetentionScheduler()
+    return next()
+  },
+)
+
 // API-06: webhook delivery engine. LISTENs for change events, matches
 // active subscriptions, and attempts signed HTTP POST delivery with
 // retries and auto-disablement. Started lazily per-process.
@@ -89,6 +103,7 @@ export const startInstance = createStart(() => ({
     securityHeadersMiddleware,
     pipelineSchedulerMiddleware,
     emailSchedulerMiddleware,
+    datasetRetentionSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,
   ],

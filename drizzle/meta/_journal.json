@@ -1987,6 +1987,13 @@
       "when": 1791009000000,
       "tag": "0285_rainy_marvel_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 286,
+      "version": "7",
+      "when": 1791010000000,
+      "tag": "0286_strong_the_executioner",
+      "breakpoints": true
     }
   ]
 }

@@ -1797,6 +1797,77 @@ export const modelRelationshipRules = api.table(
 )
 
 /**
+ * ADR-0051 / MDL-01 step 1 — workspace-owned record model identity.
+ *
+ * A workspace can define its own record model (e.g. "Cell bank", prefix
+ * `CB`) without a migration. This row is the model's identity: a stable
+ * workspace-unique `key`, display `name`, `identifier_prefix`, lifecycle and
+ * a `current_version` reference. `api.record_field_definitions.kind` already
+ * stores a model key, so fields attach to a workspace model without a
+ * parallel field store.
+ *
+ * Step 1 deliberately does **not** add a version table or the `records.kind`
+ * refactor. ADR-0051 §2 (versioned schemas with approval) is MDL-03; step 1
+ * is identity, identifier prefix and RLS. `current_version` is the published
+ * version reference MDL-03 will increment; the versioned field/rule snapshot
+ * and approval workflow are MDL-03/MDL-02, not here.
+ *
+ * Built-in kinds stay canonical in `model_kinds` (a global, migration-owned
+ * registry) and are **not** duplicated or seeded here. A workspace model is
+ * exactly a `record_models` row; `api.create_workspace_model` refuses a key
+ * that collides with a `model_kinds` key so the two registries cannot fork.
+ * The step-2 `records.kind` refactor reconciles them.
+ *
+ * Members read; writes require the `schema.edit` capability, matching the
+ * Dataset schema edit gate. Export is state (`lifecycle`), never a delete.
+ */
+export const recordModels = api.table(
+  'record_models',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Stable, immutable, workspace-unique slug. Never reused.
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    // Identifier family prefix, e.g. `CB`; identifier `CB-0001`.
+    identifierPrefix: text('identifier_prefix').notNull(),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    currentVersion: integer('current_version').notNull().default(1),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_record_models_workspace_key').on(table.workspaceId, table.key),
+    unique('uq_record_models_workspace_identifier_prefix').on(
+      table.workspaceId,
+      table.identifierPrefix,
+    ),
+    check('chk_record_models_key', sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`),
+    check(
+      'chk_record_models_identifier_prefix',
+      sql`${table.identifierPrefix} ~ '^[A-Z][A-Z0-9]{0,7}$'`,
+    ),
+    check(
+      'chk_record_models_lifecycle',
+      sql`${table.lifecycle} IN ('draft','published','retired')`,
+    ),
+    check(
+      'chk_record_models_current_version',
+      sql`${table.currentVersion} > 0`,
+    ),
+    index('idx_record_models_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
  * sample_events (REG-002) is the append-only chain-of-custody and quantity
  * event log for sample records. Every controlled receive/consume/transfer
  * appends one row with actor attribution; the authoritative quantity and

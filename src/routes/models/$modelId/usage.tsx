@@ -20,10 +20,7 @@ import {
 } from '#/lib/model-impact'
 import { isUuid } from '#/lib/field-value-validation'
 import { notebookDataClient } from '#/lib/notebook-data'
-import {
-  useBuiltInModelKind,
-  useWorkspaceRecordModel,
-} from '#/components/v3/models/models-data'
+import { useWorkspaceRecordModel } from '#/components/v3/models/models-data'
 
 /**
  * UI port (roadmap-4/ui-app3): the Usage tab shows where a record model is
@@ -52,19 +49,13 @@ function ModelUsage() {
 
 function RecordModelUsage({ modelKey }: { modelKey: string }) {
   const model = useWorkspaceRecordModel(modelKey)
-  const builtIn = useBuiltInModelKind(modelKey)
   const fields = useQuery({
     queryKey: ['ui-port', 'record-models', 'field-usage', modelKey] as const,
     queryFn: () => fetchModelFieldsWithUsage(notebookDataClient, modelKey),
   })
-  // `discover_model_dependencies` resolves built-in `model_kinds` only; a
-  // workspace model key 403s. Gate the call rather than surface a spurious
-  // error, and say so in the panel.
-  const impactEnabled = Boolean(builtIn.data)
   const impact = useQuery({
     queryKey: ['ui-port', 'record-models', 'impact', modelKey] as const,
     queryFn: () => discoverModelImpact(notebookDataClient, modelKey),
-    enabled: impactEnabled,
   })
 
   const fieldRows = fields.data ?? []
@@ -120,12 +111,7 @@ function RecordModelUsage({ modelKey }: { modelKey: string }) {
             ? `${actionable} dependent${actionable === 1 ? '' : 's'} would need handling before a breaking change.`
             : 'No dependent needs handling before a change.'}
         </Muted>
-        {!impactEnabled ? (
-          <Muted>
-            Dependency discovery currently covers built-in model kinds.
-            Workspace-model impact is not reported yet.
-          </Muted>
-        ) : groups.length ? (
+        {groups.length ? (
           <div className="flex flex-col gap-3">
             {groups.map((group) => (
               <div key={group.group} className="flex flex-col gap-1">

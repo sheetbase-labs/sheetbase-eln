@@ -43,7 +43,9 @@ export async function getShellCounts(
 
   const [flags, failed] = await Promise.all([
     client.query<{ n: string }>(
-      `select count(*)::int as n from api.dataset_value_flags
+      // The badge counts datasets with an unresolved value flag, matching the
+      // design's "2 errors" (two datasets), not the raw flag rows.
+      `select count(distinct dataset_id)::int as n from api.dataset_value_flags
         where workspace_id = $1 and cleared_at is null`,
       [workspaceId],
     ),

@@ -64,7 +64,7 @@ export type DesignCauseId = 1 | 2 | 3 | 4
  */
 export const DESIGN_CAUSES: Record<DesignCauseId, string> = {
   1: 'body font cascade: the package :root --font-sans beat the ELN @theme, so app chrome rendered Instrument Sans, not the design Inter (fixed in src/styles.css in this pass)',
-  2: 'shell chrome: the topbar New button, trailing icon, pinned projects and nav counts differ from the design',
+  2: 'shell chrome: RESOLVED in this pass — the topbar New is a filled primary button (component CSS layered below app utilities), the trailing bell shows its unread dot (shell now loads api.my_notifications), the pinned projects rail renders three rows (shell now loads api.user_favourites), and the Datasets badge counts distinct datasets. The remaining Inbox (9 vs 8) and Pipelines (2 failed vs 1) counts are a seed discrepancy, counted under cause 3',
   3: 'seeded content: the screen does not show the rows/fields the design screen shows (DSYS-05 seed gap)',
   4: 'route contract: app routes resolved UUIDs only — RESOLVED app-side (route beforeLoad resolves the design display ID and redirects), so parity now navigates raw design IDs and no screen lists this cause',
 }
@@ -205,93 +205,91 @@ export const DESIGN_SCREEN_SIZES: Record<
 export const DESIGN_CLOCK = new Date('2026-09-25T09:40:00+01:00')
 
 /**
- * Root causes per mapped screen (see DESIGN_CAUSES). Cause 2 applies to every
- * screen inside the app shell; cause 3 where the seeded content differs.
- * Cause 4 (display-ID routing) is not listed: the app resolves it now.
+ * Root causes per mapped screen (see DESIGN_CAUSES) — only the causes that
+ * still apply. Cause 1 (font cascade), cause 2 (shell chrome) and cause 4
+ * (display-ID routing) are fixed, so no screen lists them; every mapped
+ * screen now diverges only on the DSYS-05 seeded content (cause 3).
  */
 const CAUSE_BY_SCREEN: Record<string, readonly DesignCauseId[]> = {
-  Main: [2, 3],
+  Main: [3],
   ClientPortal: [3],
-  Projects: [2, 3],
-  ProjectDetail: [2, 3],
-  ProjectAmbr: [2, 3],
-  ProjectLVV: [2, 3],
-  ProjectFiles: [2, 3],
-  ProjectMembers: [2, 3],
-  ProjectSettings: [2, 3],
-  ExperimentsList: [2, 3],
-  ExpOverview: [2, 3],
-  ExpSamples: [2, 3],
-  ExpDatasets: [2, 3],
-  ExpResults: [2, 3],
-  ExpFiles: [2, 3],
-  ExpHistory: [2, 3],
-  ReviewRecord: [2, 3],
-  SheetWorking: [2, 3],
-  SamplesList: [2, 3],
-  SampleDetail: [2, 3],
-  SampleLineage: [2, 3],
-  SampleUsage: [2, 3],
-  SampleConsumed: [2, 3],
-  DatasetsList: [2, 3],
-  DatasetExplorer: [2, 3],
-  DatasetSnapshots: [2, 3],
-  DatasetCompare: [2, 3],
-  RecordDetail: [2, 3],
-  RecordInstrument: [2, 3],
-  PipelineRuns: [2, 3],
-  PipelineRun: [2, 3],
-  PipelineRunFailed: [2, 3],
-  SettingsGeneral: [2, 3],
-  SettingsIntegrations: [2, 3],
-  IntegrationDeliveries: [2, 3],
+  Projects: [3],
+  ProjectDetail: [3],
+  ProjectAmbr: [3],
+  ProjectLVV: [3],
+  ProjectFiles: [3],
+  ProjectMembers: [3],
+  ProjectSettings: [3],
+  ExperimentsList: [3],
+  ExpOverview: [3],
+  ExpSamples: [3],
+  ExpDatasets: [3],
+  ExpResults: [3],
+  ExpFiles: [3],
+  ExpHistory: [3],
+  ReviewRecord: [3],
+  SheetWorking: [3],
+  SamplesList: [3],
+  SampleDetail: [3],
+  SampleLineage: [3],
+  SampleUsage: [3],
+  SampleConsumed: [3],
+  DatasetsList: [3],
+  DatasetExplorer: [3],
+  DatasetSnapshots: [3],
+  DatasetCompare: [3],
+  RecordDetail: [3],
+  RecordInstrument: [3],
+  PipelineRuns: [3],
+  PipelineRun: [3],
+  PipelineRunFailed: [3],
+  SettingsGeneral: [3],
+  SettingsIntegrations: [3],
+  IntegrationDeliveries: [3],
 }
 
 /**
  * Latest measured diff per mapped screen, per theme: "ratio (pixels)" against
- * the 0.001 gate, measured 2026-10-03 with the font-cascade fix and the app's
- * display-ID routing (parity navigates the raw design routes). Refresh these
- * when re-running the suite; they are reported in each annotation.
+ * the 0.001 gate, measured 2026-10-04 with the font-cascade, display-ID
+ * routing and shell-chrome fixes applied. Refresh these when re-running the
+ * suite; they are reported in each annotation.
  */
-const MEASURED_BY_SCREEN: Record<
-  string,
-  { light: string; dark: string }
-> = {
-  Main: { light: '0.04 (46904 px)', dark: '0.04 (45332 px)' },
+const MEASURED_BY_SCREEN: Record<string, { light: string; dark: string }> = {
+  Main: { light: '0.04 (46888 px)', dark: '0.04 (45687 px)' },
   ClientPortal: { light: '0.02 (15692 px)', dark: '0.02 (14906 px)' },
-  Projects: { light: '0.04 (41789 px)', dark: '0.04 (39857 px)' },
-  ProjectDetail: { light: '0.03 (35570 px)', dark: '0.03 (34148 px)' },
-  ProjectAmbr: { light: '0.03 (31093 px)', dark: '0.03 (29838 px)' },
-  ProjectLVV: { light: '0.03 (30610 px)', dark: '0.03 (29326 px)' },
-  ProjectFiles: { light: '0.04 (51894 px)', dark: '0.04 (49725 px)' },
-  ProjectMembers: { light: '0.03 (33450 px)', dark: '0.03 (32608 px)' },
-  ProjectSettings: { light: '0.03 (33637 px)', dark: '0.03 (33287 px)' },
-  ExperimentsList: { light: '0.04 (44340 px)', dark: '0.04 (42268 px)' },
-  ExpOverview: { light: '0.03 (37986 px)', dark: '0.03 (36752 px)' },
-  ExpSamples: { light: '0.03 (30826 px)', dark: '0.03 (29949 px)' },
-  ExpDatasets: { light: '0.03 (29171 px)', dark: '0.02 (28285 px)' },
-  ExpResults: { light: '0.02 (23131 px)', dark: '0.02 (21953 px)' },
-  ExpFiles: { light: '0.02 (23261 px)', dark: '0.02 (22035 px)' },
-  ExpHistory: { light: '0.02 (28789 px)', dark: '0.02 (27868 px)' },
-  ReviewRecord: { light: '0.03 (37737 px)', dark: '0.03 (36743 px)' },
-  SheetWorking: { light: '0.02 (22686 px)', dark: '0.02 (22013 px)' },
-  SamplesList: { light: '0.03 (28016 px)', dark: '0.03 (27512 px)' },
-  SampleDetail: { light: '0.02 (24063 px)', dark: '0.02 (23482 px)' },
-  SampleLineage: { light: '0.02 (22388 px)', dark: '0.02 (21909 px)' },
-  SampleUsage: { light: '0.02 (26843 px)', dark: '0.03 (29961 px)' },
-  SampleConsumed: { light: '0.02 (16018 px)', dark: '0.02 (15513 px)' },
-  DatasetsList: { light: '0.02 (25659 px)', dark: '0.02 (24605 px)' },
-  DatasetExplorer: { light: '0.03 (38087 px)', dark: '0.03 (36718 px)' },
-  DatasetSnapshots: { light: '0.02 (18848 px)', dark: '0.04 (39916 px)' },
-  DatasetCompare: { light: '0.01 (12651 px)', dark: '0.02 (17092 px)' },
-  RecordDetail: { light: '0.03 (33097 px)', dark: '0.03 (32001 px)' },
-  RecordInstrument: { light: '0.02 (24156 px)', dark: '0.02 (17188 px)' },
-  PipelineRuns: { light: '0.02 (17546 px)', dark: '0.02 (16597 px)' },
-  PipelineRun: { light: '0.02 (19720 px)', dark: '0.02 (18841 px)' },
-  PipelineRunFailed: { light: '0.02 (19155 px)', dark: '0.02 (18286 px)' },
-  SettingsGeneral: { light: '0.03 (30250 px)', dark: '0.03 (29141 px)' },
-  SettingsIntegrations: { light: '0.02 (21331 px)', dark: '0.02 (22448 px)' },
-  IntegrationDeliveries: { light: '0.02 (19545 px)', dark: '0.02 (18626 px)' },
+  Projects: { light: '0.04 (41743 px)', dark: '0.04 (40204 px)' },
+  ProjectDetail: { light: '0.03 (35525 px)', dark: '0.03 (34308 px)' },
+  ProjectAmbr: { light: '0.03 (31098 px)', dark: '0.03 (29839 px)' },
+  ProjectLVV: { light: '0.03 (30604 px)', dark: '0.03 (29385 px)' },
+  ProjectFiles: { light: '0.04 (51845 px)', dark: '0.02 (27047 px)' },
+  ProjectMembers: { light: '0.03 (33368 px)', dark: '0.03 (32965 px)' },
+  ProjectSettings: { light: '0.03 (33610 px)', dark: '0.03 (33498 px)' },
+  ExperimentsList: { light: '0.04 (44337 px)', dark: '0.04 (42421 px)' },
+  ExpOverview: { light: '0.03 (37920 px)', dark: '0.03 (37084 px)' },
+  ExpSamples: { light: '0.03 (30765 px)', dark: '0.03 (30416 px)' },
+  ExpDatasets: { light: '0.03 (31060 px)', dark: '0.03 (30814 px)' },
+  ExpResults: { light: '0.02 (28218 px)', dark: '0.02 (27309 px)' },
+  ExpFiles: { light: '0.03 (26078 px)', dark: '0.02 (25242 px)' },
+  ExpHistory: { light: '0.03 (31112 px)', dark: '0.03 (30772 px)' },
+  ReviewRecord: { light: '0.04 (54407 px)', dark: '0.04 (53389 px)' },
+  SheetWorking: { light: '0.03 (29550 px)', dark: '0.02 (28504 px)' },
+  SamplesList: { light: '0.03 (33168 px)', dark: '0.03 (32098 px)' },
+  SampleDetail: { light: '0.02 (24778 px)', dark: '0.02 (24041 px)' },
+  SampleLineage: { light: '0.02 (22298 px)', dark: '0.02 (21641 px)' },
+  SampleUsage: { light: '0.03 (30473 px)', dark: '0.03 (30060 px)' },
+  SampleConsumed: { light: '0.02 (16013 px)', dark: '0.02 (15570 px)' },
+  DatasetsList: { light: '0.02 (25637 px)', dark: '0.02 (24813 px)' },
+  DatasetExplorer: { light: '0.03 (38078 px)', dark: '0.03 (36760 px)' },
+  DatasetSnapshots: { light: '0.04 (41607 px)', dark: '0.04 (39916 px)' },
+  DatasetCompare: { light: '0.02 (18031 px)', dark: '0.02 (17190 px)' },
+  RecordDetail: { light: '0.03 (33055 px)', dark: '0.03 (32310 px)' },
+  RecordInstrument: { light: '0.02 (24050 px)', dark: '0.02 (23712 px)' },
+  PipelineRuns: { light: '0.02 (21080 px)', dark: '0.02 (20301 px)' },
+  PipelineRun: { light: '0.02 (19630 px)', dark: '0.02 (19308 px)' },
+  PipelineRunFailed: { light: '0.02 (19075 px)', dark: '0.02 (18755 px)' },
+  SettingsGeneral: { light: '0.03 (30224 px)', dark: '0.03 (29264 px)' },
+  SettingsIntegrations: { light: '0.02 (23694 px)', dark: '0.02 (22779 px)' },
+  IntegrationDeliveries: { light: '0.02 (19503 px)', dark: '0.02 (18960 px)' },
 }
 
 /** One screen and theme, with the route/user/state that reach it. */
@@ -348,8 +346,16 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'Main', route: '/' },
   { screen: 'ClientPortal', route: '/client-portal', user: 'clientAna' },
   { screen: 'Projects', route: '/projects' },
-  { screen: 'ProjectDetail', route: '/projects/PRJ-0217', state: rec('PRJ-0217') },
-  { screen: 'ProjectAmbr', route: '/projects/PRJ-0205', state: rec('PRJ-0205') },
+  {
+    screen: 'ProjectDetail',
+    route: '/projects/PRJ-0217',
+    state: rec('PRJ-0217'),
+  },
+  {
+    screen: 'ProjectAmbr',
+    route: '/projects/PRJ-0205',
+    state: rec('PRJ-0205'),
+  },
   { screen: 'ProjectLVV', route: '/projects/PRJ-0214', state: rec('PRJ-0214') },
   {
     screen: 'ProjectFiles',

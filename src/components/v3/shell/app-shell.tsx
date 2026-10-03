@@ -206,7 +206,7 @@ export function AppShell({
               />
             </>
           )}
-          <main id="main" className="flex min-w-0 flex-1 bg-surface">
+          <main id="main" className="flex min-w-0 flex-1 bg-background">
             {children}
           </main>
         </div>

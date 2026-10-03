@@ -24,11 +24,15 @@ import { ThemeProvider } from '../components/theme-provider'
 import type { QueryClient } from '@tanstack/react-query'
 import type { CurrentContext } from '#/lib/current-user'
 import type { ShellCounts } from '#/lib/shell-counts.server'
+import type { ShellPinned } from '#/lib/shell-chrome.server'
+import type { Notification } from '#/components/v3/types'
 
 interface RouterContext {
   queryClient: QueryClient
   auth: CurrentContext | null
   shellCounts: ShellCounts
+  shellPinned: ShellPinned[]
+  shellNotifications: Notification[]
 }
 
 // Fetch auth context once at the root so every child route can read it
@@ -40,10 +44,17 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const { getRequestHeaders } = await import('@tanstack/react-start/server')
   const { getCurrentContext } = await import('#/lib/current-user')
   const context = await getCurrentContext(getRequestHeaders())
-  if (!context?.workspace) return { context, counts: {} }
+  if (!context?.workspace)
+    return { context, counts: {}, pinned: [], notifications: [] }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
-  const counts = await getShellCounts(context.workspace.id, context.user.id)
-  return { context, counts }
+  const { getShellPinned, getShellNotifications } =
+    await import('#/lib/shell-chrome.server')
+  const [counts, pinned, notifications] = await Promise.all([
+    getShellCounts(context.workspace.id, context.user.id),
+    getShellPinned(context.workspace.id, context.user.id),
+    getShellNotifications(context.workspace.id, context.user.id),
+  ])
+  return { context, counts, pinned, notifications }
 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -79,8 +90,18 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootRouteComponent,
   shellComponent: RootDocument,
   beforeLoad: async () => {
-    const { context: auth, counts: shellCounts } = await getAuthContextFn()
-    return { auth, shellCounts }
+    const {
+      context: auth,
+      counts: shellCounts,
+      pinned,
+      notifications,
+    } = await getAuthContextFn()
+    return {
+      auth,
+      shellCounts,
+      shellPinned: pinned,
+      shellNotifications: notifications,
+    }
   },
 })
 
@@ -94,7 +115,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
  * active child route (e.g. `/sign-in`) inside the provider.
  */
 function RootRouteComponent() {
-  const { auth, shellCounts } = Route.useRouteContext()
+  const { auth, shellCounts, shellPinned, shellNotifications } =
+    Route.useRouteContext()
 
   // Map the auth context to the AppShell context shape so the sidebar
   // (workspace name, user info, nav) renders during SSR — not after
@@ -242,12 +264,8 @@ function RootRouteComponent() {
           initials: initialsOf(auth.user.name),
           role: auth.workspace?.role ?? 'Member',
         },
-        notifications: [],
-        pinned: [] as {
-          id: string
-          name: string
-          tone: 'progress' | 'review'
-        }[],
+        notifications: shellNotifications,
+        pinned: shellPinned,
         counts: shellCounts,
         workspace: auth.workspace
           ? { id: auth.workspace.id, name: auth.workspace.name }

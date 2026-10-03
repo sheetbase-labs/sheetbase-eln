@@ -1,3 +1,13 @@
+/*
+ * Cascade order. The `@sheetbase-labs/*` component bundles ship bare element
+ * resets (`button { background: transparent }`) that must not beat the app's
+ * Tailwind utilities, so their CSS loads into the `sheetbase` layer, below
+ * `components` and `utilities`. Declared before the imports so the layer is
+ * ordered here rather than created wherever the first `@import … layer()`
+ * appears.
+ */
+@layer theme, base, sheetbase, components, utilities;
+
 @import '@fontsource-variable/instrument-sans';
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
@@ -18,9 +28,9 @@
  * in `.sheetbase-scope` so that mapping applies. See
  * docs/development/sheetbase-components.md.
  */
-@import '@sheetbase-labs/sheetbase-table/styles.css';
-@import '@sheetbase-labs/sheetbase-explorer/styles.css';
-@import '@sheetbase-labs/sheetbase-shared/themes/v3.css';
+@import '@sheetbase-labs/sheetbase-table/styles.css' layer(sheetbase);
+@import '@sheetbase-labs/sheetbase-explorer/styles.css' layer(sheetbase);
+@import '@sheetbase-labs/sheetbase-shared/themes/v3.css' layer(sheetbase);
 
 @custom-variant dark (&:is(.dark *));
 

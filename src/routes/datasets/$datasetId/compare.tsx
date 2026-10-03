@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 
 import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import { Diff } from '#/components/v3/ui/source'
 import { Muted } from '#/components/v3/ui/layout'
 import { Icon } from '#/components/v3/icons'
@@ -18,6 +19,10 @@ import {
 } from '#/components/v3/ui/table'
 import { stickyCell, stickyHead } from '#/components/v3/inventory/list'
 import { FLAG_KIND_LABELS } from '#/components/v3/datasets/value-actions'
+import {
+  hasMoreSnapshotCompareRows,
+  snapshotCompareTotalRows,
+} from '#/components/v3/datasets/snapshot-data'
 import { useDatasetVersions } from '../$datasetId'
 
 /** DSET-03.2 — one flag-level change on a compared row. A kind or source
@@ -34,6 +39,8 @@ interface FlagDelta {
 interface ComparePayload {
   versionA: string
   versionB: string
+  offset: number
+  limit: number
   counts: { added: number; removed: number; changed: number; flags: number }
   columns: { fieldId: string; kind: string }[]
   rows: {
@@ -43,6 +50,11 @@ interface ComparePayload {
     flagFields: FlagDelta[]
   }[]
 }
+
+/** DSET-03.3 — comparison page size. The server supports p_limit/p_offset, so
+ * the route asks for one window at a time and extends it through the visible
+ * "Load more" control instead of fetching a fixed first 100 rows. */
+const COMPARE_PAGE_SIZE = 100
 
 /** UI port (roadmap-4/ui-app3): the dataset Compare tab, wired to
  * compare_dataset_versions. Flag-only changes (added, cleared or changed
@@ -114,18 +126,25 @@ function Compare() {
   const to = search.to ?? list.at(0)?.id
   const from = search.from ?? list.at(1)?.id
 
-  const diff = useQuery({
+  const diff = useInfiniteQuery({
     queryKey: ['ui-port', 'dataset-compare', datasetId, from, to],
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       notebookDataClient.rpc<ComparePayload>('compare_dataset_versions', {
         p_version_a: from!,
         p_version_b: to!,
-        p_limit: 100,
-        p_offset: 0,
+        p_limit: COMPARE_PAGE_SIZE,
+        p_offset: pageParam,
       }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      hasMoreSnapshotCompareRows(lastPage)
+        ? lastPage.offset + lastPage.rows.length
+        : undefined,
     enabled: Boolean(from && to),
   })
-  const data = diff.data
+  const data = diff.data?.pages.at(0)
+  const entries = diff.data?.pages.flatMap((page) => page.rows) ?? []
+  const totalChanges = data ? snapshotCompareTotalRows(data.counts) : 0
 
   if (list.length < 2) {
     return (
@@ -201,7 +220,7 @@ function Compare() {
         ))}
       </div>
 
-      {data?.rows.length ? (
+      {entries.length ? (
         <TableBox>
           <Table className="max-lg:min-w-[640px]">
             <TableHeader>
@@ -215,7 +234,7 @@ function Compare() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.rows.map((r) =>
+              {entries.map((r) =>
                 entriesForRow(r).map((entry) => (
                   <TableRow key={`${r.rowId}-${entry.key}`}>
                     <TableCell className={cn('first:pl-3', stickyCell)}>
@@ -260,6 +279,19 @@ function Compare() {
       ) : (
         <Muted>No differences between these snapshots.</Muted>
       )}
+
+      {diff.hasNextPage ? (
+        <div>
+          <Button
+            onClick={() => void diff.fetchNextPage()}
+            disabled={diff.isFetchingNextPage}
+          >
+            {diff.isFetchingNextPage
+              ? 'Loading…'
+              : `Load more (${Math.max(totalChanges - entries.length, 0)} left)`}
+          </Button>
+        </div>
+      ) : null}
 
       <Muted>
         Comparing {from} with {to}. Field names show their ids until the schema

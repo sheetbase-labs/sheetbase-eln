@@ -7,6 +7,7 @@
  * policy the workspace did not set.
  */
 import type {
+  DatasetVersionChange,
   DatasetVersionCitations,
   DatasetVersionRetention,
   DatasetVersionSource,
@@ -127,4 +128,69 @@ export function hasSnapshotCitations(
   return (
     counts.signedRevisions > 0 || counts.pipelineRuns > 0 || counts.analyses > 0
   )
+}
+
+/**
+ * Individual citations for the inspector. Each line names what cites the
+ * snapshot, so the count summary is not the only evidence shown. Ids are
+ * shortened for the narrow inspector; the record/run/revision remains
+ * traceable through its own surface.
+ */
+export function describeSnapshotCitations(
+  citedBy: DatasetVersionCitations | null | undefined,
+): string[] {
+  const lines: string[] = []
+  for (const revision of citedBy?.signedRevisions ?? []) {
+    lines.push(
+      `Signed record ${revision.revisionId.slice(0, 8)} · ${revision.signedAt.slice(0, 10)}`,
+    )
+  }
+  for (const run of citedBy?.pipelineRuns ?? []) {
+    lines.push(`Pipeline run ${run.runId.slice(0, 8)} · ${run.status}`)
+  }
+  for (const analysis of citedBy?.analyses ?? []) {
+    lines.push(`Analysis in ${analysis.recordId.slice(0, 8)}`)
+  }
+  return lines
+}
+
+/** One page of a comparison, as returned by `compare_dataset_versions`. */
+export interface SnapshotComparePage {
+  counts: DatasetVersionChange
+  offset: number
+  limit: number
+  rows: unknown[]
+}
+
+/** Total changed rows the server counted across the whole comparison. */
+export function snapshotCompareTotalRows(
+  counts: DatasetVersionChange,
+): number {
+  return counts.added + counts.removed + counts.changed
+}
+
+/**
+ * DSET-03.3 — true while the loaded compare pages do not yet cover every
+ * changed row. The server reports whole-comparison counts on every page, so
+ * paging is driven by the response rather than a fixed window.
+ */
+export function hasMoreSnapshotCompareRows(page: SnapshotComparePage): boolean {
+  return page.offset + page.rows.length < snapshotCompareTotalRows(page.counts)
+}
+
+/**
+ * Friendly copy for a failed snapshot save. The RPC stays authoritative; this
+ * only translates its known codes so the toast explains what happened.
+ */
+export function describeSnapshotError(cause: unknown): string {
+  if (cause && typeof cause === 'object' && 'code' in cause) {
+    const code = (cause as { code?: unknown }).code
+    if (code === 'SB001')
+      return 'This dataset changed elsewhere. Refresh and try again.'
+    if (code === '42501')
+      return 'You do not have permission to snapshot this dataset.'
+    if (code === '22023') return 'Archived datasets cannot be snapshotted.'
+  }
+  if (cause instanceof Error && cause.message) return cause.message
+  return 'Please try again.'
 }

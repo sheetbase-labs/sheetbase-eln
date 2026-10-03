@@ -19,7 +19,14 @@ vi.mock('./sheetbase-grid-client', () => ({
 
 function gridProps(cells: unknown[]) {
   return {
-    columns: [{ id: 'sample', label: 'Sample', source: 'local' as const, type: 'text' as const }],
+    columns: [
+      {
+        id: 'sample',
+        label: 'Sample',
+        source: 'local' as const,
+        type: 'text' as const,
+      },
+    ],
     rows: [{ id: 'row-1', cells }],
   }
 }
@@ -42,7 +49,10 @@ describe('SheetbaseGrid', () => {
   it('loads the vendor grid only after mounting in the browser', async () => {
     vi.stubEnv('VITE_HANDSONTABLE_LICENSE_KEY', 'test-commercial-key')
     render(
-      <SheetbaseGrid ariaLabel="Assay results Sheet" {...gridProps(['Sample', 1])} />,
+      <SheetbaseGrid
+        ariaLabel="Assay results Sheet"
+        {...gridProps(['Sample', 1])}
+      />,
     )
     const region = screen.getByRole('region', {
       name: 'Assay results Sheet',

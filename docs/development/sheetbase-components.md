@@ -17,9 +17,12 @@ release workflow are documented in
 | `@sheetbase-labs/sheetbase-schemaeditor`    | schema editor (not consumed yet) |
 | `@sheetbase-labs/sheetbase-rulesengine`     | rules engine (not consumed yet)  |
 
-Nothing is published yet, so the ELN does not depend on any of them: the
-committed `.npmrc` and the registry path below are inert until the first
-lockstep release. Until then, use the local link path in the next section.
+The first lockstep release published all six packages as `0.1.0` to GitHub
+Packages (COMP-05). The ELN consumes four of them — `shared`, `table`,
+`explorer` and `advanced-search` — at that exact version, resolved from the
+registry and recorded with integrity in `pnpm-lock.yaml`. The schema editor and
+the rules engine are not consumed yet. The committed `.npmrc` routes the scope;
+the token arrives from the environment as described below.
 
 ## Local development against unreleased changes
 
@@ -104,9 +107,14 @@ trusted source instead:
   `repository`-linked manifest inherit access; otherwise grant it per package
   under the package's _Manage Actions access_ settings.
 
-Once `0.1.0` is released, add these exact versions to `dependencies` (no
-ranges — the ELN pins exact versions) and commit the regenerated
-`pnpm-lock.yaml` in the same PR:
+  Every workflow that installs dependencies carries this: `ci.yml` (all five
+  jobs), `deploy.yml` (`verify` and `build`, and the remote VPS install writes
+  the token from `GHCR_TOKEN` into `~/.npmrc` before `pnpm install`),
+  `deploy-dev.yml`, `sdk-release.yml` and `security.yml`. `packages: write`
+  already includes read where a job pushes images.
+
+The ELN pins exact versions — no ranges — and regenerates `pnpm-lock.yaml` in
+the same PR:
 
 ```json
 "@sheetbase-labs/sheetbase-shared": "0.1.0",
@@ -119,14 +127,26 @@ Peers and styles:
 
 - `react@^19.2.0` / `react-dom@^19.2.0` already satisfy the packages' `>=18`
   peer range.
-- `@tanstack/react-virtual` is declared `^3.14.9` here but is **pinned to
-  3.14.9** in `pnpm-lock.yaml`, while `@sheetbase-labs/sheetbase-table`
-  requires `^3.14.10`. Bump it in the same PR that adds the packages
-  (`pnpm up @tanstack/react-virtual`), or pnpm reports an unmet peer.
-- Import the styles once from `src/styles.css`: the default preset
-  (`@sheetbase-labs/sheetbase-shared/theme.css`) is not wanted here — load
-  `@sheetbase-labs/sheetbase-shared/themes/v3.css` and map its variables onto
-  the ELN tokens, plus `@sheetbase-labs/sheetbase-table/styles.css`.
+- `@tanstack/react-virtual` is declared `^3.14.10` — the range
+  `@sheetbase-labs/sheetbase-table` requires — and `pnpm-lock.yaml` resolves
+  3.14.13. Bumping the declaration is part of the same PR that adds the
+  packages.
+- `src/styles.css` imports the packages' styles once. Order matters:
+  `@sheetbase-labs/sheetbase-table/styles.css` bundles the packages' **default**
+  preset, so `@sheetbase-labs/sheetbase-shared/themes/v3.css` is imported after
+  it to replace all 101 variables with the v3 values. Below both, the host
+  mapping binds every package variable that has an ELN token onto that token
+  (`--panel: var(--card)`, `--series-a: var(--chart-1)`, …). Its selectors are
+  `:root`-prefixed, so it beats the preset's `:where(.sheetbase-scope)` rules
+  whatever order the bundles land in, and its values are `var()` references, so
+  `.dark` on `<html>` switches the packages with the ELN. Variables whose name
+  and meaning already match an ELN token (`--border`, `--selection`, …) keep
+  the v3 preset binding, and `--row-height` stays at the preset's 28px (the v3
+  grid row, not the ELN's 32px list row). `src/lib/sheetbase-components.test.ts`
+  pins the imports, the mapping and those exceptions.
+- `src/routes/sheetbase-components.tsx` is a development-only demo (COMP-05
+  Check-it) that renders the package grid inside that mapping; it redirects to
+  `/` in production and is not part of the product navigation.
 
 The dependency is only real when `pnpm install --frozen-lockfile` resolves it
 from the registry in CI; a locally linked package is not evidence of that.
@@ -153,16 +173,24 @@ In the ELN, a version bump is a normal PR that:
 The parity suite is the release gate: a components release is only adopted once
 the ELN renders match the v3 design renders in both themes.
 
-## Still to do
+## Status
 
-- The first `v0.1.0` tag has not been pushed, so no version exists to install;
-  the local `link:` path above is the only way to consume the packages today.
-- When the dependencies land, add `packages: read`,
-  `NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}` and the
-  `echo … >> ~/.npmrc` step above to every workflow that installs packages:
-  `.github/workflows/ci.yml`, `deploy.yml`, `deploy-dev.yml`,
-  `sdk-release.yml` and `security.yml`.
-- Until then, every pnpm command prints the ignored project-level credential
-  warning from `.npmrc`; it is harmless (no `@sheetbase-labs/*` package is
-  requested yet) and disappears from the output only if the placeholder line is
-  dropped in favour of documenting the token source.
+COMP-05 step 2 is done: the four packages are pinned at `0.1.0` in
+`package.json`, resolved with integrity from GitHub Packages in
+`pnpm-lock.yaml`, and `pnpm install --frozen-lockfile` succeeds with the token.
+`pnpm 11`'s supply-chain policy added the four freshly published packages to
+`minimumReleaseAgeExclude` in `pnpm-workspace.yaml` when they were first
+installed; those entries are what let a frozen install accept them, so they
+stay until the releases age past the policy window.
+
+Still to do:
+
+- The screens still run Handsontable and Recharts. `sheetbase-explorer` and
+  `sheetbase-advanced-search` are installed but not rendered yet — wiring the
+  grids, charts and filter builder into the product is COMP-06/07.
+- `sheetbase-schemaeditor` and `sheetbase-rulesengine` are not consumed at all.
+- Every pnpm command still prints the ignored project-level credential warning
+  from `.npmrc` while the placeholder line is committed. It is harmless — the
+  token comes from the user-level `~/.npmrc` (or `pnpm config set`) — and the
+  warning disappears only if that line is dropped in favour of documenting the
+  token source.

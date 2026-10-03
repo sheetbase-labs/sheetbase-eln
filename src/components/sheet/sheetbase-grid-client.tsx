@@ -348,7 +348,9 @@ function SheetbaseGridClientBase(props: SheetbaseGridClientProps) {
       change: CellChange,
     ): SheetbaseGridCellChange => {
       const rawColumn =
-        typeof change[1] === 'number' ? change[1] : hot.propToCol(change[1] as string)
+        typeof change[1] === 'number'
+          ? change[1]
+          : hot.propToCol(change[1] as string)
       const physicalColumn =
         typeof rawColumn === 'number' && rawColumn >= 0
           ? hot.toPhysicalColumn(rawColumn)
@@ -424,9 +426,7 @@ function SheetbaseGridClientBase(props: SheetbaseGridClientProps) {
           const column = columns.findIndex(
             (candidate) => candidate.id === sort.columnId,
           )
-          return column >= 0
-            ? [{ column, sortOrder: sort.direction }]
-            : []
+          return column >= 0 ? [{ column, sortOrder: sort.direction }] : []
         }),
       }
     }

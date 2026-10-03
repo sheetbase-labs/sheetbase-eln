@@ -71,7 +71,12 @@ function mixedProps(overrides: ClientOverrides = {}): SheetbaseGridClientProps {
     descriptionId: '',
     cutStatusId: '',
     columns: [
-      { id: 'local', label: 'Local observation', source: 'local', type: 'text' },
+      {
+        id: 'local',
+        label: 'Local observation',
+        source: 'local',
+        type: 'text',
+      },
       {
         id: 'governed',
         label: 'Governed result',

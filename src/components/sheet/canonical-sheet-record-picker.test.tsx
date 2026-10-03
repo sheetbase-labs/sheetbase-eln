@@ -42,7 +42,12 @@ vi.mock('./sheetbase-grid', () => ({
     onCellsChange,
     onReady,
   }: GridPropsCapture) => {
-    gridRender({ columns, onOpenRecordPicker, beforeCellsChange, onCellsChange })
+    gridRender({
+      columns,
+      onOpenRecordPicker,
+      beforeCellsChange,
+      onCellsChange,
+    })
     // Stand-in engine instance so the workspace can write the picked Record
     // UUID through the grid's own change pipeline (deferred to step 2).
     onReady?.({ setDataAtCell })
@@ -79,10 +84,7 @@ interface GridPropsCapture {
     changes: SheetbaseGridCellChange[],
     source: string,
   ) => boolean | undefined
-  onCellsChange?: (
-    changes: SheetbaseGridCellChange[],
-    source: string,
-  ) => void
+  onCellsChange?: (changes: SheetbaseGridCellChange[], source: string) => void
   onReady?: (instance: unknown) => void
 }
 

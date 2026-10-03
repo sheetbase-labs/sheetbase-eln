@@ -29,6 +29,7 @@ import { Route as ScanRouteImport } from './routes/scan'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SheetbaseComponentsRouteImport } from './routes/sheetbase-components'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as AnalysisIndexRouteImport } from './routes/analysis/index'
@@ -239,6 +240,11 @@ const SearchRoute = SearchRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SheetbaseComponentsRoute = SheetbaseComponentsRouteImport.update({
+  id: '/sheetbase-components',
+  path: '/sheetbase-components',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -847,6 +853,7 @@ export interface FileRoutesByFullPath {
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
@@ -977,6 +984,7 @@ export interface FileRoutesByTo {
   '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
+  '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
@@ -1102,6 +1110,7 @@ export interface FileRoutesById {
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRouteWithChildren
   '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
@@ -1237,6 +1246,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/search'
     | '/settings'
+    | '/sheetbase-components'
     | '/sign-in'
     | '/templates'
     | '/analysis/$analysisId'
@@ -1367,6 +1377,7 @@ export interface FileRouteTypes {
     | '/scan'
     | '/schedule'
     | '/search'
+    | '/sheetbase-components'
     | '/sign-in'
     | '/templates'
     | '/analysis/$analysisId'
@@ -1491,6 +1502,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/search'
     | '/settings'
+    | '/sheetbase-components'
     | '/sign-in'
     | '/templates'
     | '/analysis/$analysisId'
@@ -1625,6 +1637,7 @@ export interface RootRouteChildren {
   ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRouteWithChildren
+  SheetbaseComponentsRoute: typeof SheetbaseComponentsRoute
   SignInRoute: typeof SignInRoute
   TemplatesRoute: typeof TemplatesRouteWithChildren
   ApiCalculationsRoute: typeof ApiCalculationsRoute
@@ -1802,6 +1815,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sheetbase-components': {
+      id: '/sheetbase-components'
+      path: '/sheetbase-components'
+      fullPath: '/sheetbase-components'
+      preLoaderRoute: typeof SheetbaseComponentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -2966,6 +2986,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRouteWithChildren,
+  SheetbaseComponentsRoute: SheetbaseComponentsRoute,
   SignInRoute: SignInRoute,
   TemplatesRoute: TemplatesRouteWithChildren,
   ApiCalculationsRoute: ApiCalculationsRoute,

@@ -883,10 +883,7 @@ export function CanonicalSheetEditor({
   // canonical reason is announced: the visible grid can never diverge from
   // the authoritative state.
   const handleBeforeCellsChange = useCallback(
-    (
-      changes: SheetbaseGridCellChange[],
-      source: SheetbaseGridWriteSource,
-    ) => {
+    (changes: SheetbaseGridCellChange[], source: SheetbaseGridWriteSource) => {
       if (changes.length === 0) return undefined
       const columnsById = new Map(
         matrixRef.current.columns.map((column) => [column.id, column]),

@@ -23,13 +23,7 @@ export type SheetbaseGridColumnSource = 'bound' | 'local' | 'calculated'
 
 /** The neutral editor/rendering type of a column's cells. */
 export type SheetbaseGridColumnType =
-  | 'text'
-  | 'number'
-  | 'checkbox'
-  | 'date'
-  | 'datetime'
-  | 'select'
-  | 'record'
+  'text' | 'number' | 'checkbox' | 'date' | 'datetime' | 'select' | 'record'
 
 export interface SheetbaseGridColumn {
   /** Stable column identity (field id / local field id). */
@@ -65,12 +59,7 @@ export interface SheetbaseGridRow {
 }
 
 export type SheetbaseGridWriteSource =
-  | 'edit'
-  | 'paste'
-  | 'fill'
-  | 'clear'
-  | 'load'
-  | 'formula'
+  'edit' | 'paste' | 'fill' | 'clear' | 'load' | 'formula'
 
 export interface SheetbaseGridCellChange {
   /** Index into `rows`, resolved to physical order after presentation. */
@@ -135,8 +124,7 @@ export interface SheetbaseGridMenuItem {
 }
 
 export type SheetbaseGridMenuEntry =
-  | SheetbaseGridBuiltinMenuItem
-  | SheetbaseGridMenuItem
+  SheetbaseGridBuiltinMenuItem | SheetbaseGridMenuItem
 
 /**
  * Transitional: the formula engine is still the vendor engine owned by the
@@ -245,9 +233,7 @@ export interface SheetbaseGridProps {
     changes: readonly SheetbaseGridCellChange[],
     source: SheetbaseGridWriteSource,
   ) => void
-  onSelectionChange?: (
-    selection: SheetbaseGridSelection | null,
-  ) => void
+  onSelectionChange?: (selection: SheetbaseGridSelection | null) => void
   onColumnResize?: (columnId: string, width: number) => void
   onColumnOrderChange?: (columnIds: string[]) => void
   /** Preflight hook for row removal; return `false` to block it. */
@@ -281,12 +267,7 @@ export interface SheetbaseGridProps {
  * `sheetbase-table` backend will consume.
  */
 export type SheetbaseCellState =
-  | 'invalid'
-  | 'flagged'
-  | 'pending'
-  | 'derived'
-  | 'readonly'
-  | 'unsynced'
+  'invalid' | 'flagged' | 'pending' | 'derived' | 'readonly' | 'unsynced'
 
 export interface SheetbaseGridClientProps extends SheetbaseGridProps {
   licenseKey: string

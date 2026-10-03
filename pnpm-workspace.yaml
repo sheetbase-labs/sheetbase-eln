@@ -9,6 +9,10 @@ minimumReleaseAgeExclude:
   - '@tanstack/router-generator@1.167.21'
   - '@tanstack/router-plugin@1.168.22'
   - '@tanstack/start-plugin-core@1.171.22'
+  - '@sheetbase-labs/sheetbase-advanced-search@0.1.0'
+  - '@sheetbase-labs/sheetbase-explorer@0.1.0'
+  - '@sheetbase-labs/sheetbase-shared@0.1.0'
+  - '@sheetbase-labs/sheetbase-table@0.1.0'
 overrides:
   'js-yaml@>=4.0.0 <4.3.1': '>=4.3.1'
   'browserslist@<=4.28.6': '>=4.28.7'

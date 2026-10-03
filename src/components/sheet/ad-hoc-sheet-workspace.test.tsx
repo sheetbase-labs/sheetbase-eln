@@ -261,7 +261,10 @@ describe('CanonicalSheetEditor typed editing and validation UX (GRID-03)', () =>
     const props = lastProps()
     act(() => {
       expect(
-        props.beforeCellsChange(cellChange(props, 0, 100, 'not-a-number'), 'edit'),
+        props.beforeCellsChange(
+          cellChange(props, 0, 100, 'not-a-number'),
+          'edit',
+        ),
       ).toBe(false)
     })
     const statuses = screen

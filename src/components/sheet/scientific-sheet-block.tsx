@@ -1694,7 +1694,8 @@ export function ScientificSheetBlock({
   // formula editing, the formula-reference clipboard and row-removal
   // persistence are expressed neutrally; the wrapper owns the engine mapping.
   const sheetColumns = useMemo(
-    () => table?.columns.map((column) => sheetbaseColumn(column, readOnly)) ?? [],
+    () =>
+      table?.columns.map((column) => sheetbaseColumn(column, readOnly)) ?? [],
     [table?.columns, readOnly],
   )
   // gridData keeps the same value identity across draft changes (see the

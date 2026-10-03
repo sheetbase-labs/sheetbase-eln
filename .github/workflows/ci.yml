@@ -21,6 +21,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  # Read the private @sheetbase-labs/* packages from GitHub Packages.
+  packages: read
 
 env:
   # Non-secret placeholders so server-env validation passes at import and
@@ -31,6 +33,8 @@ env:
   PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
   BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
   PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
+  # Reads the private @sheetbase-labs/* packages from GitHub Packages.
+  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   static:
@@ -49,6 +53,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 11.9.0
+
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -78,6 +85,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 11.9.0
+
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -122,6 +132,9 @@ jobs:
         with:
           version: 11.9.0
 
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -159,6 +172,9 @@ jobs:
         with:
           version: 11.9.0
 
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -191,6 +207,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 11.9.0
+
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

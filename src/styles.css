@@ -8,6 +8,18 @@
 @import 'tw-animate-css';
 @import '@liveblocks/react-ui/styles.css';
 
+/*
+ * Sheetbase components (@sheetbase-labs/*, COMP-05).
+ *
+ * `sheetbase-table/styles.css` bundles the packages' own default preset, so it
+ * loads first; `themes/v3.css` declares the same 101 variables with the v3
+ * values and replaces them in source order. The host mapping further down
+ * binds the variables that have an ELN token onto it, so one theme drives the
+ * ELN and the packages. See docs/development/sheetbase-components.md.
+ */
+@import '@sheetbase-labs/sheetbase-table/styles.css';
+@import '@sheetbase-labs/sheetbase-shared/themes/v3.css';
+
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -203,6 +215,81 @@
 
   --violet: var(--review);
   --violet-foreground: oklch(1 0 89.9);
+}
+
+/*
+ * Sheetbase components host mapping (COMP-05).
+ *
+ * The values are `var()` references, never copies: the packages read the ELN's
+ * v3 tokens, and `.dark` on <html> switches both together. The selectors are
+ * `:root`-prefixed (specificity 0,1,1) so they win over the preset's
+ * `:where(.sheetbase-scope)` rules (0,0,0 light, 0,1,0 dark) whatever order the
+ * bundles end up in.
+ *
+ * Variables whose name and meaning already match an ELN token (`--border`,
+ * `--border-subtle`, `--border-strong`, `--grid-line`, `--selection`,
+ * `--selection-subtle`, `--selection-border`, `--surface-derived`,
+ * `--surface-disabled`, `--link`, `--link-hover`, `--danger-text`,
+ * `--chart-grid`, `--chart-axis`, `--radius-*`, `--control-height`, fonts and
+ * type sizes) keep the v3 preset binding: `--border: var(--border)` on the
+ * same element would be a self-reference and invalid CSS. `--row-height` also
+ * stays at the preset's 28px — that is the v3 grid row, not the ELN's 32px
+ * list row. Identical-name variables that do differ in meaning are rebound
+ * below; the ELN values they shadow are read through the aliases here, which
+ * resolve on `:root` before the scope reshapes the name.
+ */
+:root {
+  --sb-host-muted-surface: var(--muted);
+  --sb-host-hover-surface: var(--accent);
+}
+
+:root .sheetbase-scope,
+:root .sheetbase-explorer {
+  /* Surfaces */
+  --app: var(--background);
+  --canvas: var(--background);
+  --panel: var(--card);
+  --panel-2: var(--sb-host-muted-surface);
+  --surface: var(--card);
+  --surface-muted: var(--sb-host-muted-surface);
+  --surface-hover: var(--sb-host-hover-surface);
+
+  /* Text */
+  --text: var(--foreground);
+  --muted: var(--muted-foreground);
+  --faint: var(--faint-foreground);
+
+  /* Interaction */
+  --accent: var(--primary);
+  --accent-dark: var(--primary-hover);
+  --accent-ink: var(--primary);
+  --accent-soft: var(--selection);
+  --accent-soft-2: var(--selection-subtle);
+  --focus: var(--ring);
+  --on-accent: var(--primary-foreground);
+
+  /* Status */
+  --green: var(--success);
+  --green-text: var(--success-text);
+  --green-soft: var(--success-wash);
+  --orange: var(--warning);
+  --orange-text: var(--warning-text);
+  --orange-soft: var(--warning-wash);
+  --blue: var(--info);
+  --purple: var(--review);
+  --purple-soft: var(--review-wash);
+  --danger: var(--destructive);
+  --danger-soft: var(--danger-wash);
+
+  /* Charts */
+  --series-a: var(--chart-1);
+  --series-b: var(--chart-2);
+  --series-c: var(--chart-3);
+  --chart-label: var(--muted-foreground);
+  --chart-anchor: var(--foreground);
+
+  /* Elevation */
+  --shadow: var(--shadow-overlay);
 }
 
 @theme inline {

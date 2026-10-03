@@ -52,6 +52,8 @@ export const modelsQueryKeys = {
     ['ui-port', 'models', 'versions', modelId] as const,
   fields: (versionId: string) =>
     ['ui-port', 'models', 'fields', versionId] as const,
+  versionFields: (versionIds: string[]) =>
+    ['ui-port', 'models', 'version-fields', versionIds.join(',')] as const,
   datasets: (modelId: string) =>
     ['ui-port', 'models', 'datasets', modelId] as const,
 }
@@ -166,6 +168,30 @@ export function useModelFields(
     queryFn: () =>
       listCanonicalDatasetSchemaVersionFields(client, versionId as string),
     enabled: Boolean(versionId),
+    staleTime: 15_000,
+  })
+}
+
+export interface ModelVersionField extends CanonicalDatasetSchemaField {
+  schema_version_id: string
+}
+
+/** Fields for every version of one model in a single read, so the Versions tab
+ * can diff each version against its predecessor without a query per version. */
+export function useModelVersionFields(
+  versionIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: modelsQueryKeys.versionFields(versionIds),
+    queryFn: () =>
+      versionIds.length
+        ? client.list<ModelVersionField>(
+            'dataset_schema_version_fields',
+            `?schema_version_id=in.(${versionIds.map(encodeURIComponent).join(',')})&select=field_id,schema_version_id,key,label,description,logical_type,nullable,default_value,quantity,validation,category,relationship,cardinality,lifecycle,display_order&order=display_order.asc`,
+          )
+        : Promise.resolve([]),
+    enabled: versionIds.length > 0,
     staleTime: 15_000,
   })
 }

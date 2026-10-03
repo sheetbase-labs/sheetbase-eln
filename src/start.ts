@@ -46,6 +46,20 @@ const datasetRetentionSchedulerMiddleware = createMiddleware().server(
   },
 )
 
+// LAB-02 step 1: sample hold-limit sweep. Calls
+// api.sweep_sample_hold_limits on an interval with the privileged app
+// connection; guarded like the pipeline/dataset schedulers and never started
+// under test runners unless explicitly enabled.
+const sampleHoldSchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startSampleHoldScheduler } = await import(
+      '#/lib/sample-hold.server'
+    )
+    startSampleHoldScheduler()
+    return next()
+  },
+)
+
 // API-06: webhook delivery engine. LISTENs for change events, matches
 // active subscriptions, and attempts signed HTTP POST delivery with
 // retries and auto-disablement. Started lazily per-process.
@@ -104,6 +118,7 @@ export const startInstance = createStart(() => ({
     pipelineSchedulerMiddleware,
     emailSchedulerMiddleware,
     datasetRetentionSchedulerMiddleware,
+    sampleHoldSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,
   ],

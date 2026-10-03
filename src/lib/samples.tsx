@@ -38,6 +38,16 @@ export interface SampleProperties {
   barcode?: string
   lowStockThreshold?: number
   notes?: string
+  // LAB-02 step 1 — hold limit. The condition is a human label (e.g. "2-8 C");
+  // the limit runs from harvest/registration (`holdStartedAt`, falling back to
+  // the record's created_at) for `holdDurationDays`, or until the explicit
+  // `holdUntil` deadline when set. `allowedUseExperimentIds` lists the
+  // experiments that may still withdraw the sample while it is on hold.
+  holdCondition?: string
+  holdStartedAt?: string
+  holdDurationDays?: number
+  holdUntil?: string
+  allowedUseExperimentIds?: string[]
 }
 
 /** Property keys owned by the samples registry. */
@@ -49,6 +59,11 @@ export const SAMPLE_PROPERTY_KEYS = [
   'barcode',
   'lowStockThreshold',
   'notes',
+  'holdCondition',
+  'holdStartedAt',
+  'holdDurationDays',
+  'holdUntil',
+  'allowedUseExperimentIds',
 ] as const
 
 function asString(value: unknown): string | null {
@@ -73,7 +88,22 @@ export function parseSampleProperties(
     barcode: asString(properties.barcode) ?? undefined,
     lowStockThreshold: asNumber(properties.lowStockThreshold) ?? undefined,
     notes: asString(properties.notes) ?? undefined,
+    holdCondition: asString(properties.holdCondition) ?? undefined,
+    holdStartedAt: asString(properties.holdStartedAt) ?? undefined,
+    holdDurationDays: asNumber(properties.holdDurationDays) ?? undefined,
+    holdUntil: asString(properties.holdUntil) ?? undefined,
+    allowedUseExperimentIds: asStringArray(
+      properties.allowedUseExperimentIds,
+    ),
   }
+}
+
+function asStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const out = value.filter(
+    (item): item is string => typeof item === 'string' && item !== '',
+  )
+  return out.length > 0 ? out : undefined
 }
 
 export interface SampleRecord extends NotebookRecord {
@@ -85,6 +115,12 @@ export interface SampleRecord extends NotebookRecord {
   barcode: string | null
   lowStockThreshold: number | null
   notes: string | null
+  // LAB-02 step 1 hold limit (see SampleProperties).
+  holdCondition: string | null
+  holdStartedAt: string | null
+  holdDurationDays: number | null
+  holdUntil: string | null
+  allowedUseExperimentIds: string[] | null
 }
 
 export function toSampleRecord(row: RecordWire): SampleRecord {
@@ -100,6 +136,11 @@ export function toSampleRecord(row: RecordWire): SampleRecord {
     barcode: props.barcode ?? null,
     lowStockThreshold: props.lowStockThreshold ?? null,
     notes: props.notes ?? null,
+    holdCondition: props.holdCondition ?? null,
+    holdStartedAt: props.holdStartedAt ?? null,
+    holdDurationDays: props.holdDurationDays ?? null,
+    holdUntil: props.holdUntil ?? null,
+    allowedUseExperimentIds: props.allowedUseExperimentIds ?? null,
   }
 }
 
@@ -116,6 +157,13 @@ export function samplePropertiesPayload(
   if (props.lowStockThreshold != null)
     out.lowStockThreshold = props.lowStockThreshold
   if (props.notes != null) out.notes = props.notes
+  if (props.holdCondition != null) out.holdCondition = props.holdCondition
+  if (props.holdStartedAt != null) out.holdStartedAt = props.holdStartedAt
+  if (props.holdDurationDays != null)
+    out.holdDurationDays = props.holdDurationDays
+  if (props.holdUntil != null) out.holdUntil = props.holdUntil
+  if (props.allowedUseExperimentIds != null)
+    out.allowedUseExperimentIds = props.allowedUseExperimentIds
   return out
 }
 
@@ -231,6 +279,7 @@ const SAMPLE_STATUS_VALUES = [
   'expired',
   'quarantined',
   'frozen',
+  'hold_exceeded',
 ] as const
 
 export function sampleStatusOptions(): { value: string; label: string }[] {
@@ -714,6 +763,12 @@ export interface ConsumeSampleInput {
   quantity: number
   notes?: string
   expectedMetadataVersion: number
+  /**
+   * LAB-02: the experiment withdrawing the sample. Required by the server for
+   * a `hold_exceeded` sample — it must appear in the sample's
+   * `allowedUseExperimentIds` or the withdrawal is refused (SB004).
+   */
+  experimentId?: string
 }
 
 export async function consumeSample(
@@ -725,6 +780,7 @@ export async function consumeSample(
     p_quantity: input.quantity,
     p_expected_metadata_version: input.expectedMetadataVersion,
     p_notes: input.notes ?? null,
+    p_experiment_id: input.experimentId ?? null,
   })
   return toSampleRecord(row)
 }

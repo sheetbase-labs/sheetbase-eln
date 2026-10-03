@@ -1818,7 +1818,9 @@ export const sampleEvents = api.table(
     recordId: uuid('record_id')
       .notNull()
       .references(() => records.id, { onDelete: 'cascade' }),
-    // create | receive | consume | transfer | edit | archive | restore
+    // create | receive | consume | transfer | edit | archive | restore |
+    // hold_exceeded (LAB-02: the scheduled System transition past the hold
+    // limit; part of this same chain-of-custody log, not a second status log)
     operation: text('operation').notNull(),
     // Signed: receive > 0, consume < 0, null for non-quantity operations.
     quantityDelta: numeric('quantity_delta'),
@@ -1838,7 +1840,7 @@ export const sampleEvents = api.table(
   (table) => [
     check(
       'chk_sample_events_operation',
-      sql`${table.operation} IN ('create','receive','consume','transfer','edit','archive','restore')`,
+      sql`${table.operation} IN ('create','receive','consume','transfer','edit','archive','restore','hold_exceeded')`,
     ),
     check(
       'chk_sample_events_quantity_presence',

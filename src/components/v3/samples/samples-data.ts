@@ -37,6 +37,7 @@ const STATUS: Record<string, { tone: Tone; label: string }> = {
   frozen: { tone: 'stored', label: 'Frozen' },
   quarantined: { tone: 'warn', label: 'Quarantine' },
   expired: { tone: 'bad', label: 'Expired' },
+  hold_exceeded: { tone: 'bad', label: 'Hold exceeded' },
   consumed: { tone: 'stored', label: 'Consumed' },
 }
 

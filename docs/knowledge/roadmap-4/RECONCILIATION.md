@@ -425,28 +425,32 @@ Specification: [tasks/COMP.md](tasks/COMP.md).
 
 ### COMP-07
 
-**partial · nod `in-progress`** (was `todo`). Replace Recharts. **Recharts removed 2026-10-03.**
+**done · nod `done`** (was `partial`). Replace Recharts. **Recharts removed 2026-10-03; histogram and violin cut over to the package 0.4.0 bin/density primitives 2026-10-03.**
 
 **Evidence:**
 
 - [`src/lib/chart-package.ts`](../../../src/lib/chart-package.ts) — the single
   adapter from the ELN's `ChartSpec` + `MaterialisedChart` to the package's
-  `FigureSvg` model: point/line, `bar`/`grouped_bar`/`stacked_bar`/`summary`
-  (the package's `bar` primitive), `box` and `heatmap`.
+  `FigureSvg` model, covering every `CHART_TYPES` kind: point/line, `bar`/
+  `grouped_bar`/`stacked_bar`/`summary` (the package's `bar` primitive),
+  `histogram` (bin primitive), `box`, `violin` (density primitive) and
+  `heatmap`.
 - [`src/components/viz/chart-renderer.tsx`](../../../src/components/viz/chart-renderer.tsx)
-  — package figure + overlay + selection hit layer; heatmap accessible table.
-- [`src/components/viz/chart-plots.tsx`](../../../src/components/viz/chart-plots.tsx)
-  — only `histogram` (no package bin primitive) and `violin` (no package
-  density primitive) remain ELN-rendered; the bar/summary/box/heatmap
-  renderers were removed.
+  — package figure + overlay + selection hit layer (points, bars, bins, boxes,
+  violins, heatmap cells); heatmap accessible table.
+- `src/components/viz/chart-plots.tsx` deleted — the ELN histogram/violin
+  renderers and their dead helpers are gone; `ChartSelection`/`PlotSelectionProps`
+  now live in `chart-renderer.tsx`.
 - `grep -rn recharts src package.json` — empty.
 
 **Remaining package limits (reported, not faked):** per-series colours /
 palette (the v3 figure chooses `series-a/b/c` by index), number formatting (the
 figure formats its own ticks) and `display.axes.{x,y}.reverse`. `display.gridlines=false`
-is honoured by clearing the figure model's gridlines. PNG export is rasterised
-by the ELN from the package-serialised SVG because `exportChartPng` downloads
-directly and cannot carry the ELN's preset dimensions, background or provenance.
+is honoured by clearing the figure model's gridlines. The package's violin box
+overlay draws the five-number summary and Tukey whiskers but not outlier
+points. PNG export is rasterised by the ELN from the package-serialised SVG
+because `exportChartPng` downloads directly and cannot carry the ELN's preset
+dimensions, background or provenance.
 
 ## SHELL
 

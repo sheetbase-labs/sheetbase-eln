@@ -402,46 +402,50 @@ Handsontable is gone from the dependency tree.
 
 ## COMP-07 — Replace Recharts
 
-**Status (2026-10-03):** partial · nod `in-progress`. Every chart kind the
-package's v3 figure can draw is rendered by `sheetbase-explorer`'s `FigureSvg`
-and `recharts` is gone; `histogram` and `violin` still need package primitives.
+**Status (2026-10-03):** done · nod `done`. Every chart kind in
+`src/lib/chart-spec.ts` is rendered by `sheetbase-explorer`'s `FigureSvg` from
+the materialised rows and `recharts` is gone.
 [Evidence and remaining package limits](../RECONCILIATION.md#comp-07).
 
 **Original decision/dependency note:** Original proposal.
 
 ### Scope
 
-Render chart blocks and analysis figures (`viz/chart-plots.tsx`,
-`viz/chart-renderer.tsx`) with `sheetbase-explorer` from the existing chart
-specification (ADR-0029); keep exported figures (PNG/SVG in reports and signed
-PDFs) identical to what is shown; remove `recharts`.
+Render chart blocks and analysis figures (`viz/chart-renderer.tsx`) with
+`sheetbase-explorer` from the existing chart specification (ADR-0029); keep
+exported figures (PNG/SVG in reports and signed PDFs) identical to what is
+shown; remove `recharts`.
 
 ### Start here
 
-`src/components/viz/chart-plots.tsx`, `chart-renderer.tsx`, `chart-frame.tsx`,
+`src/components/viz/chart-renderer.tsx`, `chart-frame.tsx`,
 `analysis-panel.tsx`; chart spec in `src/lib/chart-spec.ts` and
 `src/lib/chart-data.ts` (ADR-0029); figure export in
 `src/lib/visualisation-export.ts` and `src/lib/analysis-studio-data.ts`.
 
 ### Result (2026-10-03)
 
-Package-rendered through `src/lib/chart-package.ts` → `FigureSvg`:
-`line`, `scatter`, `scatter_line`, `connected_scatter`, `strip`, `bar`,
-`grouped_bar`, `stacked_bar`, `summary` (the package's `bar` primitive),
-`box` and `heatmap`.
-
-Still ELN-rendered, because the package's `buildFigure` has no primitive:
-`histogram` (no bin primitive; the package's `histogram` kind belongs to the
-legacy `buildChart`, and `buildFigure` falls through to the numeric branch) and
-`violin` (no density primitive; the ELN draws the group's box summary).
+Package-rendered through `src/lib/chart-package.ts` → `FigureSvg` — every
+`CHART_TYPES` kind: `line`, `scatter`, `scatter_line`, `connected_scatter`,
+`strip` (the package's point/line marks, with per-series render semantics),
+`bar`, `grouped_bar`, `stacked_bar`, `summary` (the package's `bar` primitive),
+`histogram` (the 0.4.0 bin primitive), `box` (five-number summary + Tukey
+whiskers), `violin` (the 0.4.0 density primitive: KDE outline + box overlay)
+and `heatmap`. The ELN renderers in the deleted `viz/chart-plots.tsx` are gone.
 
 Honoured from the spec by the package: axes, units, domains, linear/log scales,
 `display.gridlines=false` (by clearing the figure model's gridlines),
-`typeParams.bar.stacking`, `typeParams.box.showOutliers`, heatmap aggregate
-values, and reference lines the package draws itself. Reported as **not
-expressible** by the package's v3 figure (never faked): per-series colours /
-palette (series tokens are chosen by index), number formatting (the figure
-formats its own ticks) and `display.axes.{x,y}.reverse`.
+`typeParams.histogram.bins`/`binWidth`, `typeParams.bar.stacking`,
+`typeParams.box.showOutliers`, heatmap aggregate values, and reference lines the
+package draws itself. The ELN histogram spec has no density option, so
+`histogramDensity` is always false; there is no violin bandwidth knob, so
+`violinBandwidth` stays automatic (Silverman), matching the ELN's own
+`gaussianKde`. Reported as **not expressible** by the package's v3 figure
+(never faked): per-series colours / palette (series tokens are chosen by
+index), number formatting (the figure formats its own ticks) and
+`display.axes.{x,y}.reverse`. The package's violin box overlay draws the
+five-number summary and Tukey whiskers but not outlier points, so a violin no
+longer draws individual outliers.
 
 Figure export: SVG serialisation routes through the package's
 `serializeChartSvg` (the figure and the ELN overlay now share one root SVG so

@@ -32,8 +32,12 @@ Authority and rules: `/tmp/finish-roadmap-4-handoff.md`,
 5. `pnpm validate`, `pnpm test:db`, `pnpm test:api` and the browser suites pass
    (or each failure is an explicit, recorded blocker owned by a decision).
 
-Local completion is separate from merge/deploy. Pushing/merging needs explicit
-owner authorization.
+Local completion is separate from merge/deploy. The owner has authorized
+pushing to the PR for this work: **PR #220**
+(https://github.com/sheetbase-labs/sheetbase-eln/pull/220), base
+`roadmap-4/ui-app3` (stacked on #207 → #206 → #205 → #204 → #203 → #189 →
+`main`). Keep committing and pushing to `GWP/roadmap-4-shell`; merging still
+needs explicit approval and green CI.
 
 ## Working method
 
@@ -70,6 +74,11 @@ owner authorization.
   (`0c6754af`, `6c11aefb`); client `node:zlib` regression fixed; design Cell
   bank seeded; prettier cleanup (`66f068dc`). Tracker 28/85. MDL-02 found
   `in-progress` (02.1, 02.3 remain) despite the earlier handoff.
+- 2026-10-03: PR #220 opened on `roadmap-4/ui-app3`; branch pushed. Two
+  background subagents launched on disjoint slices: Relations for workspace
+  models (migration 0292 + DB test + route) and SHELL-01.2 permission-aware
+  navigation (unit tests). `api.discover_model_dependencies` extended for
+  workspace models (`0291`, `4e69f5b6`).
 - 2026-10-03: MDL-02.1 partial — Rules and Usage tabs for workspace record
   models (`e2f1dea3`), screens 102x2, models area green. Recorded blockers in
   nod `subtask-257`:

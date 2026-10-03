@@ -91,11 +91,7 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
   const maxValid =
     maxValue === null || (Number.isInteger(maxValue) && maxValue >= minValue)
   const canSubmit =
-    Boolean(workspaceId) &&
-    target.length > 0 &&
-    minValid &&
-    maxValid &&
-    !busy
+    Boolean(workspaceId) && target.length > 0 && minValid && maxValid && !busy
 
   async function refresh() {
     await queryClient.invalidateQueries({
@@ -122,7 +118,9 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
       setMaxLinks('')
       await refresh()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save rule.')
+      setError(
+        caught instanceof Error ? caught.message : 'Could not save rule.',
+      )
     } finally {
       setBusy(false)
     }
@@ -135,7 +133,9 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
       await removeModelRelationshipRule(modelRelationshipsDataClient, ruleId)
       await refresh()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not remove rule.')
+      setError(
+        caught instanceof Error ? caught.message : 'Could not remove rule.',
+      )
     } finally {
       setBusy(false)
     }
@@ -166,8 +166,12 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
               <TableBody>
                 {rules.map((rule) => (
                   <TableRow key={rule.id}>
-                    <TableCell className="font-medium">{rule.linkType}</TableCell>
-                    <TableCell className="mono">{rule.targetModelKey}</TableCell>
+                    <TableCell className="font-medium">
+                      {rule.linkType}
+                    </TableCell>
+                    <TableCell className="mono">
+                      {rule.targetModelKey}
+                    </TableCell>
                     <TableCell className="num">{rule.minLinks}</TableCell>
                     <TableCell className="num">
                       {rule.maxLinks ?? '∞'}

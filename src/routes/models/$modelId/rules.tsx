@@ -18,10 +18,7 @@ import {
 } from '#/components/v3/ui/table'
 import { isUuid } from '#/lib/field-value-validation'
 import { createModelRule, removeModelRule } from '#/lib/model-rules'
-import type {
-  ModelRuleCondition,
-  ModelRuleEffect,
-} from '#/lib/model-rules'
+import type { ModelRuleCondition, ModelRuleEffect } from '#/lib/model-rules'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   useModelRules,
@@ -148,7 +145,9 @@ function RecordModelRules({
       setMessage('')
       await rules.refetch()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save rule.')
+      setError(
+        caught instanceof Error ? caught.message : 'Could not save rule.',
+      )
     } finally {
       setBusy(false)
     }
@@ -168,9 +167,9 @@ function RecordModelRules({
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
       <Section title="Rules" count={rows.length}>
         <Muted>
-          Rules apply to {model.data?.name ?? modelKey}&rsquo;s fields and run on
-          the server when a record is written or submitted. A block refuses the
-          write; a flag blocks submission until it is cleared.
+          Rules apply to {model.data?.name ?? modelKey}&rsquo;s fields and run
+          on the server when a record is written or submitted. A block refuses
+          the write; a flag blocks submission until it is cleared.
         </Muted>
         {rows.length ? (
           <TableBox>

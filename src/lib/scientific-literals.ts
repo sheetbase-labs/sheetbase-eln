@@ -1,13 +1,16 @@
-import type { CellValue } from 'hyperformula'
 import type { ScientificLogicalType } from './scientific-sheet-data'
 
 export const SHEETBASE_LITERAL_PROFILE = 'sheetbase-literal-v1' as const
+
 export type ScientificScalar = string | number | boolean | null
 export type LiteralCodecResult =
   | { ok: true; value: ScientificScalar }
   | { ok: false; code: 'VALUE'; message: string }
+
 const DAY = 86_400_000
-const NULL_DATE = Date.UTC(1899, 11, 30)
+/** Excel serial epoch (`nullDate` 1899-12-30) shared with the package engine. */
+export const SCIENTIFIC_SERIAL_EPOCH_MS = Date.UTC(1899, 11, 30)
+const NULL_DATE = SCIENTIFIC_SERIAL_EPOCH_MS
 const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/
 const timestampPattern =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|[+-]\d{2}:\d{2})$/
@@ -95,17 +98,17 @@ function safeNumber(value: unknown, integer: boolean) {
   return number
 }
 
-/** Converts authoritative values to safe raw HF input. Apostrophe forces text/category literals. */
+/** Converts authoritative values to the engine's scalar input. Dates and timestamps become serials. */
 export function encodeScientificLiteral(
   type: ScientificLogicalType,
   value: unknown,
-): string | number | boolean | null {
+): ScientificScalar {
   if (value === null || value === undefined) return null
   switch (type) {
     case 'text':
     case 'category':
     case 'reference':
-      return `'${String(value)}`
+      return String(value)
     case 'integer':
       return safeNumber(value, true)
     case 'decimal':
@@ -120,6 +123,17 @@ export function encodeScientificLiteral(
       return timestampSerial(String(value))
   }
 }
+
+/**
+ * Normalizes an engine scalar to the persisted scalar shape. The engine carries
+ * constructed dates as `Date`; storage and citation carry the Excel serial, so
+ * the adapter converts at this boundary and never changes the persisted value.
+ */
+export function normalizeEngineScalar(value: unknown): ScientificScalar {
+  if (value instanceof Date) return (value.getTime() - NULL_DATE) / DAY
+  return value as ScientificScalar
+}
+
 const isoDate = (serial: number) =>
   new Date(NULL_DATE + serial * DAY).toISOString().slice(0, 10)
 const isoTimestamp = (serial: number) =>
@@ -128,7 +142,7 @@ const isoTimestamp = (serial: number) =>
 /** Validates a derived scalar against its logical SQL target; never implicitly casts. */
 export function decodeScientificResult(
   type: ScientificLogicalType,
-  value: CellValue | null,
+  value: unknown,
   categoryOptionIds?: readonly string[],
 ): LiteralCodecResult {
   if (value === null) return { ok: true, value: null }

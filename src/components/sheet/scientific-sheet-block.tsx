@@ -71,15 +71,12 @@ import type {
 } from '#/lib/scientific-sheet-data'
 import { SchemaBadge } from '#/components/dataset-schema/schema-badge'
 import { upgradeScientificSchema } from '#/lib/dataset-schema-data'
-import { scientificSheetName } from '#/lib/scientific-workbook'
 import type {
   ScientificWorkbook,
   WorkbookCellAddress,
   WorkbookResult,
   WorkbookTable,
 } from '#/lib/scientific-workbook'
-import { createSheetbaseHyperFormula } from '#/lib/hyperformula-profile'
-import type { HyperFormula } from 'hyperformula'
 import { useNotebookScientificWorkbook } from '#/components/notebook/scientific-workbook-provider'
 import { GridOperationCoordinator } from '#/lib/grid-operation-coordinator'
 import type {
@@ -1051,37 +1048,6 @@ export function ScientificSheetBlock({
   }, [allRowsQuery.data, formulaByCell, formulasQuery.data, table])
   const workbook = useNotebookScientificWorkbook(block.id, workbookTable)
   const tableWorkbook = workbook?.hasTable(tableId) ? workbook : null
-  // Dedicated HyperFormula engine for the Handsontable formulas plugin.
-  // We can't share the ScientificWorkbook engine because it gets rebuilt/
-  // destroyed when query data changes, while Handsontable retains the
-  // reference. This dedicated instance lives for the lifetime of this table
-  // and is configured with the Sheetbase profile (correct functions, date
-  // handling, precision, etc.). The formulas plugin syncs grid data into
-  // this engine automatically.
-  const gridEngine = useMemo<HyperFormula | null>(() => {
-    if (!table) return null
-    // The formulas plugin requires the sheet to already exist in the engine.
-    // Without this, the plugin cannot map grid cells to HyperFormula cells,
-    // so formula evaluation, copy-paste formula preservation, and autofill
-    // translation all silently fail (cells show computed values instead of
-    // formula expressions).
-    try {
-      const engine = createSheetbaseHyperFormula()
-      const sheetName = scientificSheetName(table.id)
-      if (!engine.doesSheetExist(sheetName)) engine.addSheet(sheetName)
-      return engine
-    } catch {
-      return null
-    }
-  }, [table?.id])
-  // Destroy the engine when the table changes or the component unmounts.
-  useEffect(() => {
-    const engine = gridEngine
-    if (!engine) return
-    return () => {
-      engine.destroy()
-    }
-  }, [gridEngine])
 
   const calculationProblem =
     (allRowsQuery.data?.length ?? 0) > 10_000
@@ -1490,11 +1456,10 @@ export function ScientificSheetBlock({
         const formula = formulaByCell.get(`${row.id}/${column.id}`)
         if (!formula) continue
         // Same-sheet formulas (no `!` cross-sheet prefix) are injected as
-        // engine expressions so the Handsontable formulas plugin recognises
-        // the cell as a formula, computes it inline, and — crucially —
-        // enables formula-preserving copy-paste and autofill. This does NOT
-        // require `tableWorkbook`: the grid's own `gridEngine` (configured
-        // in `formulasConfig`) evaluates the expression.
+        // engine expressions so the grid recognises the cell as a formula,
+        // computes it inline, and — crucially — enables formula-preserving
+        // copy-paste and autofill. This does NOT require `tableWorkbook`:
+        // the grid evaluates the expression on its own sheet.
         const isSameSheet =
           formula.status === 'supported' &&
           !!formula.engine_expression &&
@@ -1721,17 +1686,6 @@ export function ScientificSheetBlock({
         .filter((id) => !stored.includes(id)),
     ]
   }, [columnOrderKey, table])
-  const formulasConfig = useMemo(() => {
-    if (!gridEngine || !table) return undefined
-    try {
-      return {
-        engine: gridEngine,
-        sheetName: scientificSheetName(table.id),
-      }
-    } catch {
-      return undefined
-    }
-  }, [gridEngine, table?.id])
 
   // Memoize the change handler so it doesn't get a new function reference on
   // every render (which would reconfigure the grid and can kill the editor).
@@ -2038,7 +1992,6 @@ export function ScientificSheetBlock({
         )}
         initialColumnWidths={initialColumnWidths}
         columnOrder={initialColumnOrder}
-        formulas={formulasConfig}
         clipboard={{
           onCopy: preserveFormulaClipboard,
           onCut: preserveFormulaClipboard,

@@ -371,9 +371,9 @@ describe('GridOperationCoordinator', () => {
     ).toEqual([2, 3])
   })
 
-  it('preserves HyperFormula-translated formula strings from autofill (relative, absolute, mixed)', async () => {
-    // When a user drags the fill handle down, Handsontable/HyperFormula
-    // produce translated formula strings (e.g. =A2, =$A$1, =$A2, =A$1).
+  it('preserves engine-translated formula strings from autofill (relative, absolute, mixed)', async () => {
+    // When a user drags the fill handle down, the grid engine translates
+    // references and produces formula strings (e.g. =A2, =$A$1, =$A2, =A$1).
     // The coordinator must pass these through verbatim — no regex A1
     // translation on our side.
     const { coordinator } = setup()
@@ -387,7 +387,7 @@ describe('GridOperationCoordinator', () => {
 
     expect(applyChanges).not.toHaveBeenCalled()
     expect(mutateFormula).toHaveBeenCalledTimes(4)
-    // Each formula source must be exactly what HyperFormula produced.
+    // Each formula source must be exactly what the engine produced.
     expect(mutateFormula.mock.calls.map(([w]) => (w as any).source)).toEqual([
       '=A2',
       '=$A$1',

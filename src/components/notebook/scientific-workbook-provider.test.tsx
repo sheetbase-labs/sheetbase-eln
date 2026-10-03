@@ -21,7 +21,7 @@ function Registration({
   value: WorkbookTable
 }) {
   const workbook = useNotebookScientificWorkbook(blockId, value)
-  return <span>{workbook?.engine.getSheetNames().length ?? 0}</span>
+  return <span>{workbook?.engineSheetNames().length ?? 0}</span>
 }
 
 describe('ScientificWorkbookProvider', () => {

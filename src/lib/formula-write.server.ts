@@ -1,13 +1,12 @@
 import { Client } from 'pg'
 import type { QueryResultRow } from 'pg'
 import { z } from 'zod'
+import { compileFormula } from '@sheetbase-labs/sheetbase-table'
 
 import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
-import { createSheetbaseHyperFormula } from './hyperformula-profile'
 import {
   buildPersistedFormulaArtifact,
-  calculationSheetName,
   FormulaSyntaxError,
   parseFormula,
 } from './formula-ir'
@@ -158,28 +157,23 @@ export async function executeFormulaWrite(
       tables: maps,
     })
     if (parsed.status === 'supported') {
-      const engine = createSheetbaseHyperFormula()
+      if (
+        !targetMaps.rowIds.includes(input.target.rowId) ||
+        !targetMaps.columnIds.includes(input.target.columnId)
+      )
+        throw Object.assign(new Error('Formula target is unavailable.'), {
+          status: 422,
+          code: 'invalid_formula',
+        })
+      // Normalization is a compatibility check, not persisted meaning: the
+      // engine must accept the expression the server is about to store.
       try {
-        for (const candidate of maps)
-          engine.addSheet(calculationSheetName(candidate.tableId))
-        const sheet = engine.getSheetId(calculationSheetName(table.id))
-        const row = targetMaps.rowIds.indexOf(input.target.rowId)
-        const column = targetMaps.columnIds.indexOf(input.target.columnId)
-        if (sheet === undefined || row < 0 || column < 0)
-          throw Object.assign(new Error('Formula target is unavailable.'), {
-            status: 422,
-            code: 'invalid_formula',
-          })
-        engine.setCellContents({ sheet, row, col: column }, [
-          [parsed.artifact.engineExpression],
-        ])
-        if (!engine.getCellFormula({ sheet, row, col: column }))
-          throw Object.assign(
-            new Error('HyperFormula rejected the normalized formula.'),
-            { status: 422, code: 'invalid_formula' },
-          )
-      } finally {
-        engine.destroy()
+        compileFormula(parsed.artifact.engineExpression)
+      } catch {
+        throw Object.assign(
+          new Error('The formula engine rejected the normalized formula.'),
+          { status: 422, code: 'invalid_formula' },
+        )
       }
     }
     write.artifact = buildPersistedFormulaArtifact(parsed, table.id)

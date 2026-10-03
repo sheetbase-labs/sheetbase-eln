@@ -555,7 +555,7 @@ beforeAll(async () => {
     allBlockIds.push(step.id)
   }
 
-  // 8. sheet — scientific sheet with HyperFormula-ready columns + rows
+  // 8. sheet — scientific sheet with calculation-ready columns + rows
   res = await insertBlock(USER_A, WS_A, experiment, 'sheet', {})
   expect(res.status).toBe(200)
   json = await res.json()

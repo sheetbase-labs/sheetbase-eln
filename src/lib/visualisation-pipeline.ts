@@ -4,7 +4,7 @@
  * source Dataset.
  *
  * Transforms here are a bounded visualisation set. They are not a second
- * formula engine; HyperFormula remains the Sheet calculation mechanism.
+ * formula engine; the Sheet calculation engine remains the mechanism.
  */
 
 import {

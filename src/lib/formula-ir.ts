@@ -1,10 +1,10 @@
 import {
   SCIENTIFIC_CORE_FUNCTIONS,
+  SHEETBASE_ENGINE_VERSION,
   SHEETBASE_FUNCTION_PROFILE,
-  SHEETBASE_HF_PROFILE,
-  SHEETBASE_HF_VERSION,
-} from './hyperformula-profile'
-import { SHEETBASE_LITERAL_PROFILE } from './hyperformula-literals'
+  SHEETBASE_SYNTAX_PROFILE,
+} from './formula-profile'
+import { SHEETBASE_LITERAL_PROFILE } from './scientific-literals'
 
 export const FORMULA_LIMITS = Object.freeze({
   source: 8192,
@@ -44,7 +44,7 @@ export type FormulaNode =
   | { kind: 'call'; functionId: string; arguments: FormulaNode[] }
 export interface FormulaArtifact {
   version: 1
-  syntaxProfile: typeof SHEETBASE_HF_PROFILE
+  syntaxProfile: typeof SHEETBASE_SYNTAX_PROFILE
   functionProfile: typeof SHEETBASE_FUNCTION_PROFILE
   source: string
   template: FormulaNode
@@ -61,7 +61,7 @@ export type FormulaParseResult =
     }
 export interface PersistedFormulaArtifact extends FormulaArtifact {
   literalProfile: typeof SHEETBASE_LITERAL_PROFILE
-  engineVersion: typeof SHEETBASE_HF_VERSION
+  engineVersion: typeof SHEETBASE_ENGINE_VERSION
   status: FormulaParseResult['status']
   dependencies: readonly (CellIdentity & { tableId: string })[]
 }
@@ -97,9 +97,9 @@ type Token = {
 }
 
 /**
- * Convert `**` exponentiation to HyperFormula's `^` operator, preserving
+ * Convert `**` exponentiation to the engine's `^` operator, preserving
  * string literals verbatim. Users expect `**` (Python/JavaScript style) to
- * work; HyperFormula only understands `^`. Applied at the parser entry point
+ * work; the engine only understands `^`. Applied at the parser entry point
  * so server-side validation canonicalises identically to the client editors.
  *
  * String literals (`"…"`, with `""` as an escaped quote) are copied untouched
@@ -433,7 +433,7 @@ export function parseFormula(
       if (peek().text === '%')
         throw new FormulaSyntaxError(
           'syntax',
-          'Repeated percent operators are not supported by HyperFormula.',
+          'Repeated percent operators are not supported.',
         )
     }
     while (
@@ -461,7 +461,7 @@ export function parseFormula(
     )
   const artifact: FormulaArtifact = {
     version: 1,
-    syntaxProfile: SHEETBASE_HF_PROFILE,
+    syntaxProfile: SHEETBASE_SYNTAX_PROFILE,
     functionProfile: SHEETBASE_FUNCTION_PROFILE,
     source: normalized,
     template,
@@ -503,7 +503,7 @@ export function buildPersistedFormulaArtifact(
   return Object.freeze({
     ...result.artifact,
     literalProfile: SHEETBASE_LITERAL_PROFILE,
-    engineVersion: SHEETBASE_HF_VERSION,
+    engineVersion: SHEETBASE_ENGINE_VERSION,
     status: result.status,
     dependencies: Object.freeze(
       [...dependencies.values()].sort((a, b) =>
@@ -571,10 +571,10 @@ export function validatePersistedFormulaArtifact(
   if (!ownKeys(value, keys)) fail('artifact fields do not match v1.')
   if (
     value.version !== 1 ||
-    value.syntaxProfile !== SHEETBASE_HF_PROFILE ||
+    value.syntaxProfile !== SHEETBASE_SYNTAX_PROFILE ||
     value.functionProfile !== SHEETBASE_FUNCTION_PROFILE ||
     value.literalProfile !== SHEETBASE_LITERAL_PROFILE ||
-    value.engineVersion !== SHEETBASE_HF_VERSION ||
+    value.engineVersion !== SHEETBASE_ENGINE_VERSION ||
     (value.status !== 'supported' && value.status !== 'unsupported')
   )
     fail('profile, version, or status is not allowed.')
@@ -867,7 +867,8 @@ export function emitFormula(
       case 'unary':
         return `(${node.operator}${emit(node.operand)})`
       case 'percent':
-        return `(${emit(node.operand)}%)`
+        // The engine has no postfix percent token; `/100` is the same value.
+        return `(${emit(node.operand)}/100)`
       case 'binary':
         return `(${emit(node.left)}${node.operator}${emit(node.right)})`
       case 'call':

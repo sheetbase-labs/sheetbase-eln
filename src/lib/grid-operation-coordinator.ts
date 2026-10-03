@@ -83,8 +83,8 @@ export interface CoordinatorConfig {
  * - Submits ordered commands: literal edits/inserts first, then formula
  *   writes that advance row versions one at a time.
  * - Batches literals and formulas against one canonical table snapshot.
- * - Keeps local HyperFormula results immediate (the caller's Handsontable
- *   formulas plugin updates inline; the coordinator only persists).
+ * - Keeps local formula results immediate (the grid's own engine updates
+ *   inline; the coordinator only persists).
  * - Schedules only one latest-wins trusted calculation after the write batch.
  * - Exposes states: Saved, Saving, Retrying, Save failed, Idle.
  * - Supports formulas on provisional new rows by inserting the row first,

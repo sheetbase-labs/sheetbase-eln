@@ -5,13 +5,15 @@ import {
   redirect,
   useLocation,
 } from '@tanstack/react-router'
-import type { LinkProps } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
+import { settingsNavForRole } from '#/components/v3/settings/settings-nav'
+import type { SettingsNavItem } from '#/components/v3/settings/settings-nav'
 
 /** UI port (roadmap-4/ui-app3): the settings shell. Sections are grouped
  * workspace / account exactly as app-3, and the nav lists only routes that
- * exist so no link 404s. */
+ * exist so no link 404s. SHELL-01.2: workspace administration sections are
+ * omitted for a role that cannot open them (see `settings-nav.ts`). */
 export const Route = createFileRoute('/settings')({
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -23,81 +25,11 @@ export const Route = createFileRoute('/settings')({
   component: SettingsLayout,
 })
 
-type Item = {
-  label: string
-  link: LinkProps
-  match: (path: string) => boolean
-}
-
-const workspace: Item[] = [
-  {
-    label: 'General',
-    link: { to: '/settings' },
-    match: (p) => p === '/settings' || p === '/settings/',
-  },
-  {
-    label: 'Members and roles',
-    link: { to: '/settings/members' },
-    match: (p) => p.startsWith('/settings/members'),
-  },
-  {
-    label: 'Electronic signatures',
-    link: { to: '/settings/signatures' },
-    match: (p) => p.startsWith('/settings/signatures'),
-  },
-  {
-    label: 'Instruments and parsers',
-    link: { to: '/settings/instruments' },
-    match: (p) => p.startsWith('/settings/instruments'),
-  },
-  {
-    label: 'Integrations',
-    link: { to: '/settings/integrations' },
-    match: (p) => p.startsWith('/settings/integrations'),
-  },
-  {
-    label: 'Project access',
-    link: { to: '/settings/access' },
-    match: (p) => p.startsWith('/settings/access'),
-  },
-  {
-    label: 'Audit and retention',
-    link: { to: '/settings/audit' },
-    match: (p) => p.startsWith('/settings/audit'),
-  },
-  {
-    label: 'Diagnostics',
-    link: { to: '/settings/diagnostics' },
-    match: (p) => p.startsWith('/settings/diagnostics'),
-  },
-  {
-    label: 'Usage',
-    link: { to: '/settings/usage' },
-    match: (p) => p.startsWith('/settings/usage'),
-  },
-  {
-    label: 'API and SDK',
-    link: { to: '/settings/api' },
-    match: (p) => p.startsWith('/settings/api'),
-  },
-]
-
-const account: Item[] = [
-  {
-    label: 'Profile',
-    link: { to: '/settings/profile' },
-    match: (p) => p.startsWith('/settings/profile'),
-  },
-  {
-    label: 'Notifications',
-    link: { to: '/settings/notifications' },
-    match: (p) => p.startsWith('/settings/notifications'),
-  },
-]
-
 function SettingsLayout() {
   const { pathname } = useLocation()
-  const item = (i: Item) => {
+  const { context } = Route.useRouteContext()
+  const { workspace, account } = settingsNavForRole(context.workspace?.role)
+  const item = (i: SettingsNavItem) => {
     const on = i.match(pathname)
     return (
       <Link
@@ -119,9 +51,11 @@ function SettingsLayout() {
         aria-label="Settings"
         className="hidden w-[220px] shrink-0 flex-col gap-px overflow-y-auto border-r border-border-subtle px-3 py-4 lg:flex"
       >
-        <div className="px-2.5 pb-1 pt-2 text-label font-medium text-fg-muted">
-          Workspace
-        </div>
+        {workspace.length > 0 ? (
+          <div className="px-2.5 pb-1 pt-2 text-label font-medium text-fg-muted">
+            Workspace
+          </div>
+        ) : null}
         {workspace.map(item)}
         <div className="px-2.5 pb-1 pt-4 text-label font-medium text-fg-muted">
           Account

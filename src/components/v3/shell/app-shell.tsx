@@ -39,6 +39,7 @@ import { cn } from '#/lib/utils'
 import type { Notification } from '#/components/v3/types'
 import { primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
+import { filterNavForRole } from '#/lib/nav-visibility'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
@@ -85,6 +86,12 @@ export function AppShell({
   const [createOpen, setCreateOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+
+  // SHELL-01.2: omit navigation a workspace role cannot open. Everyday
+  // scientific items declare no `roles`/`capability`, so they stay visible.
+  const role = data.me.role
+  const primaryItems = useMemo(() => filterNavForRole(primaryNav, role), [role])
+  const recordItems = useMemo(() => filterNavForRole(recordNav, role), [role])
 
   // SHELL-01/03: the sidebar collapse is a per-user preference.
   useEffect(() => {
@@ -178,15 +185,25 @@ export function AppShell({
         />
         <div className="flex min-h-0 flex-1">
           {collapsed ? (
-            <NavRail className="hidden lg:flex" />
+            <NavRail
+              className="hidden lg:flex"
+              primaryItems={primaryItems}
+              recordItems={recordItems}
+            />
           ) : (
             <>
               <SideNav
                 pinned={data.pinned}
                 counts={data.counts}
+                primaryItems={primaryItems}
+                recordItems={recordItems}
                 className="hidden xl:flex"
               />
-              <NavRail className="hidden lg:flex xl:hidden" />
+              <NavRail
+                className="hidden lg:flex xl:hidden"
+                primaryItems={primaryItems}
+                recordItems={recordItems}
+              />
             </>
           )}
           <main id="main" className="flex min-w-0 flex-1 bg-surface">
@@ -202,6 +219,8 @@ export function AppShell({
             <SideNav
               pinned={data.pinned}
               counts={data.counts}
+              primaryItems={primaryItems}
+              recordItems={recordItems}
               onNavigate={() => setMenu(false)}
               className="h-full border-r-0"
             />
@@ -218,7 +237,15 @@ export function AppShell({
   )
 }
 
-function NavRail({ className }: { className?: string }) {
+function NavRail({
+  className,
+  primaryItems,
+  recordItems,
+}: {
+  className?: string
+  primaryItems: NavItem[]
+  recordItems: NavItem[]
+}) {
   return (
     <nav
       aria-label="Main"
@@ -227,7 +254,7 @@ function NavRail({ className }: { className?: string }) {
         className,
       )}
     >
-      {[...primaryNav, null, ...recordNav].map((i, n) =>
+      {[...primaryItems, null, ...recordItems].map((i, n) =>
         i === null ? (
           <div key={n} className="my-1 h-px w-6 bg-border-subtle" />
         ) : (
@@ -670,11 +697,15 @@ function NavLink({ item }: { item: NavItem }) {
 function SideNav({
   pinned,
   counts,
+  primaryItems,
+  recordItems,
   onNavigate,
   className,
 }: {
   pinned: ShellData['pinned']
   counts?: ShellData['counts']
+  primaryItems: NavItem[]
+  recordItems: NavItem[]
   onNavigate?: () => void
   className?: string
 }) {
@@ -696,11 +727,11 @@ function SideNav({
         className,
       )}
     >
-      {primaryNav.map((i) => (
+      {primaryItems.map((i) => (
         <NavLink key={i.label} item={withCount(i)} />
       ))}
       <div className="mx-2 my-1.5 h-px shrink-0 bg-border-subtle" />
-      {recordNav.map((i) => (
+      {recordItems.map((i) => (
         <NavLink key={i.label} item={withCount(i)} />
       ))}
       <div className="shrink-0 px-2 pb-1 pt-3.5 text-label font-medium text-fg-muted">

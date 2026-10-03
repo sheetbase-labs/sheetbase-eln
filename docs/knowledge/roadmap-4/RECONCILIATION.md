@@ -425,15 +425,28 @@ Specification: [tasks/COMP.md](tasks/COMP.md).
 
 ### COMP-07
 
-**not-started · nod `todo`** (was `todo`). Replace Recharts.
+**partial · nod `in-progress`** (was `todo`). Replace Recharts. **Recharts removed 2026-10-03.**
 
 **Evidence:**
 
-- [`src/components/viz/chart-plots.tsx`](../../../src/components/viz/chart-plots.tsx):9 — Recharts import
-- [`src/components/viz/chart-renderer.tsx`](../../../src/components/viz/chart-renderer.tsx):17 — Recharts import
-- [`package.json`](../../../package.json):131 — recharts dependency
+- [`src/lib/chart-package.ts`](../../../src/lib/chart-package.ts) — the single
+  adapter from the ELN's `ChartSpec` + `MaterialisedChart` to the package's
+  `FigureSvg` model: point/line, `bar`/`grouped_bar`/`stacked_bar`/`summary`
+  (the package's `bar` primitive), `box` and `heatmap`.
+- [`src/components/viz/chart-renderer.tsx`](../../../src/components/viz/chart-renderer.tsx)
+  — package figure + overlay + selection hit layer; heatmap accessible table.
+- [`src/components/viz/chart-plots.tsx`](../../../src/components/viz/chart-plots.tsx)
+  — only `histogram` (no package bin primitive) and `violin` (no package
+  density primitive) remain ELN-rendered; the bar/summary/box/heatmap
+  renderers were removed.
+- `grep -rn recharts src package.json` — empty.
 
-**Remaining:** All four steps remain: canonical spec adapter, package renderer, identical export/frozen figure proof, Recharts removal. Blocked by COMP-03/05.
+**Remaining package limits (reported, not faked):** per-series colours /
+palette (the v3 figure chooses `series-a/b/c` by index), number formatting (the
+figure formats its own ticks) and `display.axes.{x,y}.reverse`. `display.gridlines=false`
+is honoured by clearing the figure model's gridlines. PNG export is rasterised
+by the ELN from the package-serialised SVG because `exportChartPng` downloads
+directly and cannot carry the ELN's preset dimensions, background or provenance.
 
 ## SHELL
 

@@ -402,7 +402,10 @@ Handsontable is gone from the dependency tree.
 
 ## COMP-07 — Replace Recharts
 
-**Status (2026-10-02):** not-started; nod `todo`. [Evidence and remaining work](../RECONCILIATION.md#comp-07).
+**Status (2026-10-03):** partial · nod `in-progress`. Every chart kind the
+package's v3 figure can draw is rendered by `sheetbase-explorer`'s `FigureSvg`
+and `recharts` is gone; `histogram` and `violin` still need package primitives.
+[Evidence and remaining package limits](../RECONCILIATION.md#comp-07).
 
 **Original decision/dependency note:** Original proposal.
 
@@ -417,17 +420,46 @@ PDFs) identical to what is shown; remove `recharts`.
 
 `src/components/viz/chart-plots.tsx`, `chart-renderer.tsx`, `chart-frame.tsx`,
 `analysis-panel.tsx`; chart spec in `src/lib/chart-spec.ts` and
-`src/lib/chart-data.ts` (ADR-0029); report/PDF figure export in
-`src/lib/report-builder.ts`.
+`src/lib/chart-data.ts` (ADR-0029); figure export in
+`src/lib/visualisation-export.ts` and `src/lib/analysis-studio-data.ts`.
+
+### Result (2026-10-03)
+
+Package-rendered through `src/lib/chart-package.ts` → `FigureSvg`:
+`line`, `scatter`, `scatter_line`, `connected_scatter`, `strip`, `bar`,
+`grouped_bar`, `stacked_bar`, `summary` (the package's `bar` primitive),
+`box` and `heatmap`.
+
+Still ELN-rendered, because the package's `buildFigure` has no primitive:
+`histogram` (no bin primitive; the package's `histogram` kind belongs to the
+legacy `buildChart`, and `buildFigure` falls through to the numeric branch) and
+`violin` (no density primitive; the ELN draws the group's box summary).
+
+Honoured from the spec by the package: axes, units, domains, linear/log scales,
+`display.gridlines=false` (by clearing the figure model's gridlines),
+`typeParams.bar.stacking`, `typeParams.box.showOutliers`, heatmap aggregate
+values, and reference lines the package draws itself. Reported as **not
+expressible** by the package's v3 figure (never faked): per-series colours /
+palette (series tokens are chosen by index), number formatting (the figure
+formats its own ticks) and `display.axes.{x,y}.reverse`.
+
+Figure export: SVG serialisation routes through the package's
+`serializeChartSvg` (the figure and the ELN overlay now share one root SVG so
+the export matches what is shown); the ELN then applies its presets, background
+and provenance. PNG is rasterised by the ELN from that same package-serialised
+SVG — the package's `exportChartPng` downloads directly and cannot carry the
+ELN's preset dimensions, background or provenance.
 
 ### Steps (PRs)
 
 1. Map `chart-spec.ts` to the package `Chart` props (series, markers,
-   excluded points, reference lines, axes); unit tests per chart type.
+   excluded points, reference lines, axes); unit tests per chart type. **done**
 2. Replace the Recharts renderer; keep `chart-frame.tsx` as the container.
+   **done**
 3. Figure export (PNG/SVG) through the package export functions; check a
    signed record's figure still renders from its cited analysis version.
-4. Remove `recharts`.
+   **done** (see the export note above)
+4. Remove `recharts`. **done**
 
 ### Check it
 

@@ -2,21 +2,71 @@
  * Design screen registry for the visual parity suite (DSYS-05/06).
  *
  * `DESIGN_SCREEN_SIZES` lists every vendored design screen and its frame size
- * (from canvas.json). `DESIGN_STATES` maps a screen to the route, user and
- * actions that reach it; DSYS-05.3 fills it in as screens are migrated. Until
- * a screen has an entry it is reported as pending by the parity suite, never
- * skipped silently.
+ * (from canvas.json). `DESIGN_STATES` maps a screen + theme to the route, the
+ * seeded user and the state actions that reproduce it; the spec drives each
+ * entry and compares it with the DSYS-01 render.
+ *
+ * Every screen must be either mapped in `DESIGN_STATES` or listed in
+ * `DESIGN_PENDING` with a reason. `parity.spec.ts` fails on a screen that is
+ * in neither list, on a screen in both, and on a mapped screen missing a theme.
  */
 export interface DesignState {
   /** Design screen name, e.g. "Main" (matches the rendered PNG stem). */
   screen: string
-  /** Route that should reproduce the screen. */
+  /** Route that should reproduce the screen, using design display IDs. */
   route: string
-  /** Seeded user to sign in as. */
+  /** Seeded user to sign in as (a key of `DESIGN_USER_IDS`). */
   user: string
   theme: 'light' | 'dark'
-  /** Optional actions that drive the route into the screen's state. */
-  state?: string
+  /** Frame size; taken from `DESIGN_SCREEN_SIZES` for the screen. */
+  size: { width: number; height: number }
+  /** How to drive the route into the screen's state. */
+  state?: DesignStateSpec
+  /**
+   * Documented expected failure while the app still diverges. The spec marks
+   * the test with `test.fail`, so the suite stays green, the measured ratio
+   * stays visible in the report, and the suite fails the moment the screen
+   * starts passing (Playwright reports an unexpected pass).
+   */
+  knownMismatch?: {
+    /** Latest measured diff, "ratio (pixels)" at the 0.001 gate. */
+    ratio: string
+    /** Root causes behind the mismatch (see DESIGN_CAUSES). */
+    causes: readonly DesignCauseId[]
+    /** Human-readable annotation for the test report. */
+    text: string
+  }
+}
+
+/**
+ * The states the driver can reach. These are the states the design screens
+ * show: the plain screen, a screen with no data, a screen whose data request
+ * failed or has not resolved, a screen with no network, a save conflict, an
+ * open dialog, or a specific seeded record.
+ */
+export type DesignStateSpec =
+  | { kind: 'default' }
+  | { kind: 'record'; identifier: string }
+  | { kind: 'dialog'; trigger: string }
+  | { kind: 'empty' }
+  | { kind: 'error' }
+  | { kind: 'loading' }
+  | { kind: 'offline' }
+  | { kind: 'conflict' }
+
+/** Root-cause ids shared by the mapped screens and their annotations. */
+export type DesignCauseId = 1 | 2 | 3 | 4
+
+/**
+ * The four root causes behind the current mismatches. Each mapped comparison
+ * names the causes that apply, so the expected-failure annotations stay
+ * actionable and this is the one place to edit when a cause is fixed.
+ */
+export const DESIGN_CAUSES: Record<DesignCauseId, string> = {
+  1: 'body font cascade: the package :root --font-sans beat the ELN @theme, so app chrome rendered Instrument Sans, not the design Inter (fixed in src/styles.css in this pass)',
+  2: 'shell chrome: the topbar New button, trailing icon, pinned projects and nav counts differ from the design',
+  3: 'seeded content: the screen does not show the rows/fields the design screen shows (DSYS-05 seed gap)',
+  4: 'route contract: app routes resolve UUIDs only; the state driver bridges the design display IDs',
 }
 
 export const DESIGN_SCREEN_SIZES: Record<
@@ -151,11 +201,381 @@ export const DESIGN_SCREEN_SIZES: Record<
   TokenExpired: { width: 1440, height: 900 },
 }
 
-/** Screens with a route and state mapping, once migrated. */
 /** The design seed's fixed clock (DSYS-05.1); parity freezes the browser to it. */
 export const DESIGN_CLOCK = new Date('2026-09-25T09:40:00+01:00')
 
-export const DESIGN_STATES: DesignState[] = []
+/**
+ * Root causes per mapped screen (see DESIGN_CAUSES). Cause 2 applies to every
+ * screen inside the app shell; cause 4 to every route addressed by a design
+ * display ID; cause 3 where the seeded content differs.
+ */
+const CAUSE_BY_SCREEN: Record<string, readonly DesignCauseId[]> = {
+  Main: [2, 3],
+  ClientPortal: [3],
+  Projects: [2, 3],
+  ProjectDetail: [2, 3, 4],
+  ProjectAmbr: [2, 3, 4],
+  ProjectLVV: [2, 3, 4],
+  ProjectFiles: [2, 3, 4],
+  ProjectMembers: [2, 3, 4],
+  ProjectSettings: [2, 3, 4],
+  ExperimentsList: [2, 3],
+  ExpOverview: [2, 3, 4],
+  ExpSamples: [2, 3, 4],
+  ExpDatasets: [2, 3, 4],
+  ExpResults: [2, 3, 4],
+  ExpFiles: [2, 3, 4],
+  ExpHistory: [2, 3, 4],
+  ReviewRecord: [2, 3, 4],
+  SheetWorking: [2, 3, 4],
+  SamplesList: [2, 3],
+  SampleDetail: [2, 3, 4],
+  SampleLineage: [2, 3, 4],
+  SampleUsage: [2, 3, 4],
+  SampleConsumed: [2, 3, 4],
+  DatasetsList: [2, 3],
+  DatasetExplorer: [2, 3, 4],
+  DatasetSnapshots: [2, 3, 4],
+  DatasetCompare: [2, 3, 4],
+  RecordDetail: [2, 3, 4],
+  RecordInstrument: [2, 3, 4],
+  PipelineRuns: [2, 3],
+  PipelineRun: [2, 3],
+  PipelineRunFailed: [2, 3],
+  SettingsGeneral: [2, 3],
+  SettingsIntegrations: [2, 3],
+  IntegrationDeliveries: [2, 3],
+}
+
+/**
+ * Latest measured diff per mapped screen, per theme: "ratio (pixels)" against
+ * the 0.001 gate, measured 2026-10-03 after the font-cascade fix. Refresh
+ * these when re-running the suite; they are reported in each annotation.
+ */
+const MEASURED_BY_SCREEN: Record<
+  string,
+  { light: string; dark: string }
+> = {
+  Main: { light: '0.04 (48502 px)', dark: '0.04 (46944 px)' },
+  ClientPortal: { light: '0.02 (15730 px)', dark: '0.02 (14941 px)' },
+  Projects: { light: '0.04 (41303 px)', dark: '0.04 (39296 px)' },
+  ProjectDetail: { light: '0.03 (36996 px)', dark: '0.03 (35611 px)' },
+  ProjectAmbr: { light: '0.03 (32709 px)', dark: '0.03 (31495 px)' },
+  ProjectLVV: { light: '0.03 (31973 px)', dark: '0.03 (30745 px)' },
+  ProjectFiles: { light: '0.04 (53461 px)', dark: '0.04 (51314 px)' },
+  ProjectMembers: { light: '0.03 (33133 px)', dark: '0.03 (32229 px)' },
+  ProjectSettings: { light: '0.03 (29592 px)', dark: '0.03 (28938 px)' },
+  ExperimentsList: { light: '0.04 (45855 px)', dark: '0.04 (43829 px)' },
+  ExpOverview: { light: '0.03 (39533 px)', dark: '0.03 (38332 px)' },
+  ExpSamples: { light: '0.03 (32353 px)', dark: '0.03 (31512 px)' },
+  ExpDatasets: { light: '0.03 (32674 px)', dark: '0.03 (31876 px)' },
+  ExpResults: { light: '0.03 (29788 px)', dark: '0.02 (28571 px)' },
+  ExpFiles: { light: '0.03 (27674 px)', dark: '0.03 (26527 px)' },
+  ExpHistory: { light: '0.03 (32736 px)', dark: '0.03 (31867 px)' },
+  ReviewRecord: { light: '0.04 (55945 px)', dark: '0.04 (54696 px)' },
+  SheetWorking: { light: '0.03 (31062 px)', dark: '0.03 (30061 px)' },
+  SamplesList: { light: '0.03 (38272 px)', dark: '0.03 (37171 px)' },
+  SampleDetail: { light: '0.03 (29902 px)', dark: '0.03 (29001 px)' },
+  SampleLineage: { light: '0.02 (27439 px)', dark: '0.02 (26703 px)' },
+  SampleUsage: { light: '0.03 (33350 px)', dark: '0.03 (32796 px)' },
+  SampleConsumed: { light: '0.02 (14160 px)', dark: '0.02 (13517 px)' },
+  DatasetsList: { light: '0.03 (27366 px)', dark: '0.03 (26334 px)' },
+  DatasetExplorer: { light: '0.03 (39626 px)', dark: '0.03 (38322 px)' },
+  DatasetSnapshots: { light: '0.04 (40791 px)', dark: '0.04 (38986 px)' },
+  DatasetCompare: { light: '0.02 (19617 px)', dark: '0.02 (18692 px)' },
+  RecordDetail: { light: '0.03 (31099 px)', dark: '0.03 (29934 px)' },
+  RecordInstrument: { light: '0.02 (22520 px)', dark: '0.02 (21513 px)' },
+  PipelineRuns: { light: '0.02 (22715 px)', dark: '0.02 (21502 px)' },
+  PipelineRun: { light: '0.02 (21287 px)', dark: '0.02 (20445 px)' },
+  PipelineRunFailed: { light: '0.02 (20722 px)', dark: '0.02 (19890 px)' },
+  SettingsGeneral: { light: '0.03 (29403 px)', dark: '0.03 (28181 px)' },
+  SettingsIntegrations: { light: '0.02 (28533 px)', dark: '0.02 (27323 px)' },
+  IntegrationDeliveries: { light: '0.02 (21112 px)', dark: '0.02 (20230 px)' },
+}
+
+/** One screen and theme, with the route/user/state that reach it. */
+interface MappedScreen {
+  screen: string
+  route: string
+  user?: string
+  state?: DesignStateSpec
+}
+
+/** Expand a screen list into both themes with the frame size from the canvas. */
+function bothThemes(screens: readonly MappedScreen[]): DesignState[] {
+  const themes = ['light', 'dark'] as const
+  return screens.flatMap(({ screen, route, user = 'gareth', state }) => {
+    const size = DESIGN_SCREEN_SIZES[screen]
+    if (!size) throw new Error(`Unknown design screen "${screen}"`)
+    const causes = CAUSE_BY_SCREEN[screen]
+    const measured = MEASURED_BY_SCREEN[screen]
+    if (!causes || !measured) {
+      throw new Error(
+        `Mapped screen "${screen}" needs CAUSE_BY_SCREEN and MEASURED_BY_SCREEN entries`,
+      )
+    }
+    const causeText = causes
+      .map((id) => `${id}) ${DESIGN_CAUSES[id]}`)
+      .join('; ')
+    return themes.map((theme) => ({
+      screen,
+      route,
+      user,
+      theme,
+      size,
+      state,
+      knownMismatch: {
+        ratio: measured[theme],
+        causes,
+        text: `known mismatch — measured ${measured[theme]} against the 0.001 gate. Causes: ${causeText}`,
+      },
+    }))
+  })
+}
+
+const rec = (identifier: string): DesignStateSpec => ({
+  kind: 'record',
+  identifier,
+})
+
+/**
+ * The first tranche: every screen whose route exists and whose seeded record
+ * (DSYS-05) is in place. Each of these is a real comparison; a screen moves
+ * here from `DESIGN_PENDING` only when it can be driven and compared.
+ */
+export const DESIGN_STATES: DesignState[] = bothThemes([
+  { screen: 'Main', route: '/' },
+  { screen: 'ClientPortal', route: '/client-portal', user: 'clientAna' },
+  { screen: 'Projects', route: '/projects' },
+  { screen: 'ProjectDetail', route: '/projects/PRJ-0217', state: rec('PRJ-0217') },
+  { screen: 'ProjectAmbr', route: '/projects/PRJ-0205', state: rec('PRJ-0205') },
+  { screen: 'ProjectLVV', route: '/projects/PRJ-0214', state: rec('PRJ-0214') },
+  {
+    screen: 'ProjectFiles',
+    route: '/projects/PRJ-0217/folders',
+    state: rec('PRJ-0217'),
+  },
+  {
+    screen: 'ProjectMembers',
+    route: '/projects/PRJ-0217/members',
+    state: rec('PRJ-0217'),
+  },
+  {
+    screen: 'ProjectSettings',
+    route: '/projects/PRJ-0217/settings',
+    state: rec('PRJ-0217'),
+  },
+  { screen: 'ExperimentsList', route: '/experiments' },
+  {
+    screen: 'ExpOverview',
+    route: '/experiments/EXP-0142/overview',
+    state: rec('EXP-0142'),
+  },
+  {
+    screen: 'ExpSamples',
+    route: '/experiments/EXP-0142/samples',
+    state: rec('EXP-0142'),
+  },
+  {
+    screen: 'ExpDatasets',
+    route: '/experiments/EXP-0142/datasets',
+    state: rec('EXP-0142'),
+  },
+  {
+    screen: 'ExpResults',
+    route: '/experiments/EXP-0142/results',
+    state: rec('EXP-0142'),
+  },
+  {
+    screen: 'ExpFiles',
+    route: '/experiments/EXP-0142/files',
+    state: rec('EXP-0142'),
+  },
+  {
+    screen: 'ExpHistory',
+    route: '/experiments/EXP-0142/history',
+    state: rec('EXP-0142'),
+  },
+  { screen: 'ReviewRecord', route: '/review/EXP-0138', state: rec('EXP-0138') },
+  { screen: 'SheetWorking', route: '/sheets/SHT-0019', state: rec('SHT-0019') },
+  { screen: 'SamplesList', route: '/samples' },
+  {
+    screen: 'SampleDetail',
+    route: '/samples/SMP-2231',
+    state: rec('SMP-2231'),
+  },
+  {
+    screen: 'SampleLineage',
+    route: '/samples/SMP-2231/lineage',
+    state: rec('SMP-2231'),
+  },
+  {
+    screen: 'SampleUsage',
+    route: '/samples/SMP-2231/usage',
+    state: rec('SMP-2231'),
+  },
+  {
+    screen: 'SampleConsumed',
+    route: '/samples/SMP-2210',
+    state: rec('SMP-2210'),
+  },
+  { screen: 'DatasetsList', route: '/datasets' },
+  {
+    screen: 'DatasetExplorer',
+    route: '/datasets/DS-0311/rows',
+    state: rec('DS-0311'),
+  },
+  {
+    screen: 'DatasetSnapshots',
+    route: '/datasets/DS-0311/snapshots',
+    state: rec('DS-0311'),
+  },
+  {
+    screen: 'DatasetCompare',
+    route: '/datasets/DS-0311/compare',
+    state: rec('DS-0311'),
+  },
+  { screen: 'RecordDetail', route: '/records/CB-0012', state: rec('CB-0012') },
+  {
+    screen: 'RecordInstrument',
+    route: '/instruments/INS-0007',
+    state: rec('INS-0007'),
+  },
+  { screen: 'PipelineRuns', route: '/pipelines/PL-0003/runs' },
+  { screen: 'PipelineRun', route: '/pipelines/PL-0003/runs/latest' },
+  { screen: 'PipelineRunFailed', route: '/pipelines/PL-0014/runs/latest' },
+  { screen: 'SettingsGeneral', route: '/settings' },
+  {
+    screen: 'SettingsIntegrations',
+    route: '/settings/integrations',
+  },
+  {
+    screen: 'IntegrationDeliveries',
+    route: '/settings/integrations/document-management',
+  },
+])
+
+/**
+ * Screens that cannot be compared yet, with the reason. Grouped by the work
+ * that unblocks them; every screen not in `DESIGN_STATES` must appear here.
+ */
+export const DESIGN_PENDING: ReadonlyArray<{
+  reason: string
+  screens: readonly string[]
+}> = [
+  {
+    reason:
+      'Needs a driven UI state (empty / error / loading / offline / conflict / dialog) the app has no hook for yet; the state driver refuses these rather than comparing the wrong page.',
+    screens: [
+      'AnalysisEmpty',
+      'DatasetsError',
+      'DialogsCreate',
+      'DialogsRecord',
+      'ExperimentsLoading',
+      'FolderMove',
+      'ImportFailed',
+      'InboxEmpty',
+      'NbConflict',
+      'NbEditing',
+      'NbLoading',
+      'NbNew',
+      'NbOffline',
+      'NbSigned',
+      'NbViewer',
+      'PromoteRejected',
+      'ProjectsEmpty',
+      'ProjectsError',
+      'ProjectsNoResults',
+      'SampleExpired',
+      'SampleHistory',
+      'SampleMeasurements',
+      'SampleQuarantine',
+      'SamplesEmpty',
+      'ScheduleEmpty',
+      'SearchEmpty',
+      'SheetEmpty',
+      'SheetPromote',
+      'SignedOut',
+      'SnapshotRemoved',
+      'TokenExpired',
+      'EvidenceCompare',
+    ],
+  },
+  {
+    reason:
+      'Needs design-seed data the seed does not create yet (list rows, models, templates, protocol training, audit entries, scheduler, connector deliveries, analyses).',
+    screens: [
+      'Analysis',
+      'AuditLog',
+      'HelpRecords',
+      'HomeBench',
+      'HomeFirstRun',
+      'HomeTriage',
+      'ImportMap',
+      'ImportUpload',
+      'IntegrationConnect',
+      'MaterialsList',
+      'ModelFields',
+      'ModelRecords',
+      'ModelVersions',
+      'NewExperiment',
+      'Notebook',
+      'Panels',
+      'PipelineEditor',
+      'PipelineRunWaiting',
+      'PipelineTriggers',
+      'PipelinesList',
+      'ProjectFolders',
+      'ProtocolDetail',
+      'ProtocolsList',
+      'RecordNew',
+      'RecordPhone',
+      'ReviewApproved',
+      'ReviewReturned',
+      'ReviewSign',
+      'SchemaEditor',
+      'SchemaPending',
+      'SchemasList',
+      'SearchPalette',
+      'SearchResults',
+      'SettingsAccess',
+      'SettingsApi',
+      'SettingsInstruments',
+      'SettingsMembers',
+      'SettingsNotifications',
+      'SettingsProfile',
+      'SettingsSignature',
+      'States',
+      'TemplateEditor',
+      'TemplateUpdate',
+      'TemplatesList',
+      'TokenCreate',
+    ],
+  },
+  {
+    reason:
+      'Responsive variant of a mapped route at a laptop/tablet/phone frame; needs a size-scoped comparison before it can be mapped.',
+    screens: [
+      'EvidencePhone',
+      'NotebookLaptop',
+      'NotebookTablet',
+      'PhoneHome',
+      'PhoneInbox',
+      'PhoneReading',
+      'PhoneSample',
+      'PhoneScan',
+      'PhoneWithdraw',
+      'ProjectsTablet',
+      'SheetTablet',
+      'SnapshotsLaptop',
+    ],
+  },
+  {
+    reason:
+      'Global chrome / keyboard-surface screen with no equivalent app route yet (focus order, shortcuts overlay, component states board).',
+    screens: ['FocusOrder', 'Shortcuts'],
+  },
+]
 
 /**
  * Seeded design users (DSYS-05.1). Kept here as plain IDs so the parity suite

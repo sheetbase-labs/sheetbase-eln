@@ -32,6 +32,20 @@
  * contrast pairs this must satisfy live in `src/lib/contrast.test.ts`.
  */
 :root {
+  /*
+   * COMP-05: `@sheetbase-labs/sheetbase-table/styles.css` ends with an
+   * unlayered `:root { --font-sans: "Instrument Sans", …; --font-mono:
+   * "Roboto Mono", … }`. Unlayered rules beat Tailwind's `@layer theme`
+   * output, so the `@theme inline` font values never applied and app chrome
+   * rendered in Instrument Sans instead of the design's Inter. Re-assert the
+   * ELN's own values here — unlayered and later in source order — so the whole
+   * app, not just `.sheetbase-scope` content, uses Inter and JetBrains Mono.
+   */
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+
   /* Core surfaces and text (bg, surface, text, text-muted, text-faint) */
   --background: oklch(0.995 0.003 286.4);
   --foreground: oklch(0.19 0.018 259.7);
@@ -469,7 +483,13 @@
        markup relies on it where it has no explicit text-* class. */
     font-size: 13px;
     line-height: 18px;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    /*
+     * No font-feature-settings: the design's base text (.sb-root in
+     * bundle.css) runs plain Inter with no stylistic sets, and cv02/cv03/
+     * cv04/cv11 change glyph shapes (a, g, l, 4, 6, 9), which broke parity
+     * (DSYS-06). Keep them off the app chrome; scoped utilities such as
+     * .scientific-nums may still opt in.
+     */
     text-rendering: optimizeLegibility;
   }
 

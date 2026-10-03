@@ -9,6 +9,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { DataClientError } from '#/lib/data-client'
 import type { SampleEvent, SampleRecord } from '#/lib/samples'
 
 import { Route } from './$sampleId'
@@ -21,6 +22,10 @@ const samples = vi.hoisted(() => ({
   releaseSample: vi.fn(),
   quarantineSample: vi.fn(),
   disposeSample: vi.fn(),
+  withdrawSample: vi.fn(),
+  createSampleReservation: vi.fn(),
+  cancelSampleReservation: vi.fn(),
+  fetchSampleQuantityBalances: vi.fn(),
 }))
 const sonner = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
@@ -29,6 +34,9 @@ const routeContext = vi.hoisted(() => ({
   value: {
     workspace: { role: 'scientist' },
   },
+}))
+const data = vi.hoisted(() => ({
+  list: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -64,10 +72,21 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+vi.mock('#/lib/notebook-data', () => ({
+  notebookDataClient: { list: data.list },
+}))
 
 vi.mock('#/lib/samples', () => ({
   ...samples,
+  sampleQueryKeys: {
+    balances: (recordId: string) => ['reg-002', 'samples', 'balances', recordId],
+    reservations: (recordId: string) => [
+      'reg-002',
+      'samples',
+      'reservations',
+      recordId,
+    ],
+  },
   describeSampleError: (error: unknown) =>
     error instanceof Error ? error.message : 'Could not complete it.',
 }))
@@ -165,6 +184,37 @@ beforeEach(() => {
   samples.releaseSample.mockResolvedValue(sample({ status: 'available' }))
   samples.disposeSample.mockResolvedValue(sample({ status: 'disposed' }))
   samples.consumeSample.mockResolvedValue(sample())
+  samples.fetchSampleQuantityBalances.mockResolvedValue({
+    sampleRecordId: 's-1',
+    unit: 'mg',
+    current: 12.5,
+    used: 0,
+    reserved: 0,
+    free: 12.5,
+  })
+  samples.withdrawSample.mockResolvedValue({
+    sample: sample(),
+    derivedSampleId: null,
+    derivedSample: null,
+  })
+  samples.createSampleReservation.mockResolvedValue({
+    id: 'res-1',
+    sampleRecordId: 's-1',
+    experimentRecordId: 'exp-1',
+    quantity: 2,
+    unit: 'mg',
+    planned: true,
+    state: 'active',
+    notes: null,
+    createdByUserId: 'u-1',
+    cancelledByUserId: null,
+    cancelledAt: null,
+    createdAt: '2026-09-16T00:00:00.000Z',
+    updatedAt: '2026-09-16T00:00:00.000Z',
+  })
+  data.list.mockResolvedValue([
+    { id: 'exp-1', identifier: 'EXP-0145', title: '50 L confirmation run' },
+  ])
 })
 
 afterEach(() => {
@@ -280,5 +330,116 @@ describe('sample detail state banner', () => {
 
     await screen.findByText('Fully used on 11 Sep 2026 by Gareth P.')
     expect(screen.getByText(/AEX resin screen/)).toBeTruthy()
+  })
+})
+
+describe('sample withdraw dialog', () => {
+  it('shows the available amount and refuses an over-withdrawal inline', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText('pAAV9-RC, lot P-117')
+    await user.click(screen.getByRole('button', { name: 'Withdraw volume…' }))
+    const dialog = await screen.findByRole('dialog')
+
+    expect(within(dialog).getByText(/12.5 mg available/)).toBeTruthy()
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /Volume/ }),
+      '20',
+    )
+    expect(
+      within(dialog).getByText('Only 12.5 mg left. Enter 12.5 or less.'),
+    ).toBeTruthy()
+    expect(
+      within(dialog).getByRole('button', { name: 'Withdraw' }).hasAttribute(
+        'disabled',
+      ) ||
+        within(dialog)
+          .getByRole('button', { name: 'Withdraw' })
+          .getAttribute('aria-disabled') === 'true',
+    ).toBe(true)
+    expect(samples.withdrawSample).not.toHaveBeenCalled()
+  })
+
+  it('withdraws through api.withdraw_sample with the purpose and container', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText('pAAV9-RC, lot P-117')
+    await user.click(screen.getByRole('button', { name: 'Withdraw volume…' }))
+    const dialog = await screen.findByRole('dialog')
+
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /Volume/ }),
+      '3',
+    )
+    await user.selectOptions(
+      within(dialog).getByRole('combobox', { name: /Purpose/ }),
+      'exp-1',
+    )
+    await user.selectOptions(
+      within(dialog).getByRole('combobox', { name: /Into/ }),
+      'new',
+    )
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /New container label/ }),
+      'Aliquot A',
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }))
+
+    await waitFor(() =>
+      expect(samples.withdrawSample).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          recordId: 's-1',
+          quantity: 3,
+          unit: 'mg',
+          purposeExperimentId: 'exp-1',
+          expectedMetadataVersion: 7,
+          newContainer: { title: 'Aliquot A' },
+        }),
+      ),
+    )
+    expect(sonner.toast).toHaveBeenCalledWith('Volume withdrawn')
+  })
+
+  it('surfaces an over-withdrawal refused by the server as a clear error toast', async () => {
+    samples.fetchSampleQuantityBalances.mockResolvedValue({
+      sampleRecordId: 's-1',
+      unit: 'mg',
+      current: 12.5,
+      used: 0,
+      reserved: 10,
+      free: 12.5,
+    })
+    samples.withdrawSample.mockRejectedValueOnce(
+      new DataClientError(
+        'SB006',
+        'insufficient free quantity: available 2, reserved 10, withdrawing 5',
+        400,
+      ),
+    )
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText('pAAV9-RC, lot P-117')
+    await user.click(screen.getByRole('button', { name: 'Withdraw volume…' }))
+    const dialog = await screen.findByRole('dialog')
+
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /Volume/ }),
+      '5',
+    )
+    await user.selectOptions(
+      within(dialog).getByRole('combobox', { name: /Purpose/ }),
+      'exp-1',
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }))
+
+    await waitFor(() =>
+      expect(sonner.toast.error).toHaveBeenCalledWith(
+        'Only 2 mg available. Enter 2 or less.',
+      ),
+    )
   })
 })

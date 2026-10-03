@@ -34,16 +34,28 @@ import {
   sampleStateKind,
 } from '#/components/v3/samples/sample-state'
 import {
-  consumeSample,
+  createSampleReservation,
   describeSampleError,
   disposeSample,
   fetchSample,
   fetchSampleEvents,
   quarantineSample,
   releaseSample,
+  sampleQueryKeys,
   transferSample,
+  withdrawSample,
 } from '#/lib/samples'
 import type { SampleRecord } from '#/lib/samples'
+import {
+  ReserveDialog,
+  SampleActionsProvider,
+  WithdrawDialog,
+  describeWithdrawError,
+} from '#/components/v3/samples/withdraw-dialog'
+import type {
+  ReserveDialogInput,
+  WithdrawDialogInput,
+} from '#/components/v3/samples/withdraw-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 
@@ -76,7 +88,13 @@ export function useSampleRecord(recordId: string) {
 }
 
 type SampleDialog =
-  null | 'withdraw' | 'move' | 'release' | 'quarantine' | 'dispose'
+  | null
+  | 'withdraw'
+  | 'reserve'
+  | 'move'
+  | 'release'
+  | 'quarantine'
+  | 'dispose'
 
 function SampleLayout() {
   const { sampleId } = Route.useParams()
@@ -99,25 +117,57 @@ function SampleLayout() {
     void queryClient.invalidateQueries({
       queryKey: sampleEventsQueryKey(sampleId),
     })
+    void queryClient.invalidateQueries({
+      queryKey: sampleQueryKeys.balances(sampleId),
+    })
+    void queryClient.invalidateQueries({
+      queryKey: sampleQueryKeys.reservations(sampleId),
+    })
   }
   const onError = (error: unknown) => {
     toast.error(describeSampleError(error))
   }
 
   const withdraw = useMutation({
-    mutationFn: (input: { quantity: number; notes?: string }) =>
-      consumeSample(notebookDataClient, {
+    mutationFn: (input: WithdrawDialogInput) =>
+      withdrawSample(notebookDataClient, {
         recordId: sampleId,
         quantity: input.quantity,
+        unit: input.unit,
+        purposeExperimentId: input.purposeExperimentId,
+        notes: input.notes,
+        newContainer: input.newContainer,
         expectedMetadataVersion: sample!.metadataVersion,
+      }),
+    onSuccess: (result) => {
+      invalidate()
+      toast(
+        result.derivedSample
+          ? 'Volume withdrawn and container created'
+          : 'Volume withdrawn',
+      )
+      setDialog(null)
+    },
+    onError: (error) =>
+      toast.error(describeWithdrawError(error, sample?.quantityUnit ?? null)),
+  })
+  const reserve = useMutation({
+    mutationFn: (input: ReserveDialogInput) =>
+      createSampleReservation(notebookDataClient, {
+        recordId: sampleId,
+        experimentId: input.experimentId,
+        quantity: input.quantity,
+        unit: input.unit,
+        planned: input.planned,
         notes: input.notes,
       }),
     onSuccess: () => {
       invalidate()
-      toast('Volume withdrawn')
+      toast('Volume reserved')
       setDialog(null)
     },
-    onError,
+    onError: (error) =>
+      toast.error(describeWithdrawError(error, sample?.quantityUnit ?? null)),
   })
   const move = useMutation({
     mutationFn: (input: { toLocation: string; notes?: string }) =>
@@ -317,9 +367,16 @@ function SampleLayout() {
           action={bannerAction}
         />
 
-        <div className="min-h-0 flex-1 overflow-auto">
-          <Outlet />
-        </div>
+        <SampleActionsProvider
+          actions={{
+            openWithdraw: () => setDialog('withdraw'),
+            openReserve: () => setDialog('reserve'),
+          }}
+        >
+          <div className="min-h-0 flex-1 overflow-auto">
+            <Outlet />
+          </div>
+        </SampleActionsProvider>
       </div>
 
       <Inspector aria-label="Sample context" className="w-[300px]">
@@ -350,14 +407,24 @@ function SampleLayout() {
         ) : null}
       </Inspector>
 
-      <SimpleNumberDialog
-        open={dialog === 'withdraw'}
-        onOpenChange={(o) => setDialog(o ? 'withdraw' : null)}
-        title={`Withdraw from ${sample.identifier}`}
-        label="Volume"
-        busy={withdraw.isPending}
-        onSubmit={(value) => withdraw.mutate({ quantity: value })}
-      />
+      {dialog === 'withdraw' ? (
+        <WithdrawDialog
+          open
+          onOpenChange={(open) => setDialog(open ? 'withdraw' : null)}
+          sample={sample}
+          busy={withdraw.isPending}
+          onSubmit={(input) => withdraw.mutate(input)}
+        />
+      ) : null}
+      {dialog === 'reserve' ? (
+        <ReserveDialog
+          open
+          onOpenChange={(open) => setDialog(open ? 'reserve' : null)}
+          sample={sample}
+          busy={reserve.isPending}
+          onSubmit={(input) => reserve.mutate(input)}
+        />
+      ) : null}
       <TextDialog
         open={dialog === 'move'}
         onOpenChange={(o) => setDialog(o ? 'move' : null)}
@@ -394,54 +461,6 @@ function SampleLayout() {
         onSubmit={(value) => dispose.mutate({ reason: value })}
       />
     </div>
-  )
-}
-
-function SimpleNumberDialog({
-  open,
-  onOpenChange,
-  title,
-  label,
-  busy,
-  onSubmit,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  label: string
-  busy: boolean
-  onSubmit: (value: number) => void
-}) {
-  const [value, setValue] = useState('')
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(420px,calc(100vw-32px))]">
-        <DialogHeader title={title} />
-        <DialogBody>
-          <Field label={label} required>
-            <Input
-              type="number"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              autoFocus
-            />
-          </Field>
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
-          <Button
-            variant="primary"
-            disabled={busy}
-            onClick={() => {
-              const n = Number(value)
-              if (Number.isFinite(n) && n > 0) onSubmit(n)
-            }}
-          >
-            Confirm
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

@@ -1,8 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { Button } from '#/components/v3/ui/button'
 import { Section } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Status } from '#/components/v3/ui/status'
+import { toast } from '#/components/v3/ui/sonner'
 import {
   Table,
   TableBody,
@@ -12,55 +15,169 @@ import {
   TableRow,
   TableBox,
 } from '#/components/v3/ui/table'
+import {
+  UsageBalanceBar,
+  reservationStateLabel,
+} from '#/components/v3/samples/sample-usage'
+import {
+  formatQuantityAmount,
+  useSampleActions,
+} from '#/components/v3/samples/withdraw-dialog'
+import {
+  formatSampleEventTime,
+  formatSampleEventTimestamp,
+} from '#/components/v3/samples/sample-history'
+import {
+  cancelSampleReservation,
+  describeSampleError,
+  fetchSampleEvents,
+  fetchSampleQuantityBalances,
+  fetchSampleReservations,
+  sampleQueryKeys,
+} from '#/lib/samples'
+import type { SampleEvent, SampleReservation } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { RecordWire } from '#/lib/notebook-data'
+import { useUserNames } from '#/lib/user-names'
+import { sampleEventsQueryKey } from '../$sampleId'
 
-interface LinkWire {
-  id: string
-  target_record_id: string | null
-  target_kind: string
-  target_identifier: string
-  link_type: string
-  created_at: string
-}
-
-/** UI port: the sample Usage tab (records that link to this sample). */
+/**
+ * LAB-01 step 3 — the sample Usage tab (SampleUsage).
+ *
+ * Everything here is read from canonical data: the used / reserved / free bar
+ * comes from `api.sample_quantity_balances`, the reservations from
+ * `api.sample_reservations` and the withdrawal table from the `consume` rows of
+ * `api.sample_events` (each carrying its purpose experiment and free-text
+ * purpose). The old placeholder that read `record_links` is gone. The Withdraw
+ * and Reserve buttons open the dialogs the sample frame owns.
+ */
 export const Route = createFileRoute('/samples/$sampleId/usage')({
   component: SampleUsage,
 })
 
 function SampleUsage() {
   const { sampleId } = Route.useParams()
-  const links = useQuery({
-    queryKey: ['ui-port', 'sample-usage', sampleId],
-    queryFn: () =>
-      notebookDataClient.list<LinkWire>(
-        'record_links',
-        `?source_record_id=eq.${sampleId}&select=id,target_record_id,target_kind,target_identifier,link_type,created_at&order=created_at.desc`,
-      ),
+  const queryClient = useQueryClient()
+  const actions = useSampleActions()
+
+  const balances = useQuery({
+    queryKey: sampleQueryKeys.balances(sampleId),
+    queryFn: () => fetchSampleQuantityBalances(notebookDataClient, sampleId),
   })
-  const rows = links.data ?? []
+  const reservations = useQuery({
+    queryKey: sampleQueryKeys.reservations(sampleId),
+    queryFn: () => fetchSampleReservations(notebookDataClient, sampleId),
+  })
+  const events = useQuery({
+    queryKey: sampleEventsQueryKey(sampleId),
+    queryFn: () => fetchSampleEvents(notebookDataClient, sampleId),
+  })
+
+  const withdrawalEvents = (events.data ?? []).filter(
+    (event) => event.operation === 'consume',
+  )
+  const reservationRows = reservations.data ?? []
+
+  const experimentIds = Array.from(
+    new Set(
+      [
+        ...withdrawalEvents.map((event) => event.purposeRecordId),
+        ...reservationRows.map((row) => row.experimentRecordId),
+      ].filter((id): id is string => Boolean(id)),
+    ),
+  )
+  const experiments = useQuery({
+    queryKey: [
+      'ui-port',
+      'sample-usage-experiments',
+      sampleId,
+      experimentIds.join(','),
+    ],
+    enabled: experimentIds.length > 0,
+    queryFn: async () => {
+      const rows = await notebookDataClient.list<RecordWire>(
+        'records',
+        `?id=in.(${experimentIds.join(',')})&select=id,identifier,title`,
+      )
+      return new Map(rows.map((row) => [row.id, row]))
+    },
+  })
+  const experimentById = experiments.data ?? new Map<string, RecordWire>()
+
+  const names = useUserNames(
+    [
+      ...withdrawalEvents.map((event) => event.actorUserId ?? ''),
+      ...reservationRows.map((row) => row.createdByUserId ?? ''),
+    ].filter(Boolean),
+  )
+
+  const cancel = useMutation({
+    mutationFn: (reservationId: string) =>
+      cancelSampleReservation(notebookDataClient, { reservationId }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: sampleQueryKeys.reservations(sampleId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: sampleQueryKeys.balances(sampleId),
+      })
+      toast('Reservation cancelled')
+    },
+    onError: (error) => toast.error(describeSampleError(error)),
+  })
+
+  const unit = balances.data?.unit ? ` ${balances.data.unit}` : ''
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <Section title="Usage" count={rows.length}>
-        {rows.length ? (
+      <UsageBalanceBar balances={balances.data ?? null} />
+
+      <Section
+        title="Usage"
+        count={withdrawalEvents.length}
+        action={
+          actions ? (
+            <span className="flex flex-wrap justify-end gap-2">
+              <Button size="sm" onClick={actions.openReserve}>
+                Reserve volume…
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={actions.openWithdraw}
+              >
+                Withdraw volume…
+              </Button>
+            </span>
+          ) : null
+        }
+      >
+        {withdrawalEvents.length ? (
           <TableBox>
-            <Table>
+            <Table aria-label="Sample usage">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Record</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Link</TableHead>
+                  <TableHead>Experiment</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Purpose</TableHead>
+                  <TableHead align="right">Volume</TableHead>
+                  <TableHead>By</TableHead>
+                  <TableHead align="right">When</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((l) => (
-                  <TableRow key={l.id}>
-                    <TableCell className="mono">
-                      {l.target_identifier}
-                    </TableCell>
-                    <TableCell>{l.target_kind}</TableCell>
-                    <TableCell>{l.link_type}</TableCell>
-                  </TableRow>
+                {withdrawalEvents.map((event) => (
+                  <UsageRow
+                    key={event.id}
+                    event={event}
+                    experiment={experimentById}
+                    unit={unit}
+                    actor={
+                      event.actorUserId
+                        ? names.userLabel(event.actorUserId)
+                        : 'System'
+                    }
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -68,12 +185,179 @@ function SampleUsage() {
         ) : (
           <EmptyState
             className="py-2"
-            icon="link"
-            title="Not used anywhere yet"
-            body="Records that reference this sample appear here."
+            icon="tube"
+            title="Not used yet"
+            body="Withdrawals made for an experiment appear here."
+          />
+        )}
+      </Section>
+
+      <Section title="Reservations" count={reservationRows.length}>
+        {reservationRows.length ? (
+          <TableBox>
+            <Table aria-label="Sample reservations">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Experiment</TableHead>
+                  <TableHead>Use</TableHead>
+                  <TableHead align="right">Volume</TableHead>
+                  <TableHead>State</TableHead>
+                  <TableHead>By</TableHead>
+                  <TableHead align="right">When</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reservationRows.map((reservation) => (
+                  <ReservationRow
+                    key={reservation.id}
+                    reservation={reservation}
+                    experiment={experimentById}
+                    unit={unit}
+                    actor={
+                      reservation.createdByUserId
+                        ? names.userLabel(reservation.createdByUserId)
+                        : '—'
+                    }
+                    busy={cancel.isPending}
+                    onCancel={() => cancel.mutate(reservation.id)}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </TableBox>
+        ) : (
+          <EmptyState
+            className="py-2"
+            icon="clock"
+            title="No reservations"
+            body="Volume held for a planned experiment appears here."
           />
         )}
       </Section>
     </div>
+  )
+}
+
+function ExperimentLabel({
+  experimentId,
+  byId,
+}: {
+  experimentId: string | null
+  byId: Map<string, RecordWire>
+}) {
+  if (!experimentId) return <span className="text-fg-muted">—</span>
+  const experiment = byId.get(experimentId)
+  if (!experiment) return <span className="text-fg-muted">—</span>
+  return (
+    <Link
+      to="/experiments/$expId"
+      params={{ expId: experiment.id }}
+      className="mono text-link"
+    >
+      {experiment.identifier}
+    </Link>
+  )
+}
+
+function UsageRow({
+  event,
+  experiment,
+  unit,
+  actor,
+}: {
+  event: SampleEvent
+  experiment: Map<string, RecordWire>
+  unit: string
+  actor: string
+}) {
+  const title = event.purposeRecordId
+    ? (experiment.get(event.purposeRecordId)?.title ?? '—')
+    : '—'
+  const volume =
+    event.quantityDelta == null
+      ? '—'
+      : `${formatQuantityAmount(Math.abs(event.quantityDelta))}${unit}`
+  return (
+    <TableRow>
+      <TableCell>
+        <ExperimentLabel experimentId={event.purposeRecordId} byId={experiment} />
+      </TableCell>
+      <TableCell className="max-w-[20rem] whitespace-normal leading-[17px]">
+        {title}
+      </TableCell>
+      <TableCell className="max-w-[16rem] whitespace-normal leading-[17px]">
+        {event.notes ?? '—'}
+      </TableCell>
+      <TableCell align="right">{volume}</TableCell>
+      <TableCell>{actor}</TableCell>
+      <TableCell
+        align="right"
+        className="text-fg-muted"
+        title={formatSampleEventTimestamp(event.createdAt)}
+      >
+        {formatSampleEventTime(event.createdAt)}
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function ReservationRow({
+  reservation,
+  experiment,
+  unit,
+  actor,
+  busy,
+  onCancel,
+}: {
+  reservation: SampleReservation
+  experiment: Map<string, RecordWire>
+  unit: string
+  actor: string
+  busy: boolean
+  onCancel: () => void
+}) {
+  const state = reservationStateLabel(reservation.state)
+  const active = reservation.state === 'active'
+  const when =
+    active && reservation.planned
+      ? 'Planned'
+      : formatSampleEventTime(reservation.createdAt)
+  return (
+    <TableRow>
+      <TableCell>
+        <ExperimentLabel
+          experimentId={reservation.experimentRecordId}
+          byId={experiment}
+        />
+      </TableCell>
+      <TableCell>
+        {reservation.planned ? 'Planned use' : 'In progress'}
+      </TableCell>
+      <TableCell align="right">
+        {formatQuantityAmount(reservation.quantity)}
+        {unit}
+      </TableCell>
+      <TableCell>
+        <Status tone={state.tone}>{state.label}</Status>
+      </TableCell>
+      <TableCell>{actor}</TableCell>
+      <TableCell
+        align="right"
+        className="text-fg-muted"
+        title={formatSampleEventTimestamp(reservation.createdAt)}
+      >
+        {when}
+      </TableCell>
+      <TableCell align="right">
+        {active ? (
+          <Button size="sm" disabled={busy} onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
+      </TableCell>
+    </TableRow>
   )
 }

@@ -31,6 +31,12 @@ import {
   useModelVersions,
 } from '#/components/v3/models/models-data'
 import { buildVersionImpacts } from '#/components/v3/models/model-version-impact'
+import {
+  approvalStatus,
+  canPublishDraft,
+} from '#/components/v3/models/model-approval'
+import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
+import { ModelApprovalPanel } from '#/components/v3/models/model-approval-panel'
 import type {
   FieldChange,
   RecordOutcome,
@@ -75,13 +81,24 @@ const OUTCOME: Record<
 
 function ModelVersions() {
   const { modelId } = Route.useParams()
+  const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const versions = useModelVersions(modelId)
   const rows = versions.data ?? []
   const versionIds = useMemo(() => rows.map((v) => v.id), [rows])
   const versionFields = useModelVersionFields(versionIds)
   const datasets = useModelDatasets(versionIds)
+  const approval = useModelApprovalIndex(versionIds)
   const loading = versionFields.isLoading || datasets.isLoading
+
+  const requestsFor = (versionId: string) =>
+    approval.data?.byVersion.get(versionId) ?? []
+  const draft = rows.find((v) => v.lifecycle === 'draft') ?? null
+  const latestPublished = rows.find((v) => v.lifecycle !== 'draft') ?? null
+  const panelVersion = draft ?? rows.at(0) ?? null
+  const role = context.workspace?.role ?? null
+  const user = { id: context.user.id, name: context.user.name }
+  const workspaceId = context.workspace?.id ?? null
 
   const fieldsByVersion = useMemo(() => {
     const map = new Map<string, CanonicalDatasetSchemaField[]>()
@@ -129,12 +146,25 @@ function ModelVersions() {
 
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
+      {panelVersion ? (
+        <ModelApprovalPanel
+          className="mb-4"
+          version={panelVersion}
+          publishedVersion={latestPublished?.version ?? null}
+          requests={requestsFor(panelVersion.id)}
+          decisions={approval.data?.decisions ?? []}
+          role={role}
+          user={user}
+          workspaceId={workspaceId}
+        />
+      ) : null}
       <TableBox>
         <Table aria-label="Model versions">
           <TableHeader>
             <TableRow>
               <TableHead>Version</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Approval</TableHead>
               <TableHead>Published</TableHead>
               <TableHead>Changes since previous</TableHead>
               <TableHead align="right">Records</TableHead>
@@ -155,6 +185,15 @@ function ModelVersions() {
                     <Status tone={modelStatus(v.lifecycle).tone}>
                       {modelStatus(v.lifecycle).label}
                     </Status>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    {approval.isLoading ? (
+                      <span className="text-fg-muted">…</span>
+                    ) : (
+                      <Status tone={approvalStatus(requestsFor(v.id)).tone}>
+                        {approvalStatus(requestsFor(v.id)).label}
+                      </Status>
+                    )}
                   </TableCell>
                   <TableCell className="align-top text-fg-muted">
                     {v.published_at ? v.published_at.slice(0, 10) : '—'}
@@ -186,7 +225,8 @@ function ModelVersions() {
                     </div>
                   </TableCell>
                   <TableCell align="right" className="align-top">
-                    {v.lifecycle === 'draft' ? (
+                    {v.lifecycle === 'draft' &&
+                    canPublishDraft(requestsFor(v.id)) ? (
                       <Button
                         size="sm"
                         variant="primary"

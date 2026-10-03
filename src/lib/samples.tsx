@@ -48,6 +48,16 @@ export interface SampleProperties {
   holdDurationDays?: number
   holdUntil?: string
   allowedUseExperimentIds?: string[]
+  // LAB-02 step 2 — release, quarantine and disposal. `quarantineReason` /
+  // `disposalReason` are the human reasons captured by the controlled RPCs;
+  // `releasedAt` and `releaseChecks` are the release record and the exact
+  // per-sample-type check snapshot evaluated at the time of release.
+  quarantineReason?: string
+  quarantinedAt?: string
+  disposalReason?: string
+  disposedAt?: string
+  releasedAt?: string
+  releaseChecks?: Record<string, unknown>
 }
 
 /** Property keys owned by the samples registry. */
@@ -64,6 +74,12 @@ export const SAMPLE_PROPERTY_KEYS = [
   'holdDurationDays',
   'holdUntil',
   'allowedUseExperimentIds',
+  'quarantineReason',
+  'quarantinedAt',
+  'disposalReason',
+  'disposedAt',
+  'releasedAt',
+  'releaseChecks',
 ] as const
 
 function asString(value: unknown): string | null {
@@ -92,10 +108,20 @@ export function parseSampleProperties(
     holdStartedAt: asString(properties.holdStartedAt) ?? undefined,
     holdDurationDays: asNumber(properties.holdDurationDays) ?? undefined,
     holdUntil: asString(properties.holdUntil) ?? undefined,
-    allowedUseExperimentIds: asStringArray(
-      properties.allowedUseExperimentIds,
-    ),
+    allowedUseExperimentIds: asStringArray(properties.allowedUseExperimentIds),
+    quarantineReason: asString(properties.quarantineReason) ?? undefined,
+    quarantinedAt: asString(properties.quarantinedAt) ?? undefined,
+    disposalReason: asString(properties.disposalReason) ?? undefined,
+    disposedAt: asString(properties.disposedAt) ?? undefined,
+    releasedAt: asString(properties.releasedAt) ?? undefined,
+    releaseChecks: asObject(properties.releaseChecks),
   }
+}
+
+function asObject(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
 }
 
 function asStringArray(value: unknown): string[] | undefined {
@@ -121,6 +147,12 @@ export interface SampleRecord extends NotebookRecord {
   holdDurationDays: number | null
   holdUntil: string | null
   allowedUseExperimentIds: string[] | null
+  quarantineReason: string | null
+  quarantinedAt: string | null
+  disposalReason: string | null
+  disposedAt: string | null
+  releasedAt: string | null
+  releaseChecks: Record<string, unknown> | null
 }
 
 export function toSampleRecord(row: RecordWire): SampleRecord {
@@ -141,6 +173,12 @@ export function toSampleRecord(row: RecordWire): SampleRecord {
     holdDurationDays: props.holdDurationDays ?? null,
     holdUntil: props.holdUntil ?? null,
     allowedUseExperimentIds: props.allowedUseExperimentIds ?? null,
+    quarantineReason: props.quarantineReason ?? null,
+    quarantinedAt: props.quarantinedAt ?? null,
+    disposalReason: props.disposalReason ?? null,
+    disposedAt: props.disposedAt ?? null,
+    releasedAt: props.releasedAt ?? null,
+    releaseChecks: props.releaseChecks ?? null,
   }
 }
 
@@ -164,6 +202,13 @@ export function samplePropertiesPayload(
   if (props.holdUntil != null) out.holdUntil = props.holdUntil
   if (props.allowedUseExperimentIds != null)
     out.allowedUseExperimentIds = props.allowedUseExperimentIds
+  if (props.quarantineReason != null)
+    out.quarantineReason = props.quarantineReason
+  if (props.quarantinedAt != null) out.quarantinedAt = props.quarantinedAt
+  if (props.disposalReason != null) out.disposalReason = props.disposalReason
+  if (props.disposedAt != null) out.disposedAt = props.disposedAt
+  if (props.releasedAt != null) out.releasedAt = props.releasedAt
+  if (props.releaseChecks != null) out.releaseChecks = props.releaseChecks
   return out
 }
 
@@ -280,6 +325,7 @@ const SAMPLE_STATUS_VALUES = [
   'quarantined',
   'frozen',
   'hold_exceeded',
+  'disposed',
 ] as const
 
 export function sampleStatusOptions(): { value: string; label: string }[] {
@@ -869,6 +915,81 @@ export async function restoreSample(
   return toSampleRecord(row)
 }
 
+export interface QuarantineSampleInput {
+  recordId: string
+  expectedMetadataVersion: number
+  /** Required human reason; stored in properties and on the sample event. */
+  reason: string
+  notes?: string
+}
+
+/**
+ * LAB-02: quarantine a sample with a required reason. Requires the
+ * `sample.quarantine` capability server-side; moves available/reserved/
+ * hold_exceeded -> quarantined and appends a canonical `quarantine` event.
+ */
+export async function quarantineSample(
+  client: DataClient,
+  input: QuarantineSampleInput,
+): Promise<SampleRecord> {
+  const row = await client.rpc<RecordWire>('quarantine_sample', {
+    p_record_id: input.recordId,
+    p_expected_metadata_version: input.expectedMetadataVersion,
+    p_reason: input.reason,
+    p_notes: input.notes ?? null,
+  })
+  return toSampleRecord(row)
+}
+
+export interface DisposeSampleInput {
+  recordId: string
+  expectedMetadataVersion: number
+  /** Required disposal reason; recorded in properties and the audit event. */
+  reason: string
+  notes?: string
+}
+
+/**
+ * LAB-02: record disposal of a sample. Requires the `sample.dispose`
+ * capability; moves a non-terminal sample to the terminal `disposed` state.
+ */
+export async function disposeSample(
+  client: DataClient,
+  input: DisposeSampleInput,
+): Promise<SampleRecord> {
+  const row = await client.rpc<RecordWire>('dispose_sample', {
+    p_record_id: input.recordId,
+    p_expected_metadata_version: input.expectedMetadataVersion,
+    p_reason: input.reason,
+    p_notes: input.notes ?? null,
+  })
+  return toSampleRecord(row)
+}
+
+export interface ReleaseSampleInput {
+  recordId: string
+  expectedMetadataVersion: number
+  notes?: string
+}
+
+/**
+ * LAB-02: release a sample. Requires the `sample.release` capability, refuses
+ * (SB093) when the effective per-sample-type release checks fail against the
+ * LAB-03 measurement read model, and records the release + check snapshot on
+ * success.
+ */
+export async function releaseSample(
+  client: DataClient,
+  input: ReleaseSampleInput,
+): Promise<SampleRecord> {
+  const row = await client.rpc<RecordWire>('release_sample', {
+    p_record_id: input.recordId,
+    p_expected_metadata_version: input.expectedMetadataVersion,
+    p_notes: input.notes ?? null,
+  })
+  return toSampleRecord(row)
+}
+
 /**
  * Map a DataClientError to a short, actionable user-facing message keyed by
  * the database error code. Unknown codes fall back to the upstream message.
@@ -888,6 +1009,8 @@ export function describeSampleError(error: unknown): string {
         return 'This operation is not allowed for the sample lifecycle state.'
       case 'SB001':
         return 'This sample was edited by someone else. Refresh and try again.'
+      case 'SB093':
+        return 'The release, quarantine or disposal could not be recorded. Check the required details.'
       case '42501':
         return 'You do not have access to that sample.'
       default:

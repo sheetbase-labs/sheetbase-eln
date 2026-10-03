@@ -1819,8 +1819,9 @@ export const sampleEvents = api.table(
       .notNull()
       .references(() => records.id, { onDelete: 'cascade' }),
     // create | receive | consume | transfer | edit | archive | restore |
-    // hold_exceeded (LAB-02: the scheduled System transition past the hold
-    // limit; part of this same chain-of-custody log, not a second status log)
+    // hold_exceeded | quarantine | release | dispose (LAB-02: the scheduled
+    // System transition past the hold limit and the release/quarantine/disposal
+    // lifecycle; part of this same chain-of-custody log, not a second log)
     operation: text('operation').notNull(),
     // Signed: receive > 0, consume < 0, null for non-quantity operations.
     quantityDelta: numeric('quantity_delta'),
@@ -1840,7 +1841,7 @@ export const sampleEvents = api.table(
   (table) => [
     check(
       'chk_sample_events_operation',
-      sql`${table.operation} IN ('create','receive','consume','transfer','edit','archive','restore','hold_exceeded')`,
+      sql`${table.operation} IN ('create','receive','consume','transfer','edit','archive','restore','hold_exceeded','quarantine','release','dispose')`,
     ),
     check(
       'chk_sample_events_quantity_presence',
@@ -1871,6 +1872,45 @@ export const sampleEvents = api.table(
       table.createdAt,
     ),
     index('idx_sample_events_operation').on(table.operation),
+  ],
+)
+
+/**
+ * sample_release_rules (LAB-02 step 2) — workspace-owned release-check rule
+ * sets, one row per sample type (`'*'` is the workspace-wide default). `rules`
+ * is a bounded JSONB array of checks evaluated against a sample's
+ * authoritative measurements (`api.sample_measurement_provenance`) before
+ * `api.release_sample` may release it. The minimal canonical fallback lives in
+ * `internal.canonical_sample_release_rules()`; a workspace row overrides it.
+ * Members read; writing requires the `sample.release` capability.
+ */
+export const sampleReleaseRules = api.table(
+  'sample_release_rules',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Matches records.properties.sampleType (case-insensitive); '*' = default.
+    sampleType: text('sample_type').notNull().default('*'),
+    rules: jsonb('rules')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.sampleType] }),
+    check(
+      'chk_sample_release_rules_type',
+      sql`length(btrim(${table.sampleType})) BETWEEN 1 AND 100`,
+    ),
+    check(
+      'chk_sample_release_rules_rules',
+      sql`jsonb_typeof(${table.rules}) = 'array'`,
+    ),
+    index('idx_sample_release_rules_workspace').on(table.workspaceId),
   ],
 )
 

@@ -1,0 +1,72 @@
+---
+title: Agent goal — complete Roadmap 4
+status: active
+owner: implementation agent
+created: 2026-10-03
+---
+
+# Agent goal — complete every active Roadmap 4 exit
+
+## Objective
+
+Implement and accept **every active Roadmap 4 task** in
+`docs/knowledge/roadmap-4/tasks/` — all 85 active tasks (86 original less the
+cancelled SHELL-04) — following the existing architecture (DB-first per
+capability) and the original task exits. Do not move requirements to Roadmap 5,
+do not close a task whose exit is unmet, and do not create duplicate engines.
+
+Authority and rules: `/tmp/finish-roadmap-4-handoff.md`,
+[RECONCILIATION.md](RECONCILIATION.md) and the repo `AGENTS.md`.
+
+## Definition of done (programme)
+
+1. Every active task and step is `done` in nod with implementation + acceptance
+   evidence (contract test → migration/RLS/RPC → data module → screen where the
+   task requires a screen).
+2. The four inherited completions (DSYS-01/02/04, SHELL-05) have fresh acceptance.
+3. DSYS-05/06 visual gates are real: a populated design seed, a non-empty
+   state mapping, and a parity loop that fails on intentional drift.
+4. The programme workflow is demonstrated end to end on populated data:
+   project/experiment setup → scientific entry/import → composed Sheet work →
+   analysis → submission → review/signing → frozen reconstruction.
+5. `pnpm validate`, `pnpm test:db`, `pnpm test:api` and the browser suites pass
+   (or each failure is an explicit, recorded blocker owned by a decision).
+
+Local completion is separate from merge/deploy. Pushing/merging needs explicit
+owner authorization.
+
+## Working method
+
+- One bounded, dependency-aware slice at a time; each slice is a reviewable
+  commit with tests and, where relevant, browser acceptance.
+- DB-first: contract test (success / denied / other workspace / stale) →
+  migration + RLS + RPC → data module → screen.
+- After any migration: `pnpm db:migrate` on the dev DB before browser suites.
+- Keep nod current (`pnpm roadmap note/update`, `pnpm roadmap:sync`,
+  `pnpm roadmap:check`); commit the generated `CHECKLIST.md`/`NEXT.md`.
+- Preserve the concurrent agent's uncommitted reconciliation docs.
+- Persist a checkpoint every session (see `/tmp/roadmap-4-checkpoint-*.md`).
+- Delegate independent bounded slices to subagents when files do not overlap;
+  serialize shared migrations and tracker changes.
+
+## Ordered workstreams (from the handoff execution order)
+
+1. **Acceptance + shell:** DSYS-05/06, SHELL-01/02/03. *(DSYS-05.4/06.2 and
+   SHELL-01.2 need owner decisions — design states, role→nav map.)*
+2. **Scientific correctness:** DSET-01/03/04, LAB-03, MOB-02, LAB-07.
+   *(DSET-01.1's `missing_unit`/`above_curve`/`high_cv` need a rule-config
+   decision.)*
+3. **Shared contracts + scientific workflows:** COMP-01–07, SHEET-01–05,
+   MDL-01–04. *(MDL-02.1 routes and MDL-02.3 field editor remain.)*
+4. **Projects, experiments, import, lab, settings:** PROJ, EXP, DSET-05/06,
+   LAB, SET.
+5. **Governed + automation:** REV, PORTAL, PIPE.
+6. **Mobile, offline, templates, programme exits:** MOB, EXP-05, SHEET-04,
+   final populated-workflow proof.
+
+## Progress log
+
+- 2026-10-03: MDL-04 (all 3 steps) implemented, accepted and committed
+  (`0c6754af`, `6c11aefb`); client `node:zlib` regression fixed; design Cell
+  bank seeded; prettier cleanup (`66f068dc`). Tracker 28/85. MDL-02 found
+  `in-progress` (02.1, 02.3 remain) despite the earlier handoff.

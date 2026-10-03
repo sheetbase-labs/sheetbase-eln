@@ -39,6 +39,7 @@ const STATUS: Record<string, { tone: Tone; label: string }> = {
   expired: { tone: 'bad', label: 'Expired' },
   hold_exceeded: { tone: 'bad', label: 'Hold exceeded' },
   consumed: { tone: 'stored', label: 'Consumed' },
+  disposed: { tone: 'stored', label: 'Disposed' },
 }
 
 export function sampleStatus(status: string): { tone: Tone; label: string } {
@@ -60,12 +61,15 @@ export function toSampleListRow(
       ? `${record.quantity.toLocaleString('en-GB', { maximumFractionDigits: 2 })}${record.quantityUnit ? ` ${record.quantityUnit}` : ''}`
       : '—'
   const tabs: string[] = []
-  if (record.status === 'consumed') {
+  if (record.status === 'consumed' || record.status === 'disposed') {
+    // Both are terminal states kept for lineage and audit. The registry's
+    // terminal tab is "Consumed"; a dedicated Disposed tab would live in
+    // src/routes/samples.tsx and is outside this slice, so a disposed row is
+    // grouped with consumed rather than shown as in stock or hidden entirely.
     tabs.push('consumed')
   } else {
     tabs.push('instock')
-    if (record.status === 'quarantined' || record.status === 'expired')
-      tabs.push('quarantine')
+    if (record.status === 'quarantined') tabs.push('quarantine')
     if (record.status === 'reserved') tabs.push('awaiting')
   }
   if (meId && record.createdByUserId === meId) tabs.push('mine')

@@ -1,0 +1,283 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { SampleEvent, SampleRecord } from '#/lib/samples'
+
+import { Route } from './$sampleId'
+
+const samples = vi.hoisted(() => ({
+  fetchSample: vi.fn(),
+  fetchSampleEvents: vi.fn(),
+  consumeSample: vi.fn(),
+  transferSample: vi.fn(),
+  releaseSample: vi.fn(),
+  quarantineSample: vi.fn(),
+  disposeSample: vi.fn(),
+}))
+const sonner = vi.hoisted(() => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn() }),
+}))
+const routeContext = vi.hoisted(() => ({
+  value: {
+    workspace: { role: 'scientist' },
+  },
+}))
+
+vi.mock('@tanstack/react-router', () => ({
+  createFileRoute: () => (config: Record<string, unknown>) => ({
+    useParams: () => ({ sampleId: 's-1' }),
+    useRouteContext: () => ({ context: routeContext.value }),
+    options: config,
+  }),
+  Outlet: () => null,
+  redirect: (options: unknown) => options,
+  Link: ({
+    to,
+    params,
+    children,
+    activeProps: _activeProps,
+    activeOptions: _activeOptions,
+    ...props
+  }: {
+    to?: string
+    params?: Record<string, string>
+    children: React.ReactNode
+  } & Record<string, unknown>) => {
+    let href = typeof to === 'string' ? to : '#'
+    if (params) {
+      for (const [key, value] of Object.entries(params))
+        href = href.replace(`$${key}`, encodeURIComponent(String(value)))
+    }
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    )
+  },
+}))
+
+vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+
+vi.mock('#/lib/samples', () => ({
+  ...samples,
+  describeSampleError: (error: unknown) =>
+    error instanceof Error ? error.message : 'Could not complete it.',
+}))
+
+vi.mock('#/lib/user-names', () => ({
+  useUserNames: () => ({
+    names: { 'u-9': 'Gareth P.' },
+    userLabel: (id: string) => id,
+  }),
+}))
+
+vi.mock('#/components/v3/ui/sonner', () => ({
+  toast: sonner.toast,
+  Toaster: () => null,
+}))
+
+const SampleRoute = Route.options.component as React.ComponentType
+
+function sample(overrides: Partial<SampleRecord> = {}): SampleRecord {
+  return {
+    id: 's-1',
+    projectId: null,
+    kind: 'sample',
+    identifier: 'SMP-2220',
+    title: 'pAAV9-RC, lot P-117',
+    status: 'available',
+    tags: [],
+    structureVersion: 1,
+    metadataVersion: 7,
+    createdAt: '2026-09-16T00:00:00.000Z',
+    updatedAt: '2026-09-16T11:20:00.000Z',
+    archivedAt: null,
+    deletedAt: null,
+    createdByUserId: 'u-1',
+    updatedByUserId: null,
+    properties: {},
+    customFields: {},
+    lockedAt: null,
+    lockedByRevisionId: null,
+    sampleType: 'Plasmid',
+    quantity: 12.5,
+    quantityUnit: 'mg',
+    storageLocation: 'F-3',
+    barcode: null,
+    lowStockThreshold: null,
+    notes: null,
+    holdCondition: null,
+    holdStartedAt: null,
+    holdDurationDays: null,
+    holdUntil: null,
+    allowedUseExperimentIds: null,
+    quarantineReason: null,
+    quarantinedAt: null,
+    disposalReason: null,
+    disposedAt: null,
+    releasedAt: null,
+    releaseChecks: null,
+    ...overrides,
+  }
+}
+
+function consumeEvent(): SampleEvent {
+  return {
+    id: 'e-1',
+    recordId: 's-1',
+    operation: 'consume',
+    quantityDelta: -12.5,
+    quantityBefore: 12.5,
+    quantityAfter: 0,
+    quantityUnit: 'mg',
+    fromLocation: null,
+    toLocation: null,
+    actorUserId: 'u-9',
+    notes: 'AEX resin screen',
+    createdAt: '2026-09-11T10:40:00.000Z',
+  }
+}
+
+function renderRoute() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      <SampleRoute />
+    </QueryClientProvider>,
+  )
+}
+
+beforeEach(() => {
+  routeContext.value = { workspace: { role: 'scientist' } }
+  samples.fetchSampleEvents.mockResolvedValue([])
+  samples.fetchSample.mockResolvedValue(sample())
+  samples.releaseSample.mockResolvedValue(sample({ status: 'available' }))
+  samples.disposeSample.mockResolvedValue(sample({ status: 'disposed' }))
+  samples.consumeSample.mockResolvedValue(sample())
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+describe('sample detail state banner', () => {
+  it('shows the quarantine reason and offers release to an authorised role', async () => {
+    samples.fetchSample.mockResolvedValue(
+      sample({
+        status: 'quarantined',
+        quarantinedAt: '2026-09-16T11:20:00.000Z',
+        quarantineReason: 'Endotoxin result pending from QC (EXP-0129)',
+      }),
+    )
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText('In quarantine since 16 Sep 2026.')
+    expect(screen.getByText(/Endotoxin result pending from QC/)).toBeTruthy()
+    expect(
+      screen
+        .getByRole('button', { name: 'View release checks' })
+        .getAttribute('href'),
+    ).toBe('/samples/s-1/measurements')
+
+    await user.click(screen.getByRole('button', { name: 'Release…' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() =>
+      expect(samples.releaseSample).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          recordId: 's-1',
+          expectedMetadataVersion: 7,
+        }),
+      ),
+    )
+    expect(sonner.toast).toHaveBeenCalledWith('Sample released')
+  })
+
+  it('hides the release action from a role without the capability', async () => {
+    routeContext.value = { workspace: { role: 'viewer' } }
+    samples.fetchSample.mockResolvedValue(
+      sample({ status: 'quarantined', quarantineReason: 'Awaiting QC' }),
+    )
+    renderRoute()
+
+    await screen.findByText(/Awaiting QC/)
+    expect(screen.queryByRole('button', { name: 'Release…' })).toBeNull()
+  })
+
+  it('records disposal for a past-hold sample and reports the RPC refusal', async () => {
+    samples.fetchSample.mockResolvedValue(
+      sample({
+        status: 'hold_exceeded',
+        createdAt: '2026-09-17T14:10:00.000Z',
+        holdCondition: '2–8 °C',
+        holdDurationDays: 7,
+      }),
+    )
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText(
+      'Hold limit passed on 24 Sep 2026 (7 days at 2–8 °C).',
+    )
+    await user.click(screen.getByRole('button', { name: 'Record disposal' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByRole('textbox'), 'Hold limit passed')
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() =>
+      expect(samples.disposeSample).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          recordId: 's-1',
+          reason: 'Hold limit passed',
+        }),
+      ),
+    )
+    expect(sonner.toast).toHaveBeenCalledWith('Sample disposed')
+  })
+
+  it('surfaces a refused release as an error toast', async () => {
+    samples.fetchSample.mockResolvedValue(
+      sample({ status: 'quarantined', quarantineReason: 'Awaiting QC' }),
+    )
+    samples.releaseSample.mockRejectedValueOnce(
+      new Error('release checks failed'),
+    )
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText(/Awaiting QC/)
+    await user.click(screen.getByRole('button', { name: 'Release…' }))
+    await screen.findByRole('dialog')
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() =>
+      expect(sonner.toast.error).toHaveBeenCalledWith('release checks failed'),
+    )
+  })
+
+  it('states the consumed date and actor from the event stream', async () => {
+    samples.fetchSample.mockResolvedValue(
+      sample({ status: 'consumed', quantity: 0 }),
+    )
+    samples.fetchSampleEvents.mockResolvedValue([consumeEvent()])
+    renderRoute()
+
+    await screen.findByText('Fully used on 11 Sep 2026 by Gareth P.')
+    expect(screen.getByText(/AEX resin screen/)).toBeTruthy()
+  })
+})

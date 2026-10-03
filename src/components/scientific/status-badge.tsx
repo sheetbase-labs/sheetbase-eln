@@ -53,6 +53,7 @@ export const sampleStatusVocabulary: StatusVocabulary = {
   quarantined: { label: 'Quarantined', tone: 'warning', icon: 'warn' },
   frozen: { label: 'Frozen', tone: 'info', icon: 'archive' },
   hold_exceeded: { label: 'Hold exceeded', tone: 'danger', icon: 'warn' },
+  disposed: { label: 'Disposed', tone: 'neutral', icon: 'archive' },
 }
 
 /**

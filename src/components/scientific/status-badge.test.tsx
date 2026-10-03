@@ -60,6 +60,14 @@ describe('StatusBadge', () => {
     // Sample has statuses experiment does not.
     expect(experimentStatusVocabulary['frozen']).toBeUndefined()
     expect(sampleStatusVocabulary['frozen']).toBeDefined()
+    // LAB-02: disposed is a terminal sample state and renders, not raw text.
+    expect(sampleStatusVocabulary['disposed'].label).toBe('Disposed')
+  })
+
+  it('renders the disposed sample state with a label, not the raw key', () => {
+    render(<StatusBadge domain="sample" status="disposed" />)
+    expect(screen.getByText('Disposed')).toBeTruthy()
+    expect(screen.queryByText('disposed')).toBeNull()
   })
 
   it('exposes a data-status attribute for selectors and a11y audits', () => {

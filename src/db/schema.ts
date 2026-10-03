@@ -1870,6 +1870,82 @@ export const recordModels = api.table(
 )
 
 /**
+ * ADR-0051 / MDL-02 step 2 — workspace-owned model rules.
+ *
+ * A rule belongs to one model (a built-in `model_kinds` key or a
+ * workspace-owned `record_models` key), names the field(s) it applies to and
+ * carries a `condition` plus an `effect`:
+ *
+ * - `block`            — the write is refused.
+ * - `flag_block_submit` — the write is accepted but the record cannot be
+ *   submitted for review until it no longer matches.
+ * - `warn`             — the write and submission both proceed; a
+ *   non-blocking notice is reported.
+ *
+ * `field_keys` is the human-facing "applies to" metadata; the condition is
+ * authoritative and may reference other fields of the same model (cross-field
+ * business rules). `condition` uses a small JSON DSL evaluated by
+ * `internal.model_rule_condition_matches`: `{}` (always), `{"all":[...]}`,
+ * `{"any":[...]}`, `{"not":{...}}`, or a leaf
+ * `{"field":"x","op":"gt|gte|lt|lte|eq|neq|in|not_in|is_null|not_null|matches","value":...}`.
+ *
+ * Versioning: like `record_field_definitions`, rules attach to the model key
+ * without a parallel version table. ADR-0051 §2's versioned schema snapshot
+ * and approval are MDL-03; this keeps the canonical field/rule store and
+ * defers version grain to that task.
+ */
+export const modelRules = api.table(
+  'model_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Built-in `model_kinds.key` or workspace `record_models.key`; the
+    // `model_rule_guard` trigger enforces the same union as
+    // `record_field_definitions`.
+    modelKey: text('model_key').notNull(),
+    name: text('name').notNull(),
+    // "Applies to" fields: one or more model fields. Empty is refused by the
+    // guard trigger.
+    fieldKeys: text('field_keys')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    // Predicate DSL; `{}` always matches.
+    condition: jsonb('condition')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    effect: text('effect').notNull(),
+    // Non-blocking notice (warn) or refusal reason (block / submit block).
+    message: text('message').notNull(),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    check(
+      'chk_model_rules_effect',
+      sql`${table.effect} IN ('flag_block_submit','warn','block')`,
+    ),
+    check(
+      'chk_model_rules_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_model_rules_message',
+      sql`length(btrim(${table.message})) BETWEEN 1 AND 500`,
+    ),
+    check(
+      'chk_model_rules_condition',
+      sql`jsonb_typeof(${table.condition}) = 'object'`,
+    ),
+    index('idx_model_rules_scope').on(table.workspaceId, table.modelKey),
+  ],
+)
+
+/**
  * sample_events (REG-002) is the append-only chain-of-custody and quantity
  * event log for sample records. Every controlled receive/consume/transfer
  * appends one row with actor attribution; the authoritative quantity and

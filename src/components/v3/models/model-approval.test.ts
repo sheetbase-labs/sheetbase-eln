@@ -15,9 +15,7 @@ import {
 } from './model-approval'
 import type { ApprovalDecision } from './model-approval'
 
-function request(
-  overrides: Partial<ApprovalRequest> = {},
-): ApprovalRequest {
+function request(overrides: Partial<ApprovalRequest> = {}): ApprovalRequest {
   return {
     id: 'req-1',
     workspace_id: 'ws-1',
@@ -41,9 +39,7 @@ function request(
   }
 }
 
-function decision(
-  overrides: Partial<ApprovalDecision> = {},
-): ApprovalDecision {
+function decision(overrides: Partial<ApprovalDecision> = {}): ApprovalDecision {
   return {
     id: 'dec-1',
     request_id: 'req-1',
@@ -68,7 +64,11 @@ describe('approvalStatus', () => {
   it('lets an open request win over an earlier terminal one', () => {
     expect(
       approvalStatus([
-        request({ id: 'old', state: 'returned', created_at: '2026-01-01T00:00:00Z' }),
+        request({
+          id: 'old',
+          state: 'returned',
+          created_at: '2026-01-01T00:00:00Z',
+        }),
         request({ id: 'new', state: 'pending' }),
       ]).label,
     ).toBe('Awaiting approval')
@@ -91,7 +91,11 @@ describe('latestRequest and pendingRequest', () => {
         created_at: '2026-01-01T00:00:00Z',
         state: 'returned',
       }),
-      request({ id: 'b', created_at: '2026-02-01T00:00:00Z', state: 'pending' }),
+      request({
+        id: 'b',
+        created_at: '2026-02-01T00:00:00Z',
+        state: 'pending',
+      }),
     ]
     expect(latestRequest(requests)?.id).toBe('b')
     expect(pendingRequest(requests)?.id).toBe('b')
@@ -110,9 +114,9 @@ describe('canDecide', () => {
     expect(canDecide(req, 'submitter', 'reviewer')).toBe(false) // independence
     expect(canDecide(req, 'approver', 'member')).toBe(false) // not named
     expect(canDecide(req, 'approver', 'viewer')).toBe(false) // not a writer
-    expect(canDecide({ ...req, state: 'returned' }, 'approver', 'reviewer')).toBe(
-      false,
-    )
+    expect(
+      canDecide({ ...req, state: 'returned' }, 'approver', 'reviewer'),
+    ).toBe(false)
   })
 
   it('allows the submitter when independence is not required', () => {
@@ -156,8 +160,16 @@ describe('canPublishDraft', () => {
 
   it('refuses publish when an approved request is followed by a pending one', () => {
     const requests = [
-      request({ id: 'p', state: 'pending', created_at: '2026-02-01T00:00:00Z' }),
-      request({ id: 'a', state: 'approved', created_at: '2026-01-01T00:00:00Z' }),
+      request({
+        id: 'p',
+        state: 'pending',
+        created_at: '2026-02-01T00:00:00Z',
+      }),
+      request({
+        id: 'a',
+        state: 'approved',
+        created_at: '2026-01-01T00:00:00Z',
+      }),
     ]
     expect(canPublishDraft(requests)).toBe(false)
   })

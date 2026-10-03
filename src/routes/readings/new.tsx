@@ -99,8 +99,7 @@ function NewReading() {
     return datasetRows.filter((dataset) => withPlan.has(dataset.id))
   }, [datasetRows, allPlannedRows])
 
-  const effectiveDatasetId =
-    datasetId || datasetsWithPlans.at(0)?.id || ''
+  const effectiveDatasetId = datasetId || datasetsWithPlans.at(0)?.id || ''
   const dataset = datasetRows.find((d) => d.id === effectiveDatasetId)
   const datasetPlannedRows = allPlannedRows.filter(
     (row) => row.dataset_id === effectiveDatasetId,
@@ -108,7 +107,8 @@ function NewReading() {
 
   const fieldsQuery = useQuery({
     queryKey: readingQueryKeys.fields(dataset?.schema_version_id ?? ''),
-    queryFn: () => listReadingFields(notebookDataClient, dataset!.schema_version_id),
+    queryFn: () =>
+      listReadingFields(notebookDataClient, dataset!.schema_version_id),
     enabled: Boolean(dataset?.schema_version_id),
   })
   const fields = fieldsQuery.data ?? []
@@ -141,11 +141,13 @@ function NewReading() {
     (field) => field.field_id === effectiveMeasurementFieldId,
   )
 
-  const effectivePlannedKey = plannedKey || datasetPlannedRows.at(0)?.planned_key || ''
+  const effectivePlannedKey =
+    plannedKey || datasetPlannedRows.at(0)?.planned_key || ''
 
   const parsed = Number.parseFloat(value.replace(',', '.'))
   const parsedDilution = Number.parseFloat(dilutionValue.replace(',', '.'))
-  const valueValid = value.trim() !== '' && Number.isFinite(parsed) && parsed >= 0
+  const valueValid =
+    value.trim() !== '' && Number.isFinite(parsed) && parsed >= 0
   const dilutionValid =
     dilutionValue.trim() === '' ||
     (Number.isFinite(parsedDilution) && parsedDilution > 0)
@@ -182,9 +184,7 @@ function NewReading() {
         sample: { id: sample!.id, identifier: sample!.identifier },
         dilutionFieldId: dilutionField?.field_id ?? null,
         dilutionFactor:
-          dilutionField && dilutionValue.trim() !== ''
-            ? parsedDilution
-            : null,
+          dilutionField && dilutionValue.trim() !== '' ? parsedDilution : null,
         noteFieldId: noteField?.field_id ?? null,
         note: note.trim() || null,
       })
@@ -216,8 +216,12 @@ function NewReading() {
           unit ? ` ${unit}` : ''
         }${willFlag ? ' · flagged out of range' : ''}${photoWarning}`,
       })
-      void queryClient.invalidateQueries({ queryKey: readingQueryKeys.plannedRows })
-      void queryClient.invalidateQueries({ queryKey: readingQueryKeys.datasets })
+      void queryClient.invalidateQueries({
+        queryKey: readingQueryKeys.plannedRows,
+      })
+      void queryClient.invalidateQueries({
+        queryKey: readingQueryKeys.datasets,
+      })
       if (effectiveDatasetId) {
         void queryClient.invalidateQueries({
           queryKey: ['dataset-value-flags', 'active', effectiveDatasetId],
@@ -229,15 +233,15 @@ function NewReading() {
       })
     },
     onError: (error: unknown) => {
-      toast.error(
-        error instanceof Error ? error.message : 'Couldn’t save it.',
-      )
+      toast.error(error instanceof Error ? error.message : 'Couldn’t save it.')
     },
   })
 
   const noPlans = !datasets.isLoading && datasetsWithPlans.length === 0
   const noFields =
-    Boolean(dataset) && !fieldsQuery.isLoading && measurementOptions.length === 0
+    Boolean(dataset) &&
+    !fieldsQuery.isLoading &&
+    measurementOptions.length === 0
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
@@ -248,7 +252,11 @@ function NewReading() {
           e.preventDefault()
           setTouched(true)
           if (!canSubmit) return
-          save.mutate({ file: photo, projectId: sample?.project_id ?? '', idempotencyKey: crypto.randomUUID() })
+          save.mutate({
+            file: photo,
+            projectId: sample?.project_id ?? '',
+            idempotencyKey: crypto.randomUUID(),
+          })
         }}
       >
         <Field label="Sample" required>
@@ -339,9 +347,7 @@ function NewReading() {
             {measurementOptions.map((field) => (
               <option key={field.field_id} value={field.field_id}>
                 {field.label}
-                {readingFieldUnit(field)
-                  ? ` (${readingFieldUnit(field)})`
-                  : ''}
+                {readingFieldUnit(field) ? ` (${readingFieldUnit(field)})` : ''}
               </option>
             ))}
           </NativeSelect>

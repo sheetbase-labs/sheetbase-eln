@@ -106,9 +106,7 @@ function Snapshots() {
       return found.at(0) ?? null
     },
   })
-  const revision = datasetQuery.data
-    ? Number(datasetQuery.data.revision)
-    : null
+  const revision = datasetQuery.data ? Number(datasetQuery.data.revision) : null
   const canSnapshot =
     canWrite && revision !== null && datasetQuery.data?.lifecycle === 'active'
   const snapshotDisabledReason = !canWrite
@@ -278,8 +276,8 @@ function Snapshots() {
         )}
         {!canWrite ? (
           <Notice tone="info" icon={false}>
-            You have read access to this dataset, so snapshots cannot be
-            created or kept. Ask a workspace writer.
+            You have read access to this dataset, so snapshots cannot be created
+            or kept. Ask a workspace writer.
           </Notice>
         ) : null}
       </div>
@@ -308,9 +306,10 @@ function Snapshots() {
                     ][])
                   : []),
                 ...(current.rowsRemovedAt
-                  ? ([
-                      ['Rows removed', current.rowsRemovedAt.slice(0, 10)],
-                    ] as [string, React.ReactNode][])
+                  ? ([['Rows removed', current.rowsRemovedAt.slice(0, 10)]] as [
+                      string,
+                      React.ReactNode,
+                    ][])
                   : []),
               ]}
             />

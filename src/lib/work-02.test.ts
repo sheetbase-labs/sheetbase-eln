@@ -94,19 +94,18 @@ describe('Inbox J/K navigation', () => {
   })
 
   it('keys rows by record id, then identifier, then title', () => {
-    const item = (overrides: Partial<WorkItem>): WorkItem =>
-      ({
-        kind: 'following',
-        recordId: null,
-        identifier: null,
-        title: 'Untitled',
-        projectId: null,
-        reason: '',
-        dueAt: null,
-        state: 'needs_action',
-        createdAt: null,
-        ...overrides,
-      })
+    const item = (overrides: Partial<WorkItem>): WorkItem => ({
+      kind: 'following',
+      recordId: null,
+      identifier: null,
+      title: 'Untitled',
+      projectId: null,
+      reason: '',
+      dueAt: null,
+      state: 'needs_action',
+      createdAt: null,
+      ...overrides,
+    })
     expect(rowKey(item({ recordId: 'r-1', identifier: 'EXP-1' }))).toBe('r-1')
     expect(rowKey(item({ identifier: 'EXP-1' }))).toBe('EXP-1')
     expect(rowKey(item({}))).toBe('Untitled')

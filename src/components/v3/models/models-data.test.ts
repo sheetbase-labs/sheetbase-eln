@@ -129,9 +129,7 @@ function modelField(
   }
 }
 
-function record(
-  overrides: Partial<RecordModelRecord> = {},
-): RecordModelRecord {
+function record(overrides: Partial<RecordModelRecord> = {}): RecordModelRecord {
   return {
     id: 'r-1',
     identifier: 'CB-0001',
@@ -361,9 +359,9 @@ describe('laterAddedModelFields', () => {
       created_at: '2026-08-01T00:00:00Z',
       custom_fields: { passage: 12 },
     })
-    expect(laterAddedModelFields([base, added], row).map((f) => f.fieldName)).toEqual(
-      ['mycoplasma'],
-    )
+    expect(
+      laterAddedModelFields([base, added], row).map((f) => f.fieldName),
+    ).toEqual(['mycoplasma'])
   })
 
   it('ignores a later field once the record has a value for it', () => {

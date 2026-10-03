@@ -514,7 +514,11 @@ export async function resolveRecentItems(
   const sheetById = new Map(
     sheetRows.map((s) => [
       s.id,
-      { name: s.name, status: s.lifecycle, resumable: s.lifecycle === 'active' },
+      {
+        name: s.name,
+        status: s.lifecycle,
+        resumable: s.lifecycle === 'active',
+      },
     ]),
   )
   const templateById = new Map(

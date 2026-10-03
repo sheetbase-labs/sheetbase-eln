@@ -43,7 +43,9 @@ const EXPERIMENTS: ExperimentOption[] = [
   { id: 'exp-1', identifier: 'EXP-0145', title: '50 L confirmation run' },
 ]
 
-function renderDialog(onSubmit: (input: WithdrawDialogInput) => void = vi.fn()) {
+function renderDialog(
+  onSubmit: (input: WithdrawDialogInput) => void = vi.fn(),
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -150,14 +152,17 @@ describe('WithdrawDialog', () => {
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText(/1,600 mL available/)).toBeTruthy()
 
-    await user.type(within(dialog).getByRole('textbox', { name: /Volume/ }), '2000')
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /Volume/ }),
+      '2000',
+    )
     expect(
       within(dialog).getByText('Only 1,600 mL left. Enter 1,600 or less.'),
     ).toBeTruthy()
     expect(
-      within(dialog).getByRole('button', { name: 'Withdraw' }).hasAttribute(
-        'disabled',
-      ) ||
+      within(dialog)
+        .getByRole('button', { name: 'Withdraw' })
+        .hasAttribute('disabled') ||
         within(dialog)
           .getByRole('button', { name: 'Withdraw' })
           .getAttribute('aria-disabled') === 'true',
@@ -211,9 +216,9 @@ describe('WithdrawDialog', () => {
       '100',
     )
     expect(
-      within(dialog).getByRole('button', { name: 'Withdraw' }).hasAttribute(
-        'disabled',
-      ) ||
+      within(dialog)
+        .getByRole('button', { name: 'Withdraw' })
+        .hasAttribute('disabled') ||
         within(dialog)
           .getByRole('button', { name: 'Withdraw' })
           .getAttribute('aria-disabled') === 'true',
@@ -257,9 +262,9 @@ describe('ReserveDialog', () => {
       within(dialog).getByText('Only 1,600 mL free. Enter 1,600 or less.'),
     ).toBeTruthy()
     expect(
-      within(dialog).getByRole('button', { name: 'Reserve' }).hasAttribute(
-        'disabled',
-      ) ||
+      within(dialog)
+        .getByRole('button', { name: 'Reserve' })
+        .hasAttribute('disabled') ||
         within(dialog)
           .getByRole('button', { name: 'Reserve' })
           .getAttribute('aria-disabled') === 'true',

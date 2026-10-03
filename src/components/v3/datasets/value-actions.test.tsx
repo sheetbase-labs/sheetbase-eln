@@ -108,7 +108,9 @@ describe('ValueActions', () => {
     expect(screen.getByText('Unit was not recorded')).toBeTruthy()
     expect(screen.getByText(/System rule/)).toBeTruthy()
     expect(screen.getByText(/Set manually/)).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: 'Clear flag' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Clear flag' })).toHaveLength(
+      2,
+    )
   })
 
   it('marks a value out of range with a reason category and optional comment', async () => {
@@ -116,9 +118,7 @@ describe('ValueActions', () => {
     renderActions()
 
     expect(screen.queryByRole('button', { name: 'Clear flag' })).toBeNull()
-    await user.click(
-      screen.getByRole('button', { name: 'Mark out of range…' }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Mark out of range…' }))
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toBeTruthy()
@@ -129,13 +129,8 @@ describe('ValueActions', () => {
         name: 'Instrument or handling error',
       }),
     )
-    await user.type(
-      screen.getByRole('textbox'),
-      'Repeat queued as SMP-2249',
-    )
-    await user.click(
-      screen.getByRole('button', { name: 'Mark out of range' }),
-    )
+    await user.type(screen.getByRole('textbox'), 'Repeat queued as SMP-2249')
+    await user.click(screen.getByRole('button', { name: 'Mark out of range' }))
 
     await waitFor(() =>
       expect(datasetFlags.flagDatasetValue).toHaveBeenCalledWith(
@@ -171,7 +166,9 @@ describe('ValueActions', () => {
     )
     expect(sonner.toast).toHaveBeenCalledWith(
       expect.stringContaining('SMP-2249'),
-      expect.objectContaining({ description: expect.stringContaining('2 planned rows') }),
+      expect.objectContaining({
+        description: expect.stringContaining('2 planned rows'),
+      }),
     )
   })
 
@@ -182,13 +179,9 @@ describe('ValueActions', () => {
     const user = userEvent.setup()
     renderActions()
 
-    await user.click(
-      screen.getByRole('button', { name: 'Mark out of range…' }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Mark out of range…' }))
     await screen.findByRole('dialog')
-    await user.click(
-      screen.getByRole('button', { name: 'Mark out of range' }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Mark out of range' }))
 
     await waitFor(() =>
       expect(sonner.toast).toHaveBeenCalledWith(
@@ -233,8 +226,6 @@ describe('MarkOutOfRangeDialog', () => {
     for (const category of FLAG_REASON_CATEGORIES) {
       expect(screen.getByRole('radio', { name: category })).toBeTruthy()
     }
-    expect(
-      screen.getByText(/The value stays as recorded/),
-    ).toBeTruthy()
+    expect(screen.getByText(/The value stays as recorded/)).toBeTruthy()
   })
 })

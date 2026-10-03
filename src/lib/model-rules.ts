@@ -94,7 +94,9 @@ export async function fetchModelRules(
   client: DataClient,
   modelKey?: string,
 ): Promise<ModelRule[]> {
-  const filter = modelKey ? `?model_key=eq.${encodeURIComponent(modelKey)}&` : '?'
+  const filter = modelKey
+    ? `?model_key=eq.${encodeURIComponent(modelKey)}&`
+    : '?'
   const rows = await client.list<ModelRuleWire>(
     'model_rules',
     `${filter}order=model_key.asc,created_at.asc,id.asc`,
@@ -285,7 +287,8 @@ export function evaluateModelRules(
   return {
     blocked: byEffect('block').length > 0,
     blockSubmit: matches.some(
-      (match) => match.effect === 'block' || match.effect === 'flag_block_submit',
+      (match) =>
+        match.effect === 'block' || match.effect === 'flag_block_submit',
     ),
     warnings: byEffect('warn'),
     blocks: byEffect('block'),

@@ -268,9 +268,7 @@ function Home() {
   const activity = (activityQuery.data?.events ?? []).map(describeAuditEvent)
   const inProgress = inProgressQuery.data?.length ?? 0
 
-  const mine = (certificationsQuery.data ?? []).find(
-    (c) => c.userId === userId,
-  )
+  const mine = (certificationsQuery.data ?? []).find((c) => c.userId === userId)
   const projects = projectsQuery.data ?? []
   const setupSteps = firstRunSteps({
     workspaceName: context.workspace?.name ?? 'this workspace',
@@ -314,7 +312,6 @@ function Home() {
     month: 'long',
   })
   const openNotebookId = recents.find((r) => r.kind === 'record')?.id
-
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -536,9 +533,7 @@ function Home() {
                             </TableCell>
                             <TableCell>
                               {status ? (
-                                <Status tone={recentTone(r)}>
-                                  {status}
-                                </Status>
+                                <Status tone={recentTone(r)}>{status}</Status>
                               ) : (
                                 <span className="text-fg-muted">—</span>
                               )}

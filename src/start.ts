@@ -38,9 +38,8 @@ const emailSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
 // test runners unless explicitly enabled.
 const datasetRetentionSchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
-    const { startDatasetRetentionScheduler } = await import(
-      '#/lib/dataset-retention-scheduler.server'
-    )
+    const { startDatasetRetentionScheduler } =
+      await import('#/lib/dataset-retention-scheduler.server')
     startDatasetRetentionScheduler()
     return next()
   },
@@ -52,9 +51,8 @@ const datasetRetentionSchedulerMiddleware = createMiddleware().server(
 // under test runners unless explicitly enabled.
 const sampleHoldSchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
-    const { startSampleHoldScheduler } = await import(
-      '#/lib/sample-hold.server'
-    )
+    const { startSampleHoldScheduler } =
+      await import('#/lib/sample-hold.server')
     startSampleHoldScheduler()
     return next()
   },

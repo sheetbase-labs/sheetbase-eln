@@ -62,7 +62,10 @@ export function UsageBalanceBar({
           aria-label={label}
           className="flex h-2.5 overflow-hidden rounded-sm bg-skeleton"
         >
-          <div style={{ width: `${segments.usedPct}%` }} className="bg-fg-muted" />
+          <div
+            style={{ width: `${segments.usedPct}%` }}
+            className="bg-fg-muted"
+          />
           <div
             style={{ width: `${segments.reservedPct}%` }}
             className="bg-selection-border"

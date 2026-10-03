@@ -85,10 +85,7 @@ describe('buildVersionImpacts', () => {
       ['v-2', [field('a'), field('b')]],
     ])
     const rows = buildVersionImpacts(
-      [
-        version({ id: 'v-2', version: 2 }),
-        version({ id: 'v-1', version: 1 }),
-      ],
+      [version({ id: 'v-2', version: 2 }), version({ id: 'v-1', version: 1 })],
       fields,
       [
         { schema_version_id: 'v-1' },

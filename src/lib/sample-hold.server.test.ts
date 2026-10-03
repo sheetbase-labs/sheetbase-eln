@@ -114,16 +114,22 @@ describe('effectiveHoldDeadline / isHoldExceeded', () => {
   it('does not exceed before the deadline and does after', () => {
     const sample = {
       createdAt: CREATED,
-      properties: { holdStartedAt: '2026-09-24T00:00:00.000Z', holdDurationDays: 3 },
+      properties: {
+        holdStartedAt: '2026-09-24T00:00:00.000Z',
+        holdDurationDays: 3,
+      },
     }
     expect(isHoldExceeded(sample, NOW)).toBe(false)
-    expect(
-      isHoldExceeded(sample, new Date('2026-09-28T00:00:00.000Z')),
-    ).toBe(true)
+    expect(isHoldExceeded(sample, new Date('2026-09-28T00:00:00.000Z'))).toBe(
+      true,
+    )
   })
 
   it('returns null / false when no hold limit is configured', () => {
-    const sample = { createdAt: CREATED, properties: { holdCondition: '2-8 C' } }
+    const sample = {
+      createdAt: CREATED,
+      properties: { holdCondition: '2-8 C' },
+    }
     expect(effectiveHoldDeadline(sample)).toBeNull()
     expect(isHoldExceeded(sample, NOW)).toBe(false)
   })
@@ -142,7 +148,10 @@ describe('sweepSampleHoldLimits', () => {
       end: vi.fn(async () => {}),
     }
 
-    const exceeded = await sweepSampleHoldLimits({ connect: async () => conn }, 250)
+    const exceeded = await sweepSampleHoldLimits(
+      { connect: async () => conn },
+      250,
+    )
 
     expect(exceeded).toBe(3)
     expect(calls).toHaveLength(1)

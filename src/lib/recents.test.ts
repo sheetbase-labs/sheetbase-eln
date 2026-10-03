@@ -390,7 +390,9 @@ describe('describeRecentChange', () => {
       'Viewed dataset',
     )
     expect(describeRecentChange(item('sheet', 'edited'))).toBe('Edited sheet')
-    expect(describeRecentChange(item('project', 'viewed'))).toBe('Viewed project')
+    expect(describeRecentChange(item('project', 'viewed'))).toBe(
+      'Viewed project',
+    )
     expect(describeRecentChange(item('notebook_template', 'viewed'))).toBe(
       'Viewed template',
     )

@@ -404,7 +404,9 @@ export function WithdrawDialog({
               onChange={(event) => setPurpose(event.target.value)}
             >
               <option value="" disabled>
-                {experiments.length ? 'Select an experiment…' : 'No experiments available'}
+                {experiments.length
+                  ? 'Select an experiment…'
+                  : 'No experiments available'}
               </option>
               {experiments.map((experiment) => (
                 <option key={experiment.id} value={experiment.id}>
@@ -444,10 +446,7 @@ export function WithdrawDialog({
           <DescriptionList
             labelWidth={120}
             items={[
-              [
-                'Available now',
-                `${formatQuantityAmount(free)}${unitSuffix}`,
-              ],
+              ['Available now', `${formatQuantityAmount(free)}${unitSuffix}`],
               [
                 'Reserved',
                 `${formatQuantityAmount(balances?.reserved ?? 0)}${unitSuffix}`,
@@ -618,7 +617,9 @@ export function ReserveDialog({
               onChange={(event) => setExperiment(event.target.value)}
             >
               <option value="" disabled>
-                {experiments.length ? 'Select an experiment…' : 'No experiments available'}
+                {experiments.length
+                  ? 'Select an experiment…'
+                  : 'No experiments available'}
               </option>
               {experiments.map((option) => (
                 <option key={option.id} value={option.id}>

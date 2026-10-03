@@ -88,13 +88,7 @@ export function useSampleRecord(recordId: string) {
 }
 
 type SampleDialog =
-  | null
-  | 'withdraw'
-  | 'reserve'
-  | 'move'
-  | 'release'
-  | 'quarantine'
-  | 'dispose'
+  null | 'withdraw' | 'reserve' | 'move' | 'release' | 'quarantine' | 'dispose'
 
 function SampleLayout() {
   const { sampleId } = Route.useParams()

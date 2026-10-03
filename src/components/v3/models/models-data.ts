@@ -560,7 +560,9 @@ export function useModelRules(
 }
 
 /** Projects a new record can be filed under. */
-export function useRecordModelProjects(client: DataClient = notebookDataClient) {
+export function useRecordModelProjects(
+  client: DataClient = notebookDataClient,
+) {
   return useQuery({
     queryKey: recordModelDetailQueryKeys.projects,
     queryFn: () =>
@@ -647,7 +649,11 @@ export function modelFieldInputErrors(
     const fallback = field.logicalType === 'boolean' ? false : ''
     const raw = values[field.fieldName] ?? fallback
     // A blank value with a server default is valid: the RPC fills it in.
-    if (raw === '' && field.defaultValue !== null && field.defaultValue !== undefined)
+    if (
+      raw === '' &&
+      field.defaultValue !== null &&
+      field.defaultValue !== undefined
+    )
       continue
     const parsed = parseModelFieldInput(field, raw)
     const error = validateModelFieldValue(field, parsed)
@@ -686,7 +692,10 @@ export function buildRecordModelCustomFields(
  */
 export function laterAddedModelFields(
   fields: ModelFieldDefinition[],
-  record: Pick<RecordModelRecord, 'created_at' | 'custom_fields' | 'properties'>,
+  record: Pick<
+    RecordModelRecord,
+    'created_at' | 'custom_fields' | 'properties'
+  >,
 ): ModelFieldDefinition[] {
   const created = Date.parse(record.created_at)
   if (!Number.isFinite(created)) return []

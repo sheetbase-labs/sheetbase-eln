@@ -123,7 +123,8 @@ export function describePruneWarning(
   >,
   now: Date = new Date(),
 ): SnapshotPruneWarning | null {
-  if (version.rowsRemovedAt || !isSnapshotPrunable(version.retention)) return null
+  if (version.rowsRemovedAt || !isSnapshotPrunable(version.retention))
+    return null
   const dueAt = version.retention.keptUntil
   const overdue = dueAt ? new Date(dueAt).getTime() <= now.getTime() : false
   const title = overdue
@@ -297,9 +298,7 @@ export interface SnapshotComparePage {
 }
 
 /** Total changed rows the server counted across the whole comparison. */
-export function snapshotCompareTotalRows(
-  counts: DatasetVersionChange,
-): number {
+export function snapshotCompareTotalRows(counts: DatasetVersionChange): number {
   return counts.added + counts.removed + counts.changed
 }
 

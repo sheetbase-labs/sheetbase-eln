@@ -59,7 +59,9 @@ function summary(overrides: Partial<SnapshotVersion> = {}): SnapshotVersion {
 
 describe('describeSnapshotRetention', () => {
   it('shows cited and kept snapshots as safe', () => {
-    expect(describeSnapshotRetention(retention('cited_by_signed_record'))).toMatchObject({
+    expect(
+      describeSnapshotRetention(retention('cited_by_signed_record')),
+    ).toMatchObject({
       label: 'Kept',
       tone: 'ok',
     })
@@ -70,7 +72,9 @@ describe('describeSnapshotRetention', () => {
   })
 
   it('shows an uncited-after-archive snapshot as prunable, not kept', () => {
-    expect(describeSnapshotRetention(retention('uncited_after_archive'))).toMatchObject({
+    expect(
+      describeSnapshotRetention(retention('uncited_after_archive')),
+    ).toMatchObject({
       label: 'Prunable',
       tone: 'warn',
     })
@@ -200,7 +204,9 @@ describe('snapshot compare paging', () => {
 
 describe('describeSnapshotError', () => {
   it('explains stale revisions and permission refusals', () => {
-    expect(describeSnapshotError({ code: 'SB001' })).toMatch(/changed elsewhere/)
+    expect(describeSnapshotError({ code: 'SB001' })).toMatch(
+      /changed elsewhere/,
+    )
     expect(describeSnapshotError({ code: '42501' })).toMatch(/permission/)
     expect(describeSnapshotError({ code: '22023' })).toMatch(/Archived/)
   })
@@ -245,10 +251,7 @@ describe('snapshot prune warning (DSET-04.3)', () => {
 
   it('warns for neither a kept nor an already-removed snapshot', () => {
     expect(
-      describePruneWarning(
-        summary({ retention: retention('kept') }),
-        now,
-      ),
+      describePruneWarning(summary({ retention: retention('kept') }), now),
     ).toBeNull()
     expect(
       describePruneWarning(
@@ -288,10 +291,7 @@ describe('snapshot prune warning (DSET-04.3)', () => {
 
   it('has no warning when nothing is prunable', () => {
     expect(
-      mostUrgentPruneWarning(
-        [summary({ retention: retention('kept') })],
-        now,
-      ),
+      mostUrgentPruneWarning([summary({ retention: retention('kept') })], now),
     ).toBeNull()
   })
 })

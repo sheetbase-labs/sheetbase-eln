@@ -54,8 +54,7 @@ function describeChange(
     parts.push(`cardinality ${before.cardinality} → ${after.cardinality}`)
   if (before.lifecycle !== after.lifecycle)
     parts.push(after.lifecycle === 'retired' ? 'retired' : 'reactivated')
-  if (before.label !== after.label)
-    parts.push(`renamed from “${before.label}”`)
+  if (before.label !== after.label) parts.push(`renamed from “${before.label}”`)
   return parts.length ? parts.join(' · ') : null
 }
 

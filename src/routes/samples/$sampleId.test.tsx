@@ -79,7 +79,12 @@ vi.mock('#/lib/notebook-data', () => ({
 vi.mock('#/lib/samples', () => ({
   ...samples,
   sampleQueryKeys: {
-    balances: (recordId: string) => ['reg-002', 'samples', 'balances', recordId],
+    balances: (recordId: string) => [
+      'reg-002',
+      'samples',
+      'balances',
+      recordId,
+    ],
     reservations: (recordId: string) => [
       'reg-002',
       'samples',
@@ -351,9 +356,9 @@ describe('sample withdraw dialog', () => {
       within(dialog).getByText('Only 12.5 mg left. Enter 12.5 or less.'),
     ).toBeTruthy()
     expect(
-      within(dialog).getByRole('button', { name: 'Withdraw' }).hasAttribute(
-        'disabled',
-      ) ||
+      within(dialog)
+        .getByRole('button', { name: 'Withdraw' })
+        .hasAttribute('disabled') ||
         within(dialog)
           .getByRole('button', { name: 'Withdraw' })
           .getAttribute('aria-disabled') === 'true',

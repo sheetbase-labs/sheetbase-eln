@@ -216,9 +216,7 @@ function ModelVersions() {
                       <span className="text-label text-fg-muted">
                         {row.outcome === 'new-records-only'
                           ? `${row.olderRecordCount} older ${
-                              row.olderRecordCount === 1
-                                ? 'record'
-                                : 'records'
+                              row.olderRecordCount === 1 ? 'record' : 'records'
                             } unchanged`
                           : outcome.detail}
                       </span>

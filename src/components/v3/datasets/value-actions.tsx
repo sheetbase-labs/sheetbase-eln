@@ -94,8 +94,7 @@ function errorMessage(cause: unknown): string {
 }
 
 function errorToast(title: string) {
-  return (cause: unknown) =>
-    toast(title, { description: errorMessage(cause) })
+  return (cause: unknown) => toast(title, { description: errorMessage(cause) })
 }
 
 function flagSourceLabel(flag: DatasetValueFlag): string {
@@ -301,9 +300,7 @@ export function MarkOutOfRangeDialog({
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
         <DialogHeader
           title="Mark value out of range"
-          description={`${fieldLabel} · ${
-            value == null ? '—' : String(value)
-          }`}
+          description={`${fieldLabel} · ${value == null ? '—' : String(value)}`}
         />
         <DialogBody>
           <Notice tone="warn" icon={false}>
@@ -352,12 +349,7 @@ export function MarkOutOfRangeDialog({
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>Cancel</DialogClose>
-          <Button
-            type="submit"
-            form={formId}
-            variant="primary"
-            disabled={busy}
-          >
+          <Button type="submit" form={formId} variant="primary" disabled={busy}>
             Mark out of range
           </Button>
         </DialogFooter>

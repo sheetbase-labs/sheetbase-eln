@@ -5,11 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import {
-  Inspector,
-  InspectorSection,
-  Muted,
-} from '#/components/v3/ui/layout'
+import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
 import {
   Table,
   TableBody,

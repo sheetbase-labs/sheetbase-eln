@@ -27,10 +27,9 @@ describe('computeUsageSegments', () => {
     expect(segments.usedPct).toBeCloseTo(69.333, 2)
     expect(segments.reservedPct).toBe(20)
     expect(segments.freePct).toBeCloseTo(10.667, 2)
-    expect(segments.usedPct + segments.reservedPct + segments.freePct).toBeCloseTo(
-      100,
-      2,
-    )
+    expect(
+      segments.usedPct + segments.reservedPct + segments.freePct,
+    ).toBeCloseTo(100, 2)
   })
 
   it('is all zero when there is no balance yet', () => {

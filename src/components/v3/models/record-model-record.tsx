@@ -20,9 +20,7 @@ import {
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—'
   const parsed = Date.parse(value)
-  return Number.isFinite(parsed)
-    ? new Date(parsed).toLocaleDateString()
-    : value
+  return Number.isFinite(parsed) ? new Date(parsed).toLocaleDateString() : value
 }
 
 /**
@@ -85,7 +83,9 @@ export function RecordModelRecord({
             {record ? (
               <>
                 <span className="mono">{record.identifier}</span>
-                {status ? <Status tone={status.tone}>{status.label}</Status> : null}
+                {status ? (
+                  <Status tone={status.tone}>{status.label}</Status>
+                ) : null}
                 <span>
                   {model.data?.name ?? modelKey}
                   {model.data ? ` · model v${model.data.current_version}` : ''}
@@ -95,9 +95,7 @@ export function RecordModelRecord({
               'Loading record…'
             )}
           </p>
-          <h2 className="mt-1 mb-0 text-title">
-            {record?.title ?? 'Record'}
-          </h2>
+          <h2 className="mt-1 mb-0 text-title">{record?.title ?? 'Record'}</h2>
         </div>
         <div className="flex gap-2">
           <Button

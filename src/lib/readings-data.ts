@@ -246,7 +246,8 @@ export function reportedConcentration(
   dilutionFactor: number | null | undefined,
 ): number | null {
   if (!Number.isFinite(rawValue)) return null
-  if (dilutionFactor == null || !Number.isFinite(dilutionFactor)) return rawValue
+  if (dilutionFactor == null || !Number.isFinite(dilutionFactor))
+    return rawValue
   return rawValue * dilutionFactor
 }
 
@@ -390,7 +391,8 @@ export function readingCommitErrorMessage(
   if (result.ok) return null
   const byId = new Map(fields.map((field) => [field.field_id, field]))
   const messages = (result.errors ?? []).map((error) => {
-    const base = READING_ERROR_MESSAGES[error.code] ?? `Couldn’t save (${error.code}).`
+    const base =
+      READING_ERROR_MESSAGES[error.code] ?? `Couldn’t save (${error.code}).`
     const field = error.fieldId ? byId.get(error.fieldId) : undefined
     return field ? `${field.label}: ${base}` : base
   })

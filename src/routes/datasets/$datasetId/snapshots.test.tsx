@@ -4,7 +4,13 @@
  * complete snapshot inspector with its compare link.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -188,7 +194,9 @@ describe('dataset snapshots route', () => {
     const label = within(dialog).getByRole('textbox')
     await user.clear(label)
     await user.type(label, 'Gareth P. · before cleaning')
-    await user.click(within(dialog).getByRole('button', { name: 'Save snapshot' }))
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Save snapshot' }),
+    )
 
     await waitFor(() =>
       expect(product.snapshotDataset).toHaveBeenCalledWith(
@@ -218,9 +226,7 @@ describe('dataset snapshots route', () => {
     await screen.findByText('S-15')
     await user.click(screen.getByRole('button', { name: 'Create snapshot' }))
     await screen.findByRole('dialog')
-    await user.click(
-      screen.getByRole('button', { name: 'Save snapshot' }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Save snapshot' }))
 
     await waitFor(() =>
       expect(sonner.toast).toHaveBeenCalledWith('Could not save the snapshot', {
@@ -338,9 +344,7 @@ describe('dataset snapshots route', () => {
     expect(
       screen.getByText('S-5 is due for row removal on 2027-10-03.'),
     ).toBeTruthy()
-    expect(
-      screen.queryByRole('button', { name: 'Keep S-5' }),
-    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Keep S-5' })).toBeNull()
   })
 
   it('reports a tombstoned snapshot clearly instead of an empty view', async () => {

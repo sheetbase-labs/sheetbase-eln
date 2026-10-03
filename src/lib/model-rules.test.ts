@@ -46,17 +46,14 @@ describe('modelRuleConditionMatches', () => {
   })
 
   it('supports is_null, not_null and null leaves', () => {
-    expect(
-      modelRuleConditionMatches({ field: 'x', op: 'is_null' }, {}),
-    ).toBe(true)
+    expect(modelRuleConditionMatches({ field: 'x', op: 'is_null' }, {})).toBe(
+      true,
+    )
     expect(
       modelRuleConditionMatches({ field: 'x', op: 'not_null' }, { x: 1 }),
     ).toBe(true)
     expect(
-      modelRuleConditionMatches(
-        { field: 'x', op: 'eq', value: 1 },
-        {},
-      ),
+      modelRuleConditionMatches({ field: 'x', op: 'eq', value: 1 }, {}),
     ).toBe(false)
   })
 

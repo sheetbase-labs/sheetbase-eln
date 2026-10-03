@@ -283,7 +283,10 @@ function UsageRow({
   return (
     <TableRow>
       <TableCell>
-        <ExperimentLabel experimentId={event.purposeRecordId} byId={experiment} />
+        <ExperimentLabel
+          experimentId={event.purposeRecordId}
+          byId={experiment}
+        />
       </TableCell>
       <TableCell className="max-w-[20rem] whitespace-normal leading-[17px]">
         {title}

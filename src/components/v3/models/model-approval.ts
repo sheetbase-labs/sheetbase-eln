@@ -69,9 +69,7 @@ const ROLE_LABELS: Record<string, string> = {
 export function roleLabel(role: string): string {
   return (
     ROLE_LABELS[role] ??
-    role
-      .replace(/_/g, ' ')
-      .replace(/^\w/, (c) => c.toUpperCase())
+    role.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
   )
 }
 
@@ -182,10 +180,7 @@ export function canDecide(
   if (!isWorkspaceWriter(role)) return false
   if (!isRequiredApprover(request, role)) return false
   if (request.approved_by_user_ids.includes(userId ?? '')) return false
-  if (
-    request.require_independence &&
-    request.submitted_by_user_id === userId
-  ) {
+  if (request.require_independence && request.submitted_by_user_id === userId) {
     return false
   }
   return true
@@ -199,7 +194,10 @@ export function canWithdraw(
 ): boolean {
   if (!request || request.state !== 'pending') return false
   if (!isWorkspaceWriter(role)) return false
-  return request.submitted_by_user_id !== null && request.submitted_by_user_id === userId
+  return (
+    request.submitted_by_user_id !== null &&
+    request.submitted_by_user_id === userId
+  )
 }
 
 /**
@@ -214,10 +212,7 @@ export function canPublishDraft(requests: readonly ApprovalRequest[]): boolean {
 }
 
 export type ApprovalTrailKind =
-  | 'submitted'
-  | 'approved'
-  | 'returned'
-  | 'withdrawn'
+  'submitted' | 'approved' | 'returned' | 'withdrawn'
 
 export interface ApprovalTrailEntry {
   id: string

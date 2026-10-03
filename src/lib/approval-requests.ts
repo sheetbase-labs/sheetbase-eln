@@ -10,10 +10,7 @@
 import type { DataClient } from './data-client'
 
 export type ApprovalRequestState =
-  | 'pending'
-  | 'approved'
-  | 'returned'
-  | 'withdrawn'
+  'pending' | 'approved' | 'returned' | 'withdrawn'
 
 /** Dataset Schema Version is the first governed object kind (MDL-03.2). */
 export const DATASET_SCHEMA_VERSION_KIND = 'dataset_schema_version'

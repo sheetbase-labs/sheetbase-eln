@@ -1852,7 +1852,10 @@ export const recordModels = api.table(
       table.workspaceId,
       table.identifierPrefix,
     ),
-    check('chk_record_models_key', sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`),
+    check(
+      'chk_record_models_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
     check(
       'chk_record_models_identifier_prefix',
       sql`${table.identifierPrefix} ~ '^[A-Z][A-Z0-9]{0,7}$'`,
@@ -2079,10 +2082,7 @@ export const sampleReservations = api.table(
     ...timestamps,
   },
   (table) => [
-    check(
-      'chk_sample_reservations_quantity',
-      sql`${table.quantity} > 0`,
-    ),
+    check('chk_sample_reservations_quantity', sql`${table.quantity} > 0`),
     check(
       'chk_sample_reservations_state',
       sql`${table.state} IN ('active','cancelled','fulfilled')`,
@@ -2736,7 +2736,9 @@ export const approvalRequests = api.table(
       .notNull()
       .default(sql`'{}'`),
     requiredApprovals: integer('required_approvals').notNull().default(1),
-    requireIndependence: boolean('require_independence').notNull().default(true),
+    requireIndependence: boolean('require_independence')
+      .notNull()
+      .default(true),
     state: text('state').notNull().default('pending'),
     reason: text('reason'),
     decisionReason: text('decision_reason'),
@@ -3542,7 +3544,9 @@ export const datasetRows = api.table(
     ),
     uniqueIndex('uq_dataset_rows_planned_key')
       .on(table.datasetId, table.plannedKey)
-      .where(sql`${table.status} = 'planned' AND ${table.plannedKey} IS NOT NULL`),
+      .where(
+        sql`${table.status} = 'planned' AND ${table.plannedKey} IS NOT NULL`,
+      ),
     index('idx_dataset_rows_dataset').on(table.datasetId),
     index('idx_dataset_rows_workspace').on(table.workspaceId),
   ],

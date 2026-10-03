@@ -99,7 +99,9 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       })
     } catch (caught) {
       setSubmitError(
-        caught instanceof Error ? caught.message : 'Could not create the record.',
+        caught instanceof Error
+          ? caught.message
+          : 'Could not create the record.',
       )
       setSubmitting(false)
     }
@@ -244,7 +246,9 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" variant="primary" disabled={!canSubmit}>
-            {submitting ? 'Creating…' : `Create ${model.data?.name ?? 'record'}`}
+            {submitting
+              ? 'Creating…'
+              : `Create ${model.data?.name ?? 'record'}`}
           </Button>
           <Button
             variant="quiet"

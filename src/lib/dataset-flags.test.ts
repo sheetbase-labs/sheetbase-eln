@@ -34,10 +34,15 @@ describe('toDatasetValueFlag', () => {
       field_id: 'titre',
       kind: 'high_cv',
       source: 'manual' as const,
+      system_rule: null,
       reason: 'CV 24%',
       comment: 'repeat queued',
+      evaluated_value: null,
+      threshold: null,
+      evaluated_at: null,
       set_at: '2026-09-25T09:40:00Z',
       cleared_at: null,
+      cleared_reason: null,
     })
     expect(mapped).toMatchObject({
       id: 'f1',

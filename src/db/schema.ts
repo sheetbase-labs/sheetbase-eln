@@ -3760,8 +3760,21 @@ export const datasetValueFlags = api.table(
     fieldId: uuid('field_id').notNull(),
     kind: text('kind').notNull(),
     source: text('source').notNull().default('manual'),
+    /**
+     * DSET-01.1 — the rule that produced a `system` flag (`out_of_range`,
+     * `missing_unit` or `high_cv`), NULL for a manual flag. The evaluated value,
+     * the rule's parameters (`threshold`) and when it last ran make a system
+     * flag distinguishable from a person's decision.
+     */
+    systemRule: text('system_rule'),
     reason: text('reason').notNull(),
     comment: text('comment'),
+    evaluatedValue: jsonb('evaluated_value'),
+    threshold: jsonb('threshold'),
+    evaluatedAt: timestamp('evaluated_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     setByUserId: text('set_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
@@ -3772,6 +3785,8 @@ export const datasetValueFlags = api.table(
     clearedByUserId: text('cleared_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    /** DSET-01.1 — why a person cleared a flag (required for a system flag). */
+    clearedReason: text('cleared_reason'),
   },
   (table) => [
     check(
@@ -3781,6 +3796,18 @@ export const datasetValueFlags = api.table(
     check(
       'chk_dataset_value_flags_source',
       sql`${table.source} IN ('manual', 'system')`,
+    ),
+    check(
+      'chk_dataset_value_flags_system_rule',
+      sql`${table.systemRule} IS NULL OR ${table.systemRule} IN ('out_of_range', 'missing_unit', 'high_cv')`,
+    ),
+    check(
+      'chk_dataset_value_flags_provenance',
+      sql`(${table.source} = 'manual' AND ${table.systemRule} IS NULL) OR (${table.source} = 'system' AND ${table.systemRule} IS NOT NULL)`,
+    ),
+    check(
+      'chk_dataset_value_flags_cleared_reason',
+      sql`${table.clearedReason} IS NULL OR ${table.clearedAt} IS NOT NULL`,
     ),
     check(
       'chk_dataset_value_flags_reason',
@@ -3914,8 +3941,16 @@ export const datasetVersionFlags = api.table(
     fieldId: uuid('field_id').notNull(),
     kind: text('kind').notNull(),
     source: text('source').notNull().default('manual'),
+    /** DSET-01.1 — frozen rule provenance (mirrors `dataset_value_flags`). */
+    systemRule: text('system_rule'),
     reason: text('reason').notNull(),
     comment: text('comment'),
+    evaluatedValue: jsonb('evaluated_value'),
+    threshold: jsonb('threshold'),
+    evaluatedAt: timestamp('evaluated_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     setByUserId: text('set_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
@@ -3925,6 +3960,14 @@ export const datasetVersionFlags = api.table(
     check(
       'chk_dataset_version_flags_source',
       sql`${table.source} IN ('manual', 'system')`,
+    ),
+    check(
+      'chk_dataset_version_flags_system_rule',
+      sql`${table.systemRule} IS NULL OR ${table.systemRule} IN ('out_of_range', 'missing_unit', 'high_cv')`,
+    ),
+    check(
+      'chk_dataset_version_flags_provenance',
+      sql`(${table.source} = 'manual' AND ${table.systemRule} IS NULL) OR (${table.source} = 'system' AND ${table.systemRule} IS NOT NULL)`,
     ),
     primaryKey({
       columns: [

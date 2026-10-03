@@ -60,6 +60,51 @@ what they did.
    comment, set by, set at, cleared at). System flags written by validation;
    RPC `flag_dataset_value` / `clear_dataset_value_flag` with reason. Flags
    are copied into the next snapshot. DB tests.
+
+   **System rules (implemented 2026-10-03, migration 0294/0295).** A rule lives
+   in `dataset_schema_version_fields.validation.extensions.systemFlags` and
+   produces a `source = 'system'` flag with its own provenance (`system_rule`,
+   `evaluated_value`, `threshold`, `evaluated_at`), all frozen into the
+   snapshot. Shapes:
+
+   ```jsonc
+   {
+     "extensions": {
+       "systemFlags": {
+         // Soft min/max; the hard validation.min/max still rejects a value.
+         "out_of_range": { "min": 2, "max": 4 },
+         // Numeric field that must carry a unit in its quantity metadata.
+         "missing_unit": { "requiresUnit": true },
+         // Replicate dispersion: rows sharing the group field's value.
+         "high_cv": {
+           "maxCvPercent": 20,
+           "groupByFieldId": "<uuid of another schema field>",
+           "minReplicates": 3,
+         },
+       },
+     },
+   }
+   ```
+
+   Evaluation stays in the write path, like the original `out_of_range` rule:
+   `validate_dataset_row_batch` previews the row-level rules (`out_of_range`,
+   `missing_unit`) for a written row, `commit_dataset_row_batch` reconciles them
+   after the values land and recomputes `high_cv` once across the dataset's
+   groups, and `recompute_dataset_system_flags(dataset)` re-runs everything on
+   demand so a rule change need not wait for the next edit. `high_cv` is not
+   evaluated in a validation dry run because it needs committed cross-row
+   values.
+
+   Clearing a `system` flag is an override: the RPC requires a reason from a
+   workspace writer, records the reason and actor, and the dismissed rule is not
+   re-raised while the evaluated value is unchanged. Manual flags are unchanged.
+
+   `above_curve` is **not implemented**: it needs a calibration-curve definition
+   (standard concentrations, response, fit model, acceptance band) that no
+   schema field or dataset metadata stores yet. Until that contract exists a
+   rule could only guess, so the kind stays in the model and the RPC accepts it
+   for manual flags, but no system rule writes it.
+
 2. **Exclusion.** Analyses, chart data, ƒx criteria and pipeline inputs exclude
    flagged values by default and report them; unit tests in each module.
 3. **Planned rows.** Row status `planned` with scheduled time and no values;

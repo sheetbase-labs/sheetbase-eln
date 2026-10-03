@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -47,8 +53,12 @@ const systemFlag: DatasetValueFlag = {
   fieldId: 'field-1',
   kind: 'out_of_range',
   source: 'system',
+  systemRule: 'out_of_range',
   reason: 'Value 61.5 is above the maximum 50',
   comment: 'Rule: turbidity range',
+  evaluatedValue: 61.5,
+  threshold: { min: 0, max: 50 },
+  evaluatedAt: '2026-10-01T09:00:00.000Z',
   setAt: '2026-10-01T09:00:00.000Z',
 }
 
@@ -75,20 +85,61 @@ function renderActions(
 }
 
 describe('ValueActions', () => {
-  it('shows a flagged value state and clears a system flag by hand', async () => {
+  it('shows a flagged value state and clears a system flag with a reason', async () => {
     const user = userEvent.setup()
     renderActions({ flags: [systemFlag] })
 
     expect(screen.getByText('Out of range')).toBeTruthy()
     expect(screen.getByText(systemFlag.reason)).toBeTruthy()
     expect(screen.getByText('Rule: turbidity range')).toBeTruthy()
-    expect(screen.getByText(/System rule/)).toBeTruthy()
+    expect(screen.getByText('System rule')).toBeTruthy()
+    // Provenance, not just the fact that a rule fired.
+    expect(screen.getByText(/Evaluated 61.5/)).toBeTruthy()
+    expect(screen.getByText(/expected 0–50/)).toBeTruthy()
 
     await user.click(screen.getByRole('button', { name: 'Clear flag' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toBeTruthy()
+    // The reason is required: the submit stays disabled until one is entered.
+    const submit = within(dialog).getByRole('button', { name: 'Clear flag' })
+    expect((submit as HTMLButtonElement).disabled).toBe(true)
+    await user.type(
+      within(dialog).getByRole('textbox'),
+      'Reviewed: instrument drift',
+    )
+    await user.click(submit)
     await waitFor(() =>
       expect(datasetFlags.clearDatasetValueFlag).toHaveBeenCalledWith(
         expect.anything(),
         'flag-1',
+        'Reviewed: instrument drift',
+      ),
+    )
+  })
+
+  it('clears a manual flag in one step without a reason', async () => {
+    const user = userEvent.setup()
+    const manual: DatasetValueFlag = {
+      ...systemFlag,
+      id: 'flag-manual',
+      kind: 'missing_unit',
+      source: 'manual',
+      systemRule: null,
+      reason: 'Unit was not recorded',
+      comment: null,
+      evaluatedValue: null,
+      threshold: null,
+      evaluatedAt: null,
+    }
+    renderActions({ flags: [manual] })
+
+    await user.click(screen.getByRole('button', { name: 'Clear flag' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() =>
+      expect(datasetFlags.clearDatasetValueFlag).toHaveBeenCalledWith(
+        expect.anything(),
+        'flag-manual',
+        null,
       ),
     )
   })

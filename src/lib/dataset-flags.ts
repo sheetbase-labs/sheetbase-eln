@@ -20,6 +20,22 @@ export type DatasetValueFlagKind =
  */
 export type DatasetValueFlagSource = 'manual' | 'system'
 
+/** DSET-01.1 — the system rules that can produce a flag. */
+export type DatasetSystemRule = 'out_of_range' | 'missing_unit' | 'high_cv'
+
+/**
+ * DSET-01.1 — what a rule saw when it produced a system flag. `evaluatedValue`
+ * is the value the rule judged and `threshold` holds its parameters (the
+ * min/max, `requiresUnit`, or the CV limit and group statistics). Both are
+ * opaque JSON so a preview can render them without a parallel rule model.
+ */
+export interface DatasetSystemFlagProvenance {
+  rule: DatasetSystemRule
+  evaluatedValue: unknown
+  threshold: unknown
+  evaluatedAt: string | null
+}
+
 /** Wire shape of `api.dataset_value_flags` (snake_case via PostgREST). */
 export interface DatasetValueFlagWire {
   id: string
@@ -28,10 +44,15 @@ export interface DatasetValueFlagWire {
   field_id: string
   kind: DatasetValueFlagKind
   source: DatasetValueFlagSource
+  system_rule: DatasetSystemRule | null
   reason: string
   comment: string | null
+  evaluated_value: unknown
+  threshold: unknown
+  evaluated_at: string | null
   set_at: string
   cleared_at: string | null
+  cleared_reason: string | null
 }
 
 export interface DatasetValueFlag {
@@ -45,9 +66,16 @@ export interface DatasetValueFlag {
    * database and `DatasetValueFlagWire` always carry it.
    */
   source?: DatasetValueFlagSource
+  /** Present only on a `system` flag. */
+  systemRule?: DatasetSystemRule | null
   reason: string
   comment: string | null
+  evaluatedValue?: unknown
+  threshold?: unknown
+  evaluatedAt?: string | null
   setAt: string
+  /** Set when a person cleared the flag, with the reason they gave. */
+  clearedReason?: string | null
 }
 
 export function toDatasetValueFlag(
@@ -60,9 +88,30 @@ export function toDatasetValueFlag(
     fieldId: wire.field_id,
     kind: wire.kind,
     source: wire.source,
+    systemRule: wire.system_rule ?? null,
     reason: wire.reason,
     comment: wire.comment,
+    evaluatedValue: wire.evaluated_value,
+    threshold: wire.threshold,
+    evaluatedAt: wire.evaluated_at,
     setAt: wire.set_at,
+    clearedReason: wire.cleared_reason ?? null,
+  }
+}
+
+/**
+ * DSET-01.1 — a system flag's provenance, or null for a manual flag. Callers
+ * render this to show that a rule, not a person, set the flag and on what.
+ */
+export function systemFlagProvenance(
+  flag: DatasetValueFlag,
+): DatasetSystemFlagProvenance | null {
+  if (flag.source !== 'system' || !flag.systemRule) return null
+  return {
+    rule: flag.systemRule,
+    evaluatedValue: flag.evaluatedValue,
+    threshold: flag.threshold,
+    evaluatedAt: flag.evaluatedAt ?? flag.setAt,
   }
 }
 
@@ -77,7 +126,7 @@ export async function fetchActiveDatasetFlags(
 ): Promise<DatasetValueFlag[]> {
   const rows = await client.list<DatasetValueFlagWire>(
     'dataset_value_flags',
-    `?dataset_id=eq.${encodeURIComponent(datasetId)}&cleared_at=is.null&select=id,dataset_id,row_id,field_id,kind,source,reason,comment,set_at,cleared_at`,
+    `?dataset_id=eq.${encodeURIComponent(datasetId)}&cleared_at=is.null&select=id,dataset_id,row_id,field_id,kind,source,system_rule,reason,comment,evaluated_value,threshold,evaluated_at,set_at,cleared_at,cleared_reason`,
   )
   return rows.map((row) => toDatasetValueFlag(row))
 }
@@ -119,14 +168,19 @@ export async function flagDatasetValue(
 /**
  * Clear an active flag by id. Works for both `manual` and `system` flags so a
  * person can override a rule-derived flag; the RPC is writer-gated.
+ *
+ * A `system` flag requires a reason: the RPC records it with the actor and the
+ * override stands until the value is changed. A manual flag clears as before
+ * and the reason stays optional.
  */
 export async function clearDatasetValueFlag(
   client: DataClient = notebookDataClient,
   flagId: string,
+  reason?: string | null,
 ): Promise<DatasetValueFlag> {
   const wire = await client.rpc<DatasetValueFlagWire>(
     'clear_dataset_value_flag',
-    { p_flag_id: flagId },
+    { p_flag_id: flagId, p_reason: reason ?? null },
   )
   return toDatasetValueFlag(wire)
 }

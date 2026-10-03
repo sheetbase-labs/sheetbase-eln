@@ -27,9 +27,10 @@ vi.mock('#/lib/sheet-instance-data', async (importOriginal) => ({
 
 // The grid is replaced with a props recorder: the workspace is exercised
 // through the neutral Sheetbase contract (columns, rows, write callbacks and
-// presentation callbacks), never through engine settings.
-vi.mock('./sheetbase-grid', () => ({
-  SheetbaseGrid: (props: Record<string, any>) => {
+// presentation callbacks), never through engine settings. The ad-hoc surface
+// now renders `SheetbaseTableGrid`, so the recorder serves both exports.
+vi.mock('./sheetbase-grid', () => {
+  const Recorder = (props: Record<string, any>) => {
     gridRender(props)
     return (
       <table>
@@ -46,8 +47,9 @@ vi.mock('./sheetbase-grid', () => ({
         </thead>
       </table>
     )
-  },
-}))
+  }
+  return { SheetbaseGrid: Recorder, SheetbaseTableGrid: Recorder }
+})
 
 afterEach(() => {
   cleanup()

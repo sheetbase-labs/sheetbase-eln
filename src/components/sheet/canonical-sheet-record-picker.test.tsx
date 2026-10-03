@@ -34,8 +34,8 @@ vi.mock('#/lib/sheet-record-search', async (importOriginal) => ({
   searchSheetRecords: vi.fn(),
 }))
 
-vi.mock('./sheetbase-grid', () => ({
-  SheetbaseGrid: ({
+vi.mock('./sheetbase-grid', () => {
+  const Recorder = ({
     columns,
     onOpenRecordPicker,
     beforeCellsChange,
@@ -64,8 +64,9 @@ vi.mock('./sheetbase-grid', () => ({
         </thead>
       </table>
     )
-  },
-}))
+  }
+  return { SheetbaseGrid: Recorder, SheetbaseTableGrid: Recorder }
+})
 
 interface GridPropsCapture {
   columns?: Array<{

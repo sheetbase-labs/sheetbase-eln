@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
+import type { ComponentType } from 'react'
 import {
   keepPreviousData,
   useMutation,
@@ -15,6 +16,7 @@ import type {
   SheetbaseGridColumn,
   SheetbaseGridFilter,
   SheetbaseGridMenuEntry,
+  SheetbaseGridProps,
   SheetbaseGridSelection,
   SheetbaseGridSort,
   SheetbaseGridWriteSource,
@@ -271,10 +273,13 @@ export function CanonicalSheetEditor({
   instance,
   projectId,
   readOnly = false,
+  gridComponent: GridComponent = SheetbaseGrid,
 }: {
   instance: SheetInstance
   projectId: string | null
   readOnly?: boolean
+  /** Presentation engine. Defaults to the canonical Handsontable grid. */
+  gridComponent?: ComponentType<SheetbaseGridProps>
 }) {
   const queryClient = useQueryClient()
   const instanceRef = useRef(instance)
@@ -1475,7 +1480,7 @@ export function CanonicalSheetEditor({
         </p>
       ) : (
         <div className="min-h-0 flex-1">
-          <SheetbaseGrid
+          <GridComponent
             ariaLabel="Sheet"
             columns={sheetColumns}
             rows={sheetRows}
@@ -1685,22 +1690,6 @@ export function SheetProvenanceLine({
         </>
       ) : null}
     </p>
-  )
-}
-
-export function AdHocSheetWorkspace({
-  instance,
-  readOnly = false,
-}: {
-  instance: SheetInstance
-  readOnly?: boolean
-}) {
-  return (
-    <CanonicalSheetEditor
-      instance={instance}
-      projectId={instance.projectId}
-      readOnly={readOnly}
-    />
   )
 }
 

@@ -323,24 +323,68 @@ function GridFailure({ message }: { message: string }) {
   )
 }
 
-export function SheetbaseGrid({
+/**
+ * Which engine renders the neutral props. Transitional for COMP-06 step 2:
+ * the ad-hoc surface runs on `sheetbase-table` while the canonical and
+ * notebook surfaces still run on Handsontable. Callers pick by exporting the
+ * matching component — the props themselves stay vendor-neutral.
+ */
+export type SheetbaseGridBackend = 'handsontable' | 'sheetbase-table'
+
+type TableClientGrid = ComponentType<SheetbaseGridProps>
+
+const DEFAULT_DESCRIPTION =
+  'Spreadsheet. Tab moves forward and Shift+Tab moves back; at a horizontal edge, Tab returns to the page. Arrow keys move, and Shift+Arrow extends the active range. Control or Command with an arrow moves to an edge. Home and End move within a row; Control or Command with Home or End moves to a grid corner. Page Up and Page Down move by a viewport. Enter or F2 starts editing, Enter commits, and Escape cancels. Control or Command+A selects all cells, Control+Space selects a column, and Shift+Space selects a row. Control or Command-click adds a range; keyboard commands affect the last active range. Copy and cut use only the active range. Cut is blocked when that range contains read-only or derived cells.'
+
+/** The canonical grid: the shared shell on the Handsontable backend. */
+export function SheetbaseGrid(props: SheetbaseGridProps) {
+  return <SheetbaseGridShell {...props} backend="handsontable" />
+}
+
+/**
+ * COMP-06 step 2 — the same neutral props rendered by `sheetbase-table`.
+ * Used by the ad-hoc sheet surface while the other surfaces migrate.
+ */
+export function SheetbaseTableGrid(props: SheetbaseGridProps) {
+  return <SheetbaseGridShell {...props} backend="sheetbase-table" />
+}
+
+function SheetbaseGridShell({
+  backend,
   ariaLabel = 'Scientific data sheet',
-  description = 'Spreadsheet. Tab moves forward and Shift+Tab moves back; at a horizontal edge, Tab returns to the page. Arrow keys move, and Shift+Arrow extends the active range. Control or Command with an arrow moves to an edge. Home and End move within a row; Control or Command with Home or End moves to a grid corner. Page Up and Page Down move by a viewport. Enter or F2 starts editing, Enter commits, and Escape cancels. Control or Command+A selects all cells, Control+Space selects a column, and Shift+Space selects a row. Control or Command-click adds a range; keyboard commands affect the last active range. Copy and cut use only the active range. Cut is blocked when that range contains read-only or derived cells.',
+  description = DEFAULT_DESCRIPTION,
   onReady,
   ...props
-}: SheetbaseGridProps) {
+}: SheetbaseGridProps & { backend: SheetbaseGridBackend }) {
   const descriptionId = useId()
   const cutStatusId = useId()
-  const [ClientGrid, setClientGrid] = useState<ClientGrid | null>(null)
+  const [HotGrid, setHotClient] = useState<ClientGrid | null>(null)
+  const [TableGrid, setTableGrid] = useState<TableClientGrid | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
   const licenseKey = import.meta.env.VITE_HANDSONTABLE_LICENSE_KEY?.trim()
 
   useEffect(() => {
-    if (!licenseKey) return
     let active = true
+    if (backend === 'sheetbase-table') {
+      import('./sheetbase-table-grid-client')
+        .then(({ SheetbaseTableGridClient }) => {
+          if (active) setTableGrid(() => SheetbaseTableGridClient)
+        })
+        .catch((error: unknown) => {
+          console.error(
+            'Sheetbase table grid client bundle failed to load.',
+            error,
+          )
+          if (active) setLoadFailed(true)
+        })
+      return () => {
+        active = false
+      }
+    }
+    if (!licenseKey) return
     import('./sheetbase-grid-client')
       .then(({ SheetbaseGridClient }) => {
-        if (active) setClientGrid(() => SheetbaseGridClient)
+        if (active) setHotClient(() => SheetbaseGridClient)
       })
       .catch((error: unknown) => {
         console.error('Sheetbase grid client bundle failed to load.', error)
@@ -349,9 +393,9 @@ export function SheetbaseGrid({
     return () => {
       active = false
     }
-  }, [licenseKey])
+  }, [backend, licenseKey])
 
-  if (!licenseKey) {
+  if (backend === 'handsontable' && !licenseKey) {
     return <GridFailure message="A Handsontable licence is not configured." />
   }
   if (loadFailed) {
@@ -372,9 +416,13 @@ export function SheetbaseGrid({
         id={cutStatusId}
         aria-live="polite"
       />
-      {ClientGrid ? (
+      {backend === 'sheetbase-table' && TableGrid ? (
         <GridBoundary>
-          <ClientGrid
+          <TableGrid {...props} ariaLabel={ariaLabel} onReady={onReady} />
+        </GridBoundary>
+      ) : backend === 'handsontable' && HotGrid && licenseKey ? (
+        <GridBoundary>
+          <HotGrid
             {...props}
             ariaLabel={ariaLabel}
             descriptionId={descriptionId}

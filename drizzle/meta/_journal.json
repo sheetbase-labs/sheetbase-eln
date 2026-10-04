@@ -2253,6 +2253,13 @@
       "when": 1791138152375,
       "tag": "0323_set02_live_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 324,
+      "version": "7",
+      "when": 1791143300514,
+      "tag": "0324_rev02_portal_signature_evidence",
+      "breakpoints": true
     }
   ]
 }

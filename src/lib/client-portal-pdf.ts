@@ -12,8 +12,14 @@
  * the renderer, owns presentation.
  */
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { z } from 'zod'
 
 import type { ClientPortalRecordDocument } from '#/lib/client-portal'
+import {
+  formatFrozenCell,
+  frozenSheetGridFromEvidence,
+} from '#/lib/frozen-sheet-grid'
+import { sheetEvidenceFromEnvelope } from '#/lib/sheet-evidence'
 
 const PAGE_WIDTH = 595.28
 const PAGE_HEIGHT = 841.89
@@ -23,6 +29,14 @@ const BODY_CHARS = 92
 const ink = rgb(0.07, 0.08, 0.1)
 const muted = rgb(0.42, 0.45, 0.5)
 const rule = rgb(0.85, 0.86, 0.88)
+
+const scientificTablesSchema = z.array(
+  z.object({
+    name: z.string(),
+    columns: z.array(z.object({ field_name: z.string(), label: z.string() })),
+    rows: z.array(z.record(z.string(), z.unknown())),
+  }),
+)
 
 /** Flatten a ProseMirror-style node to its text, inline children joined. */
 function nodeText(node: unknown): string {
@@ -224,9 +238,7 @@ export async function renderClientPortalRecordPdf(
   heading(`${doc.identifier} — ${doc.title}`)
   text(`Project: ${doc.projectTitle}`, { color: muted, size: 10 })
   text(
-    doc.approvedAt
-      ? `Approved ${asDate(doc.approvedAt)}${doc.approvedByName ? ` · ${doc.approvedByName}` : ''}`
-      : 'Approved record',
+    doc.approvedAt ? `Approved ${asDate(doc.approvedAt)}` : 'Approved record',
     { color: muted, size: 10 },
   )
   if (doc.verificationCode) {
@@ -260,19 +272,72 @@ export async function renderClientPortalRecordPdf(
     } else {
       text('No frozen content is attached to this document.', { color: muted })
     }
+    const tables = scientificTablesSchema.safeParse(doc.scientificTables ?? [])
+    if (!tables.success) {
+      text('Frozen scientific table evidence could not be read.', {
+        color: muted,
+      })
+    } else {
+      for (const table of tables.data) {
+        heading(`Frozen table: ${table.name}`)
+        text(table.columns.map((column) => column.label).join(' | '), {
+          font: bold,
+        })
+        for (const row of table.rows) {
+          text(
+            table.columns
+              .map(
+                (column) =>
+                  `${column.label}: ${formatFrozenCell(row[column.field_name])}`,
+              )
+              .join(' | '),
+          )
+        }
+      }
+    }
+    for (const evidence of sheetEvidenceFromEnvelope({
+      sheetEvidence: doc.sheetEvidence,
+    }).values()) {
+      const grid = frozenSheetGridFromEvidence(evidence)
+      heading(`Frozen Sheet: ${evidence.blockId}`)
+      text(`Instance revision: ${evidence.instanceRevision}`, {
+        size: 10,
+        color: muted,
+      })
+      text(grid.columns.map((column) => column.label).join(' | '), {
+        font: bold,
+      })
+      for (const row of grid.rows) {
+        text(
+          grid.columns
+            .map((column, index) => `${column.label}: ${row[index] ?? ''}`)
+            .join(' | '),
+        )
+      }
+    }
   }
 
   page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
   y = PAGE_HEIGHT - MARGIN
   heading('Signature page')
-  text(
-    doc.approvedAt
-      ? `Signed by ${doc.approvedByName ?? 'the CDMO team'} on ${asDate(doc.approvedAt)}.`
-      : 'This document carries no signature.',
-    { size: 10 },
-  )
-  if (doc.signatureMeaning) {
-    text(`Meaning: ${doc.signatureMeaning}`, { size: 10, color: muted })
+  if (doc.signatures?.length) {
+    for (const signature of doc.signatures) {
+      heading(signature.signerName ?? 'Signer name not recorded')
+      text(`Signature ID: ${signature.id}`, { font: mono, size: 9 })
+      text(`Revision ID: ${signature.revisionId}`, { font: mono, size: 9 })
+      text(`Signed at: ${signature.signedAt}`, { size: 10 })
+      text(`Meaning: ${signature.signatureMeaning}`, { size: 10 })
+      text('Signed revision integrity digest (SHA-256):', {
+        size: 10,
+        color: muted,
+      })
+      text(signature.integrityDigest, { font: mono, size: 9 })
+    }
+  } else {
+    text('Immutable signature evidence is unavailable in this document.', {
+      size: 10,
+      color: muted,
+    })
   }
   if (doc.integrityDigest) {
     text('Revision integrity digest (SHA-256):', { size: 10, color: muted })

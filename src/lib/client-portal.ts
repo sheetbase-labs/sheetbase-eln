@@ -1,5 +1,6 @@
 import type { DataClient } from '#/lib/data-client'
 import { createDataClient } from '#/lib/data-client'
+import type { SignatureMeaning } from '#/lib/signatures'
 
 /**
  * ADR-0049 — the client portal reads. Everything goes through the portal RPCs,
@@ -64,7 +65,19 @@ export interface ClientPortalRecordDocument {
   integrityDigest: string | null
   verificationCode: string | null
   revisionStructureVersion: number | null
+  revisionId?: string | null
   blockSnapshot: unknown
+  scientificTables?: unknown
+  sheetEvidence?: unknown
+  /** Immutable evidence from the selected revision, never today's profiles. */
+  signatures?: ReadonlyArray<{
+    id: string
+    revisionId: string
+    signerName: string | null
+    signedAt: string
+    signatureMeaning: SignatureMeaning
+    integrityDigest: string
+  }>
   reportSections: ReadonlyArray<{
     title: string
     description: string | null

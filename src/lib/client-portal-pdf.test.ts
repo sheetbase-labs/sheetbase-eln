@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PDFDocument, PDFRawStream, decodePDFRawStream } from 'pdf-lib'
 
 import { formatPortalDate } from './client-portal'
 import type { ClientPortalRecordDocument } from './client-portal'
@@ -47,6 +48,21 @@ const recordDocument: ClientPortalRecordDocument = {
   reportSections: [],
 }
 
+async function pdfText(bytes: Uint8Array): Promise<string> {
+  const pdf = await PDFDocument.load(bytes)
+  const lines: string[] = []
+  for (const [, object] of pdf.context.enumerateIndirectObjects()) {
+    if (!(object instanceof PDFRawStream)) continue
+    const commands = new TextDecoder().decode(
+      decodePDFRawStream(object).decode(),
+    )
+    for (const match of commands.matchAll(/<([\dA-Fa-f]+)>\s*Tj/g)) {
+      lines.push(Buffer.from(match[1], 'hex').toString('latin1'))
+    }
+  }
+  return lines.join('\n')
+}
+
 describe('client portal record PDF', () => {
   it('extracts one line per frozen document node', () => {
     expect(blockSnapshotLines(recordDocument.blockSnapshot)).toEqual([
@@ -66,6 +82,106 @@ describe('client portal record PDF', () => {
     const header = new TextDecoder().decode(bytes.slice(0, 5))
     expect(header).toBe('%PDF-')
     expect(bytes.byteLength).toBeGreaterThan(500)
+  })
+
+  it('prints every immutable signature with exact evidence, never a current profile fallback', async () => {
+    const signatures = [
+      {
+        id: 'signature-historical-1',
+        revisionId: 'frozen-revision-7',
+        signerName: null,
+        signedAt: '2026-09-19T09:03:14.123456+00:00',
+        signatureMeaning: 'approve-for-record' as const,
+        integrityDigest: 'ab'.repeat(32),
+      },
+      {
+        id: 'signature-witness-2',
+        revisionId: 'frozen-revision-7',
+        signerName: 'Stored Witness Name',
+        signedAt: '2026-09-19T10:17:55.987654+00:00',
+        signatureMeaning: 'witnessed' as const,
+        integrityDigest: 'cd'.repeat(32),
+      },
+    ]
+    const text = await pdfText(
+      await renderClientPortalRecordPdf({
+        ...recordDocument,
+        approvedByName: 'Renamed Current Profile',
+        signatures,
+      }),
+    )
+    expect(text).toContain('Compare 1.5, 2.0 and 2.5 × 10^6 cells/mL.')
+    expect(text).toContain('Signer name not recorded')
+    for (const signature of signatures) {
+      expect(text).toContain(signature.id)
+      expect(text).toContain(signature.revisionId)
+      expect(text).toContain(signature.signedAt)
+      expect(text).toContain(signature.signatureMeaning)
+      expect(text).toContain(signature.integrityDigest)
+    }
+    expect(text).toContain('Stored Witness Name')
+    expect(text).not.toContain('Renamed Current Profile')
+    expect(text).not.toContain('the CDMO team')
+  })
+
+  it('does not manufacture a signature from legacy summary fields without immutable evidence', async () => {
+    const text = await pdfText(
+      await renderClientPortalRecordPdf(recordDocument),
+    )
+    expect(text).toContain('Immutable signature evidence is unavailable')
+    expect(text).not.toContain('Mei L.')
+    expect(text).not.toContain('Meaning: approve-for-record')
+  })
+
+  it('renders frozen tables and composed Sheets with their submitted values and column order', async () => {
+    const text = await pdfText(
+      await renderClientPortalRecordPdf({
+        ...recordDocument,
+        scientificTables: [
+          {
+            name: 'Submitted assay',
+            columns: [
+              { field_name: 'viability', label: 'Viability' },
+              { field_name: 'titre', label: 'Titre' },
+            ],
+            rows: [
+              { titre: 17, viability: 83 },
+              { titre: 29, viability: 71 },
+            ],
+          },
+        ],
+        sheetEvidence: [
+          {
+            blockId: 'submitted-sheet-block',
+            instanceId: 'submitted-instance',
+            instanceRevision: 4,
+            instanceState: {
+              localValues: {
+                live: { field1: 'Do not use reconstructed live values' },
+              },
+            },
+            composedGrid: {
+              columns: [
+                { id: 'field1', label: 'Sample' },
+                { id: 'field2', label: 'Yield' },
+              ],
+              rows: [
+                ['Lot A', 3.7],
+                ['Lot B', 9.2],
+              ],
+            },
+          },
+        ],
+      }),
+    )
+    expect(text).toContain('Frozen table: Submitted assay')
+    expect(text).toContain('Viability: 83 | Titre: 17')
+    expect(text).toContain('Viability: 71 | Titre: 29')
+    expect(text).toContain('Frozen Sheet: submitted-sheet-block')
+    expect(text).toContain('Instance revision: 4')
+    expect(text).toContain('Sample: Lot A | Yield: 3.7')
+    expect(text).toContain('Sample: Lot B | Yield: 9.2')
+    expect(text).not.toContain('Do not use reconstructed live values')
   })
 
   it('renders a report with sections and no signature', async () => {

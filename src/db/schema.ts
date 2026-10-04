@@ -1417,13 +1417,15 @@ export const signatures = api.table(
     recordId: uuid('record_id')
       .notNull()
       .references(() => records.id, { onDelete: 'restrict' }),
-    // approve-for-record | witness
+    // Legacy evidence retains approve-for-record/witness unchanged.
     signatureMeaning: text('signature_meaning').notNull(),
     assuranceLevel: text('assurance_level').notNull().default('standard'),
     revisionIntegrityDigest: text('revision_integrity_digest').notNull(),
     signerUserId: text('signer_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
+    // Nullable only for historical signatures, which must never be rewritten.
+    signerName: text('signer_name'),
     signerSessionId: text('signer_session_id').notNull(),
     signerRole: text('signer_role').notNull(),
     authMethod: text('auth_method').notNull(),
@@ -1438,7 +1440,7 @@ export const signatures = api.table(
   (table) => [
     check(
       'chk_signatures_meaning',
-      sql`${table.signatureMeaning} IN ('approve-for-record', 'witness')`,
+      sql`${table.signatureMeaning} IN ('approve-for-record', 'witness', 'authored', 'reviewed', 'reviewed-and-approved', 'witnessed')`,
     ),
     check(
       'chk_signatures_assurance_level',
@@ -1446,7 +1448,7 @@ export const signatures = api.table(
     ),
     check(
       'chk_signatures_auth_method',
-      sql`${table.authMethod} IN ('session+name-confirmation')`,
+      sql`${table.authMethod} IN ('session+name-confirmation', 'password')`,
     ),
     check(
       'chk_signatures_digest',
@@ -1456,9 +1458,10 @@ export const signatures = api.table(
       'chk_signatures_confirmation_phrase',
       sql`length(${table.confirmationPhrase}) BETWEEN 1 AND 200`,
     ),
-    unique('uq_signatures_submission_signer').on(
+    unique('uq_signatures_submission_signer_meaning').on(
       table.submissionId,
       table.signerUserId,
+      table.signatureMeaning,
     ),
     index('idx_signatures_submission').on(table.submissionId, table.signedAt),
     index('idx_signatures_workspace_signed').on(
@@ -1467,6 +1470,46 @@ export const signatures = api.table(
     ),
     index('idx_signatures_record').on(table.recordId, table.signedAt),
     index('idx_signatures_revision').on(table.revisionId),
+  ],
+)
+
+/** Explicit human request, pinned to the same frozen revision as its signature. */
+export const signatureWitnessRequests = api.table(
+  'signature_witness_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    submissionId: uuid('submission_id')
+      .notNull()
+      .references(() => reviewSubmissions.id, { onDelete: 'restrict' }),
+    revisionDigest: text('revision_digest').notNull(),
+    witnessUserId: text('witness_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    requestedByUserId: text('requested_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    requestedSessionId: text('requested_session_id').notNull(),
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
+  },
+  (table) => [
+    unique('uq_signature_witness_request').on(
+      table.submissionId,
+      table.witnessUserId,
+    ),
+    check(
+      'chk_signature_witness_digest',
+      sql`${table.revisionDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_signature_witness_requester',
+      sql`${table.witnessUserId} <> ${table.requestedByUserId}`,
+    ),
   ],
 )
 
@@ -5154,11 +5197,25 @@ export const userSignatureCertifications = api.table(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    statementVersion: integer('statement_version').notNull(),
-    certifiedAt: timestamp('certified_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
+    statementVersion: integer('statement_version'),
+    certifiedAt: timestamp('certified_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    identityVerifiedBy: text('identity_verified_by').references(() => user.id),
+    identityVerifiedAt: timestamp('identity_verified_at', {
+      withTimezone: true,
+    }),
+    verifiedEmail: text('verified_email'),
+    credentialSessionId: text('credential_session_id'),
+    credentialAuthorizationId: uuid('credential_authorization_id'),
+    credentialAuthorizationConsumedAt: timestamp(
+      'credential_authorization_consumed_at',
+      { withTimezone: true },
+    ),
+    certifiedSessionId: text('certified_session_id'),
+    authMethod: text('auth_method'),
   },
   (table) => [
     unique('uq_user_signature_certifications_user').on(
@@ -5171,6 +5228,83 @@ export const userSignatureCertifications = api.table(
     ),
     index('idx_user_signature_certifications_workspace').on(table.workspaceId),
   ],
+)
+
+/** Server-issued, hashed, single-use password evidence; never exposed by PostgREST. */
+export const signatureGrants = internal.table(
+  'signature_grants',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').notNull(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    purpose: text('purpose').notNull(),
+    submissionId: uuid('submission_id').references(() => reviewSubmissions.id, {
+      onDelete: 'cascade',
+    }),
+    revisionDigest: text('revision_digest'),
+    recordId: uuid('record_id').references(() => records.id, {
+      onDelete: 'cascade',
+    }),
+    signatureMeaning: text('signature_meaning'),
+    submissionArguments: jsonb('submission_arguments'),
+    authorizationId: uuid('authorization_id'),
+    authMethod: text('auth_method').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      'chk_signature_grants_purpose',
+      sql`${table.purpose} IN ('sign', 'author-submit', 'certify', 'practice', 'enroll', 'recover')`,
+    ),
+    check(
+      'chk_signature_grants_auth_method',
+      sql`${table.authMethod} = 'password'`,
+    ),
+    check(
+      'chk_signature_grants_binding',
+      sql`(${table.purpose} = 'sign' AND ${table.submissionId} IS NOT NULL AND ${table.revisionDigest} ~ '^[0-9a-f]{64}$' AND ${table.recordId} IS NULL AND ${table.submissionArguments} IS NULL) OR (${table.purpose} = 'author-submit' AND ${table.submissionId} IS NULL AND ${table.revisionDigest} ~ '^[0-9a-f]{64}$' AND ${table.recordId} IS NOT NULL AND ${table.signatureMeaning} = 'authored' AND jsonb_typeof(${table.submissionArguments}) = 'object') OR (${table.purpose} NOT IN ('sign', 'author-submit') AND ${table.submissionId} IS NULL AND ${table.revisionDigest} IS NULL AND ${table.recordId} IS NULL AND ${table.signatureMeaning} IS NULL AND ${table.submissionArguments} IS NULL)`,
+    ),
+    index('idx_signature_grants_user').on(table.userId),
+  ],
+)
+
+/** A user-wide lockout is durable across sessions, workspaces and processes. */
+export const signaturePasswordAttempts = internal.table(
+  'signature_password_attempts',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    failures: integer('failures').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
+  },
+)
+
+export const signatureAuthenticationEvents = internal.table(
+  'signature_authentication_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').notNull(),
+    event: text('event').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
 )
 
 /**

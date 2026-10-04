@@ -62,6 +62,10 @@ export type CommentPanelProps = (
   currentUserName: string
   /** Whether the viewer may write (workspace member). */
   canComment: boolean
+  /** A requested hit is focused only after the scoped read returns it. */
+  focusCommentId?: string
+  /** Historical targets may still allow replies, but not a fresh root. */
+  canCreate?: boolean
   className?: string
   /** Only a viewer's visible current/frozen context may assess availability. */
   isTargetAvailable?: (comment: CommentWire) => boolean
@@ -76,12 +80,16 @@ export function CommentPanel({
   currentUserId,
   currentUserName,
   canComment,
+  focusCommentId,
+  canCreate = true,
   className,
   isTargetAvailable,
 }: CommentPanelProps) {
   const queryClient = useQueryClient()
   const [newBody, setNewBody] = React.useState('')
   const [error, setError] = React.useState<string | null>(null)
+  const panelRef = React.useRef<HTMLElement>(null)
+  const focusedRequest = React.useRef({ key: '', applied: false })
 
   const queryKey = sheet
     ? commentsQueryKeys.forSheet(sheet.anchor.target.instanceId)
@@ -106,6 +114,23 @@ export function CommentPanel({
       commentsQuery.data ? groupCommentsIntoThreads(commentsQuery.data) : [],
     [commentsQuery.data],
   )
+
+  const focusRequest = `${queryKey.join(':')}:${focusCommentId ?? ''}`
+  React.useEffect(() => {
+    if (focusedRequest.current.key !== focusRequest)
+      focusedRequest.current = { key: focusRequest, applied: false }
+    if (!focusCommentId || focusedRequest.current.applied) return
+    if (!commentsQuery.data?.some((comment) => comment.id === focusCommentId))
+      return
+    const hit = Array.from(
+      panelRef.current?.querySelectorAll<HTMLElement>('[data-comment-id]') ??
+        [],
+    ).find((element) => element.dataset.commentId === focusCommentId)
+    if (hit) {
+      hit.focus()
+      focusedRequest.current.applied = true
+    }
+  }, [commentsQuery.data, focusCommentId, focusRequest])
 
   const createMutation = useMutation({
     mutationFn: (body: string) => {
@@ -177,6 +202,7 @@ export function CommentPanel({
 
   return (
     <section
+      ref={panelRef}
       aria-label={
         sheet
           ? 'Sheet comments'
@@ -246,7 +272,7 @@ export function CommentPanel({
         </ol>
       )}
 
-      {canComment && !recordId ? (
+      {canComment && canCreate && !recordId ? (
         <form onSubmit={handleCreate} className="space-y-2 border-t pt-3">
           <textarea
             className="min-h-[70px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"

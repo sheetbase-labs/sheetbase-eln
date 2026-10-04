@@ -3,8 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { RecordPicker } from './record-picker'
+import { toPickerItem } from './record-picker-data'
 import type * as PickerData from './record-picker-data'
 import type { PickerItem, PickerResult } from './record-picker-data'
+import { toSearchResult } from '#/lib/search'
 
 const mocks = vi.hoisted(() => {
   const sample: PickerItem = {
@@ -49,6 +51,33 @@ afterEach(() => {
 })
 
 describe('RecordPicker', () => {
+  it('never uses a comment UUID as a selectable Sample record', () => {
+    const comment = '56000000-0000-4000-8000-000000000041'
+    const owner = '56000000-0000-4000-8000-000000000042'
+    expect(
+      toPickerItem(
+        toSearchResult({
+          result_type: 'comment',
+          record_id: comment,
+          kind: 'sample',
+          identifier: 'Comment',
+          title: 'Sample evidence discussion',
+          status: 'open',
+          project_id: null,
+          archived: false,
+          created_by_user_id: 'user',
+          created_at: '2026-10-04T00:00:00Z',
+          updated_at: '2026-10-04T00:00:00Z',
+          matched_context: 'Sample evidence discussion',
+          matched_field: 'comment_body',
+          rank: '1',
+          total_count: '1',
+          deep_link: `/sheets/${owner}?commentId=${comment}`,
+        }),
+      ),
+    ).toBeNull()
+  })
+
   it('lists the results grouped by kind', async () => {
     render(<RecordPicker onPick={vi.fn()} />)
     expect(await screen.findByText('Virus stock A')).toBeTruthy()

@@ -52,6 +52,40 @@ describe('canonical navigation destinations', () => {
   it('encodes IDs without depending on display labels', () => {
     expect(recordPath('stable/id')).toBe('/records/stable%2Fid')
   })
+
+  it('keeps comment identity separate from its visible live or frozen owner', () => {
+    const comment = '56000000-0000-4000-8000-000000000041'
+    const owner = '56000000-0000-4000-8000-000000000042'
+    for (const destination of [
+      `/sheets/${owner}?commentId=${comment}`,
+      `/review/${owner}?tab=comments&commentId=${comment}`,
+    ]) {
+      expect(searchResultDestination('comment', comment, destination)).toBe(
+        destination,
+      )
+    }
+  })
+
+  it('rejects comment links with missing, foreign, mismatched or invented context', () => {
+    const comment = '56000000-0000-4000-8000-000000000041'
+    const owner = '56000000-0000-4000-8000-000000000042'
+    for (const destination of [
+      undefined,
+      `https://example.test/sheets/${owner}?commentId=${comment}`,
+      `//example.test/sheets/${owner}?commentId=${comment}`,
+      `javascript:alert(1)`,
+      `/records/${owner}?commentId=${comment}`,
+      `/sheets/A1?commentId=${comment}`,
+      `/sheets/${owner}?commentId=${owner}`,
+      `/sheets/${owner}?commentId=${comment}&projectId=${owner}`,
+      `/review/${owner}?tab=diff&commentId=${comment}`,
+      `/review/${owner}?commentId=${comment}`,
+    ]) {
+      expect(() =>
+        searchResultDestination('comment', comment, destination),
+      ).toThrow()
+    }
+  })
 })
 
 describe('object context breadcrumbs (NAV-02)', () => {

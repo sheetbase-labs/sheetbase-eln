@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
@@ -28,9 +29,15 @@ import { resolveIdentifierParam } from '#/lib/identifier-resolution'
  * with its own header, replacing the legacy useShell wrapper. The canonical
  * sheet engine is unchanged. */
 export const Route = createFileRoute('/sheets/$sheetId')({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): {
+    projectId: string | undefined
+    commentId?: string
+  } => ({
     projectId:
       typeof search.projectId === 'string' ? search.projectId : undefined,
+    commentId: z.uuid().optional().catch(undefined).parse(search.commentId),
   }),
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
@@ -47,7 +54,7 @@ export const Route = createFileRoute('/sheets/$sheetId')({
 
 function ComposedSheetRoute() {
   const { sheetId } = Route.useParams()
-  const { projectId: projectIdParam } = Route.useSearch()
+  const { projectId: projectIdParam, commentId } = Route.useSearch()
   const { context } = Route.useRouteContext()
 
   // FIND-01: this page counts as a "view" for the Recent surface.
@@ -150,6 +157,7 @@ function ComposedSheetRoute() {
             instanceId={sheetId}
             projectId={projectIdParam ?? null}
             readOnly={!projectIdParam}
+            commentId={commentId}
           />
         </CollaborationRoom>
       </div>

@@ -461,6 +461,76 @@ describe('SHEET-03 live comments use the existing PostgreSQL authority', () => {
     ).toEqual([])
   })
 
+  it('includes distinct live threads and replies in canonical search with owner links and honest counts', async () => {
+    const owner = await actor()
+    const outsider = await actor(OUTSIDER, OTHER_WORKSPACE)
+    const sheet = await instance(owner)
+    const root = await create(owner, sheet, {
+      body: 'Jaspercanonicalsearch recovery-four discussion',
+    })
+    const reply = (
+      await owner.query('SELECT api.reply_to_comment($1,$2) result', [
+        root.id,
+        'Jaspercanonicalsearch independent replication',
+      ])
+    ).rows[0].result
+    const destinations = new Map([
+      [root.id, `/sheets/${sheet.id}?commentId=${root.id}`],
+      [reply.id, `/sheets/${sheet.id}?commentId=${reply.id}`],
+    ])
+    const pages = []
+    for (const offset of [0, 1]) {
+      const hits = (
+        await owner.query(
+          `SELECT * FROM api.search(p_query=>'jaspercanonicalsearch',p_result_type=>'comment',p_limit=>1,p_offset=>$1)`,
+          [offset],
+        )
+      ).rows
+      expect(hits).toHaveLength(1)
+      expect(hits[0]).toMatchObject({
+        result_type: 'comment',
+        kind: 'comment',
+        matched_field: 'comment_body',
+        archived: false,
+        project_id: null,
+        total_count: '2',
+      })
+      expect(destinations.has(hits[0].record_id)).toBe(true)
+      expect(hits[0].deep_link).toBe(destinations.get(hits[0].record_id))
+      pages.push(hits[0].record_id)
+    }
+    expect(pages.sort()).toEqual([root.id, reply.id].sort())
+    expect(
+      (
+        await owner.query(
+          `SELECT record_id FROM api.search(p_query=>'jaspercanonicalsearch')`,
+        )
+      ).rows
+        .map((hit) => hit.record_id)
+        .sort(),
+    ).toEqual([root.id, reply.id].sort())
+    expect(
+      (
+        await outsider.query(
+          `SELECT * FROM api.search(p_query=>'jaspercanonicalsearch',p_result_type=>'comment')`,
+        )
+      ).rows,
+    ).toEqual([])
+    await owner.query('SELECT api.archive_sheet_instance($1,$2)', [
+      sheet.id,
+      sheet.revision,
+    ])
+    const archived = (
+      await owner.query(
+        `SELECT record_id,archived,total_count FROM api.search(p_query=>'jaspercanonicalsearch',p_result_type=>'comment')`,
+      )
+    ).rows
+    expect(archived).toHaveLength(2)
+    expect(
+      archived.every((hit) => hit.archived && hit.total_count === '2'),
+    ).toBe(true)
+  })
+
   it('creates row/range anchors and lists shared live threads in the actual embedding Record', async () => {
     const owner = await actor()
     const outsider = await actor(OUTSIDER, OTHER_WORKSPACE)

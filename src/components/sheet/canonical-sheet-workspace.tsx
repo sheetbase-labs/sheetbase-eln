@@ -214,10 +214,12 @@ export function CanonicalSheetWorkspace({
   instanceId,
   projectId,
   readOnly = false,
+  commentId,
 }: {
   instanceId: string
   projectId: string | null
   readOnly?: boolean
+  commentId?: string
 }) {
   const { auth } = useRouteContext({ from: '__root__' })
   const instanceQuery = useQuery({
@@ -240,10 +242,12 @@ export function CanonicalSheetWorkspace({
   }
   return (
     <CanonicalSheetEditor
+      key={instanceQuery.data.id}
       instance={instanceQuery.data}
       projectId={projectId}
       readOnly={readOnly}
       commentActor={auth}
+      commentId={commentId}
     />
   )
 }
@@ -285,11 +289,13 @@ export function CanonicalSheetEditor({
   projectId,
   readOnly = false,
   commentActor = null,
+  commentId,
 }: {
   instance: SheetInstance
   projectId: string | null
   readOnly?: boolean
   commentActor?: Pick<CurrentContext, 'user' | 'workspace'> | null
+  commentId?: string
 }) {
   const queryClient = useQueryClient()
   const instanceRef = useRef(instance)
@@ -315,6 +321,25 @@ export function CanonicalSheetEditor({
     queryFn: () => fetchCommentsForSheet(client, instance.id),
     enabled: Boolean(commentActor),
   })
+  const openedCommentRequest = useRef({ key: '', applied: false })
+  useEffect(() => {
+    const request = `${instance.id}:${commentId ?? ''}`
+    if (openedCommentRequest.current.key !== request)
+      openedCommentRequest.current = { key: request, applied: false }
+    if (!commentId || openedCommentRequest.current.applied) return
+    const hit = comments.data?.find((comment) => comment.id === commentId)
+    if (!hit) return
+    const anchor = sheetCommentAnchorSchema.safeParse({
+      targetKind: hit.target_kind,
+      target: hit.target,
+    })
+    if (!anchor.success || anchor.data.target.instanceId !== instance.id) return
+    setCommentDraft({
+      anchor: anchor.data,
+      expectedRevision: instance.revision,
+    })
+    openedCommentRequest.current.applied = true
+  }, [commentId, comments.data, instance.id, instance.revision])
   const [columnLabel, setColumnLabel] = useState('')
   const [formula, setFormula] = useState('')
   const [formulaLabel, setFormulaLabel] = useState('Calculated')
@@ -1761,9 +1786,18 @@ export function CanonicalSheetEditor({
           </p>
           <CommentPanel
             sheet={commentDraft}
+            focusCommentId={commentId}
             currentUserId={commentActor.user.id}
             currentUserName={commentActor.user.name}
             canComment={canComment}
+            canCreate={
+              commentDraft.anchor.target.rowKeys.every((id) =>
+                matrix.rowKeys.includes(id),
+              ) &&
+              commentDraft.anchor.target.fieldIds.every((id) =>
+                matrix.columns.some((column) => column.id === id),
+              )
+            }
             isTargetAvailable={(comment) => {
               const anchor = sheetCommentAnchorSchema.safeParse({
                 targetKind: comment.target_kind,

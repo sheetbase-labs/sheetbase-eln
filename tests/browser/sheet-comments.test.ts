@@ -391,6 +391,31 @@ for (const theme of ['light', 'dark']) {
       .screenshot({
         path: `.amp/in/artifacts/sheet03-unavailable-target-${theme}.png`,
       })
+    // Direct owner-link proof only. Canonical search still needs its queued SQL.
+    const reply = (
+      await admin.query(
+        'select id from api.comments where root_id=$1 and parent_id=$1',
+        [root.id],
+      )
+    ).rows[0]
+    await page.goto(`/sheets/${instance}?commentId=${reply.id}`)
+    await expect(page.locator(`[data-comment-id="${reply.id}"]`)).toBeFocused()
+    await expect(page.getByText(cellBody, { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('textbox', { name: 'New comment body' }),
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole('button', { name: 'Reply to thread' }).first(),
+    ).toBeVisible()
+    await page
+      .getByRole('complementary', { name: 'Sheet comments inspector' })
+      .screenshot({
+        path: `.amp/in/artifacts/sheet03-comment-owner-link-${theme}.png`,
+      })
+    await page.getByRole('button', { name: 'Close comments' }).click()
+    await expect(
+      page.getByRole('complementary', { name: 'Sheet comments inspector' }),
+    ).toHaveCount(0)
   })
 }
 
@@ -531,6 +556,18 @@ test('review comments use submitted cells after live edits and never rewrite fro
   ).toBe(revision.integrityDigest)
   await page.reload()
   await expect(page.getByText(body, { exact: true })).toBeVisible()
+  const frozenComment = (
+    await admin.query(
+      'select id from api.comments where revision_id=$1 and body=$2',
+      [revision.id, body],
+    )
+  ).rows[0]
+  await page.goto(
+    `/review/${revision.id}?tab=comments&commentId=${frozenComment.id}`,
+  )
+  await expect(
+    page.locator(`[data-comment-id="${frozenComment.id}"]`),
+  ).toBeFocused()
   await page.screenshot({
     path: '.amp/in/artifacts/sheet03-frozen-review-comment.png',
   })

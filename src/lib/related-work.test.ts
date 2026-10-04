@@ -136,6 +136,7 @@ describe('searchResultToRelatedKind', () => {
     expect(searchResultToRelatedKind('dataset')).toBe('dataset')
     expect(searchResultToRelatedKind('sheet')).toBe('sheet')
     expect(searchResultToRelatedKind('template')).toBe('template')
+    expect(searchResultToRelatedKind('comment')).toBeNull()
   })
 })
 

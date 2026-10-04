@@ -388,6 +388,30 @@ describe('toSearchResult', () => {
     const result = toSearchResult(wireRow({ matched_field: 'unknown_source' }))
     expect(result.matchedField).toBe('unknown_source')
   })
+
+  it('maps a persisted comment hit to its own identity and visible owner destination', () => {
+    const comment = '56000000-0000-4000-8000-000000000041'
+    const owner = '56000000-0000-4000-8000-000000000042'
+    const deepLink = `/sheets/${owner}?commentId=${comment}`
+    const result = toSearchResult(
+      wireRow({
+        result_type: 'comment',
+        record_id: comment,
+        kind: 'comment',
+        matched_field: 'comment_body',
+        deep_link: deepLink,
+      }),
+    )
+    expect(result).toMatchObject({
+      resultType: 'comment',
+      recordId: comment,
+      deepLink,
+    })
+    expect(searchResultGroup(result)).toBe('Notebook text and comments')
+    expect(matchedFieldLabel(result.matchedField)).toBe('Matched in comment')
+    expect(contextualSearchActions([result])).toEqual([])
+    expect(contextualSearchActions([{ ...result, kind: 'sample' }])).toEqual([])
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -772,6 +796,23 @@ describe('deriveSuggestions', () => {
     ]
     const suggestions = deriveSuggestions(results, 'test')
     expect(suggestions.filter((s) => s.kind === 'type')).toHaveLength(0)
+  })
+
+  it('does not offer a Record-kind filter for comment hits', () => {
+    const suggestions = deriveSuggestions(
+      [
+        searchResult({ resultType: 'record', kind: 'sample' }),
+        searchResult({
+          resultType: 'comment',
+          kind: 'comment',
+          matchedField: 'comment_body',
+        }),
+      ],
+      'recovery',
+    )
+    expect(
+      suggestions.filter((suggestion) => suggestion.kind === 'type'),
+    ).toEqual([])
   })
 
   it('limits to 6 suggestions', () => {

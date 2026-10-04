@@ -72,8 +72,12 @@ export const relatedWorkQueryKeys = {
  * Map a global-search result class onto the related-work kind space. Files
  * are file records, so they resolve through the record surface.
  */
-export function searchResultToRelatedKind(resultType: string): RelatedWorkKind {
+export function searchResultToRelatedKind(
+  resultType: string,
+): RelatedWorkKind | null {
   switch (resultType) {
+    case 'comment':
+      return null
     case 'dataset':
       return 'dataset'
     case 'sheet':

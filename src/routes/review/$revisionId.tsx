@@ -182,6 +182,7 @@ function RouteShell({
 const workspaceSearchSchema = z.object({
   tab: z.enum(['diff', 'comments', 'checks', 'history']).optional(),
   comparisonRevisionId: z.string().optional(),
+  commentId: z.uuid().optional().catch(undefined),
   signatureMeaning: z
     .enum(['reviewed', 'reviewed-and-approved', 'witnessed'])
     .optional(),
@@ -641,6 +642,7 @@ export function ReviewWorkspaceRoute() {
                   <CommentPanel
                     key={revisionId}
                     revisionId={revisionId}
+                    focusCommentId={search.commentId}
                     targetKind={commentAnchor?.targetKind ?? 'revision'}
                     target={commentAnchor?.target ?? {}}
                     currentUserId={currentUserId}

@@ -50,7 +50,7 @@ export interface SearchResultWire {
 // ---------------------------------------------------------------------------
 
 export type SearchResultType =
-  'record' | 'file' | 'dataset' | 'sheet' | 'template'
+  'record' | 'file' | 'dataset' | 'sheet' | 'template' | 'comment'
 
 /** Object classes the global search covers. */
 export const SEARCH_RESULT_TYPES = [
@@ -59,6 +59,7 @@ export const SEARCH_RESULT_TYPES = [
   'dataset',
   'sheet',
   'template',
+  'comment',
 ] as const
 
 export type MatchedField =
@@ -68,6 +69,7 @@ export type MatchedField =
   | 'status'
   | 'tags'
   | 'block_text'
+  | 'comment_body'
   | 'file_metadata'
   | 'properties'
   | 'relationship'
@@ -75,6 +77,7 @@ export type MatchedField =
 
 export interface SearchResult {
   resultType: SearchResultType
+  /** Object-class identity; comment hits carry a Comment UUID, not a Record UUID. */
   recordId: string
   kind: string
   identifier: string
@@ -152,7 +155,7 @@ export function toSearchResult(row: SearchResultWire): SearchResult {
     matchedContext: row.matched_context,
     matchedField: row.matched_field as MatchedField,
     rank: Number(row.rank),
-    deepLink: searchResultDestination(resultType, row.record_id),
+    deepLink: searchResultDestination(resultType, row.record_id, row.deep_link),
     totalCount: Number(row.total_count),
   }
 }
@@ -212,7 +215,12 @@ export function searchResultGroup(result: SearchResult): SearchResultGroup {
   if (result.resultType === 'template') return 'Templates'
   if (result.resultType === 'dataset' || result.resultType === 'sheet')
     return 'Sheet and dataset rows'
-  if (result.matchedField === 'block_text') return 'Notebook text and comments'
+  if (
+    result.resultType === 'comment' ||
+    result.matchedField === 'block_text' ||
+    result.matchedField === 'comment_body'
+  )
+    return 'Notebook text and comments'
   if (result.kind === 'sample') return 'Samples'
   return 'Records'
 }
@@ -331,7 +339,7 @@ export function contextualSearchActions(
   const actions: SearchContextAction[] = []
   const seen = new Set<string>()
   for (const result of results) {
-    if (result.kind !== 'sample') continue
+    if (result.resultType !== 'record' || result.kind !== 'sample') continue
     const id = `register-sample-${result.identifier}`
     if (seen.has(id)) continue
     seen.add(id)
@@ -454,8 +462,9 @@ export function filterSearchResults(
 export function searchResultDeepLink(
   resultType: SearchResultType,
   recordId: string,
+  ownerScopedLink?: string,
 ): string {
-  return searchResultDestination(resultType, recordId)
+  return searchResultDestination(resultType, recordId, ownerScopedLink)
 }
 
 /**
@@ -503,6 +512,7 @@ export const MATCHED_FIELD_LABELS: Record<MatchedField, string> = {
   status: 'Matched in status',
   tags: 'Matched in tags',
   block_text: 'Matched in notebook text',
+  comment_body: 'Matched in comment',
   file_metadata: 'Matched in file metadata',
   properties: 'Matched in properties',
   relationship: 'Matched in relationship',
@@ -915,6 +925,7 @@ export function deriveSuggestions(
   // 3. Type suggestions: if results span multiple kinds, offer to filter.
   const kindCounts = new Map<string, number>()
   for (const r of results) {
+    if (r.resultType === 'comment') continue
     kindCounts.set(r.kind, (kindCounts.get(r.kind) ?? 0) + 1)
   }
   if (kindCounts.size > 1) {

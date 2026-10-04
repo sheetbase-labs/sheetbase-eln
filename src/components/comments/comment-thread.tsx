@@ -102,7 +102,11 @@ function CommentRow({
   )
   const deleted = comment.author_user_id === null
   return (
-    <article className="rounded-lg border bg-surface p-3">
+    <article
+      data-comment-id={comment.id}
+      tabIndex={-1}
+      className="rounded-lg border bg-surface p-3 focus-visible:outline-2 focus-visible:outline-ring"
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-2">
           <span

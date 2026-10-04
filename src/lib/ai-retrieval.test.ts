@@ -639,6 +639,7 @@ describe('ai-retrieval contract', () => {
     expect(ref('dataset')).toBe('dataset')
     expect(ref('sheet')).toBe('sheet')
     expect(ref('template')).toBeNull()
+    expect(ref('comment')).toBeNull()
   })
 })
 

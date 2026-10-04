@@ -8,6 +8,9 @@ for (const theme of ['light', 'dark'] as const) {
   test(`registered shortcuts article and modal — ${theme}`, async ({
     page,
   }) => {
+    await page.addInitScript(() =>
+      Object.defineProperty(navigator, 'platform', { value: 'MacIntel' }),
+    )
     await visitDesignState(page, {
       screen: 'Shortcuts',
       route: '/help/shortcuts',
@@ -16,16 +19,18 @@ for (const theme of ['light', 'dark'] as const) {
       size: { width: 1440, height: 900 },
     })
     const main = page.locator('#main')
-    await expect(main.getByRole('heading', { name: 'Anywhere' })).toBeVisible()
     await expect(
-      main.getByText('Collapse or expand navigation', { exact: true }),
+      main.getByRole('heading', { name: 'Anywhere', level: 2 }),
+    ).toBeVisible()
+    await expect(
+      main.getByText('Collapse the sidebar', { exact: true }),
     ).toBeVisible()
     await expect(main.getByText('Go to Samples', { exact: true })).toBeVisible()
-    for (const absent of ['Select', 'Save the row', 'Approve and sign…']) {
-      await expect(main.getByText(absent, { exact: true })).toHaveCount(0)
+    for (const shortcut of ['Select', 'Save the row', 'Approve and sign…']) {
+      await expect(main.getByText(shortcut, { exact: true })).toBeVisible()
     }
     const palette = main
-      .getByText('Open the command palette', { exact: true })
+      .getByText('Search and jump', { exact: true })
       .locator('..')
     await expect(palette.locator('kbd')).toHaveText(['⌘', 'K'])
     await expect(
@@ -44,8 +49,22 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(dialog).toBeVisible()
     await expect(
       dialog.getByText('Go to Samples', { exact: true }),
-    ).toBeVisible()
-    await expect(dialog.getByRole('heading', { name: 'Lists' })).toHaveCount(0)
+    ).toHaveCount(0)
+    for (const heading of ['Lists', 'Notebook and sheets', 'Review']) {
+      await expect(
+        dialog.getByRole('heading', { name: heading, exact: true }),
+      ).toBeVisible()
+    }
+    for (const shortcut of ['Select', 'Save the row', 'Approve and sign…']) {
+      await expect(dialog.getByText(shortcut, { exact: true })).toBeVisible()
+    }
+    await expect(
+      dialog.getByRole('link', { name: 'Focus order' }),
+    ).toHaveAttribute('href', '/help/shortcuts#focus-order')
+    await page.screenshot({
+      path: `.amp/in/artifacts/shell03-shortcuts-${theme}.png`,
+      animations: 'disabled',
+    })
     await page.addScriptTag({
       path: createRequire(import.meta.url).resolve('axe-core'),
     })
@@ -69,7 +88,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(
       dialog.getByText('Move between rows', { exact: true }),
     ).toBeVisible()
-    await expect(dialog.getByText('Select', { exact: true })).toHaveCount(0)
+    await expect(dialog.getByText('Select', { exact: true })).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(dialog).toHaveCSS('width', '390px')
     expect(
@@ -89,10 +108,10 @@ for (const theme of ['light', 'dark'] as const) {
       }),
     })
     await expect(
-      summary.getByText('Collapse or expand navigation', { exact: true }),
+      summary.getByText('Collapse the sidebar', { exact: true }),
     ).toBeVisible()
     await expect(
-      summary.getByText('Open the command palette', { exact: true }),
+      summary.getByText('Search and jump', { exact: true }),
     ).toBeVisible()
     await expect(
       summary.getByText('Approve and sign…', { exact: true }),

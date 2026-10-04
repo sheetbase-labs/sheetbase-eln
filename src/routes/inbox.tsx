@@ -135,6 +135,7 @@ function Inbox() {
   const [type, setType] = useState<InboxType | undefined>(undefined)
   const [later, setLater] = useState(false)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [selection, setSelection] = useState<Set<string>>(() => new Set())
 
   const queryClient = useQueryClient()
   const seenQuery = useQuery({
@@ -186,6 +187,9 @@ function Inbox() {
   )
   const selected =
     orderedRows.find((i) => rowKey(i) === selectedKey) ?? orderedRows[0]
+  const selectedCount = orderedRows.filter((item) =>
+    selection.has(rowKey(item)),
+  ).length
 
   const tabCount = (t: InboxTab) =>
     items.filter((i) => itemTab(i, seen) === t).length
@@ -218,6 +222,13 @@ function Inbox() {
       rowsRef.current.at(0)
     if (item) void navigate(itemLink(item) as never)
   }, [navigate])
+  const selectCurrent = useCallback((add: boolean) => {
+    const item =
+      rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
+      rowsRef.current.at(0)
+    if (!item) return
+    setSelection((current) => new Set([...(add ? current : []), rowKey(item)]))
+  }, [])
   useShortcutScope('list')
   useRegisterShortcuts(
     useMemo(
@@ -228,12 +239,14 @@ function Inbox() {
           next: () => move(1),
           previous: () => move(-1),
           open: openSelected,
+          select: () => selectCurrent(false),
+          addToSelection: () => selectCurrent(true),
           filter: () =>
             filterRef.current
               ?.querySelector<HTMLButtonElement>('button')
               ?.focus(),
         }),
-      [move, openSelected],
+      [move, openSelected, selectCurrent],
     ),
   )
 
@@ -334,6 +347,20 @@ function Inbox() {
             </Button>
           ))}
           <span className="flex-1" />
+          {selectedCount > 0 ? (
+            <>
+              <span role="status" className="text-label text-fg-muted">
+                {selectedCount} selected
+              </span>
+              <Button
+                size="sm"
+                variant="quiet"
+                onClick={() => setSelection(new Set())}
+              >
+                Clear selection
+              </Button>
+            </>
+          ) : null}
           <span className="shrink-0 whitespace-nowrap text-label text-fg-muted max-lg:hidden">
             Sorted by due date · <Kbd>J</Kbd>/<Kbd>K</Kbd> to move
           </span>
@@ -380,37 +407,61 @@ function Inbox() {
                     {rows.map((i) => {
                       const key = rowKey(i)
                       return (
-                        <button
+                        <div
                           key={key}
-                          type="button"
                           role="listitem"
                           aria-current={selected === i ? true : undefined}
-                          onClick={() => setSelectedKey(key)}
-                          className={cn(
-                            'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_110px] items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left hover:bg-row-hover md:px-6',
-                            selected === i && 'bg-selection hover:bg-selection',
-                          )}
                         >
-                          <Status tone={toneFor(i.kind)}>
-                            {labelFor(i.kind, i.state)}
-                          </Status>
-                          <span className="min-w-0">
-                            <span className="block truncate text-body font-medium text-fg">
-                              {i.identifier ? (
-                                <span className="mono mr-1.5 font-normal text-fg-muted">
-                                  {i.identifier}
-                                </span>
-                              ) : null}
-                              {i.title}
+                          <button
+                            type="button"
+                            aria-pressed={selection.has(key)}
+                            onFocus={() => setSelectedKey(key)}
+                            onClick={(event) => {
+                              setSelectedKey(key)
+                              setSelection(
+                                (current) =>
+                                  new Set([
+                                    ...(event.ctrlKey || event.metaKey
+                                      ? current
+                                      : []),
+                                    key,
+                                  ]),
+                              )
+                            }}
+                            className={cn(
+                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_110px] items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left hover:bg-row-hover md:px-6',
+                              selected === i &&
+                                'bg-selection hover:bg-selection',
+                              selection.has(key) &&
+                                'bg-selection hover:bg-selection',
+                            )}
+                          >
+                            <Status tone={toneFor(i.kind)}>
+                              {labelFor(i.kind, i.state)}
+                            </Status>
+                            <span className="min-w-0">
+                              <span className="block truncate text-body font-medium text-fg">
+                                {i.identifier ? (
+                                  <span className="mono mr-1.5 font-normal text-fg-muted">
+                                    {i.identifier}
+                                  </span>
+                                ) : null}
+                                {i.title}
+                                {selection.has(key) ? (
+                                  <span className="ml-2 text-label text-link">
+                                    Selected
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="block truncate text-label text-fg-muted">
+                                {i.reason}
+                              </span>
                             </span>
-                            <span className="block truncate text-label text-fg-muted">
-                              {i.reason}
+                            <span className="text-right text-label text-fg-muted">
+                              {i.dueAt ? i.dueAt.slice(0, 10) : '—'}
                             </span>
-                          </span>
-                          <span className="text-right text-label text-fg-muted">
-                            {i.dueAt ? i.dueAt.slice(0, 10) : '—'}
-                          </span>
-                        </button>
+                          </button>
+                        </div>
                       )
                     })}
                   </div>

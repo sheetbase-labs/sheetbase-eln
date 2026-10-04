@@ -45,7 +45,7 @@ export function ShortcutKeys({
     <span className="whitespace-nowrap">
       {bindings.map((binding, bindingIndex) => (
         <span key={binding}>
-          {bindingIndex > 0 ? ' or ' : null}
+          {bindingIndex > 0 ? ' ' : null}
           {sequenceSteps(binding).map((step, stepIndex) => {
             const parsed = parseBinding(step, platform)
             const keys = [
@@ -73,7 +73,7 @@ export function ShortcutKeys({
   )
 }
 
-/** Only definitions registered by the mounted application are advertised. */
+/** Catalogue and live route registrations share the same definitions. */
 export function ShortcutGroups({
   definitions,
   platform,
@@ -158,20 +158,29 @@ export function ShortcutsDialog({
             <Icon name="x" size={14} />
           </DialogClose>
           <DialogPrimitive.Description className="sr-only">
-            Shortcuts available on this page. Most shortcuts are suppressed
-            while you are typing in a field.
+            All keyboard shortcuts, grouped by where they apply. Actions require
+            an applicable selection and permission. Shortcuts are suppressed
+            while typing except cancelling or saving a cell edit.
           </DialogPrimitive.Description>
         </div>
         <DialogBody>
           <ShortcutGroups
-            definitions={definitions}
+            definitions={definitions.filter(
+              (definition) => !definition.additional,
+            )}
             platform={platform}
             headingLevel={3}
           />
         </DialogBody>
         <DialogFooter className="items-center justify-between">
           <span className="text-[12px] leading-[normal] text-fg-muted">
-            On Windows, use Ctrl for ⌘ and Alt for ⌥.
+            On Windows, use Ctrl for ⌘ and Alt for ⌥.{' '}
+            <a
+              className="text-link underline"
+              href="/help/shortcuts#focus-order"
+            >
+              Focus order
+            </a>
           </span>
           <DialogClose render={<Button />}>Close</DialogClose>
         </DialogFooter>
@@ -181,9 +190,8 @@ export function ShortcutsDialog({
 }
 
 /**
- * The shell's `?` dialog. It reads the provider's live registry rather than a
- * fixed list, so scoped shortcuts registered by whichever screen is mounted
- * appear in the dialog too.
+ * The shell's `?` dialog lists the complete registry. Only mounted route
+ * handlers execute; catalogue visibility does not confer permissions.
  */
 export function RegistryShortcutsDialog({
   open,

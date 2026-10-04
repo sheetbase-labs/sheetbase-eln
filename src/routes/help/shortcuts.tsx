@@ -48,20 +48,54 @@ function Shortcuts() {
             />
           </div>
           <p className="m-0 text-body text-fg-muted">
-            Press <Kbd>?</Kbd> outside a text field to see shortcuts available
-            on the current page. Open the dialog on a list, notebook or review
-            page to see its shortcuts.
+            Press <Kbd>?</Kbd> outside a text field to see all shortcuts. Each
+            group applies in its own context, with the same permissions as its
+            buttons. While typing, only cell edit cancellation and saving remain
+            available.
           </p>
         </header>
         <ShortcutGroups
-          definitions={registry.definitions}
+          definitions={registry.definitions.filter(
+            (definition) => !definition.additional,
+          )}
           platform={os === 'mac' ? 'mac' : 'other'}
         />
+        <section className="flex flex-col gap-3">
+          <h2 className="text-title">Additional navigation shortcuts</h2>
+          <ShortcutGroups
+            definitions={registry.definitions.filter(
+              (definition) => definition.additional,
+            )}
+            platform={os === 'mac' ? 'mac' : 'other'}
+            headingLevel={3}
+          />
+        </section>
         <div>
           <Button onClick={requestShortcutsDialog}>
             Show keyboard shortcuts
           </Button>
         </div>
+        <section
+          id="focus-order"
+          className="flex scroll-mt-5 flex-col gap-2 text-body"
+        >
+          <h2 className="text-title">Focus order</h2>
+          <p>
+            Tab starts at Skip to content, then moves through the top bar,
+            navigation, page actions and tabs, content, and inspector. Arrow
+            keys move within navigation and grids.
+          </p>
+          <p>
+            Enter edits a sheet cell. Esc cancels its edit. Tab moves to the
+            next cell and leaves the grid at its boundary.
+          </p>
+          <p>
+            Overlays take focus and return it when closed. Esc closes the
+            top-most overlay. Clicking outside does not discard unsaved dialog
+            input. Signing starts in the password field and always requires
+            explicit confirmation.
+          </p>
+        </section>
       </div>
       <aside
         aria-label="About this release"

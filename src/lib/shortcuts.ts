@@ -25,6 +25,10 @@ export interface ShortcutDefinition {
   description: string
   /** Fire even while a text input or contenteditable is focused. */
   allowInInput?: boolean
+  /** Extra working bindings documented separately from the original set. */
+  additional?: boolean
+  /** Selection/focus/permission eligibility, checked before consuming a key. */
+  when?: (event: KeyboardEvent) => boolean
   /** Invoked when the binding (or completed sequence) fires. */
   handler?: (event: KeyboardEvent) => void
 }
@@ -139,8 +143,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   if (
     target.isContentEditable ||
-    target.getAttribute('contenteditable') === 'true' ||
-    target.getAttribute('contenteditable') === ''
+    target.closest('[contenteditable="true"], [contenteditable=""]')
   )
     return true
   const tag = target.tagName.toLowerCase()
@@ -163,8 +166,8 @@ export function formatShortcut(binding: string, platform: Platform): string {
   const parts: string[] = []
   if (parsed.meta) parts.push('⌘')
   if (parsed.ctrl) parts.push('Ctrl')
-  if (parsed.alt) parts.push('⌥')
-  if (parsed.shift) parts.push('⇧')
+  if (parsed.alt) parts.push(platform === 'mac' ? '⌥' : 'Alt')
+  if (parsed.shift) parts.push(platform === 'mac' ? '⇧' : 'Shift')
   const label = KEY_LABELS[parsed.key]
   const key = label ?? (parsed.key === '\\' ? '\\' : parsed.key.toUpperCase())
   parts.push(key)

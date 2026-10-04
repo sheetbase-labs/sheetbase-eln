@@ -506,49 +506,38 @@ function NotebookDocumentContent({
   // has collaboration enabled; ThreadPanel further gates on room readiness.
   const collabComments = useCollaborationEnabled()
 
-  // SHELL-03.3 — the Notebook scope. The block document registers the bindings
-  // it can honour; the sheet engine keeps its own cell keyboard model. Handlers
-  // read the current selection from state and the ordering from a ref, so the
-  // definition array is rebuilt only when the selection or read-only state
-  // changes.
-  const orderedIdsRef = React.useRef<string[]>([])
+  // Cell operations belong to SheetKeyboardShortcuts, not block navigation.
   useShortcutScope('notebook')
   useRegisterShortcuts(
-    React.useMemo(
-      () =>
-        notebookShortcuts({
-          insertBlock: () => {
-            if (isReadOnly) return
-            void handleInsert('rich_text', selectedId ?? undefined)
-          },
-          editCell: () => {
-            if (selectedId) selectAndFocus(selectedId)
-          },
-          cancelEdit: () => {
-            const active = document.activeElement
-            if (active instanceof HTMLElement) active.blur()
-            setSelectedId(null)
-            setActiveId(null)
-            updateBlockHash(null)
-          },
-          nextCell: () => {
-            const ids = orderedIdsRef.current
-            const index = selectedId ? ids.indexOf(selectedId) : -1
-            const next = ids[index + 1]
-            if (next) selectAndFocus(next)
-          },
-          commentSelection: () => {
-            if (!selectedId) return
-            document
-              .getElementById(`block-${selectedId}`)
-              ?.querySelector<HTMLButtonElement>(
-                '[aria-label^="Comments on block"]',
-              )
-              ?.click()
-          },
-        }),
-      [isReadOnly, selectedId],
-    ),
+    React.useMemo(() => {
+      const selectedBlock = () =>
+        document.activeElement?.closest('[id^="block-"]') ??
+        (selectedId ? document.getElementById(`block-${selectedId}`) : null)
+      const commentButton = () =>
+        selectedBlock()?.querySelector<HTMLButtonElement>(
+          '[data-sheet-comment-selection]:not(:disabled)',
+        ) ??
+        selectedBlock()?.querySelector<HTMLButtonElement>(
+          '[aria-label^="Comments on block"]:not(:disabled)',
+        )
+      return notebookShortcuts({
+        insertBlock: !isReadOnly
+          ? () => {
+              void handleInsert('rich_text', selectedId ?? undefined)
+            }
+          : undefined,
+        commentSelection: () => commentButton()?.click(),
+      }).map((definition) => ({
+        ...definition,
+        when: (event: KeyboardEvent) =>
+          definition.id === 'notebook-comment-selection'
+            ? Boolean(commentButton())
+            : !(
+                event.target instanceof HTMLElement &&
+                event.target.closest('[role="grid"]')
+              ),
+      }))
+    }, [isReadOnly, selectedId]),
   )
 
   // --- Sections (NOTE-02) -------------------------------------------------
@@ -597,9 +586,6 @@ function NotebookDocumentContent({
     if (!optimisticOrder) return blocks.map((b) => b.id)
     return optimisticOrder
   }, [blocks, optimisticOrder])
-  // The Notebook-scope "Next cell" handler reads the ordering from this ref.
-  orderedIdsRef.current = orderedIds
-
   const blockById = React.useMemo(() => {
     const map = new Map<string, NotebookBlockData>()
     for (const b of blocks) map.set(b.id, b)

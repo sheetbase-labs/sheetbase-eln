@@ -281,6 +281,24 @@ describe('AppShell', () => {
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
   })
 
+  it('C opens the real controlled New menu and Escape restores its trigger', async () => {
+    const { user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      children: null,
+    })
+    await user.keyboard('c')
+    expect(screen.getByRole('menu')).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: 'Experiment' })).toBeTruthy()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'New' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'New' }))
+    expect(screen.getByRole('menu')).toBeTruthy()
+  })
+
   it('opens the command palette with ⌘K and lists enabled nav items only', async () => {
     const items: AppShellNavItem[] = [
       { to: '/projects', label: 'Projects', icon: Folder },
@@ -388,6 +406,8 @@ describe('AppShell', () => {
 
   it.each([
     ['h', '/'],
+    ['i', '/inbox'],
+    ['e', '/experiments'],
     ['p', '/projects'],
     ['d', '/datasets'],
     ['s', '/sheets'],

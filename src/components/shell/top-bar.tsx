@@ -23,14 +23,20 @@ import { NotificationsBell } from '../collaboration/notifications-bell'
  * (Import data, Scan a label) are hidden until their task lands, per the
  * delivery rule that a control which does nothing is not shipped.
  */
-function NewMenu() {
+function NewMenu({
+  open,
+  onOpenChange,
+}: {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
   const items: ReadonlyArray<{ to: string; label: string }> = [
     { to: '/templates', label: 'Experiment' },
     { to: '/samples', label: 'Sample' },
     { to: '/projects', label: 'Project' },
   ]
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="primary" size="md" className="max-sm:hidden">
           <Plus className="size-4" /> New
@@ -62,6 +68,8 @@ function Kbd({ children }: { children: React.ReactNode }) {
 export function TopBarActions({
   leading,
   onOpenPalette,
+  newMenuOpen,
+  onNewMenuOpenChange,
   primaryAction,
   hasInspector,
   inspectorLabel,
@@ -72,6 +80,8 @@ export function TopBarActions({
 }: {
   leading?: React.ReactNode
   onOpenPalette: () => void
+  newMenuOpen?: boolean
+  onNewMenuOpenChange?: (open: boolean) => void
   primaryAction?: React.ReactNode
   hasInspector: boolean
   inspectorLabel: string
@@ -114,7 +124,7 @@ export function TopBarActions({
           status={liveStatus.status}
           lastAppliedSeq={liveStatus.lastAppliedSeq}
         />
-        <NewMenu />
+        <NewMenu open={newMenuOpen} onOpenChange={onNewMenuOpenChange} />
         <NotificationsBell />
 
         {primaryAction}

@@ -129,6 +129,8 @@ const INSPECTOR_COLLAPSE_KEY = 'sheetbase-inspector-collapsed'
 // SHELL-03 shortcut registry (see createGlobalShortcuts).
 const G_SEQUENCE_DESTINATIONS: GlobalShortcutDestination[] = [
   { key: 'h', to: '/', label: 'Home' },
+  { key: 'i', to: '/inbox', label: 'Inbox' },
+  { key: 'e', to: '/experiments', label: 'Experiments' },
   { key: 'p', to: '/projects', label: 'Projects' },
   { key: 'd', to: '/datasets', label: 'Datasets' },
   { key: 's', to: '/sheets', label: 'Sheets' },
@@ -539,6 +541,7 @@ export function AppShell({
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [commandOpen, setCommandOpen] = React.useState(false)
+  const [newMenuOpen, setNewMenuOpen] = React.useState(false)
   const [inspectorOpen, setInspectorOpen] = React.useState(false)
   const [inspectorCollapsed, setInspectorCollapsed] = React.useState(false)
 
@@ -615,6 +618,7 @@ export function AppShell({
       createGlobalShortcuts({
         openPalette,
         openHelp: () => setHelpOpen(true),
+        openCreate: () => setNewMenuOpen(true),
         toggleRail: toggleCollapsed,
         navigate: (to) => void navigate({ to }),
         destinations: G_SEQUENCE_DESTINATIONS,
@@ -837,6 +841,8 @@ export function AppShell({
                   </>
                 }
                 onOpenPalette={openPalette}
+                newMenuOpen={newMenuOpen}
+                onNewMenuOpenChange={setNewMenuOpen}
                 primaryAction={primaryAction}
                 hasInspector={Boolean(inspector)}
                 inspectorLabel={inspectorLabel}

@@ -29,6 +29,7 @@ export function createGlobalShortcuts(
       scope: 'global',
       keys: [`g ${destination.key}`],
       description: `Go to ${destination.label}`,
+      additional: !['h', 'i', 'e'].includes(destination.key),
       handler: () => handlers.navigate(destination.to),
     }),
   )
@@ -38,7 +39,7 @@ export function createGlobalShortcuts(
       id: 'palette',
       scope: 'global',
       keys: ['mod+k'],
-      description: 'Open the command palette',
+      description: 'Search and jump',
       handler: (event) => {
         event.preventDefault()
         handlers.openPalette()
@@ -58,11 +59,12 @@ export function createGlobalShortcuts(
           },
         ]
       : []),
+    ...navigation,
     {
       id: 'help',
       scope: 'global',
       keys: ['?'],
-      description: 'Show keyboard shortcuts',
+      description: 'Show this list',
       handler: (event) => {
         event.preventDefault()
         handlers.openHelp()
@@ -72,12 +74,11 @@ export function createGlobalShortcuts(
       id: 'toggle-rail',
       scope: 'global',
       keys: ['mod+\\'],
-      description: 'Collapse or expand navigation',
+      description: 'Collapse the sidebar',
       handler: (event) => {
         event.preventDefault()
         handlers.toggleRail()
       },
     },
-    ...navigation,
   ]
 }

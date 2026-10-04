@@ -137,6 +137,51 @@ describe('Inbox list shortcuts (SHELL-03.3)', () => {
     expect(currentRow()?.textContent).toContain('First review')
   })
 
+  it('selects with Space and adds another current row with X without moving it', () => {
+    const { getAllByRole, getByRole } = renderInbox()
+    fireEvent.keyDown(window, { key: ' ' })
+    expect(
+      getByRole('button', { name: /First review/ }).getAttribute(
+        'aria-pressed',
+      ),
+    ).toBe('true')
+    fireEvent.keyDown(window, { key: 'j' })
+    fireEvent.keyDown(window, { key: 'x' })
+    expect(
+      getByRole('button', { name: /First review/ }).getAttribute(
+        'aria-pressed',
+      ),
+    ).toBe('true')
+    expect(
+      getByRole('button', { name: /Second review/ }).getAttribute(
+        'aria-pressed',
+      ),
+    ).toBe('true')
+    expect(currentRow()?.textContent).toContain('Second review')
+    fireEvent.keyDown(window, { key: ' ' })
+    expect(
+      getByRole('button', { name: /First review/ }).getAttribute(
+        'aria-pressed',
+      ),
+    ).toBe('false')
+    expect(
+      getByRole('button', { name: /Second review/ }).getAttribute(
+        'aria-pressed',
+      ),
+    ).toBe('true')
+    expect(
+      getAllByRole('status').some(
+        (status) => status.textContent === '1 selected',
+      ),
+    ).toBe(true)
+    fireEvent.click(getByRole('button', { name: 'Clear selection' }))
+    expect(
+      getByRole('button', { name: /Second review/ }).getAttribute(
+        'aria-pressed',
+      ),
+    ).toBe('false')
+  })
+
   it('opens the selected row with Enter', () => {
     renderInbox()
     fireEvent.keyDown(window, { key: 'Enter' })

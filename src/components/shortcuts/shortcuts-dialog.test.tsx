@@ -71,7 +71,7 @@ describe('registry binding presentation', () => {
     rerender(
       <ShortcutKeys bindings={['arrowup', 'arrowdown']} platform="mac" />,
     )
-    expect(container.textContent).toBe('↑ or ↓')
+    expect(container.textContent).toBe('↑ ↓')
     rerender(<ShortcutKeys bindings={['alt+mod+m']} platform="other" />)
     expect(
       [...container.querySelectorAll('kbd')].map((key) => key.textContent),
@@ -121,7 +121,7 @@ describe('RegistryShortcutsDialog', () => {
     expect(screen.getByText('Lists')).toBeTruthy()
   })
 
-  it('drops a scoped shortcut when its screen unmounts', () => {
+  it('keeps the complete catalogue when its route unmounts', () => {
     const { rerender } = render(
       <ShortcutProvider definitions={definitions}>
         <ListScene />
@@ -134,6 +134,9 @@ describe('RegistryShortcutsDialog', () => {
         <RegistryShortcutsDialog open onOpenChange={vi.fn()} />
       </ShortcutProvider>,
     )
-    expect(screen.queryByText('Next and previous item')).toBeNull()
+    expect(screen.getByText('Next and previous item')).toBeTruthy()
+    expect(screen.getByText('Select')).toBeTruthy()
+    expect(screen.getByText('Save the row')).toBeTruthy()
+    expect(screen.getByText('Approve and sign…')).toBeTruthy()
   })
 })

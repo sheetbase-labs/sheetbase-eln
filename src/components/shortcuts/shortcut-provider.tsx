@@ -8,10 +8,11 @@ import {
   stepMatches,
 } from '#/lib/shortcuts'
 import type { ShortcutDefinition, ShortcutScope } from '#/lib/shortcuts'
+import { SCOPED_SHORTCUTS } from '#/lib/shortcut-scopes'
 
 interface ShortcutContextValue {
   scope: ShortcutScope
-  setScope: (scope: ShortcutScope) => void
+  registerScope: (id: string, scope: ShortcutScope) => () => void
   registry: ReturnType<typeof createShortcutRegistry>
   /** Register route-scoped definitions; returns an unregister function. */
   register: (id: string, definitions: ShortcutDefinition[]) => () => void
@@ -34,18 +35,31 @@ export function ShortcutProvider({
   definitions: ShortcutDefinition[]
   children: React.ReactNode
 }) {
-  const [scope, setScope] = React.useState<ShortcutScope>('global')
+  const [scopes, setScopes] = React.useState<Record<string, ShortcutScope>>({})
+  const scope = Object.values(scopes).at(-1) ?? 'global'
+  const registerScope = React.useCallback(
+    (id: string, registeredScope: ShortcutScope) => {
+      setScopes((current) => ({ ...current, [id]: registeredScope }))
+      return () =>
+        setScopes((current) => {
+          const next = { ...current }
+          delete next[id]
+          return next
+        })
+    },
+    [],
+  )
   // Route-scoped definitions (SHELL-03.3): screens register their list,
   // notebook and review shortcuts while they are mounted.
   const [scoped, setScoped] = React.useState<
     Record<string, ShortcutDefinition[]>
   >({})
   const register = React.useCallback(
-    (id: string, definitions: ShortcutDefinition[]) => {
+    (id: string, registrations: ShortcutDefinition[]) => {
       setScoped((current) =>
-        current[id] === definitions
+        current[id] === registrations
           ? current
-          : { ...current, [id]: definitions },
+          : { ...current, [id]: registrations },
       )
       return () => {
         setScoped((current) => {
@@ -58,10 +72,21 @@ export function ShortcutProvider({
     },
     [],
   )
-  const allDefinitions = React.useMemo(
-    () => [...definitions, ...Object.values(scoped).flat()],
-    [definitions, scoped],
-  )
+  const allDefinitions = React.useMemo(() => {
+    const entries = new Map(
+      [
+        ...definitions,
+        ...SCOPED_SHORTCUTS.filter(
+          (item) =>
+            !definitions.some((definition) => definition.id === item.id),
+        ),
+      ].map((definition) => [definition.id, definition]),
+    )
+    for (const definition of Object.values(scoped).flat()) {
+      entries.set(definition.id, definition)
+    }
+    return [...entries.values()]
+  }, [definitions, scoped])
   const registry = React.useMemo(
     () => createShortcutRegistry(allDefinitions),
     [allDefinitions],
@@ -84,12 +109,28 @@ export function ShortcutProvider({
     }
 
     function onKeyDown(event: KeyboardEvent) {
+      // Modal primitives own overlay keys, especially Escape. Capture gives
+      // the registered grid actions priority over the engine's different
+      // Enter behaviour; unregistered keys continue to the control normally.
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        document.querySelector(
+          '[role="dialog"][aria-modal="true"], [role="alertdialog"], [role="menu"]',
+        )
+      ) {
+        clearPending()
+        return
+      }
       const editable = isEditableTarget(event.target)
-      const active = registry.definitions.filter(
+      const active = [...definitions, ...Object.values(scoped).flat()].filter(
         (definition) =>
-          definition.scope === scope || definition.scope === 'global',
+          definition.handler &&
+          (definition.scope === scope || definition.scope === 'global') &&
+          (!editable || definition.allowInInput) &&
+          (!definition.when || definition.when(event)),
       )
-      if (editable && active.every((definition) => !definition.allowInInput)) {
+      if (active.length === 0) {
         clearPending()
         return
       }
@@ -115,6 +156,7 @@ export function ShortcutProvider({
         )
         if (candidates.length > 0) {
           event.preventDefault()
+          event.stopPropagation()
           const completed = candidates.find((definition) =>
             definition.keys.some(
               (key) =>
@@ -142,6 +184,7 @@ export function ShortcutProvider({
       )
       if (match) {
         event.preventDefault()
+        event.stopPropagation()
         match.handler?.(event)
         return
       }
@@ -155,21 +198,22 @@ export function ShortcutProvider({
       )
       if (starts.length > 0) {
         event.preventDefault()
+        event.stopPropagation()
         pending.current = { steps: [event.key], index: 1 }
         timer.current = window.setTimeout(clearPending, SEQUENCE_TIMEOUT_MS)
       }
     }
 
-    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
     return () => {
-      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keydown', onKeyDown, true)
       clearPending()
     }
-  }, [registry, scope])
+  }, [definitions, scoped, scope])
 
   const value = React.useMemo<ShortcutContextValue>(
-    () => ({ scope, setScope, registry, register }),
-    [scope, registry, register],
+    () => ({ scope, registerScope, registry, register }),
+    [scope, registerScope, registry, register],
   )
   return (
     <ShortcutContext.Provider value={value}>
@@ -180,12 +224,12 @@ export function ShortcutProvider({
 
 export function useShortcutScope(scope: ShortcutScope) {
   const context = React.useContext(ShortcutContext)
-  const setScope = context?.setScope
+  const registerScope = context?.registerScope
+  const id = React.useId()
   React.useEffect(() => {
-    if (!setScope) return
-    setScope(scope)
-    return () => setScope('global')
-  }, [setScope, scope])
+    if (!registerScope) return
+    return registerScope(id, scope)
+  }, [registerScope, id, scope])
 }
 
 /**

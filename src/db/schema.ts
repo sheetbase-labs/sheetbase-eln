@@ -1540,12 +1540,16 @@ export const comments = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'restrict' }),
-    revisionId: uuid('revision_id')
-      .notNull()
-      .references(() => revisions.id, { onDelete: 'restrict' }),
-    recordId: uuid('record_id')
-      .notNull()
-      .references(() => records.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id').references(() => revisions.id, {
+      onDelete: 'restrict',
+    }),
+    recordId: uuid('record_id').references(() => records.id, {
+      onDelete: 'restrict',
+    }),
+    sheetInstanceId: uuid('sheet_instance_id').references(
+      () => sheetInstances.id,
+      { onDelete: 'restrict' },
+    ),
     // Self for a top-level comment; the thread root for replies.
     rootId: uuid('root_id')
       .notNull()
@@ -1553,7 +1557,7 @@ export const comments = api.table(
     parentId: uuid('parent_id').references((): AnyPgColumn => comments.id, {
       onDelete: 'restrict',
     }),
-    // revision | block | table_region | diff
+    // Frozen revision targets or stable live/frozen Sheet identities.
     targetKind: text('target_kind').notNull(),
     target: jsonb('target')
       .notNull()
@@ -1581,7 +1585,11 @@ export const comments = api.table(
   (table) => [
     check(
       'chk_comments_target_kind',
-      sql`${table.targetKind} IN ('revision', 'block', 'table_region', 'diff')`,
+      sql`${table.targetKind} IN ('revision', 'block', 'table_region', 'diff', 'sheet_cell', 'sheet_row', 'sheet_range')`,
+    ),
+    check(
+      'chk_comments_anchor_owner',
+      sql`((${table.targetKind} IN ('sheet_cell', 'sheet_row', 'sheet_range') AND ${table.sheetInstanceId} IS NOT NULL) OR (${table.targetKind} IN ('revision', 'block', 'table_region', 'diff') AND ${table.sheetInstanceId} IS NULL)) AND (${table.revisionId} IS NOT NULL OR ${table.sheetInstanceId} IS NOT NULL) AND (${table.revisionId} IS NULL OR ${table.recordId} IS NOT NULL)`,
     ),
     check('chk_comments_state', sql`${table.state} IN ('open', 'resolved')`),
     check('chk_comments_body', sql`length(${table.body}) BETWEEN 1 AND 8000`),
@@ -1604,6 +1612,11 @@ export const comments = api.table(
       table.createdAt,
     ),
     index('idx_comments_record').on(table.workspaceId, table.recordId),
+    index('idx_comments_sheet').on(
+      table.workspaceId,
+      table.sheetInstanceId,
+      table.createdAt,
+    ),
     index('idx_comments_search_vector').using('gin', table.searchVector),
   ],
 )

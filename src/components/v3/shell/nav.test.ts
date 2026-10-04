@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { WORKSPACE_ADMIN_ROLES, filterNavForRole } from '#/lib/nav-visibility'
-import { primaryNav, recordNav } from './nav'
+import { isHomeSection, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 
 const MEMBER_ROLES = [
@@ -14,6 +14,17 @@ const MEMBER_ROLES = [
   'reviewer',
   'viewer',
 ]
+
+describe('Home section selection', () => {
+  it.each(['/', '/help', '/help/records', '/help/shortcuts'])(
+    'includes %s',
+    (pathname) => expect(isHomeSection(pathname)).toBe(true),
+  )
+  it.each(['/helpful', '/projects', '/inbox', '/projects/help'])(
+    'does not include %s',
+    (pathname) => expect(isHomeSection(pathname)).toBe(false),
+  )
+})
 
 describe('SHELL-01.2 main navigation', () => {
   it('keeps everyday scientific navigation visible to every member role', () => {

@@ -26,6 +26,11 @@ vi.mock('@tanstack/react-router', () => ({
   ),
   useNavigate: () => vi.fn(),
   useRouter: () => ({ invalidate: vi.fn() }),
+  useRouterState: ({
+    select,
+  }: {
+    select: (state: { location: { pathname: string } }) => unknown
+  }) => select({ location: { pathname: '/' } }),
 }))
 
 vi.mock('#/components/v3/search/search-palette', () => ({

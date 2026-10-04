@@ -52,7 +52,7 @@ async function settle(page: Page): Promise<void> {
     .catch(() => {
       /* pages without a header title settle immediately */
     })
-  await page.evaluate(() => document.fonts.ready)
+  await page.waitForFunction(() => document.fonts.status === 'loaded')
   await page.waitForTimeout(400)
 }
 
@@ -180,7 +180,11 @@ export async function visitDesignState(
     }
   }, state.theme)
 
-  if (spec.kind === 'empty' || spec.kind === 'error' || spec.kind === 'loading') {
+  if (
+    spec.kind === 'empty' ||
+    spec.kind === 'error' ||
+    spec.kind === 'loading'
+  ) {
     await interceptData(page, spec.kind)
   }
 

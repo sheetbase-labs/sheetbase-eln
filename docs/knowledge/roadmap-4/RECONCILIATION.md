@@ -103,6 +103,23 @@ the assertions. The fixture uses the migration-only internal legacy table
 constructor without reopening its revoked public API. The remaining full API
 acceptance failures are still open.
 
+HelpRecords now passes the unchanged 0.001 full-frame parity threshold in both
+themes, with its expected-failure annotations removed. The lifecycle article
+matches the reference; shared brand typography, workspace-switcher geometry,
+Home selection on help routes and navigation row geometry are corrected.
+The integrated seven-test check covers both screenshot assertions, accessible
+links, keyboard navigation and Home selection across sidebar, rail and narrow
+layouts. A new narrow regression first reproduces the package's global
+1080px body minimum, then proves the shared host reset restores a 390px body
+and document without page-wide clipping. The diagram keeps local scrolling.
+The full parity project passes 79 tests, including 70 documented expected
+failures; 72 of 252 comparisons are mapped. An earlier run passes 78 and fails
+one font wait during a second document navigation. The driver now waits for
+loaded fonts with a navigation-safe Playwright poll, without swallowing errors.
+`pnpm validate` passes 3,550 tests across 337 files, typecheck, build and lint
+with zero errors and the same 18 warnings. **DSYS-06 remains incomplete:** the
+other mapped screens still diverge and 180 comparisons remain pending.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven

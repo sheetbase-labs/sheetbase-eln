@@ -58,7 +58,7 @@ export type DesignStateSpec =
 export type DesignCauseId = 1 | 2 | 3 | 4
 
 /**
- * The four root causes behind the current mismatches. Each mapped comparison
+ * Root causes behind the current mismatches. Each mapped comparison
  * names the causes that apply, so the expected-failure annotations stay
  * actionable and this is the one place to edit when a cause is fixed.
  */
@@ -207,11 +207,13 @@ export const DESIGN_CLOCK = new Date('2026-09-25T09:40:00+01:00')
 /**
  * Root causes per mapped screen (see DESIGN_CAUSES) — only the causes that
  * still apply. Cause 1 (font cascade), cause 2 (shell chrome) and cause 4
- * (display-ID routing) are fixed, so no screen lists them; every mapped
- * screen now diverges only on the DSYS-05 seeded content (cause 3).
+ * (display-ID routing) are fixed, so no screen lists them. The original
+ * tranche lists seeded content (cause 3). HelpRecords passes the original
+ * full-frame gate in both themes and has no expected-failure annotation.
  */
 const CAUSE_BY_SCREEN: Record<string, readonly DesignCauseId[]> = {
   Main: [3],
+  HelpRecords: [],
   ClientPortal: [3],
   Projects: [3],
   ProjectDetail: [3],
@@ -256,6 +258,10 @@ const CAUSE_BY_SCREEN: Record<string, readonly DesignCauseId[]> = {
  */
 const MEASURED_BY_SCREEN: Record<string, { light: string; dark: string }> = {
   Main: { light: '0.04 (46888 px)', dark: '0.04 (45687 px)' },
+  HelpRecords: {
+    light: '0.000486806 (701 px)',
+    dark: '0.000477083 (687 px)',
+  },
   ClientPortal: { light: '0.02 (15692 px)', dark: '0.02 (14906 px)' },
   Projects: { light: '0.04 (41743 px)', dark: '0.04 (40204 px)' },
   ProjectDetail: { light: '0.03 (35525 px)', dark: '0.03 (34308 px)' },
@@ -323,11 +329,13 @@ function bothThemes(screens: readonly MappedScreen[]): DesignState[] {
       theme,
       size,
       state,
-      knownMismatch: {
-        ratio: measured[theme],
-        causes,
-        text: `known mismatch — measured ${measured[theme]} against the 0.001 gate. Causes: ${causeText}`,
-      },
+      knownMismatch: causes.length
+        ? {
+            ratio: measured[theme],
+            causes,
+            text: `known mismatch — measured ${measured[theme]} against the 0.001 gate. Causes: ${causeText}`,
+          }
+        : undefined,
     }))
   })
 }
@@ -344,6 +352,7 @@ const rec = (identifier: string): DesignStateSpec => ({
  */
 export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'Main', route: '/' },
+  { screen: 'HelpRecords', route: '/help/records' },
   { screen: 'ClientPortal', route: '/client-portal', user: 'clientAna' },
   { screen: 'Projects', route: '/projects' },
   {
@@ -514,7 +523,6 @@ export const DESIGN_PENDING: ReadonlyArray<{
     screens: [
       'Analysis',
       'AuditLog',
-      'HelpRecords',
       'HomeBench',
       'HomeFirstRun',
       'HomeTriage',

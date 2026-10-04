@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useRouter } from '@tanstack/react-router'
+import {
+  Link,
+  useNavigate,
+  useRouter,
+  useRouterState,
+} from '@tanstack/react-router'
 import { Icon } from '#/components/v3/icons'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Avatar } from '#/components/v3/ui/avatar'
@@ -37,7 +42,7 @@ import { RegistryShortcutsDialog } from '#/components/shortcuts/shortcuts-dialog
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 import type { Notification } from '#/components/v3/types'
-import { primaryNav, recordNav } from './nav'
+import { isHomeSection, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
@@ -242,6 +247,13 @@ function NavRail({
   primaryItems: NavItem[]
   recordItems: NavItem[]
 }) {
+  const homeSelected = useRouterState({
+    select: (state) => isHomeSection(state.location.pathname),
+  })
+  const selectedProps = {
+    className: 'bg-selection text-fg!',
+    'aria-current': 'page' as const,
+  }
   return (
     <nav
       aria-label="Main"
@@ -260,10 +272,10 @@ function NavRail({
               aria-label={i.label}
               activeOptions={{ exact: i.label === 'Home' }}
               className="flex size-8 shrink-0 items-center justify-center rounded-md text-fg-muted hover:bg-surface-hover hover:text-fg"
-              activeProps={{
-                className: 'bg-selection text-fg!',
-                'aria-current': 'page',
-              }}
+              activeProps={selectedProps}
+              inactiveProps={
+                i.label === 'Home' && homeSelected ? selectedProps : undefined
+              }
             >
               <Icon name={i.icon} size={16} />
             </Link>
@@ -295,6 +307,13 @@ function BottomTabs({
   onMenu: () => void
   unread: number
 }) {
+  const homeSelected = useRouterState({
+    select: (state) => isHomeSection(state.location.pathname),
+  })
+  const selectedProps = {
+    className: 'text-link!',
+    'aria-current': 'page' as const,
+  }
   const cls =
     'flex min-h-14 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-transparent text-[11px] font-medium text-fg-muted no-underline hover:text-fg hover:no-underline'
   return (
@@ -306,7 +325,8 @@ function BottomTabs({
         to="/"
         className={cls}
         activeOptions={{ exact: true }}
-        activeProps={{ className: 'text-link!', 'aria-current': 'page' }}
+        activeProps={selectedProps}
+        inactiveProps={homeSelected ? selectedProps : undefined}
       >
         <Icon name="calendar" size={22} />
         Today
@@ -367,7 +387,7 @@ function TopBar({
       />
       <Link
         to="/"
-        className="flex shrink-0 items-center gap-2 max-md:pl-1 xl:w-[208px] font-heading text-[15px] font-semibold text-fg no-underline hover:text-fg hover:no-underline"
+        className="flex shrink-0 items-center gap-2 max-md:pl-1 xl:w-[208px] font-display text-[15px] leading-[normal] font-semibold text-fg no-underline hover:text-fg hover:no-underline"
       >
         <svg
           width="20"
@@ -435,14 +455,23 @@ function WorkspaceSwitcher({
         render={
           <Button
             variant="quiet"
-            size="sm"
             aria-label="Switch workspace"
-            className="hidden max-w-52 gap-1.5 text-fg-muted sm:flex"
+            className="hidden max-w-52 gap-1.5 sm:flex"
           />
         }
       >
         <span className="truncate">{workspace?.name ?? 'No workspace'}</span>
-        <Icon name="chevronDown" size={14} />
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          aria-hidden="true"
+        >
+          <path d="M3 4.5l3 3 3-3" />
+        </svg>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[240px]">
         <DropdownMenuGroup>
@@ -669,20 +698,27 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
 }
 
 function NavLink({ item }: { item: NavItem }) {
+  const homeSelected = useRouterState({
+    select: (state) => isHomeSection(state.location.pathname),
+  })
+  const selectedProps = {
+    className: 'bg-selection font-medium hover:bg-selection',
+    'aria-current': 'page' as const,
+  }
   return (
     <Link
       {...item.link}
       activeOptions={{ exact: item.label === 'Home' }}
-      className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-lg:h-11 [&_svg]:text-fg-muted"
-      activeProps={{
-        className: 'bg-selection font-medium hover:bg-selection',
-        'aria-current': 'page',
-      }}
+      className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-lg:h-11 [&_svg]:text-fg-muted"
+      activeProps={selectedProps}
+      inactiveProps={
+        item.label === 'Home' && homeSelected ? selectedProps : undefined
+      }
     >
       <Icon name={item.icon} size={16} />
       {item.label}
       {item.count ? (
-        <span className="ml-auto text-label font-normal text-fg-muted">
+        <span className="ml-auto text-label leading-[normal] font-normal text-fg-muted">
           {item.count}
         </span>
       ) : null}
@@ -730,7 +766,7 @@ function SideNav({
       {recordItems.map((i) => (
         <NavLink key={i.label} item={withCount(i)} />
       ))}
-      <div className="shrink-0 px-2 pb-1 pt-3.5 text-label font-medium text-fg-muted">
+      <div className="shrink-0 px-2 pb-1 pt-3.5 text-label leading-[normal] font-medium text-fg-muted">
         Pinned projects
       </div>
       {pinned.map((p) => (
@@ -738,7 +774,7 @@ function SideNav({
           key={p.id}
           to="/projects/$projectId"
           params={{ projectId: p.id }}
-          className="flex min-h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
+          className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
         >
           <Dot tone={p.tone} className="mx-1" />
           {p.name}

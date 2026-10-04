@@ -20,6 +20,13 @@ export type NavItem = NavVisibility & {
   count?: string
 }
 
+/** Help belongs to Home in the canonical shell, not to a separate destination. */
+export function isHomeSection(pathname: string): boolean {
+  return (
+    pathname === '/' || pathname === '/help' || pathname.startsWith('/help/')
+  )
+}
+
 export const primaryNav: NavItem[] = [
   { label: 'Home', icon: 'home', link: { to: '/' } },
   { label: 'Inbox', icon: 'inbox', link: { to: '/inbox' } },

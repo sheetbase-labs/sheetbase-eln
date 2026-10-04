@@ -19,11 +19,6 @@ export const helpTopics: { label: string; hash?: string; text: string }[] = [
     text: 'What you can change in draft, in review and once signed.',
   },
   {
-    label: 'Revisions and history',
-    hash: 'revisions',
-    text: 'Who changed what, when, the old value and why.',
-  },
-  {
     label: 'Reviews',
     hash: 'reviews',
     text: 'What reviewers see, and returning with comments.',
@@ -32,11 +27,6 @@ export const helpTopics: { label: string; hash?: string; text: string }[] = [
     label: 'Signatures',
     hash: 'signatures',
     text: 'Meanings, password at signing, amendments.',
-  },
-  {
-    label: 'Dataset snapshots',
-    hash: 'snapshots',
-    text: 'Why signed records cite snapshots, not live tables.',
   },
 ]
 
@@ -106,25 +96,7 @@ export const helpArticles: HelpArticle[] = [
       'States, what you can change in each, and what a signature binds to.',
     link: { to: '/help/records' },
     terms:
-      'record review signature sign approve return amendment state draft locked revision snapshot',
-  },
-  {
-    id: 'revisions',
-    title: 'Revisions and history',
-    section: 'How records work',
-    summary:
-      'Every save is a revision with who, when, the old value and the reason.',
-    link: { to: '/help/records', hash: 'revisions' },
-    terms: 'revision history audit trail reason change old value',
-  },
-  {
-    id: 'snapshots',
-    title: 'Dataset snapshots',
-    section: 'How records work',
-    summary:
-      'Snapshots never change; signed records cite a snapshot, not a live table.',
-    link: { to: '/help/records', hash: 'snapshots' },
-    terms: 'snapshot dataset cite immutable removal',
+      'record review signature sign approve return amendment state draft locked revision history',
   },
   {
     id: 'shortcuts',
@@ -219,12 +191,3 @@ const topLabels = [
 export const helpTopShortcuts = shortcutGroups
   .flatMap((group) => group.items)
   .filter((item) => topLabels.includes(item.label))
-
-export const helpToc = [
-  ['states', 'Record states'],
-  ['changes', 'What you can change'],
-  ['revisions', 'Revisions and history'],
-  ['reviews', 'Reviews'],
-  ['signatures', 'Signatures'],
-  ['snapshots', 'Dataset snapshots'],
-] as const

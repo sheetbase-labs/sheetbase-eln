@@ -482,6 +482,13 @@
   line-height: 16px;
 }
 
+@layer components {
+  /* The table bundle's demo body minimum must not constrain the app shell. */
+  body {
+    min-width: 0;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

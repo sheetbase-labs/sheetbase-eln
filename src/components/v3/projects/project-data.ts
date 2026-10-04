@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { createDataClient } from '#/lib/data-client'
+import type { ChangeEventRecordWire } from '#/lib/notebook-data'
+import type { AuditEventWire } from '#/lib/audit-history'
 
 /** UI port: shared access to `project_list_summary` for the Projects area.
  * The list and the detail layout/children all read the same cached query. */
@@ -11,6 +13,7 @@ export interface ProjectSummary {
   title: string
   status: string
   displayId: string | null
+  clientId: string | null
   clientCode: string | null
   clientName: string | null
   modality: string | null
@@ -32,6 +35,7 @@ interface SummaryWire {
   title: string
   status: string
   display_id: string | null
+  client_id: string | null
   client_code: string | null
   client_name: string | null
   modality: string | null
@@ -57,6 +61,7 @@ export function toProjectSummary(row: SummaryWire): ProjectSummary {
     title: row.title,
     status: row.status,
     displayId: row.display_id,
+    clientId: row.client_id,
     clientCode: row.client_code,
     clientName: row.client_name,
     modality: row.modality,
@@ -121,6 +126,32 @@ export async function fetchProjectMembers(
   })
 }
 
+export async function fetchProjectActivity(
+  projectId: string,
+): Promise<AuditEventWire[]> {
+  const events = await projectDataClient.list<
+    ChangeEventRecordWire & { sequence: string }
+  >(
+    'change_events',
+    `?project_id=eq.${encodeURIComponent(projectId)}&order=sequence.desc&limit=3&select=id,sequence,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at`,
+  )
+  return events.map((event) => ({
+    id: event.id,
+    sequence: Number(event.sequence),
+    entityType: event.entity_type,
+    entityUuid: event.entity_uuid,
+    operation: event.operation,
+    recordId: event.record_id,
+    projectId,
+    actorUserId: event.actor_user_id,
+    actorName: null,
+    actorCredentialId: null,
+    clientId: null,
+    payload: event.payload,
+    createdAt: event.created_at,
+  }))
+}
+
 export async function fetchWorkspaceMemberIdentities(): Promise<
   WorkspaceMemberIdentity[]
 > {
@@ -132,6 +163,49 @@ export async function fetchWorkspaceMemberIdentities(): Promise<
 
 export const workspaceMemberQueryKeys = {
   identities: ['ui-port', 'workspace-members'] as const,
+}
+
+export interface ProjectDetailsInput {
+  title: string
+  clientId: string | null
+  modality: string | null
+  stage: string | null
+  leadUserId: string | null
+  defaultReviewerUserId: string | null
+  agreementReference: string | null
+  startedOn: string | null
+}
+
+function projectDetailsArgs(input: ProjectDetailsInput) {
+  return {
+    p_title: input.title.trim(),
+    p_client_id: input.clientId,
+    p_modality: input.modality,
+    p_stage: input.stage,
+    p_lead_user_id: input.leadUserId,
+    p_default_reviewer_user_id: input.defaultReviewerUserId,
+    p_agreement_reference: input.agreementReference,
+    p_started_on: input.startedOn,
+  }
+}
+
+export function createProject(input: ProjectDetailsInput) {
+  return projectDataClient.rpc<{ id: string; revision: string }>(
+    'create_project',
+    projectDetailsArgs(input),
+  )
+}
+
+/** The canonical RPC replaces all properties, so always send a full snapshot. */
+export function updateProjectDetails(
+  project: Pick<ProjectSummary, 'id' | 'revision'>,
+  input: ProjectDetailsInput,
+) {
+  return projectDataClient.rpc('update_project_details', {
+    p_project_id: project.id,
+    p_expected_revision: project.revision,
+    ...projectDetailsArgs(input),
+  })
 }
 
 /** Workspace member display names, keyed by user id. Shared by screens that
@@ -239,9 +313,15 @@ export function useProjectMilestones(projectId: string) {
     enabled: projectId.length > 0,
     staleTime: 30_000,
     queryFn: async (): Promise<ProjectMilestone[]> => {
-      const tasks = await projectDataClient.list<{ id: string }>(
+      const tasks = await projectDataClient.list<{
+        id: string
+        task_type: string
+        title: string
+        status: string
+        due_at: string | null
+      }>(
         'study_tasks',
-        `?project_id=eq.${encodeURIComponent(projectId)}&select=id`,
+        `?project_id=eq.${encodeURIComponent(projectId)}&select=id,task_type,title,status,due_at&order=due_at.asc.nullslast,id.asc`,
       )
       if (tasks.length === 0) return []
       const ids = tasks.map((t) => t.id)
@@ -257,14 +337,31 @@ export function useProjectMilestones(projectId: string) {
         )
         rows.push(...part)
       }
-      return rows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        status: r.status,
-        dueAt: r.due_at,
-        linkedRecordId: r.linked_record_id,
-        linkedRecordIdentifier: r.linked_record_identifier,
-      }))
+      return [
+        ...tasks
+          .filter((task) => task.task_type === 'milestone')
+          .map((task) => ({
+            id: task.id,
+            name: task.title,
+            status:
+              task.status === 'completed'
+                ? 'delivered'
+                : task.status === 'not_started'
+                  ? 'planned'
+                  : task.status,
+            dueAt: task.due_at,
+            linkedRecordId: null,
+            linkedRecordIdentifier: null,
+          })),
+        ...rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          status: r.status,
+          dueAt: r.due_at,
+          linkedRecordId: r.linked_record_id,
+          linkedRecordIdentifier: r.linked_record_identifier,
+        })),
+      ].sort((a, b) => (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999'))
     },
   })
 }

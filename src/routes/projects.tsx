@@ -14,6 +14,12 @@ import type {
   ProjectRow,
 } from '#/components/v3/projects/projects-page'
 import { createDataClient, DataClientError } from '#/lib/data-client'
+import {
+  createProject,
+  fetchWorkspaceMemberIdentities,
+  workspaceMemberQueryKeys,
+} from '#/components/v3/projects/project-data'
+import { hasCapability } from '#/lib/capability'
 
 /** UI port (roadmap-4/ui-app3): the Projects list from sheetbase-app-3, wired
  * to the real `project_list_summary` / `create_project` RPCs. The old ELN list
@@ -31,6 +37,8 @@ interface ProjectSummaryWire {
   modality?: string | null
   lead_user_id?: string | null
   lead_name?: string | null
+  started_on?: string | null
+  revision: string
   archived_at: string | null
   updated_at: string
   experiment_count?: number
@@ -71,6 +79,9 @@ export function toProjectRow(row: ProjectSummaryWire): ProjectRow {
     modality: row.modality ?? '—',
     stage: row.stage ?? '—',
     lead: row.lead_name ?? '—',
+    leadUserId: row.lead_user_id ?? null,
+    started: row.started_on ?? undefined,
+    revision: row.revision,
     experiments: Number(row.experiment_count ?? 0),
     status: statusOf(row.status),
     archived: row.archived_at != null,
@@ -94,6 +105,10 @@ export const Route = createFileRoute('/projects')({
       archived:
         search.archived === true || search.archived === 'true' || undefined,
       stage: typeof search.stage === 'string' ? search.stage : undefined,
+      client: typeof search.client === 'string' ? search.client : undefined,
+      modality:
+        typeof search.modality === 'string' ? search.modality : undefined,
+      fields: typeof search.fields === 'string' ? search.fields : undefined,
       sort:
         search.sort === 'id' ||
         search.sort === 'name' ||
@@ -158,16 +173,7 @@ function ProjectsIndexRoute() {
   })
 
   const create = useMutation({
-    mutationFn: async (input: {
-      title: string
-      clientId?: string
-      stage?: string
-    }) =>
-      dataClient.rpc('create_project', {
-        p_title: input.title,
-        p_client_id: input.clientId ?? null,
-        p_stage: input.stage ?? null,
-      }),
+    mutationFn: createProject,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
       void navigate({
@@ -175,6 +181,11 @@ function ProjectsIndexRoute() {
         search: (s) => ({ ...s, new: undefined }),
       })
     },
+  })
+
+  const members = useQuery({
+    queryKey: [...workspaceMemberQueryKeys.identities, context.workspace?.id],
+    queryFn: fetchWorkspaceMemberIdentities,
   })
 
   const projects = useMemo(
@@ -190,6 +201,11 @@ function ProjectsIndexRoute() {
     <ProjectsPage
       projects={projects}
       me={context.user.name}
+      meId={context.user.id}
+      canCreate={hasCapability(context.workspace?.role, 'record.create')}
+      loading={query.isLoading}
+      error={query.error ? 'Projects could not be loaded. Try again.' : null}
+      onRetry={() => void query.refetch()}
       search={search}
       setSearch={(patch) =>
         void navigate({
@@ -208,6 +224,10 @@ function ProjectsIndexRoute() {
             : null
       }
       clientOptions={clientOptions}
+      memberOptions={(members.data ?? []).map((member) => ({
+        id: member.user_id,
+        label: member.name,
+      }))}
     />
   )
 }

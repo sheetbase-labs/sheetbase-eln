@@ -16,6 +16,8 @@ export type ProjectRow = {
   modality: string
   stage: string
   lead: string
+  leadUserId?: string | null
+  revision?: string
   experiments: number
   status: { tone: Tone; label: string }
   archived?: boolean

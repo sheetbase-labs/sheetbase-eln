@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
@@ -40,7 +41,16 @@ import { SearchTabs } from './search-tabs'
 import { MobileList, stickyCol } from './mobile-list'
 import { FilterChip } from './chip'
 import { NativeSelect } from './select'
-import { stages } from './options'
+import { modalities, stages } from './options'
+import type { ProjectDetailsInput } from './project-data'
+import {
+  fetchProjectMembers,
+  fetchProjectActivity,
+  useProjectMilestones,
+  projectDataClient,
+} from './project-data'
+import { fetchRecordsForProject, notebookQueryKeys } from '#/lib/notebook-data'
+import { describeAuditEvent } from '#/lib/audit-history'
 import type { ProjectRow } from './types'
 import { cn } from '#/lib/utils'
 
@@ -63,16 +73,15 @@ export interface ProjectsSearch {
   q?: string
   archived?: boolean
   stage?: string
+  client?: string
+  modality?: string
+  fields?: string
   sort?: ProjectsSort
   group?: 'none' | 'stage' | 'lead'
   new?: boolean
 }
 
-export interface NewProjectInput {
-  title: string
-  clientId?: string
-  stage?: string
-}
+export type NewProjectInput = ProjectDetailsInput
 
 /**
  * UI port (branch roadmap-4/ui-app3): sheetbase-app-3's Projects screen, wired
@@ -82,36 +91,51 @@ export interface NewProjectInput {
 export function ProjectsPage({
   projects,
   me,
+  meId,
+  canCreate = true,
+  loading = false,
+  error = null,
+  onRetry,
   search,
   setSearch,
   onCreate,
   creating = false,
   createError = null,
   clientOptions = [],
+  memberOptions = [],
 }: {
   projects: ProjectRow[]
   me: string
+  meId?: string
+  canCreate?: boolean
+  loading?: boolean
+  error?: string | null
+  onRetry?: () => void
   search: ProjectsSearch
   setSearch: (patch: Partial<ProjectsSearch>) => void
   onCreate: (input: NewProjectInput) => void
   creating?: boolean
   createError?: string | null
   clientOptions?: { id: string; label: string }[]
+  memberOptions?: { id: string; label: string }[]
 }) {
   const tab: ProjectsTab = search.tab ?? 'all'
-  const includeArchived = !!search.archived
+  const includeArchived = tab === 'archived' || !!search.archived
   const sort: ProjectsSort = search.sort ?? 'updated'
   const group = search.group ?? 'none'
-  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const hidden = new Set(search.fields?.split(',').filter(Boolean) ?? [])
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [active, setActive] = useState<string | null>(null)
   const [draftQ, setDraftQ] = useState(search.q ?? '')
+  useEffect(() => setDraftQ(search.q ?? ''), [search.q])
 
   const inTab = (p: ProjectRow, t: ProjectsTab) =>
     t === 'all'
       ? true
       : t === 'mine'
-        ? p.lead === me
+        ? meId
+          ? p.leadUserId === meId
+          : p.lead === me
         : t === 'inprogress'
           ? p.status.tone === 'progress'
           : t === 'inreview'
@@ -127,13 +151,15 @@ export function ProjectsPage({
     (p) =>
       inTab(p, tab) &&
       matchesQ(p) &&
-      (!search.stage || p.stage === search.stage),
+      (!search.stage || p.stage === search.stage) &&
+      (!search.client || p.client === search.client) &&
+      (!search.modality || p.modality === search.modality),
   )
   const rows = base
     .filter((p) => includeArchived || !p.archived)
     .sort((a, b) =>
       sort === 'updated'
-        ? b.updated - a.updated
+        ? b.updated - a.updated || b.id.localeCompare(a.id)
         : sort === 'id'
           ? b.id.localeCompare(a.id)
           : a.name.localeCompare(b.name),
@@ -141,10 +167,15 @@ export function ProjectsPage({
   const archivedHidden = includeArchived
     ? 0
     : base.filter((p) => p.archived).length
-  const activeRow = projects.find((p) => p.id === active) ?? null
-  const filterCount = (includeArchived ? 0 : 1) + (search.stage ? 1 : 0)
+  const activeRow = rows.find((p) => p.id === active) ?? null
+  const filterCount =
+    (includeArchived ? 0 : 1) +
+    (search.stage ? 1 : 0) +
+    (search.client ? 1 : 0) +
+    (search.modality ? 1 : 0)
   const cols = [
     { key: 'client' as const, label: 'Client' },
+    { key: 'modality' as const, label: 'Modality' },
     { key: 'stage' as const, label: 'Stage' },
     { key: 'lead' as const, label: 'Lead' },
     { key: 'experiments' as const, label: 'Experiments' },
@@ -173,39 +204,87 @@ export function ProjectsPage({
               {projects.length}
             </span>
             <span className="flex-1" />
-            <Button variant="primary" onClick={() => setSearch({ new: true })}>
+            <Button
+              variant="primary"
+              disabled={!canCreate || loading}
+              onClick={() => setSearch({ new: true })}
+            >
               New project
             </Button>
           </div>
           {projects.length ? (
-            <SearchTabs
-              className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0"
-              label="Project views"
-              tabs={tabs.map((t) => ({
-                key: t,
-                label: tabLabel[t],
-                count: counts[t],
-                active: t === tab,
-                link: {
-                  to: '/projects',
-                  search: {
-                    ...search,
-                    tab: t === 'all' ? undefined : t,
-                  },
-                } as LinkProps,
-              }))}
-            />
+            <>
+              <SearchTabs
+                className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0 max-lg:hidden"
+                label="Project views"
+                tabs={tabs.map((t) => ({
+                  key: t,
+                  label: tabLabel[t],
+                  count: counts[t],
+                  active: t === tab,
+                  link: {
+                    to: '/projects',
+                    search: {
+                      ...search,
+                      tab: t === 'all' ? undefined : t,
+                    },
+                  } as LinkProps,
+                }))}
+              />
+              <div className="flex items-center gap-5 lg:hidden">
+                <SearchTabs
+                  label="Project views"
+                  tabs={tabs.slice(0, 3).map((t) => ({
+                    key: t,
+                    label: tabLabel[t],
+                    count: counts[t],
+                    active: tab === t,
+                    link: {
+                      to: '/projects',
+                      search: { ...search, tab: t === 'all' ? undefined : t },
+                    } as LinkProps,
+                  }))}
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button variant="quiet" />}>
+                    More <Icon name="chevronDown" size={12} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {tabs.slice(3).map((t) => (
+                      <DropdownMenuItem
+                        key={t}
+                        onClick={() => setSearch({ tab: t })}
+                      >
+                        {tabLabel[t]} {counts[t]}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </>
           ) : null}
         </header>
 
-        {projects.length ? (
+        {error ? (
+          <div
+            role="alert"
+            className="flex flex-col items-center gap-3 px-4 py-14 text-center"
+          >
+            <h2 className="text-doc">Projects could not be loaded</h2>
+            <p className="m-0 text-fg-muted">{error}</p>
+            <Button onClick={onRetry}>Try again</Button>
+          </div>
+        ) : loading ? (
+          <p role="status" className="px-6 py-10 text-fg-muted">
+            Loading projects…
+          </p>
+        ) : projects.length ? (
           <>
             <div className="flex items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
               <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={<Button variant="quiet" className="max-lg:hidden" />}
-                >
-                  Sort: {sorts[sort]}
+                <DropdownMenuTrigger render={<Button variant="quiet" />}>
+                  <span className="max-lg:hidden">Sort: {sorts[sort]}</span>
+                  <span className="lg:hidden">Sort</span>
                   <Icon name="chevronDown" size={12} />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-[180px]">
@@ -257,6 +336,30 @@ export function ProjectsPage({
                     >
                       {s}
                     </DropdownMenuItem>
+                  ))}
+                  {(['client', 'modality'] as const).map((field) => (
+                    <div key={field}>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>
+                        {field === 'client' ? 'Client is' : 'Modality is'}
+                      </DropdownMenuLabel>
+                      {[...new Set(projects.map((project) => project[field]))]
+                        .sort()
+                        .map((value) => (
+                          <DropdownMenuItem
+                            key={value}
+                            icon={search[field] === value ? 'check' : undefined}
+                            onClick={() =>
+                              setSearch({
+                                [field]:
+                                  search[field] === value ? undefined : value,
+                              })
+                            }
+                          >
+                            {value}
+                          </DropdownMenuItem>
+                        ))}
+                    </div>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -322,26 +425,32 @@ export function ProjectsPage({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px]">
                   <DropdownMenuLabel>Show columns</DropdownMenuLabel>
-                  {(['client', 'stage', 'lead', 'experiments'] as const).map(
-                    (k) => (
-                      <DropdownMenuItem
-                        key={k}
-                        closeOnClick={false}
-                        icon={hidden.has(k) ? undefined : 'check'}
-                        className={hidden.has(k) ? 'pl-[30px]' : ''}
-                        onClick={() =>
-                          setHidden((h) => {
-                            const n = new Set(h)
-                            if (n.has(k)) n.delete(k)
-                            else n.add(k)
-                            return n
-                          })
-                        }
-                      >
-                        {k[0].toUpperCase() + k.slice(1)}
-                      </DropdownMenuItem>
-                    ),
-                  )}
+                  {(
+                    [
+                      'client',
+                      'modality',
+                      'stage',
+                      'lead',
+                      'experiments',
+                    ] as const
+                  ).map((k) => (
+                    <DropdownMenuItem
+                      key={k}
+                      closeOnClick={false}
+                      icon={hidden.has(k) ? undefined : 'check'}
+                      className={hidden.has(k) ? 'pl-[30px]' : ''}
+                      onClick={() => {
+                        const next = new Set(hidden)
+                        if (next.has(k)) next.delete(k)
+                        else next.add(k)
+                        setSearch({
+                          fields: [...next].sort().join(',') || undefined,
+                        })
+                      }}
+                    >
+                      {k[0].toUpperCase() + k.slice(1)}
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>
@@ -388,6 +497,18 @@ export function ProjectsPage({
                     Stage is <b className="font-medium">{search.stage}</b>
                   </FilterChip>
                 ) : null}
+                {(['client', 'modality'] as const).map((field) =>
+                  search[field] ? (
+                    <FilterChip
+                      key={field}
+                      removeLabel={`Remove filter: ${field} is ${search[field]}`}
+                      onRemove={() => setSearch({ [field]: undefined })}
+                    >
+                      {field === 'client' ? 'Client' : 'Modality'} is{' '}
+                      <b className="font-medium">{search[field]}</b>
+                    </FilterChip>
+                  ) : null,
+                )}
               </div>
             ) : null}
 
@@ -433,6 +554,9 @@ export function ProjectsPage({
                     {cols.map((c) => (
                       <TableHead
                         key={c.key}
+                        className={
+                          c.key === 'modality' ? 'lg:hidden' : undefined
+                        }
                         align={c.key === 'experiments' ? 'right' : undefined}
                       >
                         {c.label}
@@ -507,6 +631,9 @@ export function ProjectsPage({
                             {cols.map((c) => (
                               <TableCell
                                 key={c.key}
+                                className={
+                                  c.key === 'modality' ? 'lg:hidden' : undefined
+                                }
                                 align={
                                   c.key === 'experiments' ? 'right' : undefined
                                 }
@@ -534,16 +661,27 @@ export function ProjectsPage({
                   includeArchived={includeArchived}
                   archivedMatches={archivedHidden}
                   onIncludeArchived={() => setSearch({ archived: true })}
-                  onClear={() => setSearch({ q: undefined, stage: undefined })}
+                  onClear={() =>
+                    setSearch({
+                      q: undefined,
+                      stage: undefined,
+                      client: undefined,
+                      modality: undefined,
+                    })
+                  }
                 />
               ) : null}
             </div>
             <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
-              <span>
+              <span className="max-lg:hidden">
                 {rows.length} {rows.length === 1 ? 'project' : 'projects'}
               </span>
+              <span className="lg:hidden">
+                {rows.length} projects · scroll sideways for all columns ·
+                project name stays pinned
+              </span>
               {archivedHidden ? (
-                <span className="max-md:hidden">
+                <span className="max-lg:hidden">
                   {archivedHidden} archived hidden by filter
                 </span>
               ) : null}
@@ -560,16 +698,22 @@ export function ProjectsPage({
       </div>
 
       {activeRow ? (
-        <ProjectPeek p={activeRow} onClose={() => setActive(null)} />
+        <ProjectPeek
+          p={activeRow}
+          meId={meId}
+          memberOptions={memberOptions}
+          onClose={() => setActive(null)}
+        />
       ) : null}
 
       <NewProjectDialog
-        open={!!search.new}
+        open={canCreate && !!search.new}
         onOpenChange={(o) => setSearch({ new: o ? true : undefined })}
         onCreate={onCreate}
         creating={creating}
         error={createError}
         clientOptions={clientOptions}
+        memberOptions={memberOptions}
       />
     </div>
   )
@@ -644,20 +788,69 @@ function EmptyProjects({ onNew }: { onNew: () => void }) {
   )
 }
 
-function ProjectPeek({ p, onClose }: { p: ProjectRow; onClose: () => void }) {
+function ProjectPeek({
+  p,
+  onClose,
+  meId,
+  memberOptions,
+}: {
+  p: ProjectRow
+  onClose: () => void
+  meId?: string
+  memberOptions: { id: string; label: string }[]
+}) {
+  const members = useQuery({
+    queryKey: ['project-members', p.uuid],
+    queryFn: () => fetchProjectMembers(p.uuid),
+  })
+  const milestones = useProjectMilestones(p.uuid)
+  const records = useQuery({
+    queryKey: notebookQueryKeys.records(p.uuid),
+    queryFn: () => fetchRecordsForProject(projectDataClient, p.uuid),
+  })
+  const activity = useQuery({
+    queryKey: ['project-activity', p.uuid],
+    queryFn: () => fetchProjectActivity(p.uuid),
+  })
+  const experiments = (records.data ?? [])
+    .filter((record) => record.kind === 'experiment')
+    .slice(0, 4)
+  const milestone = milestones.data?.find(
+    (item) => item.status !== 'delivered' && item.status !== 'cancelled',
+  )
+  const memberSummary = members.data?.length
+    ? `${members.data
+        .slice(0, 3)
+        .map((member) => member.name)
+        .join(
+          ', ',
+        )}${members.data.length > 3 ? ` +${members.data.length - 3}` : ''}`
+    : '—'
+  const date = (value: string, year = false) =>
+    new Date(value).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      ...(year ? { year: 'numeric' as const } : {}),
+      timeZone: 'UTC',
+    })
   const details: [string, React.ReactNode][] = [
-    ['ID', <span className="mono">{p.id}</span>],
     ['Client', p.client],
     ['Modality', p.modality],
     ['Stage', p.stage],
     ['Lead', p.lead],
-    ['Experiments', String(p.experiments)],
-    ...(p.milestone
-      ? [['Milestone', p.milestone] as [string, React.ReactNode]]
+    ['Members', memberSummary],
+    ['Started', p.started ? date(p.started, true) : '—'],
+    ...(milestone
+      ? [
+          [
+            'Milestone',
+            `${milestone.name}${milestone.dueAt ? ` · ${date(milestone.dueAt)}` : ''}`,
+          ] as [string, React.ReactNode],
+        ]
       : []),
   ]
   return (
-    <Inspector aria-label="Project details" className="w-[320px]">
+    <Inspector aria-label="Project details" className="w-[300px]">
       <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
         <div className="flex items-center gap-1.5">
           <span className="mono text-fg-muted">{p.id}</span>
@@ -687,6 +880,85 @@ function ProjectPeek({ p, onClose }: { p: ProjectRow; onClose: () => void }) {
       <InspectorSection title="Details">
         <DescriptionList labelWidth={112} items={details} />
       </InspectorSection>
+      <InspectorSection
+        title={
+          <span className="flex items-center gap-2">
+            Experiments{' '}
+            <span className="font-normal text-fg-muted">{p.experiments}</span>
+            <Link
+              to="/experiments"
+              search={{ q: p.name }}
+              className="ml-auto font-normal"
+            >
+              All
+            </Link>
+          </span>
+        }
+      >
+        <div className="flex flex-col gap-2">
+          {experiments.map((record) => (
+            <Link
+              key={record.id}
+              to="/records/$recordId/notebook"
+              params={{ recordId: record.id }}
+              className="flex flex-col gap-1 text-label"
+            >
+              <span>
+                <span className="mono">{record.identifier}</span> {record.title}
+              </span>
+              <span className="text-fg-muted">
+                {record.status.replaceAll('_', ' ')}
+              </span>
+            </Link>
+          ))}
+          {!experiments.length ? (
+            <span className="text-label text-fg-muted">
+              {records.isLoading
+                ? 'Loading experiments…'
+                : 'No experiments yet.'}
+            </span>
+          ) : null}
+        </div>
+      </InspectorSection>
+      <InspectorSection title="Recent activity">
+        <div className="flex flex-col gap-2 text-label">
+          {(activity.data ?? []).map((event) => {
+            const description = describeAuditEvent(event)
+            const actor =
+              event.actorUserId === meId
+                ? 'You'
+                : (memberOptions.find(
+                    (member) => member.id === event.actorUserId,
+                  )?.label ?? 'A collaborator')
+            return (
+              <div key={event.id} className="flex gap-2">
+                <time
+                  className="shrink-0 text-fg-muted"
+                  dateTime={event.createdAt}
+                >
+                  {date(event.createdAt)}
+                </time>
+                <span>
+                  {actor} {description.action} {description.subject}
+                </span>
+              </div>
+            )
+          })}
+          {!activity.data?.length ? (
+            <span className="text-fg-muted">
+              {activity.isLoading ? 'Loading activity…' : 'No recent activity.'}
+            </span>
+          ) : null}
+          {members.error ||
+          milestones.error ||
+          records.error ||
+          activity.error ? (
+            <p role="alert" className="m-0 text-danger-text">
+              Some project details could not be loaded.
+            </p>
+          ) : null}
+        </div>
+      </InspectorSection>
     </Inspector>
   )
 }
@@ -698,6 +970,7 @@ function NewProjectDialog({
   creating,
   error,
   clientOptions,
+  memberOptions,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -705,13 +978,19 @@ function NewProjectDialog({
   creating: boolean
   error: string | null
   clientOptions: { id: string; label: string }[]
+  memberOptions: { id: string; label: string }[]
 }) {
   const [title, setTitle] = useState('')
   const [clientId, setClientId] = useState('')
   const [stage, setStage] = useState('')
+  const [modality, setModality] = useState('')
+  const [lead, setLead] = useState('')
+  const [reviewer, setReviewer] = useState('')
+  const [agreement, setAgreement] = useState('')
+  const [startedOn, setStartedOn] = useState('')
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(520px,calc(100vw-32px))]">
+      <DialogContent className="w-[min(460px,calc(100vw-32px))]">
         <DialogHeader title="New project" />
         <DialogBody>
           <form
@@ -722,12 +1001,17 @@ function NewProjectDialog({
               if (!title.trim()) return
               onCreate({
                 title: title.trim(),
-                clientId: clientId || undefined,
-                stage: stage || undefined,
+                clientId: clientId || null,
+                stage: stage || null,
+                modality: modality || null,
+                leadUserId: lead || null,
+                defaultReviewerUserId: reviewer || null,
+                agreementReference: agreement || null,
+                startedOn: startedOn || null,
               })
             }}
           >
-            <Field label="Title">
+            <Field label="Name">
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -736,32 +1020,96 @@ function NewProjectDialog({
                 placeholder="e.g. Lentivector stability study"
               />
             </Field>
-            <Field label="Client">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Client">
+                <NativeSelect
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                >
+                  <option value="">Internal</option>
+                  {clientOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field label="Modality">
+                <NativeSelect
+                  value={modality}
+                  onChange={(e) => setModality(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {modalities.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field label="Stage">
+                <NativeSelect
+                  value={stage}
+                  onChange={(e) => setStage(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {stages.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field label="Lead">
+                <NativeSelect
+                  value={lead}
+                  onChange={(e) => setLead(e.target.value)}
+                >
+                  <option value="">Not assigned</option>
+                  {memberOptions.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+            </div>
+            <Field
+              label="Default reviewer"
+              hint="Reviews and signatures go to this person unless an experiment names another."
+            >
               <NativeSelect
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
+                value={reviewer}
+                onChange={(e) => setReviewer(e.target.value)}
               >
-                <option value="">Internal</option>
-                {clientOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
+                <option value="">Not assigned</option>
+                {memberOptions.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.label}
                   </option>
                 ))}
               </NativeSelect>
             </Field>
-            <Field label="Stage">
-              <NativeSelect
-                value={stage}
-                onChange={(e) => setStage(e.target.value)}
-              >
-                <option value="">—</option>
-                {stages.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </NativeSelect>
-            </Field>
+            <details>
+              <summary className="cursor-pointer text-label">
+                Agreement and start date
+              </summary>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <Field label="Agreement reference">
+                  <Input
+                    value={agreement}
+                    onChange={(e) => setAgreement(e.target.value)}
+                  />
+                </Field>
+                <Field label="Start date">
+                  <Input
+                    type="date"
+                    value={startedOn}
+                    onChange={(e) => setStartedOn(e.target.value)}
+                  />
+                </Field>
+              </div>
+            </details>
             {error ? (
               <p role="alert" className="m-0 text-label text-danger-text">
                 {error}

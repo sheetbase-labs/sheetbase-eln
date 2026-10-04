@@ -16,11 +16,14 @@ import {
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
 import { NativeSelect } from '#/components/v3/projects/select'
-import { stages } from '#/components/v3/projects/options'
+import { modalities, stages } from '#/components/v3/projects/options'
 import {
   projectDataClient,
   PROJECTS_KEY,
   useProjectSummary,
+  updateProjectDetails,
+  fetchWorkspaceMemberIdentities,
+  workspaceMemberQueryKeys,
 } from '#/components/v3/projects/project-data'
 import { DataClientError } from '#/lib/data-client'
 
@@ -47,14 +50,27 @@ function ProjectSettings() {
   const [clientId, setClientId] = useState('')
   const [stage, setStage] = useState('')
   const [agreement, setAgreement] = useState('')
+  const [modality, setModality] = useState('')
+  const [lead, setLead] = useState('')
+  const [reviewer, setReviewer] = useState('')
+  const [startedOn, setStartedOn] = useState('')
 
   useEffect(() => {
     if (!project) return
     setName(project.title)
-    setClientId('')
+    setClientId(project.clientId ?? '')
     setStage(project.stage ?? '')
     setAgreement(project.agreementReference ?? '')
+    setModality(project.modality ?? '')
+    setLead(project.leadUserId ?? '')
+    setReviewer(project.defaultReviewerUserId ?? '')
+    setStartedOn(project.startedOn ?? '')
   }, [project?.id])
+
+  const members = useQuery({
+    queryKey: [...workspaceMemberQueryKeys.identities, context.workspace?.id],
+    queryFn: fetchWorkspaceMemberIdentities,
+  })
 
   const clientsQuery = useQuery({
     queryKey: ['clients', context.workspace?.id],
@@ -66,15 +82,20 @@ function ProjectSettings() {
   })
 
   const save = useMutation({
-    mutationFn: () =>
-      projectDataClient.rpc('update_project_details', {
-        p_project_id: projectId,
-        p_expected_revision: Number(project!.revision),
-        p_title: name.trim(),
-        p_client_id: clientId || null,
-        p_stage: stage || null,
-        p_agreement_reference: agreement || null,
-      }),
+    mutationFn: () => {
+      if (!project || project.archivedAt)
+        throw new Error('An active project is required to edit details.')
+      return updateProjectDetails(project, {
+        title: name,
+        clientId: clientId || null,
+        modality: modality || null,
+        stage: stage || null,
+        leadUserId: lead || null,
+        defaultReviewerUserId: reviewer || null,
+        agreementReference: agreement || null,
+        startedOn: startedOn || null,
+      })
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
       toast('Project settings saved')
@@ -158,7 +179,10 @@ function ProjectSettings() {
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
         <Section title="Project details">
-          <div className="flex flex-col gap-3.5">
+          <fieldset
+            disabled={!!project.archivedAt || saving}
+            className="m-0 flex flex-col gap-3.5 border-0 p-0"
+          >
             <Field label="Name" required className="max-w-[520px]">
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
@@ -189,6 +213,57 @@ function ProjectSettings() {
                   ))}
                 </NativeSelect>
               </Field>
+              <Field label="Modality">
+                <NativeSelect
+                  value={modality}
+                  onChange={(e) => setModality(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {[
+                    ...new Set([
+                      ...modalities,
+                      ...(modality ? [modality] : []),
+                    ]),
+                  ].map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field label="Lead">
+                <NativeSelect
+                  value={lead}
+                  onChange={(e) => setLead(e.target.value)}
+                >
+                  <option value="">Not assigned</option>
+                  {(members.data ?? []).map((member) => (
+                    <option key={member.user_id} value={member.user_id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field label="Default reviewer">
+                <NativeSelect
+                  value={reviewer}
+                  onChange={(e) => setReviewer(e.target.value)}
+                >
+                  <option value="">Not assigned</option>
+                  {(members.data ?? []).map((member) => (
+                    <option key={member.user_id} value={member.user_id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field label="Start date">
+                <Input
+                  type="date"
+                  value={startedOn}
+                  onChange={(e) => setStartedOn(e.target.value)}
+                />
+              </Field>
             </div>
             <Field
               label="Agreement reference"
@@ -205,11 +280,11 @@ function ProjectSettings() {
                 {saveError}
               </p>
             ) : null}
-          </div>
+          </fieldset>
           <div className="mt-3 flex gap-2">
             <Button
               variant="primary"
-              disabled={saving || !name.trim()}
+              disabled={saving || !!project.archivedAt || !name.trim()}
               onClick={() => save.mutate()}
             >
               {saving ? 'Saving…' : 'Save changes'}

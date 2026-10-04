@@ -1,7 +1,13 @@
 import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { RegistryShortcutsDialog, ShortcutsDialog } from './shortcuts-dialog'
+import {
+  RegistryShortcutsDialog,
+  ShortcutGroups,
+  ShortcutKeys,
+  ShortcutsDialog,
+} from './shortcuts-dialog'
 import { ShortcutProvider, useRegisterShortcuts } from './shortcut-provider'
 import { listShortcuts } from '#/lib/shortcut-scopes'
 import type { ShortcutDefinition } from '#/lib/shortcuts'
@@ -38,6 +44,58 @@ describe('ShortcutsDialog', () => {
       />,
     )
     expect(container.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('keeps both close controls functional', async () => {
+    const change = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <ShortcutsDialog open onOpenChange={change} definitions={definitions} />,
+    )
+    const close = screen.getAllByRole('button', { name: 'Close' })
+    expect(close).toHaveLength(2)
+    await user.click(close[1])
+    expect(change).toHaveBeenCalledWith(false, expect.anything())
+  })
+})
+
+describe('registry binding presentation', () => {
+  it('distinguishes a sequence from alternative keys and converts modifiers', () => {
+    const { rerender, container } = render(
+      <ShortcutKeys bindings={['g h']} platform="mac" />,
+    )
+    expect(container.textContent).toBe('G then H')
+    expect(
+      [...container.querySelectorAll('kbd')].map((key) => key.textContent),
+    ).toEqual(['G', 'H'])
+    rerender(
+      <ShortcutKeys bindings={['arrowup', 'arrowdown']} platform="mac" />,
+    )
+    expect(container.textContent).toBe('↑ or ↓')
+    rerender(<ShortcutKeys bindings={['alt+mod+m']} platform="other" />)
+    expect(
+      [...container.querySelectorAll('kbd')].map((key) => key.textContent),
+    ).toEqual(['Ctrl', 'Alt', 'M'])
+  })
+
+  it('labels simultaneous article and dialog groups with distinct ids', () => {
+    const { container } = render(
+      <>
+        <ShortcutGroups definitions={definitions} platform="mac" />
+        <ShortcutGroups
+          definitions={definitions}
+          platform="mac"
+          headingLevel={3}
+        />
+      </>,
+    )
+    const headings = [...container.querySelectorAll('h2, h3')]
+    expect(new Set(headings.map((heading) => heading.id)).size).toBe(4)
+    for (const section of container.querySelectorAll('section')) {
+      expect(section.querySelector('h2, h3')?.id).toBe(
+        section.getAttribute('aria-labelledby'),
+      )
+    }
   })
 })
 

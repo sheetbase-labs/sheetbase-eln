@@ -152,6 +152,10 @@ and approval RPCs exist without a retained-test-file validation operation;
 approval still accepts drafts. Canonical parser settings, validation and
 failure work items remain required, not deferred.
 
+The subsequent full DB run through 0308 passes 159 suites and 1,300 tests.
+This verifies the integrated migration chain and DB contracts, not the missing
+parser-validation workflow or the historical populated upgrade at 0255.
+
 The chart API fixture now uses canonical Dataset schemas and atomic row writes.
 All ten tests pass against the integrated populated database, including frozen
 quantity metadata for hours and percentage recovery, pinned immutable schema
@@ -163,6 +167,24 @@ mutation also proves a production review defect: changing Log titer from 5.9
 to 5.7 changes frozen Sheet evidence but the existing revision diff reports no
 changes. Canonical frozen cell, calculation and check acceptance is the next
 review correction; restoring retired writes is not a solution.
+
+Shortcut help and the modal now share the live registry's binding presentation.
+The duplicate static help catalogue is removed, so help no longer advertises
+unregistered Select, Save row or combined Approve/sign actions. The modal uses
+the shared v3 Dialog and keycaps, with real current-page groups, Close/Escape
+and focus restoration. The integrated nine-test browser check passes in both
+themes, including Windows labels, key sequences, scope changes after actual
+Inbox navigation, zero dialog axe violations and a 390px document/modal.
+Inspected settled 2x captures cover the article, desktop themes and narrow
+modal. **SHELL-03 and Shortcuts parity remain open:** required Space/X, Save
+row and combined review bindings are absent; the original four-group modal
+and skeleton background are not equivalent to an actual two-group Inbox.
+No Shortcuts comparison is mapped and no annotation or threshold is changed.
+The subsequent integrated full unit run passes 3,553 tests in 337 files.
+Formatting/colour checks, lint, typecheck and production build pass; lint
+retains its 18 warnings and zero errors. The full parity project passes 81
+tests, including the unchanged 70 expected screenshot failures. Coverage stays
+72 of 252 mapped comparisons, with 180 pending.
 
 ### Earlier updates
 
@@ -662,12 +684,11 @@ Specification: [tasks/SHELL.md](tasks/SHELL.md).
 
 **Evidence:**
 
-- [`src/lib/shortcuts.ts`](../../../src/lib/shortcuts.ts):132-157 — registry exists.
-- [`src/components/shell/shell.tsx`](../../../src/components/shell/shell.tsx):789-966 — legacy shell mounts ShortcutProvider/dialog.
-- [`src/components/v3/shell/app-shell.tsx`](../../../src/components/v3/shell/app-shell.tsx):55-64 — actual v3 shell instead has ad-hoc Cmd-K keydown.
-- [`src/components/v3/search/search-palette.tsx`](../../../src/components/v3/search/search-palette.tsx):67-74 — palette installs another Cmd-K listener.
+- The v3 shell now mounts the shared provider and registry-backed dialog. Global and mounted-page bindings are registered through the existing shortcut infrastructure.
+- `src/components/shortcuts/shortcuts-dialog.tsx` supplies shared group and binding presentation to the modal and help pages. Duplicate static shortcut catalogues are removed.
+- `tests/visual/shortcuts-ui.spec.ts` proves real navigation changes scopes, Windows key labels, sequence presentation, dialog axe checks, Escape/focus return and narrow width. Both theme tests pass in integration.
 
-**Remaining:** Mount one registry for current v3 shell and migrated screens; restore global/list/notebook/review bindings and generated help, then verify input suppression/focus return.
+**Remaining:** Lists Space/X selection, explicit notebook Save row and the design's combined review action require real workflow support. Original Shortcuts modal parity remains pending; an article or incomplete current-page modal is not equivalent. Do not add no-op bindings or fake registered groups to close the exit.
 
 ### SHELL-04
 

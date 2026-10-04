@@ -1,8 +1,11 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import { shortcutGroups } from '#/components/v3/help/help-content'
+import { useShortcuts } from '#/components/shortcuts/shortcut-provider'
+import { ShortcutGroups } from '#/components/shortcuts/shortcuts-dialog'
+import { Button } from '#/components/v3/ui/button'
 import { Kbd } from '#/components/v3/ui/kbd'
 import { SegmentLinks } from '#/components/v3/projects/search-tabs'
+import { requestShortcutsDialog } from '#/lib/shortcuts-dialog'
 
 import { ReleaseCard } from '../help'
 
@@ -16,11 +19,9 @@ export const Route = createFileRoute('/help/shortcuts')({
   component: Shortcuts,
 })
 
-const win: Record<string, string> = { '⌘': 'Ctrl', '⌥': 'Alt', '⇧': 'Shift' }
-
 function Shortcuts() {
   const { os = 'mac' } = Route.useSearch()
-  const key = (k: string) => (os === 'windows' ? (win[k] ?? k) : k)
+  const { registry } = useShortcuts()
   return (
     <div className="grid max-w-[1164px] grid-cols-1 gap-8 px-4 pb-10 pt-5 md:px-8 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="flex min-w-0 flex-col gap-5">
@@ -47,50 +48,19 @@ function Shortcuts() {
             />
           </div>
           <p className="m-0 text-body text-fg-muted">
-            Press <Kbd>?</Kbd> anywhere to see this list. Shortcuts never sign
-            or submit on their own; they open the dialog that asks.
+            Press <Kbd>?</Kbd> outside a text field to see shortcuts available
+            on the current page. Open the dialog on a list, notebook or review
+            page to see its shortcuts.
           </p>
         </header>
-        <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
-          {shortcutGroups.map((g) => (
-            <section key={g.title} aria-labelledby={`sc-${g.title}`}>
-              <h2 id={`sc-${g.title}`} className="mb-1 text-section">
-                {g.title}
-              </h2>
-              <dl className="m-0">
-                {g.items.map((it) => (
-                  <div
-                    key={it.label}
-                    className="flex min-h-9 items-center justify-between gap-3 border-b border-border-subtle text-body last:border-b-0"
-                  >
-                    <dt>{it.label}</dt>
-                    <dd className="m-0 flex shrink-0 items-center gap-1">
-                      {it.keys.map((combo, i) => (
-                        <span key={i} className="flex items-center gap-1">
-                          {i ? (
-                            <span className="text-label text-fg-muted">
-                              {it.keys.length === 2 &&
-                              it.label.startsWith('Go to')
-                                ? 'then'
-                                : 'or'}
-                            </span>
-                          ) : null}
-                          {combo.map((k) => (
-                            <Kbd
-                              key={k}
-                              className="min-w-5 px-1.5 py-0.5 text-center text-[11px]"
-                            >
-                              {key(k)}
-                            </Kbd>
-                          ))}
-                        </span>
-                      ))}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          ))}
+        <ShortcutGroups
+          definitions={registry.definitions}
+          platform={os === 'mac' ? 'mac' : 'other'}
+        />
+        <div>
+          <Button onClick={requestShortcutsDialog}>
+            Show keyboard shortcuts
+          </Button>
         </div>
       </div>
       <aside

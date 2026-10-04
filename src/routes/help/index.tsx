@@ -5,9 +5,10 @@ import {
   helpArticles,
   guides,
   helpFlow,
-  helpTopShortcuts,
   helpTopics,
 } from '#/components/v3/help/help-content'
+import { useShortcuts } from '#/components/shortcuts/shortcut-provider'
+import { ShortcutKeys } from '#/components/shortcuts/shortcuts-dialog'
 import { Button } from '#/components/v3/ui/button'
 import { Badge } from '#/components/v3/ui/badge'
 import { Dot, Status } from '#/components/v3/ui/status'
@@ -80,6 +81,10 @@ const RELEASE_NOTES: {
 function HelpCentre() {
   const { q = '' } = Route.useSearch()
   const navigate = Route.useNavigate()
+  const { registry } = useShortcuts()
+  const topShortcuts = registry
+    .inScope('global')
+    .filter((definition) => !definition.id.startsWith('go-'))
   const help = useHelp()
   const [query, setQuery] = useState(q)
   const term = q.trim().toLowerCase()
@@ -290,32 +295,19 @@ function HelpCentre() {
             }
           >
             <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
-              {helpTopShortcuts.map((s) => (
+              {topShortcuts.map((s) => (
                 <div
-                  key={s.label}
+                  key={s.id}
                   className="flex items-center justify-between gap-3 border-b border-border-subtle py-1.5 text-body"
                 >
-                  <span>{s.label}</span>
-                  <span className="flex items-center gap-1">
-                    {s.keys.map((k, i) => (
-                      <span key={i} className="flex items-center gap-1">
-                        {i ? (
-                          <span className="text-label text-fg-muted">then</span>
-                        ) : null}
-                        {k.map((x) => (
-                          <Kbd key={x} className="text-[11px]">
-                            {x}
-                          </Kbd>
-                        ))}
-                      </span>
-                    ))}
-                  </span>
+                  <span>{s.description}</span>
+                  <ShortcutKeys bindings={s.keys} platform="mac" />
                 </div>
               ))}
             </div>
             <p className="m-0 text-label text-fg-muted">
-              Press <Kbd>?</Kbd> anywhere to see them all. On Windows, use Ctrl
-              for ⌘ and Alt for ⌥.
+              Press <Kbd>?</Kbd> outside a text field to see this page’s
+              shortcuts. On Windows, use Ctrl for ⌘ and Alt for ⌥.
             </p>
           </Section>
 

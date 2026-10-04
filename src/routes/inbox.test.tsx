@@ -64,9 +64,25 @@ vi.mock('#/lib/work-items/data', async (importOriginal) => {
   return { ...actual, useWorkItems: () => ({ data: items, isLoading: false }) }
 })
 
+const witnessItem: WorkItem = {
+  kind: 'witness_requested',
+  recordId: 'live-record-1',
+  revisionId: 'frozen-revision-2',
+  identifier: 'EXP-0003',
+  title: 'Witness target',
+  projectId: 'project-1',
+  reason: 'Witness requested for the frozen revision',
+  dueAt: '2026-10-03T11:00:00.000Z',
+  state: 'overdue',
+  createdAt: null,
+  sourceType: 'signature_witness_request',
+  sourceId: 'witness-request-3',
+}
+
 afterEach(() => {
   cleanup()
   navigate.mockReset()
+  items.splice(2)
 })
 
 function renderInbox() {
@@ -88,6 +104,43 @@ function renderInbox() {
 function currentRow() {
   return document.querySelector('[role="listitem"][aria-current]')
 }
+
+describe('Inbox witness presentation (REV-02)', () => {
+  it('uses the exact frozen revision and preserves the witness request identity', () => {
+    expect(itemLink(witnessItem)).toEqual({
+      to: '/review/$revisionId',
+      params: { revisionId: 'frozen-revision-2' },
+      search: { signatureMeaning: 'witnessed' },
+    })
+    expect(rowKey(witnessItem)).toBe('witness-request-3')
+    expect(itemKey(witnessItem)).toBe('witness_requested:witness-request-3')
+  })
+
+  it.each([undefined, null])(
+    'does not infer a frozen revision from the live record when revisionId is %s',
+    (revisionId) => {
+      expect(itemLink({ ...witnessItem, revisionId })).toEqual({ to: '/inbox' })
+    },
+  )
+
+  it('lists actionable witnesses in Reviews with review tone and opens the exact signing target', () => {
+    items.push(witnessItem)
+    const { getByRole, queryByRole } = renderInbox()
+    fireEvent.click(getByRole('button', { name: /^Reviews 2$/ }))
+    const row = getByRole('button', { name: /Witness target/ })
+    expect(row.textContent).toContain('Witness requested')
+    expect(row.querySelector('[data-slot="status"] .bg-review')).not.toBeNull()
+    fireEvent.click(row)
+    fireEvent.keyDown(window, { key: 'Enter' })
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/review/$revisionId',
+      params: { revisionId: 'frozen-revision-2' },
+      search: { signatureMeaning: 'witnessed' },
+    })
+    fireEvent.click(getByRole('tab', { name: /^Following/ }))
+    expect(queryByRole('button', { name: /Witness target/ })).toBeNull()
+  })
+})
 
 describe('Inbox list shortcuts (SHELL-03.3)', () => {
   it('uses exact failure source identities and actionable parser/connector targets', () => {

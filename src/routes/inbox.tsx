@@ -44,7 +44,8 @@ export const Route = createFileRoute('/inbox')({
 })
 
 function kindToType(kind: WorkItemKind): InboxType {
-  if (kind === 'review_requested') return 'reviews'
+  if (kind === 'review_requested' || kind === 'witness_requested')
+    return 'reviews'
   if (kind === 'data_issue') return 'data'
   if (kind === 'run_failed') return 'runs'
   if (kind === 'material_expiring') return 'materials'
@@ -52,7 +53,8 @@ function kindToType(kind: WorkItemKind): InboxType {
 }
 
 function toneFor(kind: WorkItemKind): Tone {
-  if (kind === 'review_requested') return 'review'
+  if (kind === 'review_requested' || kind === 'witness_requested')
+    return 'review'
   if (kind === 'data_issue') return 'bad'
   if (kind === 'run_failed') return 'bad'
   if (kind === 'material_expiring') return 'warn'
@@ -60,6 +62,7 @@ function toneFor(kind: WorkItemKind): Tone {
 }
 
 function labelFor(kind: WorkItemKind, state: string): string {
+  if (kind === 'witness_requested') return 'Witness requested'
   if (state === 'overdue') return 'Overdue'
   if (kind === 'review_requested') return 'Review'
   if (kind === 'data_issue') return 'Data issue'
@@ -104,6 +107,14 @@ function itemTab(item: WorkItem, seen: Set<string>): InboxTab {
 }
 
 export function itemLink(item: WorkItem) {
+  if (item.kind === 'witness_requested')
+    return item.revisionId
+      ? {
+          to: '/review/$revisionId' as const,
+          params: { revisionId: item.revisionId },
+          search: { signatureMeaning: 'witnessed' as const },
+        }
+      : { to: '/inbox' as const }
   if (item.sourceType === 'connector_run' && item.connectorId)
     return {
       to: '/settings/integrations/$connectorId' as const,

@@ -267,14 +267,62 @@ validation and expanded stored results. Parent `pnpm validate` passes 3,588
 tests across 341 files with the current tracker present, zero lint errors,
 18 existing warnings, typecheck and build.
 
-Signing preparation closes public password verification/change/reset paths,
-including valid-token reset callbacks, while preserving trusted Better Auth
-server APIs. Fifteen auth-session DB tests pass. SMTP now requires verified
-TLS 1.2 or later with no plaintext fallback; its declared Nodemailer dependency
-passes frozen installation and eight tests, including real local handshake
-success and insecure-handshake rejection. **REV-03 remains open:** token-gated
-signing, independent verification/certification, durable lockout and governed
-enrolment/recovery are not implemented by these preparations.
+Migrations 0314–0315 now require independent owner/admin identity verification,
+current password-backed certification and a five-minute single-use signing
+grant bound to user, session, workspace, purpose, submission and revision
+digest. Better Auth verifies credentials; three consecutive failures commit a
+durable user-wide 15-minute lockout. Practice consumes a grant without storing
+a record signature. Signing dialogs require password re-entry and show the
+signer, meaning, revision and full hash. Historical signatures and
+self-certifications remain stored, but old certification does not satisfy the
+new signing gate.
+
+Enrolment and recovery require independent verification of the current email
+and session, followed by immediate secure out-of-band delivery. Only the secret
+hash is stored. Recovery spends the authorisation before native Better Auth
+credential replacement and revokes old sessions and grants. Public password
+verification/change/reset paths remain closed, including valid-token reset
+callbacks. SMTP requires verified TLS 1.2 or later with no plaintext fallback.
+
+Parent integration independently passes seven signing/auth/governance/upgrade
+DB suites with 66 tests, and twelve Dataset/review/migration DB suites with 76
+tests. Canonical REV/SCI API acceptance passes 22 tests on fresh and populated
+databases through 0315; the full fresh API run passes 134 tests across sixteen
+suites. Session-only signing and practice-token replay receive explicit denials;
+signed canonical evidence remains frozen after permitted live edits. Five
+SMTP/UI suites pass 55 tests, including eight real local handshake tests.
+Parent `pnpm validate` passes 3,595 tests across 342 files with the current
+tracker present, zero lint errors, 18 existing warnings, typecheck and build.
+The populated local database upgrades through 0315 and generation reports no
+schema drift. Integrated settings and delivered controlled signing renders
+were inspected at wide and narrow widths.
+
+The design seed's stale certification/signing calls are repaired through
+native Better Auth fixture credentials, independent Fixture Owner verification
+and handler-issued password grants. No grant is inserted directly and no
+historical signature is rewritten. Two DB suites pass five tests, including
+six actual CLI runs covering fresh and interrupted approved-but-unsigned
+states with two reseeds each. Reseeds preserve revisions, signatures,
+certification, workflows, proposals, policies, grants, authentication events
+and the credential hash. The populated parent seed completes all 43 steps;
+canonical REV/SCI API acceptance then passes all 22 tests again. This disposable
+fixture setup does not establish product enrolment or identity acceptance.
+
+**REV-03 remains open.** Production SMTP/IdP acceptance and formal signature
+screen parity are not established. These checks do not close REV-02's expanded
+meanings or REV-05's hash-chain and nightly verification requirements.
+
+The 4 October authority checkpoint through migration 0325 independently passes
+143 API tests and 66 database tests across seven suites. Native signing passes
+both browser cases with effective project View required for witness selection.
+These checks do not establish full task completion. The current design seed
+passes custody and Dataset linking but stops at the Analysis citation in
+`seedDesignResults`: the structured-link resolver does not yet support
+`analysis_views`. Fresh seed, reseed, Home acceptance and dependent visual
+acceptance remain open. Canonical comment search also remains an executed
+database failure, because `api.search` rejects the `comment` result filter.
+The earlier complete-seed evidence above belongs to the pre-0323 checkpoint,
+not the current authority contract.
 
 **DSET-06 remains open.** PostgreSQL extraction has no retained-file-equivalent
 validator and fails closed. Legacy provenance is not fabricated. Production

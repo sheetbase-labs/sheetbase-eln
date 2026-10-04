@@ -1,9 +1,27 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ProjectsPage } from './projects-page'
 import type { ProjectsSearch } from './projects-page'
 import type { ProjectRow } from './types'
+import type { ProjectActivityEvent } from './project-data'
+import type * as ProjectData from './project-data'
+import type * as NotebookData from '#/lib/notebook-data'
+
+const { activity } = vi.hoisted(() => ({
+  activity: vi.fn<() => Promise<ProjectActivityEvent[]>>(async () => []),
+}))
+vi.mock('./project-data', async (importOriginal) => ({
+  ...(await importOriginal<typeof ProjectData>()),
+  fetchProjectActivity: activity,
+  fetchProjectMembers: async () => [],
+  useProjectMilestones: () => ({ data: [] }),
+}))
+vi.mock('#/lib/notebook-data', async (importOriginal) => ({
+  ...(await importOriginal<typeof NotebookData>()),
+  fetchRecordsForProject: async () => [],
+}))
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
@@ -48,6 +66,68 @@ function renderPage(
 }
 
 describe('ProjectsPage', () => {
+  it('renders current record identity and distinguishes null, unresolved and known actors', async () => {
+    const event = {
+      id: 'event-1',
+      sequence: 1,
+      createdAt: '2026-10-04T10:00:00Z',
+      entityType: 'record',
+      entityUuid: '00000000-record-1',
+      operation: 'update',
+      recordId: '00000000-record-1',
+      projectId: 'project-1',
+      actorUserId: null,
+      actorName: null,
+      actorCredentialId: null,
+      clientId: null,
+      payload: {},
+      currentActorName: null,
+      currentRecord: {
+        id: '00000000-record-1',
+        identifier: 'SMP-23',
+        title: 'Harvest lot',
+      },
+    }
+    activity.mockResolvedValueOnce([
+      event,
+      { ...event, id: 'event-2', actorUserId: 'removed', currentRecord: null },
+      {
+        ...event,
+        id: 'event-3',
+        actorUserId: 'priya',
+        currentActorName: 'Priya',
+      },
+    ])
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <ProjectsPage
+          projects={[row()]}
+          me="Gareth"
+          search={{}}
+          setSearch={() => {}}
+          onCreate={() => {}}
+        />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show details for AAV9 process transfer',
+      }),
+    )
+    expect(await screen.findByText(/No recorded actor updated/)).toBeTruthy()
+    expect(
+      screen.getByText(/Unknown actor updated Record 00000000/),
+    ).toBeTruthy()
+    expect(screen.getByText(/Priya updated/)).toBeTruthy()
+    expect(screen.getAllByTitle('Current record identity')).toHaveLength(2)
+    expect(screen.getAllByText('SMP-23 · Harvest lot')).toHaveLength(2)
+    expect(screen.queryByText(/A collaborator/)).toBeNull()
+  })
+
   it('renders the design columns and tab counts', () => {
     renderPage([
       row(),

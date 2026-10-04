@@ -83,4 +83,92 @@ describe('canonical typed project callers', () => {
       ),
     )
   })
+
+  it('resolves current readable identities separately without rewriting historical evidence', async () => {
+    const payload = {
+      title: 'Historical title',
+      changes: { status: { to: 'done' } },
+    }
+    const event = {
+      id: 'event-1',
+      sequence: '17',
+      entity_type: 'record',
+      entity_uuid: 'record-1',
+      operation: 'update',
+      record_id: 'record-1',
+      actor_user_id: 'actor-1',
+      payload,
+      created_at: '2026-10-04T10:00:00Z',
+    }
+    list
+      .mockResolvedValueOnce([
+        event,
+        {
+          ...event,
+          id: 'event-2',
+          entity_uuid: 'record-2',
+          actor_user_id: null,
+        },
+        {
+          ...event,
+          id: 'event-3',
+          entity_uuid: 'record-3',
+          actor_user_id: 'removed-actor',
+        },
+      ])
+      .mockResolvedValueOnce([
+        { id: 'record-2', identifier: 'SMP-23', title: 'Harvest lot' },
+        { id: 'record-1', identifier: 'EXP-17', title: 'Current title' },
+      ])
+    rpc.mockResolvedValue([
+      { user_id: 'actor-1', name: 'Priya', role: 'scientist' },
+    ])
+    const result = await fetchProjectActivity('project-1')
+    expect(list).toHaveBeenLastCalledWith(
+      'records',
+      '?project_id=eq.project-1&id=in.(record-1,record-2,record-3)&select=id,identifier,title',
+    )
+    expect(rpc).toHaveBeenCalledWith('workspace_members_list', {})
+    expect(result[0]).toMatchObject({
+      currentActorName: 'Priya',
+      actorName: null,
+      currentRecord: {
+        id: 'record-1',
+        identifier: 'EXP-17',
+        title: 'Current title',
+      },
+    })
+    expect(result[0].payload).toBe(payload)
+    expect(result[1]).toMatchObject({
+      currentActorName: null,
+      actorUserId: null,
+      currentRecord: {
+        id: 'record-2',
+        identifier: 'SMP-23',
+        title: 'Harvest lot',
+      },
+    })
+    expect(result[2]).toMatchObject({
+      currentActorName: null,
+      currentRecord: null,
+    })
+  })
+
+  it('does not broaden readable identity lookup when the server denies it', async () => {
+    list
+      .mockResolvedValueOnce([
+        {
+          id: 'event-1',
+          sequence: '17',
+          entity_type: 'record',
+          entity_uuid: 'record-1',
+          actor_user_id: null,
+          payload: {},
+        },
+      ])
+      .mockRejectedValueOnce(new Error('Denied'))
+    await expect(fetchProjectActivity('project-1')).rejects.toThrow('Denied')
+    expect(list).toHaveBeenCalledTimes(2)
+    expect(rpc).not.toHaveBeenCalled()
+  })
 })

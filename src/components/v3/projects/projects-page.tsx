@@ -925,11 +925,13 @@ function ProjectPeek({
           {(activity.data ?? []).map((event) => {
             const description = describeAuditEvent(event)
             const actor =
-              event.actorUserId === meId
+              event.actorUserId && event.actorUserId === meId
                 ? 'You'
-                : (memberOptions.find(
+                : (event.currentActorName ??
+                  memberOptions.find(
                     (member) => member.id === event.actorUserId,
-                  )?.label ?? 'A collaborator')
+                  )?.label ??
+                  (event.actorUserId ? 'Unknown actor' : 'No recorded actor'))
             return (
               <div key={event.id} className="flex gap-2">
                 <time
@@ -939,7 +941,15 @@ function ProjectPeek({
                   {date(event.createdAt)}
                 </time>
                 <span>
-                  {actor} {description.action} {description.subject}
+                  {actor} {description.action}{' '}
+                  {event.currentRecord ? (
+                    <span title="Current record identity">
+                      {event.currentRecord.identifier} ·{' '}
+                      {event.currentRecord.title}
+                    </span>
+                  ) : (
+                    description.subject
+                  )}
                 </span>
               </div>
             )

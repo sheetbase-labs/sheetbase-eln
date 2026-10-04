@@ -126,15 +126,38 @@ export async function fetchProjectMembers(
   })
 }
 
+export interface ProjectActivityEvent extends AuditEventWire {
+  currentActorName: string | null
+  currentRecord: { id: string; identifier: string; title: string } | null
+}
+
 export async function fetchProjectActivity(
   projectId: string,
-): Promise<AuditEventWire[]> {
+): Promise<ProjectActivityEvent[]> {
   const events = await projectDataClient.list<
     ChangeEventRecordWire & { sequence: string }
   >(
     'change_events',
     `?project_id=eq.${encodeURIComponent(projectId)}&order=sequence.desc&limit=3&select=id,sequence,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at`,
   )
+  const recordIds = events
+    .filter((event) => event.entity_type === 'record')
+    .map((event) => event.entity_uuid)
+  const [actors, records] = await Promise.all([
+    events.some((event) => event.actor_user_id)
+      ? fetchWorkspaceMemberIdentities()
+      : Promise.resolve([]),
+    recordIds.length
+      ? projectDataClient.list<{
+          id: string
+          identifier: string
+          title: string
+        }>(
+          'records',
+          `?project_id=eq.${encodeURIComponent(projectId)}&id=in.(${recordIds.map(encodeURIComponent).join(',')})&select=id,identifier,title`,
+        )
+      : Promise.resolve([]),
+  ])
   return events.map((event) => ({
     id: event.id,
     sequence: Number(event.sequence),
@@ -149,6 +172,11 @@ export async function fetchProjectActivity(
     clientId: null,
     payload: event.payload,
     createdAt: event.created_at,
+    currentActorName:
+      actors.find((actor) => actor.user_id === event.actor_user_id)?.name ??
+      null,
+    currentRecord:
+      records.find((record) => record.id === event.entity_uuid) ?? null,
   }))
 }
 

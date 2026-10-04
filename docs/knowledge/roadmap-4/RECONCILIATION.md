@@ -44,6 +44,22 @@ files pass focused ESLint. Separately running `pnpm typecheck`, `pnpm test`
 and `pnpm build` succeeds, with all 3,537 unit tests passing after the slice.
 The full validation exit is therefore still unmet.
 
+The inherited lint corrections subsequently restore `pnpm validate` on the
+continuation branch: formatting, colour checks, typecheck, all 3,537 unit
+tests, and the production build pass. ESLint reports zero errors and the
+same 18 warnings. The corrections preserve missing-value guards, model
+partial key maps accurately, and remove directives for an unconfigured rule.
+No lint rules or domain contracts changed.
+
+Broader acceptance is still open. `pnpm test:db` passes 157 suites and 1,275
+tests, but `dataset-version-compare.test.ts` fails during fixture setup
+because its system flag omits the required `system_rule` provenance.
+`pnpm test:api` reports nine failed suites, seven passed suites, 89 passed
+tests, ten failed tests, and 34 skipped tests. Failures include obsolete
+fixture permissions, guarded evidence cleanup, record-model fixture creation,
+and a formula test hardcoded to a historical seeded table. These failures
+are not covered by the passing unit or visual checks.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven

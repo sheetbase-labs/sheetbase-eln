@@ -715,7 +715,7 @@ export class ReferencePicker {
 }
 
 /** Arrow-key deltas for keyboard reference picking. */
-const ARROW_DELTAS: Record<string, { row: number; col: number }> = {
+const ARROW_DELTAS: Partial<Record<string, { row: number; col: number }>> = {
   ArrowUp: { row: -1, col: 0 },
   ArrowDown: { row: 1, col: 0 },
   ArrowLeft: { row: 0, col: -1 },

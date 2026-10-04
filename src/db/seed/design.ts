@@ -4538,7 +4538,7 @@ const CLARIFICATION_SHEET_ROWS: ReadonlyArray<
 function designSheetState(input: {
   name: string
   fields: ReadonlyArray<ReturnType<typeof designSheetField>>
-  rows: ReadonlyArray<Record<string, string | number | null>>
+  rows: ReadonlyArray<Partial<Record<string, string | number | null>>>
 }): Record<string, unknown> {
   const localValues: Record<string, Record<string, unknown>> = {}
   for (const row of input.rows) {
@@ -4778,7 +4778,7 @@ async function seedDesignReviewLifecycle(
            ) as result`,
           [target.recordId, sourceDigest, target.reviewerIds, key, null],
         )
-        const result = submitted.rows[0]?.result
+        const result = submitted.rows.at(0)?.result
         if (!result) throw new Error(`submit failed for ${target.identifier}`)
         return {
           submissionId: result.submission.id,
@@ -5358,7 +5358,7 @@ async function seedDesignClientPortal(
         ),
       )
       .limit(1)
-  )[0]
+  ).at(0)
   if (!clientRow) return
 
   // The client users are portal viewers, not internal viewers.

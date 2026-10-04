@@ -1042,20 +1042,15 @@ export function CanonicalSheetEditor({
       })
     },
     // persistPresentation reads refs and the query client only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
 
   // GRID-04: persist the new column order as stable column IDs. The wrapper
   // resets its own visual index map afterwards (`resetColumnOrderOnChange`),
   // so the rebuilt rows already carry the persisted order.
-  const handleColumnOrderChange = useCallback(
-    (columnIds: string[]) => {
-      void persistPresentation({ columnOrder: columnIds })
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  )
+  const handleColumnOrderChange = useCallback((columnIds: string[]) => {
+    void persistPresentation({ columnOrder: columnIds })
+  }, [])
 
   // GRID-04: sorting and filtering are visual only; the wrapper owns the
   // engine conversion, the caller persists stable ids and skips identical
@@ -1070,21 +1065,16 @@ export function CanonicalSheetEditor({
       void persistPresentation({ sorts })
     },
     // persistPresentation reads refs and the query client only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
-  const handleFiltersChange = useCallback(
-    (filters: SheetbaseGridFilter[]) => {
-      if (
-        JSON.stringify(filters) ===
-        JSON.stringify(instanceRef.current.state.presentation.filters)
-      )
-        return
-      void persistPresentation({ filters })
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  )
+  const handleFiltersChange = useCallback((filters: SheetbaseGridFilter[]) => {
+    if (
+      JSON.stringify(filters) ===
+      JSON.stringify(instanceRef.current.state.presentation.filters)
+    )
+      return
+    void persistPresentation({ filters })
+  }, [])
 
   // GRID-03: editing a record-picker cell opens the shared Record picker
   // scoped to the column's own relationship target.
@@ -1155,7 +1145,7 @@ export function CanonicalSheetEditor({
         label: 'Hide selected columns',
         disabled: () => !canWrite,
         onSelect: (context) => {
-          const range = context.ranges[0]
+          const range = context.ranges.at(0)
           if (!range || range.columnIds.length === 0) return
           const hidden = new Set(
             instanceRef.current.state.presentation.hiddenColumnIds,

@@ -97,8 +97,8 @@ vi.mock('#/lib/samples', () => ({
       ? consumes.reduce((sum, e) => sum + Math.abs(e.quantityDelta ?? 0), 0)
       : null
     const creates = events.filter((e) => e.operation === 'create')
-    const created = creates[creates.length - 1]
-    const latest = consumes[0]
+    const created = creates.at(-1)
+    const latest = consumes.at(0)
     return {
       registered:
         created?.quantityAfter ??

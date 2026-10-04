@@ -14,9 +14,12 @@ import {
   newFileObjectId,
   OversizeError,
 } from '#/lib/file-storage'
-import { parseImportBytes } from '#/lib/import-parse'
+import {
+  IMPORT_LIMITS,
+  parseImportBytes,
+  sniffImportFormat,
+} from '#/lib/import-parse'
 import type { ImportPreview, ImportSheet } from '#/lib/import-parse'
-import { IMPORT_LIMITS, sniffImportFormat } from '#/lib/import-parse'
 import { mapImportSheet } from '#/lib/import-mapping'
 import type {
   ImportColumnMapping,
@@ -26,11 +29,11 @@ import type {
 import {
   postgrestRpc,
   postgrestSelect,
+  realSessionAuthDeps,
   requestErrorResponse,
   resolveSessionAuth,
 } from '#/lib/request-auth'
 import type { SessionAuthDeps } from '#/lib/request-auth'
-import { realSessionAuthDeps } from '#/lib/request-auth'
 import { IMPORT_PARSERS, recogniseImportParser } from './parsers'
 import type { ImportParserDefinition } from './parsers'
 import type {
@@ -476,13 +479,11 @@ async function readHeadText(
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
-    if (value) {
-      chunks.push(value)
-      size += value.byteLength
-      if (size >= cap) {
-        await reader.cancel()
-        break
-      }
+    chunks.push(value)
+    size += value.byteLength
+    if (size >= cap) {
+      await reader.cancel()
+      break
     }
   }
   const buffer = new Uint8Array(Math.min(size, cap))

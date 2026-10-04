@@ -12,6 +12,8 @@ export interface ImportTargetField {
   logicalType: string
   nullable: boolean
   options?: Array<{ id: string; key?: string; label: string }>
+  /** DSET-05.3 — the Schema field's unit, shown in the map step. */
+  unit?: string | null
   /** Dataset field UUID vs Record model field name / title. */
   kind: 'dataset-field' | 'record-field' | 'record-title' | 'record-status'
 }
@@ -75,8 +77,17 @@ export function datasetFieldsFromColumns(
       logicalType: column.logical_type,
       nullable: column.nullable,
       options: column.options,
-      kind: 'dataset-field',
+      unit: columnUnit(column.unit),
+      kind: 'dataset-field' as const,
     }))
+}
+
+/** Read a display unit from a Schema field's quantity metadata. */
+function columnUnit(quantity: unknown): string | null {
+  if (!quantity || typeof quantity !== 'object') return null
+  const record = quantity as Record<string, unknown>
+  const unit = record.storageUnit ?? record.symbol ?? record.unit
+  return typeof unit === 'string' && unit.trim() ? unit.trim() : null
 }
 
 export function recordFieldsFromModel(

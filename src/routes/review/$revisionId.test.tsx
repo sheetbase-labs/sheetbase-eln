@@ -65,9 +65,15 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
-vi.mock('@tanstack/react-start', () => ({
-  createServerFn: () => ({ handler: () => vi.fn() }),
-}))
+vi.mock('@tanstack/react-start', () => {
+  // The route imports server functions that chain `.middleware()`/`.validator()`
+  // at module scope; the mock must stay chainable or the import throws.
+  const chain: Record<string, unknown> = {}
+  chain.middleware = () => chain
+  chain.validator = () => chain
+  chain.handler = () => vi.fn()
+  return { createServerFn: () => chain }
+})
 
 vi.mock('@tanstack/react-start/server', () => ({
   getRequestHeaders: () => ({}),

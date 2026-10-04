@@ -1405,7 +1405,11 @@ const DESIGN_SAMPLES = [
     title: 'LVV harvest H-22',
     status: 'consumed',
     customFields: { construct: 'LVV', batch: 'H-22' },
-    properties: { sampleType: 'Viral harvest', quantity: 0, quantityUnit: 'mL' },
+    properties: {
+      sampleType: 'Viral harvest',
+      quantity: 0,
+      quantityUnit: 'mL',
+    },
   },
   {
     id: '00000000-0000-4000-8000-00000000036d',

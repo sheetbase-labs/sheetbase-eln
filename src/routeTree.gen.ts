@@ -81,6 +81,9 @@ import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
+import { Route as ApiImportCommitRouteImport } from './routes/api/import/commit'
+import { Route as ApiImportFilesRouteImport } from './routes/api/import/files'
+import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
@@ -504,6 +507,21 @@ const ApiHealthReadyRoute = ApiHealthReadyRouteImport.update({
   path: '/api/health/ready',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiImportCommitRoute = ApiImportCommitRouteImport.update({
+  id: '/api/import/commit',
+  path: '/api/import/commit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImportFilesRoute = ApiImportFilesRouteImport.update({
+  id: '/api/import/files',
+  path: '/api/import/files',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImportReviewRoute = ApiImportReviewRouteImport.update({
+  id: '/api/import/review',
+  path: '/api/import/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPipelinesExecuteRoute = ApiPipelinesExecuteRouteImport.update({
   id: '/api/pipelines/execute',
   path: '/api/pipelines/execute',
@@ -912,6 +930,9 @@ export interface FileRoutesByFullPath {
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
+  '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/files': typeof ApiImportFilesRoute
+  '/api/import/review': typeof ApiImportReviewRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
@@ -1036,6 +1057,9 @@ export interface FileRoutesByTo {
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
+  '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/files': typeof ApiImportFilesRoute
+  '/api/import/review': typeof ApiImportReviewRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
@@ -1171,6 +1195,9 @@ export interface FileRoutesById {
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
+  '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/files': typeof ApiImportFilesRoute
+  '/api/import/review': typeof ApiImportReviewRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
@@ -1308,6 +1335,9 @@ export interface FileRouteTypes {
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
+    | '/api/import/commit'
+    | '/api/import/files'
+    | '/api/import/review'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/datasets/$datasetId/compare'
@@ -1432,6 +1462,9 @@ export interface FileRouteTypes {
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
+    | '/api/import/commit'
+    | '/api/import/files'
+    | '/api/import/review'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/datasets/$datasetId/compare'
@@ -1566,6 +1599,9 @@ export interface FileRouteTypes {
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
+    | '/api/import/commit'
+    | '/api/import/files'
+    | '/api/import/review'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/datasets/$datasetId/compare'
@@ -1673,6 +1709,9 @@ export interface RootRouteChildren {
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
+  ApiImportCommitRoute: typeof ApiImportCommitRoute
+  ApiImportFilesRoute: typeof ApiImportFilesRoute
+  ApiImportReviewRoute: typeof ApiImportReviewRoute
   ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
   ApiPipelinesRuntimeRoute: typeof ApiPipelinesRuntimeRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
@@ -2193,6 +2232,27 @@ declare module '@tanstack/react-router' {
       path: '/api/health/ready'
       fullPath: '/api/health/ready'
       preLoaderRoute: typeof ApiHealthReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/import/commit': {
+      id: '/api/import/commit'
+      path: '/api/import/commit'
+      fullPath: '/api/import/commit'
+      preLoaderRoute: typeof ApiImportCommitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/import/files': {
+      id: '/api/import/files'
+      path: '/api/import/files'
+      fullPath: '/api/import/files'
+      preLoaderRoute: typeof ApiImportFilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/import/review': {
+      id: '/api/import/review'
+      path: '/api/import/review'
+      fullPath: '/api/import/review'
+      preLoaderRoute: typeof ApiImportReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/pipelines/execute': {
@@ -3030,6 +3090,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
+  ApiImportCommitRoute: ApiImportCommitRoute,
+  ApiImportFilesRoute: ApiImportFilesRoute,
+  ApiImportReviewRoute: ApiImportReviewRoute,
   ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
   ApiPipelinesRuntimeRoute: ApiPipelinesRuntimeRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,

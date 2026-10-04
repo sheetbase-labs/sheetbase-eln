@@ -4079,6 +4079,267 @@ export const datasetBulkCommits = api.table(
   ],
 )
 
+/**
+ * DSET-06.1 — a parser definition: the named, versioned reading of one
+ * instrument file format. A parser is workspace-scoped and optionally linked
+ * to the instrument that produces the format; versions carry the recognition
+ * signature and the governance state, and every import cites the exact
+ * version it used.
+ */
+export const parsers = api.table(
+  'parsers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id').references(() => instruments.id, {
+      onDelete: 'set null',
+    }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    format: text('format').notNull(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_parsers_format',
+      sql`${table.format} IN ('csv', 'tsv', 'xlsx', 'json')`,
+    ),
+    check(
+      'chk_parsers_key',
+      sql`length(btrim(${table.key})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_parsers_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    uniqueIndex('uq_parsers_workspace_key').on(table.workspaceId, table.key),
+    index('idx_parsers_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * DSET-06.1 — one version of a parser. `status` gates use of GxP data:
+ * a `draft` parser may not import into a GxP Dataset until QA approves it.
+ * `signature` is the structural evidence recognition matches against;
+ * `mapping` is the parser's default column mapping, seeded into the import's
+ * map step.
+ */
+export const parserVersions = api.table(
+  'parser_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    parserId: uuid('parser_id')
+      .notNull()
+      .references(() => parsers.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    status: text('status').notNull().default('draft'),
+    signature: jsonb('signature')
+      .notNull()
+      .default(sql`'{}'`),
+    mapping: jsonb('mapping')
+      .notNull()
+      .default(sql`'{}'`),
+    testResult: jsonb('test_result'),
+    validatedAt: timestamp('validated_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    approvedByUserId: text('approved_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    approvedAt: timestamp('approved_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_parser_versions_status',
+      sql`${table.status} IN ('draft', 'validated', 'approved', 'retired')`,
+    ),
+    check('chk_parser_versions_version', sql`${table.version} > 0`),
+    check(
+      'chk_parser_versions_approved',
+      sql`${table.approvedAt} IS NULL OR ${table.status} = 'approved'`,
+    ),
+    uniqueIndex('uq_parser_versions_parser_version').on(
+      table.parserId,
+      table.version,
+    ),
+    index('idx_parser_versions_parser').on(table.parserId),
+  ],
+)
+
+/**
+ * DSET-05.3 — the mapping a parser remembers. One row per (parser, target):
+ * `target_key` is `dataset:<uuid>` or `schema:<uuid>`, so the same parser can
+ * remember a different mapping per dataset while defaulting for the format.
+ */
+export const parserMappings = api.table(
+  'parser_mappings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    parserId: uuid('parser_id')
+      .notNull()
+      .references(() => parsers.id, { onDelete: 'cascade' }),
+    targetKey: text('target_key').notNull(),
+    mapping: jsonb('mapping')
+      .notNull()
+      .default(sql`'{}'`),
+    isDefault: boolean('is_default').notNull().default(true),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_parser_mappings_target_key',
+      sql`length(btrim(${table.targetKey})) BETWEEN 1 AND 200`,
+    ),
+    uniqueIndex('uq_parser_mappings_default')
+      .on(table.workspaceId, table.parserId, table.targetKey)
+      .where(sql`${table.isDefault}`),
+    index('idx_parser_mappings_parser').on(table.parserId),
+  ],
+)
+
+/**
+ * DSET-05.1 — the raw file an import read. The bytes live in object storage
+ * under `storage_key`; this row records the identity (name, size, sha256)
+ * before any parsing happens, so a failed import still keeps the file for
+ * retry and every imported value traces to immutable evidence.
+ */
+export const datasetImportFiles = api.table(
+  'dataset_import_files',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    datasetId: uuid('dataset_id').references(() => datasets.id, {
+      onDelete: 'set null',
+    }),
+    filename: text('filename').notNull(),
+    mediaType: text('media_type'),
+    byteSize: bigint('byte_size', { mode: 'bigint' }).notNull(),
+    checksum: text('checksum').notNull(),
+    storageKey: text('storage_key').notNull(),
+    format: text('format').notNull(),
+    status: text('status').notNull().default('stored'),
+    parseError: text('parse_error'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_dataset_import_files_checksum',
+      sql`${table.checksum} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_dataset_import_files_status',
+      sql`${table.status} IN ('stored', 'parsed', 'failed')`,
+    ),
+    check(
+      'chk_dataset_import_files_format',
+      sql`${table.format} IN ('csv', 'tsv', 'xlsx', 'json')`,
+    ),
+    check('chk_dataset_import_files_size', sql`${table.byteSize} > 0`),
+    index('idx_dataset_import_files_workspace').on(table.workspaceId),
+    index('idx_dataset_import_files_dataset').on(table.datasetId),
+  ],
+)
+
+/**
+ * DSET-05.4 — one committed (or failed) import: the file, the parser version,
+ * the mapping used, the row outcomes and the snapshot it produced. The import
+ * itself changes no values directly; it is the receipt for the canonical
+ * Dataset batch commit plus the one snapshot taken afterwards.
+ */
+export const datasetImports = api.table(
+  'dataset_imports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    experimentRecordId: uuid('experiment_record_id').references(
+      () => records.id,
+      { onDelete: 'set null' },
+    ),
+    instrumentId: uuid('instrument_id').references(() => instruments.id, {
+      onDelete: 'set null',
+    }),
+    parserId: uuid('parser_id').references(() => parsers.id, {
+      onDelete: 'set null',
+    }),
+    parserVersionId: uuid('parser_version_id').references(
+      () => parserVersions.id,
+      { onDelete: 'set null' },
+    ),
+    fileId: uuid('file_id')
+      .notNull()
+      .references(() => datasetImportFiles.id, { onDelete: 'cascade' }),
+    mapping: jsonb('mapping')
+      .notNull()
+      .default(sql`'{}'`),
+    outcome: jsonb('outcome')
+      .notNull()
+      .default(sql`'{}'`),
+    snapshotVersionId: uuid('snapshot_version_id').references(
+      () => datasetVersions.id,
+      { onDelete: 'set null' },
+    ),
+    status: text('status').notNull().default('preview'),
+    errorDetail: text('error_detail'),
+    idempotencyKey: text('idempotency_key').notNull(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_dataset_imports_status',
+      sql`${table.status} IN ('preview', 'committed', 'failed')`,
+    ),
+    check(
+      'chk_dataset_imports_idempotency_key',
+      sql`length(btrim(${table.idempotencyKey})) BETWEEN 1 AND 128`,
+    ),
+    check(
+      'chk_dataset_imports_committed',
+      sql`${table.status} <> 'committed' OR ${table.snapshotVersionId} IS NOT NULL`,
+    ),
+    uniqueIndex('uq_dataset_imports_workspace_idempotency').on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index('idx_dataset_imports_dataset').on(table.datasetId),
+    index('idx_dataset_imports_experiment').on(table.experimentRecordId),
+  ],
+)
+
 // SCI-011: typed, directed relationships between dataset schemas (decision
 // 0035). Slug-level (not revision-level): source/target point to the latest
 // published revision and are repointed on publish. Soft-deleted via lifecycle.
@@ -4632,7 +4893,7 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential', 'connector', 'connector_run', 'pipeline_definition', 'pipeline_definition_version', 'pipeline_run', 'pipeline_schedule', 'webhook_subscription', 'webhook_delivery', 'agent_operation_proposal')`,
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential', 'connector', 'connector_run', 'pipeline_definition', 'pipeline_definition_version', 'pipeline_run', 'pipeline_schedule', 'webhook_subscription', 'webhook_delivery', 'agent_operation_policy', 'agent_operation_proposal', 'extension', 'dataset_import_file', 'dataset_import', 'parser', 'parser_version')`,
     ),
     check(
       'chk_change_events_operation',

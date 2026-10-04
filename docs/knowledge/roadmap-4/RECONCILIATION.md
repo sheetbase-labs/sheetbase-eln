@@ -200,6 +200,17 @@ and four navigation/accessibility tests still pass. **DSYS-05 remains open:**
 this verifies fixture state, not actual PR-01 transform execution or complete
 design-data coverage.
 
+Hosted CI at `59c91a9c` is blocked before all five jobs reach their checks.
+Run `37197680872` fails dependency installation with an authenticated GitHub
+Packages metadata request returning 403 for `sheetbase-explorer`. The orb's
+managed package credential returns 200 for that same endpoint and confirms
+version 0.6.0 exists. This is not evidence of a failing unit, DB or visual test
+in CI. The workflow already declares `packages: read`; package-admin settings
+are not accessible through the connected integration. An administrator must
+verify the consuming repository's Read grant under Manage Actions access,
+then rerun CI before any merge. No package permissions, repository secrets,
+manual CI runs, merge or deployment were changed by this investigation.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven

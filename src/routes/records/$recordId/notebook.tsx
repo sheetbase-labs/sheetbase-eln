@@ -43,6 +43,7 @@ import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { NotebookDocument } from '#/components/notebook'
 import type { SaveResult } from '#/components/notebook'
+import { CommentPanel } from '#/components/comments'
 import { useLiveStatus } from '#/components/live/live-event-provider'
 import {
   ActivityFeed,
@@ -627,6 +628,7 @@ function ExperimentNotebookRoute() {
             activity={activity}
             activityLoading={activityQuery.isLoading}
             revisionEvidence={historicalEvidence}
+            commentsRevisionId={historicalRevisionQuery.data?.id}
             canEditMetadata={
               !record.lockedAt && !record.archivedAt && !historicalRevisionId
             }
@@ -2606,6 +2608,7 @@ export function NotebookInspector({
   reviewActivity = 'none',
   isHistorical = false,
   revisionEvidence,
+  commentsRevisionId,
   outlineControls,
   /**
    * EXT-02: host-composed extension panel tabs, appended after the
@@ -2634,6 +2637,8 @@ export function NotebookInspector({
     blocks: NotebookBlockDomain[]
     links: NotebookLink[]
   }
+  /** Exact loaded revision for historical comments. Never fetch live threads. */
+  commentsRevisionId?: string
   /** NOTE-02: section-collapse controls; absent on read-only/historical views. */
   outlineControls?: NotebookOutlineControls
   extensionPanels?: InspectorTab[]
@@ -2835,6 +2840,34 @@ export function NotebookInspector({
         ) : (
           <EmptyHint>Sign in to see Notebook history.</EmptyHint>
         ),
+    },
+    {
+      id: 'comments',
+      label: 'Comments',
+      content: isHistorical ? (
+        commentsRevisionId && revisionEvidence ? (
+          <CommentPanel
+            key={commentsRevisionId}
+            revisionId={commentsRevisionId}
+            targetKind="revision"
+            target={{}}
+            currentUserId={currentUserId ?? null}
+            currentUserName={currentUserName ?? 'Reviewer'}
+            canComment={false}
+          />
+        ) : (
+          <EmptyHint>
+            Comments are unavailable without revision evidence.
+          </EmptyHint>
+        )
+      ) : (
+        <CommentPanel
+          recordId={record.id}
+          currentUserId={currentUserId ?? null}
+          currentUserName={currentUserName ?? 'Reviewer'}
+          canComment={canEditMetadata && !record.archivedAt}
+        />
+      ),
     },
     ...(isHistorical
       ? []

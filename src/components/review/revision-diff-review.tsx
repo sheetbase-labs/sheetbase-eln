@@ -1,5 +1,7 @@
 import * as React from 'react'
 
+import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-block'
+import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
@@ -23,6 +25,7 @@ export interface RevisionDiffReviewProps {
   beforeLabel?: string
   afterLabel?: string
   className?: string
+  onCommentTarget?: (anchor: SheetCommentAnchor) => void
 }
 
 const KINDS: RevisionChangeKind[] = ['added', 'removed', 'modified', 'moved']
@@ -339,6 +342,7 @@ export function RevisionDiffReview({
   beforeLabel = 'Earlier revision',
   afterLabel = 'Later revision',
   className,
+  onCommentTarget,
 }: RevisionDiffReviewProps) {
   const diff = React.useMemo(
     () => diffRevisionEnvelopes(before, after),
@@ -459,6 +463,14 @@ export function RevisionDiffReview({
           )}
         </p>
       </header>
+
+      {after.sheetEvidence?.map((evidence) => (
+        <FrozenSheetEvidencePanel
+          key={evidence.blockId}
+          evidence={evidence}
+          onCommentTarget={onCommentTarget}
+        />
+      ))}
 
       {diff.unavailableSheetComparisons.length > 0 ? (
         <div

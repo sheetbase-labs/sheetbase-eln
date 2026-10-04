@@ -1764,6 +1764,22 @@ export function CanonicalSheetEditor({
             currentUserId={commentActor.user.id}
             currentUserName={commentActor.user.name}
             canComment={canComment}
+            isTargetAvailable={(comment) => {
+              const anchor = sheetCommentAnchorSchema.safeParse({
+                targetKind: comment.target_kind,
+                target: comment.target,
+              })
+              return (
+                anchor.success &&
+                anchor.data.target.instanceId === instance.id &&
+                anchor.data.target.rowKeys.every((id) =>
+                  matrix.rowKeys.includes(id),
+                ) &&
+                anchor.data.target.fieldIds.every((id) =>
+                  matrix.columns.some((column) => column.id === id),
+                )
+              )
+            }}
           />
         </aside>
       ) : null}

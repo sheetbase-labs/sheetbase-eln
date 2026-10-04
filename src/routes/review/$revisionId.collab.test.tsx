@@ -281,6 +281,9 @@ vi.mock('#/components/audit', () => ({
 vi.mock('#/components/comments', () => ({
   CommentPanel: () => <div />,
 }))
+vi.mock('#/components/notebook/notebook-sheet-block', () => ({
+  FrozenSheetEvidencePanel: () => <div />,
+}))
 vi.mock('#/components/review', () => ({
   ReviewCheckResults: () => <div />,
   RevisionDiffReview: () => <div />,

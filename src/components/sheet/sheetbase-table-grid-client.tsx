@@ -26,7 +26,7 @@ import type {
   SpreadsheetMutationSource,
   SpreadsheetProps,
 } from '@sheetbase-labs/sheetbase-table'
-import { memo, useEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useMemo, useReducer, useRef } from 'react'
 
 import { createFormulaReferenceEditor } from './formula-reference-editor'
 import type {
@@ -423,11 +423,20 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       }),
     [props.annotations, orderedRows, orderedColumns],
   )
-  const previousAnnotations = useRef(annotations)
+  const [annotationVersion, annotationsChanged] = useReducer(
+    (version: number) => version + 1,
+    0,
+  )
   useEffect(() => {
     const handle = handleRef.current
     if (!handle) return
-    for (const previous of previousAnnotations.current) {
+    const current = handle.snapshot().annotations ?? []
+    // 0.6.0 annotation methods capture their render's array. Apply only one
+    // change, then let onAnnotationsChange advance to a fresh handle; batching
+    // several calls on the same handle silently keeps only the final change.
+    // The acknowledgment yields between renders to avoid nested effect loops
+    // when a late range spans many cells.
+    for (const previous of current) {
       if (
         annotations.some(
           (note) =>
@@ -444,13 +453,25 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       const column = orderedColumns.findIndex(
         (candidate) => candidate.id === previous.fieldId,
       )
-      if (row >= 0 && column >= 0)
+      if (row >= 0 && column >= 0) {
         handle.removeAnnotation(cellAddress(row, column))
+        return
+      }
     }
-    for (const note of annotations)
+    for (const note of annotations) {
+      if (
+        current.some(
+          (previous) =>
+            previous.recordId === note.recordId &&
+            previous.fieldId === note.fieldId &&
+            previous.text === note.text,
+        )
+      )
+        continue
       handle.setAnnotation(note.address, note.text)
-    previousAnnotations.current = annotations
-  }, [annotations, orderedRows, orderedColumns])
+      return
+    }
+  }, [annotationVersion, annotations, orderedRows, orderedColumns])
 
   const initialColumnWidthsResolved = useMemo(() => {
     const widthById = new Map<string, number>()
@@ -817,6 +838,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       ref={handleRef}
       initialData={initialData}
       initialAnnotations={annotations}
+      onAnnotationsChange={() => setTimeout(annotationsChanged, 0)}
       rowCount={rows.length + spareRows}
       columnCount={columns.length}
       fieldIds={fieldIds}
@@ -886,6 +908,12 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         current.onFiltersChange?.([...preserved, ...captured])
       }}
       onSelectionChange={(selection) => {
+        // The engine clears selection while restoring a sorted/filtered view.
+        // An empty address is not A1 and must not retain the previous anchor.
+        if (!selection.address || !selection.range) {
+          onSelectionChange?.(null)
+          return
+        }
         const { row, column } = parseAddress(selection.address)
         const layout = layoutRef.current
         const definition = layout.columns.at(column)

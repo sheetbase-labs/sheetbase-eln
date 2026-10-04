@@ -40,6 +40,8 @@ import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
+import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-block'
+import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import { ReviewCheckResults, RevisionDiffReview } from '#/components/review'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
@@ -262,6 +264,12 @@ export function ReviewWorkspaceRoute() {
   const currentUserId = context.user.id
   const currentUserName = context.user.name
   const activeTab = search.tab ?? 'diff'
+  const [commentSelection, setCommentSelection] = useState<{
+    revisionId: string
+    anchor: SheetCommentAnchor
+  } | null>(null)
+  const commentAnchor =
+    commentSelection?.revisionId === revisionId ? commentSelection.anchor : null
 
   // SHELL-03.3 — the Review scope. The diff registers N/P itself (it owns the
   // change selection); this route adds R to start a reply on the first open
@@ -594,6 +602,15 @@ export function ReviewWorkspaceRoute() {
                 currentRevisionId={revisionId}
                 effectiveComparisonId={effectiveComparisonId}
                 onComparisonChange={navigateComparison}
+                onCommentTarget={
+                  permission?.canReview === true ||
+                  permission?.canWithdraw === true
+                    ? (anchor) => {
+                        setCommentSelection({ revisionId, anchor })
+                        navigateTab('comments')
+                      }
+                    : undefined
+                }
                 comparisonLoading={
                   effectiveComparisonId !== null &&
                   comparisonRevisionQuery.isLoading
@@ -606,17 +623,36 @@ export function ReviewWorkspaceRoute() {
               className="min-h-0 flex-1 overflow-y-auto"
             >
               {submission && revision ? (
-                <CommentPanel
-                  revisionId={revisionId}
-                  targetKind="revision"
-                  target={{}}
-                  currentUserId={currentUserId}
-                  currentUserName={currentUserName}
-                  canComment={
-                    permission?.canReview === true ||
-                    permission?.canWithdraw === true
-                  }
-                />
+                <>
+                  {commentAnchor ? (
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-fg-muted">
+                        New comment target: frozen{' '}
+                        {commentAnchor.targetKind.replace('sheet_', '')}.
+                        Submitted identities only.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setCommentSelection(null)}
+                      >
+                        Comment on whole revision
+                      </Button>
+                    </div>
+                  ) : null}
+                  <CommentPanel
+                    key={revisionId}
+                    revisionId={revisionId}
+                    targetKind={commentAnchor?.targetKind ?? 'revision'}
+                    target={commentAnchor?.target ?? {}}
+                    currentUserId={currentUserId}
+                    currentUserName={currentUserName}
+                    canComment={
+                      permission?.canReview === true ||
+                      permission?.canWithdraw === true
+                    }
+                  />
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Comments are available once the revision is loaded.
@@ -841,6 +877,7 @@ function DiffPanel({
   effectiveComparisonId,
   onComparisonChange,
   comparisonLoading,
+  onCommentTarget,
 }: {
   beforeEnvelope: ReturnType<typeof toCanonicalEnvelope> | null
   afterEnvelope: ReturnType<typeof toCanonicalEnvelope> | null
@@ -849,6 +886,7 @@ function DiffPanel({
   effectiveComparisonId: string | null
   onComparisonChange: (id: string | null) => void
   comparisonLoading: boolean
+  onCommentTarget?: (anchor: SheetCommentAnchor) => void
 }) {
   const comparableOptions = revisionOptions.filter(
     (option) => option.id !== currentRevisionId,
@@ -897,22 +935,33 @@ function DiffPanel({
       </div>
 
       {!beforeEnvelope ? (
-        <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
-          <h2 className="text-sm font-semibold">
-            No earlier revision to compare
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            This is the first submitted revision for this record. Earlier
-            revisions, when they exist, can be selected above to show a
-            navigable text, table and formula diff.
-          </p>
-        </div>
+        <>
+          <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
+            <h2 className="text-sm font-semibold">
+              No earlier revision to compare
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              This is the first submitted revision for this record. Earlier
+              revisions, when they exist, can be selected above to show a
+              navigable text, table and formula diff.
+            </p>
+          </div>
+          {afterEnvelope.sheetEvidence?.map((evidence) => (
+            <FrozenSheetEvidencePanel
+              key={`${currentRevisionId}:${evidence.blockId}`}
+              evidence={evidence}
+              onCommentTarget={onCommentTarget}
+            />
+          ))}
+        </>
       ) : (
         <RevisionDiffReview
+          key={currentRevisionId}
           before={beforeEnvelope}
           after={afterEnvelope}
           beforeLabel="Earlier revision"
           afterLabel="Submitted revision"
+          onCommentTarget={onCommentTarget}
         />
       )}
     </section>

@@ -30,12 +30,11 @@ describe('RevisionDiffReview', () => {
         after={structuredClone(snapshot)}
       />,
     )
-    expect(screen.getByRole('status').textContent).toContain(
-      'Cell comparison unavailable',
-    )
-    expect(screen.getByRole('status').textContent).toContain(
-      'stable row identities',
-    )
+    const unavailable = screen
+      .getByText('Cell comparison unavailable')
+      .closest('[role="status"]')
+    expect(unavailable?.textContent).toContain('Cell comparison unavailable')
+    expect(unavailable?.textContent).toContain('stable row identities')
     expect(
       screen.queryByText(/submitted scientific content is unchanged/),
     ).toBeNull()

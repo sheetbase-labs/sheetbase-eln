@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -74,6 +74,110 @@ describe('FrozenSheetEvidencePanel', () => {
       frozen.instanceId,
     )
     expect(screen.queryByText('Technical detail')).toBeNull()
+  })
+
+  it('selects stable submitted cell, row and range identities in asymmetric display order', () => {
+    const onCommentTarget = vi.fn()
+    const secondRow = '10000000-0000-4000-8000-000000000006'
+    const secondField = '10000000-0000-4000-8000-000000000007'
+    render(
+      <FrozenSheetEvidencePanel
+        evidence={{
+          ...frozen,
+          composedGrid: {
+            columns: [
+              { id: secondField, label: 'Yield' },
+              { id: fieldId, label: 'Sample' },
+            ],
+            rowKeys: [secondRow, rowId],
+            rows: [
+              ['94', 'B'],
+              ['13', 'A'],
+            ],
+          },
+        }}
+        onCommentTarget={onCommentTarget}
+      />,
+    )
+    const submit = screen.getByRole('button', {
+      name: 'Comment on frozen selection',
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Select Sample row 1' }))
+    expect(
+      screen
+        .getAllByRole('button')
+        .filter((button) => button.getAttribute('aria-pressed') === 'true'),
+    ).toHaveLength(1)
+    fireEvent.click(submit)
+    expect(onCommentTarget).toHaveBeenLastCalledWith({
+      targetKind: 'sheet_cell',
+      target: {
+        instanceId: frozen.instanceId,
+        rowKeys: [secondRow],
+        fieldIds: [fieldId],
+      },
+    })
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Frozen comment target' }),
+      { target: { value: 'sheet_row' } },
+    )
+    expect(
+      screen
+        .getAllByRole('button')
+        .filter((button) => button.getAttribute('aria-pressed') === 'true'),
+    ).toHaveLength(2)
+    fireEvent.click(submit)
+    expect(onCommentTarget).toHaveBeenLastCalledWith({
+      targetKind: 'sheet_row',
+      target: {
+        instanceId: frozen.instanceId,
+        rowKeys: [secondRow],
+        fieldIds: [],
+      },
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select Yield row 2' }),
+      { shiftKey: true },
+    )
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Frozen comment target' }),
+      { target: { value: 'sheet_range' } },
+    )
+    expect(
+      screen
+        .getAllByRole('button')
+        .filter((button) => button.getAttribute('aria-pressed') === 'true'),
+    ).toHaveLength(4)
+    expect(screen.getByText('Selected target: 2 rows · 2 fields')).toBeTruthy()
+    fireEvent.click(submit)
+    expect(onCommentTarget).toHaveBeenLastCalledWith({
+      targetKind: 'sheet_range',
+      target: {
+        instanceId: frozen.instanceId,
+        rowKeys: [rowId, secondRow],
+        fieldIds: [fieldId, secondField],
+      },
+    })
+  })
+
+  it('shows positional historical values without inventing selectable identities', () => {
+    const onCommentTarget = vi.fn()
+    render(
+      <FrozenSheetEvidencePanel
+        evidence={{
+          ...frozen,
+          composedGrid: {
+            columns: [{ id: fieldId, label: 'Observation' }],
+            rows: [['historical value']],
+          },
+        }}
+        onCommentTarget={onCommentTarget}
+      />,
+    )
+    expect(screen.getByText('historical value')).toBeTruthy()
+    expect(screen.getByText(/Cell comments are unavailable/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Select/ })).toBeNull()
+    expect(onCommentTarget).not.toHaveBeenCalled()
   })
 })
 

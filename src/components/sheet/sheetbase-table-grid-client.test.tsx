@@ -1,4 +1,4 @@
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -73,10 +73,49 @@ vi.mock('@sheetbase-labs/sheetbase-table', async (importOriginal) => {
       const { rowCount, columnCount } = props
       if (rowCount === undefined || columnCount === undefined)
         throw new Error('The adapter must supply grid dimensions')
+      // Match 0.6.0: imperative annotation writes use a captured array, not a
+      // functional updater. Several writes on one handle can overwrite each other.
+      const [annotations, setAnnotations] = React.useState(
+        props.initialAnnotations ?? [],
+      )
+      function annotationCell(address: string) {
+        const { row, column } = actual.parseAddress(address)
+        return {
+          address,
+          recordId: props.datasetHeader?.recordIdForRow?.(row),
+          fieldId: props.fieldIds?.[column],
+          bound: true,
+        }
+      }
       const handle: SpreadsheetHandle = {
         ...engineHandle,
+        setAnnotation: (address, text) => {
+          engineHandle.setAnnotation(address, text)
+          const cell = annotationCell(address)
+          const next = [
+            ...annotations.filter(
+              (note) =>
+                note.recordId !== cell.recordId ||
+                note.fieldId !== cell.fieldId,
+            ),
+            { address, recordId: cell.recordId, fieldId: cell.fieldId, text },
+          ]
+          setAnnotations(next)
+          props.onAnnotationsChange?.(next)
+        },
+        removeAnnotation: (address) => {
+          engineHandle.removeAnnotation(address)
+          const cell = annotationCell(address)
+          const next = annotations.filter(
+            (note) =>
+              note.recordId !== cell.recordId || note.fieldId !== cell.fieldId,
+          )
+          setAnnotations(next)
+          props.onAnnotationsChange?.(next)
+        },
         snapshot: () => ({
           data: props.initialData,
+          annotations,
           formats: new RangeStore<CellFormat>(),
           columnWidths: [],
           rowHeights: [],
@@ -93,7 +132,10 @@ vi.mock('@sheetbase-labs/sheetbase-table', async (importOriginal) => {
       React.useEffect(() => {
         props.onReady?.(handle)
       }, [])
-      return React.createElement('div', { 'data-testid': 'spreadsheet' })
+      return React.createElement('div', {
+        'data-testid': 'spreadsheet',
+        'data-annotation-texts': annotations.map((note) => note.text).join('|'),
+      })
     },
   )
   return { ...actual, Spreadsheet }
@@ -213,6 +255,21 @@ describe('SheetbaseTableGridClient neutral handle', () => {
 })
 
 describe('Sheet comment selection membership', () => {
+  it('clears a previous anchor when the engine restores a view with no selection', () => {
+    const onSelectionChange = vi.fn()
+    render(<SheetbaseTableGridClient {...baseProps({ onSelectionChange })} />)
+    lastProps().onSelectionChange?.({
+      address: 'B2',
+      range: 'B2',
+      input: 'previous',
+    })
+    expect(onSelectionChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ columnId: 'beta' }),
+    )
+    lastProps().onSelectionChange?.({ address: '', range: '', input: '' })
+    expect(onSelectionChange).toHaveBeenLastCalledWith(null)
+  })
+
   it('resolves each sorted, filtered display row and reordered field independently', () => {
     const onSelectionChange = vi.fn()
     render(
@@ -267,6 +324,73 @@ describe('Sheet comment selection membership', () => {
 })
 
 describe('Sheet comment markers', () => {
+  it('retains all notes arriving after mount without remounting the engine', async () => {
+    const onReady = vi.fn()
+    const { rerender, getByTestId } = render(
+      <SheetbaseTableGridClient {...baseProps({ onReady })} />,
+    )
+    const engine = getByTestId('spreadsheet')
+    rerender(
+      <SheetbaseTableGridClient
+        {...baseProps({
+          onReady,
+          annotations: [
+            { rowId: 'row-1', columnId: 'alpha', text: 'first' },
+            { rowId: 'row-2', columnId: 'beta', text: 'second' },
+            { rowId: 'row-2', columnId: 'record', text: 'third' },
+          ],
+        })}
+      />,
+    )
+    await waitFor(() =>
+      expect(engine.getAttribute('data-annotation-texts')).toBe(
+        'first|second|third',
+      ),
+    )
+    expect(engineHandle.setAnnotation.mock.calls).toEqual([
+      ['A1', 'first'],
+      ['B2', 'second'],
+      ['C2', 'third'],
+    ])
+    expect(engine.getAttribute('data-annotation-texts')).toBe(
+      'first|second|third',
+    )
+    expect(getByTestId('spreadsheet')).toBe(engine)
+    expect(onReady).toHaveBeenCalledOnce()
+  })
+
+  it('synchronizes a late large range without a nested-render update loop', async () => {
+    const rangeRows = Array.from({ length: 64 }, (_, index) => ({
+      id: `range-row-${index}`,
+      cells: [index],
+    }))
+    const annotations = rangeRows.map((row, index) => ({
+      rowId: row.id,
+      columnId: 'alpha',
+      text: `Range note ${index}`,
+    }))
+    const errors = vi.spyOn(console, 'error')
+    try {
+      const { rerender, getByTestId } = render(
+        <SheetbaseTableGridClient {...baseProps({ rows: rangeRows })} />,
+      )
+      rerender(
+        <SheetbaseTableGridClient
+          {...baseProps({ rows: rangeRows, annotations })}
+        />,
+      )
+      await waitFor(() =>
+        expect(
+          getByTestId('spreadsheet').getAttribute('data-annotation-texts'),
+        ).toBe(annotations.map((note) => note.text).join('|')),
+      )
+      expect(engineHandle.setAnnotation).toHaveBeenCalledTimes(64)
+      expect(errors).not.toHaveBeenCalled()
+    } finally {
+      errors.mockRestore()
+    }
+  })
+
   it('maps persisted identities to bound annotations after row and field reorder, never to deleted targets', () => {
     const annotations = [
       { rowId: 'row-2', columnId: 'beta', text: 'Check recovery' },
@@ -335,7 +459,8 @@ describe('Sheet comment markers', () => {
       'B2',
       'Resolved: recovery confirmed',
     )
-    expect(lastProps().onAnnotationsChange).toBeUndefined()
+    // This is an internal render acknowledgment, not a host persistence hook.
+    expect(lastProps().onAnnotationsChange).toBeTypeOf('function')
     rerender(<SheetbaseTableGridClient {...baseProps({ annotations: [] })} />)
     expect(engineHandle.removeAnnotation).toHaveBeenLastCalledWith('B2')
   })

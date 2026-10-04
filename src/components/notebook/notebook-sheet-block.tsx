@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ZodError } from 'zod'
 
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import {
   Popover,
   PopoverContent,
@@ -32,6 +34,8 @@ import {
   sheetDefinitionDataClient,
 } from '#/lib/sheet-definition-data'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
+import { sheetCommentAnchorSchema } from '#/lib/sheet-comment-anchor'
+import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import {
   fetchSheetInstance,
   sheetInstanceDataClient,
@@ -80,10 +84,49 @@ export function NotebookSheetBlock({
 
 export function FrozenSheetEvidencePanel({
   evidence,
+  onCommentTarget,
 }: {
   evidence: FrozenSheetEvidence
+  onCommentTarget?: (anchor: SheetCommentAnchor) => void
 }) {
   const grid = frozenSheetGridFromEvidence(evidence)
+  const [selection, setSelection] = useState<{
+    start: { row: number; column: number }
+    end: { row: number; column: number }
+  } | null>(null)
+  const [targetKind, setTargetKind] =
+    useState<SheetCommentAnchor['targetKind']>('sheet_cell')
+  const target =
+    selection && grid.rowKeys
+      ? sheetCommentAnchorSchema.safeParse({
+          targetKind,
+          target: {
+            instanceId: evidence.instanceId,
+            rowKeys:
+              targetKind === 'sheet_range'
+                ? grid.rowKeys
+                    .slice(
+                      Math.min(selection.start.row, selection.end.row),
+                      Math.max(selection.start.row, selection.end.row) + 1,
+                    )
+                    .sort()
+                : [grid.rowKeys[selection.end.row]],
+            fieldIds:
+              targetKind === 'sheet_row'
+                ? []
+                : targetKind === 'sheet_range'
+                  ? grid.columns
+                      .slice(
+                        Math.min(selection.start.column, selection.end.column),
+                        Math.max(selection.start.column, selection.end.column) +
+                          1,
+                      )
+                      .map((column) => column.id)
+                      .sort()
+                  : [grid.columns[selection.end.column]?.id],
+          },
+        })
+      : null
   const origin =
     evidence.sourceDefinitionVersionId === null
       ? 'Ad hoc Sheet'
@@ -105,7 +148,7 @@ export function FrozenSheetEvidencePanel({
         </Badge>
       </div>
       <p className="text-xs text-fg-muted">
-        Reconstructed from the approved revision, not the live Sheet. {origin}
+        Reconstructed from the submitted revision, not the live Sheet. {origin}
         {bindingCount > 0
           ? ` · ${bindingCount} Dataset binding${bindingCount === 1 ? '' : 's'}`
           : ''}
@@ -114,6 +157,59 @@ export function FrozenSheetEvidencePanel({
           : ''}
         .
       </p>
+      {onCommentTarget ? (
+        grid.rowKeys ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs text-fg-muted">
+              Comment target
+              <select
+                aria-label="Frozen comment target"
+                value={targetKind}
+                onChange={(event) => {
+                  const kind = event.target.value
+                  if (
+                    kind === 'sheet_cell' ||
+                    kind === 'sheet_row' ||
+                    kind === 'sheet_range'
+                  )
+                    setTargetKind(kind)
+                }}
+                className="ml-2 rounded border bg-surface px-2 py-1 text-fg"
+              >
+                <option value="sheet_cell">Cell</option>
+                <option value="sheet_row">Row</option>
+                <option value="sheet_range">Range</option>
+              </select>
+            </label>
+            <Button
+              size="sm"
+              disabled={!target?.success}
+              onClick={() => {
+                if (target?.success) onCommentTarget(target.data)
+              }}
+            >
+              Comment on frozen selection
+            </Button>
+            <p className="text-xs text-fg-muted">
+              Select a cell. Shift-click another cell to extend a range.
+            </p>
+            {target?.success ? (
+              <p className="text-xs text-fg" role="status">
+                Selected target: {target.data.target.rowKeys.length}{' '}
+                {target.data.target.rowKeys.length === 1 ? 'row' : 'rows'}
+                {targetKind === 'sheet_row'
+                  ? ''
+                  : ` · ${target.data.target.fieldIds.length} ${target.data.target.fieldIds.length === 1 ? 'field' : 'fields'}`}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-xs text-fg-muted" role="status">
+            Cell comments are unavailable because this historical evidence has
+            no stable row identities.
+          </p>
+        )
+      ) : null}
       {grid.columns.length === 0 ? (
         <p className="text-sm text-fg-muted">
           No local columns were frozen with this Sheet.
@@ -143,7 +239,58 @@ export function FrozenSheetEvidencePanel({
                   <TableRow key={rowIndex}>
                     {row.map((cell, cellIndex) => (
                       <TableCell key={grid.columns[cellIndex]?.id ?? cellIndex}>
-                        {cell || '—'}
+                        {onCommentTarget && grid.rowKeys ? (
+                          <button
+                            type="button"
+                            className="w-full rounded px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-selection aria-pressed:ring-1 aria-pressed:ring-primary"
+                            aria-label={`Select ${grid.columns[cellIndex]?.label} row ${rowIndex + 1}`}
+                            aria-pressed={
+                              selection !== null &&
+                              (targetKind === 'sheet_row'
+                                ? rowIndex === selection.end.row
+                                : targetKind === 'sheet_cell'
+                                  ? rowIndex === selection.end.row &&
+                                    cellIndex === selection.end.column
+                                  : rowIndex >=
+                                      Math.min(
+                                        selection.start.row,
+                                        selection.end.row,
+                                      ) &&
+                                    rowIndex <=
+                                      Math.max(
+                                        selection.start.row,
+                                        selection.end.row,
+                                      ) &&
+                                    cellIndex >=
+                                      Math.min(
+                                        selection.start.column,
+                                        selection.end.column,
+                                      ) &&
+                                    cellIndex <=
+                                      Math.max(
+                                        selection.start.column,
+                                        selection.end.column,
+                                      ))
+                            }
+                            onClick={(event) => {
+                              const position = {
+                                row: rowIndex,
+                                column: cellIndex,
+                              }
+                              setSelection((current) => ({
+                                start:
+                                  event.shiftKey && current
+                                    ? current.start
+                                    : position,
+                                end: position,
+                              }))
+                            }}
+                          >
+                            {cell || '—'}
+                          </button>
+                        ) : (
+                          cell || '—'
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>

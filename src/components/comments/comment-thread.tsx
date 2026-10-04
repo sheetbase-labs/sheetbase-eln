@@ -24,6 +24,7 @@ export interface CommentThreadProps {
   onResolve: (commentId: string) => Promise<void>
   onReopen: (commentId: string) => Promise<void>
   pendingReplyId?: string | null
+  targetUnavailable?: boolean
 }
 
 const TARGET_KIND_LABEL: Record<CommentTargetKind, string> = {
@@ -61,7 +62,7 @@ function describeTarget(
   if (kind === 'block')
     return `${TARGET_KIND_LABEL.block} ${target.blockId ?? ''}`.trim()
   if (kind === 'sheet_cell' || kind === 'sheet_row' || kind === 'sheet_range') {
-    return `${TARGET_KIND_LABEL[kind]} · ${target.rowKeys?.length ?? 0} ${target.rowKeys?.length === 1 ? 'row' : 'rows'}${kind === 'sheet_row' ? '' : ` · ${target.fieldIds?.length ?? 0} fields`}`
+    return `${TARGET_KIND_LABEL[kind]} · ${target.rowKeys?.length ?? 0} ${target.rowKeys?.length === 1 ? 'row' : 'rows'}${kind === 'sheet_row' ? '' : ` · ${target.fieldIds?.length ?? 0} ${target.fieldIds?.length === 1 ? 'field' : 'fields'}`}`
   }
   if (kind === 'table_region') {
     const parts = [target.tableId, target.rowId, target.columnId].filter(
@@ -140,6 +141,7 @@ export function CommentThread({
   onResolve,
   onReopen,
   pendingReplyId,
+  targetUnavailable = false,
 }: CommentThreadProps) {
   const [replyBody, setReplyBody] = React.useState('')
   const [showReply, setShowReply] = React.useState(false)
@@ -172,6 +174,12 @@ export function CommentThread({
         </Badge>
         <span className="text-xs text-fg-muted">Anchored to {targetLabel}</span>
       </div>
+      {targetUnavailable ? (
+        <p className="text-xs text-fg-muted">
+          Original target unavailable in this view. This thread retains its
+          historical anchor.
+        </p>
+      ) : null}
 
       <CommentRow
         comment={root}

@@ -87,6 +87,27 @@ describe('CommentThread', () => {
     expect(screen.getByText(/Anchored to Block block-42/)).toBeTruthy()
   })
 
+  it('retains the original cell thread when its target is unavailable instead of relocating it', () => {
+    renderThread({
+      root: wire({
+        target_kind: 'sheet_cell',
+        target: {
+          instanceId: 'original-instance',
+          rowKeys: ['original-row'],
+          fieldIds: ['original-field'],
+        },
+      }),
+      targetUnavailable: true,
+    })
+    expect(
+      screen.getByText(/Original target unavailable in this view/),
+    ).toBeTruthy()
+    expect(
+      screen.getByText('Anchored to Sheet cell · 1 row · 1 field'),
+    ).toBeTruthy()
+    expect(screen.getByText('root body')).toBeTruthy()
+  })
+
   it('offers Resolve when open and calls onResolve', () => {
     const { onResolve } = renderThread()
     const button = screen.getByRole('button', { name: 'Resolve thread' })

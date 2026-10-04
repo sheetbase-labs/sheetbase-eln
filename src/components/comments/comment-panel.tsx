@@ -8,6 +8,7 @@ import {
   commentsQueryKeys,
   createComment,
   createSheetComment,
+  fetchCommentsForRecord,
   fetchCommentsForRevision,
   fetchCommentsForSheet,
   groupCommentsIntoThreads,
@@ -16,7 +17,11 @@ import {
   resolveCommentThread,
   threadState,
 } from '#/lib/comments-data'
-import type { CommentTarget, CommentTargetKind } from '#/lib/comments-data'
+import type {
+  CommentTarget,
+  CommentTargetKind,
+  CommentWire,
+} from '#/lib/comments-data'
 import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { cn } from '#/lib/utils'
@@ -36,12 +41,21 @@ export type CommentPanelProps = (
       targetKind: CommentTargetKind
       target: CommentTarget
       sheet?: never
+      recordId?: never
     }
   | {
       revisionId?: never
       targetKind?: never
       target?: never
       sheet: { anchor: SheetCommentAnchor; expectedRevision: number }
+      recordId?: never
+    }
+  | {
+      recordId: string
+      revisionId?: never
+      targetKind?: never
+      target?: never
+      sheet?: never
     }
 ) & {
   currentUserId: string | null
@@ -49,6 +63,8 @@ export type CommentPanelProps = (
   /** Whether the viewer may write (workspace member). */
   canComment: boolean
   className?: string
+  /** Only a viewer's visible current/frozen context may assess availability. */
+  isTargetAvailable?: (comment: CommentWire) => boolean
 }
 
 export function CommentPanel({
@@ -56,10 +72,12 @@ export function CommentPanel({
   targetKind,
   target,
   sheet,
+  recordId,
   currentUserId,
   currentUserName,
   canComment,
   className,
+  isTargetAvailable,
 }: CommentPanelProps) {
   const queryClient = useQueryClient()
   const [newBody, setNewBody] = React.useState('')
@@ -67,7 +85,9 @@ export function CommentPanel({
 
   const queryKey = sheet
     ? commentsQueryKeys.forSheet(sheet.anchor.target.instanceId)
-    : commentsQueryKeys.forRevision(revisionId)
+    : recordId !== undefined
+      ? commentsQueryKeys.forRecord(recordId)
+      : commentsQueryKeys.forRevision(revisionId)
   const commentsQuery = useQuery({
     queryKey,
     queryFn: () =>
@@ -76,7 +96,9 @@ export function CommentPanel({
             notebookDataClient,
             sheet.anchor.target.instanceId,
           )
-        : fetchCommentsForRevision(notebookDataClient, revisionId),
+        : recordId !== undefined
+          ? fetchCommentsForRecord(notebookDataClient, recordId)
+          : fetchCommentsForRevision(notebookDataClient, revisionId),
   })
 
   const threads = React.useMemo(
@@ -86,15 +108,19 @@ export function CommentPanel({
   )
 
   const createMutation = useMutation({
-    mutationFn: (body: string) =>
-      sheet
+    mutationFn: (body: string) => {
+      if (recordId !== undefined) {
+        throw new Error('Choose a Sheet or revision target to start a thread.')
+      }
+      return sheet
         ? createSheetComment(notebookDataClient, { ...sheet, body })
         : createComment(notebookDataClient, {
             revisionId,
             targetKind,
             target,
             body,
-          }),
+          })
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ['comments'],
@@ -151,7 +177,13 @@ export function CommentPanel({
 
   return (
     <section
-      aria-label={sheet ? 'Sheet comments' : 'Review comments'}
+      aria-label={
+        sheet
+          ? 'Sheet comments'
+          : recordId
+            ? 'Record comments'
+            : 'Review comments'
+      }
       className={cn('space-y-3', className)}
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -178,7 +210,8 @@ export function CommentPanel({
         <p className="text-xs text-fg-muted">Loading comments…</p>
       ) : threads.length === 0 && !loadError ? (
         <p className="rounded-md border border-dashed bg-surface-muted/30 px-3 py-2 text-xs text-fg-muted">
-          No comments yet on this {sheet ? 'Sheet' : 'revision'}.
+          No comments yet on this{' '}
+          {sheet ? 'Sheet' : recordId ? 'Record' : 'revision'}.
         </p>
       ) : (
         <ol className="space-y-4">
@@ -191,6 +224,9 @@ export function CommentPanel({
               currentUserId={currentUserId}
               currentUserName={currentUserName}
               canComment={canComment}
+              targetUnavailable={
+                isTargetAvailable ? !isTargetAvailable(thread.root) : false
+              }
               onReply={async (parentId, body) => {
                 await replyMutation.mutateAsync({ parentId, body })
               }}
@@ -210,11 +246,11 @@ export function CommentPanel({
         </ol>
       )}
 
-      {canComment ? (
+      {canComment && !recordId ? (
         <form onSubmit={handleCreate} className="space-y-2 border-t pt-3">
           <textarea
             className="min-h-[70px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder={`Add a comment on this ${sheet ? 'selection' : 'revision'}…`}
+            placeholder={`Add a comment on this ${sheet || targetKind?.startsWith('sheet_') ? 'selection' : 'revision'}…`}
             value={newBody}
             onChange={(event) => setNewBody(event.target.value)}
             aria-label="New comment body"

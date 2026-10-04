@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
+import { grantFixtureProjectAccess } from './project-fixtures'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -177,6 +178,19 @@ beforeAll(async () => {
       ($1,$2,'sci006api','SCI 006 API A'),($3,$4,'sci006b','SCI 006 API B')`,
     [PROJ_A, WS_A, PROJ_B, WS_B],
   )
+  for (const [projectId, workspaceId, userId] of [
+    [PROJ_A, WS_A, USER_A],
+    [PROJ_B, WS_B, USER_B],
+  ])
+    await grantFixtureProjectAccess({
+      client: admin,
+      projectId,
+      workspaceId,
+      userId,
+      canEdit: true,
+      canReview: true,
+      canManage: true,
+    })
 })
 
 afterAll(async () => {

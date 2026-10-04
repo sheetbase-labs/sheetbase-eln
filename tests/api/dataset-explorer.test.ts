@@ -134,6 +134,11 @@ beforeAll(async () => {
     `INSERT INTO api.workspace_memberships(workspace_id,user_id,role) VALUES ($1,$2,'owner'),($3,$4,'owner')`,
     [WS_A, OWNER_A, WS_B, OWNER_B],
   )
+  const project = await rpc('create_project', {
+    p_title: 'Dataset explorer project',
+  })
+  expect(project.status).toBe(200)
+  const projectId: string = (await project.json()).id
   const created = await rpc('create_dataset_schema_definition', {
     p_workspace_id: WS_A,
     p_key: 'stability_result',
@@ -163,6 +168,7 @@ beforeAll(async () => {
     },
     body: JSON.stringify({
       workspace_id: WS_A,
+      primary_project_id: projectId,
       schema_version_id: schemaVersionId,
       name: 'Stability A',
     }),

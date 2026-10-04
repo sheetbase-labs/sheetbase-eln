@@ -145,6 +145,10 @@ beforeAll(async () => {
     insert into api.projects(id,workspace_id,key,title) values
       ('${PROJ_A}','${WS_A}','exp','Exports')
     on conflict (id) do nothing;
+    insert into api.project_access
+      (workspace_id,project_id,user_id,can_view,can_edit,can_manage,granted_by_user_id)
+    values ('${WS_A}','${PROJ_A}','${OWNER_A}',true,true,true,'${OWNER_A}')
+    on conflict (workspace_id,project_id,user_id) do nothing;
     insert into api.dataset_schema_definitions(id,workspace_id,key,name)
     select '${SCHEMA_DEF_A}'::uuid,'${WS_A}'::uuid,'exportschema' || substr(replace('${SCHEMA_DEF_A}'::text,'-',''),1,8),'Export schema'
     where not exists (
@@ -178,6 +182,10 @@ beforeAll(async () => {
     insert into api.workspace_memberships(workspace_id,user_id,role)
     values ('${WS_A}','data-02-api-viewer','viewer')
     on conflict do nothing;
+    insert into api.project_access
+      (workspace_id,project_id,user_id,can_view,granted_by_user_id)
+    values ('${WS_A}','${PROJ_A}','data-02-api-viewer',true,'${OWNER_A}')
+    on conflict (workspace_id,project_id,user_id) do nothing;
 
     insert into api.datasets(id,workspace_id,primary_project_id,schema_version_id,name)
     values ('${DATASET_A}','${WS_A}','${PROJ_A}','${SCHEMA_VER_A}','Stability readings');
@@ -325,7 +333,13 @@ describe('DATA-02 dataset exports', () => {
     // workspace from request claims even on a migrator connection.
     await admin.query(
       `select set_config('request.jwt.claims', $1::text, false)`,
-      [JSON.stringify({ sub: OWNER_A, workspace_id: WS_A })],
+      [
+        JSON.stringify({
+          role: 'authenticated',
+          sub: OWNER_A,
+          workspace_id: WS_A,
+        }),
+      ],
     )
     const snap = await admin.query(
       `select (api.snapshot_dataset($1, (select revision from api.datasets where id=$1), 'export-proof')).id as version_id`,

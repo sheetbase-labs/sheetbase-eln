@@ -483,6 +483,12 @@ beforeAll(async () => {
       ($1,$2,'rev008','Virus Stability Acceptance')`,
     [PROJECT, WS],
   )
+  await admin.query(
+    `INSERT INTO api.project_access
+     (workspace_id,project_id,user_id,can_view,can_edit,can_review,can_manage,granted_by_user_id)
+     VALUES ($1,$2,$3,true,true,true,true,$3),($1,$2,$4,true,false,true,false,$3)`,
+    [WS, PROJECT, OWNER, REVIEWER],
+  )
 
   // Custom scientific metadata belongs to active workspace model fields,
   // not the protected legacy properties document.
@@ -655,6 +661,7 @@ beforeAll(async () => {
     },
     body: JSON.stringify({
       workspace_id: WS,
+      primary_project_id: PROJECT,
       schema_version_id: schema.schema_version_id,
       name: 'Stability readings (qPCR)',
     }),

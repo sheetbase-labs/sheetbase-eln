@@ -9,6 +9,7 @@ import {
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { openMigratorWriter } from '../db/helpers'
 import type { createScientificTableAsMigrator } from '../db/helpers'
+import { grantFixtureProjectAccess } from './project-fixtures'
 
 describe('formula write E2E: column ordering fix', () => {
   it('persists =B1+C1 with correct column AND row bindings', async () => {
@@ -54,6 +55,15 @@ describe('formula write E2E: column ordering fix', () => {
          VALUES ($1,$2,'FORMULA','Formula order')`,
         [projectId, workspaceId],
       )
+      await grantFixtureProjectAccess({
+        client: admin,
+        projectId,
+        workspaceId,
+        userId,
+        canEdit: true,
+        canReview: true,
+        canManage: true,
+      })
       await admin.query(
         `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id)
          VALUES ($1,$2,$3,'experiment','FORMULA-001','Formula order notebook',$4)`,
@@ -124,9 +134,11 @@ describe('formula write E2E: column ordering fix', () => {
           [firstId, '2026-01-01T00:00:00Z', 101, 7, 19],
         )
       ).rows[0]
+      let validatedWrite: Record<string, unknown> | undefined
       const deps: Pick<FormulaWriteDeps, 'query' | 'trustedWrite'> = {
         query: (text, values) => admin.query(text, values),
         trustedWrite: async (actor, write) => {
+          validatedWrite = write
           await writer.query('BEGIN')
           try {
             await writer.query('SET LOCAL ROLE formula_writer')
@@ -158,6 +170,64 @@ describe('formula write E2E: column ordering fix', () => {
         deps,
       )
       expect(result).toMatchObject({ status: 'supported', version: 1 })
+
+      // The real service login has no JWT. Its validated artifact cannot be
+      // replayed after rule revocation or suspension, even before row/version
+      // checks. Never add request claims to make the trusted path pass.
+      if (!validatedWrite) throw new Error('Canonical writer did not run.')
+      const artifact = validatedWrite
+      await admin.query(
+        'UPDATE api.project_access SET can_edit=false WHERE project_id=$1 AND user_id=$2',
+        [projectId, userId],
+      )
+      await expect(deps.trustedWrite(userId, artifact)).rejects.toMatchObject({
+        code: '42501',
+      })
+      await admin.query(
+        'UPDATE api.project_access SET can_edit=true WHERE project_id=$1 AND user_id=$2',
+        [projectId, userId],
+      )
+      await admin.query(
+        'UPDATE api.workspace_memberships SET suspended_at=now() WHERE workspace_id=$1 AND user_id=$2',
+        [workspaceId, userId],
+      )
+      await expect(deps.trustedWrite(userId, artifact)).rejects.toMatchObject({
+        code: '42501',
+      })
+      await admin.query(
+        'UPDATE api.workspace_memberships SET suspended_at=null WHERE workspace_id=$1 AND user_id=$2',
+        [workspaceId, userId],
+      )
+      const revision = await admin.query<{ id: string }>(
+        `INSERT INTO api.revisions(record_id,workspace_id,structure_version,metadata_version,
+         metadata_snapshot,block_snapshot,integrity_digest,reason,created_by_user_id)
+         SELECT id,workspace_id,structure_version,metadata_version,'{}','[]',repeat('a',64),'submit',$2
+         FROM api.records WHERE id=$1 RETURNING id`,
+        [recordId, userId],
+      )
+      await admin.query(
+        'UPDATE api.records SET locked_at=now(),locked_by_revision_id=$2 WHERE id=$1',
+        [recordId, revision.rows[0].id],
+      )
+      await expect(
+        deps.trustedWrite(userId, {
+          ...artifact,
+          target: {
+            tableId: sheet.table.id,
+            rowId: firstRow.id,
+            columnId: columnD.id,
+          },
+          expectedRowVersion: Number(firstRow.version),
+        }),
+      ).rejects.toMatchObject({ code: 'SB011' })
+      await admin.query(
+        'UPDATE api.records SET locked_at=null,locked_by_revision_id=null WHERE id=$1',
+        [recordId],
+      )
+      expect(
+        (await admin.query('SELECT * FROM internal.formula_row_capability'))
+          .rows,
+      ).toEqual([])
 
       // Read the durable artifact through authenticated PostgREST, not a
       // captured write argument. Both references must bind to row 1 even
@@ -205,6 +275,13 @@ describe('formula write E2E: column ordering fix', () => {
           'DELETE FROM api.scientific_tables WHERE workspace_id=$1',
           [workspaceId],
         )
+        await admin.query(
+          'UPDATE api.records SET locked_at=null,locked_by_revision_id=null WHERE workspace_id=$1',
+          [workspaceId],
+        )
+        await admin.query('DELETE FROM api.revisions WHERE workspace_id=$1', [
+          workspaceId,
+        ])
         await admin.query('DELETE FROM api.records WHERE workspace_id=$1', [
           workspaceId,
         ])

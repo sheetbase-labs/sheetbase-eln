@@ -2260,6 +2260,13 @@
       "when": 1791143300514,
       "tag": "0324_rev02_portal_signature_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 325,
+      "version": "7",
+      "when": 1791145236844,
+      "tag": "0325_set02_authority_repairs",
+      "breakpoints": true
     }
   ]
 }

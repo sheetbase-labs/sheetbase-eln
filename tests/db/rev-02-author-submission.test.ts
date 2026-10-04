@@ -541,6 +541,30 @@ describe('four honest meanings and explicitly requested witness work', () => {
       ])
     }
   })
+  it('denies a witness request to an active certified owner without project View', async () => {
+    const target = await submitted()
+    try {
+      await expect(
+        actor.query('select api.request_signature_witness($1,$2,$3,null)', [
+          target.submissionId,
+          unassignedOwner,
+          target.value.revisionDigest,
+        ]),
+      ).rejects.toMatchObject({ code: '42501' })
+      expect(
+        (
+          await admin.query(
+            'select id from api.signature_witness_requests where submission_id=$1',
+            [target.submissionId],
+          )
+        ).rows,
+      ).toEqual([])
+    } finally {
+      await actor.query("select set_config('request.jwt.claims',$1,false)", [
+        claims(author),
+      ])
+    }
+  })
   it('denies unassigned owners, authors and accidental reviewer witnesses, then derives and completes a real witness request', async () => {
     const target = await submitted()
     try {

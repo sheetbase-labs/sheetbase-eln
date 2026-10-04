@@ -25,6 +25,7 @@ import {
   setObjectStorageForTesting,
 } from '#/lib/file-storage'
 import { handleUpload, handleUploadAuthorize } from '#/lib/file-routes'
+import { grantFixtureProjectAccess } from './project-fixtures'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -435,6 +436,19 @@ beforeAll(async () => {
       ($3,$4,'sci009b','SCI 009 API B')`,
     [PROJECT_A, WS_A, PROJECT_B, WS_B],
   )
+  for (const [projectId, workspaceId, userId] of [
+    [PROJECT_A, WS_A, USER_A],
+    [PROJECT_B, WS_B, USER_B],
+  ])
+    await grantFixtureProjectAccess({
+      client: admin,
+      projectId,
+      workspaceId,
+      userId,
+      canEdit: true,
+      canReview: true,
+      canManage: true,
+    })
 
   // --- Build the Virus Stability notebook through ordinary RPCs. ---
 
@@ -721,6 +735,7 @@ beforeAll(async () => {
     },
     body: JSON.stringify({
       workspace_id: WS_A,
+      primary_project_id: PROJECT_A,
       schema_version_id: schema.schema_version_id,
       name: 'Stability readings (qPCR)',
     }),

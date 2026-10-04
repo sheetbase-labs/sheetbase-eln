@@ -525,6 +525,16 @@ describe('SET-02 canonical group access', () => {
       can_manage: false,
       client_portal: false,
     })
+    const members = await lead.query('SELECT * FROM api.project_members($1)', [
+      PROJECT,
+    ])
+    expect(members.rows.find((row) => row.user_id === MEMBER)).toMatchObject({
+      can_view: true,
+      can_edit: true,
+      can_review: true,
+      client_portal: false,
+      can_manage: false,
+    })
     const matrix = await lead.query(
       `SELECT * FROM api.project_access_rules($1)`,
       [PROJECT],
@@ -545,6 +555,19 @@ describe('SET-02 canonical group access', () => {
       can_view: true,
       can_edit: false,
       can_review: true,
+    })
+    const reducedMembers = await lead.query(
+      'SELECT * FROM api.project_members($1)',
+      [PROJECT],
+    )
+    expect(
+      reducedMembers.rows.find((row) => row.user_id === MEMBER),
+    ).toMatchObject({
+      can_view: true,
+      can_edit: false,
+      can_review: true,
+      client_portal: false,
+      can_manage: false,
     })
     await lead.query(`SELECT api.delete_workspace_group($1)`, [reviewGroup])
     expect(await visible(member)).toBe(false)

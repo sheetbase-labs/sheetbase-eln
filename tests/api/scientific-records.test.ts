@@ -13,6 +13,7 @@ import * as schema from '#/db/schema'
 import { resolveExternalToken } from '#/lib/external-token'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
+import { grantFixtureProjectAccess } from './project-fixtures'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -115,6 +116,19 @@ beforeAll(async () => {
       ($1,$2,'sciapi','SCI API A'),($3,$4,'scib','SCI API B')`,
     [PROJ_A, WS_A, PROJ_B, WS_B],
   )
+  for (const [projectId, workspaceId, userId] of [
+    [PROJ_A, WS_A, OWNER_A],
+    [PROJ_B, WS_B, OWNER_B],
+  ])
+    await grantFixtureProjectAccess({
+      client: admin,
+      projectId,
+      workspaceId,
+      userId,
+      canEdit: true,
+      canReview: true,
+      canManage: true,
+    })
 })
 
 afterAll(async () => {

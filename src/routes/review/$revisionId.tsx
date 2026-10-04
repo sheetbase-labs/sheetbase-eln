@@ -166,9 +166,7 @@ function RouteShell({
       </div>
       {inspector ? (
         <InspectorPanel aria-label="Review" className="w-[340px] gap-0 p-0">
-          <div className="flex flex-col gap-5 overflow-auto p-4">
-            {inspector}
-          </div>
+          {inspector}
         </InspectorPanel>
       ) : null}
     </div>
@@ -1153,8 +1151,8 @@ function ReviewInspector({
   const reviewState = buildStepperState(submission, decisions, currentUserName)
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="space-y-2 border-b p-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 space-y-2 border-b p-3">
         <div className="flex items-center gap-2">
           <Icon name="lock" size={16} className="text-fg-muted" aria-hidden />
           <span className="text-sm font-semibold">Review & approvals</span>
@@ -1173,7 +1171,7 @@ function ReviewInspector({
         )}
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-3 text-sm">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 text-sm">
         <dl className="space-y-1.5">
           <InspectorProp label="Record">{record?.title ?? '—'}</InspectorProp>
           <InspectorProp label="Project">{projectTitle ?? '—'}</InspectorProp>
@@ -1283,7 +1281,7 @@ function ReviewInspector({
         ) : null}
       </div>
 
-      <div className="space-y-2 border-t p-3">
+      <div className="shrink-0 space-y-2 border-t p-3">
         <Link
           to="/inbox"
           className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-sm font-medium no-underline hover:bg-muted"
@@ -1437,7 +1435,7 @@ export function ActionButtons({
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="flex flex-wrap gap-2">
         {reviewActions.map((action) => {
           const blocked = !permission.canReview
           const disabled = blocked
@@ -2349,9 +2347,9 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
       </p>
       <a
         href={`/api/export/revision/${revisionId}/package`}
-        className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-sm font-medium hover:bg-accent"
+        className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-center text-sm font-medium hover:bg-accent"
       >
-        <Download className="size-3.5" aria-hidden />
+        <Download className="size-3.5 shrink-0" aria-hidden />
         Download evidence package (ZIP)
       </a>
     </section>

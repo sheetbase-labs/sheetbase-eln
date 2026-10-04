@@ -72,7 +72,11 @@ export async function resetTestDatabase(): Promise<void> {
 /** Apply the full migration history to the test database. */
 export async function migrateTestDatabase(): Promise<void> {
   const db = drizzle(migratorUrl())
-  await migrate(db, { migrationsFolder: 'drizzle' })
+  try {
+    await migrate(db, { migrationsFolder: 'drizzle' })
+  } finally {
+    await db.$client.end()
+  }
 }
 
 /** Fresh, migrated database plus connected clients for assertions. */

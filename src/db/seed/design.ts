@@ -6,15 +6,17 @@
  * ("09:32", "Yesterday") render as the design does. Per-screen data is added
  * by later steps; each step runs through the canonical data layer.
  */
-import { randomUUID } from 'node:crypto'
+import { createHmac, randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import { and, eq, isNull, sql } from 'drizzle-orm'
+import { z } from 'zod'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 import {
   DESIGN_CREDENTIAL_IDS,
   DESIGN_SESSION_IDS,
   DESIGN_WEBHOOK_IDS,
+  FIXTURE_USER_ID,
 } from './identities'
 
 /** Fixed clock for the design seed: Friday 25 Sep 2026, 09:40 Europe/London. */
@@ -2617,8 +2619,6 @@ async function seedDesignDatasets(
  * `plan_dataset_row` RPC the product uses and is idempotent: a row whose key
  * already exists — planned or already recorded — is left untouched.
  */
-const BENCH_READING_DATASET_ID = '00000000-0000-4000-8000-00000000038a'
-
 const BENCH_READING_PLANNED_KEYS: ReadonlyArray<string> = [
   'SMP-2231',
   'SMP-2232',
@@ -2632,20 +2632,21 @@ async function seedDesignBenchReadingRows(
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
   const actorId = DESIGN_USER_IDS.gareth
   await withDesignClaims(db, actorId, workspaceId, async (client) => {
-    const dataset = await client.query(
-      'select id from api.datasets where id = $1 and lifecycle = $2',
-      [BENCH_READING_DATASET_ID, 'active'],
+    const dataset = await client.query<{ id: string }>(
+      'select id from api.datasets where workspace_id = $1 and display_id = $2 and lifecycle = $3',
+      [workspaceId, 'DS-0320', 'active'],
     )
-    if ((dataset.rowCount ?? 0) === 0) return
+    const datasetId = dataset.rows.at(0)?.id
+    if (!datasetId) return
 
     for (const plannedKey of BENCH_READING_PLANNED_KEYS) {
       const existing = await client.query(
         'select 1 from api.dataset_rows where dataset_id = $1 and planned_key = $2 limit 1',
-        [BENCH_READING_DATASET_ID, plannedKey],
+        [datasetId, plannedKey],
       )
       if ((existing.rowCount ?? 0) > 0) continue
       await client.query('select api.plan_dataset_row($1,$2,$3)', [
-        BENCH_READING_DATASET_ID,
+        datasetId,
         DESIGN_CLOCK,
         plannedKey,
       ])
@@ -2672,23 +2673,29 @@ async function seedDesignWorkItems(
   // Reviews waiting on Gareth are created through the canonical submit RPC by
   // `seedDesignReviewLifecycle`; the Inbox reads those rows.
 
-  // The records Gareth follows (they show as "Following").
-  for (const [index, recordId] of [
-    DESIGN_EXPERIMENTS[1]?.id,
-    DESIGN_EXPERIMENTS[0]?.id,
-  ]
-    .filter((id): id is string => Boolean(id))
-    .entries()) {
-    await db
-      .insert(schema.workItemFollows)
-      .values({
-        workspaceId: PROCESS,
-        userId: DESIGN_USER_IDS.gareth,
-        recordId,
-        createdAt: new Date(DESIGN_CLOCK.getTime() - (index + 1) * 600_000),
-      })
-      .onConflictDoNothing()
-  }
+  // Follow older first, preserving the intended newest-first order with real
+  // server times. Existing follows are untouched, including their timestamps.
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.gareth,
+    PROCESS,
+    async (client) => {
+      for (const identifier of ['EXP-0138', 'EXP-0142']) {
+        const record = await client.query<{ id: string }>(
+          "select id from api.records where workspace_id=$1 and identifier=$2 and kind='experiment'",
+          [PROCESS, identifier],
+        )
+        const recordId = record.rows.at(0)?.id
+        if (!recordId) throw new Error(`record ${identifier} missing`)
+        const existing = await client.query(
+          'select 1 from api.work_item_follows where user_id=$1 and record_id=$2',
+          [DESIGN_USER_IDS.gareth, recordId],
+        )
+        if (!existing.rowCount)
+          await client.query('select api.follow_record($1)', [recordId])
+      }
+    },
+  )
 
   // A failed run of a pipeline Gareth owns (the Pipelines "1 failed" badge).
   await db
@@ -3297,10 +3304,163 @@ async function seedDesignProjectDetails(
 }
 
 /**
+ * Disposable design fixture, not product credential enrollment or identity
+ * acceptance. Better Auth owns the fixture password; the existing Fixture
+ * Owner verifies Gareth through the same human-only RPC as an administrator.
+ * Every password assertion and token is issued by the real signing handler.
+ */
+async function designSigningFixture(db: Parameters<SeedStep['run']>[0]) {
+  // Load after the seed runner has loaded its environment.
+  const { createAuth } = await import('#/lib/auth')
+  const { handleSignatureStepUp } =
+    await import('#/lib/signature-step-up.server')
+  const authentication = createAuth(db)
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const actorId = DESIGN_USER_IDS.gareth
+  const sessionId = DESIGN_SESSION_IDS.gareth
+  const fixturePassword = 'design-fixture-only-signing-password'
+  const verifierSession = 'design-session-fixture-owner-verification'
+  await seedDesignSessions(db)
+  // This is the same fixture-owner membership the final dev-workspace step
+  // creates. Never promote another design member or replace an existing role.
+  await db
+    .insert(schema.workspaceMemberships)
+    .values({
+      workspaceId,
+      userId: FIXTURE_USER_ID,
+      role: 'owner',
+    })
+    .onConflictDoNothing()
+  await db
+    .insert(schema.session)
+    .values({
+      id: verifierSession,
+      token: verifierSession,
+      userId: FIXTURE_USER_ID,
+      expiresAt: new Date(DESIGN_CLOCK.getTime() + 90 * 86_400_000),
+    })
+    .onConflictDoNothing()
+  const secret = process.env.BETTER_AUTH_SECRET
+  if (!secret) throw new Error('BETTER_AUTH_SECRET required for design signing')
+  const origin = new URL(process.env.BETTER_AUTH_URL ?? 'http://localhost:3000')
+    .origin
+  const cookieSignature = createHmac('sha256', secret)
+    .update(sessionId)
+    .digest('base64')
+  const headers = new Headers({
+    origin,
+    'content-type': 'application/json',
+    cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${sessionId}.${cookieSignature}`)}`,
+  })
+  const credential = await db
+    .select({ id: schema.account.id })
+    .from(schema.account)
+    .where(
+      and(
+        eq(schema.account.userId, actorId),
+        eq(schema.account.providerId, 'credential'),
+      ),
+    )
+    .limit(1)
+  if (!credential.length) {
+    await authentication.api.setPassword({
+      headers,
+      body: { newPassword: fixturePassword },
+    })
+  }
+  const proof = async (
+    input:
+      | { purpose: 'certify' }
+      | {
+          purpose: 'sign'
+          submissionId: string
+          revisionDigest: string
+          signatureMeaning: 'reviewed-and-approved'
+        },
+  ) => {
+    const response = await handleSignatureStepUp(
+      new Request(`${origin}/api/signatures/step-up`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ...input,
+          workspaceId,
+          password: fixturePassword,
+        }),
+      }),
+      { database: db, authentication },
+    )
+    if (!response.ok)
+      throw new Error(
+        `Design fixture password step-up refused (${response.status})`,
+      )
+    return z
+      .object({ token: z.string().min(32), authMethod: z.literal('password') })
+      .parse(await response.json()).token
+  }
+  const certification = (
+    await db
+      .select()
+      .from(schema.userSignatureCertifications)
+      .where(
+        and(
+          eq(schema.userSignatureCertifications.workspaceId, workspaceId),
+          eq(schema.userSignatureCertifications.userId, actorId),
+        ),
+      )
+  ).at(0)
+  if (
+    !certification?.identityVerifiedAt ||
+    certification.verifiedEmail !== 'gareth.p@design.sheetbase.dev' ||
+    certification.revokedAt ||
+    certification.statementVersion !== 1 ||
+    certification.authMethod !== 'password'
+  ) {
+    await withDesignClaims(
+      db,
+      actorId,
+      workspaceId,
+      async (client) => {
+        await client.query(
+          'select api.request_signature_identity_verification()',
+        )
+      },
+      sessionId,
+    )
+    await withDesignClaims(
+      db,
+      FIXTURE_USER_ID,
+      workspaceId,
+      async (client) => {
+        await client.query('select api.verify_signature_identity($1,$2)', [
+          actorId,
+          'gareth.p@design.sheetbase.dev',
+        ])
+      },
+      verifierSession,
+    )
+    const token = await proof({ purpose: 'certify' })
+    await withDesignClaims(
+      db,
+      actorId,
+      workspaceId,
+      async (client) => {
+        await client.query('select api.certify_signature($1,1,$2)', [
+          workspaceId,
+          token,
+        ])
+      },
+      sessionId,
+    )
+  }
+  return proof
+}
+
+/**
  * Design agents (RM-116/PIPE-01): a workflow, a few operation proposals and a
  * policy, so the Agents surface shows real work. Proposals and the workflow go
  * through their RPCs (idempotent on the key); the policy needs a service
- * credential and a certified signature, both ensured first.
+ * credential and a password-certified human fixture, both ensured first.
  */
 async function seedDesignAgents(
   db: Parameters<SeedStep['run']>[0],
@@ -3346,9 +3506,8 @@ async function seedDesignAgents(
     credentialId = inserted[0]?.id
   }
 
+  await designSigningFixture(db)
   await withDesignClaims(db, actorId, workspaceId, async (client) => {
-    await client.query('select api.certify_signature($1, 1)', [workspaceId])
-
     const hasWorkflow = await client.query(
       `select 1 from api.agent_workflows where workspace_id = $1 and idempotency_key = 'seed-workflow-1' limit 1`,
       [workspaceId],
@@ -3463,11 +3622,17 @@ async function seedDesignProtocolTraining(
   await withDesignClaims(db, actorId, workspaceId, async (client) => {
     const protocol = DESIGN_PROTOCOLS.at(0)
     if (!protocol) return
+    const protocolRecord = await client.query<{ id: string }>(
+      'select id from api.records where identifier = $1 and kind = $2',
+      [protocol.identifier, 'protocol_template'],
+    )
+    const protocolId = protocolRecord.rows[0]?.id
+    if (!protocolId) throw new Error(`protocol ${protocol.identifier} missing`)
 
     // A controlled document: the record's rich-text blocks.
     const hasDoc = await client.query(
       'select 1 from api.blocks where record_id = $1 limit 1',
-      [protocol.id],
+      [protocolId],
     )
     if ((hasDoc.rowCount ?? 0) === 0) {
       const doc = {
@@ -3517,12 +3682,10 @@ async function seedDesignProtocolTraining(
           },
         ],
       }
-      await client.query(
-        `insert into api.blocks
-           (record_id, type, payload, payload_schema_version, "order", version, created_by_user_id)
-         values ($1,'rich_text',$2::jsonb,1,1,1,$3)`,
-        [protocol.id, JSON.stringify({ doc }), actorId],
-      )
+      await client.query(`select api.insert_block($1,'rich_text',$2::jsonb)`, [
+        protocolId,
+        JSON.stringify({ doc }),
+      ])
     }
 
     const records = [
@@ -3531,8 +3694,13 @@ async function seedDesignProtocolTraining(
       { user: DESIGN_USER_IDS.tom, status: 'required' },
     ]
     for (const t of records) {
+      const existing = await client.query<{ status: string }>(
+        'select status from api.protocol_training where protocol_record_id = $1 and user_id = $2',
+        [protocolId, t.user],
+      )
+      if (existing.rows[0]?.status === t.status) continue
       await client.query('select api.record_protocol_training($1,$2,$3)', [
-        protocol.id,
+        protocolId,
         t.user,
         t.status,
       ])
@@ -3881,15 +4049,21 @@ async function seedDesignMeasurements(
       { name: 'Turbidity', value: 14.2, unit: 'NTU', method: 'Benedict' },
     ]
     for (const sample of DESIGN_SAMPLES.slice(0, 5)) {
+      const record = await client.query<{ id: string }>(
+        "select id from api.records where workspace_id=$1 and identifier=$2 and kind='sample'",
+        [workspaceId, sample.identifier],
+      )
+      const sampleId = record.rows.at(0)?.id
+      if (!sampleId) throw new Error(`sample ${sample.identifier} missing`)
       for (const d of defs.slice(0, 2)) {
         const existing = await client.query(
           'select 1 from api.sample_measurements where sample_record_id = $1 and name = $2 limit 1',
-          [sample.id, d.name],
+          [sampleId, d.name],
         )
         if ((existing.rowCount ?? 0) > 0) continue
         await client.query(
           'select api.record_sample_measurement($1,$2,$3,$4,$5)',
-          [sample.id, d.name, d.value, d.unit, d.method],
+          [sampleId, d.name, d.value, d.unit, d.method],
         )
       }
     }
@@ -4455,13 +4629,13 @@ async function seedDesignPipelines(
 // ---------------------------------------------------------------------------
 // DSYS-05.5+ — working sheets, review lifecycle, folders/files, integrations
 // and the client portal. All domain rows go through the canonical RPCs; the
-// claims connection carries a session id so the review/sign guards pass.
+// claims connection carries a live session; signing also needs password proof.
 // ---------------------------------------------------------------------------
 
 /**
  * DSYS-05 — authentication sessions for the design actors. The review, sign,
  * submit and amendment RPCs require a live session in `internal.session`
- * (the re-authentication guard), exactly as a signed-in browser would have.
+ * just as a signed-in browser would. This alone cannot authorize a signature.
  */
 async function seedDesignSessions(
   db: Parameters<SeedStep['run']>[0],
@@ -4722,8 +4896,8 @@ interface DesignReviewTarget {
 /**
  * DSYS-05 — the review lifecycle the Review/NbSigned screens show, driven by
  * the canonical RPCs (preview → submit → run checks → approve/request changes
- * → sign). Each step is guarded so a reseed converges: once a submission has
- * left `submitted`, the step leaves it alone.
+ * → password proof → sign). Reseeds preserve existing decisions and signed
+ * evidence, completing only a missing signature after an interrupted approval.
  */
 async function seedDesignReviewLifecycle(
   db: Parameters<SeedStep['run']>[0],
@@ -4879,13 +5053,43 @@ async function seedDesignReviewLifecycle(
           if (!approved.rows[0]?.result) {
             throw new Error(`approve failed for ${target.identifier}`)
           }
+          submission.state = 'approved'
+        },
+        sessionFor(reviewerId),
+      )
+    }
+
+    // An interrupted seed may have approved but not signed. Resume only that
+    // missing signature, never rewrite a historical signature or its evidence.
+    if (target.outcome === 'approve-sign' && submission.state === 'approved') {
+      const reviewerId = target.reviewerIds[0]
+      if (reviewerId !== DESIGN_USER_IDS.gareth)
+        throw new Error('No signing fixture for reviewer')
+      await withDesignClaims(
+        db,
+        reviewerId,
+        workspaceId,
+        async (client) => {
+          const existing = await client.query(
+            'select 1 from api.signatures where submission_id=$1 and signer_user_id=$2',
+            [submission.submissionId, reviewerId],
+          )
+          if (existing.rowCount) return
+          const proof = await designSigningFixture(db)
+          const signingToken = await proof({
+            purpose: 'sign',
+            submissionId: submission.submissionId,
+            revisionDigest: submission.digest,
+            signatureMeaning: 'reviewed-and-approved',
+          })
           const signed = await client.query(
-            'select api.sign_revision($1,$2,$3,$4) as result',
+            'select api.sign_revision($1,$2,$3,$4,$5) as result',
             [
               submission.submissionId,
-              'approve-for-record',
+              'reviewed-and-approved',
               target.signerName ?? 'Gareth P.',
               submission.digest,
+              signingToken,
             ],
           )
           if (!signed.rows[0]?.result) {
@@ -4926,6 +5130,379 @@ async function seedDesignReviewLifecycle(
   }
 }
 
+/**
+ * Isolated screen preparation, deliberately absent from the convergent seed.
+ * Provision/migrate/seed the exact local scenario database before each screen.
+ * Never run against a default database or reuse a prepared screen database.
+ * All evidence dates are actual server dates, not historical canvas dates.
+ */
+export async function prepareDesignScenario(
+  db: Parameters<SeedStep['run']>[0],
+  screen: 'ReviewSign' | 'SettingsSignature' | 'HomeFirstRun',
+) {
+  const databaseName = {
+    ReviewSign: 'sheetbase_parity_review_sign',
+    SettingsSignature: 'sheetbase_parity_settings_signature',
+    HomeFirstRun: 'sheetbase_parity_home_first_run',
+  }[screen]
+  const urls = [
+    db.$client.options.connectionString,
+    process.env.DATABASE_URL,
+    process.env.MIGRATION_DATABASE_URL,
+    process.env.PGRST_DB_URI,
+    process.env.FORMULA_DATABASE_URL,
+  ].map((value) => {
+    try {
+      return new URL(value ?? '')
+    } catch {
+      return null
+    }
+  })
+  if (
+    process.env.SHEETBASE_ENV !== 'test' ||
+    process.env.SHEETBASE_DEV_AUTH_FREE !== 'false' ||
+    urls.some(
+      (url) =>
+        !url ||
+        !['postgres:', 'postgresql:'].includes(url.protocol) ||
+        !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+        url.pathname !== `/${databaseName}`,
+    )
+  ) {
+    throw new Error(
+      'Design scenarios require every role URL to target the exact isolated local scenario database in test mode without auth-free sessions',
+    )
+  }
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const project = await db
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(
+      and(
+        eq(schema.projects.workspaceId, workspaceId),
+        eq(schema.projects.key, 'aav9-process-transfer'),
+      ),
+    )
+  const projectId = project[0]?.id
+  if (!projectId)
+    throw new Error('Seed the design baseline before preparing a scenario')
+
+  if (screen === 'ReviewSign') {
+    const key = 'design-scenario-review-sign-round-2'
+    const submission = await withDesignClaims(
+      db,
+      DESIGN_USER_IDS.priya,
+      workspaceId,
+      async (client) => {
+        const record = await client.query<{
+          id: string
+          locked_at: string | null
+        }>(
+          "select id, locked_at from api.records where project_id=$1 and identifier='EXP-0138'",
+          [projectId],
+        )
+        const current = record.rows.at(0)
+        if (!current) throw new Error('EXP-0138 missing')
+        const existing = await client.query<{
+          id: string
+          revision_id: string
+          state: string
+          integrity_digest: string
+        }>(
+          `select s.id,s.revision_id,s.state,r.integrity_digest from api.review_submissions s
+           join api.revisions r on r.id=s.revision_id where s.record_id=$1 and s.idempotency_key=$2`,
+          [current.id, key],
+        )
+        if (existing.rows[0]) return existing.rows[0]
+        if (current.locked_at) {
+          await client.query('select api.create_amendment($1,$2)', [
+            current.id,
+            'Isolated ReviewSign scenario: prepare a new review round.',
+          ])
+        }
+        const preview = await client.query<{ digest: string }>(
+          "select api.preview_submission_digest($1)->>'sourceDigest' as digest",
+          [current.id],
+        )
+        const submitted = await client.query<{
+          result: {
+            revision: { id: string; integrityDigest: string }
+            submission: { id: string; state: string }
+          }
+        }>(
+          "select api.submit_record_revision($1,$2,'default-scientific-review',1,$3::text[],true,$4,null) as result",
+          [current.id, preview.rows[0]?.digest, [DESIGN_USER_IDS.gareth], key],
+        )
+        const result = submitted.rows.at(0)?.result
+        if (!result)
+          throw new Error('Scenario submission did not return a revision')
+        return {
+          id: result.submission.id,
+          revision_id: result.revision.id,
+          state: result.submission.state,
+          integrity_digest: result.revision.integrityDigest,
+        }
+      },
+      DESIGN_SESSION_IDS.priya,
+    )
+    await withDesignClaims(
+      db,
+      DESIGN_USER_IDS.gareth,
+      workspaceId,
+      async (client) => {
+        if (submission.state === 'submitted') {
+          await client.query(
+            "select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)",
+            [submission.revision_id, `${key}-checks`],
+          )
+          await client.query(
+            "select api.approve_review($1,$2,'submitted',$3)",
+            [
+              submission.id,
+              'Approved in an isolated fixture; awaiting a real signature.',
+              submission.integrity_digest,
+            ],
+          )
+        }
+        const ready = await client.query(
+          `select 1 from api.review_submissions s where s.id=$1 and s.state='approved'
+          and not exists(select 1 from api.signatures sig where sig.submission_id=s.id)`,
+          [submission.id],
+        )
+        if (!ready.rowCount)
+          throw new Error(
+            'ReviewSign requires an approved unsigned submission; reset the scenario database',
+          )
+      },
+      DESIGN_SESSION_IDS.gareth,
+    )
+    return {
+      screen,
+      workspaceId,
+      projectId,
+      userId: DESIGN_USER_IDS.gareth,
+      sessionId: DESIGN_SESSION_IDS.gareth,
+      revisionId: submission.revision_id,
+      submissionId: submission.id,
+      route: `/review/${submission.revision_id}`,
+      prerequisites: { approved: true, unsigned: true },
+    }
+  }
+
+  if (screen === 'SettingsSignature') {
+    const userId = DESIGN_USER_IDS.sam
+    const sessionId = DESIGN_SESSION_IDS.sam
+    const certification = (
+      await db
+        .select()
+        .from(schema.userSignatureCertifications)
+        .where(
+          and(
+            eq(schema.userSignatureCertifications.workspaceId, workspaceId),
+            eq(schema.userSignatureCertifications.userId, userId),
+          ),
+        )
+    ).at(0)
+    if (certification?.certifiedAt)
+      throw new Error(
+        'SettingsSignature requires an uncertified Sam; reset the scenario database',
+      )
+    const { createAuth } = await import('#/lib/auth')
+    const secret = process.env.BETTER_AUTH_SECRET
+    if (!secret)
+      throw new Error(
+        'BETTER_AUTH_SECRET required for native fixture credentials',
+      )
+    const origin = new URL(
+      process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
+    ).origin
+    const signature = createHmac('sha256', secret)
+      .update(sessionId)
+      .digest('base64')
+    const headers = new Headers({
+      origin,
+      cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${sessionId}.${signature}`)}`,
+    })
+    const credential = await db
+      .select({ id: schema.account.id })
+      .from(schema.account)
+      .where(
+        and(
+          eq(schema.account.userId, userId),
+          eq(schema.account.providerId, 'credential'),
+        ),
+      )
+      .limit(1)
+    if (!credential.length) {
+      await createAuth(db).api.setPassword({
+        headers,
+        body: { newPassword: 'design-fixture-only-signing-password' },
+      })
+    }
+    if (!certification?.identityVerifiedAt) {
+      await withDesignClaims(
+        db,
+        userId,
+        workspaceId,
+        async (client) => {
+          await client.query(
+            'select api.request_signature_identity_verification()',
+          )
+        },
+        sessionId,
+      )
+      await withDesignClaims(
+        db,
+        DESIGN_USER_IDS.gareth,
+        workspaceId,
+        async (client) => {
+          await client.query('select api.verify_signature_identity($1,$2)', [
+            userId,
+            'sam.r@design.sheetbase.dev',
+          ])
+        },
+        DESIGN_SESSION_IDS.gareth,
+      )
+    } else if (
+      certification.identityVerifiedBy !== DESIGN_USER_IDS.gareth ||
+      certification.verifiedEmail !== 'sam.r@design.sheetbase.dev'
+    ) {
+      throw new Error(
+        'SettingsSignature has different existing verification; reset the scenario database',
+      )
+    }
+    const verified = (
+      await db
+        .select()
+        .from(schema.userSignatureCertifications)
+        .where(
+          and(
+            eq(schema.userSignatureCertifications.workspaceId, workspaceId),
+            eq(schema.userSignatureCertifications.userId, userId),
+          ),
+        )
+    ).at(0)
+    if (
+      !verified?.identityVerifiedAt ||
+      verified.certifiedAt ||
+      verified.identityVerifiedBy !== DESIGN_USER_IDS.gareth ||
+      verified.verifiedEmail !== 'sam.r@design.sheetbase.dev'
+    )
+      throw new Error('Sam must be independently verified but uncertified')
+    return {
+      screen,
+      workspaceId,
+      projectId,
+      userId,
+      sessionId,
+      route: '/settings/signatures',
+      prerequisites: {
+        identityVerifiedBy: verified.identityVerifiedBy,
+        verifiedEmail: verified.verifiedEmail,
+        certified: false,
+      },
+    }
+  }
+
+  const userId = 'design-scenario-first-run-editor'
+  const sessionId = 'design-session-first-run-editor'
+  const email = 'first-run-editor@design.sheetbase.dev'
+  // Explicit auth fixture bootstrap, not product enrolment/identity acceptance.
+  await db
+    .insert(schema.user)
+    .values({ id: userId, name: 'New Editor', email, emailVerified: false })
+    .onConflictDoNothing()
+  await db
+    .insert(schema.session)
+    .values({
+      id: sessionId,
+      token: sessionId,
+      userId,
+      expiresAt: sql`now() + interval '90 days'`,
+    })
+    .onConflictDoNothing()
+  const membership = await db
+    .select({ id: schema.workspaceMemberships.id })
+    .from(schema.workspaceMemberships)
+    .where(
+      and(
+        eq(schema.workspaceMemberships.workspaceId, workspaceId),
+        eq(schema.workspaceMemberships.userId, userId),
+      ),
+    )
+  if (!membership.length) {
+    const token = await withDesignClaims(
+      db,
+      DESIGN_USER_IDS.gareth,
+      workspaceId,
+      async (client) => {
+        const invitation = await client.query<{ result: { token: string } }>(
+          "select api.create_invitation($1,$2,'member') as result",
+          [workspaceId, email],
+        )
+        const result = invitation.rows.at(0)?.result
+        if (!result?.token)
+          throw new Error('Scenario invitation did not return a token')
+        return result.token
+      },
+      DESIGN_SESSION_IDS.gareth,
+    )
+    await withDesignClaims(
+      db,
+      userId,
+      workspaceId,
+      async (client) => {
+        await client.query('select api.accept_invitation($1,$2)', [
+          token,
+          userId,
+        ])
+      },
+      sessionId,
+    )
+  }
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.gareth,
+    workspaceId,
+    async (client) => {
+      const access = await client.query(
+        'select 1 from api.project_access where project_id=$1 and user_id=$2 and access_level=$3',
+        [projectId, userId, 'editor'],
+      )
+      if (!access.rowCount)
+        await client.query(
+          "select api.grant_project_access($1,$2,$3,'editor')",
+          [workspaceId, projectId, userId],
+        )
+    },
+    DESIGN_SESSION_IDS.gareth,
+  )
+  const activity = await db.$client.query(
+    `select 1 from api.recently_viewed where user_id=$1
+     union all select 1 from api.records where created_by_user_id=$1
+     union all select 1 from api.user_signature_certifications where user_id=$1
+     union all select 1 from api.change_events where actor_user_id=$1 and entity_type in ('record','block','record_link','dataset','sheet_instance','project','notebook_template','review_submission') limit 1`,
+    [userId],
+  )
+  if (activity.rowCount)
+    throw new Error(
+      'HomeFirstRun has personal activity; reset the scenario database',
+    )
+  return {
+    screen,
+    workspaceId,
+    projectId,
+    userId,
+    sessionId,
+    route: '/',
+    prerequisites: {
+      projectAccess: 'editor',
+      personalActivity: false,
+      certified: false,
+    },
+  }
+}
+
 const DESIGN_FOLDER_NAMES = {
   upstream: 'Upstream',
   transfection: 'Transfection',
@@ -4948,8 +5525,19 @@ async function seedDesignFoldersAndFiles(
 ): Promise<void> {
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
   const actorId = DESIGN_USER_IDS.gareth
-  const projectId = DESIGN_PROJECTS[0]?.id
-  if (!projectId) return
+  const project = DESIGN_PROJECTS.at(0)
+  if (!project) return
+  const projectRow = await db
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(
+      and(
+        eq(schema.projects.workspaceId, workspaceId),
+        eq(schema.projects.key, project.key),
+      ),
+    )
+  const projectId = projectRow[0]?.id
+  if (!projectId) throw new Error(`project ${project.key} missing`)
 
   const existingFolders = await db
     .select({ id: schema.folders.id, name: schema.folders.name })
@@ -4982,8 +5570,8 @@ async function seedDesignFoldersAndFiles(
       await ensureFolder(DESIGN_FOLDER_NAMES.upstream)
       await ensureFolder(DESIGN_FOLDER_NAMES.transfection)
       await ensureFolder(DESIGN_FOLDER_NAMES.harvest)
-      const downstream = await ensureFolder(DESIGN_FOLDER_NAMES.downstream)
-      const clarification = await ensureFolder(
+      await ensureFolder(DESIGN_FOLDER_NAMES.downstream)
+      await ensureFolder(
         DESIGN_FOLDER_NAMES.clarification,
         DESIGN_FOLDER_NAMES.downstream,
       )
@@ -4993,27 +5581,31 @@ async function seedDesignFoldersAndFiles(
       )
       await ensureFolder(DESIGN_FOLDER_NAMES.analytical)
       await ensureFolder(DESIGN_FOLDER_NAMES.reports)
-      void downstream
 
       const moves: Array<[string, string]> = [
-        [
-          '00000000-0000-4000-8000-000000000350',
-          DESIGN_FOLDER_NAMES.transfection,
-        ],
-        [
-          '00000000-0000-4000-8000-000000000352',
-          DESIGN_FOLDER_NAMES.transfection,
-        ],
-        ['00000000-0000-4000-8000-000000000353', DESIGN_FOLDER_NAMES.harvest],
-        ['00000000-0000-4000-8000-000000000351', clarification],
-        ['00000000-0000-4000-8000-0000000003c5', clarification],
+        ['EXP-0138', DESIGN_FOLDER_NAMES.transfection],
+        ['EXP-0136', DESIGN_FOLDER_NAMES.transfection],
+        ['EXP-0133', DESIGN_FOLDER_NAMES.harvest],
+        ['EXP-0142', DESIGN_FOLDER_NAMES.clarification],
+        ['EXP-0145', DESIGN_FOLDER_NAMES.clarification],
       ]
-      for (const [recordId, folderName] of moves) {
+      for (const [identifier, folderName] of moves) {
         const folderId = byName.get(folderName)
-        if (!folderId) continue
+        if (!folderId) throw new Error(`folder ${folderName} missing`)
+        const record = await client.query<{
+          id: string
+          folder_id: string | null
+          locked_at: string | null
+        }>(
+          'select id, folder_id, locked_at from api.records where project_id = $1 and identifier = $2',
+          [projectId, identifier],
+        )
+        const current = record.rows.at(0)
+        if (!current) throw new Error(`record ${identifier} missing`)
+        if (current.locked_at || current.folder_id === folderId) continue
         await client.query(
           'select api.move_records_to_folder($1,$2::uuid[],$3)',
-          [projectId, [recordId], folderId],
+          [projectId, [current.id], folderId],
         )
       }
 
@@ -5048,8 +5640,10 @@ async function seedDesignFoldersAndFiles(
       ]
       for (const file of files) {
         const existing = await client.query(
-          'select 1 from api.file_objects where id = $1 limit 1',
-          [file.id],
+          `select f.id from api.file_objects f
+             join api.records r on r.id = f.record_id
+            where r.project_id = $1 and f.display_name = $2`,
+          [projectId, file.name],
         )
         if ((existing.rowCount ?? 0) > 0) continue
         await client.query(

@@ -1,0 +1,19 @@
+---
+id: subtask-41
+title: DSYS-06.3 — CI job in .github/workflows/ using the same Chromium build as the renders
+type: subtask
+status: done
+priority: high
+created: "2026-09-27"
+updated: "2026-09-27"
+parent: task-38
+tags:
+  - DSYS-06.3
+  - DSYS
+---
+
+# DSYS-06.3 — CI job in .github/workflows/ using the same Chromium build as the renders
+
+Step 3 of 3 in [DSYS-06](../../tasks/DSYS.md#dsys-06--visual-parity-suite); the full step text is under “Steps” there.
+
+## Work Log

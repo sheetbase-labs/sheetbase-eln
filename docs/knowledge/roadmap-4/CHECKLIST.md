@@ -285,7 +285,7 @@ Specification: [tasks/SHEET.md](tasks/SHEET.md) · nod `epic-226`
   - [ ] SHEET-02.2 On approval `subtask-234`
   - [ ] SHEET-02.3 Promote dialog (SheetPromote) and returned banner (PromoteRejected) `subtask-235`
   - [ ] SHEET-02.4 Remove direct promote_local_field use from the UI `subtask-236`
-- [ ] **SHEET-03** Sheet-cell and range comments `task-237`
+- [ ] **SHEET-03** Sheet-cell and range comments — **in progress** `task-237`
   - [ ] SHEET-03.1 New target kinds sheet_cell, sheet_row, sheet_range anchored to stable row… `subtask-238`
   - [ ] SHEET-03.2 Grid markers via the table annotations API; inspector thread `subtask-239`
 - [ ] **SHEET-04** Templates — **in progress** `task-240`

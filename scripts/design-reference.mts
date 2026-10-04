@@ -179,6 +179,16 @@ async function main() {
           clip: { x: 0, y: 0, width: board.w, height: board.h },
           animations: 'disabled',
         })
+        if (name === 'States') {
+          // COMP-05 compares the installed filter package with this design
+          // border box, using the same 360 × 126 crop as COMP-04's fixture.
+          // Derive it from the reference, never from the app output.
+          await page.screenshot({
+            path: join(OUT, `States-filter-builder-${theme}.png`),
+            clip: { x: 557, y: 1089, width: 360, height: 126 },
+            animations: 'disabled',
+          })
+        }
         if (errors.length > 0) {
           failures += 1
           console.error(`${name} (${theme}): ${errors.join('; ')}`)

@@ -30,6 +30,7 @@
  */
 @import '@sheetbase-labs/sheetbase-table/styles.css' layer(sheetbase);
 @import '@sheetbase-labs/sheetbase-explorer/styles.css' layer(sheetbase);
+@import '@sheetbase-labs/sheetbase-advanced-search/styles.css' layer(sheetbase);
 @import '@sheetbase-labs/sheetbase-shared/themes/v3.css' layer(sheetbase);
 
 @custom-variant dark (&:is(.dark *));
@@ -256,7 +257,7 @@
  * `--border-subtle`, `--border-strong`, `--grid-line`, `--selection`,
  * `--selection-subtle`, `--selection-border`, `--surface-derived`,
  * `--surface-disabled`, `--link`, `--link-hover`, `--danger-text`,
- * `--chart-grid`, `--chart-axis`, `--radius-*`, `--control-height`, fonts and
+ * `--chart-grid`, `--chart-axis`, `--radius-*`, `--control-height` and
  * type sizes) keep the v3 preset binding: `--border: var(--border)` on the
  * same element would be a self-reference and invalid CSS. `--row-height` also
  * stays at the preset's 28px — that is the v3 grid row, not the ELN's 32px
@@ -267,10 +268,16 @@
 :root {
   --sb-host-muted-surface: var(--muted);
   --sb-host-hover-surface: var(--accent);
+  --sb-host-font-sans: var(--font-sans);
+  --sb-host-font-mono: var(--font-mono);
 }
 
 :root .sheetbase-scope,
 :root .sheetbase-explorer {
+  /* Use the loaded @fontsource family names, not the preset's font aliases. */
+  --font-sans: var(--sb-host-font-sans);
+  --font-mono: var(--sb-host-font-mono);
+
   /* Surfaces */
   --app: var(--background);
   --canvas: var(--background);

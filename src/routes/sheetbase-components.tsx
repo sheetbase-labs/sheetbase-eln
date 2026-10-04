@@ -1,5 +1,11 @@
+import { useSyncExternalStore } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Spreadsheet } from '@sheetbase-labs/sheetbase-table'
+import { FilterBuilder } from '@sheetbase-labs/sheetbase-advanced-search'
+import type { FilterBuilderFieldInput } from '@sheetbase-labs/sheetbase-advanced-search'
+import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
+
+import { subscribeTheme } from '#/components/v3/lib/theme'
 
 /**
  * COMP-05 Check-it: a development-only surface rendering the
@@ -56,6 +62,44 @@ const DEMO_CELLS: ReadonlyMap<string, string> = new Map(
   Object.entries(DEMO_ROWS),
 )
 
+// States.dc.html's filter builder. Render the installed package without local
+// component styles so the parity project detects package-release drift.
+const FILTER_FIELDS: FilterBuilderFieldInput[] = [
+  {
+    id: 'status',
+    label: 'Status',
+    dataType: 'text',
+    options: ['In progress', 'Complete', 'Review'],
+  },
+  {
+    id: 'owner',
+    label: 'Owner',
+    dataType: 'text',
+    options: ['Me', 'Sam Patel', 'Priya S.'],
+  },
+]
+const FILTER_NODE: GroupNode = {
+  type: 'group',
+  id: 'root',
+  combinator: 'AND',
+  children: [
+    {
+      type: 'condition',
+      id: 'c1',
+      field: 'status',
+      operator: 'eq',
+      value: 'In progress',
+    },
+    {
+      type: 'condition',
+      id: 'c2',
+      field: 'owner',
+      operator: 'eq',
+      value: 'Me',
+    },
+  ],
+}
+
 /** The grid's own dark preset follows `data-theme`; the ELN keeps it on `<html>`. */
 function resolvedGridTheme(): 'light' | 'dark' {
   if (typeof document === 'undefined') return 'light'
@@ -63,6 +107,11 @@ function resolvedGridTheme(): 'light' | 'dark' {
 }
 
 export function SheetbaseComponentsDemo() {
+  const theme = useSyncExternalStore<ReturnType<typeof resolvedGridTheme>>(
+    subscribeTheme,
+    resolvedGridTheme,
+    () => 'light',
+  )
   return (
     <div className="min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-6 py-10">
@@ -88,9 +137,17 @@ export function SheetbaseComponentsDemo() {
               initialData={DEMO_CELLS}
               rowCount={12}
               columnCount={4}
-              theme={resolvedGridTheme()}
+              theme={theme}
             />
           </div>
+        </section>
+
+        <section
+          className="sheetbase-scope mt-6"
+          data-theme={theme}
+          aria-label="States filter builder"
+        >
+          <FilterBuilder fields={FILTER_FIELDS} node={FILTER_NODE} />
         </section>
       </div>
     </div>

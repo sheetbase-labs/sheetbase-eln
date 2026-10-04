@@ -33,6 +33,8 @@ function mappingBlock(): string {
 
 /** Package variable → the ELN token (or host alias) it must resolve to. */
 const EXPECTED_BINDINGS: Record<string, string> = {
+  '--font-sans': '--sb-host-font-sans',
+  '--font-mono': '--sb-host-font-mono',
   '--app': '--background',
   '--canvas': '--background',
   '--panel': '--card',
@@ -74,11 +76,16 @@ describe('sheetbase components stylesheet consumption (COMP-05)', () => {
     const tableStyles = styles.indexOf(
       "@import '@sheetbase-labs/sheetbase-table/styles.css'",
     )
+    const filterStyles = styles.indexOf(
+      "@import '@sheetbase-labs/sheetbase-advanced-search/styles.css' layer(sheetbase)",
+    )
     const v3Preset = styles.indexOf(
       "@import '@sheetbase-labs/sheetbase-shared/themes/v3.css'",
     )
 
     expect(tableStyles).toBeGreaterThan(-1)
+    expect(filterStyles).toBeGreaterThan(tableStyles)
+    expect(v3Preset).toBeGreaterThan(filterStyles)
     expect(v3Preset).toBeGreaterThan(tableStyles)
   })
 
@@ -96,6 +103,8 @@ describe('sheetbase components stylesheet consumption (COMP-05)', () => {
     // :root where the scope cannot shadow them.
     expect(styles).toMatch(/--sb-host-muted-surface:\s*var\(--muted\)/)
     expect(styles).toMatch(/--sb-host-hover-surface:\s*var\(--accent\)/)
+    expect(styles).toMatch(/--sb-host-font-sans:\s*var\(--font-sans\)/)
+    expect(styles).toMatch(/--sb-host-font-mono:\s*var\(--font-mono\)/)
   })
 
   it('never self-references a variable (which is invalid CSS)', () => {

@@ -6,6 +6,46 @@ All **86 original tasks across 17 streams** have an evidence-backed disposition 
 
 ## Update since this audit
 
+### 4 October orb continuation
+
+The continuation starts from pushed `GWP/roadmap-4-shell` at `3e0fe40d`.
+The owner supplied the excluded nod archive; restored nod agrees with
+`CHECKLIST.md` at **34 of 85 tasks and 125 of 266 steps done**.
+The audit statuses and earlier counts below remain historical.
+
+COMP-05 now has an unannotated installed-package comparison against the States
+filter-builder design crop in both themes. The same screenshot assertion
+rejects a simulated package padding change, at the existing 0.001 tolerance.
+This exposed and fixed a missing filter stylesheet import, scoped font-family
+fallbacks, and development-fixture dark-theme hydration. Evidence lives in
+`tests/visual/package-parity.spec.ts`, `scripts/design-reference.mts`, and
+`docs/development/sheetbase-components.md`.
+
+**COMP-05 stays in progress.** This proves the filter comparison, not rejection
+of every package upgrade. The 70 full-screen DSYS-06 comparisons still have
+expected-failure annotations, which can hide additional drift. No task exit
+has been relaxed or closed by this slice.
+
+Baseline verification: frozen registry install, `pnpm roadmap:check`,
+`pnpm typecheck`, `pnpm check`, and 3,537 unit tests pass. Fresh local migration
+and design seeding pass. Upgrading the orb's older populated demo database
+failed at migration 0255's `UPDATE api.sheet_instances SET display_id = …`:
+`internal.guard_sheet_instance` rejected it with `42501`, "Sheet Instances
+require controlled RPCs". Resetting the disposable orb database established
+the fresh-install baseline; it did not fix or accept that populated-upgrade
+path. That path remains a programme verification blocker.
+
+Post-slice parity: 73 tests pass, comprising 70 documented expected failures,
+the coverage check, and two unannotated installed-filter tests with negative
+controls. `pnpm validate` stops at lint with **16 errors and 18 warnings** in
+untouched inherited files: canonical-sheet-workspace, formula-reference-editor,
+the design seed, import/server, and the sample route test. Changed TypeScript
+files pass focused ESLint. Separately running `pnpm typecheck`, `pnpm test`
+and `pnpm build` succeeds, with all 3,537 unit tests passing after the slice.
+The full validation exit is therefore still unmet.
+
+### Earlier updates
+
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven
 tasks have closed since, on 2–3 October 2026, and the nod tracker now records
 **28 of 85 active tasks and 87 of 266 steps done**

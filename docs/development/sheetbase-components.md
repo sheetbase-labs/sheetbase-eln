@@ -18,8 +18,8 @@ release workflow are documented in
 | `@sheetbase-labs/sheetbase-rulesengine`     | rules engine (not consumed yet)  |
 
 The first lockstep release published all six packages as `0.1.0` to GitHub
-Packages (COMP-05). The ELN consumes four of them — `shared`, `table`,
-`explorer` and `advanced-search` — at that exact version, resolved from the
+Packages (COMP-05). The ELN now consumes `shared`, `table`, `explorer` and
+`advanced-search` at exact version `0.6.0`, resolved from the
 registry and recorded with integrity in `pnpm-lock.yaml`. The schema editor and
 the rules engine are not consumed yet. The committed `.npmrc` routes the scope;
 the token arrives from the environment as described below.
@@ -178,8 +178,36 @@ In the ELN, a version bump is a normal PR that:
    pnpm typecheck && pnpm lint && pnpm test
    ```
 
-The parity suite is the release gate: a components release is only adopted once
-the ELN renders match the v3 design renders in both themes.
+The parity project includes an unannotated installed-package comparison in
+`tests/visual/package-parity.spec.ts`. It renders the States filter builder
+through the development-only `/sheetbase-components` route in both themes.
+`scripts/design-reference.mts` derives its expected 360 × 126 image from the
+vendored States board, not from application screenshots.
+
+Run the focused comparison after rendering its reference:
+
+```bash
+pnpm design:render States
+pnpm exec playwright test --project=parity tests/visual/package-parity.spec.ts
+```
+
+Each test first requires the installed package to match at the project's
+0.001 pixel-ratio tolerance. It then changes the package selector's padding
+from 12px to 24px and requires the same screenshot assertion to reject the
+result. This negative control cannot pass on an unrelated setup failure:
+the clean comparison must pass first, and the rejection must report differing
+pixels. No expected-failure annotation covers either comparison.
+
+This proves rejection of simulated filter styling drift, not acceptance of
+every package upgrade. The full-screen comparisons still have documented
+expected failures, which can hide further drift. COMP-05 remains open until
+the release gate covers those affected screens without that limitation.
+
+The host imports the filter stylesheet into the existing `sheetbase` layer,
+before the v3 preset. Package scopes read the root font values through
+`--sb-host-font-sans` and `--sb-host-font-mono`, so they use the loaded
+`Inter Variable` and `JetBrains Mono Variable` families instead of falling
+back from the preset's different family names.
 
 ## Status
 
@@ -198,10 +226,10 @@ ported, but it is not yet mounted on the product list toolbars.
 
 Still to do:
 
+- Extend unannotated visual release coverage beyond the States filter builder.
+  Full-screen DSYS-06 expected failures do not establish upgrade acceptance.
 - `sheetbase-schemaeditor` and `sheetbase-rulesengine` are not consumed at all.
 - The filter builder is not yet wired into the product lists.
-- COMP-05's second exit clause — a package release that changes a v3 screen must
-  fail the ELN parity suite — needs the drift test that exercises it.
 
 The committed project `.npmrc` carries the scope only, so no pnpm command warns
 about an ignored credential; `scripts/registry-auth.sh` writes the token to the

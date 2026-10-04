@@ -6,7 +6,7 @@
  * Run with auth-free mode disabled and a freshly migrated local database.
  */
 import { createHmac, randomUUID } from 'node:crypto'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { config } from 'dotenv'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Client } from 'pg'
@@ -74,8 +74,8 @@ test.beforeAll(async () => {
     [workspace, signer, verifier, author],
   )
   await admin.query(
-    'insert into api.projects(id,workspace_id,key,title) values($1,$2,$3,$4)',
-    [project, workspace, `REV03-${workspace}`, 'Signing acceptance'],
+    'insert into api.projects(id,workspace_id,key,title,lead_user_id) values($1,$2,$3,$4,$5)',
+    [project, workspace, `REV03-${workspace}`, 'Signing acceptance', signer],
   )
   await admin.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment','EXP-REV03-BROWSER','Password signing acceptance','draft',$4)`,
@@ -112,6 +112,11 @@ test.beforeAll(async () => {
           session_id: `parity-${user}`,
         }),
       ])
+    await claims(signer)
+    await actor.query(
+      'select api.set_project_access_rule($1,$2,null,true,true,false,false,false)',
+      [project, author],
+    )
     await claims(author)
     const preview = await actor.query(
       "select api.preview_submission_digest($1)->>'sourceDigest' as digest",
@@ -579,7 +584,23 @@ test('controlled author submission certifies and signs atomically through the re
   } finally {
     await verifierContext.close()
   }
+  const verifiedAuthor = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/rpc/workspace_signature_certifications') &&
+      response.request().method() === 'POST',
+  )
   await page.reload()
+  const authorCertifications = await verifiedAuthor
+  expect(authorCertifications.status()).toBe(200)
+  expect(await authorCertifications.json()).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        user_id: author,
+        identity_verified_by: verifier,
+        verified_email: `${author}@sheetbase.test`,
+      }),
+    ]),
+  )
   await expect(
     page.getByText(/Verified by Verification Fixture Admin/),
   ).toBeVisible()
@@ -678,6 +699,31 @@ test('controlled author submission certifies and signs atomically through the re
       ])
     ).rows[0].locked_at,
   ).toBeNull()
+  // Certification authority alone is not record-read authority. Give this
+  // explicitly selected witness View only, through the real project owner.
+  const ownerContext = await browser.newContext({ baseURL })
+  try {
+    const ownerPage = await ownerContext.newPage()
+    await signInAsDesignUser(ownerPage, signer)
+    await ownerPage.goto('/')
+    const access = await post(
+      ownerPage,
+      '/api/db/rpc/set_project_access_rule',
+      {
+        p_project_id: project,
+        p_user_id: verifier,
+        p_group_id: null,
+        p_can_view: true,
+        p_can_edit: false,
+        p_can_review: false,
+        p_client_portal: false,
+        p_can_manage: false,
+      },
+    )
+    expect(access.status, JSON.stringify(access.body)).toBe(200)
+  } finally {
+    await ownerContext.close()
+  }
   await page
     .getByLabel('Request a witness for this frozen revision')
     .selectOption(verifier)
@@ -750,8 +796,69 @@ test('controlled author submission certifies and signs atomically through the re
     )
     await witnessPage.getByRole('button', { name: 'Certify signature' }).click()
     expect((await witnessCertified).status()).toBe(200)
-    await witnessPage.goto(
-      `/review/${result.revision.id}?signatureMeaning=witnessed`,
+    await witnessPage.goto('/inbox')
+    await witnessPage.getByRole('button', { name: /^Reviews 1$/ }).click()
+    await witnessPage.getByRole('button', { name: /^Later · 1 items$/ }).click()
+    const witnessRow = witnessPage.getByRole('button', {
+      name: /Atomic author submission acceptance/,
+    })
+    await expect(witnessRow).toContainText('Witness requested')
+    await witnessRow.click()
+    await expect(witnessRow).toHaveAttribute('aria-pressed', 'true')
+    const measurements = []
+    for (const width of [1280, 390]) {
+      await witnessPage.setViewportSize({ width, height: 900 })
+      const rowBounds = await witnessRow.evaluate((row) => {
+        const label = row.querySelector('[data-slot="status"]')
+        const title = label?.nextElementSibling
+        if (!label || !title) throw new Error('Witness label/title required')
+        const textRange = document.createRange()
+        textRange.selectNodeContents(label)
+        return {
+          labelRight: textRange.getBoundingClientRect().right,
+          titleLeft: title.getBoundingClientRect().left,
+        }
+      })
+      expect(rowBounds.labelRight).toBeLessThanOrEqual(rowBounds.titleLeft)
+      const toolbarBounds = await witnessPage
+        .getByRole('toolbar', { name: 'Filter by type' })
+        .evaluate((toolbar) => {
+          const rect = toolbar.getBoundingClientRect()
+          return {
+            left: rect.left,
+            right: rect.right,
+            children: Array.from(toolbar.children)
+              .filter((child) => child.getClientRects().length > 0)
+              .map((child) => {
+                const bounds = child.getBoundingClientRect()
+                return {
+                  text: child.textContent,
+                  left: bounds.left,
+                  right: bounds.right,
+                }
+              }),
+          }
+        })
+      for (const child of toolbarBounds.children) {
+        expect(child.left).toBeGreaterThanOrEqual(toolbarBounds.left)
+        expect(child.right).toBeLessThanOrEqual(toolbarBounds.right)
+      }
+      if (width === 1280)
+        await expect(witnessPage.getByText(/Sorted by due date/)).toBeVisible()
+      measurements.push({ width, rowBounds, toolbarBounds })
+      await witnessPage.screenshot({
+        path: `.amp/in/artifacts/rev02-inbox-witness-selected-${width}.png`,
+      })
+    }
+    await writeFile(
+      '.amp/in/artifacts/rev02-inbox-layout-bounds.json',
+      JSON.stringify(measurements, null, 2),
+    )
+    await witnessPage.setViewportSize({ width: 1280, height: 900 })
+    await witnessRow.focus()
+    await witnessPage.keyboard.press('Enter')
+    await expect(witnessPage).toHaveURL(
+      `${baseURL}/review/${result.revision.id}?signatureMeaning=witnessed`,
     )
     const work = await witnessPage.evaluate(async () =>
       (await fetch('/api/db/my_work_items')).json(),
@@ -811,6 +918,21 @@ test('controlled author submission certifies and signs atomically through the re
       auth_method: 'password',
       revision_integrity_digest: result.revision.integrityDigest,
     })
+    const completedInbox = witnessPage.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/db/my_work_items',
+    )
+    await witnessPage.goto('/inbox')
+    expect((await completedInbox).status()).toBe(200)
+    await expect(
+      witnessPage.getByRole('button', { name: /^Reviews 0$/ }),
+    ).toBeVisible()
+    await expect(
+      witnessPage.getByRole('button', {
+        name: /Atomic author submission acceptance/,
+      }),
+    ).toHaveCount(0)
+    await expect(witnessPage.getByText('Witness requested')).toHaveCount(0)
     expect(
       (
         await admin.query('select locked_at from api.records where id=$1', [

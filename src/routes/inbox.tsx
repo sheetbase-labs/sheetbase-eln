@@ -331,7 +331,7 @@ function Inbox() {
           ref={filterRef}
           role="toolbar"
           aria-label="Filter by type"
-          className="flex items-center gap-1 overflow-x-auto border-b border-border px-4 py-2 [scrollbar-width:none] md:px-6 [&>button]:shrink-0"
+          className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2 md:px-6 [&>button]:shrink-0"
         >
           <Button
             size="sm"
@@ -447,7 +447,10 @@ function Inbox() {
                                 'bg-selection hover:bg-selection',
                             )}
                           >
-                            <Status tone={toneFor(i.kind)}>
+                            <Status
+                              tone={toneFor(i.kind)}
+                              className="min-w-0 whitespace-normal"
+                            >
                               {labelFor(i.kind, i.state)}
                             </Status>
                             <span className="min-w-0">

@@ -139,7 +139,7 @@ function proxy(
     {
       getSession: async () => ({
         user: { id: userId },
-        session: { id: 'sci-004-api-session' },
+        session: { id: `sci-004-api-session-${userId}` },
       }),
       getWorkspaceForUser: async () => ({ id: workspaceId }),
       mintToken: (input) => mintPostgrestToken(SECRET, input),
@@ -258,6 +258,13 @@ beforeAll(async () => {
       ($2,'SCI 004 API B','sci-004-api-b@test.invalid',true)`,
     [USER_A, USER_B],
   )
+  for (const userId of [USER_A, USER_B]) {
+    await admin.query(
+      `INSERT INTO internal.session(id,token,"userId","expiresAt")
+       VALUES($1,$1,$2,now()+interval '1 hour')`,
+      [`sci-004-api-session-${userId}`, userId],
+    )
+  }
   await admin.query(
     `INSERT INTO api.workspaces(id,slug,name) VALUES
       ($1,'sci-004-api-a','SCI 004 API A'),($2,'sci-004-api-b','SCI 004 API B')`,
@@ -562,7 +569,7 @@ describe('SCI-004 chart blocks REST contract', () => {
       p_confirmed: true,
       p_idempotency_key: `chart-bind-${experiment.id}`,
     })
-    expect(revRes.status).toBe(200)
+    expect(revRes.status, await revRes.clone().text()).toBe(200)
     const submissionResult = await revRes.json()
     const rev = submissionResult.revision
 

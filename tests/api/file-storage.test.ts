@@ -44,7 +44,7 @@ function authDeps(userId: string, workspaceId: string) {
   return {
     getSession: async () => ({
       user: { id: userId },
-      session: { id: 'sci-003-session' },
+      session: { id: `sci-003-session-${userId}` },
     }),
     getWorkspaceForUser: async () => ({ id: workspaceId }),
     mintToken: (input: {
@@ -69,7 +69,7 @@ function proxy(
     {
       getSession: async () => ({
         user: { id: userId },
-        session: { id: 'sci-003-session' },
+        session: { id: `sci-003-session-${userId}` },
       }),
       getWorkspaceForUser: async () => ({ id: workspaceId }),
       mintToken: (input) => mintPostgrestToken(SECRET, input),
@@ -206,6 +206,13 @@ beforeAll(async () => {
       ($2,'SCI 003 API B','sci-003-api-b@test.invalid',true)`,
     [USER_A, USER_B],
   )
+  for (const userId of [USER_A, USER_B]) {
+    await admin.query(
+      `INSERT INTO internal.session(id,token,"userId","expiresAt")
+       VALUES($1,$1,$2,now()+interval '1 hour')`,
+      [`sci-003-session-${userId}`, userId],
+    )
+  }
   await admin.query(
     `INSERT INTO api.workspaces(id,slug,name) VALUES
       ($1,'sci-003-api-a','SCI 003 API A'),($2,'sci-003-api-b','SCI 003 API B')`,
@@ -587,7 +594,7 @@ describe('SCI-003 file upload, download and isolation', () => {
       p_confirmed: true,
       p_idempotency_key: `retain-file-${experiment.id}`,
     })
-    expect(submitRes.status).toBe(200)
+    expect(submitRes.status, await submitRes.clone().text()).toBe(200)
 
     const original = await admin.query(
       `SELECT id,storage_key,version FROM api.file_objects WHERE record_id=$1`,

@@ -2057,6 +2057,27 @@
       "when": 1791068069624,
       "tag": "0295_dataset_system_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 296,
+      "version": "7",
+      "when": 1791070000000,
+      "tag": "0296_client_portal_detail",
+      "breakpoints": true
+    },
+    {
+      "idx": 297,
+      "version": "7",
+      "when": 1791071308611,
+      "tag": "0297_dataset_list_experiment",
+      "breakpoints": true
+    },
+    {
+      "idx": 298,
+      "version": "7",
+      "when": 1791072000000,
+      "tag": "0298_client_portal_message_author",
+      "breakpoints": true
     }
   ]
 }

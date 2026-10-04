@@ -14,6 +14,7 @@ const FIELD = '00000000-0000-4000-8000-00000000230e'
 const DATASET = '00000000-0000-4000-8000-00000000230f'
 const ROW_1 = '00000000-0000-4000-8000-000000002310'
 const ROW_2 = '00000000-0000-4000-8000-000000002311'
+const EXPERIMENT = '00000000-0000-4000-8000-000000002313'
 const MEMBER = 'dls-member'
 const OUTSIDER = 'dls-outsider'
 
@@ -64,7 +65,21 @@ beforeAll(async () => {
   await migrator.query(
     `INSERT INTO api.dataset_value_flags
        (workspace_id, dataset_id, row_id, field_id, kind, reason, set_by_user_id)
-     VALUES ('${WS}', '${DATASET}', '${ROW_1}', '${FIELD}', 'out_of_range', 'above range', '${MEMBER}')`,
+     VALUES ('${WS}', '${DATASET}', '${ROW_1}', '${FIELD}', 'out_of_range', 'above range', '${MEMBER}'),
+            ('${WS}', '${DATASET}', '${ROW_2}', '${FIELD}', 'missing_unit', 'unit missing', '${MEMBER}')`,
+  )
+  // The producing experiment (DSET-02.2): the Experiment column and the
+  // Validation suffix come from the record_links row and its status.
+  await migrator.query(
+    `INSERT INTO api.records
+       (id, workspace_id, kind, identifier, title, status, created_by_user_id)
+     VALUES ('${EXPERIMENT}', '${WS}', 'experiment', 'EXP-9001',
+             'DLS experiment', 'approved', '${MEMBER}')`,
+  )
+  await migrator.query(
+    `INSERT INTO api.record_links
+       (source_record_id, target_kind, target_identifier, link_type, created_by_user_id)
+     VALUES ('${EXPERIMENT}', 'dataset', 'DS-9001', 'dataset', '${MEMBER}')`,
   )
 })
 
@@ -99,11 +114,24 @@ describe('api.dataset_list_summary', () => {
       created_by_user_id: string
       row_count: string
       issue_count: string
+      out_of_range_count: string
+      missing_unit_count: string
+      missing_unit_fields: string[] | null
+      experiment_display_id: string | null
+      review_state: string | null
     }>(`SELECT * FROM api.dataset_list_summary()`)
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({ display_id: 'DS-9001', model: 'DLS model' })
+    expect(rows[0]).toMatchObject({
+      display_id: 'DS-9001',
+      model: 'DLS model v1',
+      experiment_display_id: 'EXP-9001',
+      missing_unit_fields: ['Observation'],
+      review_state: 'locked',
+    })
     expect(Number(rows[0]!.row_count)).toBe(2)
-    expect(Number(rows[0]!.issue_count)).toBe(1)
+    expect(Number(rows[0]!.issue_count)).toBe(2)
+    expect(Number(rows[0]!.out_of_range_count)).toBe(1)
+    expect(Number(rows[0]!.missing_unit_count)).toBe(1)
   })
 
   it('shows another workspace nothing', async () => {

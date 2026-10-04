@@ -140,6 +140,7 @@ import { Route as ModelsModelIdRecordsRecordIdRouteImport } from './routes/model
 import { Route as ModelsModelIdRecordsNewRouteImport } from './routes/models/$modelId/records/new'
 import { Route as PipelinesPipelineIdRunsIndexRouteImport } from './routes/pipelines/$pipelineId/runs/index'
 import { Route as PipelinesPipelineIdRunsRunIdRouteImport } from './routes/pipelines/$pipelineId/runs/$runId'
+import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 
 const IndexRoute = IndexRouteImport.update({
@@ -825,6 +826,12 @@ const PipelinesPipelineIdRunsRunIdRoute =
     path: '/runs/$runId',
     getParentRoute: () => PipelinesPipelineIdRoute,
   } as any)
+const ApiClientPortalRecordsRecordIdPdfRoute =
+  ApiClientPortalRecordsRecordIdPdfRouteImport.update({
+    id: '/api/client-portal/records/$recordId/pdf',
+    path: '/api/client-portal/records/$recordId/pdf',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiExportRevisionIdPackageRoute =
   ApiExportRevisionIdPackageRouteImport.update({
     id: '/api/export/revision/$id/package',
@@ -964,6 +971,7 @@ export interface FileRoutesByFullPath {
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
+  '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRoutesByTo {
@@ -1086,6 +1094,7 @@ export interface FileRoutesByTo {
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/models/$modelId/records': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs': typeof PipelinesPipelineIdRunsIndexRoute
+  '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRoutesById {
@@ -1221,6 +1230,7 @@ export interface FileRoutesById {
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
+  '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRouteTypes {
@@ -1357,6 +1367,7 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/runs/$runId'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
+    | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/revision/$id/package'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1479,6 +1490,7 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/runs/$runId'
     | '/models/$modelId/records'
     | '/pipelines/$pipelineId/runs'
+    | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/revision/$id/package'
   id:
     | '__root__'
@@ -1613,6 +1625,7 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/runs/$runId'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
+    | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/revision/$id/package'
   fileRoutesById: FileRoutesById
 }
@@ -1672,6 +1685,7 @@ export interface RootRouteChildren {
   ApiFilesFileIdDownloadRoute: typeof ApiFilesFileIdDownloadRoute
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
   ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
+  ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
 }
 
@@ -2594,6 +2608,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PipelinesPipelineIdRunsRunIdRouteImport
       parentRoute: typeof PipelinesPipelineIdRoute
     }
+    '/api/client-portal/records/$recordId/pdf': {
+      id: '/api/client-portal/records/$recordId/pdf'
+      path: '/api/client-portal/records/$recordId/pdf'
+      fullPath: '/api/client-portal/records/$recordId/pdf'
+      preLoaderRoute: typeof ApiClientPortalRecordsRecordIdPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/export/revision/$id/package': {
       id: '/api/export/revision/$id/package'
       path: '/api/export/revision/$id/package'
@@ -3021,6 +3042,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFilesFileIdDownloadRoute: ApiFilesFileIdDownloadRoute,
   ApiFilesFileIdUploadRoute: ApiFilesFileIdUploadRoute,
   ApiPipelinesWebhookDefinitionIdRoute: ApiPipelinesWebhookDefinitionIdRoute,
+  ApiClientPortalRecordsRecordIdPdfRoute:
+    ApiClientPortalRecordsRecordIdPdfRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
 }
 export const routeTree = rootRouteImport

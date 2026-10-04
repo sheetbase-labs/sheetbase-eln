@@ -153,6 +153,42 @@ describe('client portal', () => {
   })
 
   it('denies a client the internal read surface', async () => {
+    // A revision, a file and a dataset row exist for the workspace; the client
+    // must see none of them, while the internal owner does.
+    await migrator.query(
+      `INSERT INTO api.revisions
+         (id, record_id, structure_version, metadata_version, metadata_snapshot,
+          block_snapshot, reason, created_by_user_id, workspace_id,
+          canonical_snapshot, integrity_digest)
+       VALUES
+         ('00000000-0000-4000-8000-000000002320', '${REC_APPROVED}', 1, 1,
+          '{}'::jsonb, '[]'::jsonb, 'sign', '${ADMIN}', '${WS}',
+          '{"files":[]}'::jsonb, '${'a'.repeat(64)}')`,
+    )
+    await migrator.query(
+      `INSERT INTO api.file_objects
+         (id, workspace_id, record_id, storage_key, display_name, media_type, byte_size)
+       VALUES
+         ('00000000-0000-4000-8000-000000002321', '${WS}', '${REC_APPROVED}',
+          '${WS}/${REC_APPROVED}/${'1'.repeat(32)}', 'portal-file.txt', 'text/plain', 12)`,
+    )
+    await migrator.query(
+      `INSERT INTO api.dataset_schema_definitions (id, workspace_id, key, name, lifecycle)
+       VALUES ('00000000-0000-4000-8000-000000002322', '${WS}', 'cp_portal', 'Portal schema', 'active')`,
+    )
+    await migrator.query(
+      `INSERT INTO api.dataset_schema_versions (id, schema_id, version, lifecycle)
+       VALUES ('00000000-0000-4000-8000-000000002323', '00000000-0000-4000-8000-000000002322', 1, 'active')`,
+    )
+    await migrator.query(
+      `INSERT INTO api.datasets (id, workspace_id, schema_version_id, name, primary_project_id)
+       VALUES ('00000000-0000-4000-8000-000000002324', '${WS}', '00000000-0000-4000-8000-000000002323', 'Portal dataset', '${PROJECT_A}')`,
+    )
+    await migrator.query(
+      `INSERT INTO api.dataset_rows (id, dataset_id, workspace_id)
+       VALUES ('00000000-0000-4000-8000-000000002325', '00000000-0000-4000-8000-000000002324', '${WS}')`,
+    )
+
     const viewerA = await asAuthenticated(VIEWER_A, WS)
     const records = await viewerA.query(`SELECT id FROM api.records`)
     expect(records.rows).toEqual([])
@@ -164,6 +200,14 @@ describe('client portal', () => {
       `SELECT id FROM api.client_portal_shares`,
     )
     expect(shares.rows).toEqual([])
+    const comments = await viewerA.query(`SELECT id FROM api.comments`)
+    expect(comments.rows).toEqual([])
+    const revisions = await viewerA.query(`SELECT id FROM api.revisions`)
+    expect(revisions.rows).toEqual([])
+    const files = await viewerA.query(`SELECT id FROM api.file_objects`)
+    expect(files.rows).toEqual([])
+    const datasetRows = await viewerA.query(`SELECT id FROM api.dataset_rows`)
+    expect(datasetRows.rows).toEqual([])
 
     // An internal member is unaffected.
     const admin = await asAuthenticated(ADMIN, WS)
@@ -175,6 +219,14 @@ describe('client portal', () => {
       'EXP-A2',
       'EXP-B1',
     ])
+    const adminRevisions = await admin.query(`SELECT id FROM api.revisions`)
+    expect(adminRevisions.rows).toHaveLength(1)
+    const adminFiles = await admin.query(`SELECT id FROM api.file_objects`)
+    expect(adminFiles.rows).toHaveLength(1)
+    const adminDatasetRows = await admin.query(
+      `SELECT id FROM api.dataset_rows`,
+    )
+    expect(adminDatasetRows.rows).toHaveLength(1)
   })
 
   it('shares approved records automatically when the project portal is on', async () => {
@@ -295,6 +347,98 @@ describe('client portal', () => {
       `SELECT * FROM api.client_portal_messages()`,
     )
     expect(otherThread.rows).toEqual([])
+  })
+
+  it("lists one portal project's milestones only", async () => {
+    await migrator.query(
+      `INSERT INTO api.study_tasks (id, workspace_id, project_id, title, task_type, status, due_at, position)
+       VALUES
+         ('00000000-0000-4000-8000-000000002330', '${WS}', '${PROJECT_A}', 'Upstream process locked', 'milestone', 'completed', '2026-09-19T00:00:00Z', 0),
+         ('00000000-0000-4000-8000-000000002331', '${WS}', '${PROJECT_B}', 'Beta milestone', 'milestone', 'in_progress', '2026-10-01T00:00:00Z', 0)`,
+    )
+    const admin = await asAuthenticated(ADMIN, WS)
+    await admin.query(
+      `SELECT api.update_project_settings($1, NULL, NULL, true)`,
+      [PROJECT_A],
+    )
+    const viewerA = await asAuthenticated(VIEWER_A, WS)
+    const mine = await viewerA.query<{ title: string }>(
+      `SELECT * FROM api.client_portal_milestones($1)`,
+      [PROJECT_A],
+    )
+    expect(mine.rows.map((r) => r.title)).toEqual(['Upstream process locked'])
+    // Another client's project is not enumerable by id.
+    const other = await viewerA.query(
+      `SELECT * FROM api.client_portal_milestones($1)`,
+      [PROJECT_B],
+    )
+    expect(other.rows).toEqual([])
+  })
+
+  it('lists shared approved reports and hides drafts', async () => {
+    const admin = await asAuthenticated(ADMIN, WS)
+    const created = await admin.query<{ id: string; record_id: string }>(
+      `SELECT * FROM api.create_report_definition($1, $2, NULL, $3, NULL)`,
+      [WS, 'Portal progress report', PROJECT_A],
+    )
+    const report = created.rows[0]
+    if (!report) throw new Error('report definition was not created')
+    await admin.query(
+      `SELECT api.update_report_definition($1, $2, NULL, NULL, 'approved', NULL, NULL)`,
+      [WS, report.id],
+    )
+    await admin.query(`SELECT api.share_record_with_client($1, $2)`, [
+      CLIENT_A,
+      report.record_id,
+    ])
+    await admin.query(
+      `SELECT * FROM api.create_report_definition($1, $2, NULL, $3, NULL)`,
+      [WS, 'Portal draft report', PROJECT_A],
+    )
+
+    const viewerA = await asAuthenticated(VIEWER_A, WS)
+    const reports = await viewerA.query<{ title: string }>(
+      `SELECT * FROM api.client_portal_reports()`,
+    )
+    expect(reports.rows.map((r) => r.title)).toEqual(['Portal progress report'])
+    const records = await viewerA.query<{ kind: string; status: string }>(
+      `SELECT * FROM api.client_portal_records() WHERE kind = 'report'`,
+    )
+    expect(records.rows.map((r) => r.status)).toEqual(['approved'])
+  })
+
+  it('guards the record document to shared approved records', async () => {
+    const admin = await asAuthenticated(ADMIN, WS)
+    await admin.query(
+      `SELECT api.update_project_settings($1, NULL, NULL, true)`,
+      [PROJECT_A],
+    )
+    const viewerA = await asAuthenticated(VIEWER_A, WS)
+    const ok = await viewerA.query<{ doc: { identifier: string } | null }>(
+      `SELECT api.client_portal_record_document($1) AS doc`,
+      [REC_APPROVED],
+    )
+    expect(ok.rows[0]?.doc?.identifier).toBe('EXP-A1')
+
+    const draft = await viewerA.query<{ doc: unknown }>(
+      `SELECT api.client_portal_record_document($1) AS doc`,
+      [REC_DRAFT],
+    )
+    expect(draft.rows[0]?.doc).toBeNull()
+
+    const viewerB = await asAuthenticated(VIEWER_B, WS)
+    const otherClient = await viewerB.query<{ doc: unknown }>(
+      `SELECT api.client_portal_record_document($1) AS doc`,
+      [REC_APPROVED],
+    )
+    expect(otherClient.rows[0]?.doc).toBeNull()
+
+    const outsider = await asAuthenticated(OUTSIDER, OTHER_WS)
+    const otherWorkspace = await outsider.query<{ doc: unknown }>(
+      `SELECT api.client_portal_record_document($1) AS doc`,
+      [REC_APPROVED],
+    )
+    expect(otherWorkspace.rows[0]?.doc).toBeNull()
   })
 
   it('keeps workspaces and clients isolated', async () => {

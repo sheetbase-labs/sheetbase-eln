@@ -84,7 +84,7 @@ export function ListHeader({
         ) : null}
       </div>
       {tabs ? (
-        <div className="-mx-4 mt-1 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
+        <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
           {tabs}
         </div>
       ) : (

@@ -53,6 +53,7 @@ export function useDatasetVersions(datasetId: string) {
 
 function DatasetLayout() {
   const { datasetId } = Route.useParams()
+  const { context } = Route.useRouteContext()
   const summaries = useDatasetSummaries()
   const versions = useDatasetVersions(datasetId)
   const dataset = summaries.data?.find((d) => d.uuid === datasetId)
@@ -93,7 +94,13 @@ function DatasetLayout() {
               </Status>
             </span>
             <span>Model {dataset.model}</span>
-            <span>{dataset.rows} rows</span>
+            {dataset.experimentId ? <span>{dataset.experimentId}</span> : null}
+            <span>
+              Owner{' '}
+              {dataset.createdByUserId === context.user.id
+                ? context.user.name
+                : '—'}
+            </span>
           </>
         }
         tabs={

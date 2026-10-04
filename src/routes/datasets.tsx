@@ -25,7 +25,6 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import {
-  ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
@@ -34,6 +33,7 @@ import {
   stickyHead,
 } from '#/components/v3/inventory/list'
 import {
+  datasetIssueSummary,
   datasetValidation,
   useDatasetSummaries,
 } from '#/components/v3/datasets/datasets-data'
@@ -44,9 +44,12 @@ type DatasetTab = (typeof tabs)[number]
 const tabLabel: Record<DatasetTab, string> = {
   all: 'All',
   mine: 'Mine',
-  issues: 'Issues',
+  issues: 'Has issues',
   locked: 'Locked',
 }
+
+const sorts = ['Updated', 'ID', 'Rows'] as const
+type DatasetSort = (typeof sorts)[number]
 
 /** UI port (roadmap-4/ui-app3): the dataset registry list, wired to
  * dataset_list_summary. The explorer/rows/snapshots/compare child routes and
@@ -101,6 +104,7 @@ function DatasetsList() {
       ? search.tab
       : 'all'
   const [selected, setSelected] = useState<string | null>(null)
+  const [sort, setSort] = useState<DatasetSort>('Updated')
 
   const inTab = (r: DatasetListRow, t: DatasetTab): boolean =>
     t === 'all'
@@ -109,7 +113,7 @@ function DatasetsList() {
         ? r.createdByUserId === context.user.id
         : t === 'issues'
           ? r.issues > 0
-          : false
+          : r.reviewState === 'locked'
   const counts = useMemo(
     () =>
       Object.fromEntries(
@@ -117,16 +121,34 @@ function DatasetsList() {
       ) as Record<DatasetTab, number>,
     [rows, context.user.id],
   )
+
+  const sorted = useMemo(() => {
+    const by: Record<
+      DatasetSort,
+      (a: DatasetListRow, b: DatasetListRow) => number
+    > = {
+      Updated: (a, b) => b.updatedAt.localeCompare(a.updatedAt),
+      ID: (a, b) => a.id.localeCompare(b.id),
+      Rows: (a, b) => b.rows - a.rows,
+    }
+    return [...rows].sort(by[sort])
+  }, [rows, sort])
+
   const q = (search.q ?? '').trim().toLowerCase()
-  const visible = rows
+  const visible = sorted
     .filter((r) => inTab(r, tab))
     .filter(
       (r) =>
         !q || [r.id, r.name, r.model].some((v) => v.toLowerCase().includes(q)),
     )
+  // With nothing chosen, open the worst offender: the design's inspector shows
+  // the dataset with the most issues, which is also the one worth triaging.
+  const defaultSel = visible.reduce<DatasetListRow | undefined>(
+    (best, r) => (!best || r.issues > best.issues ? r : best),
+    undefined,
+  )
   const sel =
-    visible.find((r) => r.uuid === (selected ?? search.dataset)) ??
-    visible.at(0)
+    visible.find((r) => r.uuid === (selected ?? search.dataset)) ?? defaultSel
 
   return (
     <div className="flex min-w-0 flex-1">
@@ -135,14 +157,22 @@ function DatasetsList() {
           title="Datasets"
           total={rows.length}
           actions={
-            <Button
-              variant="primary"
-              icon="upload"
-              nativeButton={false}
-              render={<Link to="/import" />}
-            >
-              Import data
-            </Button>
+            <>
+              <Button
+                nativeButton={false}
+                render={<Link to="/settings/instruments" />}
+              >
+                Connect instrument
+              </Button>
+              <Button
+                variant="primary"
+                icon="upload"
+                nativeButton={false}
+                render={<Link to="/import" />}
+              >
+                Import data
+              </Button>
+            </>
           }
           tabs={
             <SearchTabs
@@ -164,7 +194,11 @@ function DatasetsList() {
           q={search.q}
           label="Search datasets"
           placeholder="Search datasets"
-          views={{ sorts: ['Updated', 'ID', 'Rows'] }}
+          views={{
+            sorts: [...sorts],
+            sort,
+            onSort: (s) => setSort(s as DatasetSort),
+          }}
           onSearch={(next) =>
             void navigate({
               to: '/datasets',
@@ -180,9 +214,9 @@ function DatasetsList() {
                 <TableHead className={stickyHead}>ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Model</TableHead>
+                <TableHead>Experiment</TableHead>
                 <TableHead align="right">Rows</TableHead>
                 <TableHead>Validation</TableHead>
-                <TableHead align="right">Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -204,7 +238,7 @@ function DatasetsList() {
                       }
                     >
                       <Link
-                        to="/datasets/$datasetId/snapshots"
+                        to="/datasets/$datasetId/rows"
                         params={{ datasetId: d.uuid }}
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -212,12 +246,12 @@ function DatasetsList() {
                       </Link>
                     </TableCell>
                     <TableCell>{d.model}</TableCell>
+                    <TableCell className="mono">
+                      {d.experimentId ?? '—'}
+                    </TableCell>
                     <TableCell align="right">{d.rows}</TableCell>
                     <TableCell>
                       <Status tone={v.tone}>{v.label}</Status>
-                    </TableCell>
-                    <TableCell align="right" className="text-fg-muted">
-                      {d.updated}
                     </TableCell>
                   </TableRow>
                 )
@@ -232,7 +266,9 @@ function DatasetsList() {
                 key: d.uuid,
                 id: d.id,
                 title: d.name,
-                sub: `${d.rows} rows · ${d.model}`,
+                sub: `${d.rows} rows · ${d.model}${
+                  d.experimentId ? ` · ${d.experimentId}` : ''
+                }`,
                 status: <Status tone={v.tone}>{v.label}</Status>,
                 onSelect: () => setSelected(d.uuid),
                 selected: d.uuid === sel?.uuid,
@@ -260,34 +296,60 @@ function DatasetsList() {
             </div>
           ) : null}
         </div>
-        <ListFooter right={sel ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]}{' '}
-          {tab === 'all' ? 'datasets' : tabLabel[tab].toLowerCase()}
-        </ListFooter>
       </div>
 
       {sel ? (
-        <Inspector aria-label="Dataset summary" className="w-[300px] gap-0 p-0">
+        <Inspector
+          aria-label="Dataset summary"
+          className="w-inspector gap-0 p-0"
+        >
           <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-            <span className="mono text-fg-muted">{sel.id}</span>
-            <div className="font-heading text-doc font-semibold">
-              {sel.name}
-            </div>
+            <span className="mono text-label text-fg-muted">{sel.id}</span>
+            <div className="text-doc font-semibold">{sel.name}</div>
             <div className="text-label">
               <Status tone={datasetValidation(sel).tone}>
                 {datasetValidation(sel).label}
               </Status>
             </div>
+            {sel.issues > 0 ? (
+              <div className="mt-1.5 flex gap-1.5">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/datasets/$datasetId/rows"
+                      params={{ datasetId: sel.uuid }}
+                    />
+                  }
+                >
+                  Open and fix
+                </Button>
+              </div>
+            ) : null}
           </div>
-          <div className="flex flex-col gap-4 px-4 py-3.5">
+          <div className="flex flex-col gap-[18px] px-4 py-3.5">
+            {sel.issues > 0 ? (
+              <InspectorSection title="Issues">
+                <p className="m-0 text-label leading-[18px]">
+                  {datasetIssueSummary(sel)}
+                </p>
+              </InspectorSection>
+            ) : null}
             <InspectorSection title="Details">
               <DescriptionList
                 labelWidth={80}
                 items={[
-                  ['Model', sel.model],
                   ['Rows', String(sel.rows)],
-                  ['Issues', String(sel.issues)],
-                  ['Updated', sel.updated],
+                  ['Model', sel.model],
+                  ['Experiment', sel.experimentId ?? '—'],
+                  [
+                    'Owner',
+                    sel.createdByUserId === context.user.id
+                      ? context.user.name
+                      : '—',
+                  ],
                 ]}
               />
             </InspectorSection>

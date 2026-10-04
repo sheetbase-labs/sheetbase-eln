@@ -250,6 +250,15 @@ describe('session lifecycle', () => {
         body: { token, newPassword: 'trusted-recovery-fixture-password' },
       }),
     ).toEqual({ status: true })
+    expect(await auth.api.getSession({ headers })).toBeNull()
+    // Recovery revokes every old session. Establish a fresh fixture session
+    // before verifying the replacement credential through Better Auth.
+    await db.insert(schema.session).values({
+      id: 'session-test-session',
+      token: sessionToken,
+      userId,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    })
     expect(
       await auth.api.verifyPassword({
         headers,

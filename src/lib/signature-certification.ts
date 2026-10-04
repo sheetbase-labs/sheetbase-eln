@@ -1,6 +1,7 @@
 import type { DataClient } from '#/lib/data-client'
 import { createDataClient } from '#/lib/data-client'
-import { ASSURANCE_LEVEL_STATEMENT } from '#/lib/signatures'
+import { requestSignatureStepUp } from '#/lib/signatures'
+import { z } from 'zod'
 
 /**
  * SIGN-003 — electronic signature certification. A person certifies their
@@ -9,7 +10,8 @@ import { ASSURANCE_LEVEL_STATEMENT } from '#/lib/signatures'
  * membership are checked server-side.
  */
 export const SIGNATURE_STATEMENT_VERSION = 1
-export const SIGNATURE_STATEMENT = ASSURANCE_LEVEL_STATEMENT.standard
+export const SIGNATURE_STATEMENT =
+  'I understand that my electronic signature in Sheetbase is the legally binding equivalent of my handwritten signature. I will not share my password, and I will report any suspected misuse to QA.'
 
 export interface WorkspaceCertification {
   userId: string
@@ -17,6 +19,11 @@ export interface WorkspaceCertification {
   statementVersion: number | null
   certifiedAt: string | null
   revokedAt: string | null
+  identityVerifiedAt: string | null
+  identityVerifiedBy: string | null
+  verifiedEmail: string | null
+  verificationRequested: boolean
+  authMethod: string | null
 }
 
 interface CertificationWire {
@@ -25,6 +32,11 @@ interface CertificationWire {
   statement_version: number | null
   certified_at: string | null
   revoked_at: string | null
+  identity_verified_at: string | null
+  identity_verified_by: string | null
+  verified_email: string | null
+  verification_requested: boolean
+  auth_method: string | null
 }
 
 export const signatureCertificationDataClient = createDataClient()
@@ -48,13 +60,23 @@ export async function fetchWorkspaceCertifications(
     statementVersion: r.statement_version,
     certifiedAt: r.certified_at,
     revokedAt: r.revoked_at,
+    identityVerifiedAt: r.identity_verified_at,
+    identityVerifiedBy: r.identity_verified_by,
+    verifiedEmail: r.verified_email,
+    verificationRequested: r.verification_requested,
+    authMethod: r.auth_method,
   }))
 }
 
 export function isCertified(
   certification: WorkspaceCertification | undefined,
 ): boolean {
-  return Boolean(certification?.certifiedAt && !certification.revokedAt)
+  return Boolean(
+    certification?.certifiedAt &&
+    certification.identityVerifiedAt &&
+    certification.authMethod === 'password' &&
+    !certification.revokedAt,
+  )
 }
 
 export function isCurrentStatement(
@@ -62,18 +84,55 @@ export function isCurrentStatement(
 ): boolean {
   return (
     certification?.statementVersion === SIGNATURE_STATEMENT_VERSION &&
-    !certification.revokedAt
+    isCertified(certification)
   )
 }
 
 export async function certifySignature(
   client: DataClient,
   workspaceId: string,
+  password: string,
   statementVersion: number = SIGNATURE_STATEMENT_VERSION,
 ): Promise<void> {
+  const proof = await requestSignatureStepUp({
+    workspaceId,
+    purpose: 'certify',
+    password,
+  })
   await client.rpc('certify_signature', {
     p_workspace_id: workspaceId,
     p_statement_version: statementVersion,
+    p_signing_token: proof.token,
+  })
+}
+
+export async function practiceSignature(
+  client: DataClient,
+  workspaceId: string,
+  password: string,
+): Promise<void> {
+  const proof = await requestSignatureStepUp({
+    workspaceId,
+    purpose: 'practice',
+    password,
+  })
+  await client.rpc('practice_signature', { p_signing_token: proof.token })
+}
+
+export async function requestIdentityVerification(
+  client: DataClient,
+): Promise<void> {
+  await client.rpc('request_signature_identity_verification', {})
+}
+
+export async function verifySignatureIdentity(
+  client: DataClient,
+  userId: string,
+  independentlyVerifiedEmail: string,
+): Promise<void> {
+  await client.rpc('verify_signature_identity', {
+    p_user_id: userId,
+    p_email: independentlyVerifiedEmail,
   })
 }
 
@@ -88,25 +147,28 @@ export async function withdrawSignatureCertification(
 
 export interface SignaturePolicy {
   meanings: Record<string, boolean>
-  reauth: 'every' | 'batch'
+  reauth: 'every'
 }
 
 /** Defaults match app-3: Authored is always on; password at every signature. */
 export function readSignaturePolicy(policy: unknown): SignaturePolicy {
-  const value =
-    policy && typeof policy === 'object'
-      ? (policy as Record<string, unknown>)
-      : {}
-  const meanings =
-    value.meanings && typeof value.meanings === 'object'
-      ? (value.meanings as Record<string, boolean>)
-      : {}
+  const parsed = z
+    .object({
+      meanings: z
+        .object({
+          Reviewed: z.boolean().optional(),
+          Approved: z.boolean().optional(),
+        })
+        .optional(),
+    })
+    .safeParse(policy)
+  const meanings = parsed.success ? parsed.data.meanings : undefined
   return {
     meanings: {
       Authored: true,
-      Reviewed: meanings.Reviewed !== false,
-      Approved: meanings.Approved !== false,
+      Reviewed: meanings?.Reviewed !== false,
+      Approved: meanings?.Approved !== false,
     },
-    reauth: value.reauth === 'batch' ? 'batch' : 'every',
+    reauth: 'every',
   }
 }

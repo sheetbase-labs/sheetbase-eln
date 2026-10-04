@@ -25,7 +25,7 @@ import {
   useSearch,
 } from '@tanstack/react-router'
 import { z } from 'zod'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Download } from 'lucide-react'
 
@@ -59,6 +59,7 @@ import {
   ConfirmDialogTitle,
   ConfirmDialogTrigger,
 } from '#/components/v3/ui/confirm-dialog'
+import { DialogBody } from '#/components/v3/ui/dialog'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
@@ -110,9 +111,15 @@ import {
   fetchSignaturesForSubmission,
   signatureQueryKeys,
   SIGNATURE_MEANING_OPTIONS,
+  SIGNATURE_MEANING_LABEL,
   signRevision,
+  requestSignatureStepUp,
 } from '#/lib/signatures'
-import type { SignatureMeaning, SignatureWire } from '#/lib/signatures'
+import type {
+  PostSubmissionSignatureMeaning,
+  SignatureMeaning,
+  SignatureWire,
+} from '#/lib/signatures'
 import {
   createAmendment,
   fetchRecordTimeline,
@@ -251,9 +258,8 @@ export function ReviewWorkspaceRoute() {
 
   // SHELL-03.3 — the Review scope. The diff registers N/P itself (it owns the
   // change selection); this route adds R to start a reply on the first open
-  // thread in the comments panel. Approve and sign has no combined action in
-  // the workspace (approve and sign are separate dialogs), so ⌘⇧↵ is not
-  // registered rather than pointing at the wrong action.
+  // thread in the comments panel. The inspector registers Approve and sign
+  // only when its current approval or signing action is eligible.
   useShortcutScope('review')
   useRegisterShortcuts(
     useMemo(
@@ -1061,6 +1067,7 @@ function ReviewInspector({
   revisionOptions: RevisionOptionWire[]
 }) {
   const queryClient = useQueryClient()
+  const [signingOpen, setSigningOpen] = useState(false)
 
   if (loading && !revision) {
     return (
@@ -1194,6 +1201,8 @@ function ReviewInspector({
             integrityDigest={integrityDigest}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
+            open={signingOpen}
+            onOpenChange={setSigningOpen}
           />
         ) : null}
 
@@ -1230,6 +1239,7 @@ function ReviewInspector({
             submission={submission}
             permission={permission}
             integrityDigest={integrityDigest}
+            onApprovedForSigning={() => setSigningOpen(true)}
             onAfterDecision={async (kind, input) => {
               await runDecision(kind, input)
               if (submission.id) {
@@ -1280,6 +1290,7 @@ export function ActionButtons({
   permission,
   integrityDigest,
   onAfterDecision,
+  onApprovedForSigning,
 }: {
   submission: ReviewSubmissionWire
   permission: ReturnType<typeof deriveReviewActionPermission>
@@ -1288,12 +1299,31 @@ export function ActionButtons({
     kind: ReviewDecisionKind,
     input: ReviewDecisionInput,
   ) => Promise<void>
+  onApprovedForSigning?: () => void
 }) {
   const [note, setNote] = useState('')
   const [pendingKind, setPendingKind] = useState<ReviewDecisionKind | null>(
     null,
   )
   const [error, setError] = useState<string | null>(null)
+  const [signAfterApproval, setSignAfterApproval] = useState(false)
+  useRegisterShortcuts(
+    useMemo(
+      () =>
+        reviewShortcuts({
+          approveAndSign:
+            permission.canReview && integrityDigest && onApprovedForSigning
+              ? () => {
+                  setNote('')
+                  setError(null)
+                  setSignAfterApproval(true)
+                  setPendingKind('approve')
+                }
+              : undefined,
+        }),
+      [permission.canReview, integrityDigest, onApprovedForSigning],
+    ),
+  )
 
   if (integrityDigest === null) {
     return (
@@ -1314,6 +1344,9 @@ export function ActionButtons({
       })
       setPendingKind(null)
       setNote('')
+      if (pendingKind === 'approve' && signAfterApproval)
+        onApprovedForSigning?.()
+      setSignAfterApproval(false)
     } catch (err) {
       setError(renderError(err))
     }
@@ -1357,7 +1390,11 @@ export function ActionButtons({
               blockedReason={permission.reviewBlockedReason ?? undefined}
               note={note}
               setNote={setNote}
-              onOpen={() => setNote('')}
+              open={pendingKind === action.kind}
+              onOpen={() => {
+                setNote('')
+                setSignAfterApproval(false)
+              }}
               onConfirm={confirm}
               onOpenChange={(open) => {
                 if (open) {
@@ -1417,6 +1454,7 @@ function DecisionDialog({
   onOpen,
   onConfirm,
   onOpenChange,
+  open,
 }: {
   kind: ReviewDecisionKind
   label: string
@@ -1429,6 +1467,7 @@ function DecisionDialog({
   onOpen: () => void
   onConfirm: () => void
   onOpenChange: (open: boolean) => void
+  open?: boolean
 }) {
   const nextState = DECISION_NEXT_STATE[kind]
   const triggerClass = cn(
@@ -1439,7 +1478,7 @@ function DecisionDialog({
       'border-danger text-danger-text hover:bg-danger-wash',
   )
   return (
-    <ConfirmDialog onOpenChange={(open) => onOpenChange(open)}>
+    <ConfirmDialog open={open} onOpenChange={onOpenChange}>
       <ConfirmDialogTrigger asChild>
         <Button
           variant={variant === 'default' ? 'primary' : 'secondary'}
@@ -1650,6 +1689,8 @@ function SignaturePanel({
   integrityDigest,
   currentUserId,
   currentUserName,
+  open,
+  onOpenChange,
 }: {
   submission: ReviewSubmissionWire
   revision: RevisionWire
@@ -1657,9 +1698,10 @@ function SignaturePanel({
   integrityDigest: string | null
   currentUserId: string
   currentUserName: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [signing, setSigning] = useState(false)
 
@@ -1670,9 +1712,32 @@ function SignaturePanel({
     (sig) => sig.signer_user_id === currentUserId,
   )
 
-  const canSign = isApproved && isAssignedReviewer && !alreadySigned
+  const canSign =
+    isApproved &&
+    isAssignedReviewer &&
+    !alreadySigned &&
+    revision.superseded_by_revision_id === null
+  useRegisterShortcuts(
+    useMemo(
+      () =>
+        reviewShortcuts({
+          approveAndSign:
+            canSign && integrityDigest
+              ? () => {
+                  setError(null)
+                  onOpenChange(true)
+                }
+              : undefined,
+        }),
+      [canSign, integrityDigest, onOpenChange],
+    ),
+  )
 
-  async function handleSigned(meaning: SignatureMeaning, confirmation: string) {
+  async function handleSigned(
+    meaning: PostSubmissionSignatureMeaning,
+    confirmation: string,
+    password: string,
+  ) {
     if (!integrityDigest) {
       setError('Integrity digest unavailable — signing disabled.')
       return
@@ -1680,16 +1745,25 @@ function SignaturePanel({
     setSigning(true)
     setError(null)
     try {
+      const proof = await requestSignatureStepUp({
+        workspaceId: submission.workspace_id,
+        purpose: 'sign',
+        password,
+        submissionId: submission.id,
+        revisionDigest: integrityDigest,
+        signatureMeaning: meaning,
+      })
       await signRevision(reviewsDataClient, {
         submissionId: submission.id,
         signatureMeaning: meaning,
         confirmationPhrase: confirmation,
         expectedRevisionDigest: integrityDigest,
+        signingToken: proof.token,
       })
       await queryClient.invalidateQueries({
         queryKey: signatureQueryKeys.forSubmission(submission.id),
       })
-      setOpen(false)
+      onOpenChange(false)
     } catch (err) {
       setError(renderError(err))
     } finally {
@@ -1763,7 +1837,7 @@ function SignaturePanel({
             <SignatureDialog
               open={open}
               onOpenChange={(next) => {
-                setOpen(next)
+                onOpenChange(next)
                 if (next) setError(null)
               }}
               revision={revision}
@@ -1805,10 +1879,18 @@ function SignatureDialog({
   currentUserName: string
   signing: boolean
   error: string | null
-  onConfirm: (meaning: SignatureMeaning, confirmation: string) => void
+  onConfirm: (
+    meaning: PostSubmissionSignatureMeaning,
+    confirmation: string,
+    password: string,
+  ) => void
 }) {
-  const [meaning, setMeaning] = useState<SignatureMeaning>('approve-for-record')
+  const [meaning, setMeaning] = useState<PostSubmissionSignatureMeaning>(
+    'reviewed-and-approved',
+  )
   const [confirmation, setConfirmation] = useState('')
+  const [password, setPassword] = useState('')
+  const passwordRef = useRef<HTMLInputElement>(null)
 
   const selected = SIGNATURE_MEANING_OPTIONS.find((o) => o.value === meaning)!
   const confirmationMatches =
@@ -1819,9 +1901,10 @@ function SignatureDialog({
       open={open}
       onOpenChange={(next) => {
         if (next) {
-          setMeaning('approve-for-record')
+          setMeaning('reviewed-and-approved')
           setConfirmation('')
         }
+        setPassword('')
         onOpenChange(next)
       }}
     >
@@ -1831,7 +1914,7 @@ function SignatureDialog({
           Sign revision
         </Button>
       </ConfirmDialogTrigger>
-      <ConfirmDialogContent>
+      <ConfirmDialogContent initialFocus={passwordRef}>
         <ConfirmDialogHeader>
           <ConfirmDialogTitle>Sign this revision</ConfirmDialogTitle>
           <ConfirmDialogDescription>
@@ -1842,85 +1925,119 @@ function SignatureDialog({
           </ConfirmDialogDescription>
         </ConfirmDialogHeader>
 
-        <dl className="space-y-1 rounded-md border bg-muted/30 p-2 text-xs">
-          <InspectorPropStatic label="Revision">
-            <span className="font-mono">{revision.id.slice(0, 12)}…</span>
-          </InspectorPropStatic>
-          <InspectorPropStatic label="Integrity">
-            <span className="font-mono">
-              {integrityDigest ? `${integrityDigest.slice(0, 16)}…` : '—'}
-            </span>
-          </InspectorPropStatic>
-          <InspectorPropStatic label="Reason">
-            {revision.reason}
-          </InspectorPropStatic>
-        </dl>
+        <DialogBody>
+          <dl className="space-y-1 rounded-md border bg-muted/30 p-2 text-xs">
+            <InspectorPropStatic label="Signer">
+              {currentUserName}
+            </InspectorPropStatic>
+            <InspectorPropStatic label="Revision">
+              <span className="font-mono">{revision.id}</span>
+            </InspectorPropStatic>
+            <InspectorPropStatic label="Integrity">
+              <span className="font-mono break-all">
+                {integrityDigest ?? '—'}
+              </span>
+            </InspectorPropStatic>
+            <InspectorPropStatic label="Reason">
+              {revision.reason}
+            </InspectorPropStatic>
+          </dl>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="signature-meaning"
-            className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-          >
-            Signature meaning
-          </label>
-          <select
-            id="signature-meaning"
-            className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-            value={meaning}
-            onChange={(event) =>
-              setMeaning(event.target.value as SignatureMeaning)
-            }
-          >
-            {SIGNATURE_MEANING_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground">
-            {selected.description}
+          <div className="space-y-2">
+            <label
+              htmlFor="revision-signing-password"
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              Signing password
+            </label>
+            <input
+              id="revision-signing-password"
+              ref={passwordRef}
+              type="password"
+              autoComplete="current-password"
+              className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Re-enter your local signing password for this signature. Three
+              failed attempts lock signing for 15 minutes.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="signature-meaning"
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              Signature meaning
+            </label>
+            <select
+              id="signature-meaning"
+              className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+              value={meaning}
+              onChange={(event) => {
+                const option = SIGNATURE_MEANING_OPTIONS.find(
+                  (item) => item.value === event.target.value,
+                )
+                if (option) setMeaning(option.value)
+              }}
+            >
+              {SIGNATURE_MEANING_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {selected.description}
+            </p>
+          </div>
+
+          <p className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
+            {ASSURANCE_LEVEL_STATEMENT.standard}
           </p>
-        </div>
 
-        <p className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
-          {ASSURANCE_LEVEL_STATEMENT.standard}
-        </p>
+          <div className="space-y-2">
+            <label
+              htmlFor="signature-confirmation"
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              Type your name to confirm
+            </label>
+            <input
+              id="signature-confirmation"
+              type="text"
+              className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+              placeholder={currentUserName}
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              Type your recorded name exactly to verify your signing intent.
+            </p>
+          </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="signature-confirmation"
-            className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-          >
-            Type your name to confirm
-          </label>
-          <input
-            id="signature-confirmation"
-            type="text"
-            className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-            placeholder={currentUserName}
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.target.value)}
-            autoComplete="off"
-          />
-          <p className="text-xs text-muted-foreground">
-            Type your recorded name exactly to verify your signing intent.
-          </p>
-        </div>
-
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-          >
-            {error}
-          </p>
-        ) : null}
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            >
+              {error}
+            </p>
+          ) : null}
+        </DialogBody>
 
         <ConfirmDialogFooter>
           <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
           <ConfirmDialogAction
-            disabled={signing || !confirmationMatches}
-            onClick={() => onConfirm(meaning, confirmation)}
+            disabled={signing || !password || !confirmationMatches}
+            onClick={() => {
+              const enteredPassword = password
+              setPassword('')
+              onConfirm(meaning, confirmation, enteredPassword)
+            }}
           >
             {signing ? 'Signing…' : 'Sign'}
           </ConfirmDialogAction>
@@ -1931,8 +2048,7 @@ function SignatureDialog({
 }
 
 function signatureMeaningLabel(meaning: SignatureMeaning): string {
-  const option = SIGNATURE_MEANING_OPTIONS.find((o) => o.value === meaning)
-  return option?.label ?? meaning
+  return SIGNATURE_MEANING_LABEL[meaning]
 }
 
 function InspectorPropStatic({
@@ -1943,9 +2059,9 @@ function InspectorPropStatic({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 truncate text-right text-foreground">
+    <div className="flex items-start justify-between gap-2">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-right break-all text-foreground">
         {children}
       </dd>
     </div>

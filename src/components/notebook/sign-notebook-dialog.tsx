@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -30,8 +30,9 @@ import {
   fetchSignaturesForSubmission,
   signatureQueryKeys,
   signRevision,
+  requestSignatureStepUp,
 } from '#/lib/signatures'
-import type { SignatureMeaning } from '#/lib/signatures'
+import type { PostSubmissionSignatureMeaning } from '#/lib/signatures'
 
 export function SignNotebookDialog({
   open,
@@ -47,8 +48,12 @@ export function SignNotebookDialog({
   currentUserName: string
 }) {
   const queryClient = useQueryClient()
-  const [meaning, setMeaning] = useState<SignatureMeaning>('approve-for-record')
+  const [meaning, setMeaning] = useState<PostSubmissionSignatureMeaning>(
+    'reviewed-and-approved',
+  )
   const [confirmation, setConfirmation] = useState('')
+  const [password, setPassword] = useState('')
+  const passwordRef = useRef<HTMLInputElement>(null)
 
   const submissionQuery = useQuery({
     queryKey: reviewWorkspaceQueryKeys.submissionForRevision(revisionId),
@@ -80,9 +85,12 @@ export function SignNotebookDialog({
   const selected = SIGNATURE_MEANING_OPTIONS.find(
     (option) => option.value === meaning,
   )!
+  useEffect(() => {
+    if (open && signState === 'can-sign') passwordRef.current?.focus()
+  }, [open, signState])
 
   const sign = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!submission || !integrityDigest) {
         throw new DataClientError(
           'validation_error',
@@ -90,11 +98,22 @@ export function SignNotebookDialog({
           400,
         )
       }
+      const enteredPassword = password
+      setPassword('')
+      const proof = await requestSignatureStepUp({
+        workspaceId: submission.workspace_id,
+        password: enteredPassword,
+        purpose: 'sign',
+        submissionId: submission.id,
+        revisionDigest: integrityDigest,
+        signatureMeaning: meaning,
+      })
       return signRevision(notebookDataClient, {
         submissionId: submission.id,
         signatureMeaning: meaning,
         confirmationPhrase: confirmation,
         expectedRevisionDigest: integrityDigest,
+        signingToken: proof.token,
       })
     },
     onSuccess: async () => {
@@ -127,12 +146,16 @@ export function SignNotebookDialog({
       onOpenChange={(next) => {
         if (!next) {
           setConfirmation('')
-          setMeaning('approve-for-record')
+          setPassword('')
+          setMeaning('reviewed-and-approved')
         }
         onOpenChange(next)
       }}
     >
-      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+      <DialogContent
+        initialFocus={passwordRef}
+        className="w-[min(560px,calc(100vw-32px))]"
+      >
         <DialogHeader
           title="Sign this Notebook"
           description="This records an internal electronic signature against the submitted evidence. It is not a regulatory compliance certification."
@@ -150,13 +173,39 @@ export function SignNotebookDialog({
             </p>
           ) : (
             <div className="flex flex-col gap-3">
+              <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
+                <dt className="text-fg-muted">Signer</dt>
+                <dd className="m-0">{currentUserName}</dd>
+                <dt className="text-fg-muted">Revision</dt>
+                <dd className="m-0 font-mono break-all">{revisionId}</dd>
+                <dt className="text-fg-muted">Content hash</dt>
+                <dd className="m-0 font-mono break-all">
+                  {integrityDigest ?? 'Unavailable'}
+                </dd>
+              </dl>
+              <Field
+                label="Signing password"
+                hint="Re-enter your local signing password for this signature. Three failed attempts lock signing for 15 minutes."
+              >
+                <Input
+                  ref={passwordRef}
+                  aria-label="Signing password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </Field>
               <Field label="Signature meaning">
                 <NativeSelect
                   aria-label="Signature meaning"
                   value={meaning}
-                  onChange={(event) =>
-                    setMeaning(event.target.value as SignatureMeaning)
-                  }
+                  onChange={(event) => {
+                    const option = SIGNATURE_MEANING_OPTIONS.find(
+                      (item) => item.value === event.target.value,
+                    )
+                    if (option) setMeaning(option.value)
+                  }}
                 >
                   {SIGNATURE_MEANING_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -191,7 +240,10 @@ export function SignNotebookDialog({
             <Button
               variant="primary"
               disabled={
-                sign.isPending || !confirmationMatches || !integrityDigest
+                sign.isPending ||
+                !password ||
+                !confirmationMatches ||
+                !integrityDigest
               }
               onClick={() => sign.mutate()}
             >

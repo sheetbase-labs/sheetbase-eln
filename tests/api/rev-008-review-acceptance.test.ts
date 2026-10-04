@@ -16,10 +16,15 @@
  * Calculations use the existing safe worker and trusted result finalizer.
  * Only this suite's dedicated workspace is cleaned up; other data is retained.
  */
+import { createHmac } from 'node:crypto'
 import { config } from 'dotenv'
+import { drizzle } from 'drizzle-orm/node-postgres'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
+import * as dbSchema from '#/db/schema'
+import { createAuth } from '#/lib/auth'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { toCanonicalEnvelope } from '#/lib/review-workspace'
@@ -30,6 +35,7 @@ import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import { calculateSheetSnapshot } from '#/lib/sheet-calculation.server'
 import { sheetInstanceFromWire } from '#/lib/sheet-instance-data'
 import { reviewWorkspaceDataClient } from '#/lib/review-workspace'
+import { handleSignatureStepUp } from '#/lib/signature-step-up.server'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -40,10 +46,13 @@ const REVIEWER = 'rev-008-reviewer'
 const REVIEWER_NAME = 'Review Eight'
 const OWNER_SESSION = 'rev-008-owner-session'
 const REVIEWER_SESSION = 'rev-008-reviewer-session'
+const REVIEWER_PASSWORD = 'rev-008-fixture-signing-password'
 const SECRET = process.env.PGRST_JWT_SECRET ?? ''
 const UPSTREAM = process.env.POSTGREST_URL ?? 'http://localhost:3001'
 
 let admin: Client
+let signingDatabase: ReturnType<typeof drizzle<typeof dbSchema>>
+let authentication: ReturnType<typeof createAuth>
 
 // Shared fixture state, populated by beforeAll through ordinary RPCs.
 let sample: { id: string }
@@ -267,6 +276,51 @@ async function asReviewer(name: string, body: unknown) {
   return rpc(name, REVIEWER, REVIEWER_SESSION, body)
 }
 
+function reviewerSessionHeaders(): Headers {
+  const signature = createHmac('sha256', process.env.BETTER_AUTH_SECRET!)
+    .update(REVIEWER_SESSION, 'utf8')
+    .digest('base64')
+  return new Headers({
+    cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${REVIEWER_SESSION}.${signature}`)}`,
+    'content-type': 'application/json',
+    origin: new URL(process.env.BETTER_AUTH_URL!).origin,
+  })
+}
+
+const signingGrantSchema = z.object({
+  token: z.string().min(1),
+  expiresAt: z.iso.datetime({ offset: true }),
+  authMethod: z.literal('password'),
+})
+
+async function signingGrant(purpose: 'certify' | 'practice' | 'sign') {
+  const startedAt = Date.now()
+  const response = await handleSignatureStepUp(
+    new Request(`${process.env.BETTER_AUTH_URL}/api/signatures/step-up`, {
+      method: 'POST',
+      headers: reviewerSessionHeaders(),
+      body: JSON.stringify({
+        purpose,
+        workspaceId: WS,
+        password: REVIEWER_PASSWORD,
+        ...(purpose === 'sign'
+          ? {
+              submissionId: r2.submissionId,
+              revisionDigest: r2.digest,
+              signatureMeaning: 'reviewed-and-approved',
+            }
+          : {}),
+      }),
+    }),
+    { database: signingDatabase, authentication },
+  )
+  expect(response.status, await response.clone().text()).toBe(200)
+  const result = signingGrantSchema.parse(await response.json())
+  expect(Date.parse(result.expiresAt)).toBeGreaterThan(startedAt + 240_000)
+  expect(Date.parse(result.expiresAt)).toBeLessThanOrEqual(Date.now() + 300_000)
+  return result
+}
+
 async function createRecord(
   user: string,
   session: string,
@@ -417,6 +471,13 @@ beforeAll(async () => {
       ($1,$2,'owner'),($1,$3,'member')`,
     [WS, OWNER, REVIEWER],
   )
+  signingDatabase = drizzle(process.env.DATABASE_URL!, { schema: dbSchema })
+  authentication = createAuth(signingDatabase)
+  // Test-only credential provisioning, not product enrolment acceptance.
+  await authentication.api.setPassword({
+    headers: reviewerSessionHeaders(),
+    body: { newPassword: REVIEWER_PASSWORD },
+  })
   await admin.query(
     `INSERT INTO api.projects(id,workspace_id,key,title) VALUES
       ($1,$2,'rev008','Virus Stability Acceptance')`,
@@ -905,6 +966,7 @@ beforeAll(async () => {
 }, 120_000)
 
 afterAll(async () => {
+  await signingDatabase?.$client.end()
   if (admin) {
     await clean()
     await admin.end()
@@ -1076,17 +1138,90 @@ describe('REV-008 review acceptance', () => {
     expect(sub.state).toBe('approved')
   })
 
-  it('signs the approved revision with an approve-for-record signature and locks the record', async () => {
-    const res = await asReviewer('sign_revision', {
+  it('requires independent verification and password certification before signing, and practices without a real signature', async () => {
+    const sessionOnly = await asReviewer('sign_revision', {
       p_submission_id: r2.submissionId,
-      p_signature_meaning: 'approve-for-record',
+      p_signature_meaning: 'reviewed-and-approved',
       p_confirmation_phrase: REVIEWER_NAME,
       p_expected_revision_digest: r2.digest,
+    })
+    expect(sessionOnly.status, await sessionOnly.clone().text()).toBe(403)
+    expect(await sessionOnly.json()).toMatchObject({
+      error: { message: 'independent identity verification required' },
+    })
+
+    const requested = await asReviewer(
+      'request_signature_identity_verification',
+      {},
+    )
+    expect(requested.status, await requested.clone().text()).toBe(200)
+    const selfVerified = await asReviewer('verify_signature_identity', {
+      p_user_id: REVIEWER,
+      p_email: 'rev-008-reviewer@test.invalid',
+    })
+    expect(selfVerified.status).toBe(403)
+    const verified = await asOwner('verify_signature_identity', {
+      p_user_id: REVIEWER,
+      p_email: 'rev-008-reviewer@test.invalid',
+    })
+    expect(verified.status, await verified.clone().text()).toBe(200)
+
+    const certificationGrant = await signingGrant('certify')
+    const certified = await asReviewer('certify_signature', {
+      p_workspace_id: WS,
+      p_statement_version: 1,
+      p_signing_token: certificationGrant.token,
+    })
+    expect(certified.status, await certified.clone().text()).toBe(200)
+
+    const withoutPasswordProof = await asReviewer('sign_revision', {
+      p_submission_id: r2.submissionId,
+      p_signature_meaning: 'reviewed-and-approved',
+      p_confirmation_phrase: REVIEWER_NAME,
+      p_expected_revision_digest: r2.digest,
+    })
+    expect(
+      withoutPasswordProof.status,
+      await withoutPasswordProof.clone().text(),
+    ).toBe(422)
+    expect(await withoutPasswordProof.json()).toMatchObject({
+      error: { message: 'fresh password token required' },
+    })
+
+    const practiceGrant = await signingGrant('practice')
+    const practiced = await asReviewer('practice_signature', {
+      p_signing_token: practiceGrant.token,
+    })
+    expect(practiced.status, await practiced.clone().text()).toBe(200)
+    const replayed = await asReviewer('practice_signature', {
+      p_signing_token: practiceGrant.token,
+    })
+    expect(replayed.status).toBe(422)
+    expect(await replayed.json()).toMatchObject({
+      error: { message: 'fresh password token required' },
+    })
+    const signatures = await proxy(
+      `signatures?submission_id=eq.${r2.submissionId}`,
+      OWNER,
+      OWNER_SESSION,
+    )
+    expect(signatures.status).toBe(200)
+    expect(await signatures.json()).toEqual([])
+  })
+
+  it('signs the approved revision with password step-up and locks the record', async () => {
+    const grant = await signingGrant('sign')
+    const res = await asReviewer('sign_revision', {
+      p_submission_id: r2.submissionId,
+      p_signature_meaning: 'reviewed-and-approved',
+      p_confirmation_phrase: REVIEWER_NAME,
+      p_expected_revision_digest: r2.digest,
+      p_signing_token: grant.token,
     })
     expect(res.status).toBe(200)
     const body = await res.json()
     signatureId = body.signatureId
-    expect(body.signatureMeaning).toBe('approve-for-record')
+    expect(body.signatureMeaning).toBe('reviewed-and-approved')
     expect(body.assuranceLevel).toBe('standard')
 
     // The signature is pinned to the frozen R2 digest.
@@ -1098,6 +1233,8 @@ describe('REV-008 review acceptance', () => {
     const sig = (await sigRes.json())[0]
     expect(sig.revision_integrity_digest).toBe(r2.digest)
     expect(sig.signer_user_id).toBe(REVIEWER)
+    expect(sig.signer_session_id).toBe(REVIEWER_SESSION)
+    expect(sig.auth_method).toBe('password')
 
     // The owning record is now locked to R2.
     const recRes = await proxy(
@@ -1150,7 +1287,9 @@ describe('REV-008 review acceptance', () => {
     expect(evidence.decisions.length).toBe(1)
     expect(evidence.checkResults.length).toBe(1)
     expect(evidence.signatures.length).toBe(1)
-    expect(evidence.signatures[0].signature_meaning).toBe('approve-for-record')
+    expect(evidence.signatures[0].signature_meaning).toBe(
+      'reviewed-and-approved',
+    )
     expect(evidence.comments.length).toBe(1)
   })
 

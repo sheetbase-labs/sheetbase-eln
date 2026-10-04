@@ -209,8 +209,13 @@ vi.mock('#/lib/signatures', () => ({
   signatureQueryKeys: {
     forSubmission: (id: string) => ['signatures', id],
   },
+  SIGNATURE_MEANING_LABEL: { 'reviewed-and-approved': 'Reviewed and approved' },
   SIGNATURE_MEANING_OPTIONS: [
-    { value: 'approve-for-record', label: 'Approval', description: '' },
+    {
+      value: 'reviewed-and-approved',
+      label: 'Reviewed and approved',
+      description: '',
+    },
   ],
   signRevision: vi.fn(),
 }))

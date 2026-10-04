@@ -2,16 +2,21 @@
  * SIGN-002 database contract: lock approved records, amendment workflow,
  * complete history timeline and machine-readable evidence export.
  *
- * Builds on SIGN-001: an approve-for-record signature locks the owning
+ * Builds on SIGN-001: a reviewed-and-approved signature locks the owning
  * record's scientific evidence against ordinary CRUD. A new draft begins only
  * through api.create_amendment, which records an 'amend' revision, supersedes
  * the locked revision and unlocks the record. The timeline and evidence
  * export RPCs expose the complete, ordered, machine-readable history.
  */
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { createHmac } from 'node:crypto'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import * as schema from '#/db/schema'
+import { createAuth } from '#/lib/auth'
+import { handleSignatureStepUp } from '#/lib/signature-step-up.server'
+import { migratorUrl, prepareTestDatabase } from './helpers'
 
 const WS_A = '98000000-0000-4000-8000-0000000000a1'
 const WS_B = '98000000-0000-4000-8000-0000000000a2'
@@ -25,6 +30,41 @@ const OWNER_B = 's2-owner-b'
 let migrator: Client | undefined
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
+let database: ReturnType<typeof drizzle<typeof schema>>
+let authentication: ReturnType<typeof createAuth>
+
+function signingHeaders() {
+  const secret = process.env.BETTER_AUTH_SECRET
+  if (!secret) throw new Error('Test auth secret required')
+  const token = `token-session-${REVIEWER_A}`
+  const signature = createHmac('sha256', secret).update(token).digest('base64')
+  return new Headers({
+    origin: 'https://sheetbase.test',
+    'content-type': 'application/json',
+    cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${token}.${signature}`)}`,
+  })
+}
+
+async function passwordToken(input: object) {
+  const response = await handleSignatureStepUp(
+    new Request('https://sheetbase.test/api/signatures/step-up', {
+      method: 'POST',
+      headers: signingHeaders(),
+      body: JSON.stringify({
+        workspaceId: WS_A,
+        password: 'sign002-fixture-signing-password',
+        ...('purpose' in input && input.purpose === 'sign'
+          ? { signatureMeaning: 'reviewed-and-approved' }
+          : {}),
+        ...input,
+      }),
+    }),
+    { database, authentication },
+  )
+  expect(response.status).toBe(200)
+  const result: { token: string } = await response.json()
+  return result.token
+}
 
 function claims(
   userId: string,
@@ -175,14 +215,26 @@ async function sign(
   digest: string,
 ) {
   const { rows } = await client.query(
-    `SELECT api.sign_revision($1, $2, $3, $4) AS result`,
-    [submissionId, meaning, confirmation, digest],
+    `SELECT api.sign_revision($1, $2, $3, $4, $5) AS result`,
+    [
+      submissionId,
+      meaning,
+      confirmation,
+      digest,
+      await passwordToken({
+        purpose: 'sign',
+        submissionId,
+        revisionDigest: digest,
+      }),
+    ],
   )
   return rows[0].result as { signatureId: string; revisionId: string }
 }
 
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
+  database = drizzle(migratorUrl(), { schema })
+  authentication = createAuth(database)
 
   await migrator!.query(
     `INSERT INTO internal."user" (id,name,email,"emailVerified") VALUES
@@ -216,10 +268,26 @@ beforeAll(async () => {
   )
   await insertSession(REVIEWER_A)
   await insertSession(OWNER_A)
+  await authentication.api.setPassword({
+    headers: signingHeaders(),
+    body: { newPassword: 'sign002-fixture-signing-password' },
+  })
+  const reviewer = await authenticated(REVIEWER_A, WS_A)
+  await reviewer.query('SELECT api.request_signature_identity_verification()')
+  const owner = await authenticated(OWNER_A, WS_A)
+  await owner.query('SELECT api.verify_signature_identity($1,$2)', [
+    REVIEWER_A,
+    's2-reviewer-a@sign.test',
+  ])
+  await reviewer.query('SELECT api.certify_signature($1,1,$2)', [
+    WS_A,
+    await passwordToken({ purpose: 'certify' }),
+  ])
 })
 
 afterAll(async () => {
   for (const client of clients) await client.end()
+  await database.$client.end()
   await migrator?.end()
 })
 
@@ -243,7 +311,7 @@ async function buildApprovedAndSign(
   const result = await sign(
     reviewer,
     submissionId,
-    'approve-for-record',
+    'reviewed-and-approved',
     'Reviewer A',
     rev.integrityDigest,
   )
@@ -256,7 +324,7 @@ async function buildApprovedAndSign(
 }
 
 describe('SIGN-002 lock + amendment + timeline + evidence', () => {
-  it('locks the record when an approve-for-record signature is recorded', async () => {
+  it('locks the record when a reviewed-and-approved signature is recorded', async () => {
     const { revisionId } = await buildApprovedAndSign()
     const { rows } = await migrator!.query(
       `SELECT locked_at, locked_by_revision_id FROM api.records WHERE id = $1`,
@@ -429,7 +497,7 @@ describe('SIGN-002 lock + amendment + timeline + evidence', () => {
     expect(bundle.checkResults.length).toBeGreaterThan(0)
     expect(
       bundle.signatures.some(
-        (s) => s.signature_meaning === 'approve-for-record',
+        (s) => s.signature_meaning === 'reviewed-and-approved',
       ),
     ).toBe(true)
     expect(Array.isArray(bundle.comments)).toBe(true)

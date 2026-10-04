@@ -11,10 +11,15 @@
  * - submit/sign/amend/checks and the four decision RPCs deny api_client;
  * - archived/deleted/inaccessible records fail closed for the review RPCs.
  */
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { createHmac } from 'node:crypto'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import * as schema from '#/db/schema'
+import { createAuth } from '#/lib/auth'
+import { handleSignatureStepUp } from '#/lib/signature-step-up.server'
+import { migratorUrl, prepareTestDatabase } from './helpers'
 
 const WS = '98000000-0000-4000-8000-0000000000b1'
 const WS_OTHER = '98000000-0000-4000-8000-0000000000b2'
@@ -23,10 +28,47 @@ const RECORD = '9a000000-0000-4000-8000-0000000000b1'
 const AUTHOR = 'g4-author'
 const REVIEWER = 'g4-reviewer'
 const OUTSIDER = 'g4-outsider'
+const VERIFIER = 'g4-independent-admin'
 
 let migrator: Client | undefined
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
+let database: ReturnType<typeof drizzle<typeof schema>>
+let authentication: ReturnType<typeof createAuth>
+
+function signingHeaders() {
+  const secret = process.env.BETTER_AUTH_SECRET
+  if (!secret) throw new Error('Test auth secret required')
+  const signature = createHmac('sha256', secret)
+    .update('tok-r')
+    .digest('base64')
+  return new Headers({
+    origin: 'https://sheetbase.test',
+    'content-type': 'application/json',
+    cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`tok-r.${signature}`)}`,
+  })
+}
+
+async function passwordToken(input: object) {
+  const response = await handleSignatureStepUp(
+    new Request('https://sheetbase.test/api/signatures/step-up', {
+      method: 'POST',
+      headers: signingHeaders(),
+      body: JSON.stringify({
+        workspaceId: WS,
+        password: 'gov04-fixture-signing-password',
+        ...('purpose' in input && input.purpose === 'sign'
+          ? { signatureMeaning: 'reviewed-and-approved' }
+          : {}),
+        ...input,
+      }),
+    }),
+    { database, authentication },
+  )
+  expect(response.status).toBe(200)
+  const result: { token: string } = await response.json()
+  return result.token
+}
 
 function claims(userId: string, workspaceId: string): string {
   return JSON.stringify({
@@ -88,19 +130,23 @@ function passingSnapshot(): Record<string, unknown> {
 
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
+  database = drizzle(migratorUrl(), { schema })
+  authentication = createAuth(database)
 
   await migrator!.query(
     `INSERT INTO internal."user" (id,name,email,"emailVerified") VALUES
        ($1,'Gov Author','g4-author@gov.test',true),
        ($2,'Gov Reviewer','g4-reviewer@gov.test',true),
-       ($3,'Gov Outsider','g4-outsider@gov.test',true)`,
-    [AUTHOR, REVIEWER, OUTSIDER],
+       ($3,'Gov Outsider','g4-outsider@gov.test',true),
+       ($4,'Independent Admin','g4-admin@gov.test',true)`,
+    [AUTHOR, REVIEWER, OUTSIDER, VERIFIER],
   )
   await migrator!.query(
     `INSERT INTO internal."session" (id,"expiresAt",token,"userId") VALUES
        ('session-g4-author','2099-01-01T00:00:00Z','tok-a',$1),
-       ('session-g4-reviewer','2099-01-01T00:00:00Z','tok-r',$2)`,
-    [AUTHOR, REVIEWER],
+       ('session-g4-reviewer','2099-01-01T00:00:00Z','tok-r',$2),
+       ('session-g4-independent-admin','2099-01-01T00:00:00Z','tok-v',$3)`,
+    [AUTHOR, REVIEWER, VERIFIER],
   )
   await migrator!.query(
     `INSERT INTO api.workspaces(id,slug,name) VALUES
@@ -109,8 +155,8 @@ beforeAll(async () => {
   )
   await migrator!.query(
     `INSERT INTO api.workspace_memberships(workspace_id,user_id,role) VALUES
-       ($1,$2,'member'),($1,$3,'owner'),($4,$5,'owner')`,
-    [WS, AUTHOR, REVIEWER, WS_OTHER, OUTSIDER],
+       ($1,$2,'member'),($1,$3,'owner'),($4,$5,'owner'),($1,$6,'admin')`,
+    [WS, AUTHOR, REVIEWER, WS_OTHER, OUTSIDER, VERIFIER],
   )
   await migrator!.query(
     `INSERT INTO api.projects(id,workspace_id,key,title) VALUES ($1,$2,'G4','GOV04 project')`,
@@ -122,10 +168,28 @@ beforeAll(async () => {
      VALUES ($1,$2,$3,'experiment','EXP-G4','GOV04 experiment','draft','{}','{}',$4)`,
     [RECORD, WS, PROJECT, AUTHOR],
   )
+  // Credential setup is a native Better Auth fixture operation; certification
+  // still exercises independent admin verification and the real HTTP handler.
+  await authentication.api.setPassword({
+    headers: signingHeaders(),
+    body: { newPassword: 'gov04-fixture-signing-password' },
+  })
+  const reviewer = await authenticated(REVIEWER, WS)
+  await reviewer.query('SELECT api.request_signature_identity_verification()')
+  const verifier = await authenticated(VERIFIER, WS)
+  await verifier.query('SELECT api.verify_signature_identity($1,$2)', [
+    REVIEWER,
+    'g4-reviewer@gov.test',
+  ])
+  await reviewer.query('SELECT api.certify_signature($1,1,$2)', [
+    WS,
+    await passwordToken({ purpose: 'certify' }),
+  ])
 })
 
 afterAll(async () => {
   for (const client of clients) await client.end()
+  await database.$client.end()
   await migrator?.end()
 })
 
@@ -175,8 +239,17 @@ describe('GOV-04 frozen evidence and signature attachment', () => {
       integrityDigest,
     ])
     await reviewer.query(
-      `SELECT api.sign_revision($1,'approve-for-record',$2,$3)`,
-      [submissionId, 'Gov Reviewer', integrityDigest],
+      `SELECT api.sign_revision($1,'reviewed-and-approved',$2,$3,$4)`,
+      [
+        submissionId,
+        'Gov Reviewer',
+        integrityDigest,
+        await passwordToken({
+          purpose: 'sign',
+          submissionId,
+          revisionDigest: integrityDigest,
+        }),
+      ],
     )
 
     // Evidence package before any live mutation.
@@ -238,7 +311,7 @@ describe('GOV-04 frozen evidence and signature attachment', () => {
       revision_id: revisionId,
       revision_integrity_digest: integrityDigest,
       signer_user_id: REVIEWER,
-      signature_meaning: 'approve-for-record',
+      signature_meaning: 'reviewed-and-approved',
     })
 
     const { rows: amendmentSignatures } = await migrator!.query(
@@ -289,11 +362,16 @@ describe('GOV-04 frozen evidence and signature attachment', () => {
       [resubmitted.submission.id, resubmitted.revision.integrityDigest],
     )
     await reReviewer.query(
-      `SELECT api.sign_revision($1,'approve-for-record',$2,$3)`,
+      `SELECT api.sign_revision($1,'reviewed-and-approved',$2,$3,$4)`,
       [
         resubmitted.submission.id,
         'Gov Reviewer',
         resubmitted.revision.integrityDigest,
+        await passwordToken({
+          purpose: 'sign',
+          submissionId: resubmitted.submission.id,
+          revisionDigest: resubmitted.revision.integrityDigest,
+        }),
       ],
     )
 
@@ -388,7 +466,7 @@ describe('GOV-04 frozen evidence and signature attachment', () => {
       `api.submit_record_revision(${NO_REVISION},'x'::text,'default-scientific-review'::text,1,'{r}'::text[],true,'k'::text)`,
     )
     await deniedRpc(
-      `api.sign_revision(${NO_REVISION},'approve-for-record'::text,'x'::text,'${'ab'.repeat(32)}'::text)`,
+      `api.sign_revision(${NO_REVISION},'reviewed-and-approved'::text,'x'::text,'${'ab'.repeat(32)}'::text,'no-issued-token'::text)`,
     )
     await deniedRpc(`api.create_amendment(${NO_REVISION},NULL::text)`)
     await deniedRpc(

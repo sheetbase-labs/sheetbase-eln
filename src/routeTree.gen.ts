@@ -88,6 +88,7 @@ import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parser
 import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
+import { Route as ApiSignaturesStepUpRouteImport } from './routes/api/signatures/step-up'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 import { Route as DatasetsDatasetIdIndexRouteImport } from './routes/datasets/$datasetId/index'
 import { Route as DatasetsDatasetIdCompareRouteImport } from './routes/datasets/$datasetId/compare'
@@ -544,6 +545,11 @@ const ApiPipelinesRuntimeRoute = ApiPipelinesRuntimeRouteImport.update({
   path: '/api/pipelines/runtime',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSignaturesStepUpRoute = ApiSignaturesStepUpRouteImport.update({
+  id: '/api/signatures/step-up',
+  path: '/api/signatures/step-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   id: '/api/token/',
   path: '/api/token/',
@@ -949,6 +955,7 @@ export interface FileRoutesByFullPath {
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
@@ -1078,6 +1085,7 @@ export interface FileRoutesByTo {
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
@@ -1218,6 +1226,7 @@ export interface FileRoutesById {
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
@@ -1360,6 +1369,7 @@ export interface FileRouteTypes {
     | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/api/signatures/step-up'
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
@@ -1489,6 +1499,7 @@ export interface FileRouteTypes {
     | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/api/signatures/step-up'
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
@@ -1628,6 +1639,7 @@ export interface FileRouteTypes {
     | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/api/signatures/step-up'
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
@@ -1740,6 +1752,7 @@ export interface RootRouteChildren {
   ApiParsersValidateRoute: typeof ApiParsersValidateRoute
   ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
   ApiPipelinesRuntimeRoute: typeof ApiPipelinesRuntimeRoute
+  ApiSignaturesStepUpRoute: typeof ApiSignaturesStepUpRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
   ApiCollaborationResolveRoomsRoute: typeof ApiCollaborationResolveRoomsRoute
   ApiCollaborationResolveUsersRoute: typeof ApiCollaborationResolveUsersRoute
@@ -2307,6 +2320,13 @@ declare module '@tanstack/react-router' {
       path: '/api/pipelines/runtime'
       fullPath: '/api/pipelines/runtime'
       preLoaderRoute: typeof ApiPipelinesRuntimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/signatures/step-up': {
+      id: '/api/signatures/step-up'
+      path: '/api/signatures/step-up'
+      fullPath: '/api/signatures/step-up'
+      preLoaderRoute: typeof ApiSignaturesStepUpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/token/': {
@@ -3137,6 +3157,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiParsersValidateRoute: ApiParsersValidateRoute,
   ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
   ApiPipelinesRuntimeRoute: ApiPipelinesRuntimeRoute,
+  ApiSignaturesStepUpRoute: ApiSignaturesStepUpRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
   ApiCollaborationResolveRoomsRoute: ApiCollaborationResolveRoomsRoute,
   ApiCollaborationResolveUsersRoute: ApiCollaborationResolveUsersRoute,

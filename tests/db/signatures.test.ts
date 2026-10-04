@@ -8,10 +8,15 @@
  * permission, passing required checks, name confirmation, and no prior
  * signature by the same signer.
  */
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { createHmac } from 'node:crypto'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import * as schema from '#/db/schema'
+import { createAuth } from '#/lib/auth'
+import { handleSignatureStepUp } from '#/lib/signature-step-up.server'
+import { migratorUrl, prepareTestDatabase } from './helpers'
 
 const WS_A = '98000000-0000-4000-8000-000000000001'
 const WS_B = '98000000-0000-4000-8000-000000000002'
@@ -26,6 +31,42 @@ const OWNER_B = 'sign-owner-b'
 let migrator: Client | undefined
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
+let database: ReturnType<typeof drizzle<typeof schema>>
+let authentication: ReturnType<typeof createAuth>
+const PASSWORD = 'signature-fixture-password-2026'
+
+function headers(userId: string) {
+  const secret = process.env.BETTER_AUTH_SECRET
+  if (!secret) throw new Error('Test auth secret required')
+  const token = `token-session-${userId}`
+  const signature = createHmac('sha256', secret).update(token).digest('base64')
+  return new Headers({
+    origin: 'https://sheetbase.test',
+    'content-type': 'application/json',
+    cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${token}.${signature}`)}`,
+  })
+}
+
+async function passwordToken(userId: string, input: object) {
+  const response = await handleSignatureStepUp(
+    new Request('https://sheetbase.test/api/signatures/step-up', {
+      method: 'POST',
+      headers: headers(userId),
+      body: JSON.stringify({
+        workspaceId: WS_A,
+        password: PASSWORD,
+        ...('purpose' in input && input.purpose === 'sign'
+          ? { signatureMeaning: 'reviewed-and-approved' }
+          : {}),
+        ...input,
+      }),
+    }),
+    { database, authentication },
+  )
+  expect(response.status).toBe(200)
+  const result: { token: string } = await response.json()
+  return result.token
+}
 
 function claims(
   userId: string,
@@ -233,10 +274,11 @@ async function sign(
   meaning: string,
   confirmation: string,
   digest: string,
+  signingToken: string | null = null,
 ) {
   const { rows } = await client.query(
-    `SELECT api.sign_revision($1, $2, $3, $4) AS result`,
-    [submissionId, meaning, confirmation, digest],
+    `SELECT api.sign_revision($1, $2, $3, $4, $5) AS result`,
+    [submissionId, meaning, confirmation, digest, signingToken],
   )
   return rows[0].result as {
     signatureId: string
@@ -250,6 +292,8 @@ async function sign(
 
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
+  database = drizzle(migratorUrl(), { schema })
+  authentication = createAuth(database)
 
   await migrator!.query(
     `INSERT INTO internal."user" (id,name,email,"emailVerified") VALUES
@@ -286,10 +330,30 @@ beforeAll(async () => {
   await insertSession(REVIEWER_A)
   await insertSession(REVIEWER_B)
   await insertSession(OUTSIDER)
+  await insertSession(OWNER_A)
+  const owner = await authenticated(OWNER_A, WS_A)
+  for (const userId of [REVIEWER_A, REVIEWER_B]) {
+    // Test-only credential setup uses Better Auth, not a parallel hash engine.
+    await authentication.api.setPassword({
+      headers: headers(userId),
+      body: { newPassword: PASSWORD },
+    })
+    const reviewer = await authenticated(userId, WS_A)
+    await reviewer.query('SELECT api.request_signature_identity_verification()')
+    await owner.query('SELECT api.verify_signature_identity($1,$2)', [
+      userId,
+      userId === REVIEWER_A ? 'reviewer-a@sign.test' : 'reviewer-b@sign.test',
+    ])
+    await reviewer.query('SELECT api.certify_signature($1,1,$2)', [
+      WS_A,
+      await passwordToken(userId, { purpose: 'certify' }),
+    ])
+  }
 })
 
 afterAll(async () => {
   for (const client of clients) await client.end()
+  await database.$client.end()
   await migrator?.end()
 })
 
@@ -319,6 +383,26 @@ async function buildApprovedSubmission(
 }
 
 describe('SIGN-001 electronic signatures', () => {
+  it('REV-03 refuses a session-only signature even with a typed signer name', async () => {
+    const { submissionId, digest } = await buildApprovedSubmission()
+    const reviewer = await authenticated(REVIEWER_A, WS_A)
+
+    await expect(
+      sign(
+        reviewer,
+        submissionId,
+        'reviewed-and-approved',
+        'Reviewer A',
+        digest,
+      ),
+    ).rejects.toMatchObject({ code: 'SB002' })
+    const signatures = await reviewer.query(
+      'SELECT id FROM api.signatures WHERE submission_id = $1',
+      [submissionId],
+    )
+    expect(signatures.rows).toEqual([])
+  })
+
   it('records a valid signature with full authentication evidence', async () => {
     const { submissionId, revisionId, digest } = await buildApprovedSubmission()
     const reviewer = await authenticated(REVIEWER_A, WS_A)
@@ -326,13 +410,18 @@ describe('SIGN-001 electronic signatures', () => {
     const result = await sign(
       reviewer,
       submissionId,
-      'approve-for-record',
+      'reviewed-and-approved',
       'Reviewer A',
       digest,
+      await passwordToken(REVIEWER_A, {
+        purpose: 'sign',
+        submissionId,
+        revisionDigest: digest,
+      }),
     )
 
     expect(result.signatureId).toBeTruthy()
-    expect(result.signatureMeaning).toBe('approve-for-record')
+    expect(result.signatureMeaning).toBe('reviewed-and-approved')
     expect(result.assuranceLevel).toBe('standard')
     expect(result.submissionId).toBe(submissionId)
     expect(result.revisionId).toBe(revisionId)
@@ -350,8 +439,8 @@ describe('SIGN-001 electronic signatures', () => {
       signer_user_id: REVIEWER_A,
       signer_session_id: 'session-sign-reviewer-a',
       signer_role: 'authenticated',
-      auth_method: 'session+name-confirmation',
-      signature_meaning: 'approve-for-record',
+      auth_method: 'password',
+      signature_meaning: 'reviewed-and-approved',
       assurance_level: 'standard',
       revision_integrity_digest: digest,
       confirmation_phrase: 'Reviewer A',
@@ -366,7 +455,13 @@ describe('SIGN-001 electronic signatures', () => {
     const reviewer = await authenticated(REVIEWER_B, WS_A, expiredSessionId)
 
     await expect(
-      sign(reviewer, submissionId, 'approve-for-record', 'Reviewer B', digest),
+      sign(
+        reviewer,
+        submissionId,
+        'reviewed-and-approved',
+        'Reviewer B',
+        digest,
+      ),
     ).rejects.toMatchObject({ code: 'SB002' })
   })
 
@@ -380,7 +475,7 @@ describe('SIGN-001 electronic signatures', () => {
       sign(
         reviewer,
         submissionId,
-        'approve-for-record',
+        'reviewed-and-approved',
         'Reviewer A',
         wrongDigest,
       ),
@@ -394,14 +489,25 @@ describe('SIGN-001 electronic signatures', () => {
     await sign(
       reviewer,
       submissionId,
-      'approve-for-record',
+      'reviewed-and-approved',
       'Reviewer A',
       digest,
+      await passwordToken(REVIEWER_A, {
+        purpose: 'sign',
+        submissionId,
+        revisionDigest: digest,
+      }),
     )
 
     // A second signature by the same signer on the same submission is rejected.
     await expect(
-      sign(reviewer, submissionId, 'approve-for-record', 'Reviewer A', digest),
+      sign(
+        reviewer,
+        submissionId,
+        'reviewed-and-approved',
+        'Reviewer A',
+        digest,
+      ),
     ).rejects.toMatchObject({ code: 'SB010' })
   })
 
@@ -414,7 +520,7 @@ describe('SIGN-001 electronic signatures', () => {
       sign(
         unassigned,
         submissionId,
-        'approve-for-record',
+        'reviewed-and-approved',
         'Reviewer B',
         digest,
       ),
@@ -434,7 +540,7 @@ describe('SIGN-001 electronic signatures', () => {
       sign(
         reviewer,
         submissionId,
-        'approve-for-record',
+        'reviewed-and-approved',
         'Reviewer A',
         rev.integrityDigest,
       ),
@@ -454,7 +560,7 @@ describe('SIGN-001 electronic signatures', () => {
       sign(
         reviewer,
         submissionId,
-        'approve-for-record',
+        'reviewed-and-approved',
         'Reviewer A',
         rev.integrityDigest,
       ),
@@ -475,7 +581,7 @@ describe('SIGN-001 electronic signatures', () => {
       sign(
         reviewer,
         submissionId,
-        'approve-for-record',
+        'reviewed-and-approved',
         'Reviewer A',
         rev.integrityDigest,
       ),
@@ -487,7 +593,13 @@ describe('SIGN-001 electronic signatures', () => {
     const reviewer = await authenticated(REVIEWER_A, WS_A)
 
     await expect(
-      sign(reviewer, submissionId, 'approve-for-record', 'Wrong Name', digest),
+      sign(
+        reviewer,
+        submissionId,
+        'reviewed-and-approved',
+        'Wrong Name',
+        digest,
+      ),
     ).rejects.toMatchObject({ code: 'SB009' })
   })
 
@@ -496,7 +608,7 @@ describe('SIGN-001 electronic signatures', () => {
     const outsider = await authenticated(OWNER_B, WS_B)
 
     await expect(
-      sign(outsider, submissionId, 'approve-for-record', 'Owner B', digest),
+      sign(outsider, submissionId, 'reviewed-and-approved', 'Owner B', digest),
     ).rejects.toMatchObject({ code: '42501' })
   })
 
@@ -506,9 +618,14 @@ describe('SIGN-001 electronic signatures', () => {
     const result = await sign(
       reviewer,
       submissionId,
-      'approve-for-record',
+      'reviewed-and-approved',
       'Reviewer A',
       digest,
+      await passwordToken(REVIEWER_A, {
+        purpose: 'sign',
+        submissionId,
+        revisionDigest: digest,
+      }),
     )
 
     await expect(
@@ -530,14 +647,122 @@ describe('SIGN-001 electronic signatures', () => {
     await sign(
       reviewer,
       submissionId,
-      'approve-for-record',
+      'reviewed-and-approved',
       'Reviewer A',
       digest,
+      await passwordToken(REVIEWER_A, {
+        purpose: 'sign',
+        submissionId,
+        revisionDigest: digest,
+      }),
     )
 
     // Workspace B cannot see workspace A's signatures.
     const ownerB = await authenticated(OWNER_B, WS_B)
     const { rows } = await ownerB.query(`SELECT id FROM api.signatures`)
     expect(rows).toHaveLength(0)
+  })
+
+  it('rejects tokens for another submission, rejects reuse, and keeps the correct digest binding', async () => {
+    const first = await buildApprovedSubmission()
+    const second = await buildApprovedSubmission(REVIEWER_A, {
+      ...passingSnapshot(),
+      record: {
+        id: RECORD_A,
+        workspaceId: WS_A,
+        title: 'A distinct complete experiment',
+        status: 'draft',
+        kind: 'experiment',
+      },
+    })
+    expect(first.digest).not.toBe(second.digest)
+    const reviewer = await authenticated(REVIEWER_A, WS_A)
+    const proof = await passwordToken(REVIEWER_A, {
+      purpose: 'sign',
+      submissionId: first.submissionId,
+      revisionDigest: first.digest,
+    })
+    await expect(
+      sign(
+        reviewer,
+        second.submissionId,
+        'reviewed-and-approved',
+        'Reviewer A',
+        second.digest,
+        proof,
+      ),
+    ).rejects.toMatchObject({ code: 'SB002' })
+    await sign(
+      reviewer,
+      first.submissionId,
+      'reviewed-and-approved',
+      'Reviewer A',
+      first.digest,
+      proof,
+    )
+    await expect(
+      sign(
+        reviewer,
+        second.submissionId,
+        'reviewed-and-approved',
+        'Reviewer A',
+        second.digest,
+        proof,
+      ),
+    ).rejects.toMatchObject({ code: 'SB002' })
+    const signatures = await reviewer.query(
+      'SELECT revision_integrity_digest FROM api.signatures WHERE submission_id=$1',
+      [second.submissionId],
+    )
+    expect(signatures.rows).toEqual([])
+  })
+
+  it('requires current certification in the database, not only in the token issuer', async () => {
+    const { submissionId, digest } = await buildApprovedSubmission(REVIEWER_B)
+    const reviewer = await authenticated(REVIEWER_B, WS_A)
+    const proof = await passwordToken(REVIEWER_B, {
+      purpose: 'sign',
+      submissionId,
+      revisionDigest: digest,
+    })
+    await reviewer.query('SELECT api.withdraw_signature_certification($1)', [
+      WS_A,
+    ])
+    await expect(
+      sign(
+        reviewer,
+        submissionId,
+        'reviewed-and-approved',
+        'Reviewer B',
+        digest,
+        proof,
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+    await reviewer.query('SELECT api.certify_signature($1,1,$2)', [
+      WS_A,
+      await passwordToken(REVIEWER_B, { purpose: 'certify' }),
+    ])
+    await expect(
+      sign(
+        reviewer,
+        submissionId,
+        'reviewed-and-approved',
+        'Reviewer B',
+        digest,
+        proof,
+      ),
+    ).rejects.toMatchObject({ code: 'SB002' })
+    await sign(
+      reviewer,
+      submissionId,
+      'reviewed-and-approved',
+      'Reviewer B',
+      digest,
+      await passwordToken(REVIEWER_B, {
+        purpose: 'sign',
+        submissionId,
+        revisionDigest: digest,
+      }),
+    )
   })
 })

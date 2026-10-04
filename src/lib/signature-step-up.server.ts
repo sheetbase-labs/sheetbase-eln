@@ -186,6 +186,7 @@ export async function handleSignatureStepUp(
          ON w.definition_key=$3 AND w.version=$4
          WHERE r.id=$1 AND r.workspace_id=$2 AND r.archived_at IS NULL AND r.deleted_at IS NULL
            AND r.locked_at IS NULL AND api.is_workspace_writer(r.workspace_id)
+           AND internal.can_access_object('record',r.id,'edit')
            AND coalesce((w.definition->>'requiresSignature')::boolean,false) AND $5
            AND (api.preview_submission_digest(r.id)->>'sourceDigest')=$6
            AND NOT EXISTS(SELECT 1 FROM unnest($7::text[]) reviewer

@@ -437,6 +437,96 @@ export const workspaceSettings = api.table(
   ],
 )
 
+export const workspaceGroups = api.table(
+  'workspace_groups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_workspace_groups_workspace_id').on(table.workspaceId, table.id),
+    unique('uq_workspace_groups_workspace_name').on(
+      table.workspaceId,
+      table.name,
+    ),
+    check(
+      'chk_workspace_groups_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 120`,
+    ),
+  ],
+)
+
+export const workspaceGroupMemberships = api.table(
+  'workspace_group_memberships',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull(),
+    groupId: uuid('group_id').notNull(),
+    userId: text('user_id').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_workspace_group_membership').on(
+      table.workspaceId,
+      table.groupId,
+      table.userId,
+    ),
+    foreignKey({
+      columns: [table.workspaceId, table.groupId],
+      foreignColumns: [workspaceGroups.workspaceId, workspaceGroups.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [
+        workspaceMemberships.workspaceId,
+        workspaceMemberships.userId,
+      ],
+    }).onDelete('cascade'),
+  ],
+)
+
+export const projectAccessRequests = api.table(
+  'project_access_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull(),
+    projectId: uuid('project_id').notNull(),
+    userId: text('user_id').notNull(),
+    reason: text('reason').notNull(),
+    status: text('status').notNull().default('pending'),
+    decidedByUserId: text('decided_by_user_id').references(() => user.id),
+    ...timestamps,
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [
+        workspaceMemberships.workspaceId,
+        workspaceMemberships.userId,
+      ],
+    }).onDelete('cascade'),
+    check(
+      'chk_project_access_request_status',
+      sql`${table.status} IN ('pending', 'approved', 'denied')`,
+    ),
+    check(
+      'chk_project_access_request_reason',
+      sql`length(btrim(${table.reason})) BETWEEN 1 AND 2000`,
+    ),
+    uniqueIndex('uq_project_access_pending_request')
+      .on(table.projectId, table.userId)
+      .where(sql`${table.status} = 'pending'`),
+  ],
+)
+
 export const projectAccess = api.table(
   'project_access',
   {
@@ -447,9 +537,14 @@ export const projectAccess = api.table(
     projectId: uuid('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id'),
+    canView: boolean('can_view').notNull().default(false),
+    canEdit: boolean('can_edit').notNull().default(false),
+    canReview: boolean('can_review').notNull().default(false),
+    clientPortal: boolean('client_portal').notNull().default(false),
+    canManage: boolean('can_manage').notNull().default(false),
+    // Read-only display projection; the rule flags are the authority.
     accessLevel: text('access_level').notNull().default('viewer'),
     grantedByUserId: text('granted_by_user_id')
       .notNull()
@@ -462,9 +557,33 @@ export const projectAccess = api.table(
       table.projectId,
       table.userId,
     ),
+    unique('uq_project_access_workspace_project_group').on(
+      table.workspaceId,
+      table.projectId,
+      table.groupId,
+    ),
+    foreignKey({
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [
+        workspaceMemberships.workspaceId,
+        workspaceMemberships.userId,
+      ],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.workspaceId, table.groupId],
+      foreignColumns: [workspaceGroups.workspaceId, workspaceGroups.id],
+    }).onDelete('cascade'),
+    check(
+      'chk_project_access_principal',
+      sql`(${table.userId} IS NULL) <> (${table.groupId} IS NULL)`,
+    ),
     check(
       'chk_project_access_access_level',
-      sql`${table.accessLevel} IN ('owner', 'editor', 'viewer')`,
+      sql`${table.accessLevel} IN ('owner', 'editor', 'reviewer', 'viewer')`,
     ),
     index('idx_project_access_workspace').on(table.workspaceId),
     index('idx_project_access_project').on(table.projectId),
@@ -638,6 +757,7 @@ export const projects = api.table(
   },
   (table) => [
     unique('uq_projects_workspace_key').on(table.workspaceId, table.key),
+    unique('uq_projects_workspace_id').on(table.workspaceId, table.id),
     check(
       'chk_projects_status',
       sql`${table.status} IN ('active', 'in_progress', 'in_review', 'complete', 'on_hold', 'archived')`,

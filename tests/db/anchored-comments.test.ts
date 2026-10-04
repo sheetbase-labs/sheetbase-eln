@@ -154,6 +154,23 @@ beforeAll(async () => {
        ($1,$2,'R4A','Revision4 A'),($3,$4,'R4B','Revision4 B')`,
     [PROJECT_A, WS_A, PROJECT_B, WS_B],
   )
+  // Workspace roles alone are not project assignments. Give each participant
+  // only the explicit rights this comment/review fixture exercises.
+  await migrator!.query(
+    `INSERT INTO api.project_access(workspace_id,project_id,user_id,can_view,can_edit,can_review,can_manage,granted_by_user_id) VALUES
+       ($1,$2,$3,true,true,true,true,$3),($1,$2,$4,true,false,true,false,$3),
+       ($1,$2,$5,true,false,false,false,$3),($6,$7,$8,true,true,true,true,$8)`,
+    [
+      WS_A,
+      PROJECT_A,
+      OWNER_A,
+      REVIEWER_A,
+      COMMENTER_A,
+      WS_B,
+      PROJECT_B,
+      OWNER_B,
+    ],
+  )
   await migrator!.query(
     `INSERT INTO api.records
        (id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id)

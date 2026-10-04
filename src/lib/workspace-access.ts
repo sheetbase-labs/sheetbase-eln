@@ -17,6 +17,20 @@ const assignmentSchema = permissionsSchema.extend({
 })
 export type ProjectAssignment = z.infer<typeof assignmentSchema>
 
+const onboardingSchema = z.object({
+  user_id: z.string(),
+  workspace_role: z.string(),
+  joined_at: z.string(),
+  invitation_accepted_at: z.string().nullable(),
+})
+export type MyOnboardingState = z.infer<typeof onboardingSchema>
+
+const defaultsSchema = z.object({
+  private_to_lead: z.literal(true),
+  qa_view_group_id: z.uuid().nullable(),
+  client_portal_off: z.literal(true),
+})
+
 const ruleSchema = permissionsSchema
   .extend({
     id: z.uuid(),
@@ -68,6 +82,36 @@ export const workspaceAccessKeys = {
     ['workspace-access', workspaceId, 'members'] as const,
   assignments: (workspaceId: string, userId: string) =>
     ['workspace-access', workspaceId, 'assignments', userId] as const,
+  onboarding: (workspaceId: string, userId: string) =>
+    ['workspace-access', workspaceId, 'onboarding', userId] as const,
+  defaults: (workspaceId: string) =>
+    ['workspace-access', workspaceId, 'defaults'] as const,
+}
+
+export async function fetchProjectAccessDefaults(client: DataClient) {
+  return z
+    .array(defaultsSchema)
+    .length(1)
+    .parse(await client.rpc('project_access_defaults', {}))[0]
+}
+
+export async function setProjectAccessDefaults(
+  client: DataClient,
+  groupId: string | null,
+): Promise<void> {
+  await client.rpc('set_project_access_defaults', {
+    p_qa_view_group_id: groupId,
+  })
+}
+
+export async function fetchMyOnboardingState(
+  client: DataClient,
+): Promise<MyOnboardingState | null> {
+  const rows = z
+    .array(onboardingSchema)
+    .max(1)
+    .parse(await client.rpc('my_onboarding_state', {}))
+  return rows[0] ?? null
 }
 
 export async function fetchMyProjectAssignments(

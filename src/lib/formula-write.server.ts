@@ -83,7 +83,11 @@ export async function executeFormulaWrite(
        LEFT JOIN api.workspace_memberships m
          ON m.workspace_id=t.workspace_id AND m.user_id=$2
        JOIN api.records r ON r.id=t.record_id
-      WHERE t.id=$1 AND r.archived_at IS NULL AND r.deleted_at IS NULL`,
+      WHERE t.id=$1 AND r.archived_at IS NULL AND r.deleted_at IS NULL
+        AND m.suspended_at IS NULL
+        AND m.role IN ('owner','admin','member','steward','scientist','analyst','reviewer')
+        AND (r.project_id IS NULL OR
+          (SELECT can_edit FROM internal.project_permissions_for(r.project_id,$2)))`,
     [input.target.tableId, actor],
   )
   const table = context.rows.at(0)

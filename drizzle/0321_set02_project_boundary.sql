@@ -1,0 +1,1 @@
+ALTER TABLE "api"."projects" ADD CONSTRAINT "uq_projects_workspace_id" UNIQUE("workspace_id","id");

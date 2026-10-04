@@ -87,6 +87,12 @@ beforeAll(async () => {
     "insert into api.projects(id,workspace_id,key,title) values($1,$2,'REV02','Author signatures')",
     [projectId, workspaceId],
   )
+  // Explicit SET-02 authority, independent of workspace roles and assignment.
+  await admin.query(
+    `insert into api.project_access(workspace_id,project_id,user_id,can_view,can_edit,can_review,granted_by_user_id)
+     values($1,$2,$3,true,true,false,$3),($1,$2,$4,true,false,true,$3),($1,$2,$5,true,false,false,$3)`,
+    [workspaceId, projectId, author, reviewer, witness],
+  )
   for (const userId of [author, reviewer, witness, unassignedOwner]) {
     await authentication.api.setPassword({
       headers: headers(userId),
@@ -232,7 +238,8 @@ describe('atomic controlled author submission', () => {
     ])
     try {
       await expect(submit(value, signingToken)).rejects.toMatchObject({
-        code: 'SB002',
+        // View and an explicit witness request never grant author Edit.
+        code: '42501',
       })
       expect(await state(value.recordId)).toEqual({
         submissions: 0,

@@ -112,6 +112,7 @@ import {
   ASSURANCE_LEVEL_STATEMENT,
   availableSignatureMeanings,
   fetchSignatureEligibility,
+  fetchSignatureWitnessCandidates,
   fetchSignaturesForSubmission,
   signatureQueryKeys,
   SIGNATURE_MEANING_OPTIONS,
@@ -120,7 +121,6 @@ import {
   requestSignatureWitness,
   requestSignatureStepUp,
 } from '#/lib/signatures'
-import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import type {
   PostSubmissionSignatureMeaning,
   SignatureMeaning,
@@ -1103,7 +1103,12 @@ function ReviewInspector({
 }: {
   revision: RevisionWire | null
   submission: ReviewSubmissionWire | null
-  record: { identifier?: string; title?: string; kind?: string } | null
+  record: {
+    identifier?: string
+    title?: string
+    kind?: string
+    project_id?: string | null
+  } | null
   projectTitle: string | null
   decisions: ReviewDecisionWire[]
   signatures: SignatureWire[]
@@ -1253,6 +1258,7 @@ function ReviewInspector({
           <SignaturePanel
             submission={submission}
             revision={revision}
+            projectId={record?.project_id ?? null}
             signatures={signatures}
             integrityDigest={integrityDigest}
             currentUserId={currentUserId}
@@ -1738,9 +1744,10 @@ export function renderError(err: unknown): string {
 // assurance level.
 // ---------------------------------------------------------------------------
 
-function SignaturePanel({
+export function SignaturePanel({
   submission,
   revision,
+  projectId,
   signatures,
   integrityDigest,
   currentUserId,
@@ -1750,6 +1757,7 @@ function SignaturePanel({
 }: {
   submission: ReviewSubmissionWire
   revision: RevisionWire
+  projectId: string | null
   signatures: SignatureWire[]
   integrityDigest: string | null
   currentUserId: string
@@ -1777,25 +1785,34 @@ function SignaturePanel({
     signatures,
   })
   const members = useQuery({
-    queryKey: adminQueryKeys.members(submission.workspace_id),
+    queryKey: [
+      'signature-witness-candidates',
+      projectId,
+      currentUserId,
+      submission.submitted_by_user_id,
+    ],
     queryFn: () =>
-      fetchWorkspaceMembers(reviewsDataClient, submission.workspace_id),
+      projectId
+        ? fetchSignatureWitnessCandidates(
+            reviewsDataClient,
+            projectId,
+            currentUserId,
+            submission.submitted_by_user_id,
+          )
+        : Promise.resolve([]),
+    enabled: projectId !== null,
   })
   const canRequestWitness =
+    projectId !== null &&
     eligibility.data?.writer &&
     integrityDigest &&
     ['submitted', 'approved'].includes(submission.state) &&
     revision.superseded_by_revision_id === null &&
     (submission.submitted_by_user_id === currentUserId ||
       submission.assigned_reviewer_user_ids.includes(currentUserId))
-  const witnesses = (members.data ?? []).filter(
-    (member) =>
-      member.userId !== currentUserId &&
-      member.userId !== submission.submitted_by_user_id &&
-      member.suspendedAt === null &&
-      ['owner', 'admin', 'member', 'editor', 'reviewer', 'steward'].includes(
-        member.role,
-      ),
+  const witnesses = members.data ?? []
+  const selectedWitness = witnesses.find(
+    (member) => member.user_id === witnessUserId,
   )
   const isAssignedReviewer =
     submission.assigned_reviewer_user_ids.includes(currentUserId)
@@ -1863,7 +1880,14 @@ function SignaturePanel({
   }
 
   async function handleWitnessRequested() {
-    if (!canRequestWitness || !integrityDigest || !witnessUserId) return
+    if (
+      !canRequestWitness ||
+      !integrityDigest ||
+      !selectedWitness ||
+      members.isFetching ||
+      members.isError
+    )
+      return
     setRequestingWitness(true)
     setError(null)
     try {
@@ -1979,21 +2003,28 @@ function SignaturePanel({
           <select
             id="signature-witness"
             value={witnessUserId}
-            disabled={requestingWitness}
+            disabled={
+              requestingWitness || members.isFetching || members.isError
+            }
             className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             onChange={(event) => setWitnessUserId(event.target.value)}
           >
             <option value="">Choose another permitted member</option>
             {witnesses.map((member) => (
-              <option key={member.userId} value={member.userId}>
-                {member.userId} · {member.role}
+              <option key={member.user_id} value={member.user_id}>
+                {member.user_id} · {member.workspace_role}
               </option>
             ))}
           </select>
           <Button
             size="sm"
             variant="secondary"
-            disabled={!witnessUserId || requestingWitness}
+            disabled={
+              !selectedWitness ||
+              requestingWitness ||
+              members.isFetching ||
+              members.isError
+            }
             onClick={() => void handleWitnessRequested()}
           >
             Request witness

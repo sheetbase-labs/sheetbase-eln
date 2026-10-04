@@ -9,11 +9,14 @@
  */
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
@@ -23,12 +26,14 @@ import type {
   ReviewDecisionKind,
 } from '#/lib/review-workspace'
 import type { ReviewSubmissionWire } from '#/lib/reviews'
+import { reviewsDataClient } from '#/lib/reviews'
 
 import {
   ActionButtons,
   buildApprovalSteps,
   buildStepperState,
   renderError,
+  SignaturePanel,
   statusLabel,
   WorkspaceHeader,
 } from './$revisionId'
@@ -565,5 +570,93 @@ describe('WorkspaceHeader — post-submission navigation', () => {
     )
     expect(screen.queryByText('Open working Notebook')).toBeNull()
     expect(screen.queryByText('View submitted evidence')).toBeNull()
+  })
+})
+
+describe('witness picker effective project authority', () => {
+  it('offers only readable human witnesses and disables a revoked selection without granting access', async () => {
+    const rpc = vi
+      .spyOn(reviewsDataClient, 'rpc')
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce([
+        {
+          user_id: 'view-only',
+          name: 'View only',
+          workspace_role: 'member',
+          can_view: true,
+          can_review: false,
+        },
+        {
+          user_id: 'unreadable-admin',
+          name: 'Unreadable admin',
+          workspace_role: 'admin',
+          can_view: false,
+        },
+        {
+          user_id: 'owner-a',
+          name: 'Author',
+          workspace_role: 'member',
+          can_view: true,
+        },
+      ])
+    const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    try {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <SignaturePanel
+            submission={submission()}
+            revision={{
+              id: 'rev-1',
+              record_id: 'rec-1',
+              structure_version: 1,
+              metadata_version: 1,
+              metadata_snapshot: {},
+              block_snapshot: [],
+              reason: 'submit',
+              superseded_by_revision_id: null,
+              created_at: '2026-10-04T12:00:00Z',
+              created_by_user_id: 'owner-a',
+            }}
+            projectId="exact-project"
+            signatures={[]}
+            integrityDigest={DIGEST}
+            currentUserId="owner-a"
+            currentUserName="Author"
+            open={false}
+            onOpenChange={vi.fn()}
+          />
+        </QueryClientProvider>,
+      )
+      await screen.findByRole('option', { name: 'view-only · member' })
+      expect(
+        screen.queryByRole('option', { name: /unreadable-admin/ }),
+      ).toBeNull()
+      expect(screen.queryByRole('option', { name: /owner-a/ })).toBeNull()
+      const picker = screen.getByLabelText(
+        'Request a witness for this frozen revision',
+      )
+      fireEvent.change(picker, { target: { value: 'view-only' } })
+      expect(isDisabled('Request witness')).toBe(false)
+      rpc.mockResolvedValueOnce([])
+      await act(async () => {
+        await queryClient.invalidateQueries({
+          queryKey: ['signature-witness-candidates'],
+        })
+      })
+      await waitFor(() => expect(isDisabled('Request witness')).toBe(true))
+      fireEvent.click(screen.getByRole('button', { name: 'Request witness' }))
+      expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+        'is_workspace_writer',
+        'project_members',
+        'project_members',
+      ])
+    } finally {
+      queryClient.clear()
+      rpc.mockRestore()
+      list.mockRestore()
+    }
   })
 })

@@ -171,6 +171,34 @@ export interface SignatureWitnessRequestWire {
   due_at: string | null
 }
 
+/** Effective project members, never the raw direct/group rule catalogue. */
+export async function fetchSignatureWitnessCandidates(
+  client: DataClient,
+  projectId: string,
+  currentUserId: string,
+  authorUserId: string,
+) {
+  const members = z
+    .array(
+      z.object({
+        user_id: z.string(),
+        name: z.string(),
+        workspace_role: z.string().nullable(),
+        can_view: z.boolean().optional().default(false),
+      }),
+    )
+    .parse(await client.rpc('project_members', { p_project_id: projectId }))
+  return members.filter(
+    (member) =>
+      member.can_view === true &&
+      member.user_id !== currentUserId &&
+      member.user_id !== authorUserId &&
+      ['owner', 'admin', 'member', 'editor', 'reviewer', 'steward'].includes(
+        member.workspace_role ?? '',
+      ),
+  )
+}
+
 export async function fetchSignatureEligibility(
   client: DataClient,
   submission: ReviewSubmissionWire,

@@ -699,6 +699,9 @@ test('controlled author submission certifies and signs atomically through the re
       ])
     ).rows[0].locked_at,
   ).toBeNull()
+  await expect(
+    page.getByRole('option', { name: `${verifier} · admin`, exact: true }),
+  ).toHaveCount(0)
   // Certification authority alone is not record-read authority. Give this
   // explicitly selected witness View only, through the real project owner.
   const ownerContext = await browser.newContext({ baseURL })
@@ -724,6 +727,32 @@ test('controlled author submission certifies and signs atomically through the re
   } finally {
     await ownerContext.close()
   }
+  const readableWitnesses = page.waitForResponse((response) =>
+    response.url().endsWith('/rpc/project_members'),
+  )
+  await page.reload()
+  const membersResponse = await readableWitnesses
+  expect(membersResponse.status()).toBe(200)
+  const members = z
+    .array(
+      z.object({
+        user_id: z.string(),
+        can_view: z.boolean(),
+        can_edit: z.boolean(),
+        can_review: z.boolean(),
+        client_portal: z.boolean(),
+        can_manage: z.boolean(),
+      }),
+    )
+    .parse(await membersResponse.json())
+  expect(members.find((member) => member.user_id === verifier)).toEqual({
+    user_id: verifier,
+    can_view: true,
+    can_edit: false,
+    can_review: false,
+    client_portal: false,
+    can_manage: false,
+  })
   await page
     .getByLabel('Request a witness for this frozen revision')
     .selectOption(verifier)

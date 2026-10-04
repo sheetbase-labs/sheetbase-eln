@@ -23,7 +23,7 @@ import {
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
-import { fetchCalendarBookings } from '#/lib/calendar'
+import { fetchCalendarBookings, isSameDayInZone } from '#/lib/calendar'
 import type { CalendarBookingWire } from '#/lib/calendar'
 import { formatRelativeTime, notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -37,14 +37,18 @@ import {
   isCurrentStatement,
   signatureCertificationDataClient,
 } from '#/lib/signature-certification'
-import { useWorkItems } from '#/lib/work-items/data'
-import type { WorkItem } from '#/lib/work-items/data'
 import { describeAuditEvent, fetchAuditEvents } from '#/lib/audit-history'
 import {
   fetchHomeCounts,
+  fetchHomeReviews,
+  fetchHomeDatasetIssues,
+  fetchHomeMaterials,
+  fetchHomePeople,
+  hasOpenedHomeProject,
   homeAssignedProjects,
   homeDayRange,
   homeDueLabel,
+  homeMaterialExpiryLabel,
 } from '#/lib/home-data'
 import {
   fetchWorkspaceGeneral,
@@ -52,6 +56,7 @@ import {
 } from '#/lib/workspace-general'
 import {
   fetchMyProjectAssignments,
+  fetchMyOnboardingState,
   workspaceAccessKeys,
 } from '#/lib/workspace-access'
 import { cn } from '#/lib/utils'
@@ -71,13 +76,6 @@ export const Route = createFileRoute('/')({
   component: Home,
 })
 
-interface ActiveFlag {
-  id: string
-  dataset_id: string
-  kind: string
-  reason: string
-}
-
 interface FirstRunProject {
   id: string
   title: string
@@ -86,8 +84,10 @@ interface FirstRunProject {
 
 export interface FirstRunInput {
   workspaceName: string
+  accountHint?: string
   signatureCertified: boolean
   projects: FirstRunProject[]
+  hasOpenedProject: boolean
   hasExperiment: boolean
 }
 
@@ -109,7 +109,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
   return [
     {
       label: 'Account created',
-      hint: `You joined ${input.workspaceName}.`,
+      hint: input.accountHint ?? `You joined ${input.workspaceName}.`,
       done: true,
     },
     {
@@ -124,9 +124,9 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
       hint: project
         ? `You were added to ${project.title}.`
         : 'Your projects appear here once someone adds you.',
-      done: Boolean(project),
-      actionLabel: 'Browse projects',
-      actionTo: '/projects',
+      done: input.hasOpenedProject,
+      actionLabel: project ? 'Open project' : 'Browse projects',
+      actionTo: project ? `/projects/${project.id}` : '/projects',
     },
     {
       label: 'Create an experiment from a protocol',
@@ -159,8 +159,16 @@ function Home() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id
   const userId = context.user.id
-  const workItemsQuery = useWorkItems()
-  const workItems = workItemsQuery.data ?? []
+  const reviewsQuery = useQuery({
+    queryKey: ['home-reviews', workspaceId, userId],
+    queryFn: () => fetchHomeReviews(notebookDataClient, userId),
+    enabled: Boolean(workspaceId),
+  })
+  const materialsQuery = useQuery({
+    queryKey: ['home-materials', workspaceId, userId],
+    queryFn: () => fetchHomeMaterials(notebookDataClient),
+    enabled: Boolean(workspaceId),
+  })
 
   const workspaceQuery = useQuery({
     queryKey: [...workspaceGeneralQueryKey, workspaceId, userId],
@@ -187,13 +195,9 @@ function Home() {
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
   })
 
-  const flagsQuery = useQuery({
-    queryKey: ['home-dataset-flags', workspaceId, userId],
-    queryFn: () =>
-      notebookDataClient.list<ActiveFlag>(
-        'dataset_value_flags',
-        '?cleared_at=is.null&select=id,dataset_id,kind,reason&order=set_at.desc&limit=5',
-      ),
+  const datasetIssuesQuery = useQuery({
+    queryKey: ['home-dataset-issues', workspaceId, userId],
+    queryFn: () => fetchHomeDatasetIssues(notebookDataClient),
     enabled: Boolean(workspaceId),
   })
 
@@ -206,6 +210,13 @@ function Home() {
   })
   const recents = recentsQuery.data ?? []
   const showFirstRun = recentsQuery.isSuccess && recents.length === 0
+
+  const onboardingQuery = useQuery({
+    queryKey: workspaceAccessKeys.onboarding(workspaceId ?? '', userId),
+    queryFn: () => fetchMyOnboardingState(notebookDataClient),
+    enabled: Boolean(workspaceId) && showFirstRun,
+  })
+  const onboarding = onboardingQuery.data
 
   // GAP 2 — first-run setup state. Only fetched when it will be shown.
   const certificationsQuery = useQuery({
@@ -227,6 +238,21 @@ function Home() {
     queryFn: () => fetchProjectSummaries(workspaceId),
     enabled: Boolean(workspaceId) && showFirstRun && assignmentsQuery.isSuccess,
   })
+  const projects = homeAssignedProjects(
+    projectsQuery.data ?? [],
+    assignmentsQuery.data ?? [],
+  )
+  const projectIds = projects.map((project) => project.id)
+  const projectOpensQuery = useQuery({
+    queryKey: ['home-first-run-project-opens', workspaceId, userId, projectIds],
+    queryFn: () => hasOpenedHomeProject(notebookDataClient, userId, projectIds),
+    enabled: showFirstRun && projectsQuery.isSuccess,
+  })
+  const peopleQuery = useQuery({
+    queryKey: ['home-first-run-people', workspaceId, userId, projectIds],
+    queryFn: () => fetchHomePeople(notebookDataClient, projectIds, userId),
+    enabled: showFirstRun && projectsQuery.isSuccess,
+  })
   const experimentsQuery = useQuery({
     queryKey: ['home-first-run-experiments', workspaceId, userId],
     queryFn: () =>
@@ -243,24 +269,25 @@ function Home() {
     enabled: Boolean(workspaceId),
   })
 
-  const reviews = workItems.filter(
-    (i: WorkItem) => i.kind === 'review_requested',
-  )
-  const flags = flagsQuery.data ?? []
+  const reviews = reviewsQuery.data ?? []
+  const datasetIssues = datasetIssuesQuery.data ?? []
+  const materials = materialsQuery.data ?? []
   const bookings = (bookingsQuery.data ?? []).filter(
     (b: CalendarBookingWire) => !b.cancelled_at,
   )
   const activity = (activityQuery.data?.events ?? []).map(describeAuditEvent)
 
   const mine = (certificationsQuery.data ?? []).find((c) => c.userId === userId)
-  const projects = homeAssignedProjects(
-    projectsQuery.data ?? [],
-    assignmentsQuery.data ?? [],
-  )
   const setupSteps = firstRunSteps({
     workspaceName: context.workspace?.name ?? 'this workspace',
+    accountHint: onboarding?.invitation_accepted_at
+      ? `You accepted your invitation on ${homeDueLabel(onboarding.invitation_accepted_at, new Date(), timeZone)}.`
+      : onboarding
+        ? `You joined ${context.workspace?.name ?? 'this workspace'}.`
+        : 'Your account is ready.',
     signatureCertified: isCurrentStatement(mine),
     projects,
+    hasOpenedProject: projectOpensQuery.data ?? false,
     hasExperiment: (experimentsQuery.data?.length ?? 0) > 0,
   })
   const progress = firstRunProgress(setupSteps)
@@ -307,12 +334,21 @@ function Home() {
     workspaceQuery,
     countsQuery,
     bookingsQuery,
-    flagsQuery,
+    datasetIssuesQuery,
     recentsQuery,
-    workItemsQuery,
+    reviewsQuery,
+    materialsQuery,
     activityQuery,
     ...(showFirstRun
-      ? [certificationsQuery, assignmentsQuery, projectsQuery, experimentsQuery]
+      ? [
+          onboardingQuery,
+          certificationsQuery,
+          assignmentsQuery,
+          projectsQuery,
+          projectOpensQuery,
+          peopleQuery,
+          experimentsQuery,
+        ]
       : []),
   ]
   if (homeQueries.some((query) => query.isError)) {
@@ -350,6 +386,15 @@ function Home() {
           meta={
             <span>
               {today} · {context.workspace?.name ?? 'Workspace'}
+              {showFirstRun &&
+              onboarding &&
+              isSameDayInZone(
+                new Date(onboarding.joined_at),
+                new Date(),
+                timeZone,
+              )
+                ? ' · you joined today'
+                : ''}
             </span>
           }
           actions={
@@ -475,38 +520,41 @@ function Home() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Record</TableHead>
-                        <TableHead>Title</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Submitted by</TableHead>
                         <TableHead>Due</TableHead>
-                        <TableHead />
+                        <TableHead>
+                          <span className="sr-only">Action</span>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {reviews.map((r) => (
-                        <TableRow key={r.recordId ?? r.identifier ?? r.title}>
-                          <TableCell className="mono">
-                            {r.identifier ?? '—'}
-                          </TableCell>
-                          <TableCell className="font-medium">
+                        <TableRow key={r.id}>
+                          <TableCell>
+                            <span className="mono text-fg-muted">
+                              {r.identifier}
+                            </span>{' '}
                             {r.title}
                           </TableCell>
-                          <TableCell className="text-fg-muted">
+                          <TableCell>{r.projectTitle ?? '—'}</TableCell>
+                          <TableCell>{r.submittedByName ?? '—'}</TableCell>
+                          <TableCell className="num">
                             {homeDueLabel(r.dueAt, new Date(), timeZone)}
                           </TableCell>
                           <TableCell align="right">
-                            {r.recordId ? (
-                              <Button
-                                size="sm"
-                                nativeButton={false}
-                                render={
-                                  <Link
-                                    to="/records/$recordId"
-                                    params={{ recordId: r.recordId }}
-                                  />
-                                }
-                              >
-                                Review
-                              </Button>
-                            ) : null}
+                            <Button
+                              size="sm"
+                              nativeButton={false}
+                              render={
+                                <Link
+                                  to="/review/$revisionId"
+                                  params={{ revisionId: r.revisionId }}
+                                />
+                              }
+                            >
+                              Review
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -623,6 +671,25 @@ function Home() {
               </p>
             )}
           </InspectorSection>
+          <InspectorSection title="People to know">
+            {peopleQuery.data?.length ? (
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {peopleQuery.data.map((person) => (
+                  <li key={person.id} className="flex items-baseline gap-3">
+                    <span className="flex-1">{person.name}</span>
+                    <span className="text-label capitalize text-fg-muted">
+                      {person.role}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="m-0 text-label text-fg-muted">
+                Project collaborators appear here once you are assigned a
+                project.
+              </p>
+            )}
+          </InspectorSection>
           <InspectorSection title="Help">
             <ul className="m-0 flex list-none flex-col gap-2 p-0 text-label">
               <li>
@@ -690,9 +757,9 @@ function Home() {
               </span>
             }
           >
-            {flags.length ? (
+            {datasetIssues.length || materials.length ? (
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {flags.map((f) => (
+                {datasetIssues.map((f) => (
                   <li key={f.id} className="flex gap-2">
                     <span className="mt-0.5 text-danger">
                       <Icon name="warn" size={14} />
@@ -700,18 +767,42 @@ function Home() {
                     <div className="min-w-0">
                       <Link
                         to="/datasets"
-                        search={{ dataset: f.dataset_id, archived: false }}
+                        search={{ dataset: f.id, archived: false }}
                       >
-                        {f.kind.replace(/_/g, ' ')}
-                      </Link>
-                      <div className="text-label text-fg-muted">{f.reason}</div>
+                        {f.identifier}
+                      </Link>{' '}
+                      · {f.label}
+                      <div className="text-label text-fg-muted">{f.detail}</div>
+                    </div>
+                  </li>
+                ))}
+                {materials.map((material) => (
+                  <li
+                    key={material.recordId ?? material.identifier}
+                    className="flex gap-2"
+                  >
+                    <span className="mt-0.5 text-warning-text">
+                      <Icon name="warn" size={14} />
+                    </span>
+                    <div className="min-w-0">
+                      <Link
+                        to="/materials"
+                        search={{ selected: material.recordId ?? undefined }}
+                      >
+                        {material.identifier ?? material.title}
+                      </Link>{' '}
+                      ·{' '}
+                      {homeMaterialExpiryLabel(material, new Date(), timeZone)}
+                      <div className="text-label text-fg-muted">
+                        {material.title}
+                      </div>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="m-0 text-label text-fg-muted">
-                No dataset issues right now.
+                Nothing needs attention right now.
               </p>
             )}
           </InspectorSection>
@@ -731,10 +822,23 @@ function Home() {
                     <div className="min-w-0 text-label">
                       <div>
                         <b className="font-medium">
-                          {a.event.actorName ?? 'System'}
+                          {a.event.actorUserId === userId
+                            ? 'You'
+                            : (a.event.actorName ?? 'System')}
                         </b>{' '}
                         {a.action} {a.subject}
                       </div>
+                      {a.changes.map((change, index) => (
+                        <div
+                          key={`${change.label}:${index}`}
+                          className="text-fg-muted"
+                        >
+                          {change.label}:{' '}
+                          {change.kind === 'changed'
+                            ? `${change.from ?? '—'} → ${change.to ?? '—'}`
+                            : (change.to ?? change.from ?? change.kind)}
+                        </div>
+                      ))}
                     </div>
                   </li>
                 ))}

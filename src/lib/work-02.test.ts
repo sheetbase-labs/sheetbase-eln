@@ -14,6 +14,7 @@ describe('firstRunSteps', () => {
     workspaceName: 'Process Development',
     signatureCertified: false,
     projects: [],
+    hasOpenedProject: false,
     hasExperiment: false,
   }
 
@@ -46,10 +47,26 @@ describe('firstRunSteps', () => {
       projects: [
         { id: 'p-1', title: 'AAV9 process transfer', accessLevel: 'owner' },
       ],
+      hasOpenedProject: true,
       hasExperiment: true,
     })
     expect(firstRunProgress(steps)).toEqual({ done: 4, total: 4 })
     expect(steps[2].hint).toContain('AAV9 process transfer')
+  })
+
+  it('does not mistake assigned Editor access for opening a project', () => {
+    const steps = firstRunSteps({
+      ...base,
+      projects: [
+        { id: 'p-1', title: 'AAV9 process transfer', accessLevel: 'editor' },
+      ],
+    })
+    expect(steps[2]).toMatchObject({
+      done: false,
+      actionLabel: 'Open project',
+      actionTo: '/projects/p-1',
+    })
+    expect(firstRunProgress(steps)).toEqual({ done: 1, total: 4 })
   })
 })
 

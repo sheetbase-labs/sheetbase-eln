@@ -9,6 +9,7 @@ import {
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { useRecentViewTracking } from '#/lib/recents'
 
 /** UI port (roadmap-4/ui-app3): the project detail frame. Overview and
  * Settings are ported; Folders and Members tabs land with theirs. */
@@ -33,6 +34,7 @@ const metaItemClass = ''
 function ProjectLayout() {
   const { projectId } = Route.useParams()
   const { project, query } = useProjectSummary(projectId)
+  useRecentViewTracking('project', query.isSuccess ? project?.id : null)
   const membersQuery = useQuery({
     queryKey: ['project-members', projectId],
     queryFn: () => fetchProjectMembers(projectId),

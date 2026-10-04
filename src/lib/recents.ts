@@ -18,6 +18,7 @@
  * `src/lib/navigation.ts` — never hand-built URLs.
  */
 import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
@@ -713,10 +714,22 @@ export function useRecentViewTracking(
   kind: RecentObjectKind,
   objectId: string | null | undefined,
 ): void {
+  const queryClient = useQueryClient()
   useEffect(() => {
     if (!objectId) return
-    recordRecentView(notebookDataClient, kind, objectId).catch(() => {
-      /* best-effort: a failed view write never blocks the page */
-    })
-  }, [kind, objectId])
+    recordRecentView(notebookDataClient, kind, objectId)
+      .then((viewedAt) => {
+        if (!viewedAt) return
+        void queryClient.invalidateQueries({ queryKey: ['recents'] })
+        void queryClient.invalidateQueries({ queryKey: ['home-recents'] })
+        if (kind === 'project') {
+          void queryClient.invalidateQueries({
+            queryKey: ['home-first-run-project-opens'],
+          })
+        }
+      })
+      .catch(() => {
+        /* best-effort: a failed view write never blocks the page */
+      })
+  }, [kind, objectId, queryClient])
 }

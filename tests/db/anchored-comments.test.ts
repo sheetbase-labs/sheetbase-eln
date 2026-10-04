@@ -131,6 +131,14 @@ beforeAll(async () => {
        ($4,'Owner B','owner-b@rev4.test',true)`,
     [OWNER_A, REVIEWER_A, COMMENTER_A, OWNER_B],
   )
+  // Exploratory review still requires a genuine active session, but no author
+  // signing grant. Keep these tests on their original default workflow.
+  for (const userId of [OWNER_A, REVIEWER_A, COMMENTER_A, OWNER_B]) {
+    await migrator!.query(
+      `INSERT INTO internal.session(id,token,"userId","expiresAt") VALUES($1,$1,$2,now()+interval '1 hour')`,
+      [`session-${userId}`, userId],
+    )
+  }
   await migrator!.query(
     `INSERT INTO api.workspaces(id,slug,name) VALUES
        ($1,'rev4-a','Revision4 A'),($2,'rev4-b','Revision4 B')`,

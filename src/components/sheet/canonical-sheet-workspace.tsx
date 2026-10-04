@@ -5,14 +5,17 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useRouteContext } from '@tanstack/react-router'
 
 import type { FieldDefinition } from '#/lib/field-definition'
 import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
+import { SheetKeyboardShortcuts } from '#/components/shortcuts/sheet-keyboard-shortcuts'
+import { CommentPanel } from '#/components/comments/comment-panel'
 import type {
   SheetbaseGridCellChange,
   SheetbaseGridColumn,
   SheetbaseGridFilter,
+  SheetbaseGridHandle,
   SheetbaseGridMenuEntry,
   SheetbaseGridRecordEditor,
   SheetbaseGridSelection,
@@ -97,6 +100,14 @@ import {
   writeSheetCells,
 } from '#/lib/sheet-write-back'
 import { sheetRecordTargetModelKey } from '#/lib/sheet-record-target'
+import { hasCapability } from '#/lib/capability'
+import type { CurrentContext } from '#/lib/current-user'
+import { commentsQueryKeys, fetchCommentsForSheet } from '#/lib/comments-data'
+import {
+  sheetCommentAnchorSchema,
+  sheetCommentCells,
+} from '#/lib/sheet-comment-anchor'
+import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 
 const client = createDataClient()
 
@@ -208,6 +219,7 @@ export function CanonicalSheetWorkspace({
   projectId: string | null
   readOnly?: boolean
 }) {
+  const { auth } = useRouteContext({ from: '__root__' })
   const instanceQuery = useQuery({
     queryKey: ['sheet-instance', instanceId],
     queryFn: () => fetchSheetInstance(instanceId, sheetInstanceDataClient),
@@ -231,6 +243,7 @@ export function CanonicalSheetWorkspace({
       instance={instanceQuery.data}
       projectId={projectId}
       readOnly={readOnly}
+      commentActor={auth}
     />
   )
 }
@@ -271,10 +284,12 @@ export function CanonicalSheetEditor({
   instance,
   projectId,
   readOnly = false,
+  commentActor = null,
 }: {
   instance: SheetInstance
   projectId: string | null
   readOnly?: boolean
+  commentActor?: Pick<CurrentContext, 'user' | 'workspace'> | null
 }) {
   const queryClient = useQueryClient()
   const instanceRef = useRef(instance)
@@ -282,6 +297,24 @@ export function CanonicalSheetEditor({
   const composed = Boolean(instance.sourceDefinitionVersionId)
   const canWrite =
     Boolean(projectId) && !readOnly && instance.lifecycle === 'active'
+  const gridContainerRef = useRef<HTMLDivElement | null>(null)
+  const [gridHandle, setGridHandle] = useState<SheetbaseGridHandle | null>(null)
+  const [activeInput, setActiveInput] = useState('')
+  const [commentSelection, setCommentSelection] =
+    useState<SheetbaseGridSelection | null>(null)
+  const [commentDraft, setCommentDraft] = useState<{
+    anchor: SheetCommentAnchor
+    expectedRevision: number
+  } | null>(null)
+  const canComment =
+    commentActor?.workspace?.id === instance.workspaceId &&
+    hasCapability(commentActor.workspace.role, 'record.create') &&
+    instance.lifecycle === 'active'
+  const comments = useQuery({
+    queryKey: commentsQueryKeys.forSheet(instance.id),
+    queryFn: () => fetchCommentsForSheet(client, instance.id),
+    enabled: Boolean(commentActor),
+  })
   const [columnLabel, setColumnLabel] = useState('')
   const [formula, setFormula] = useState('')
   const [formulaLabel, setFormulaLabel] = useState('Calculated')
@@ -482,12 +515,34 @@ export function CanonicalSheetEditor({
     },
   ) {
     const current = instanceRef.current
+    const rows = new Map((extra?.rows ?? []).map((row) => [row.rowKey, row]))
+    for (const { rowKey } of cells) {
+      if (rows.has(rowKey)) continue
+      if (rowKey.startsWith('sb-row-v1:')) {
+        const snapshot = compositionRef.current
+        const row = snapshot?.rows.find(
+          (candidate) => candidate.rowKey === rowKey,
+        )
+        if (!row || !snapshot)
+          throw new Error(
+            'The composed row is no longer available. Reload the Sheet before editing.',
+          )
+        rows.set(rowKey, {
+          kind: 'composed',
+          rowKey,
+          identityValues: row.identityValues,
+          compositionOffset: row.compositionOffset ?? snapshot.offset,
+        })
+      } else {
+        rows.set(rowKey, { kind: 'local', rowKey })
+      }
+    }
     const next = await localMutate.mutateAsync({
       instanceId: current.id,
       expectedRevision: current.revision,
       retryToken: crypto.randomUUID(),
       fieldChanges: extra?.fieldChanges,
-      rows: extra?.rows,
+      rows: [...rows.values()],
       cells,
     })
     instanceRef.current = next
@@ -1021,7 +1076,9 @@ export function CanonicalSheetEditor({
   // current sort/filter/move state is.
   const handleSelectionChange = useCallback(
     (selection: SheetbaseGridSelection | null) => {
+      setCommentSelection(selection)
       if (!selection) return
+      setActiveInput(selection.input ?? '')
       const columnIndex = matrixRef.current.columns.findIndex(
         (column) => column.id === selection.columnId,
       )
@@ -1220,9 +1277,84 @@ export function CanonicalSheetEditor({
     .flatMap((row) => row.sources)
     .find((source) => source.sourceKind === 'dataset')?.datasetId
 
+  function openSelectionComment(kind?: SheetCommentAnchor['targetKind']) {
+    if (!canComment || !commentSelection?.rowId) return
+    const targetKind =
+      kind ??
+      ((commentSelection.rowIds?.length ?? 1) > 1 ||
+      (commentSelection.columnIds?.length ?? 1) > 1
+        ? 'sheet_range'
+        : 'sheet_cell')
+    const result = sheetCommentAnchorSchema.safeParse({
+      targetKind,
+      target: {
+        instanceId: instance.id,
+        rowKeys:
+          targetKind === 'sheet_range'
+            ? commentSelection.rowIds
+            : [commentSelection.rowId],
+        fieldIds:
+          targetKind === 'sheet_row'
+            ? []
+            : targetKind === 'sheet_range'
+              ? commentSelection.columnIds
+              : [commentSelection.columnId],
+      },
+    })
+    if (result.success)
+      setCommentDraft({
+        anchor: result.data,
+        expectedRevision: instance.revision,
+      })
+  }
+  const commentAnnotations = useMemo(() => {
+    const notes = new Map<
+      string,
+      { rowId: string; columnId: string; text: string }
+    >()
+    for (const comment of comments.data ?? []) {
+      if (comment.parent_id !== null) continue
+      const anchor = sheetCommentAnchorSchema.safeParse({
+        targetKind: comment.target_kind,
+        target: comment.target,
+      })
+      if (!anchor.success) continue
+      for (const cell of sheetCommentCells(
+        anchor.data,
+        instance.id,
+        matrix.rowKeys.map((id) => ({ id })),
+        matrix.columns,
+      )) {
+        const rowId = matrix.rowKeys[cell.row]
+        const columnId = matrix.columns[cell.column].id
+        const key = `${rowId}:${columnId}`
+        const text = `${comment.state === 'resolved' ? 'Resolved' : 'Open'}: ${comment.body}`
+        const previous = notes.get(key)
+        notes.set(key, {
+          rowId,
+          columnId,
+          text: previous ? `${previous.text}\n${text}` : text,
+        })
+      }
+    }
+    return [...notes.values()]
+  }, [comments.data, instance.id, matrix.rowKeys, matrix.columns])
+
   return (
     <div className="flex h-full min-h-[24rem] flex-col">
       <div className="flex shrink-0 items-center justify-end gap-2 border-b px-2 py-1">
+        {commentActor ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            data-sheet-comment-selection
+            disabled={!canComment || !commentSelection?.rowId}
+            onClick={() => openSelectionComment()}
+          >
+            Comment on selection
+          </Button>
+        ) : null}
         {visualiseDatasetId ? (
           <Button
             render={
@@ -1495,11 +1627,20 @@ export function CanonicalSheetEditor({
           Loading composed Sheet…
         </p>
       ) : (
-        <div className="min-h-0 flex-1">
+        <div ref={gridContainerRef} className="min-h-0 flex-1">
+          <SheetKeyboardShortcuts
+            handle={gridHandle}
+            containerRef={gridContainerRef}
+            readOnly={!canWrite}
+            activeInput={activeInput}
+            rowCount={sheetRows.length + (canWrite ? 1 : 0)}
+            columnCount={sheetColumns.length}
+          />
           <SheetbaseTableGrid
             ariaLabel="Sheet"
             columns={sheetColumns}
             rows={sheetRows}
+            annotations={commentAnnotations}
             rowHeaders
             stretch="last"
             height="fill"
@@ -1520,6 +1661,7 @@ export function CanonicalSheetEditor({
             beforeCellsChange={handleBeforeCellsChange}
             onCellsChange={handleCellsChange}
             onSelectionChange={handleSelectionChange}
+            onReady={setGridHandle}
             onColumnResize={handleColumnResize}
             onColumnOrderChange={handleColumnOrderChange}
             onSortsChange={handleSortsChange}
@@ -1566,6 +1708,65 @@ export function CanonicalSheetEditor({
           />
         ) : null}
       </div>
+      {commentDraft && commentActor ? (
+        <aside
+          className="space-y-3 border-t p-3"
+          aria-label="Sheet comments inspector"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium">Sheet comments</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="quiet"
+              onClick={() => openSelectionComment('sheet_cell')}
+            >
+              Cell
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="quiet"
+              onClick={() => openSelectionComment('sheet_row')}
+            >
+              Row
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="quiet"
+              onClick={() => openSelectionComment('sheet_range')}
+            >
+              Range
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="quiet"
+              onClick={() => setCommentDraft(null)}
+            >
+              Close comments
+            </Button>
+          </div>
+          <p className="text-xs text-fg-muted">
+            New comment target:{' '}
+            {commentDraft.anchor.targetKind.replace('sheet_', '')} ·{' '}
+            {commentDraft.anchor.target.rowKeys.length}{' '}
+            {commentDraft.anchor.target.rowKeys.length === 1 ? 'row' : 'rows'}
+            {commentDraft.anchor.targetKind === 'sheet_row'
+              ? ''
+              : ` · ${commentDraft.anchor.target.fieldIds.length} fields`}
+            . Threads follow their original identities, including targets no
+            longer displayed.
+          </p>
+          <CommentPanel
+            sheet={commentDraft}
+            currentUserId={commentActor.user.id}
+            currentUserName={commentActor.user.name}
+            canComment={canComment}
+          />
+        </aside>
+      ) : null}
       {canWrite ? (
         <CanonicalSheetLifecyclePanel
           instance={instance}

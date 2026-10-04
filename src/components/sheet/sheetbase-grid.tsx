@@ -57,6 +57,13 @@ export interface SheetbaseGridRow {
   cells: readonly SheetbaseGridCellValue[]
 }
 
+/** Presentation of persisted comments; the grid never owns thread storage. */
+export interface SheetbaseGridAnnotation {
+  rowId: string
+  columnId: string
+  text: string
+}
+
 export type SheetbaseGridWriteSource =
   'edit' | 'paste' | 'fill' | 'clear' | 'load' | 'formula'
 
@@ -82,6 +89,11 @@ export interface SheetbaseGridSelection {
   /** Stable row identity at that index, when the row has one. */
   rowId?: string
   columnId: string
+  /** Current stored input at the active source cell, including formula source. */
+  input?: string
+  /** Stable membership of the active display range, resolved by the backend. */
+  rowIds?: readonly string[]
+  columnIds?: readonly string[]
 }
 
 export interface SheetbaseGridSort {
@@ -193,6 +205,18 @@ export interface SheetbaseGridClipboard {
  * selection. The `sheetbase-table` backend passes its own `SpreadsheetHandle`.
  */
 export interface SheetbaseGridHandle {
+  editActiveInput: (value: string) => void
+  commitEdit: () => void
+  cancelEdit: () => void
+  focus: () => void
+  /** Committed data uses stored A1 addresses; selection uses display coordinates. */
+  snapshot: () => {
+    data: ReadonlyMap<string, string>
+    selection: {
+      anchor: { row: number; column: number }
+      focus: { row: number; column: number }
+    }
+  }
   /** Select a displayed cell and reveal it. */
   selectCell: (
     row: number,
@@ -211,6 +235,7 @@ export interface SheetbaseGridHandle {
 export interface SheetbaseGridProps {
   columns: readonly SheetbaseGridColumn[]
   rows: readonly SheetbaseGridRow[]
+  annotations?: readonly SheetbaseGridAnnotation[]
   ariaLabel?: string
   description?: string
   /** Blocks all editing; selection, copy and presentation stay live. */

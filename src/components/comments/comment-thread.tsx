@@ -31,6 +31,9 @@ const TARGET_KIND_LABEL: Record<CommentTargetKind, string> = {
   block: 'Block',
   table_region: 'Table region',
   diff: 'Diff',
+  sheet_cell: 'Sheet cell',
+  sheet_row: 'Sheet row',
+  sheet_range: 'Sheet range',
 }
 
 function authorLabel(
@@ -57,6 +60,9 @@ function describeTarget(
   if (kind === 'revision') return TARGET_KIND_LABEL.revision
   if (kind === 'block')
     return `${TARGET_KIND_LABEL.block} ${target.blockId ?? ''}`.trim()
+  if (kind === 'sheet_cell' || kind === 'sheet_row' || kind === 'sheet_range') {
+    return `${TARGET_KIND_LABEL[kind]} · ${target.rowKeys?.length ?? 0} ${target.rowKeys?.length === 1 ? 'row' : 'rows'}${kind === 'sheet_row' ? '' : ` · ${target.fieldIds?.length ?? 0} fields`}`
+  }
   if (kind === 'table_region') {
     const parts = [target.tableId, target.rowId, target.columnId].filter(
       (value): value is string => typeof value === 'string' && value.length > 0,

@@ -1,8 +1,10 @@
 import {
   Spreadsheet,
+  buildGridView,
   columnLabel,
   orderColumnsById,
   parseAddress,
+  viewSourceRow,
 } from '@sheetbase-labs/sheetbase-table'
 import type {
   CellFormat,
@@ -33,6 +35,7 @@ import type {
   SheetbaseGridClipboardRange,
   SheetbaseGridColumn,
   SheetbaseGridFilter,
+  SheetbaseGridHandle,
   SheetbaseGridMenuItem,
   SheetbaseGridProps,
   SheetbaseGridRecordEditor,
@@ -398,6 +401,57 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   const layoutRef = useRef({ columns: orderedColumns, rows: orderedRows })
   layoutRef.current = { columns: orderedColumns, rows: orderedRows }
 
+  const annotations = useMemo(
+    () =>
+      (props.annotations ?? []).flatMap((note) => {
+        const row = orderedRows.findIndex(
+          (candidate) => candidate.id === note.rowId,
+        )
+        const column = orderedColumns.findIndex(
+          (candidate) => candidate.id === note.columnId,
+        )
+        return row < 0 || column < 0
+          ? []
+          : [
+              {
+                address: cellAddress(row, column),
+                recordId: note.rowId,
+                fieldId: note.columnId,
+                text: note.text,
+              },
+            ]
+      }),
+    [props.annotations, orderedRows, orderedColumns],
+  )
+  const previousAnnotations = useRef(annotations)
+  useEffect(() => {
+    const handle = handleRef.current
+    if (!handle) return
+    for (const previous of previousAnnotations.current) {
+      if (
+        annotations.some(
+          (note) =>
+            note.recordId === previous.recordId &&
+            note.fieldId === previous.fieldId,
+        )
+      )
+        continue
+      // Resolve the old identity afresh. Its former address may now belong to
+      // another row; a deleted identity's historical note must never move.
+      const row = orderedRows.findIndex(
+        (candidate) => candidate.id === previous.recordId,
+      )
+      const column = orderedColumns.findIndex(
+        (candidate) => candidate.id === previous.fieldId,
+      )
+      if (row >= 0 && column >= 0)
+        handle.removeAnnotation(cellAddress(row, column))
+    }
+    for (const note of annotations)
+      handle.setAnnotation(note.address, note.text)
+    previousAnnotations.current = annotations
+  }, [annotations, orderedRows, orderedColumns])
+
   const initialColumnWidthsResolved = useMemo(() => {
     const widthById = new Map<string, number>()
     columns.forEach((column, index) => {
@@ -689,14 +743,47 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     return editors.length > 0 ? editors : undefined
   }, [onOpenRecordPicker, openRecordPicker, orderedColumns])
 
-  // Neutral handle + structural row hooks. Bound grids route row structure to
-  // the host, so the caller's preflight/persistence seams run here.
-  const handleReady = useMemo(
-    () => (handle: SpreadsheetHandle | null) => {
-      propsRef.current.onReady?.(handle)
-    },
+  // The package calls onReady once but replaces its imperative handle after
+  // edits/selections. Always dereference the current handle, not that snapshot.
+  const neutralHandle = useMemo<SheetbaseGridHandle>(
+    () => ({
+      editActiveInput: (value) => handleRef.current?.editActiveInput(value),
+      commitEdit: () => handleRef.current?.commitEdit(),
+      cancelEdit: () => handleRef.current?.cancelEdit(),
+      focus: () => handleRef.current?.focus(),
+      selectCell: (row, column, options) =>
+        handleRef.current?.selectCell(row, column, options),
+      selectCellAddress: (address, options) =>
+        handleRef.current?.selectCellAddress(address, options) ?? false,
+      scrollCellIntoView: (row, column) =>
+        handleRef.current?.scrollCellIntoView(row, column),
+      snapshot: () => {
+        const handle = handleRef.current
+        if (!handle) throw new Error('The Sheet grid is unavailable.')
+        const { data, selection } = handle.snapshot()
+        return {
+          data,
+          selection: {
+            anchor: {
+              row: selection.anchor.row,
+              column: selection.anchor.column,
+            },
+            focus: { row: selection.focus.row, column: selection.focus.column },
+          },
+        }
+      },
+    }),
     [],
   )
+  const handleReady = useMemo(
+    () => (handle: SpreadsheetHandle | null) => {
+      propsRef.current.onReady?.(handle ? neutralHandle : null)
+    },
+    [neutralHandle],
+  )
+  useEffect(() => () => propsRef.current.onReady?.(null), [])
+
+  // Bound grids route row structure to the host's persistence seams.
   const handleBeforeRowsInsert = useMemo(
     () => (rowIndex: number, count: number) =>
       propsRef.current.onBeforeRowsInsert?.(rowIndex, count) === false
@@ -729,6 +816,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       key={mountKey}
       ref={handleRef}
       initialData={initialData}
+      initialAnnotations={annotations}
       rowCount={rows.length + spareRows}
       columnCount={columns.length}
       fieldIds={fieldIds}
@@ -802,10 +890,47 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         const layout = layoutRef.current
         const definition = layout.columns.at(column)
         if (!definition) return
+        const values =
+          handleRef.current?.snapshot().data ??
+          buildDisplayMap(layout.rows, layout.columns)
+        const view = buildGridView({
+          rowCount: layout.rows.length,
+          query: handleRef.current?.getQuery() ?? query,
+          columnFor: (fieldId) => {
+            const index = layout.columns.findIndex(
+              (field) => field.id === fieldId,
+            )
+            return index < 0 ? undefined : index
+          },
+          valueAt: (sourceRow, sourceColumn) =>
+            values.get(cellAddress(sourceRow, sourceColumn)) ?? '',
+          hasRow: (sourceRow) => Boolean(layout.rows[sourceRow]?.id),
+        })
+        const [start, end = start] = selection.range
+          .split(':')
+          .map(parseAddress)
+        const rowIds: string[] = []
+        for (
+          let displayRow = Math.min(start.row, end.row);
+          displayRow <= Math.max(start.row, end.row);
+          displayRow++
+        ) {
+          const id = layout.rows[viewSourceRow(view, displayRow)]?.id
+          if (id) rowIds.push(id)
+        }
+        const columnIds = layout.columns
+          .slice(
+            Math.min(start.column, end.column),
+            Math.max(start.column, end.column) + 1,
+          )
+          .map((field) => field.id)
         onSelectionChange?.({
           rowIndex: row,
           rowId: layout.rows[row]?.id,
           columnId: definition.id,
+          input: selection.input,
+          rowIds,
+          columnIds,
         })
       }}
       onColumnWidthsChange={(widths) => {

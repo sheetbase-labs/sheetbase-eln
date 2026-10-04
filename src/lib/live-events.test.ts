@@ -142,6 +142,29 @@ describe('createLiveEventCoordinator', () => {
     expect(keys).not.toContainEqual(['notebook'])
   })
 
+  it('refreshes live Sheet comment markers without inventing a revision or record context', () => {
+    const { coordinator, qc, sources } = makeDeps()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    coordinator.connect()
+    sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+    spy.mockClear()
+    sources[0].dispatch(
+      'change',
+      changeEvent(1, {
+        entityType: 'comment',
+        recordId: null,
+        projectId: null,
+        payload: { sheetInstanceId: 'sheet-2', revisionId: null },
+      }),
+    )
+    expect(spy.mock.calls.map(([options]) => options?.queryKey)).toContainEqual(
+      ['comments', 'sheet', 'sheet-2'],
+    )
+    expect(
+      spy.mock.calls.map(([options]) => options?.queryKey),
+    ).not.toContainEqual(['comments', 'revision', null])
+  })
+
   it('skips its own echoed events but still advances the cursor', () => {
     const { coordinator, qc, sources } = makeDeps({
       getClientId: () => 'self-tab',

@@ -13,6 +13,7 @@ function wire(partial: Partial<CommentWire>): CommentWire {
     workspace_id: 'ws',
     revision_id: 'rev',
     record_id: 'rec',
+    sheet_instance_id: null,
     root_id: 'c1',
     parent_id: null,
     target_kind: 'revision',

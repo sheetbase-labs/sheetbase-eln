@@ -2,7 +2,9 @@ import { act, cleanup, render } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { RangeStore } from '@sheetbase-labs/sheetbase-table'
 import type {
+  CellFormat,
   SpreadsheetClipboardPayload,
   SpreadsheetHandle,
   SpreadsheetProps,
@@ -68,9 +70,28 @@ vi.mock('@sheetbase-labs/sheetbase-table', async (importOriginal) => {
   const Spreadsheet = React.forwardRef<SpreadsheetHandle, SpreadsheetProps>(
     (props, ref) => {
       captured.props.push(props)
-      React.useImperativeHandle(ref, () => engineHandle, [])
+      const { rowCount, columnCount } = props
+      if (rowCount === undefined || columnCount === undefined)
+        throw new Error('The adapter must supply grid dimensions')
+      const handle: SpreadsheetHandle = {
+        ...engineHandle,
+        snapshot: () => ({
+          data: props.initialData,
+          formats: new RangeStore<CellFormat>(),
+          columnWidths: [],
+          rowHeights: [],
+          selection: {
+            anchor: { row: 0, column: 0 },
+            focus: { row: rowCount - 1, column: columnCount - 1 },
+          },
+          scroll: { top: 0, left: 0 },
+          frozenRows: 0,
+          frozenColumns: 0,
+        }),
+      }
+      React.useImperativeHandle(ref, () => handle)
       React.useEffect(() => {
-        props.onReady?.(engineHandle)
+        props.onReady?.(handle)
       }, [])
       return React.createElement('div', { 'data-testid': 'spreadsheet' })
     },
@@ -164,10 +185,159 @@ describe('SheetbaseTableGridClient layout props', () => {
 })
 
 describe('SheetbaseTableGridClient neutral handle', () => {
-  it('passes the engine handle through to onReady', () => {
+  it('keeps methods and selection current after the package replaces its handle, and clears on teardown', () => {
     const onReady = vi.fn<(handle: SheetbaseGridHandle | null) => void>()
-    render(<SheetbaseTableGridClient {...baseProps({ onReady })} />)
-    expect(onReady).toHaveBeenCalledWith(engineHandle)
+    const { rerender, unmount } = render(
+      <SheetbaseTableGridClient {...baseProps({ onReady })} />,
+    )
+    const handle = onReady.mock.calls[0][0]
+    if (!handle) throw new Error('Expected a live grid handle')
+    expect(handle).not.toBe(engineHandle)
+    expect(handle.snapshot().selection.focus).toEqual({ row: 1, column: 2 })
+    rerender(
+      <SheetbaseTableGridClient {...baseProps({ onReady, spareRows: 3 })} />,
+    )
+    expect(onReady).toHaveBeenCalledTimes(1)
+    expect(handle.snapshot().selection.focus).toEqual({ row: 4, column: 2 })
+    handle.editActiveInput('=SUM(A1:A2)')
+    handle.commitEdit()
+    handle.cancelEdit()
+    handle.selectCell(4, 1)
+    expect(engineHandle.editActiveInput).toHaveBeenCalledWith('=SUM(A1:A2)')
+    expect(engineHandle.commitEdit).toHaveBeenCalledOnce()
+    expect(engineHandle.cancelEdit).toHaveBeenCalledOnce()
+    expect(engineHandle.selectCell).toHaveBeenCalledWith(4, 1, undefined)
+    unmount()
+    expect(onReady).toHaveBeenLastCalledWith(null)
+  })
+})
+
+describe('Sheet comment selection membership', () => {
+  it('resolves each sorted, filtered display row and reordered field independently', () => {
+    const onSelectionChange = vi.fn()
+    render(
+      <SheetbaseTableGridClient
+        {...baseProps({
+          columns: [
+            { id: 'amount', label: 'Amount', type: 'number', source: 'local' },
+            { id: 'group', label: 'Group', type: 'text', source: 'local' },
+          ],
+          rows: [
+            { id: 'row-a', cells: [37, 'keep'] },
+            { id: 'row-b', cells: [4, 'hide'] },
+            { id: 'row-c', cells: [91, 'keep'] },
+            { id: 'row-d', cells: [13, 'keep'] },
+          ],
+          columnOrder: ['group', 'amount'],
+          sorts: [{ columnId: 'amount', direction: 'desc' }],
+          filters: [{ columnId: 'group', operator: 'equals', value: 'keep' }],
+          onSelectionChange,
+        })}
+      />,
+    )
+    // Display rows C/A/D differ from source rows A/B/C/D. Active address is
+    // source B3, but the range is display B1:B2 and must capture C/A, not C/D.
+    lastProps().onSelectionChange?.({
+      address: 'B3',
+      range: 'B1:B2',
+      input: '91',
+    })
+    expect(onSelectionChange).toHaveBeenLastCalledWith({
+      rowIndex: 2,
+      rowId: 'row-c',
+      columnId: 'amount',
+      input: '91',
+      rowIds: ['row-c', 'row-a'],
+      columnIds: ['amount'],
+    })
+    lastProps().onSelectionChange?.({
+      address: 'A4',
+      range: 'B3:A2',
+      input: 'keep',
+    })
+    expect(onSelectionChange).toHaveBeenLastCalledWith({
+      rowIndex: 3,
+      rowId: 'row-d',
+      columnId: 'group',
+      input: 'keep',
+      rowIds: ['row-a', 'row-d'],
+      columnIds: ['group', 'amount'],
+    })
+  })
+})
+
+describe('Sheet comment markers', () => {
+  it('maps persisted identities to bound annotations after row and field reorder, never to deleted targets', () => {
+    const annotations = [
+      { rowId: 'row-2', columnId: 'beta', text: 'Check recovery' },
+    ]
+    const { rerender } = render(
+      <SheetbaseTableGridClient {...baseProps({ annotations })} />,
+    )
+    expect(lastProps().initialAnnotations).toEqual([
+      {
+        address: 'B2',
+        recordId: 'row-2',
+        fieldId: 'beta',
+        text: 'Check recovery',
+      },
+    ])
+    rerender(
+      <SheetbaseTableGridClient
+        {...baseProps({
+          annotations,
+          rows: [rows[1], rows[0]],
+          columnOrder: ['beta', 'record', 'alpha'],
+        })}
+      />,
+    )
+    expect(lastProps().initialAnnotations).toEqual([
+      {
+        address: 'A1',
+        recordId: 'row-2',
+        fieldId: 'beta',
+        text: 'Check recovery',
+      },
+    ])
+    engineHandle.setAnnotation.mockClear()
+    engineHandle.removeAnnotation.mockClear()
+    rerender(
+      <SheetbaseTableGridClient
+        {...baseProps({
+          annotations,
+          rows: [rows[0]],
+          columnOrder: ['beta', 'record', 'alpha'],
+        })}
+      />,
+    )
+    expect(lastProps().initialAnnotations).toEqual([])
+    expect(engineHandle.setAnnotation).not.toHaveBeenCalled()
+    expect(engineHandle.removeAnnotation).not.toHaveBeenCalled()
+  })
+
+  it('refreshes and removes a visible note through the current identity, without a second persistence callback', () => {
+    const annotations = [
+      { rowId: 'row-2', columnId: 'beta', text: 'Check recovery' },
+    ]
+    const { rerender } = render(
+      <SheetbaseTableGridClient {...baseProps({ annotations })} />,
+    )
+    rerender(
+      <SheetbaseTableGridClient
+        {...baseProps({
+          annotations: [
+            { ...annotations[0], text: 'Resolved: recovery confirmed' },
+          ],
+        })}
+      />,
+    )
+    expect(engineHandle.setAnnotation).toHaveBeenLastCalledWith(
+      'B2',
+      'Resolved: recovery confirmed',
+    )
+    expect(lastProps().onAnnotationsChange).toBeUndefined()
+    rerender(<SheetbaseTableGridClient {...baseProps({ annotations: [] })} />)
+    expect(engineHandle.removeAnnotation).toHaveBeenLastCalledWith('B2')
   })
 })
 

@@ -7,9 +7,16 @@
  * `rootId` and renders unavailable targets and departed users honestly.
  */
 import type { DataClient } from './data-client'
+import { sheetCommentAnchorSchema } from './sheet-comment-anchor'
+import type { SheetCommentAnchor } from './sheet-comment-anchor'
 
 /** Stable anchor target descriptor within an immutable revision. */
-export type CommentTargetKind = 'revision' | 'block' | 'table_region' | 'diff'
+export type CommentTargetKind =
+  | 'revision'
+  | 'block'
+  | 'table_region'
+  | 'diff'
+  | SheetCommentAnchor['targetKind']
 
 export interface CommentTarget {
   /** Present for block / table_region / diff targets. */
@@ -17,6 +24,9 @@ export interface CommentTarget {
   tableId?: string
   rowId?: string
   columnId?: string
+  instanceId?: string
+  rowKeys?: string[]
+  fieldIds?: string[]
   /** Present for diff targets: the other immutable revision in the comparison. */
   comparisonRevisionId?: string
   /** Deterministic diff change id (from src/lib/revision-diff.ts). */
@@ -30,8 +40,9 @@ export interface CommentTarget {
 export interface CommentWire {
   id: string
   workspace_id: string
-  revision_id: string
-  record_id: string
+  revision_id: string | null
+  record_id: string | null
+  sheet_instance_id: string | null
   root_id: string
   parent_id: string | null
   target_kind: CommentTargetKind
@@ -56,7 +67,8 @@ export interface CreateCommentInput {
 
 export interface CommentMutationResult {
   id: string
-  revisionId: string
+  revisionId: string | null
+  sheetInstanceId?: string | null
   rootId: string
   parentId: string | null
   targetKind: CommentTargetKind
@@ -80,6 +92,7 @@ export const commentsQueryKeys = {
   forRevision: (revisionId: string) =>
     ['comments', 'revision', revisionId] as const,
   forRecord: (recordId: string) => ['comments', 'record', recordId] as const,
+  forSheet: (instanceId: string) => ['comments', 'sheet', instanceId] as const,
 }
 
 /** Fetch every comment anchored to a revision, ordered oldest-first. */
@@ -93,6 +106,48 @@ export function fetchCommentsForRevision(
       `?revision_id=eq.${revisionId}&order=created_at.asc`,
     )
     .then((rows) => rows.map(normaliseComment))
+}
+
+export function fetchCommentsForSheet(
+  client: DataClient,
+  instanceId: string,
+): Promise<CommentWire[]> {
+  return client
+    .list<CommentWire>(
+      'comments',
+      `?sheet_instance_id=eq.${instanceId}&revision_id=is.null&order=created_at.asc`,
+    )
+    .then((rows) => rows.map(normaliseComment))
+}
+
+/** The server derives visible embeddings and rechecks both Instance and Record ACLs. */
+export function fetchCommentsForRecord(
+  client: DataClient,
+  recordId: string,
+): Promise<CommentWire[]> {
+  return client
+    .rpc<CommentWire[]>('record_comments', { p_record_id: recordId })
+    .then((rows) => rows.map(normaliseComment))
+}
+
+export function createSheetComment(
+  client: DataClient,
+  input: {
+    anchor: SheetCommentAnchor
+    expectedRevision: number
+    body: string
+    mentions?: string[]
+  },
+): Promise<CommentMutationResult> {
+  const anchor = sheetCommentAnchorSchema.parse(input.anchor)
+  return client.rpc('create_sheet_comment', {
+    p_instance_id: anchor.target.instanceId,
+    p_expected_instance_revision: input.expectedRevision,
+    p_target_kind: anchor.targetKind,
+    p_target: anchor.target,
+    p_body: input.body,
+    p_mentions: input.mentions ?? [],
+  })
 }
 
 /** Create a new top-level comment anchored to an immutable revision. */

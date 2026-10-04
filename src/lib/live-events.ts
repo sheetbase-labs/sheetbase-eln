@@ -277,6 +277,12 @@ export function createLiveEventCoordinator(
             queryKey: ['comments', 'revision', revisionId],
           })
         }
+        const sheetInstanceId = event.payload.sheetInstanceId
+        if (typeof sheetInstanceId === 'string') {
+          void qc.invalidateQueries({
+            queryKey: ['comments', 'sheet', sheetInstanceId],
+          })
+        }
         if (event.recordId) {
           void qc.invalidateQueries({
             queryKey: ['comments', 'record', event.recordId],

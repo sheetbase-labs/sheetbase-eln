@@ -66,52 +66,60 @@ git restore package.json pnpm-lock.yaml pnpm-workspace.yaml
 
 ## Consuming from the registry
 
-The committed `.npmrc` routes the scope to GitHub Packages and states, without
-a value, where the token comes from:
+The committed `.npmrc` carries only the scope — never a credential:
 
 ```ini
 @sheetbase-labs:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
 ```
 
 pnpm 10 and later deliberately **ignore credentials in a project-level
-`.npmrc`** (including `${NODE_AUTH_TOKEN}` placeholders), so that a committed
-file cannot exfiltrate a secret to a registry someone else controls. Every pnpm
-command therefore warns about the second line, and the token must arrive from a
-trusted source instead:
+`.npmrc`**, because a committed file must not be able to exfiltrate a secret to
+a registry someone else controls. The token must therefore arrive from a trusted
+source — the user-level `~/.npmrc`, or `pnpm config set`. One step covers every
+case:
 
-- **Locally**, run
-  `pnpm config set "//npm.pkg.github.com/:_authToken" <PAT>` with a personal
-  access token (classic) with `read:packages` (or put the line in `~/.npmrc`).
-- **In CI**, the built-in token both grants read access and is written to the
-  user-level `.npmrc` before installing. Jobs that run `pnpm install` need:
+```bash
+scripts/registry-auth.sh
+```
 
-  ```yaml
-  permissions:
-    contents: read
-    packages: read
+It takes the token from `GITHUB_PACKAGES_TOKEN` (or `NODE_AUTH_TOKEN`, or
+`GH_TOKEN`, falling back to `gh auth token`), writes
+`//npm.pkg.github.com/:_authToken` into `~/.npmrc` at mode 0600, replaces any
+previous entry, and never prints the value. In a managed agent or CI
+environment, expose the platform secret as `GITHUB_PACKAGES_TOKEN` and run this
+before `pnpm install`; the equivalent for a personal token is
+`pnpm config set "//npm.pkg.github.com/:_authToken" <PAT>` with a classic token
+carrying `read:packages`.
 
-  env:
-    NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+**In CI**, the built-in token both grants read access and is written to the
+user-level `.npmrc` before installing. Jobs that run `pnpm install` need:
 
-  steps:
-    # …checkout, setup-node, setup-pnpm…
-    - name: GitHub Packages auth
-      run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+```yaml
+permissions:
+  contents: read
+  packages: read
 
-    - run: pnpm install --frozen-lockfile
-  ```
+env:
+  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  `GITHUB_TOKEN` reads the packages the `sheetbase-labs` organisation grants
-  the ELN repository access to. Repositories that publish a package from a
-  `repository`-linked manifest inherit access; otherwise grant it per package
-  under the package's _Manage Actions access_ settings.
+steps:
+  # …checkout, setup-node, setup-pnpm…
+  - name: GitHub Packages auth
+    run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
 
-  Every workflow that installs dependencies carries this: `ci.yml` (all five
-  jobs), `deploy.yml` (`verify` and `build`, and the remote VPS install writes
-  the token from `GHCR_TOKEN` into `~/.npmrc` before `pnpm install`),
-  `deploy-dev.yml`, `sdk-release.yml` and `security.yml`. `packages: write`
-  already includes read where a job pushes images.
+  - run: pnpm install --frozen-lockfile
+```
+
+`GITHUB_TOKEN` reads the packages the `sheetbase-labs` organisation grants
+the ELN repository access to. Repositories that publish a package from a
+`repository`-linked manifest inherit access; otherwise grant it per package
+under the package's _Manage Actions access_ settings.
+
+Every workflow that installs dependencies carries this: `ci.yml` (all five
+jobs), `deploy.yml` (`verify` and `build`, and the remote VPS install writes
+the token from `GHCR_TOKEN` into `~/.npmrc` before `pnpm install`),
+`deploy-dev.yml`, `sdk-release.yml` and `security.yml`. `packages: write`
+already includes read where a job pushes images.
 
 The ELN pins exact versions — no ranges — and regenerates `pnpm-lock.yaml` in
 the same PR:
@@ -175,22 +183,26 @@ the ELN renders match the v3 design renders in both themes.
 
 ## Status
 
-COMP-05 step 2 is done: the four packages are pinned at `0.1.0` in
+COMP-05 step 2 is done: the four packages are pinned at `0.6.0` in
 `package.json`, resolved with integrity from GitHub Packages in
 `pnpm-lock.yaml`, and `pnpm install --frozen-lockfile` succeeds with the token.
-`pnpm 11`'s supply-chain policy added the four freshly published packages to
-`minimumReleaseAgeExclude` in `pnpm-workspace.yaml` when they were first
-installed; those entries are what let a frozen install accept them, so they
-stay until the releases age past the policy window.
+`pnpm 11`'s supply-chain policy adds each freshly published version to
+`minimumReleaseAgeExclude` in `pnpm-workspace.yaml` when it is first installed;
+those entries are what let a frozen install accept a new release, so they stay
+until it ages past the policy window.
+
+The ELN renders its sheets on `sheetbase-table` (COMP-06 — Handsontable is
+removed) and its charts on `sheetbase-explorer` (COMP-07 — recharts is
+removed). `sheetbase-advanced-search` is installed and its filter builder is
+ported, but it is not yet mounted on the product list toolbars.
 
 Still to do:
 
-- The sheet surfaces run on `sheetbase-table` (COMP-06) and the charts on
-  `sheetbase-explorer` (COMP-07). `sheetbase-advanced-search` is installed but
-  not rendered yet — wiring its filter builder into the product is COMP-06.
 - `sheetbase-schemaeditor` and `sheetbase-rulesengine` are not consumed at all.
-- Every pnpm command still prints the ignored project-level credential warning
-  from `.npmrc` while the placeholder line is committed. It is harmless — the
-  token comes from the user-level `~/.npmrc` (or `pnpm config set`) — and the
-  warning disappears only if that line is dropped in favour of documenting the
-  token source.
+- The filter builder is not yet wired into the product lists.
+- COMP-05's second exit clause — a package release that changes a v3 screen must
+  fail the ELN parity suite — needs the drift test that exercises it.
+
+The committed project `.npmrc` carries the scope only, so no pnpm command warns
+about an ignored credential; `scripts/registry-auth.sh` writes the token to the
+user-level `~/.npmrc`.

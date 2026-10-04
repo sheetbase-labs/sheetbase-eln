@@ -153,9 +153,14 @@ export function ImportFlow() {
     for (const source of nextHeaders) {
       const savedEntry = saved.find((entry) => entry.source === source)
       const suggestedEntry = suggested.find((entry) => entry.source === source)
-      values[source] =
-        savedEntry?.fieldId ??
-        (suggestedEntry?.kind === 'field' ? suggestedEntry.field.id : '')
+      // A saved mapping is authoritative for every source it lists, including
+      // an explicit "not imported" (null): only fall back to the suggestion
+      // when this source was never saved.
+      values[source] = savedEntry
+        ? (savedEntry.fieldId ?? '')
+        : suggestedEntry?.kind === 'field'
+          ? suggestedEntry.field.id
+          : ''
     }
     setMappingValues(values)
   }

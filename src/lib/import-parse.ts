@@ -210,6 +210,19 @@ function matrixToSheet(
 ): ImportSheet {
   const usable = matrix.filter((row) => row.some((cell) => cell.trim() !== ''))
   if (!usable.length) throw new ImportParseError('Import contains no data.')
+  // Instrument exports prefix the table with a `# Key: value` metadata block.
+  // Skip those leading comment lines so the header row is the first real row.
+  if (header) {
+    let firstRow = 0
+    while (
+      firstRow < usable.length &&
+      (usable[firstRow]?.[0] ?? '').trimStart().startsWith('#')
+    ) {
+      firstRow += 1
+    }
+    usable.splice(0, firstRow)
+    if (!usable.length) throw new ImportParseError('Import contains no data.')
+  }
   const width = Math.max(...usable.map((row) => row.length))
   const rawHeaders = header
     ? usable.shift()!

@@ -58,6 +58,24 @@ describe('import parsers', () => {
     expect(preview.sheets[0]?.rows[0]).toEqual({ Sample: 'A1', pH: '7.4' })
   })
 
+  it('skips a leading instrument metadata block before the header', () => {
+    const preview = parseImportText(
+      '# Instrument: PR-01\n# Exported: 2026-09-25T08:40:00Z\nsample,well\nSMP-2231,A1\n',
+      { format: 'csv' },
+    )
+    expect(preview.sheets[0]?.headers).toEqual(['sample', 'well'])
+    expect(preview.sheets[0]?.rows).toEqual([
+      { sample: 'SMP-2231', well: 'A1' },
+    ])
+  })
+
+  it('keeps a hash-prefixed value that is not a leading comment', () => {
+    const preview = parseImportText('sample,note\nA,#N/A\n', {
+      format: 'csv',
+    })
+    expect(preview.sheets[0]?.rows[0]).toEqual({ sample: 'A', note: '#N/A' })
+  })
+
   it('sniffs formats from file names', () => {
     expect(sniffImportFormat('a.xlsx')).toBe('xlsx')
     expect(sniffImportFormat('a.tsv')).toBe('tsv')

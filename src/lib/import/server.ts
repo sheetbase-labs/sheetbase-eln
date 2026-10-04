@@ -782,7 +782,10 @@ export async function handleImportCommit(
     })
   }
 
-  const preview = await postgrestRpc<{ summary: ImportReviewResponseSummary }>(
+  const preview = await postgrestRpc<{
+    summary: ImportReviewResponseSummary
+    rows: ReviewRpcRow[]
+  }>(
     'preview_dataset_import_rows',
     {
       p_dataset_id: prepared.dataset.id,
@@ -792,7 +795,24 @@ export async function handleImportCommit(
     },
     context.token,
   )
-  const outcome = asRow(preview.body)?.summary
+  const previewBody = asRow(preview.body)
+  const outcome = previewBody?.summary
+  // Controls (skipped) are shown in the review but never written: "skipped
+  // (controls); nothing dropped silently" (DSET-05.4). The outcome index is
+  // the 1-based position in the row list.
+  const skipped = (previewBody?.rows ?? [])
+    .filter((row) => row.outcome === 'skipped')
+    .map((row) => row.index)
+  const rowsToCommit = commitRows(mapped).filter(
+    (_row, index) => !skipped.includes(index + 1),
+  )
+  if (rowsToCommit.length === 0) {
+    return Response.json({
+      ok: false,
+      committed: 0,
+      errors: [{ code: 'empty', message: 'No rows to import.' }],
+    })
+  }
 
   const committed = await postgrestRpc<{
     ok: boolean
@@ -807,7 +827,7 @@ export async function handleImportCommit(
     {
       p_dataset_id: prepared.dataset.id,
       p_expected_dataset_revision: prepared.dataset.revision,
-      p_rows: commitRows(mapped),
+      p_rows: rowsToCommit,
       p_idempotency_key: body.idempotencyKey,
       p_file_id: prepared.file.id,
       p_mapping: prepared.mapping,
@@ -838,7 +858,7 @@ export async function handleImportCommit(
 
   return Response.json({
     ok: true,
-    committed: mapped.rows.length,
+    committed: rowsToCommit.length,
     importId: result.importId,
     snapshotVersionId: result.snapshotVersionId,
     datasetRevision: result.datasetRevision,

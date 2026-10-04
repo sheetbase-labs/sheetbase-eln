@@ -43,8 +43,7 @@ describe('REL-001 immutable deployment artifact contract', () => {
 
   it('keeps migration explicit and gates the app on PostgREST readiness', () => {
     expect(deployCompose.services.migrate.profiles).toContain('deployment')
-    // PLAT-01: migrations run through the advisory-lock wrapper, which itself
-    // invokes `drizzle-kit migrate` (asserted in migrate-once.mjs source).
+    // PLAT-01: the runner owns both the lock and Drizzle migration session.
     expect(deployCompose.services.migrate.command.join(' ')).toContain(
       'scripts/migrate-once.mjs',
     )
@@ -54,6 +53,16 @@ describe('REL-001 immutable deployment artifact contract', () => {
     expect(deployCompose.services.app.healthcheck.test.join(' ')).toContain(
       '/api/health/ready',
     )
+  })
+
+  it('uses the same migration runner for local and development upgrades', () => {
+    const development = parse(readFileSync('compose.dev.yaml', 'utf8'))
+    const manifest = JSON.parse(readFileSync('package.json', 'utf8'))
+    expect(development.services.migrate.command).toEqual([
+      'node',
+      'scripts/migrate-once.mjs',
+    ])
+    expect(manifest.scripts['db:migrate']).toBe('node scripts/migrate-once.mjs')
   })
 
   it('does not let Compose override artifact-baked version or migration identity', () => {

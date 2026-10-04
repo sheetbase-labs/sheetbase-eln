@@ -136,11 +136,24 @@ migration mechanism; no second path exists.
 - **Who:** the deployment controller (`scripts/deploy.ts`), never an
   operator's shell. Production deployment cannot depend on someone
   remembering to run SQL. Local development uses `pnpm db:migrate`.
+- **Execution:** local and Compose migration commands use
+  `scripts/migrate-once.mjs`. The runner loads `.env.local` and `.env`
+  without replacing environment credentials, then selects
+  `MIGRATION_DATABASE_URL` with `DATABASE_URL` as the fallback. The connection
+  must use the `migrator` role on a database owned by `migrator`.
 - **Concurrency:** the migrate runner (`scripts/migrate-once.mjs`) holds a
   PostgreSQL advisory lock for the duration, so concurrent migrators
   (e.g. a retried deploy overlapping the first) serialise instead of racing
   on the journal. The lock is session-scoped, so a crashed migrator cannot
   wedge future releases.
+- **Guarded backfills:** the runner calls stock Drizzle ORM `migrate` on
+  the same dedicated connection that holds the lock. That session sets
+  `sheetbase.sheet_instance_write=rpc-v1`, allowing historical Sheet Instance
+  backfills such as migration 0255 through the enabled write guard.
+  Drizzle owns the migration transaction and journal hashes. Published SQL
+  remains unchanged. The runner closes the connection in `finally` on success
+  or failure. No application pool, role setting, database setting, or request
+  permission receives this context.
 - **Failure behaviour:** a failed migration aborts the deployment before the
   app starts; the old app container keeps serving with the old artifact
   against the old-compatible database.
@@ -179,7 +192,7 @@ pnpm deploy:apply
 
 The apply path is intentionally ordered:
 
-1. Run `drizzle-kit migrate` as a one-shot service and stop on failure.
+1. Run `node scripts/migrate-once.mjs` as a one-shot service and stop on failure.
 2. Start the selected application digest only after PostgREST is healthy; the
    server does not listen until its own readiness contract succeeds.
 3. Poll the public HTTPS readiness endpoint for at most 60 seconds.

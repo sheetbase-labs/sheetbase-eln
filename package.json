@@ -46,7 +46,7 @@
     "typecheck": "tsc --noEmit",
     "validate": "pnpm check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "node scripts/migrate-once.mjs",
     "db:seed": "tsx src/db/seed/run.ts",
     "db:seed:demo": "tsx src/db/seed/run.ts --demo",
     "db:seed:design": "tsx src/db/seed/run.ts --design",

@@ -60,6 +60,14 @@ fixture permissions, guarded evidence cleanup, record-model fixture creation,
 and a formula test hardcoded to a historical seeded table. These failures
 are not covered by the passing unit or visual checks.
 
+The flag-comparison fixture now includes `system_rule = 'missing_unit'` for
+its system flag, retaining all manual-versus-system delta assertions. Its
+nine DB tests pass on a fresh migrated test database. The overview and
+protocol/material API fixtures now use the migration connection for cleanup,
+as the immutable-revision guard requires. Both suites pass, with nine tests
+covering real proxy operations and workspace isolation. The other API
+failures remain open, and the full DB suite has not been rerun after this fix.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven

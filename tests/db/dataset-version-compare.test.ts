@@ -88,15 +88,15 @@ beforeAll(async () => {
   // source changed (which surfaces as removed manual + added system).
   await migrator.query(
     `INSERT INTO api.dataset_version_flags
-       (dataset_version_id, row_id, field_id, kind, source, reason, set_by_user_id, set_at) VALUES
-      ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 'out_of_range', 'manual', 'A cleared manual', '${USER}', now()),
-      ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 'high_cv', 'manual', 'CV 9%', '${USER}', now()),
-      ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 'missing_unit', 'manual', 'no unit', '${USER}', now()),
-      ('${VERSION_A}', '${ROW_4}', '${FIELD_FLAG}', 'out_of_range', 'manual', 'identical', '${USER}', now()),
-      ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 'above_curve', 'manual', 'above standard', '${USER}', now()),
-      ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 'high_cv', 'manual', 'CV 12%', '${USER}', now()),
-      ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 'missing_unit', 'system', 'no unit', '${USER}', now()),
-      ('${VERSION_B}', '${ROW_4}', '${FIELD_FLAG}', 'out_of_range', 'manual', 'identical', '${USER}', now())`,
+       (dataset_version_id, row_id, field_id, kind, source, reason, set_by_user_id, set_at, system_rule) VALUES
+      ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 'out_of_range', 'manual', 'A cleared manual', '${USER}', now(), NULL),
+      ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 'high_cv', 'manual', 'CV 9%', '${USER}', now(), NULL),
+      ('${VERSION_A}', '${ROW_1}', '${FIELD_TITRE}', 'missing_unit', 'manual', 'no unit', '${USER}', now(), NULL),
+      ('${VERSION_A}', '${ROW_4}', '${FIELD_FLAG}', 'out_of_range', 'manual', 'identical', '${USER}', now(), NULL),
+      ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 'above_curve', 'manual', 'above standard', '${USER}', now(), NULL),
+      ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 'high_cv', 'manual', 'CV 12%', '${USER}', now(), NULL),
+      ('${VERSION_B}', '${ROW_1}', '${FIELD_TITRE}', 'missing_unit', 'system', 'no unit', '${USER}', now(), 'missing_unit'),
+      ('${VERSION_B}', '${ROW_4}', '${FIELD_FLAG}', 'out_of_range', 'manual', 'identical', '${USER}', now(), NULL)`,
   )
 })
 

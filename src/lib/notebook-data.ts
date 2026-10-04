@@ -601,12 +601,27 @@ export interface SubmitRecordRevisionInput {
   idempotencyKey: string
   /** WORK-01.1 — optional review due date overriding the project default. */
   dueAt?: string | null
+  authorSigningToken?: string
+  authorConfirmationPhrase?: string
 }
 
 export interface SubmitRecordRevisionResult {
   revision: { id: string; integrityDigest: string }
   submission: { id: string; state: 'submitted' }
   idempotent: boolean
+}
+
+export interface ReviewWorkflowWire {
+  definition_key: string
+  version: number
+  requires_signature: boolean
+}
+
+/** Activation is owned by immutable workflow versions, not a client flag. */
+export function fetchAvailableReviewWorkflows(
+  client: DataClient,
+): Promise<ReviewWorkflowWire[]> {
+  return client.rpc('available_review_workflows', {})
 }
 
 /** Read the digest of the complete live evidence set immediately before submit. */
@@ -631,6 +646,12 @@ export function submitRecordRevision(
     p_confirmed: true,
     p_idempotency_key: input.idempotencyKey,
     p_due_at: input.dueAt ?? null,
+    ...(input.authorSigningToken
+      ? {
+          p_author_signing_token: input.authorSigningToken,
+          p_author_confirmation_phrase: input.authorConfirmationPhrase,
+        }
+      : {}),
   })
 }
 

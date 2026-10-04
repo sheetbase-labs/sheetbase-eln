@@ -103,6 +103,12 @@ import type {
 } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import {
+  fetchSignaturesForRecord,
+  signatureQueryKeys,
+  SIGNATURE_MEANING_LABEL,
+} from '#/lib/signatures'
+import type { SignatureWire } from '#/lib/signatures'
+import {
   Table,
   TableBody,
   TableCell,
@@ -289,6 +295,11 @@ function ExperimentNotebookRoute() {
   const revisionsQuery = useQuery({
     queryKey: notebookQueryKeys.revisions(recordId),
     queryFn: () => fetchRevisionsForRecord(notebookDataClient, recordId),
+    enabled: !historicalRevisionId,
+  })
+  const signaturesQuery = useQuery({
+    queryKey: signatureQueryKeys.forRecord(recordId),
+    queryFn: () => fetchSignaturesForRecord(notebookDataClient, recordId),
     enabled: !historicalRevisionId,
   })
   const activityQuery = useQuery({
@@ -652,9 +663,7 @@ function ExperimentNotebookRoute() {
               onTab={setTab}
               linkCount={links.length}
               revisionCount={revisions.length}
-              signatureCount={
-                revisions.filter((r) => r.reason === 'sign').length
-              }
+              signatureCount={signaturesQuery.data?.length ?? 0}
             />
           ) : null}
           {tab !== 'notebook' && !historicalRevisionId ? (
@@ -662,6 +671,9 @@ function ExperimentNotebookRoute() {
               tab={tab}
               links={links}
               revisions={revisions}
+              signatures={signaturesQuery.data ?? []}
+              signatureError={signaturesQuery.isError}
+              signaturesLoading={signaturesQuery.isPending}
             />
           ) : null}
           {/* EXT-02 sample panel: contributed object-actions and palette
@@ -1138,10 +1150,16 @@ function RecordNotebookPanel({
   tab,
   links,
   revisions,
+  signatures,
+  signatureError,
+  signaturesLoading,
 }: {
   tab: Exclude<NotebookTab, 'notebook'>
   links: NotebookLink[]
   revisions: RevisionWire[]
+  signatures: SignatureWire[]
+  signatureError: boolean
+  signaturesLoading: boolean
 }) {
   const names = useUserNames(
     [
@@ -1187,10 +1205,71 @@ function RecordNotebookPanel({
       </section>
     )
   }
-  const rows =
-    tab === 'signatures'
-      ? revisions.filter((r) => r.reason === 'sign')
-      : revisions
+  if (tab === 'signatures') {
+    return (
+      <section aria-label="signatures" className="py-4">
+        {signatureError ? (
+          <p role="alert">Signatures could not be loaded.</p>
+        ) : signaturesLoading ? (
+          <Muted>Loading signatures…</Muted>
+        ) : signatures.length ? (
+          <div className="overflow-x-auto rounded-md border border-border">
+            <Table aria-label="Immutable signatures">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Signature ID</TableHead>
+                  <TableHead>Signer</TableHead>
+                  <TableHead>Signed at</TableHead>
+                  <TableHead>Meaning</TableHead>
+                  <TableHead>Revision and exact digest</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {signatures.map((signature) => (
+                  <TableRow key={signature.id}>
+                    <TableCell className="font-mono text-xs">
+                      {signature.id}
+                    </TableCell>
+                    <TableCell>
+                      {signature.signer_name ??
+                        'Name not recorded in historical evidence'}
+                      <span className="block text-xs text-fg-muted">
+                        {signature.signer_user_id}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <time dateTime={signature.signed_at}>
+                        {signature.signed_at}
+                      </time>
+                    </TableCell>
+                    <TableCell>
+                      {SIGNATURE_MEANING_LABEL[signature.signature_meaning]}
+                      <span className="block text-xs text-fg-muted">
+                        {signature.auth_method}
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <div className="w-64 whitespace-normal">
+                        <span className="block break-all">
+                          {signature.revision_id}
+                        </span>
+                        <span className="block break-all">
+                          {signature.revision_integrity_digest}
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <Muted>No signatures yet.</Muted>
+        )}
+      </section>
+    )
+  }
+  const rows = revisions
   return (
     <section aria-label={tab} className="py-4">
       {rows.length ? (
@@ -1221,9 +1300,7 @@ function RecordNotebookPanel({
           </Table>
         </div>
       ) : (
-        <Muted>
-          {tab === 'signatures' ? 'No signatures yet.' : 'No revisions yet.'}
-        </Muted>
+        <Muted>No revisions yet.</Muted>
       )}
     </section>
   )

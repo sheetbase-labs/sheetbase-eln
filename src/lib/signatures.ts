@@ -12,6 +12,7 @@
  */
 import type { DataClient } from './data-client'
 import { z } from 'zod'
+import type { ReviewSubmissionWire } from './reviews'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST).
@@ -132,6 +133,9 @@ export const signatureQueryKeys = {
     ['sign-001', 'signatures', 'submission', submissionId] as const,
   forRevision: (revisionId: string) =>
     ['sign-001', 'signatures', 'revision', revisionId] as const,
+  forRecord: (recordId: string) => ['signatures', 'record', recordId] as const,
+  eligibility: (submissionId: string, userId: string) =>
+    ['signatures', 'eligibility', submissionId, userId] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +151,104 @@ export function fetchSignaturesForSubmission(
     'signatures',
     `?submission_id=eq.${submissionId}&order=signed_at.asc`,
   )
+}
+
+export function fetchSignaturesForRecord(
+  client: DataClient,
+  recordId: string,
+): Promise<SignatureWire[]> {
+  return client.list<SignatureWire>(
+    'signatures',
+    `?record_id=eq.${recordId}&order=signed_at.asc,id.asc`,
+  )
+}
+
+export interface SignatureWitnessRequestWire {
+  id: string
+  submission_id: string
+  witness_user_id: string
+  revision_digest: string
+  due_at: string | null
+}
+
+export async function fetchSignatureEligibility(
+  client: DataClient,
+  submission: ReviewSubmissionWire,
+  userId: string,
+) {
+  const [writer, requests] = await Promise.all([
+    client.rpc('is_workspace_writer', {
+      p_workspace_id: submission.workspace_id,
+    }),
+    client.list<SignatureWitnessRequestWire>(
+      'signature_witness_requests',
+      `?submission_id=eq.${submission.id}&witness_user_id=eq.${encodeURIComponent(userId)}`,
+    ),
+  ])
+  return { writer: z.boolean().parse(writer), requests }
+}
+
+/** Mirrors target rules for presentation. Password issuance/RPCs enforce them. */
+export function availableSignatureMeanings(input: {
+  submission: ReviewSubmissionWire | null
+  currentUserId: string
+  integrityDigest: string | null
+  supersededByRevisionId: string | null
+  eligibility: Awaited<ReturnType<typeof fetchSignatureEligibility>> | undefined
+  signatures: SignatureWire[]
+}): PostSubmissionSignatureMeaning[] {
+  const { submission, currentUserId, integrityDigest, eligibility } = input
+  if (
+    !submission ||
+    !eligibility?.writer ||
+    !integrityDigest ||
+    input.supersededByRevisionId !== null ||
+    currentUserId === submission.submitted_by_user_id ||
+    !['submitted', 'approved'].includes(submission.state)
+  )
+    return []
+  return SIGNATURE_MEANING_OPTIONS.filter((option) => {
+    if (
+      input.signatures.some(
+        (signature) =>
+          signature.signer_user_id === currentUserId &&
+          signature.signature_meaning === option.value,
+      )
+    )
+      return false
+    if (option.value === 'witnessed')
+      return eligibility.requests.some(
+        (request) =>
+          request.witness_user_id === currentUserId &&
+          request.revision_digest === integrityDigest,
+      )
+    return (
+      submission.assigned_reviewer_user_ids.includes(currentUserId) &&
+      (option.value === 'reviewed' || submission.state === 'approved')
+    )
+  }).map((option) => option.value)
+}
+
+export function requestSignatureWitness(
+  client: DataClient,
+  input: {
+    submissionId: string
+    witnessUserId: string
+    expectedRevisionDigest: string
+    dueAt: string | null
+  },
+): Promise<{
+  id: string
+  submissionId: string
+  revisionId: string
+  witnessUserId: string
+}> {
+  return client.rpc('request_signature_witness', {
+    p_submission_id: input.submissionId,
+    p_witness_user_id: input.witnessUserId,
+    p_expected_revision_digest: input.expectedRevisionDigest,
+    p_due_at: input.dueAt,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -172,6 +274,17 @@ export type SignatureStepUpInput = { workspaceId: string; password: string } & (
       submissionId: string
       revisionDigest: string
       signatureMeaning: PostSubmissionSignatureMeaning
+    }
+  | {
+      purpose: 'author-submit'
+      recordId: string
+      revisionDigest: string
+      workflowDefinitionKey: string
+      workflowDefinitionVersion: number
+      reviewerUserIds: string[]
+      confirmed: boolean
+      idempotencyKey: string
+      dueAt: string | null
     }
   | { purpose: 'certify' | 'practice' }
 )

@@ -21,6 +21,7 @@ config({ path: ['.env.local', '.env'] })
 const workspace = randomUUID()
 const project = randomUUID()
 const record = randomUUID()
+const controlledRecord = randomUUID()
 const signer = `rev03-signer-${workspace}`
 const verifier = `rev03-verifier-${workspace}`
 const author = `rev03-author-${workspace}`
@@ -80,16 +81,24 @@ test.beforeAll(async () => {
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment','EXP-REV03-BROWSER','Password signing acceptance','draft',$4)`,
     [record, workspace, project, author],
   )
+  await admin.query(
+    `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment','EXP-REV02-AUTHOR','Atomic author submission acceptance','draft',$4)`,
+    [controlledRecord, workspace, project, author],
+  )
   const secret = z.string().min(32).parse(process.env.BETTER_AUTH_SECRET)
-  const token = `parity-${signer}`
-  const signature = createHmac('sha256', secret).update(token).digest('base64')
   const { createAuth } = await import('#/lib/auth')
-  await createAuth(database).api.setPassword({
-    headers: new Headers({
-      cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${token}.${signature}`)}`,
-    }),
-    body: { newPassword: password },
-  })
+  for (const user of [signer, author, verifier]) {
+    const token = `parity-${user}`
+    const signature = createHmac('sha256', secret)
+      .update(token)
+      .digest('base64')
+    await createAuth(database).api.setPassword({
+      headers: new Headers({
+        cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${token}.${signature}`)}`,
+      }),
+      body: { newPassword: password },
+    })
+  }
   const actor = new Client({ connectionString: process.env.PGRST_DB_URI })
   await actor.connect()
   try {
@@ -138,6 +147,10 @@ test.afterAll(async () => {
     await admin.query('delete from api.signatures where workspace_id=$1', [
       workspace,
     ])
+    await admin.query(
+      'delete from api.signature_witness_requests where workspace_id=$1',
+      [workspace],
+    )
     await admin.query(
       'delete from api.review_decisions where workspace_id=$1',
       [workspace],
@@ -290,6 +303,40 @@ test('independent certification, practice, password focus and exact-digest signi
   ).toBe(0)
   await page.goto(`/review/${submission.revisionId}`)
   await page.getByRole('button', { name: 'Approve', exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Sign revision', exact: true }).click()
+  await expect(page.getByLabel('Signing password')).toBeFocused()
+  await expect(
+    page.getByRole('option', { name: 'Reviewed', exact: true }),
+  ).toBeAttached()
+  await expect(
+    page.getByRole('option', { name: 'Reviewed and approved', exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole('option', { name: 'Witnessed', exact: true }),
+  ).toHaveCount(0)
+  await page.getByLabel('Signing password').fill(password)
+  await page.getByLabel(/Type your name/).fill(signerName)
+  const reviewed = page.waitForResponse((r) =>
+    r.url().endsWith('/rpc/sign_revision'),
+  )
+  await page.getByRole('button', { name: 'Sign', exact: true }).click()
+  expect((await reviewed).status()).toBe(200)
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+  expect(
+    (
+      await admin.query('select locked_at from api.records where id=$1', [
+        record,
+      ])
+    ).rows[0].locked_at,
+  ).toBeNull()
+  expect(
+    (
+      await admin.query(
+        'select state from api.review_submissions where id=$1',
+        [submission.id],
+      )
+    ).rows[0].state,
+  ).toBe('submitted')
   await page.keyboard.press('Control+Shift+Enter')
   await expect(page.getByRole('alertdialog')).toContainText(
     'Approve this review?',
@@ -372,8 +419,12 @@ test('independent certification, practice, password focus and exact-digest signi
     'select * from api.signatures where submission_id=$1',
     [submission.id],
   )
-  expect(evidence.rows).toHaveLength(1)
-  expect(evidence.rows[0]).toMatchObject({
+  expect(evidence.rows).toHaveLength(2)
+  expect(
+    evidence.rows.find(
+      (row) => row.signature_meaning === 'reviewed-and-approved',
+    ),
+  ).toMatchObject({
     signer_user_id: signer,
     signer_name: signerName,
     signature_meaning: 'reviewed-and-approved',
@@ -389,10 +440,13 @@ test('independent certification, practice, password focus and exact-digest signi
     'certify',
     'practice',
     'sign',
+    'sign',
   ])
-  expect(grants.rows.find((r) => r.purpose === 'sign').signature_meaning).toBe(
-    'reviewed-and-approved',
-  )
+  expect(
+    grants.rows
+      .filter((r) => r.purpose === 'sign')
+      .map((r) => r.signature_meaning),
+  ).toEqual(['reviewed', 'reviewed-and-approved'])
   expect(grants.rows.every((r) => r.consumed_at !== null)).toBe(true)
   await page.screenshot({ path: '.amp/in/artifacts/rev03-http-signed.png' })
   for (let failure = 0; failure < 3; failure++) {
@@ -488,4 +542,332 @@ test('independent certification, practice, password focus and exact-digest signi
   await page.screenshot({
     path: '.amp/in/artifacts/rev03-native-signed-out-narrow.png',
   })
+})
+
+test('controlled author submission certifies and signs atomically through the real notebook UI', async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  if (!baseURL) throw new Error('Browser base URL required')
+  await signInAsDesignUser(page, author)
+  const hydrated = page.waitForResponse((r) =>
+    r.url().endsWith('/rpc/workspace_signature_certifications'),
+  )
+  await page.goto('/settings/signatures')
+  expect((await hydrated).status()).toBe(200)
+  await page
+    .getByRole('button', { name: 'Request identity verification', exact: true })
+    .click()
+  await expect(
+    page.getByText('Awaiting independent administrator verification.'),
+  ).toBeVisible()
+  const verifierContext = await browser.newContext({ baseURL })
+  try {
+    const verifierPage = await verifierContext.newPage()
+    await signInAsDesignUser(verifierPage, verifier)
+    await verifierPage.goto('/settings/signatures')
+    const verified = await post(
+      verifierPage,
+      '/api/db/rpc/verify_signature_identity',
+      {
+        p_user_id: author,
+        p_email: `${author}@sheetbase.test`,
+      },
+    )
+    expect(verified.status).toBe(200)
+  } finally {
+    await verifierContext.close()
+  }
+  await page.reload()
+  await expect(
+    page.getByText(/Verified by Verification Fixture Admin/),
+  ).toBeVisible()
+  await page
+    .getByRole('checkbox', { name: 'I have read and agree to this statement' })
+    .check()
+  await page.getByLabel(/Enter your signing password to certify/).fill(password)
+  const certified = page.waitForResponse((r) =>
+    r.url().endsWith('/rpc/certify_signature'),
+  )
+  await page.getByRole('button', { name: 'Certify signature' }).click()
+  expect((await certified).status()).toBe(200)
+  await page.goto(`/records/${controlledRecord}/notebook`)
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Submit for review' })
+  await expect(
+    dialog.getByRole('option', { name: /controlled-scientific-review/ }),
+  ).toBeAttached()
+  await dialog
+    .getByLabel('Review workflow')
+    .selectOption('controlled-scientific-review/1')
+  await expect(
+    dialog.getByText('Authored signature', { exact: true }),
+  ).toBeVisible()
+  await dialog.getByRole('button', { name: 'Check snapshot' }).click()
+  await expect(dialog.getByText(/Integrity check:/)).toBeVisible()
+  await expect(
+    dialog.getByRole('button', { name: 'Submit', exact: true }),
+  ).toBeDisabled()
+  await dialog.getByLabel('Author signing password').fill(password)
+  await dialog
+    .getByLabel('Author signature confirmation')
+    .fill('Fixture Author')
+  await mkdir('.amp/in/artifacts', { recursive: true })
+  await page.screenshot({
+    path: '.amp/in/artifacts/rev02-author-submission-wide.png',
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await dialog
+    .getByLabel('Author signature confirmation')
+    .scrollIntoViewIfNeeded()
+  await page.screenshot({
+    path: '.amp/in/artifacts/rev02-author-submission-narrow.png',
+  })
+  await page.setViewportSize({ width: 1280, height: 900 })
+  const issued = page.waitForResponse(
+    (r) =>
+      r.url().endsWith('/api/signatures/step-up') &&
+      r.request().postDataJSON().purpose === 'author-submit',
+  )
+  const submitted = page.waitForResponse((r) =>
+    r.url().endsWith('/rpc/submit_record_revision'),
+  )
+  await dialog.getByRole('button', { name: 'Submit', exact: true }).click()
+  expect((await issued).status()).toBe(200)
+  const response = await submitted
+  expect(response.status()).toBe(200)
+  const result = z
+    .object({
+      revision: z.object({ id: z.uuid(), integrityDigest: z.string() }),
+      submission: z.object({ id: z.uuid() }),
+    })
+    .parse(await response.json())
+  await expect(page).toHaveURL(new RegExp(`/review/${result.revision.id}$`))
+  const evidence = await admin.query(
+    'select * from api.signatures where submission_id=$1',
+    [result.submission.id],
+  )
+  expect(evidence.rows).toHaveLength(1)
+  expect(evidence.rows[0]).toMatchObject({
+    signer_user_id: author,
+    signer_name: 'Fixture Author',
+    signature_meaning: 'authored',
+    auth_method: 'password',
+    revision_integrity_digest: result.revision.integrityDigest,
+  })
+  const grants = await admin.query(
+    "select signature_meaning,consumed_at,submission_arguments from internal.signature_grants where user_id=$1 and purpose='author-submit'",
+    [author],
+  )
+  expect(grants.rows).toHaveLength(1)
+  expect(grants.rows[0].signature_meaning).toBe('authored')
+  expect(grants.rows[0].consumed_at).not.toBeNull()
+  expect(grants.rows[0].submission_arguments).toMatchObject({
+    recordId: controlledRecord,
+    revisionDigest: result.revision.integrityDigest,
+    workflowDefinitionKey: 'controlled-scientific-review',
+    workflowDefinitionVersion: 1,
+    confirmed: true,
+    dueAt: null,
+  })
+  expect(
+    (
+      await admin.query('select locked_at from api.records where id=$1', [
+        controlledRecord,
+      ])
+    ).rows[0].locked_at,
+  ).toBeNull()
+  await page
+    .getByLabel('Request a witness for this frozen revision')
+    .selectOption(verifier)
+  const requested = page.waitForResponse((r) =>
+    r.url().endsWith('/rpc/request_signature_witness'),
+  )
+  await page
+    .getByRole('button', { name: 'Request witness', exact: true })
+    .click()
+  expect((await requested).status()).toBe(200)
+  const witnessContext = await browser.newContext({
+    baseURL,
+    viewport: { width: 1280, height: 900 },
+    deviceScaleFactor: 2,
+  })
+  const reviewerContext = await browser.newContext({ baseURL })
+  try {
+    const witnessPage = await witnessContext.newPage()
+    await signInAsDesignUser(witnessPage, verifier)
+    const witnessHydrated = witnessPage.waitForResponse((r) =>
+      r.url().endsWith('/rpc/workspace_signature_certifications'),
+    )
+    await witnessPage.goto('/settings/signatures')
+    expect((await witnessHydrated).status()).toBe(200)
+    await witnessPage
+      .getByRole('button', {
+        name: 'Request identity verification',
+        exact: true,
+      })
+      .click()
+    await expect(
+      witnessPage.getByText('Awaiting independent administrator verification.'),
+    ).toBeVisible()
+    const reviewerPage = await reviewerContext.newPage()
+    await signInAsDesignUser(reviewerPage, signer)
+    await reviewerPage.goto(`/review/${result.revision.id}`)
+    expect(
+      (
+        await post(reviewerPage, '/api/db/rpc/verify_signature_identity', {
+          p_user_id: verifier,
+          p_email: `${verifier}@sheetbase.test`,
+        })
+      ).status,
+    ).toBe(200)
+    expect(
+      (
+        await post(reviewerPage, '/api/db/rpc/run_revision_checks', {
+          p_revision_id: result.revision.id,
+          p_check_definition_key: 'default-scientific-checks',
+          p_check_definition_version: 1,
+          p_confirmed: true,
+          p_idempotency_key: `witness-checks-${controlledRecord}`,
+        })
+      ).status,
+    ).toBe(200)
+    await witnessPage.reload()
+    await expect(
+      witnessPage.getByText(/Verified by Signing Fixture Reviewer/),
+    ).toBeVisible()
+    await witnessPage
+      .getByRole('checkbox', {
+        name: 'I have read and agree to this statement',
+      })
+      .check()
+    await witnessPage
+      .getByLabel(/Enter your signing password to certify/)
+      .fill(password)
+    const witnessCertified = witnessPage.waitForResponse((r) =>
+      r.url().endsWith('/rpc/certify_signature'),
+    )
+    await witnessPage.getByRole('button', { name: 'Certify signature' }).click()
+    expect((await witnessCertified).status()).toBe(200)
+    await witnessPage.goto(
+      `/review/${result.revision.id}?signatureMeaning=witnessed`,
+    )
+    const work = await witnessPage.evaluate(async () =>
+      (await fetch('/api/db/my_work_items')).json(),
+    )
+    expect(work).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'witness_requested',
+          record_id: controlledRecord,
+          revision_id: result.revision.id,
+          source_type: 'signature_witness_request',
+        }),
+      ]),
+    )
+    await witnessPage
+      .getByRole('button', { name: 'Sign revision', exact: true })
+      .click()
+    await expect(witnessPage.getByLabel('Signing password')).toBeFocused()
+    await expect(witnessPage.getByLabel('Signature meaning')).toHaveValue(
+      'witnessed',
+    )
+    await expect(
+      witnessPage.getByLabel('Signature meaning').getByRole('option'),
+    ).toHaveCount(1)
+    await witnessPage.getByLabel('Signing password').fill(password)
+    await witnessPage
+      .getByLabel(/Type your name/)
+      .fill('Verification Fixture Admin')
+    await witnessPage.screenshot({
+      path: '.amp/in/artifacts/rev02-witness-requested.png',
+    })
+    const witnessed = witnessPage.waitForResponse((r) =>
+      r.url().endsWith('/rpc/sign_revision'),
+    )
+    await witnessPage.getByRole('button', { name: 'Sign', exact: true }).click()
+    expect((await witnessed).status()).toBe(200)
+    const completedWork = await witnessPage.evaluate(async () =>
+      (await fetch('/api/db/my_work_items')).json(),
+    )
+    expect(completedWork).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'witness_requested',
+          revision_id: result.revision.id,
+        }),
+      ]),
+    )
+    const witnessEvidence = await admin.query(
+      "select * from api.signatures where submission_id=$1 and signature_meaning='witnessed'",
+      [result.submission.id],
+    )
+    expect(witnessEvidence.rows).toHaveLength(1)
+    expect(witnessEvidence.rows[0]).toMatchObject({
+      signer_user_id: verifier,
+      signer_name: 'Verification Fixture Admin',
+      signature_meaning: 'witnessed',
+      auth_method: 'password',
+      revision_integrity_digest: result.revision.integrityDigest,
+    })
+    expect(
+      (
+        await admin.query('select locked_at from api.records where id=$1', [
+          controlledRecord,
+        ])
+      ).rows[0].locked_at,
+    ).toBeNull()
+    await admin.query('update internal."user" set name=$2 where id=$1', [
+      author,
+      'Renamed current author profile',
+    ])
+    await page.goto(`/records/${controlledRecord}/notebook`)
+    await page.getByRole('button', { name: /^Signatures/ }).click()
+    const table = page.getByRole('table', { name: 'Immutable signatures' })
+    await expect(
+      table.getByRole('cell', { name: /^Fixture Author / }),
+    ).toBeVisible()
+    await expect(
+      table.getByRole('cell', { name: /^Verification Fixture Admin / }),
+    ).toBeVisible()
+    await expect(table).not.toContainText('Renamed current author profile')
+    await expect(table.getByRole('cell', { name: /^Authored / })).toBeVisible()
+    await expect(table.getByRole('cell', { name: /^Witnessed / })).toBeVisible()
+    await expect(
+      table.getByText(evidence.rows[0].id, { exact: true }),
+    ).toBeVisible()
+    await expect(
+      table.getByText(witnessEvidence.rows[0].id, { exact: true }),
+    ).toBeVisible()
+    await expect(
+      table.getByText(result.revision.integrityDigest, { exact: true }),
+    ).toHaveCount(2)
+    await expect(table.locator('time')).toHaveCount(2)
+    await page.screenshot({
+      path: '.amp/in/artifacts/rev02-immutable-signatures-wide.png',
+    })
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(
+      await table.evaluate(
+        (element) =>
+          element.parentElement!.scrollWidth >
+          element.parentElement!.clientWidth,
+      ),
+    ).toBe(true)
+    await page.screenshot({
+      path: '.amp/in/artifacts/rev02-immutable-signatures-narrow.png',
+    })
+    const horizontalOffset = await table.locator('..').evaluate((element) => {
+      element.scrollTo({ left: element.scrollWidth })
+      return element.scrollLeft
+    })
+    expect(horizontalOffset).toBeGreaterThan(0)
+    await page.screenshot({
+      path: '.amp/in/artifacts/rev02-immutable-signatures-narrow-digest.png',
+    })
+  } finally {
+    await reviewerContext.close()
+    await witnessContext.close()
+  }
 })

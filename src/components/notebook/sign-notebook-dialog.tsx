@@ -15,10 +15,7 @@ import {
 import { NativeSelect } from '#/components/v3/projects/select'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
-import {
-  notebookQueryKeysAfterSignature,
-  notebookSignState,
-} from '#/lib/notebook-experience'
+import { notebookQueryKeysAfterSignature } from '#/lib/notebook-experience'
 import {
   fetchReviewSubmissionByRevision,
   fetchRevisionRow,
@@ -26,6 +23,8 @@ import {
 } from '#/lib/review-workspace'
 import {
   ASSURANCE_LEVEL_STATEMENT,
+  availableSignatureMeanings,
+  fetchSignatureEligibility,
   SIGNATURE_MEANING_OPTIONS,
   fetchSignaturesForSubmission,
   signatureQueryKeys,
@@ -74,24 +73,41 @@ export function SignNotebookDialog({
     enabled: open && Boolean(submission?.id),
   })
 
-  const signState = notebookSignState({
-    currentUserId,
-    submission,
-    signatures: signaturesQuery.data ?? [],
+  const eligibility = useQuery({
+    queryKey: signatureQueryKeys.eligibility(
+      submission?.id ?? 'none',
+      currentUserId,
+    ),
+    queryFn: () =>
+      fetchSignatureEligibility(notebookDataClient, submission!, currentUserId),
+    enabled: open && Boolean(submission),
   })
   const integrityDigest = revisionQuery.data?.integrity_digest ?? null
+  const meanings = availableSignatureMeanings({
+    currentUserId,
+    submission,
+    integrityDigest,
+    supersededByRevisionId:
+      revisionQuery.data?.superseded_by_revision_id ?? null,
+    eligibility: eligibility.data,
+    signatures: signaturesQuery.data ?? [],
+  })
+  const canSign = meanings.length > 0
   const confirmationMatches =
     confirmation.trim().toLowerCase() === currentUserName.trim().toLowerCase()
   const selected = SIGNATURE_MEANING_OPTIONS.find(
     (option) => option.value === meaning,
   )!
   useEffect(() => {
-    if (open && signState === 'can-sign') passwordRef.current?.focus()
-  }, [open, signState])
+    if (open && canSign) passwordRef.current?.focus()
+  }, [open, canSign])
+  useEffect(() => {
+    if (!meanings.includes(meaning) && meanings[0]) setMeaning(meanings[0])
+  }, [meaning, meanings])
 
   const sign = useMutation({
     mutationFn: async () => {
-      if (!submission || !integrityDigest) {
+      if (!submission || !integrityDigest || !meanings.includes(meaning)) {
         throw new DataClientError(
           'validation_error',
           'This revision is not ready to sign.',
@@ -125,6 +141,9 @@ export function SignNotebookDialog({
             revisionId,
           }).map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         )
+        await queryClient.invalidateQueries({
+          queryKey: signatureQueryKeys.forRecord(submission.record_id),
+        })
       }
       setConfirmation('')
       onOpenChange(false)
@@ -161,15 +180,11 @@ export function SignNotebookDialog({
           description="This records an internal electronic signature against the submitted evidence. It is not a regulatory compliance certification."
         />
         <DialogBody>
-          {signState !== 'can-sign' ? (
+          {!canSign ? (
             <p className="m-0 text-body text-fg-muted">
-              {signState === 'awaiting-review'
-                ? 'Review must finish before this Notebook can be signed.'
-                : signState === 'already-signed'
-                  ? 'You have already signed this submission.'
-                  : signState === 'not-assigned'
-                    ? 'Only an assigned reviewer may sign this Notebook.'
-                    : 'No review submission is available for this revision.'}
+              No eligible signature meaning is available. Signing requires an
+              active frozen revision, assignment as a nonauthor reviewer or an
+              explicit witness request, and current workspace write permission.
             </p>
           ) : (
             <div className="flex flex-col gap-3">
@@ -207,7 +222,9 @@ export function SignNotebookDialog({
                     if (option) setMeaning(option.value)
                   }}
                 >
-                  {SIGNATURE_MEANING_OPTIONS.map((option) => (
+                  {SIGNATURE_MEANING_OPTIONS.filter((option) =>
+                    meanings.includes(option.value),
+                  ).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -236,7 +253,7 @@ export function SignNotebookDialog({
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>Cancel</DialogClose>
-          {signState === 'can-sign' ? (
+          {canSign ? (
             <Button
               variant="primary"
               disabled={

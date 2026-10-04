@@ -25,7 +25,7 @@ import {
   useSearch,
 } from '@tanstack/react-router'
 import { z } from 'zod'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Download } from 'lucide-react'
 
@@ -108,13 +108,17 @@ import type { ReviewSubmissionWire } from '#/lib/reviews'
 import type { RevisionWire } from '#/lib/notebook-data'
 import {
   ASSURANCE_LEVEL_STATEMENT,
+  availableSignatureMeanings,
+  fetchSignatureEligibility,
   fetchSignaturesForSubmission,
   signatureQueryKeys,
   SIGNATURE_MEANING_OPTIONS,
   SIGNATURE_MEANING_LABEL,
   signRevision,
+  requestSignatureWitness,
   requestSignatureStepUp,
 } from '#/lib/signatures'
+import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import type {
   PostSubmissionSignatureMeaning,
   SignatureMeaning,
@@ -178,6 +182,9 @@ function RouteShell({
 const workspaceSearchSchema = z.object({
   tab: z.enum(['diff', 'comments', 'checks', 'history']).optional(),
   comparisonRevisionId: z.string().optional(),
+  signatureMeaning: z
+    .enum(['reviewed', 'reviewed-and-approved', 'witnessed'])
+    .optional(),
 })
 
 type WorkspaceSearch = z.infer<typeof workspaceSearchSchema>
@@ -1704,32 +1711,64 @@ function SignaturePanel({
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [signing, setSigning] = useState(false)
-
-  const isApproved = submission.state === 'approved'
+  const [witnessUserId, setWitnessUserId] = useState('')
+  const [requestingWitness, setRequestingWitness] = useState(false)
+  const search = useSearch({ from: '/review/$revisionId' })
+  const eligibility = useQuery({
+    queryKey: signatureQueryKeys.eligibility(submission.id, currentUserId),
+    queryFn: () =>
+      fetchSignatureEligibility(reviewsDataClient, submission, currentUserId),
+  })
+  const meanings = availableSignatureMeanings({
+    submission,
+    currentUserId,
+    integrityDigest,
+    supersededByRevisionId: revision.superseded_by_revision_id,
+    eligibility: eligibility.data,
+    signatures,
+  })
+  const members = useQuery({
+    queryKey: adminQueryKeys.members(submission.workspace_id),
+    queryFn: () =>
+      fetchWorkspaceMembers(reviewsDataClient, submission.workspace_id),
+  })
+  const canRequestWitness =
+    eligibility.data?.writer &&
+    integrityDigest &&
+    ['submitted', 'approved'].includes(submission.state) &&
+    revision.superseded_by_revision_id === null &&
+    (submission.submitted_by_user_id === currentUserId ||
+      submission.assigned_reviewer_user_ids.includes(currentUserId))
+  const witnesses = (members.data ?? []).filter(
+    (member) =>
+      member.userId !== currentUserId &&
+      member.userId !== submission.submitted_by_user_id &&
+      member.suspendedAt === null &&
+      ['owner', 'admin', 'member', 'editor', 'reviewer', 'steward'].includes(
+        member.role,
+      ),
+  )
   const isAssignedReviewer =
     submission.assigned_reviewer_user_ids.includes(currentUserId)
   const alreadySigned = signatures.some(
     (sig) => sig.signer_user_id === currentUserId,
   )
 
-  const canSign =
-    isApproved &&
-    isAssignedReviewer &&
-    !alreadySigned &&
-    revision.superseded_by_revision_id === null
+  const canSign = meanings.length > 0
+  const canApproveAndSign = meanings.includes('reviewed-and-approved')
   useRegisterShortcuts(
     useMemo(
       () =>
         reviewShortcuts({
           approveAndSign:
-            canSign && integrityDigest
+            canApproveAndSign && integrityDigest
               ? () => {
                   setError(null)
                   onOpenChange(true)
                 }
               : undefined,
         }),
-      [canSign, integrityDigest, onOpenChange],
+      [canApproveAndSign, integrityDigest, onOpenChange],
     ),
   )
 
@@ -1763,11 +1802,34 @@ function SignaturePanel({
       await queryClient.invalidateQueries({
         queryKey: signatureQueryKeys.forSubmission(submission.id),
       })
+      await queryClient.invalidateQueries({
+        queryKey: signatureQueryKeys.forRecord(submission.record_id),
+      })
       onOpenChange(false)
     } catch (err) {
       setError(renderError(err))
     } finally {
       setSigning(false)
+    }
+  }
+
+  async function handleWitnessRequested() {
+    if (!canRequestWitness || !integrityDigest || !witnessUserId) return
+    setRequestingWitness(true)
+    setError(null)
+    try {
+      await requestSignatureWitness(reviewsDataClient, {
+        submissionId: submission.id,
+        witnessUserId,
+        expectedRevisionDigest: integrityDigest,
+        dueAt: null,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['work-items'] })
+      setWitnessUserId('')
+    } catch (err) {
+      setError(renderError(err))
+    } finally {
+      setRequestingWitness(false)
     }
   }
 
@@ -1786,9 +1848,8 @@ function SignaturePanel({
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-foreground">
-                  {sig.signer_user_id === currentUserId
-                    ? currentUserName
-                    : sig.signer_user_id.slice(0, 8)}
+                  {sig.signer_name ??
+                    `Historical signer ${sig.signer_user_id.slice(0, 8)}`}
                 </span>
                 <span className="text-muted-foreground">
                   {formatDate(sig.signed_at)}
@@ -1831,7 +1892,7 @@ function SignaturePanel({
         </p>
       )}
 
-      {isApproved ? (
+      {['submitted', 'approved'].includes(submission.state) ? (
         <div className="mt-2">
           {canSign ? (
             <SignatureDialog
@@ -1842,6 +1903,8 @@ function SignaturePanel({
               }}
               revision={revision}
               integrityDigest={integrityDigest}
+              meanings={meanings}
+              requestedMeaning={search.signatureMeaning}
               currentUserName={currentUserName}
               signing={signing}
               error={error}
@@ -1853,10 +1916,45 @@ function SignaturePanel({
             </p>
           ) : !isAssignedReviewer ? (
             <p className="text-xs text-muted-foreground">
-              Only an assigned reviewer may sign an approved revision.
+              Signing requires assignment as a nonauthor reviewer or an explicit
+              witness request.
             </p>
           ) : null}
         </div>
+      ) : null}
+      {canRequestWitness ? (
+        <div className="mt-3 space-y-2">
+          <label htmlFor="signature-witness" className="text-xs font-medium">
+            Request a witness for this frozen revision
+          </label>
+          <select
+            id="signature-witness"
+            value={witnessUserId}
+            disabled={requestingWitness}
+            className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            onChange={(event) => setWitnessUserId(event.target.value)}
+          >
+            <option value="">Choose another permitted member</option>
+            {witnesses.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.userId} · {member.role}
+              </option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!witnessUserId || requestingWitness}
+            onClick={() => void handleWitnessRequested()}
+          >
+            Request witness
+          </Button>
+        </div>
+      ) : null}
+      {error && !open ? (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {error}
+        </p>
       ) : null}
     </section>
   )
@@ -1867,6 +1965,8 @@ function SignatureDialog({
   onOpenChange,
   revision,
   integrityDigest,
+  meanings,
+  requestedMeaning,
   currentUserName,
   signing,
   error,
@@ -1876,6 +1976,8 @@ function SignatureDialog({
   onOpenChange: (open: boolean) => void
   revision: RevisionWire
   integrityDigest: string | null
+  meanings: PostSubmissionSignatureMeaning[]
+  requestedMeaning?: PostSubmissionSignatureMeaning
   currentUserName: string
   signing: boolean
   error: string | null
@@ -1885,12 +1987,22 @@ function SignatureDialog({
     password: string,
   ) => void
 }) {
-  const [meaning, setMeaning] = useState<PostSubmissionSignatureMeaning>(
-    'reviewed-and-approved',
-  )
+  const initialMeaning =
+    requestedMeaning && meanings.includes(requestedMeaning)
+      ? requestedMeaning
+      : (meanings[0] ?? 'reviewed-and-approved')
+  const [meaning, setMeaning] =
+    useState<PostSubmissionSignatureMeaning>(initialMeaning)
   const [confirmation, setConfirmation] = useState('')
   const [password, setPassword] = useState('')
   const passwordRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (open) {
+      setMeaning(initialMeaning)
+      setPassword('')
+      setConfirmation('')
+    }
+  }, [open, initialMeaning])
 
   const selected = SIGNATURE_MEANING_OPTIONS.find((o) => o.value === meaning)!
   const confirmationMatches =
@@ -1901,7 +2013,7 @@ function SignatureDialog({
       open={open}
       onOpenChange={(next) => {
         if (next) {
-          setMeaning('reviewed-and-approved')
+          setMeaning(initialMeaning)
           setConfirmation('')
         }
         setPassword('')
@@ -1983,7 +2095,9 @@ function SignatureDialog({
                 if (option) setMeaning(option.value)
               }}
             >
-              {SIGNATURE_MEANING_OPTIONS.map((option) => (
+              {SIGNATURE_MEANING_OPTIONS.filter((option) =>
+                meanings.includes(option.value),
+              ).map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

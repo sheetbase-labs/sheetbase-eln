@@ -14,6 +14,7 @@ import { notebookDataClient } from '../notebook-data'
 
 export type WorkItemKind =
   | 'review_requested'
+  | 'witness_requested'
   | 'run_failed'
   | 'data_issue'
   | 'material_expiring'
@@ -37,6 +38,7 @@ export interface WorkItemWire {
   source_id?: string | null
   parser_version_id?: string | null
   connector_id?: string | null
+  revision_id?: string | null
 }
 
 /** A resolved work item ready to render. */
@@ -54,10 +56,12 @@ export interface WorkItem {
   sourceId?: string | null
   parserVersionId?: string | null
   connectorId?: string | null
+  revisionId?: string | null
 }
 
 const KINDS: readonly WorkItemKind[] = [
   'review_requested',
+  'witness_requested',
   'run_failed',
   'data_issue',
   'material_expiring',
@@ -104,6 +108,7 @@ export function toWorkItem(
     dueAt,
     state,
     createdAt: row.created_at,
+    ...(row.revision_id ? { revisionId: row.revision_id } : {}),
     ...(row.source_type
       ? {
           sourceType: row.source_type,
@@ -131,7 +136,7 @@ export async function fetchWorkItems(
 ): Promise<WorkItem[]> {
   const rows = await client.list<WorkItemWire>(
     'my_work_items',
-    `?select=kind,record_id,identifier,title,project_id,reason,due_at,state,created_at,source_type,source_id,parser_version_id,connector_id&order=created_at.desc&limit=${limit}`,
+    `?select=kind,record_id,identifier,title,project_id,reason,due_at,state,created_at,source_type,source_id,parser_version_id,connector_id,revision_id&order=created_at.desc&limit=${limit}`,
   )
   return rows.map((row) => toWorkItem(row))
 }
@@ -155,6 +160,7 @@ export function countByKind(
 ): Record<WorkItemKind, number> {
   const counts: Record<WorkItemKind, number> = {
     review_requested: 0,
+    witness_requested: 0,
     run_failed: 0,
     data_issue: 0,
     material_expiring: 0,

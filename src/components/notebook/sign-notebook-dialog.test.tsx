@@ -11,6 +11,7 @@ import { sign002QueryKeys } from '#/lib/sign-002'
 const fetchReviewSubmissionByRevision = vi.fn()
 const fetchRevisionRow = vi.fn()
 const fetchSignaturesForSubmission = vi.fn()
+const fetchSignatureEligibility = vi.fn()
 const signRevision = vi.fn()
 const requestSignatureStepUp = vi.fn()
 
@@ -25,12 +26,15 @@ vi.mock('#/lib/signatures', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchSignaturesForSubmission: (...args: unknown[]) =>
     fetchSignaturesForSubmission(...args),
+  fetchSignatureEligibility: (...args: unknown[]) =>
+    fetchSignatureEligibility(...args),
   signRevision: (...args: unknown[]) => signRevision(...args),
   requestSignatureStepUp: (...args: unknown[]) =>
     requestSignatureStepUp(...args),
 }))
 
 beforeEach(() => {
+  fetchSignatureEligibility.mockResolvedValue({ writer: true, requests: [] })
   requestSignatureStepUp.mockResolvedValue({
     token: 'one-use-password-token',
     authMethod: 'password',
@@ -183,7 +187,7 @@ describe('SignNotebookDialog', () => {
     })
   })
 
-  it('explains when review has not finished', async () => {
+  it('offers Reviewed without approval or witness authority while review is active', async () => {
     fetchReviewSubmissionByRevision.mockResolvedValue({
       id: 'sub1',
       state: 'submitted',
@@ -205,14 +209,21 @@ describe('SignNotebookDialog', () => {
       />,
     )
 
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          'Review must finish before this Notebook can be signed.',
-        ),
-      ).toBeTruthy()
-    })
-    expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
+    await screen.findByRole('option', { name: 'Reviewed' })
+    expect(screen.getByLabelText('Signature meaning')).toHaveProperty(
+      'value',
+      'reviewed',
+    )
+    expect(
+      screen.queryByRole('option', {
+        name: 'Reviewed and approved',
+      }),
+    ).toBeNull()
+    expect(screen.queryByRole('option', { name: 'Witnessed' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Sign' })).toHaveProperty(
+      'disabled',
+      true,
+    )
   })
 
   it('never sends a signing RPC after password denial and clears the attempted password', async () => {

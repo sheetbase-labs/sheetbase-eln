@@ -40,6 +40,29 @@ describe('toWorkItem', () => {
     const item = toWorkItem(wire({ title: null }), NOW)
     expect(item.title).toBe('EXP-0142')
   })
+
+  it('keeps requested witness work actionable and targets its frozen revision', () => {
+    const witnessWork = toWorkItem(
+      wire({
+        kind: 'witness_requested',
+        record_id: 'live-record',
+        revision_id: 'frozen-revision',
+        source_type: 'signature_witness_request',
+        source_id: 'witness-request',
+      }),
+      NOW,
+    )
+    expect(witnessWork).toMatchObject({
+      kind: 'witness_requested',
+      recordId: 'live-record',
+      revisionId: 'frozen-revision',
+      sourceType: 'signature_witness_request',
+      sourceId: 'witness-request',
+    })
+    const groups = groupWorkItems([witnessWork], NOW)
+    expect(groups.later).toEqual([witnessWork])
+    expect(groups.following).toEqual([])
+  })
 })
 
 function item(overrides: Partial<WorkItem> = {}): WorkItem {
@@ -66,9 +89,11 @@ describe('countByKind', () => {
       item({ kind: 'data_issue' }),
       item({ kind: 'material_expiring' }),
       item({ kind: 'following' }),
+      item({ kind: 'witness_requested' }),
     ])
     expect(counts).toEqual({
       review_requested: 2,
+      witness_requested: 1,
       run_failed: 1,
       data_issue: 1,
       material_expiring: 1,

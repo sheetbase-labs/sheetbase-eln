@@ -15,6 +15,7 @@ import {
 } from '#/components/v3/ui/dialog'
 import { DataClientError } from '#/lib/data-client'
 import {
+  fetchAvailableReviewWorkflows,
   notebookDataClient,
   previewSubmissionDigest,
   submitRecordRevision,
@@ -36,6 +37,7 @@ import {
   reviewerOptionLabel,
 } from '#/lib/notebook-experience'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
+import { requestSignatureStepUp } from '#/lib/signatures'
 
 import { BlockPreview } from './block-preview'
 import { SubmissionReadinessGuide } from '#/components/assist/submission-readiness-guide'
@@ -149,13 +151,32 @@ export function SubmitNotebookDialog({
   ])
   // WORK-01.1 — optional due date, defaulting to the project's review period.
   const [dueDate, setDueDate] = useState('')
+  const [workflowId, setWorkflowId] = useState(
+    `${WORKFLOW_KEY}/${WORKFLOW_VERSION}`,
+  )
+  const [authorPassword, setAuthorPassword] = useState('')
+  const [authorConfirmation, setAuthorConfirmation] = useState('')
+  const attemptRef = useRef<{ arguments: string; key: string } | null>(null)
+
+  const workflows = useQuery({
+    queryKey: ['review-workflows', workspaceId],
+    queryFn: () => fetchAvailableReviewWorkflows(notebookDataClient),
+    enabled: open,
+  })
+  const workflow = workflows.data?.find(
+    (item) => `${item.definition_key}/${item.version}` === workflowId,
+  )
 
   useEffect(() => {
+    setAuthorPassword('')
+    setAuthorConfirmation('')
     if (open) {
       setVerified(null)
       setInvalidated(false)
       setSelectedReviewerIds([reviewerUserId])
       setDueDate('')
+      setWorkflowId(`${WORKFLOW_KEY}/${WORKFLOW_VERSION}`)
+      attemptRef.current = null
     }
   }, [open, reviewerUserId])
 
@@ -230,17 +251,59 @@ export function SubmitNotebookDialog({
   })
   const submit = useMutation({
     mutationFn: async () => {
-      const expected =
-        verified?.digest ??
-        (await previewSubmissionDigest(notebookDataClient, recordId))
-      return submitRecordRevision(notebookDataClient, {
+      if (!workflow || !verified || submissionHasBlockingChecks(checks))
+        throw new Error(
+          'Check the current snapshot and workflow before submitting.',
+        )
+      const input = {
         recordId,
-        expectedSourceDigest: expected.sourceDigest,
-        workflowDefinitionKey: WORKFLOW_KEY,
-        workflowDefinitionVersion: WORKFLOW_VERSION,
-        reviewerUserIds: selectedReviewerIds,
-        idempotencyKey: crypto.randomUUID(),
+        expectedSourceDigest: verified.digest.sourceDigest,
+        workflowDefinitionKey: workflow.definition_key,
+        workflowDefinitionVersion: workflow.version,
+        reviewerUserIds: [...new Set(selectedReviewerIds)].sort(),
         dueAt: dueDate ? new Date(`${dueDate}T00:00:00`).toISOString() : null,
+      }
+      const argumentsKey = JSON.stringify(input)
+      if (attemptRef.current?.arguments !== argumentsKey) {
+        attemptRef.current = {
+          arguments: argumentsKey,
+          key: crypto.randomUUID(),
+        }
+      }
+      const idempotencyKey = attemptRef.current.key
+      if (!workflow.requires_signature)
+        return submitRecordRevision(notebookDataClient, {
+          ...input,
+          idempotencyKey,
+        })
+      if (!workspaceId || !authorPassword || !authorConfirmation.trim())
+        throw new Error(
+          'Enter your signing password and name to attest Authored.',
+        )
+      const password = authorPassword
+      setAuthorPassword('')
+      const proof = await requestSignatureStepUp({
+        workspaceId,
+        purpose: 'author-submit',
+        password,
+        recordId,
+        revisionDigest: input.expectedSourceDigest,
+        workflowDefinitionKey: input.workflowDefinitionKey,
+        workflowDefinitionVersion: input.workflowDefinitionVersion,
+        reviewerUserIds: input.reviewerUserIds,
+        confirmed: true,
+        idempotencyKey,
+        dueAt: input.dueAt,
+      })
+      if (liveSignatureRef.current !== verified.signature)
+        throw new Error(
+          'The Notebook changed. Check the snapshot again before submitting.',
+        )
+      return submitRecordRevision(notebookDataClient, {
+        ...input,
+        idempotencyKey,
+        authorSigningToken: proof.token,
+        authorConfirmationPhrase: authorConfirmation,
       })
     },
     onSuccess: (result) => {
@@ -316,6 +379,36 @@ export function SubmitNotebookDialog({
           description="Freezes this Notebook as submitted evidence. Later edits require an amendment. Work through the readiness checks, review what will be pinned, then confirm."
         />
         <DialogBody className="text-body">
+          <Field label="Review workflow">
+            <select
+              aria-label="Review workflow"
+              value={workflowId}
+              disabled={submit.isPending || workflows.isPending}
+              className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+              onChange={(event) => {
+                setWorkflowId(event.target.value)
+                setAuthorPassword('')
+                setAuthorConfirmation('')
+              }}
+            >
+              {(workflows.data ?? []).map((item) => (
+                <option
+                  key={`${item.definition_key}/${item.version}`}
+                  value={`${item.definition_key}/${item.version}`}
+                >
+                  {item.definition_key} / v{item.version}
+                  {item.requires_signature
+                    ? ' · Authored signature required'
+                    : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {workflows.isError ? (
+            <Notice tone="bad">
+              Review workflows could not be loaded. Submission is unavailable.
+            </Notice>
+          ) : null}
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">Reviewers</legend>
             {shownReviewers.map((member) => (
@@ -324,6 +417,7 @@ export function SubmitNotebookDialog({
                 className="flex items-center gap-2 text-sm"
               >
                 <Checkbox
+                  disabled={submit.isPending}
                   checked={selectedReviewerIds.includes(member.userId)}
                   onCheckedChange={() => toggleReviewer(member.userId)}
                 />
@@ -338,11 +432,49 @@ export function SubmitNotebookDialog({
           >
             <Input
               type="date"
+              disabled={submit.isPending}
               value={dueDate}
               onChange={(event) => setDueDate(event.target.value)}
               aria-label="Review due date"
             />
           </Field>
+
+          {workflow?.requires_signature ? (
+            <fieldset className="space-y-3" disabled={submit.isPending}>
+              <legend className="text-sm font-medium">
+                Authored signature
+              </legend>
+              <p className="text-xs text-fg-muted">
+                I authored the exact snapshot below and submit it for review.
+                Your independently verified identity, current certification and
+                signing password are required. Freezing and signing succeed
+                together or neither is recorded.
+              </p>
+              <Field label="Signing password">
+                <Input
+                  aria-label="Author signing password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={authorPassword}
+                  onChange={(event) => setAuthorPassword(event.target.value)}
+                />
+              </Field>
+              <Field label="Type your name to confirm Authored">
+                <Input
+                  aria-label="Author signature confirmation"
+                  autoComplete="off"
+                  value={authorConfirmation}
+                  onChange={(event) =>
+                    setAuthorConfirmation(event.target.value)
+                  }
+                />
+              </Field>
+              <p className="text-xs text-fg-muted">
+                Three failed password attempts lock signing for 15 minutes.
+                Exploratory workflows do not require this signature.
+              </p>
+            </fieldset>
+          ) : null}
 
           {/* NOTE-04: readiness derived from canonical state plus the
               server-owned digest check — no invented validation rules. */}
@@ -509,6 +641,11 @@ export function SubmitNotebookDialog({
               preview.isPending ||
               blocked ||
               !verified ||
+              !workflow ||
+              (workflow.requires_signature &&
+                (!workspaceId ||
+                  !authorPassword ||
+                  !authorConfirmation.trim())) ||
               selectedReviewerIds.length === 0
             }
             onClick={() => submit.mutate()}

@@ -14,11 +14,29 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import { SubmitNotebookDialog } from './submit-notebook-dialog'
 import { fetchWorkspaceMembers } from '#/lib/workspace-admin'
+import { requestSignatureStepUp } from '#/lib/signatures'
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
+  fetchAvailableReviewWorkflows: vi.fn(async () => [
+    {
+      definition_key: 'default-scientific-review',
+      version: 1,
+      requires_signature: false,
+    },
+    {
+      definition_key: 'controlled-scientific-review',
+      version: 1,
+      requires_signature: true,
+    },
+  ]),
   previewSubmissionDigest: vi.fn(),
   submitRecordRevision: vi.fn(),
+}))
+
+vi.mock('#/lib/signatures', async (importOriginal) => ({
+  ...(await importOriginal()),
+  requestSignatureStepUp: vi.fn(),
 }))
 
 vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
@@ -154,10 +172,155 @@ describe('SubmitNotebookDialog', () => {
     expect(submitRecordRevision).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        reviewerUserIds: ['u1', '22222222-reviewer'],
+        reviewerUserIds: ['22222222-reviewer', 'u1'],
         dueAt: new Date('2026-10-15T00:00:00').toISOString(),
       }),
     )
+    expect(requestSignatureStepUp).not.toHaveBeenCalled()
+  })
+
+  it('binds Authored password proof to the exact controlled submission arguments', async () => {
+    const { previewSubmissionDigest, submitRecordRevision } =
+      await import('#/lib/notebook-data')
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+      recordId: 'r1',
+      sourceDigest: 'a'.repeat(64),
+      structureVersion: 3,
+      metadataVersion: 1,
+      calculationInputRevision: 7,
+    })
+    vi.mocked(requestSignatureStepUp).mockResolvedValue({
+      token: 'bound-password-token',
+      expiresAt: '2026-10-04T12:05:00Z',
+      authMethod: 'password',
+    })
+    vi.mocked(submitRecordRevision).mockResolvedValue({
+      revision: { id: 'rev-controlled', integrityDigest: 'a'.repeat(64) },
+      submission: { id: 'sub-controlled', state: 'submitted' },
+      idempotent: false,
+    })
+    const user = userEvent.setup()
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="u1"
+        workspaceId="ws"
+        record={testRecord}
+      />,
+    )
+    await screen.findByRole('option', { name: /controlled-scientific-review/ })
+    await user.selectOptions(
+      screen.getByLabelText('Review workflow'),
+      'controlled-scientific-review/1',
+    )
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    await screen.findByText(/Integrity check:/)
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+    fireEvent.change(screen.getByLabelText('Review due date'), {
+      target: { value: '2026-10-15' },
+    })
+    await user.type(
+      screen.getByLabelText('Author signing password'),
+      'native-fixture-password',
+    )
+    await user.type(
+      screen.getByLabelText('Author signature confirmation'),
+      'Actual Author',
+    )
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(submitRecordRevision).toHaveBeenCalledTimes(1))
+    const dueAt = new Date('2026-10-15T00:00:00').toISOString()
+    expect(requestSignatureStepUp).toHaveBeenCalledWith({
+      workspaceId: 'ws',
+      purpose: 'author-submit',
+      password: 'native-fixture-password',
+      recordId: 'r1',
+      revisionDigest: 'a'.repeat(64),
+      workflowDefinitionKey: 'controlled-scientific-review',
+      workflowDefinitionVersion: 1,
+      reviewerUserIds: ['u1'],
+      confirmed: true,
+      idempotencyKey: expect.any(String),
+      dueAt,
+    })
+    const issued = vi.mocked(requestSignatureStepUp).mock.calls[0][0]
+    if (issued.purpose !== 'author-submit')
+      throw new Error('Expected author proof')
+    expect(submitRecordRevision).toHaveBeenCalledWith(expect.anything(), {
+      recordId: 'r1',
+      expectedSourceDigest: 'a'.repeat(64),
+      workflowDefinitionKey: 'controlled-scientific-review',
+      workflowDefinitionVersion: 1,
+      reviewerUserIds: ['u1'],
+      idempotencyKey: issued.idempotencyKey,
+      dueAt,
+      authorSigningToken: 'bound-password-token',
+      authorConfirmationPhrase: 'Actual Author',
+    })
+    expect(screen.getByLabelText('Author signing password')).toHaveProperty(
+      'value',
+      '',
+    )
+  })
+
+  it('never freezes an unsigned controlled submission after password proof fails', async () => {
+    const { previewSubmissionDigest, submitRecordRevision } =
+      await import('#/lib/notebook-data')
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+      recordId: 'r1',
+      sourceDigest: 'b'.repeat(64),
+      structureVersion: 3,
+      metadataVersion: 1,
+      calculationInputRevision: 7,
+    })
+    vi.mocked(requestSignatureStepUp).mockRejectedValue(
+      new Error('Signing is locked for 15 minutes.'),
+    )
+    const user = userEvent.setup()
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="u1"
+        workspaceId="ws"
+        record={testRecord}
+      />,
+    )
+    await screen.findByRole('option', { name: /controlled-scientific-review/ })
+    await user.selectOptions(
+      screen.getByLabelText('Review workflow'),
+      'controlled-scientific-review/1',
+    )
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    await screen.findByText(/Integrity check:/)
+    await user.type(
+      screen.getByLabelText('Author signing password'),
+      'wrong-password',
+    )
+    await user.type(
+      screen.getByLabelText('Author signature confirmation'),
+      'Actual Author',
+    )
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await screen.findByText('Signing is locked for 15 minutes.')
+    expect(submitRecordRevision).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Author signing password')).toHaveProperty(
+      'value',
+      '',
+    )
+    expect(
+      screen.queryByRole('region', { name: 'Evidence preview' }),
+    ).toBeNull()
   })
 
   it('fails the readiness checklist and blocks submit while drafts are unsaved', async () => {

@@ -203,11 +203,22 @@ vi.mock('#/lib/review-checks', () => ({
   runRevisionChecks: vi.fn(),
 }))
 
-vi.mock('#/lib/signatures', () => ({
+vi.mock('#/lib/signatures', async (importOriginal) => ({
+  ...(await importOriginal()),
   ASSURANCE_LEVEL_STATEMENT: { standard: 'Standard assurance statement.' },
   fetchSignaturesForSubmission: vi.fn(async () => []),
+  fetchSignatureEligibility: vi.fn(async () => ({
+    writer: false,
+    requests: [],
+  })),
   signatureQueryKeys: {
     forSubmission: (id: string) => ['signatures', id],
+    eligibility: (id: string, userId: string) => [
+      'signatures',
+      'eligibility',
+      id,
+      userId,
+    ],
   },
   SIGNATURE_MEANING_LABEL: { 'reviewed-and-approved': 'Reviewed and approved' },
   SIGNATURE_MEANING_OPTIONS: [
@@ -218,6 +229,11 @@ vi.mock('#/lib/signatures', () => ({
     },
   ],
   signRevision: vi.fn(),
+}))
+
+vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
+  ...(await importOriginal()),
+  fetchWorkspaceMembers: vi.fn(async () => []),
 }))
 
 vi.mock('#/lib/sign-002', () => ({

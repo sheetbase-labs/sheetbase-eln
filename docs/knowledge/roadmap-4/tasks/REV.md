@@ -85,6 +85,27 @@ comments at once; checklist completion is stored with the decision.
 
 **Original decision/dependency note:** [DEC-04](DEC.md) accepted 2026-09-27 (meanings Authored, Witnessed, Reviewed, Reviewed and approved; role-restricted).
 
+**Implementation contract (2026-10-04):** The accepted owner decision in
+[ADR-0045](../../decisions/0045-regulated-intended-use-control-model.md) governs
+the original scope below. There are four new-write meanings, not five. Standalone
+Approved is not a signature authority. Historical `approve-for-record` and
+`witness` evidence remains unchanged and readable.
+
+Reviewer means the assigned human workflow reviewer with current workspace write
+permission, not an unassigned user with an owner, admin, or reviewer label.
+Reviewed attests review without approval or locking. Reviewed and approved
+requires the canonical approval and locks the exact revision. Witnessed requires
+an explicit request to another permitted nonauthor human for that frozen digest.
+
+Authored applies only to workflow versions whose immutable `requiresSignature`
+flag is true. `default-scientific-review/v1` remains unchanged and does not
+require author signing. `controlled-scientific-review/v1` requires atomic author
+submission. Its password grant binds the user, session, digest, record, workflow
+key and version, normalised reviewer set, confirmation boolean, canonical due
+date, and idempotency key. Failure cannot leave an unsigned frozen submission or
+a consumed grant. An identical already-signed retry returns the original result.
+Every new signature requires current certification and native password proof.
+
 ### Design
 
 `canvas/NbSigned.dc.html`, `canvas/ReviewApproved.dc.html`,

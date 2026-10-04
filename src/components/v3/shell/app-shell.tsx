@@ -48,6 +48,8 @@ import { filterNavForRole } from '#/lib/nav-visibility'
 import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
+import { authClient } from '#/lib/auth-client'
+import { Notice } from '#/components/v3/ui/alert'
 
 const SIDEBAR_COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
 
@@ -623,6 +625,38 @@ const appearanceClient = createDataClient()
 
 function AccountMenu({ me }: { me: ShellData['me'] }) {
   const { pref, setPref } = useTheme()
+  const navigate = useNavigate()
+  const router = useRouter()
+  const [signingOut, setSigningOut] = useState(false)
+  const [signOutError, setSignOutError] = useState<string | null>(null)
+  async function signOut() {
+    setSignOutError(null)
+    // Reuse the editors' native leave guard before terminating their session.
+    const leaving = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(leaving)
+    if (!navigator.onLine || leaving.defaultPrevented) {
+      setSignOutError(
+        'Save your pending edits and reconnect before signing out. Your edits have not been discarded.',
+      )
+      return
+    }
+    setSigningOut(true)
+    try {
+      const result = await authClient.signOut()
+      if (result.error || !result.data.success)
+        throw new Error(
+          'Sign out failed. Your session has not been confirmed ended. Try again.',
+        )
+      await router.options.context.queryClient.cancelQueries()
+      router.options.context.queryClient.clear()
+      await navigate({ to: '/sign-in', search: { state: 'signed-out' } })
+      await router.invalidate()
+    } catch {
+      setSignOutError('Sign out could not be confirmed. Try again.')
+    } finally {
+      setSigningOut(false)
+    }
+  }
   // Cache locally for an instant switch and persist the per-user preference;
   // the server value is the source of truth on the next load.
   const choose = (value: ThemePref) => {
@@ -691,7 +725,15 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
           Settings
         </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem icon="signOut">Sign out</DropdownMenuItem>
+        {signOutError ? <Notice tone="bad">{signOutError}</Notice> : null}
+        <DropdownMenuItem
+          icon="signOut"
+          disabled={signingOut}
+          closeOnClick={false}
+          onClick={() => void signOut()}
+        >
+          {signingOut ? 'Signing out…' : 'Sign out'}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

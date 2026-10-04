@@ -6,10 +6,32 @@ import {
   waitFor,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import { AppShell } from './app-shell'
 import { setUserPreference } from '#/lib/user-preferences'
+
+const { signOut, navigate, invalidate, cancelQueries, clearQueries } =
+  vi.hoisted(() => ({
+    signOut: vi.fn(),
+    navigate: vi.fn(),
+    invalidate: vi.fn(),
+    cancelQueries: vi.fn(),
+    clearQueries: vi.fn(),
+  }))
+vi.mock('#/lib/auth-client', () => ({ authClient: { signOut } }))
+beforeEach(() => {
+  vi.clearAllMocks()
+  signOut.mockResolvedValue({ data: { success: true }, error: null })
+})
 
 // `mod` is ⌘ on macOS, Ctrl elsewhere; pin the platform so the ⌘\ binding is
 // exercised deterministically.
@@ -24,8 +46,13 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
     <a href={typeof to === 'string' ? to : '#'}>{children}</a>
   ),
-  useNavigate: () => vi.fn(),
-  useRouter: () => ({ invalidate: vi.fn() }),
+  useNavigate: () => navigate,
+  useRouter: () => ({
+    invalidate,
+    options: {
+      context: { queryClient: { cancelQueries, clear: clearQueries } },
+    },
+  }),
   useRouterState: ({
     select,
   }: {
@@ -121,6 +148,85 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
     renderShell()
     await user.keyboard('?')
     expect(await screen.findByText('Keyboard shortcuts')).toBeTruthy()
-    expect(screen.getByText('Open the command palette')).toBeTruthy()
+    expect(screen.getByText('Search and jump')).toBeTruthy()
+  })
+})
+
+describe('v3 AccountMenu native signout', () => {
+  async function chooseSignOut() {
+    const user = userEvent.setup()
+    renderShell()
+    screen.getByRole('button', { name: 'Account: Gareth P.' }).focus()
+    await user.keyboard('{ArrowDown}')
+    await user.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
+  }
+
+  it('clears authenticated cache and navigates only after native success', async () => {
+    await chooseSignOut()
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: '/sign-in',
+        search: { state: 'signed-out' },
+      }),
+    )
+    expect(signOut).toHaveBeenCalledOnce()
+    expect(cancelQueries).toHaveBeenCalledOnce()
+    expect(clearQueries).toHaveBeenCalledOnce()
+    expect(invalidate).toHaveBeenCalledOnce()
+    expect(signOut.mock.invocationCallOrder[0]).toBeLessThan(
+      clearQueries.mock.invocationCallOrder[0],
+    )
+    expect(clearQueries.mock.invocationCallOrder[0]).toBeLessThan(
+      navigate.mock.invocationCallOrder[0],
+    )
+  })
+
+  it.each(['transport', 'denial', 'missing-success'])(
+    'keeps the current route and cache on %s failure',
+    async (failure) => {
+      if (failure === 'transport')
+        signOut.mockRejectedValueOnce(new Error('Network unavailable'))
+      else
+        signOut.mockResolvedValueOnce({
+          data: null,
+          error: failure === 'denial' ? { message: 'Denied' } : null,
+        })
+      await chooseSignOut()
+      await screen.findByRole('alert')
+      expect(navigate).not.toHaveBeenCalled()
+      expect(cancelQueries).not.toHaveBeenCalled()
+      expect(clearQueries).not.toHaveBeenCalled()
+      expect(invalidate).not.toHaveBeenCalled()
+    },
+  )
+
+  it('keeps unsaved editors mounted and does not end their session', async () => {
+    const guard = (event: Event) => event.preventDefault()
+    window.addEventListener('beforeunload', guard)
+    try {
+      await chooseSignOut()
+      expect((await screen.findByRole('alert')).textContent).toContain(
+        'Your edits have not been discarded',
+      )
+      expect(signOut).not.toHaveBeenCalled()
+      expect(navigate).not.toHaveBeenCalled()
+      expect(clearQueries).not.toHaveBeenCalled()
+      expect(screen.getByText('Content')).toBeTruthy()
+    } finally {
+      window.removeEventListener('beforeunload', guard)
+    }
+  })
+
+  it('does not discard offline work or pretend to end an unreachable session', async () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    try {
+      await chooseSignOut()
+      await screen.findByRole('alert')
+      expect(signOut).not.toHaveBeenCalled()
+      expect(navigate).not.toHaveBeenCalled()
+      expect(clearQueries).not.toHaveBeenCalled()
+    } finally {
+      online.mockRestore()
+    }
   })
 })

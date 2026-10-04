@@ -141,9 +141,9 @@ function SignIn() {
             {message ? <Notice tone="bad">{message}</Notice> : null}
 
             {state === 'signed-out' ? (
-              <Notice icon="clock">
-                You were signed out after 30 minutes of inactivity. Unsaved
-                changes in open sheets are kept as drafts.
+              <Notice icon="signOut">
+                You signed out of this browser. Saved changes remain in your
+                workspace.
               </Notice>
             ) : state === 'expired-signing' ? (
               <Notice tone="warn" title="The record wasn’t signed.">
@@ -224,8 +224,8 @@ function SignIn() {
             )}
           </section>
           <p className="m-0 text-label leading-[18px] text-fg-muted">
-            Sessions end after 30 minutes without activity. Signing a record
-            always asks for your password again.
+            Signing out ends this browser session. Signing a record always asks
+            for your password again.
           </p>
         </div>
       </main>

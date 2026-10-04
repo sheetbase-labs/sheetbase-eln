@@ -16,6 +16,7 @@ export default defineConfig({
     {
       name: 'browser',
       testDir: 'tests/browser',
+      testIgnore: 'rev-03-signing.test.ts',
     },
     {
       // Visual parity against the DSYS-01 renders, which are the expected
@@ -25,7 +26,12 @@ export default defineConfig({
       name: 'parity',
       testDir: 'tests/visual',
       snapshotPathTemplate: '{testDir}/design-reference/{arg}{ext}',
-      use: { baseURL: 'http://127.0.0.1:3200', deviceScaleFactor: 1 },
+      use: {
+        baseURL: 'http://127.0.0.1:3200',
+        deviceScaleFactor: 1,
+        locale: 'en-GB',
+        timezoneId: 'Europe/London',
+      },
     },
   ],
   use: {

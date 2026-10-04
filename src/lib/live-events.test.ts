@@ -430,6 +430,30 @@ describe('createLiveEventCoordinator', () => {
     expect(coordinator.getStatus().lastAppliedSeq).toBe(0)
   })
 
+  it('refreshes scoped parser evidence and failure work on authoritative changes', () => {
+    const { coordinator, qc, sources } = makeDeps()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    coordinator.connect()
+    sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+    for (const [index, entityType] of [
+      'parser_version',
+      'dataset_import_file',
+      'connector_run',
+    ].entries()) {
+      spy.mockClear()
+      sources[0].dispatch('change', changeEvent(index + 1, { entityType }))
+      expect(spy).toHaveBeenCalledWith({ queryKey: ['work-items'] })
+      if (entityType !== 'connector_run') {
+        expect(spy).toHaveBeenCalledWith({
+          queryKey: ['parser-settings', 'ws-1'],
+        })
+        expect(spy).toHaveBeenCalledWith({
+          queryKey: ['parser-test-files', 'ws-1'],
+        })
+      }
+    }
+  })
+
   it('subscribe receives the current snapshot immediately and on changes', () => {
     const { coordinator, sources } = makeDeps()
     const seen: string[] = []

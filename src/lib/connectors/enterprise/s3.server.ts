@@ -455,7 +455,7 @@ export function parsePreviewBytes(download: S3Download) {
   }
 }
 
-function parseObjectText(text: string) {
+export function parseObjectText(text: string) {
   try {
     const preview = parseImportText(text, { header: true })
     const sheet = preview.sheets[0]

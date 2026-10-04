@@ -4252,6 +4252,7 @@ export const datasetImportFiles = api.table(
     format: text('format').notNull(),
     status: text('status').notNull().default('stored'),
     parseError: text('parse_error'),
+    parserFailure: jsonb('parser_failure'),
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),

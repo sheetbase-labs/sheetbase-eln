@@ -227,12 +227,30 @@ describe('DSET-06.2 canonical import provenance', () => {
         `SELECT api.ensure_parser($1, 'forged', 'Forged', 'csv', 1, '{}', '{}', NULL, 'approved')`,
         [workspace],
       ),
-      '42501',
+      '22023',
     )
     await migrator.query(
       `UPDATE api.workspace_memberships SET role = 'steward' WHERE user_id = 'provenance-writer'`,
     )
     try {
+      await setActorJwt(migrator, 'provenance-writer', workspace)
+      await migrator.query(
+        'SELECT internal.record_parser_validation($1,$2,$3,$4,$5)',
+        [
+          f.version,
+          f.file,
+          'a'.repeat(64),
+          { signature: { requiredHeaders: ['reading'] }, mapping: {} },
+          {
+            ok: true,
+            fileId: f.file,
+            checksum: 'a'.repeat(64),
+            rowCount: 1,
+            errors: [],
+            headers: ['reading'],
+          },
+        ],
+      )
       await writer.query('SELECT api.approve_parser_version($1)', [f.version])
       expect(await commit(f)).toMatchObject({ ok: true })
       await writer.query(

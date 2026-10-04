@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { Route } from './inbox'
+import { itemKey, itemLink, Route, rowKey } from './inbox'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import type * as router from '@tanstack/react-router'
 import type * as workItems from '#/lib/work-items/data'
@@ -90,6 +90,36 @@ function currentRow() {
 }
 
 describe('Inbox list shortcuts (SHELL-03.3)', () => {
+  it('uses exact failure source identities and actionable parser/connector targets', () => {
+    const fileFailure: WorkItem = {
+      ...items[1],
+      recordId: null,
+      identifier: 'same.csv',
+      sourceType: 'dataset_import_file',
+      sourceId: 'file-one',
+      parserVersionId: 'version-one',
+    }
+    expect(itemKey(fileFailure)).not.toEqual(
+      itemKey({ ...fileFailure, sourceId: 'file-two' }),
+    )
+    expect(rowKey(fileFailure)).toBe('file-one')
+    expect(itemLink(fileFailure)).toEqual({
+      to: '/settings/instruments',
+      search: { fileId: 'file-one', versionId: 'version-one' },
+    })
+    expect(
+      itemLink({
+        ...fileFailure,
+        sourceType: 'connector_run',
+        sourceId: 'run-one',
+        connectorId: 'connector-one',
+      }),
+    ).toEqual({
+      to: '/settings/integrations/$connectorId',
+      params: { connectorId: 'connector-one' },
+    })
+  })
+
   it('moves the selection with J and K', () => {
     renderInbox()
     expect(currentRow()?.textContent).toContain('First review')

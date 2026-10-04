@@ -12,6 +12,7 @@
  *    validate_dataset_row_batch / commit_dataset_row_batch and stamps parser
  *    provenance into the finished run result.
  */
+import { randomUUID } from 'node:crypto'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -21,7 +22,7 @@ import { datasetFieldsFromColumns } from '#/lib/import-mapping'
 import type { DataClient } from '#/lib/data-client'
 import type { ScientificColumnWire } from '#/lib/scientific-sheet-data'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS_A = '0e010000-0000-4000-8000-000000000001'
 const OWNER_A = 'int-owner-a'
@@ -740,6 +741,42 @@ A2,std-2,21.7`
     await expect(
       ingest(owner, connectorId, fixture, VALID_CSV, 'regulated.csv'),
     ).rejects.toThrow(/approved parser/i)
+    const failedRun = (
+      await owner.query(
+        `SELECT id FROM api.connector_runs WHERE connector_id=$1 AND status='failed' ORDER BY started_at DESC LIMIT 1`,
+        [connectorId],
+      )
+    ).rows[0].id
+    const failureWork = () =>
+      owner.query(
+        `SELECT source_id,connector_id FROM api.my_work_items WHERE source_type='connector_run' AND source_id=$1`,
+        [failedRun],
+      )
+    expect((await failureWork()).rows).toEqual([
+      { source_id: failedRun, connector_id: connectorId },
+    ])
+    const viewer = await actor(VIEWER_A, WS_A)
+    expect(
+      (
+        await viewer.query(
+          'SELECT source_id FROM api.my_work_items WHERE source_id=$1',
+          [failedRun],
+        )
+      ).rows,
+    ).toHaveLength(0)
+    // A claimed successful retry without a canonical commit cannot clear work.
+    const forgedRetry = (
+      await owner.query(
+        'SELECT * FROM api.start_connector_run($1,$2,$3,$4,$5)',
+        [WS_A, connectorId, 'manual', randomUUID(), failedRun],
+      )
+    ).rows[0]
+    await owner.query('SELECT api.complete_connector_run($1,$2,$3)', [
+      WS_A,
+      forgedRetry.id,
+      { ok: true },
+    ])
+    expect((await failureWork()).rows).toHaveLength(1)
     expect(
       (
         await owner.query(
@@ -748,6 +785,30 @@ A2,std-2,21.7`
         )
       ).rows[0].n,
     ).toBe(0)
+    const testFile = randomUUID()
+    await migrator.query(
+      `INSERT INTO api.dataset_import_files(id,workspace_id,filename,byte_size,checksum,storage_key,format)
+      VALUES ($1,$2,'validation.csv',25,$3,$4,'csv')`,
+      [testFile, WS_A, 'a'.repeat(64), `${WS_A}/${testFile}/test`],
+    )
+    await setActorJwt(migrator, OWNER_A, WS_A)
+    await migrator.query(
+      'SELECT internal.record_parser_validation($1,$2,$3,$4,$5)',
+      [
+        version,
+        testFile,
+        'a'.repeat(64),
+        { signature: { engine: 'sheetbase.plate-reader-csv@1' }, mapping: {} },
+        {
+          ok: true,
+          fileId: testFile,
+          checksum: 'a'.repeat(64),
+          rowCount: 2,
+          errors: [],
+          headers: ['well', 'sample', 'od'],
+        },
+      ],
+    )
     await owner.query('SELECT api.approve_parser_version($1)', [version])
     const result = await ingest(
       owner,
@@ -757,6 +818,7 @@ A2,std-2,21.7`
       'regulated.csv',
     )
     expect(result.rowCount).toBe(2)
+    expect((await failureWork()).rows).toHaveLength(0)
     expect(
       (
         await owner.query(

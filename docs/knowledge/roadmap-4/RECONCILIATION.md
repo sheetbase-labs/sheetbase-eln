@@ -232,6 +232,58 @@ the REV/SCI workflow fixture replacements continue separately.
 The broader integrated evidence, submission, signatures, certification,
 governance and review check/due-date run passes nine DB suites and 49 tests.
 
+The subsequent canonical diff/fetch and Notebook boundary repair is integrated.
+Review compares stored composed cells by stable row and column identities,
+with quantities and captured calculation evidence. Positional-only historical
+evidence reports comparison unavailable in either direction. Locked or
+historical Notebooks with missing evidence do not fall back to live values;
+legitimate read-only live previews remain supported. The canonical REV/SCI
+fixtures pass with all 16 API suites and 133 tests on a fresh database through 0309. Wide and 390px component previews were inspected. The safe worker does
+not support `ROUND`; the fixture uses scalar identity arithmetic for its
+one-decimal inputs, not a new engine or restored legacy writes.
+
+The populated-upgrade blocker at 0255 is repaired by running stock Drizzle
+migrations on the dedicated advisory-lock connection, with Sheet write context
+confined to that session and discarded on close. Fresh and populated-upgrade
+tests through 0313 preserve original Instance JSON and historical journal
+hashes, reject ordinary writes, and prove failed-migration rollback and lock
+cleanup. Published SQL and guards remain unchanged.
+
+Migrations 0310–0313 add trusted retained-file validation and matching-evidence
+approval gates, draft-only registration, authoritative parser failure/request
+state, and WORK-01 derivation for retained-file and connector-run remediation.
+Canonical settings show instrument-linked versions and stored evidence;
+Inbox links to the exact remediation source. Connector resolution requires a
+matching committed import receipt, not a caller-claimed successful run.
+Registration rejects foreign-workspace instruments and conflicting formats.
+
+The integrated populated database upgrades through 0313 without schema drift.
+Nine fresh DB suites pass 60 tests, including the populated-upgrade regression.
+All three real import browser tests pass: upload/map/review/commit and admin
+request, regulated denial followed by retained validation and QA approval,
+and a failing instrument-linked v1 corrected by validated/approved v2.
+The 390px evidence capture explicitly checks readable QA actor/time, two-row
+validation and expanded stored results. Parent `pnpm validate` passes 3,588
+tests across 341 files with the current tracker present, zero lint errors,
+18 existing warnings, typecheck and build.
+
+Signing preparation closes public password verification/change/reset paths,
+including valid-token reset callbacks, while preserving trusted Better Auth
+server APIs. Fifteen auth-session DB tests pass. SMTP now requires verified
+TLS 1.2 or later with no plaintext fallback; its declared Nodemailer dependency
+passes frozen installation and eight tests, including real local handshake
+success and insecure-handshake rejection. **REV-03 remains open:** token-gated
+signing, independent verification/certification, durable lockout and governed
+enrolment/recovery are not implemented by these preparations.
+
+**DSET-06 remains open.** PostgreSQL extraction has no retained-file-equivalent
+validator and fails closed. Legacy provenance is not fabricated. Production
+application permission to assume `service_role`, external SMTP/IdP acceptance,
+and formal SettingsInstruments parity are not independently verified. Dataset
+intended use remains an import policy, not compliance certification. These
+checkpoints are local commits, not hosted CI, merge or deployment acceptance;
+the package-access CI blocker above remains unresolved.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven
@@ -1080,11 +1132,12 @@ Specification: [tasks/DSET.md](tasks/DSET.md).
 
 **Evidence:**
 
-- Migrations 0299–0300 provide canonical parser/version storage, draft creation and approval, but no test-file validation operation. Step 1 is reopened.
+- Migrations 0299–0300 provide canonical parser/version storage. Migrations 0310–0313 add claims-bound server validation of retained bytes, matching checksum/definition approval gating, draft-only registration and instrument/format scope checks. PostgreSQL extraction validation remains unsupported.
 - Migrations 0307–0308 and `tests/db/dset-06-import-provenance.test.ts` enforce matching parser/version, regulated approval gating, classification authority, replay binding and frozen actual row membership. Step 2 is accepted.
-- `tests/browser/import-flow.test.ts` exercises regulated denial, retained raw-file checksum, real approval and retry with five traced rows. Both integrated browser tests pass.
+- Canonical instrument/parser settings expose stored version, validation and approval evidence. Authoritative failures and requests derive into WORK-01 with exact Inbox targets; successful receipt-backed retry or trusted parser remediation clears the source failure.
+- All three `tests/browser/import-flow.test.ts` workflows pass, including regulated denial, retained validation, UI QA approval, same-file retry with five traced rows and failed v1 corrected by approved v2. Desktop and 390px evidence states were inspected.
 
-**Remaining:** Server-authoritative retained-test-file validation and validation-gated approval; canonical instrument/parser settings with exact version and stored validation evidence; actionable failure work items derived through WORK-01. Dataset intended use does not establish compliance acceptance. No historical receipt provenance is fabricated.
+**Remaining:** Retained-file-equivalent validation for PostgreSQL extraction, independent production service-role permission verification, and formal SettingsInstruments parity acceptance. The full task remains open. Dataset intended use does not establish compliance acceptance. No historical receipt provenance is fabricated.
 
 ## SHEET
 

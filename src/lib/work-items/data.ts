@@ -33,6 +33,10 @@ export interface WorkItemWire {
   due_at: string | null
   state: string
   created_at: string | null
+  source_type?: string | null
+  source_id?: string | null
+  parser_version_id?: string | null
+  connector_id?: string | null
 }
 
 /** A resolved work item ready to render. */
@@ -46,6 +50,10 @@ export interface WorkItem {
   dueAt: string | null
   state: WorkItemState
   createdAt: string | null
+  sourceType?: string | null
+  sourceId?: string | null
+  parserVersionId?: string | null
+  connectorId?: string | null
 }
 
 const KINDS: readonly WorkItemKind[] = [
@@ -96,6 +104,14 @@ export function toWorkItem(
     dueAt,
     state,
     createdAt: row.created_at,
+    ...(row.source_type
+      ? {
+          sourceType: row.source_type,
+          sourceId: row.source_id,
+          parserVersionId: row.parser_version_id,
+          connectorId: row.connector_id,
+        }
+      : {}),
   }
 }
 
@@ -115,7 +131,7 @@ export async function fetchWorkItems(
 ): Promise<WorkItem[]> {
   const rows = await client.list<WorkItemWire>(
     'my_work_items',
-    `?select=kind,record_id,identifier,title,project_id,reason,due_at,state,created_at&order=created_at.desc&limit=${limit}`,
+    `?select=kind,record_id,identifier,title,project_id,reason,due_at,state,created_at,source_type,source_id,parser_version_id,connector_id&order=created_at.desc&limit=${limit}`,
   )
   return rows.map((row) => toWorkItem(row))
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "api"."dataset_import_files" ADD COLUMN "parser_failure" jsonb;

@@ -27,6 +27,7 @@ import {
 } from '#/components/v3/instruments/instruments-data'
 import { createDataClient } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
+import { requestParserUpdate } from '#/lib/parser-settings'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
 import {
   datasetFieldsFromColumns,
@@ -283,6 +284,26 @@ export function ImportFlow() {
     setStep(2)
   }
 
+  async function askAdmin() {
+    if (!upload) return
+    try {
+      await requestParserUpdate(upload.fileId)
+      await navigate({
+        to: '/settings/instruments',
+        search: {
+          fileId: upload.fileId,
+          versionId: activeParser?.parserVersionId,
+        },
+      })
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'The parser update request failed. The file is kept for retry.',
+      )
+    }
+  }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
@@ -353,6 +374,11 @@ export function ImportFlow() {
         {error ? (
           <Banner tone="bad" title="Import error" className="mb-4">
             {error}
+            {upload ? (
+              <Button variant="quiet" onClick={() => void askAdmin()}>
+                Ask admin to update parser
+              </Button>
+            ) : null}
           </Banner>
         ) : null}
 
@@ -383,7 +409,7 @@ export function ImportFlow() {
             onReplace={resetForNewFile}
             onManual={recoverManual}
             onTryDraft={recoverDraft}
-            onAskAdmin={() => void navigate({ to: '/instruments' })}
+            onAskAdmin={() => void askAdmin()}
           />
         ) : null}
 

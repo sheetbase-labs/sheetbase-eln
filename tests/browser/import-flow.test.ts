@@ -299,10 +299,38 @@ test.describe('DSET-05 import flow', () => {
     await expect(
       page.getByRole('button', { name: 'Map columns by hand for this file' }),
     ).toBeVisible()
-    await expect(page.getByRole('button', { name: /Try parser/ })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /Try parser.*TB-02/ }),
+    ).toBeVisible()
     await expect(
       page.getByRole('button', { name: 'Ask an admin to update the parser' }),
     ).toBeVisible()
+    const failedFile = (
+      await admin.query(
+        'SELECT id FROM api.dataset_import_files WHERE filename=$1 AND dataset_id=$2 ORDER BY created_at DESC LIMIT 1',
+        [FAILURE_NAME, DATASET],
+      )
+    ).rows[0].id
+    await page
+      .getByRole('button', { name: 'Ask an admin to update the parser' })
+      .click()
+    await expect(page).toHaveURL(
+      new RegExp(`/settings/instruments\\?fileId=${failedFile}`),
+    )
+    const work = await page.request.get(
+      `/api/db/my_work_items?source_id=eq.${failedFile}`,
+    )
+    expect(await work.json()).toMatchObject([
+      { source_id: failedFile, source_type: 'dataset_import_file' },
+    ])
+    expect(
+      (
+        await admin.query(
+          'SELECT parser_failure FROM api.dataset_import_files WHERE id=$1',
+          [failedFile],
+        )
+      ).rows[0].parser_failure.requestedAt,
+    ).toBeTruthy()
   })
 
   test('regulated imports retain the file on denial and trace every row after QA approval', async ({
@@ -311,7 +339,7 @@ test.describe('DSET-05 import flow', () => {
     await clean()
     const original = (
       await admin.query(
-        `SELECT id, status, approved_at, approved_by_user_id
+        `SELECT id, status, approved_at, approved_by_user_id, test_result, validated_at
       FROM api.parser_versions WHERE parser_id IN
       (SELECT id FROM api.parsers WHERE workspace_id = $1 AND key = 'sheetbase.plate-reader-csv') AND version = 1`,
         [WORKSPACE],
@@ -357,7 +385,7 @@ test.describe('DSET-05 import flow', () => {
       ).toBe(0)
       const raw = (
         await admin.query(
-          'SELECT storage_key, checksum FROM api.dataset_import_files WHERE dataset_id = $1 ORDER BY created_at DESC LIMIT 1',
+          'SELECT id, storage_key, checksum FROM api.dataset_import_files WHERE dataset_id = $1 ORDER BY created_at DESC LIMIT 1',
           [DATASET],
         )
       ).rows[0]
@@ -371,11 +399,71 @@ test.describe('DSET-05 import flow', () => {
         path: '.amp/in/artifacts/dset-06-regulated-denial.png',
         fullPage: true,
       })
-      const approved = await page.request.post(
+      const settings = await page.context().newPage()
+      await settings.goto(
+        `/settings/instruments?fileId=${raw.id}&versionId=${original.id}`,
+      )
+      await expect(
+        settings.getByRole('button', { name: 'Approve version', exact: true }),
+      ).toBeDisabled()
+      const forged = await settings.request.post('/api/parsers/validate', {
+        data: {
+          parserVersionId: original.id,
+          fileId: raw.id,
+          result: { ok: true },
+        },
+      })
+      expect(forged.status()).toBe(400)
+      const deniedApproval = await settings.request.post(
         '/api/db/rpc/approve_parser_version',
         { data: { p_parser_version_id: original.id } },
       )
-      expect(approved.ok()).toBe(true)
+      expect(deniedApproval.ok()).toBe(false)
+      const failures = await settings.request.get(
+        `/api/db/my_work_items?source_id=eq.${raw.id}`,
+      )
+      expect(await failures.json()).toMatchObject([
+        {
+          source_type: 'dataset_import_file',
+          source_id: raw.id,
+          parser_version_id: original.id,
+        },
+      ])
+      const validationResponse = settings.waitForResponse((response) =>
+        response.url().endsWith('/api/parsers/validate'),
+      )
+      await settings
+        .getByRole('button', { name: 'Validate retained file', exact: true })
+        .click()
+      expect(await (await validationResponse).json()).toMatchObject({
+        ok: true,
+        parserVersionId: original.id,
+        status: 'validated',
+        validation: {
+          checksum: raw.checksum,
+          fileId: raw.id,
+          rowCount: 6,
+          errors: [],
+        },
+      })
+      await expect(
+        settings.getByText(
+          'Validation passed. This version is ready for QA approval.',
+        ),
+      ).toBeVisible()
+      await settings
+        .getByRole('button', { name: 'Approve version', exact: true })
+        .click()
+      await expect(
+        settings.getByText(
+          'Parser version approved. Retry the retained import using this exact version.',
+        ),
+      ).toBeVisible()
+      await settings.screenshot({
+        path: '.amp/in/artifacts/dset-06-settings-approved.png',
+        fullPage: true,
+      })
+      await settings.close()
       await page.getByRole('button', { name: 'Import 5 rows' }).click()
       await expect(page.getByText('Imported 5 rows')).toBeVisible()
       const receipt = (
@@ -397,14 +485,150 @@ test.describe('DSET-05 import flow', () => {
         [DATASET],
       )
       await admin.query(
-        'UPDATE api.parser_versions SET status = $2, approved_at = $3, approved_by_user_id = $4 WHERE id = $1',
+        'UPDATE api.parser_versions SET status = $2, approved_at = $3, approved_by_user_id = $4, test_result = $5, validated_at = $6 WHERE id = $1',
         [
           original.id,
           original.status,
           original.approved_at,
           original.approved_by_user_id,
+          original.test_result,
+          original.validated_at,
         ],
       )
+    }
+  })
+
+  test('creates instrument-linked drafts, retains a failed test, and approves a corrected version', async ({
+    page,
+  }) => {
+    const key = `validation-acceptance-${crypto.randomUUID()}`
+    const filename = `${key}.csv`
+    const instrument = (
+      await admin.query(
+        'SELECT id FROM api.instruments WHERE workspace_id=$1 ORDER BY name LIMIT 1',
+        [WORKSPACE],
+      )
+    ).rows[0].id
+    try {
+      await page.goto('/settings/instruments')
+      await page.getByLabel('Parser key', { exact: true }).fill(key)
+      await page
+        .getByLabel('Parser name', { exact: true })
+        .fill('Parser validation acceptance')
+      await page
+        .getByRole('combobox', { name: 'Instrument', exact: true })
+        .selectOption(instrument)
+      await page
+        .getByLabel('Structural signature (JSON)')
+        .fill('{"requiredHeaders":["missing_reading"]}')
+      await page
+        .getByRole('button', { name: 'Create draft version', exact: true })
+        .click()
+      await expect(
+        page.getByRole('button', {
+          name: 'Parser validation acceptance v1',
+          exact: true,
+        }),
+      ).toBeVisible()
+      await page
+        .getByLabel('Upload a new test file', { exact: true })
+        .setInputFiles({
+          name: filename,
+          mimeType: 'text/csv',
+          buffer: Buffer.from(FAILURE_CSV),
+        })
+      await expect(
+        page.getByRole('button', {
+          name: 'Validate retained file',
+          exact: true,
+        }),
+      ).toBeEnabled()
+      await page
+        .getByRole('button', { name: 'Validate retained file', exact: true })
+        .click()
+      await expect(
+        page.getByText(/Validation failed: The test file does not match/),
+      ).toBeVisible()
+      await expect(
+        page.getByRole('button', { name: 'Approve version', exact: true }),
+      ).toBeDisabled()
+      await page
+        .getByLabel('Structural signature (JSON)')
+        .fill('{"requiredHeaders":["alpha","beta"]}')
+      await page
+        .getByRole('button', { name: 'Create draft version', exact: true })
+        .click()
+      await expect(
+        page.getByRole('button', {
+          name: 'Parser validation acceptance v2',
+          exact: true,
+        }),
+      ).toBeVisible()
+      await page
+        .getByRole('button', { name: 'Validate retained file', exact: true })
+        .click()
+      await expect(
+        page.getByText(
+          'Validation passed. This version is ready for QA approval.',
+        ),
+      ).toBeVisible()
+      await page
+        .getByRole('button', { name: 'Approve version', exact: true })
+        .click()
+      await expect(
+        page.getByText(/Parser version approved. Retry/),
+      ).toBeVisible()
+      const retained = (
+        await admin.query(
+          'SELECT id,checksum,parser_failure FROM api.dataset_import_files WHERE filename=$1',
+          [filename],
+        )
+      ).rows[0]
+      expect(retained.checksum).toBe(
+        createHash('sha256').update(FAILURE_CSV).digest('hex'),
+      )
+      expect(retained.parser_failure).toBeNull()
+      const parser = (
+        await admin.query(
+          'SELECT instrument_id FROM api.parsers WHERE key=$1 AND workspace_id=$2',
+          [key, WORKSPACE],
+        )
+      ).rows[0]
+      expect(parser.instrument_id).toBe(instrument)
+      await page.setViewportSize({ width: 390, height: 844 })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true)
+      await page.screenshot({
+        path: '.amp/in/artifacts/dset-06-settings-narrow.png',
+        fullPage: true,
+      })
+      await page.getByText('Full validation evidence', { exact: true }).click()
+      await page.getByText(/QA approved at/).scrollIntoViewIfNeeded()
+      await expect(page.getByText(/QA approved at/)).toBeVisible()
+      await expect(page.getByText(/Validation passed · 2 rows/)).toBeVisible()
+      await expect(page.getByText(/"ok": true/)).toBeVisible()
+      await page.screenshot({
+        path: '.amp/in/artifacts/dset-06-settings-narrow-evidence.png',
+        fullPage: true,
+      })
+    } finally {
+      const files = await admin.query(
+        'SELECT storage_key FROM api.dataset_import_files WHERE filename=$1 AND workspace_id=$2',
+        [filename, WORKSPACE],
+      )
+      await admin.query(
+        'DELETE FROM api.dataset_import_files WHERE filename=$1 AND workspace_id=$2',
+        [filename, WORKSPACE],
+      )
+      await admin.query(
+        'DELETE FROM api.parsers WHERE key=$1 AND workspace_id=$2',
+        [key, WORKSPACE],
+      )
+      for (const row of files.rows)
+        rmSync(resolve('.storage/objects', row.storage_key), { force: true })
     }
   })
 })

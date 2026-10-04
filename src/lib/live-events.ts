@@ -207,6 +207,22 @@ export function createLiveEventCoordinator(
   function invalidateForEvent(event: ChangeEventWire): void {
     const qc = deps.queryClient
     switch (event.entityType) {
+      case 'parser':
+      case 'parser_version':
+      case 'dataset_import_file': {
+        void qc.invalidateQueries({
+          queryKey: ['parser-settings', event.workspaceId],
+        })
+        void qc.invalidateQueries({
+          queryKey: ['parser-test-files', event.workspaceId],
+        })
+        void qc.invalidateQueries({ queryKey: ['work-items'] })
+        break
+      }
+      case 'connector_run': {
+        void qc.invalidateQueries({ queryKey: ['work-items'] })
+        break
+      }
       case 'project': {
         void qc.invalidateQueries({
           queryKey: keys.project(event.entityUuid),

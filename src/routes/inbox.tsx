@@ -70,12 +70,12 @@ function labelFor(kind: WorkItemKind, state: string): string {
 
 /** Stable key for an Inbox item across reloads. */
 export function itemKey(item: WorkItem): string {
-  return `${item.kind}:${item.recordId ?? item.identifier ?? item.title}`
+  return `${item.kind}:${item.sourceId ?? item.recordId ?? item.identifier ?? item.title}`
 }
 
 /** The per-row identity used for selection and the rendered list key. */
 export function rowKey(item: WorkItem): string {
-  return item.recordId ?? item.identifier ?? item.title
+  return item.sourceId ?? item.recordId ?? item.identifier ?? item.title
 }
 
 /**
@@ -103,7 +103,20 @@ function itemTab(item: WorkItem, seen: Set<string>): InboxTab {
   return 'needs-action'
 }
 
-function itemLink(item: WorkItem) {
+export function itemLink(item: WorkItem) {
+  if (item.sourceType === 'connector_run' && item.connectorId)
+    return {
+      to: '/settings/integrations/$connectorId' as const,
+      params: { connectorId: item.connectorId },
+    }
+  if (item.sourceType === 'dataset_import_file' && item.sourceId)
+    return {
+      to: '/settings/instruments' as const,
+      search: {
+        fileId: item.sourceId,
+        versionId: item.parserVersionId ?? undefined,
+      },
+    }
   if (item.kind === 'run_failed') return { to: '/pipelines' as const }
   if (item.kind === 'data_issue') return { to: '/datasets' as const }
   if (item.kind === 'material_expiring') return { to: '/materials' as const }

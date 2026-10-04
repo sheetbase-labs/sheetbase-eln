@@ -84,6 +84,8 @@ import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiImportCommitRouteImport } from './routes/api/import/commit'
 import { Route as ApiImportFilesRouteImport } from './routes/api/import/files'
 import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
+import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
+import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
@@ -522,6 +524,16 @@ const ApiImportReviewRoute = ApiImportReviewRouteImport.update({
   path: '/api/import/review',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiParsersRequestUpdateRoute = ApiParsersRequestUpdateRouteImport.update({
+  id: '/api/parsers/request-update',
+  path: '/api/parsers/request-update',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiParsersValidateRoute = ApiParsersValidateRouteImport.update({
+  id: '/api/parsers/validate',
+  path: '/api/parsers/validate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPipelinesExecuteRoute = ApiPipelinesExecuteRouteImport.update({
   id: '/api/pipelines/execute',
   path: '/api/pipelines/execute',
@@ -933,6 +945,8 @@ export interface FileRoutesByFullPath {
   '/api/import/commit': typeof ApiImportCommitRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
+  '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
+  '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
@@ -1060,6 +1074,8 @@ export interface FileRoutesByTo {
   '/api/import/commit': typeof ApiImportCommitRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
+  '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
+  '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
@@ -1198,6 +1214,8 @@ export interface FileRoutesById {
   '/api/import/commit': typeof ApiImportCommitRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
+  '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
+  '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
@@ -1338,6 +1356,8 @@ export interface FileRouteTypes {
     | '/api/import/commit'
     | '/api/import/files'
     | '/api/import/review'
+    | '/api/parsers/request-update'
+    | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/datasets/$datasetId/compare'
@@ -1465,6 +1485,8 @@ export interface FileRouteTypes {
     | '/api/import/commit'
     | '/api/import/files'
     | '/api/import/review'
+    | '/api/parsers/request-update'
+    | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/datasets/$datasetId/compare'
@@ -1602,6 +1624,8 @@ export interface FileRouteTypes {
     | '/api/import/commit'
     | '/api/import/files'
     | '/api/import/review'
+    | '/api/parsers/request-update'
+    | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
     | '/datasets/$datasetId/compare'
@@ -1712,6 +1736,8 @@ export interface RootRouteChildren {
   ApiImportCommitRoute: typeof ApiImportCommitRoute
   ApiImportFilesRoute: typeof ApiImportFilesRoute
   ApiImportReviewRoute: typeof ApiImportReviewRoute
+  ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
+  ApiParsersValidateRoute: typeof ApiParsersValidateRoute
   ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
   ApiPipelinesRuntimeRoute: typeof ApiPipelinesRuntimeRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
@@ -2253,6 +2279,20 @@ declare module '@tanstack/react-router' {
       path: '/api/import/review'
       fullPath: '/api/import/review'
       preLoaderRoute: typeof ApiImportReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parsers/request-update': {
+      id: '/api/parsers/request-update'
+      path: '/api/parsers/request-update'
+      fullPath: '/api/parsers/request-update'
+      preLoaderRoute: typeof ApiParsersRequestUpdateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parsers/validate': {
+      id: '/api/parsers/validate'
+      path: '/api/parsers/validate'
+      fullPath: '/api/parsers/validate'
+      preLoaderRoute: typeof ApiParsersValidateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/pipelines/execute': {
@@ -3093,6 +3133,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiImportCommitRoute: ApiImportCommitRoute,
   ApiImportFilesRoute: ApiImportFilesRoute,
   ApiImportReviewRoute: ApiImportReviewRoute,
+  ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
+  ApiParsersValidateRoute: ApiParsersValidateRoute,
   ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
   ApiPipelinesRuntimeRoute: ApiPipelinesRuntimeRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,

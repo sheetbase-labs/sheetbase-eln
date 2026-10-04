@@ -7,6 +7,7 @@
  * here. Commit goes through `api.commit_dataset_import`, which wraps the one
  * canonical Dataset batch writer and takes exactly one snapshot.
  */
+import { createHash } from 'node:crypto'
 import type { ObjectStorage } from '#/lib/file-storage'
 import {
   generateStorageKey,
@@ -34,6 +35,8 @@ import {
   resolveSessionAuth,
 } from '#/lib/request-auth'
 import type { SessionAuthDeps } from '#/lib/request-auth'
+import { recordParserFailure } from './parser-governance.server'
+import { z } from 'zod'
 import { IMPORT_PARSERS, recogniseImportParser } from './parsers'
 import type { ImportParserDefinition } from './parsers'
 import type {
@@ -121,7 +124,7 @@ function fieldUnit(quantity: unknown): string | null {
   return typeof unit === 'string' && unit.trim() ? unit.trim() : null
 }
 
-function toTargetFields(fields: FieldWire[]): ImportTargetField[] {
+export function toTargetFields(fields: FieldWire[]): ImportTargetField[] {
   return fields.map((field) => ({
     id: field.field_id,
     key: field.field_id,
@@ -187,7 +190,7 @@ export function sampleReviewRows(
   }))
 }
 
-async function loadDataset(
+export async function loadDataset(
   token: string,
   datasetId: string,
 ): Promise<
@@ -235,8 +238,24 @@ async function readAndParse(
   storage: ObjectStorage,
   file: ImportFileWire,
 ): Promise<{ sheet: ImportSheet; preview: ImportPreview }> {
-  const { stream } = await storage.getStream(file.storage_key)
+  if (!file.storage_key.startsWith(`${file.workspace_id}/`))
+    throw new Error(
+      'Retained file storage identity does not match the workspace.',
+    )
+  const { stream, byteSize } = await storage.getStream(file.storage_key)
+  if (byteSize > IMPORT_LIMITS.bytes || byteSize !== Number(file.byte_size)) {
+    await stream.cancel()
+    throw new Error('Retained file size does not match its recorded evidence.')
+  }
   const bytes = await new Response(stream).arrayBuffer()
+  if (
+    bytes.byteLength !== Number(file.byte_size) ||
+    createHash('sha256').update(new Uint8Array(bytes)).digest('hex') !==
+      file.checksum
+  )
+    throw new Error(
+      'Retained file checksum does not match its recorded evidence.',
+    )
   const preview = await parseImportBytes(bytes, {
     fileName: file.filename,
     format: sniffImportFormat(file.filename),
@@ -251,6 +270,69 @@ function parserByKey(
 ): ImportParserDefinition | null {
   if (!key) return null
   return IMPORT_PARSERS.find((parser) => parser.key === key) ?? null
+}
+
+const canonicalReaderSchema = z.object({
+  id: z.uuid(),
+  parser_id: z.uuid(),
+  version: z.number(),
+  status: z.enum(['draft', 'validated', 'approved', 'retired']),
+  signature: z.object({
+    requiredHeaders: z.array(z.string()),
+    optionalHeaders: z.array(z.string()).optional(),
+    requiresMetadata: z.boolean().optional(),
+  }),
+  parsers: z.object({
+    id: z.uuid(),
+    key: z.string(),
+    name: z.string(),
+    format: z.enum(['csv', 'tsv', 'xlsx', 'json']),
+  }),
+})
+
+/** Only structural definitions use this file reader; connector engine IDs are
+ * executed by their connector, never relabelled as the generic import reader. */
+async function canonicalReaders(token: string, versionId?: string) {
+  const response = await postgrestSelect<unknown[]>(
+    'parser_versions',
+    `${versionId ? `id=eq.${encodeURIComponent(versionId)}&` : ''}status=neq.retired&select=id,parser_id,version,status,signature,parsers(id,key,name,format)&order=version.desc`,
+    token,
+  )
+  return (Array.isArray(response.body) ? response.body : []).flatMap((row) => {
+    const parsed = canonicalReaderSchema.safeParse(row)
+    if (
+      !parsed.success ||
+      (typeof row === 'object' &&
+        row !== null &&
+        'signature' in row &&
+        typeof row.signature === 'object' &&
+        row.signature !== null &&
+        'engine' in row.signature)
+    )
+      return []
+    const version = parsed.data
+    const base = parserByKey(version.parsers.key)
+    const definition: ImportParserDefinition = {
+      ...(base ?? { plannedKeyHeaders: [], controlPattern: '' }),
+      key: version.parsers.key,
+      label: version.parsers.name,
+      format: version.parsers.format,
+      version: version.version,
+      status: 'approved',
+      signature: version.signature,
+    }
+    const summary: ImportParserSummary = {
+      key: definition.key,
+      label: definition.label,
+      format: definition.format,
+      version: version.version,
+      status: version.status,
+      confidence: 1,
+      parserId: version.parser_id,
+      parserVersionId: version.id,
+    }
+    return [{ definition, summary }]
+  })
 }
 
 async function ensureParsers(
@@ -379,6 +461,13 @@ export async function handleImportFileUpload(
       { p_file_id: file.id, p_status: 'failed', p_error: parseError },
       context.token,
     )
+    await recordParserFailure(
+      context,
+      file.id,
+      null,
+      'parse_failed',
+      parseError,
+    )
   }
 
   const base = {
@@ -403,18 +492,37 @@ export async function handleImportFileUpload(
   }
 
   const parsers = await ensureParsers(context.token, context.workspaceId)
+  const canonical = await canonicalReaders(context.token)
   const rawTextHint =
     format === 'xlsx' ? null : await readHeadText(storage, file)
-  const recognition = recogniseImportParser({
+  const recognitionInput = {
     format,
     headers: sheet.headers,
     rawTextHint,
-  })
+  }
+  const recognisedCanonical = canonical.find(
+    (reader) =>
+      reader.summary.status === 'approved' &&
+      recogniseImportParser(recognitionInput, [reader.definition]),
+  )
+  const recognition = recognisedCanonical
+    ? null
+    : recogniseImportParser(recognitionInput)
   let parser: ImportParserSummary | null = null
-  if (recognition) {
+  if (recognisedCanonical) {
+    parser = recognisedCanonical.summary
+  } else if (recognition) {
     const summary = parsers.get(recognition.key)
     if (summary) parser = { ...summary, confidence: recognition.confidence }
   }
+  if (!parser)
+    await recordParserFailure(
+      context,
+      file.id,
+      null,
+      'parser_unrecognised',
+      'The retained file does not match a registered parser. Review its headers or create a matching version.',
+    )
 
   await postgrestRpc(
     'record_dataset_import_file_parse',
@@ -425,7 +533,14 @@ export async function handleImportFileUpload(
   const savedMapping = parser
     ? await loadSavedMapping(context.token, parser.parserId, datasetId)
     : null
-  const draftParsers = IMPORT_PARSERS.filter(
+  const draftParsers = canonical
+    .filter(
+      (reader) =>
+        reader.definition.format === format &&
+        reader.summary.status !== 'approved',
+    )
+    .map((reader) => reader.summary)
+  const shippedDrafts = IMPORT_PARSERS.filter(
     (item) => item.format === format && item.status === 'draft',
   ).flatMap((item) => {
     const summary = parsers.get(item.key)
@@ -436,7 +551,7 @@ export async function handleImportFileUpload(
     ...base,
     parsed: true,
     parser,
-    draftParsers,
+    draftParsers: draftParsers.length ? draftParsers : shippedDrafts,
     recognitionMessage: parser
       ? `Recognised as ${parser.label} v${parser.version}.`
       : `This file doesn't match a registered parser. Expected a header set such as sample, well (plate map) or sample, ntu, dil, timestamp (TB-02 CSV). Found ${sheet.headers.slice(0, 6).join(', ')}.`,
@@ -593,6 +708,7 @@ export async function handleImportReview(
     datasetId?: string
     mapping?: ImportMappingDocument
     parserKey?: string | null
+    parserVersionId?: string | null
   }
   try {
     body = (await request.json()) as typeof body
@@ -617,7 +733,10 @@ export async function handleImportReview(
   })
   if ('error' in prepared) return prepared.error
 
-  const parser = parserByKey(body.parserKey)
+  const selectedReader = body.parserVersionId
+    ? (await canonicalReaders(context.token, body.parserVersionId)).at(0)
+    : undefined
+  const parser = selectedReader?.definition ?? parserByKey(body.parserKey)
   const { mapped, controlFieldId } = buildRows(prepared, parser)
   if (mapped.errors.length > 0) {
     return Response.json({
@@ -750,8 +869,16 @@ export async function handleImportCommit(
   })
   if ('error' in prepared) return prepared.error
 
-  const parser = parserByKey(body.parserKey)
-  if (body.parserKey && !parser) {
+  const selectedReader = body.parserVersionId
+    ? (await canonicalReaders(context.token, body.parserVersionId)).at(0)
+    : undefined
+  const parser = selectedReader?.definition ?? parserByKey(body.parserKey)
+  if (
+    (body.parserKey && !parser) ||
+    (selectedReader &&
+      body.parserKey &&
+      body.parserKey !== selectedReader.definition.key)
+  ) {
     return requestErrorResponse(
       422,
       'parser_required',
@@ -760,23 +887,26 @@ export async function handleImportCommit(
   }
   // Manual mapping is a parser too: the generic format reader plus the
   // mapping frozen in the receipt. It never bypasses regulated approval.
-  const registered = await postgrestRpc<{
-    parserId: string
-    parserVersionId: string
-  }>(
-    'ensure_parser',
-    {
-      p_workspace_id: context.workspaceId,
-      p_key: parser?.key ?? `sheetbase.manual-${prepared.file.format}`,
-      p_name:
-        parser?.label ?? `Manual ${prepared.file.format.toUpperCase()} mapping`,
-      p_format: prepared.file.format,
-      p_version: parser?.version ?? 1,
-      p_signature: parser?.signature ?? { manualMapping: true },
-      p_status: 'draft',
-    },
-    context.token,
-  )
+  const registered = selectedReader
+    ? { status: 200, body: selectedReader.summary }
+    : await postgrestRpc<{
+        parserId: string
+        parserVersionId: string
+      }>(
+        'ensure_parser',
+        {
+          p_workspace_id: context.workspaceId,
+          p_key: parser?.key ?? `sheetbase.manual-${prepared.file.format}`,
+          p_name:
+            parser?.label ??
+            `Manual ${prepared.file.format.toUpperCase()} mapping`,
+          p_format: prepared.file.format,
+          p_version: parser?.version ?? 1,
+          p_signature: parser?.signature ?? { manualMapping: true },
+          p_status: 'draft',
+        },
+        context.token,
+      )
   const registeredBody = asRow(registered.body)
   if (
     registered.status >= 400 ||
@@ -875,6 +1005,19 @@ export async function handleImportCommit(
   )
   const result = asRow(committed.body)
   if (committed.status >= 400 || !result || result.ok !== true) {
+    if (
+      committed.status >= 400 &&
+      'code' in committed.body &&
+      committed.body.code === 'SB107'
+    ) {
+      await recordParserFailure(
+        context,
+        prepared.file.id,
+        parserVersionId,
+        'parser_not_approved',
+        'The regulated Dataset requires an approved matching parser version. Validate and approve this version before retrying.',
+      )
+    }
     const errors = (result?.errors ?? []).map((error) => ({
       row: error.rowIndex,
       code: error.code,

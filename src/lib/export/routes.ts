@@ -10,6 +10,7 @@
  * as `404 not_found`; nothing about existence leaks. Every export writes a
  * provenance receipt into api.data_exports.
  */
+import { z } from 'zod'
 import {
   delimitedHeaderLine,
   delimitedRowLine,
@@ -24,6 +25,14 @@ import {
 import type { ExportField, ExportFormat, ExportRow } from './serializers'
 import { parquetDocument } from './parquet'
 import { buildEvidencePackage } from './evidence-package'
+import {
+  auditEventMatchesCategory,
+  auditEventsCsv,
+  auditEventsPageSchema,
+  auditEventsRpcArgs,
+  auditHistoryCategories,
+} from '../audit-history'
+import type { AuditEventWire } from '../audit-history'
 
 import {
   recordDataExportReceipt,
@@ -820,6 +829,107 @@ export async function handleRecordExport(
 
   const filename = `${slug(record.identifier)}-notebook.json`
   return exportResponse(body, 'application/json; charset=utf-8', filename)
+}
+
+/** Export the selected immutable audit prefix, not events arriving after the view loaded. */
+export async function handleRecordAuditExport(
+  request: Request,
+  recordId: string,
+  deps: SessionAuthDeps,
+): Promise<Response> {
+  const auth = await resolveSessionAuth(request.headers, deps)
+  if (!auth.ok)
+    return requestErrorResponse(auth.status, auth.code, auth.message)
+  const { context } = auth
+  const search = new URL(request.url).searchParams
+  const filter = z
+    .object({
+      recordId: z.uuid(),
+      category: z.enum(auditHistoryCategories),
+      actor: z.string().min(1).max(256).nullable(),
+      before: z.coerce.number().int().positive(),
+    })
+    .safeParse({
+      recordId,
+      category: search.get('category') ?? 'all',
+      actor: search.get('actor'),
+      before: search.get('before'),
+    })
+  if (!filter.success)
+    return requestErrorResponse(
+      400,
+      'invalid_filter',
+      'Invalid audit selection.',
+    )
+
+  const records = await postgrestSelect<Array<{ id: string }>>(
+    'records',
+    `id=eq.${recordId}&select=id&limit=1`,
+    context.token,
+  )
+  if (records.status >= 500)
+    return requestErrorResponse(502, 'upstream_error', 'Audit is unavailable.')
+  if (
+    records.status >= 400 ||
+    !Array.isArray(records.body) ||
+    !records.body.length
+  )
+    return requestErrorResponse(404, 'not_found', 'Record not found.')
+
+  const events: AuditEventWire[] = []
+  let beforeSequence = filter.data.before
+  for (;;) {
+    const result = await postgrestRpc(
+      'audit_events',
+      auditEventsRpcArgs({
+        object: recordId,
+        actorUserId: filter.data.actor ?? undefined,
+        beforeSequence,
+        limit: 200,
+      }),
+      context.token,
+    )
+    if (result.status >= 500)
+      return requestErrorResponse(
+        502,
+        'upstream_error',
+        'Audit is unavailable.',
+      )
+    if (result.status >= 400)
+      return requestErrorResponse(404, 'not_found', 'Record not found.')
+    const parsed = auditEventsPageSchema.safeParse(result.body)
+    if (!parsed.success)
+      return requestErrorResponse(502, 'upstream_error', 'Invalid audit page.')
+    const page = parsed.data
+    events.push(
+      ...page.events.filter((event) =>
+        auditEventMatchesCategory(event, filter.data.category),
+      ),
+    )
+    if (!page.hasMore) break
+    if (page.nextCursor === null || page.nextCursor >= beforeSequence)
+      return requestErrorResponse(
+        502,
+        'upstream_error',
+        'Invalid audit cursor.',
+      )
+    beforeSequence = page.nextCursor
+  }
+  const body = auditEventsCsv(events)
+  await insertReceipt({
+    workspaceId: context.workspaceId,
+    actorUserId: context.userId,
+    objectType: 'record',
+    objectId: recordId,
+    format: 'audit-csv',
+    rowCount: events.length,
+    byteSize: new TextEncoder().encode(body).byteLength,
+  })
+  return exportResponse(
+    body,
+    'text/csv; charset=utf-8',
+    `audit-${recordId}.csv`,
+  )
 }
 
 // ---------------------------------------------------------------------------

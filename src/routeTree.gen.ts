@@ -147,6 +147,7 @@ import { Route as ModelsModelIdRecordsNewRouteImport } from './routes/models/$mo
 import { Route as PipelinesPipelineIdRunsIndexRouteImport } from './routes/pipelines/$pipelineId/runs/index'
 import { Route as PipelinesPipelineIdRunsRunIdRouteImport } from './routes/pipelines/$pipelineId/runs/$runId'
 import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
+import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 
 const IndexRoute = IndexRouteImport.update({
@@ -868,6 +869,11 @@ const ApiClientPortalRecordsRecordIdPdfRoute =
     path: '/api/client-portal/records/$recordId/pdf',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiExportRecordIdAuditRoute = ApiExportRecordIdAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => ApiExportRecordIdRoute,
+} as any)
 const ApiExportRevisionIdPackageRoute =
   ApiExportRevisionIdPackageRouteImport.update({
     id: '/api/export/revision/$id/package',
@@ -1003,7 +1009,7 @@ export interface FileRoutesByFullPath {
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
-  '/api/export/record/$id': typeof ApiExportRecordIdRoute
+  '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
@@ -1014,6 +1020,7 @@ export interface FileRoutesByFullPath {
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRoutesByTo {
@@ -1132,7 +1139,7 @@ export interface FileRoutesByTo {
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
-  '/api/export/record/$id': typeof ApiExportRecordIdRoute
+  '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
@@ -1143,6 +1150,7 @@ export interface FileRoutesByTo {
   '/models/$modelId/records': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRoutesById {
@@ -1274,7 +1282,7 @@ export interface FileRoutesById {
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
-  '/api/export/record/$id': typeof ApiExportRecordIdRoute
+  '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
@@ -1285,6 +1293,7 @@ export interface FileRoutesById {
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRouteTypes {
@@ -1428,6 +1437,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1557,6 +1567,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records'
     | '/pipelines/$pipelineId/runs'
     | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
   id:
     | '__root__'
@@ -1698,6 +1709,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
   fileRoutesById: FileRoutesById
 }
@@ -1758,7 +1770,7 @@ export interface RootRouteChildren {
   ApiCollaborationResolveUsersRoute: typeof ApiCollaborationResolveUsersRoute
   ApiExportDatasetVersionIdRoute: typeof ApiExportDatasetVersionIdRoute
   ApiExportDatasetIdRoute: typeof ApiExportDatasetIdRoute
-  ApiExportRecordIdRoute: typeof ApiExportRecordIdRoute
+  ApiExportRecordIdRoute: typeof ApiExportRecordIdRouteWithChildren
   ApiExportSheetInstanceIdRoute: typeof ApiExportSheetInstanceIdRoute
   ApiFilesFileIdDownloadRoute: typeof ApiFilesFileIdDownloadRoute
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
@@ -2735,6 +2747,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiClientPortalRecordsRecordIdPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/record/$id/audit': {
+      id: '/api/export/record/$id/audit'
+      path: '/audit'
+      fullPath: '/api/export/record/$id/audit'
+      preLoaderRoute: typeof ApiExportRecordIdAuditRouteImport
+      parentRoute: typeof ApiExportRecordIdRoute
+    }
     '/api/export/revision/$id/package': {
       id: '/api/export/revision/$id/package'
       path: '/api/export/revision/$id/package'
@@ -3106,6 +3125,17 @@ const RecordsRecordIdRouteWithChildren = RecordsRecordIdRoute._addFileChildren(
   RecordsRecordIdRouteChildren,
 )
 
+interface ApiExportRecordIdRouteChildren {
+  ApiExportRecordIdAuditRoute: typeof ApiExportRecordIdAuditRoute
+}
+
+const ApiExportRecordIdRouteChildren: ApiExportRecordIdRouteChildren = {
+  ApiExportRecordIdAuditRoute: ApiExportRecordIdAuditRoute,
+}
+
+const ApiExportRecordIdRouteWithChildren =
+  ApiExportRecordIdRoute._addFileChildren(ApiExportRecordIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalysisRoute: AnalysisRouteWithChildren,
@@ -3163,7 +3193,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCollaborationResolveUsersRoute: ApiCollaborationResolveUsersRoute,
   ApiExportDatasetVersionIdRoute: ApiExportDatasetVersionIdRoute,
   ApiExportDatasetIdRoute: ApiExportDatasetIdRoute,
-  ApiExportRecordIdRoute: ApiExportRecordIdRoute,
+  ApiExportRecordIdRoute: ApiExportRecordIdRouteWithChildren,
   ApiExportSheetInstanceIdRoute: ApiExportSheetInstanceIdRoute,
   ApiFilesFileIdDownloadRoute: ApiFilesFileIdDownloadRoute,
   ApiFilesFileIdUploadRoute: ApiFilesFileIdUploadRoute,

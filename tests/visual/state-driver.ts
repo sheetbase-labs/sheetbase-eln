@@ -1,4 +1,7 @@
-import type { Page } from 'playwright/test'
+import { readFileSync } from 'node:fs'
+import { expect } from 'playwright/test'
+import type { Page, Request } from 'playwright/test'
+import { z } from 'zod'
 
 import {
   DESIGN_CLOCK,
@@ -30,6 +33,92 @@ export class UnsupportedDesignStateError extends Error {
     super(`Cannot drive design state "${state}": ${detail}`)
     this.name = 'UnsupportedDesignStateError'
   }
+}
+
+/** Validate activation before any browser request to a scenario database. */
+function scenarioFixture(state: DesignState) {
+  const screen = z
+    .enum(['ReviewSign', 'SettingsSignature', 'HomeFirstRun'])
+    .parse(state.screen)
+  if (process.env.SHEETBASE_PARITY_SCENARIO !== screen) {
+    throw new UnsupportedDesignStateError(
+      'scenario',
+      `${screen} requires its fresh isolated database; run pnpm exec tsx tests/visual/design-scenario.mts ${screen}`,
+    )
+  }
+  const fixture = z
+    .object({
+      screen: z.literal(screen),
+      userId: z.string(),
+      route: z.string().startsWith('/'),
+      revisionId: z.string().uuid().optional(),
+      prerequisites: z.record(z.string(), z.unknown()),
+    })
+    .parse(
+      JSON.parse(
+        readFileSync(process.env.SHEETBASE_PARITY_SCENARIO_FILE ?? '', 'utf8'),
+      ),
+    )
+  const name = {
+    ReviewSign: 'sheetbase_parity_review_sign',
+    SettingsSignature: 'sheetbase_parity_settings_signature',
+    HomeFirstRun: 'sheetbase_parity_home_first_run',
+  }[screen]
+  for (const variable of [
+    'DATABASE_URL',
+    'MIGRATION_DATABASE_URL',
+    'PGRST_DB_URI',
+    'FORMULA_DATABASE_URL',
+  ]) {
+    const url = new URL(process.env[variable] ?? '')
+    if (
+      !['postgres:', 'postgresql:'].includes(url.protocol) ||
+      !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+      url.pathname !== `/${name}`
+    ) {
+      throw new Error('Scenario capture requires its exact local role URLs')
+    }
+  }
+  if (
+    process.env.SHEETBASE_ENV !== 'test' ||
+    process.env.SHEETBASE_DEV_AUTH_FREE !== 'false'
+  ) {
+    throw new Error(
+      'Scenario capture requires test mode without auth-free sessions',
+    )
+  }
+  expect(fixture.userId).toBe(DESIGN_USER_IDS[state.user])
+  const origin = new URL(process.env.BETTER_AUTH_URL ?? '')
+  const port = {
+    ReviewSign: 3300,
+    SettingsSignature: 3310,
+    HomeFirstRun: 3320,
+  }[screen]
+  if (
+    origin.protocol !== 'http:' ||
+    origin.hostname !== '127.0.0.1' ||
+    origin.port !== String(port)
+  ) {
+    throw new Error(
+      'Scenario capture requires its dedicated local app endpoint',
+    )
+  }
+  if (screen === 'ReviewSign') {
+    expect(fixture.prerequisites).toEqual({ approved: true, unsigned: true })
+    expect(fixture.revisionId).toBeDefined()
+    expect(fixture.route).toBe(`/review/${fixture.revisionId}`)
+  } else if (screen === 'SettingsSignature') {
+    expect(fixture.prerequisites.certified).toBe(false)
+    expect(fixture.route).toBe('/settings/signatures')
+  } else {
+    expect(fixture.prerequisites).toEqual({
+      projectAccess: 'editor',
+      personalActivity: false,
+      certified: false,
+    })
+    expect(fixture.route).toBe('/')
+  }
+  return { ...fixture, route: new URL(fixture.route, origin).href }
 }
 
 /**
@@ -86,14 +175,19 @@ async function interceptData(
 
 async function driveDialog(page: Page, trigger: string): Promise<void> {
   const button = page.getByRole('button', { name: trigger }).first()
-  if ((await button.count()) === 0) {
+  try {
+    await button.waitFor({ state: 'visible', timeout: 5000 })
+  } catch {
     throw new UnsupportedDesignStateError(
       'dialog',
       `no button named "${trigger}" on the page`,
     )
   }
   await button.click()
-  const dialog = page.locator('[role="dialog"]').first()
+  const dialog = page
+    .locator('[role="dialog"], [role="alertdialog"]')
+    .filter({ visible: true })
+    .first()
   try {
     await dialog.waitFor({ state: 'visible', timeout: 5000 })
   } catch {
@@ -105,9 +199,13 @@ async function driveDialog(page: Page, trigger: string): Promise<void> {
 }
 
 async function driveRecord(page: Page, identifier: string): Promise<void> {
-  const stillLoading = await page.getByText('Loading', { exact: false }).count()
-  const found = await page.getByText(identifier, { exact: false }).count()
-  if (found === 0 && stillLoading === 0) {
+  try {
+    await page
+      .getByText(identifier, { exact: false })
+      .filter({ visible: true })
+      .first()
+      .waitFor({ state: 'visible', timeout: 10_000 })
+  } catch {
     throw new UnsupportedDesignStateError(
       'record',
       `${identifier} never rendered on the page`,
@@ -118,6 +216,7 @@ async function driveRecord(page: Page, identifier: string): Promise<void> {
 async function applyState(page: Page, spec: DesignStateSpec): Promise<void> {
   switch (spec.kind) {
     case 'default':
+    case 'scenario':
       return
     case 'empty':
     case 'error':
@@ -135,6 +234,52 @@ async function applyState(page: Page, spec: DesignStateSpec): Promise<void> {
     case 'record':
       await driveRecord(page, spec.identifier)
       return
+    case 'signed-out': {
+      if (process.env.SHEETBASE_DEV_AUTH_FREE !== 'false') {
+        throw new UnsupportedDesignStateError(
+          'signed-out',
+          'native signout requires explicit auth-free=false',
+        )
+      }
+      await page.getByRole('button', { name: /^Account: / }).click()
+      const response = page.waitForResponse(
+        (result) =>
+          new URL(result.url()).pathname === '/api/auth/sign-out' &&
+          result.request().method() === 'POST',
+      )
+      await page
+        .getByRole('menuitem', { name: 'Sign out', exact: true })
+        .click()
+      expect((await response).status()).toBe(200)
+      await expect(page).toHaveURL(/\/sign-in\?state=signed-out$/)
+      await expect(
+        page.getByRole('heading', { name: 'You’re signed out', exact: true }),
+      ).toBeVisible()
+      const session = await page.evaluate(async () => {
+        const response = await fetch('/api/auth/get-session')
+        return { status: response.status, body: await response.json() }
+      })
+      expect(session.status).toBe(200)
+      expect(session.body).toBeNull()
+      await settle(page)
+      return
+    }
+    case 'selected-row': {
+      await driveRecord(page, spec.identifier)
+      const checkbox = page.getByRole('checkbox', {
+        name: `Select ${spec.identifier}`,
+        exact: true,
+      })
+      await checkbox.check()
+      await expect(checkbox).toBeChecked()
+      await page
+        .getByRole('button', { name: spec.trigger, exact: true })
+        .click()
+      await expect(
+        page.getByRole('complementary').filter({ hasText: spec.identifier }),
+      ).toBeVisible()
+      return
+    }
     case 'conflict':
       throw new UnsupportedDesignStateError(
         'conflict',
@@ -156,6 +301,7 @@ export async function visitDesignState(
     throw new Error(`No frame size for design screen "${state.screen}"`)
   }
   const spec: DesignStateSpec = state.state ?? { kind: 'default' }
+  const fixture = spec.kind === 'scenario' ? scenarioFixture(state) : undefined
   const userId = DESIGN_USER_IDS[state.user]
   if (!userId) {
     throw new UnsupportedDesignStateError(
@@ -166,9 +312,22 @@ export async function visitDesignState(
 
   await page.setViewportSize(size)
   await page.emulateMedia({ colorScheme: state.theme, reducedMotion: 'reduce' })
-  // Freeze the browser clock to the design seed's clock so weekday, date and
-  // relative-time copy render as the design does.
-  await page.clock.install({ time: DESIGN_CLOCK })
+  // The unchanged boards show Mac keyboard glyphs. Emulate the browser's
+  // platform through Chromium, leaving the product's formatter and handlers
+  // untouched; changing rendered labels would conceal a product mismatch.
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Emulation.setUserAgentOverride', {
+    userAgent: (await page.evaluate(() => navigator.userAgent)).replace(
+      /\(X11; Linux x86_64\)/,
+      '(Macintosh; Intel Mac OS X 10_15_7)',
+    ),
+    platform: 'MacIntel',
+  })
+  // Native scenarios use current operation dates. Do not disguise the
+  // unresolved historical-clock mismatch with a browser-only override.
+  if (spec.kind !== 'scenario' && spec.kind !== 'signed-out') {
+    await page.clock.install({ time: DESIGN_CLOCK })
+  }
   // The appearance setting persists in localStorage; force the screen's theme
   // so the comparison is not decided by the seeded user's preference.
   await page.addInitScript((theme) => {
@@ -191,7 +350,68 @@ export async function visitDesignState(
   await signInAsDesignUser(page, userId)
   // Raw design route: the app's beforeLoad resolves the display ID to the
   // canonical UUID and redirects, so this exercises the real routing.
-  await page.goto(state.route)
-  if (spec.kind !== 'loading') await settle(page)
+  // Two stable SSR screenshots can precede hydration and its real queries.
+  // Wait for browser data activity, not global network-idle (the live-event
+  // stream remains open). Loading states deliberately keep those reads open.
+  const pending = new Set<Request>()
+  const onRequest = (request: Request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/db/')) {
+      pending.add(request)
+    }
+  }
+  const onFinished = (request: Request) => pending.delete(request)
+  page.on('request', onRequest)
+  page.on('requestfinished', onFinished)
+  page.on('requestfailed', onFinished)
+  try {
+    await Promise.all([
+      page.waitForRequest((request) =>
+        new URL(request.url()).pathname.startsWith('/api/db/'),
+      ),
+      page.goto(fixture?.route ?? state.route),
+    ])
+    if (spec.kind !== 'loading') {
+      await settle(page)
+      await expect.poll(() => pending.size, { timeout: 10_000 }).toBe(0)
+    }
+  } finally {
+    page.off('request', onRequest)
+    page.off('requestfinished', onFinished)
+    page.off('requestfailed', onFinished)
+  }
+  if (spec.kind === 'signed-out') {
+    const session = await page.evaluate(async () => {
+      const response = await fetch('/api/auth/get-session')
+      return { status: response.status, body: await response.json() }
+    })
+    expect(session.status).toBe(200)
+    const signedIn = z
+      .object({ user: z.object({ id: z.string() }) })
+      .parse(session.body)
+    expect(signedIn.user.id).toBe(userId)
+  }
   await applyState(page, spec)
+  if (fixture?.screen === 'ReviewSign') {
+    await driveDialog(page, 'Sign revision')
+    const dialog = page.getByRole('alertdialog', {
+      name: 'Sign this revision',
+      exact: true,
+    })
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toContainText(fixture.revisionId ?? '')
+    await expect(
+      dialog.getByLabel('Signing password', { exact: true }),
+    ).toBeFocused()
+  } else if (fixture?.screen === 'SettingsSignature') {
+    await expect(page.getByText(/Verified by Gareth P\. on/)).toContainText(
+      'sam.r@design.sheetbase.dev',
+    )
+    await expect(page.getByText('Not certified', { exact: true })).toBeVisible()
+  } else if (fixture?.screen === 'HomeFirstRun') {
+    await expect(
+      page.getByText('You were added to AAV9 process transfer.', {
+        exact: true,
+      }),
+    ).toBeVisible()
+  }
 }

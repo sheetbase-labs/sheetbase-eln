@@ -183,8 +183,8 @@ jobs:
 
   # DSYS-06: exact-parity gate. Renders the vendored design with the same
   # Chromium the parity project uses, seeds the design data, and compares each
-  # migrated screen with its render. Blocked while account billing is
-  # unresolved, like every job here, but kept as the intended gate.
+  # migrated screen with its render. Pending coverage and visual differences
+  # fail this job; neither is an accepted exception.
   parity:
     name: Visual parity
     runs-on: ubuntu-latest
@@ -194,6 +194,7 @@ jobs:
       PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
       BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
       PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
+      SHEETBASE_DEV_AUTH_FREE: 'false'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -237,13 +238,15 @@ jobs:
       - name: Render the design reference
         run: pnpm design:render
 
-      - name: Run parity
-        run: pnpm test:parity
+      # Includes parity-drift.spec.ts: clean reference, +1px padding rejection,
+      # then restored reference. No expected failures or tolerance override.
+      - name: Run parity and one-pixel negative control
+        run: pnpm exec playwright test --project=parity --reporter=list,./tests/visual/parity-reporter.ts
 
-      - name: Upload visual diffs
-        if: failure()
+      - name: Upload visual diffs and coverage
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: parity-diffs
-          path: tests/visual/**/test-results/**
+          path: test-results/
           if-no-files-found: ignore

@@ -15,7 +15,7 @@
  *   pnpm design:render Main Notebook   # named screens only
  *
  * Writes tests/visual/design-reference/<Screen>-<theme>.png (gitignored).
- * Set CHROMIUM_PATH to use a preinstalled browser.
+ * Uses the lockfile-pinned Playwright Chromium, exactly as the parity project.
  */
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -124,9 +124,7 @@ async function main() {
   const fonts = await fontCss(base)
 
   await mkdir(OUT, { recursive: true })
-  const browser = await chromium.launch({
-    executablePath: process.env.CHROMIUM_PATH,
-  })
+  const browser = await chromium.launch()
   let failures = 0
   try {
     for (const theme of THEMES) {
@@ -134,6 +132,8 @@ async function main() {
         colorScheme: theme,
         deviceScaleFactor: 1,
         reducedMotion: 'reduce',
+        locale: 'en-GB',
+        timezoneId: 'Europe/London',
       })
       await context.addInitScript((value) => {
         // The application reads `sheetbase-theme` (src/components/v3/lib/theme.ts,

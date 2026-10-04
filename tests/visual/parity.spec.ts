@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from 'playwright/test'
+import { z } from 'zod'
 
 import {
   DESIGN_PENDING,
@@ -14,17 +16,11 @@ import { visitDesignState } from './state-driver'
  * (`tests/visual/design-reference/<Screen>-<theme>.png`).
  *
  * The comparison is the gate: a migrated route that stops matching its design
- * fails here. The coverage test below fails if a screen is neither mapped nor
- * explicitly pending, so the suite can never pass by mapping nothing.
+ * fails here. Pending screens are reported, but do not satisfy coverage.
+ * The gate passes only when every design screen is mapped in both themes.
  */
 for (const state of DESIGN_STATES) {
   test(`${state.screen} — ${state.theme}`, async ({ page }) => {
-    // The app still diverges from the DSYS-01 render, so every mapped
-    // comparison is a documented expected failure: the suite stays green and
-    // the measured ratio is in the report, but if a screen starts passing
-    // Playwright reports an unexpected pass and the gate fails. Remove the
-    // `test.fail` for a screen as soon as it genuinely matches.
-    if (state.knownMismatch) test.fail(true, state.knownMismatch.text)
     await visitDesignState(page, state)
     await expect(page).toHaveScreenshot(`${state.screen}-${state.theme}.png`)
   })
@@ -32,6 +28,29 @@ for (const state of DESIGN_STATES) {
 
 test('parity coverage', () => {
   const screens = Object.keys(DESIGN_SCREEN_SIZES)
+  const canvas = z
+    .object({
+      boards: z.record(z.string(), z.object({ w: z.number(), h: z.number() })),
+    })
+    .parse(
+      JSON.parse(
+        readFileSync(
+          'docs/knowledge/design/ui-system-v3/canvas/canvas.json',
+          'utf8',
+        ),
+      ),
+    )
+  expect(
+    DESIGN_SCREEN_SIZES,
+    'registry must cover every vendored board at its original frame size',
+  ).toEqual(
+    Object.fromEntries(
+      Object.entries(canvas.boards).map(([file, { w, h }]) => [
+        file.replace(/\.dc\.html$/, ''),
+        { width: w, height: h },
+      ]),
+    ),
+  )
   const known = new Set(screens)
 
   const mapped = new Set(DESIGN_STATES.map((state) => state.screen))
@@ -99,5 +118,16 @@ test('parity coverage', () => {
   )
 
   expect(missingThemes, 'mapped screens missing a theme').toEqual([])
+  expect(
+    DESIGN_STATES.length,
+    'duplicate screen/theme comparisons must not inflate coverage',
+  ).toBe(mappedCount)
   expect(mappedCount + pendingCount).toBe(total)
+  expect(
+    [...pending.keys()],
+    'DSYS-06 is incomplete while any design screen is pending',
+  ).toEqual([])
+  expect(mappedCount, 'every design screen must compare in both themes').toBe(
+    total,
+  )
 })

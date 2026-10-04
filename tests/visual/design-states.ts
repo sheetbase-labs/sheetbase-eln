@@ -6,9 +6,9 @@
  * seeded user and the state actions that reproduce it; the spec drives each
  * entry and compares it with the DSYS-01 render.
  *
- * Every screen must be either mapped in `DESIGN_STATES` or listed in
- * `DESIGN_PENDING` with a reason. `parity.spec.ts` fails on a screen that is
- * in neither list, on a screen in both, and on a mapped screen missing a theme.
+ * Unmapped screens are documented in `DESIGN_PENDING`, not silently skipped.
+ * Pending screens fail coverage. Every board must compare in both themes
+ * before DSYS-06 can pass.
  */
 export interface DesignState {
   /** Design screen name, e.g. "Main" (matches the rendered PNG stem). */
@@ -23,12 +23,10 @@ export interface DesignState {
   /** How to drive the route into the screen's state. */
   state?: DesignStateSpec
   /**
-   * Documented expected failure while the app still diverges. The spec marks
-   * the test with `test.fail`, so the suite stays green, the measured ratio
-   * stays visible in the report, and the suite fails the moment the screen
-   * starts passing (Playwright reports an unexpected pass).
+   * Historical mismatch measurement for diagnosis only. This never changes
+   * the expected result, tolerance or whether the comparison runs.
    */
-  knownMismatch?: {
+  historicalMismatch?: {
     /** Latest measured diff, "ratio (pixels)" at the 0.001 gate. */
     ratio: string
     /** Root causes behind the mismatch (see DESIGN_CAUSES). */
@@ -47,7 +45,10 @@ export interface DesignState {
 export type DesignStateSpec =
   | { kind: 'default' }
   | { kind: 'record'; identifier: string }
+  | { kind: 'selected-row'; identifier: string; trigger: string }
   | { kind: 'dialog'; trigger: string }
+  | { kind: 'scenario' }
+  | { kind: 'signed-out' }
   | { kind: 'empty' }
   | { kind: 'error' }
   | { kind: 'loading' }
@@ -312,13 +313,8 @@ function bothThemes(screens: readonly MappedScreen[]): DesignState[] {
   return screens.flatMap(({ screen, route, user = 'gareth', state }) => {
     const size = DESIGN_SCREEN_SIZES[screen]
     if (!size) throw new Error(`Unknown design screen "${screen}"`)
-    const causes = CAUSE_BY_SCREEN[screen]
+    const causes = CAUSE_BY_SCREEN[screen] ?? []
     const measured = MEASURED_BY_SCREEN[screen]
-    if (!causes || !measured) {
-      throw new Error(
-        `Mapped screen "${screen}" needs CAUSE_BY_SCREEN and MEASURED_BY_SCREEN entries`,
-      )
-    }
     const causeText = causes
       .map((id) => `${id}) ${DESIGN_CAUSES[id]}`)
       .join('; ')
@@ -329,13 +325,14 @@ function bothThemes(screens: readonly MappedScreen[]): DesignState[] {
       theme,
       size,
       state,
-      knownMismatch: causes.length
-        ? {
-            ratio: measured[theme],
-            causes,
-            text: `known mismatch — measured ${measured[theme]} against the 0.001 gate. Causes: ${causeText}`,
-          }
-        : undefined,
+      historicalMismatch:
+        causes.length && measured
+          ? {
+              ratio: measured[theme],
+              causes,
+              text: `Historical measurement (2026-10-04): ${measured[theme]} against the 0.001 gate. Causes: ${causeText}`,
+            }
+          : undefined,
     }))
   })
 }
@@ -353,8 +350,40 @@ const rec = (identifier: string): DesignStateSpec => ({
 export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'Main', route: '/' },
   { screen: 'HelpRecords', route: '/help/records' },
+  {
+    screen: 'SignedOut',
+    route: '/help/records',
+    state: { kind: 'signed-out' },
+  },
+  { screen: 'ReviewSign', route: '/review', state: { kind: 'scenario' } },
+  {
+    screen: 'SettingsSignature',
+    route: '/settings/signatures',
+    user: 'sam',
+    state: { kind: 'scenario' },
+  },
+  {
+    screen: 'HomeFirstRun',
+    route: '/',
+    user: 'firstRunEditor',
+    state: { kind: 'scenario' },
+  },
+  {
+    screen: 'Shortcuts',
+    route: '/help/shortcuts',
+    state: { kind: 'dialog', trigger: 'Show keyboard shortcuts' },
+  },
   { screen: 'ClientPortal', route: '/client-portal', user: 'clientAna' },
-  { screen: 'Projects', route: '/projects' },
+  {
+    screen: 'Projects',
+    route: '/projects',
+    state: {
+      kind: 'selected-row',
+      identifier: 'PRJ-0217',
+      trigger: 'Show details for AAV9 process transfer',
+    },
+  },
+  { screen: 'ProjectsTablet', route: '/projects' },
   {
     screen: 'ProjectDetail',
     route: '/projects/PRJ-0217',
@@ -461,6 +490,8 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'PipelineRun', route: '/pipelines/PL-0003/runs/latest' },
   { screen: 'PipelineRunFailed', route: '/pipelines/PL-0014/runs/latest' },
   { screen: 'SettingsGeneral', route: '/settings' },
+  { screen: 'SettingsMembers', route: '/settings/members' },
+  { screen: 'SettingsAccess', route: '/settings/access' },
   {
     screen: 'SettingsIntegrations',
     route: '/settings/integrations',
@@ -511,7 +542,6 @@ export const DESIGN_PENDING: ReadonlyArray<{
       'SearchEmpty',
       'SheetEmpty',
       'SheetPromote',
-      'SignedOut',
       'SnapshotRemoved',
       'TokenExpired',
       'EvidenceCompare',
@@ -524,7 +554,6 @@ export const DESIGN_PENDING: ReadonlyArray<{
       'Analysis',
       'AuditLog',
       'HomeBench',
-      'HomeFirstRun',
       'HomeTriage',
       'ImportMap',
       'ImportUpload',
@@ -547,19 +576,15 @@ export const DESIGN_PENDING: ReadonlyArray<{
       'RecordPhone',
       'ReviewApproved',
       'ReviewReturned',
-      'ReviewSign',
       'SchemaEditor',
       'SchemaPending',
       'SchemasList',
       'SearchPalette',
       'SearchResults',
-      'SettingsAccess',
       'SettingsApi',
       'SettingsInstruments',
-      'SettingsMembers',
       'SettingsNotifications',
       'SettingsProfile',
-      'SettingsSignature',
       'States',
       'TemplateEditor',
       'TemplateUpdate',
@@ -580,7 +605,6 @@ export const DESIGN_PENDING: ReadonlyArray<{
       'PhoneSample',
       'PhoneScan',
       'PhoneWithdraw',
-      'ProjectsTablet',
       'SheetTablet',
       'SnapshotsLaptop',
     ],
@@ -588,7 +612,7 @@ export const DESIGN_PENDING: ReadonlyArray<{
   {
     reason:
       'Global chrome / keyboard-surface screen with no equivalent app route yet (focus order, shortcuts overlay, component states board).',
-    screens: ['FocusOrder', 'Shortcuts'],
+    screens: ['FocusOrder'],
   },
 ]
 
@@ -605,4 +629,5 @@ export const DESIGN_USER_IDS: Record<string, string> = {
   anna: '00000000-0000-4000-8000-000000000315',
   clientAna: '00000000-0000-4000-8000-000000000316',
   clientBen: '00000000-0000-4000-8000-000000000317',
+  firstRunEditor: 'design-scenario-first-run-editor',
 }

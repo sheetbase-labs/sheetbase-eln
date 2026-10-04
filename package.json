@@ -39,7 +39,7 @@
     "test:db": "vitest run --config vitest.db.config.ts",
     "test:api": "vitest run --config vitest.api.config.ts",
     "test:browser": "playwright test --project=browser",
-    "test:parity": "tsx scripts/design-reference.mts && playwright test --project=parity",
+    "test:parity": "tsx scripts/design-reference.mts && playwright test --project=parity --reporter=list,./tests/visual/parity-reporter.ts",
     "test:phase1": "vitest run --config vitest.db.config.ts phase1-proof",
     "test:phase3": "vitest run --config vitest.db.config.ts phase3-proof",
     "test:phase4": "vitest run src/lib/formula-ir.test.ts src/lib/scientific-workbook-engine.test.ts src/lib/calculation.server.test.ts src/lib/formula-write.server.test.ts src/lib/function-descriptions.test.ts src/lib/sheet-calculation.test.ts src/lib/sheet-calculation-exclusion.test.ts src/components/notebook/scientific-workbook-provider.test.tsx && vitest run --config vitest.db.config.ts phase4-proof && vitest run --config vitest.api.config.ts phase4-proof && playwright test phase4-proof",

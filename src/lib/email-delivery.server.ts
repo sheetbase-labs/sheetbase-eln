@@ -81,7 +81,7 @@ export async function processEmailDeliveries(
 // ---------------------------------------------------------------------------
 // SMTP transport (WORK-03.4). Configured from the environment; the worker
 // only runs when SMTP_HOST is set. `nodemailer` is loaded lazily so the
-// dependency is required only when email is actually configured.
+// transport is initialised only when email is actually configured.
 // ---------------------------------------------------------------------------
 
 export interface SmtpConfig {
@@ -110,20 +110,17 @@ export function readSmtpConfig(
 export async function createSmtpTransport(
   config: SmtpConfig,
 ): Promise<EmailTransport> {
-  // Loaded by a variable specifier: nodemailer is an optional dependency, so
-  // it is present only when email delivery is configured. @vite-ignore keeps
-  // the bundler from trying to resolve it at build time.
-  const moduleName = 'nodemailer'
-  const { createTransport } = (await import(/* @vite-ignore */ moduleName)) as {
-    createTransport: (options: Record<string, unknown>) => {
-      sendMail: (message: Record<string, unknown>) => Promise<unknown>
-    }
-  }
+  const { createTransport } = await import('nodemailer')
   const transport = createTransport({
     host: config.host,
     port: config.port,
     secure: config.port === 465,
-    auth: config.user ? { user: config.user, pass: config.pass } : undefined,
+    requireTLS: config.port !== 465,
+    opportunisticTLS: false,
+    tls: { minVersion: 'TLSv1.2', rejectUnauthorized: true },
+    auth: config.user
+      ? { user: config.user, pass: config.pass ?? undefined }
+      : undefined,
   })
   return {
     send: async (message) => {

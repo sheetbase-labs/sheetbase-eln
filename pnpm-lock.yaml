@@ -157,6 +157,9 @@ importers:
       marked:
         specifier: ^18.0.11
         version: 18.0.11
+      nodemailer:
+        specifier: 10.0.13
+        version: 10.0.13
       parquet-wasm:
         specifier: ^0.7.2
         version: 0.7.2
@@ -5213,6 +5216,10 @@ packages:
   node-releases@2.0.54:
     resolution: {integrity: sha512-YHs7BmmcsdAI5Ozuf8JZo6PT0mv2GIWC9vMfvUC3dp65M8hn7Ux8CPL+2oBI7juNuj9d0ndhTcznq2ODBps9cQ==}
     engines: {node: '>=18'}
+
+  nodemailer@10.0.13:
+    resolution: {integrity: sha512-SzG86OlvcW/NNhUFC6uROMwRTL4n7MswfQqC/T8mhkmnY1YVa23zUEMYi4ijSeXSl9GLz9ZeTJDUatEDuY5FeQ==}
+    engines: {node: '>=20.0.0'}
 
   nullthrows@1.1.1:
     resolution: {integrity: sha512-2vPPEi+Z7WqML2jZYddDIfy5Dqb0r2fze2zTxNNknZaFpVHU3mFB3R+DWeJWGVx0ecvttSGlJTI+WG+8Z4cDWw==}
@@ -11241,6 +11248,8 @@ snapshots:
     optional: true
 
   node-releases@2.0.54: {}
+
+  nodemailer@10.0.13: {}
 
   nullthrows@1.1.1:
     optional: true

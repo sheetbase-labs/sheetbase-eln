@@ -73,10 +73,11 @@ with the [accepted signing contract](../knowledge/decisions/0045-regulated-inten
 No session-only wrapper around `setPassword` or generic password-reset route
 is supported.
 
-The existing SMTP transport in `src/lib/email-delivery.server.ts` enables
-implicit TLS on port 465 but does not require STARTTLS on other ports. Mandatory
-TLS with certificate validation is still needed before that transport can send
-enrolment secrets. Better Auth has no reset-email callback configured.
+The SMTP transport in `src/lib/email-delivery.server.ts` uses implicit TLS on
+port 465 and requires STARTTLS on other ports. It requires TLS 1.2 or later,
+validates certificates, and refuses plaintext fallback. The local handshake
+tests prove these controls, not production SMTP delivery or provider step-up.
+Better Auth has no reset-email callback configured.
 Missing SMTP configuration, a missing transport, or failed delivery must deny
 enrolment. No secret belongs in the notification outbox, a browser response,
 an admin response, or logs.

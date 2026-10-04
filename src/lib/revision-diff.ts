@@ -1,3 +1,5 @@
+import type { FrozenSheetEvidence } from './sheet-evidence'
+
 export type RevisionChangeKind = 'added' | 'removed' | 'modified' | 'moved'
 
 export type RevisionChangeArea =
@@ -22,7 +24,7 @@ export interface CanonicalRevisionEnvelope {
   scientificTables: CanonicalRevisionEntity[]
   formulas: CanonicalRevisionEntity[]
   files: CanonicalRevisionEntity[]
-  sheetEvidence?: CanonicalRevisionEntity[]
+  sheetEvidence?: FrozenSheetEvidence[]
 }
 
 export interface RevisionChange {
@@ -57,6 +59,7 @@ export interface RevisionDiffResult {
   changes: RevisionChange[]
   counts: Record<RevisionChangeKind, number>
   tableSummaries: RevisionTableDiffSummary[]
+  unavailableSheetComparisons: string[]
   unchanged: boolean
 }
 
@@ -801,6 +804,95 @@ function compareChanges(a: RevisionChange, b: RevisionChange): number {
   )
 }
 
+/** Adapt frozen canonical Sheet values to the existing identity-based table diff. */
+function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
+  return evidence.map((sheet) => {
+    const grid = sheet.composedGrid
+    if (
+      grid &&
+      Array.isArray(grid.rowKeys) &&
+      Array.isArray(grid.rows) &&
+      grid.columns
+    ) {
+      const rowKeys = grid.rowKeys
+      const rows = grid.rows
+      if (
+        rowKeys.length !== rows.length ||
+        rowKeys.some((key) => typeof key !== 'string')
+      ) {
+        throw new Error(
+          'Frozen Sheet row identities do not match composed rows',
+        )
+      }
+      const columns = grid.columns.map((column) => {
+        if (typeof column.id !== 'string')
+          throw new Error('Frozen Sheet column identity is missing')
+        const field = isEntity(column.field) ? column.field : column
+        const quantity = isEntity(field.quantity) ? field.quantity : {}
+        return {
+          ...field,
+          ...column,
+          id: column.id,
+          field_name: column.id,
+          unit: quantity.storageUnit,
+        }
+      })
+      return {
+        id: sheet.blockId,
+        name: 'Sheet',
+        instanceId: sheet.instanceId,
+        sourceDefinitionVersionId: sheet.sourceDefinitionVersionId,
+        columns,
+        rows: rows.map((cells, index) => {
+          if (!Array.isArray(cells) || cells.length !== columns.length) {
+            throw new Error('Frozen Sheet cells do not match composed columns')
+          }
+          return {
+            ...Object.fromEntries(
+              columns.map((column, position) => [column.id, cells[position]]),
+            ),
+            id: rowKeys[index],
+          }
+        }),
+      }
+    }
+    const fields = Array.isArray(sheet.instanceState.localFields)
+      ? sheet.instanceState.localFields.filter(isEntity)
+      : []
+    const values = isEntity(sheet.instanceState.localValues)
+      ? sheet.instanceState.localValues
+      : {}
+    return {
+      id: sheet.blockId,
+      name: 'Sheet',
+      instanceId: sheet.instanceId,
+      sourceDefinitionVersionId: sheet.sourceDefinitionVersionId,
+      columns: fields.map((field) => ({
+        ...field,
+        id: field.fieldId,
+        field_name: field.fieldId,
+      })),
+      rows: Object.entries(values).map(([rowKey, cells]) => ({
+        ...(isEntity(cells) ? cells : {}),
+        id: rowKey,
+      })),
+    }
+  })
+}
+
+function sheetFormulas(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
+  return evidence.flatMap((sheet) => {
+    const frozen =
+      sheet.composedGrid?.calculations ??
+      sheet.instanceState.instanceCalculations
+    const calculations = Array.isArray(frozen) ? frozen.filter(isEntity) : []
+    return [...byIdentity(calculations)].map(([id, calculation]) => ({
+      ...calculation,
+      id: `${sheet.blockId}:${id}`,
+    }))
+  })
+}
+
 /**
  * Compare two immutable canonical revision envelopes. The result is stable for
  * identical inputs and retains source values without scientific reformatting.
@@ -810,6 +902,17 @@ export function diffRevisionEnvelopes(
   after: CanonicalRevisionEnvelope,
 ): RevisionDiffResult {
   const changes: RevisionChange[] = []
+  const unavailableSheetComparisons = [
+    ...new Set(
+      [...(before.sheetEvidence ?? []), ...(after.sheetEvidence ?? [])]
+        .filter(
+          (sheet) =>
+            Array.isArray(sheet.composedGrid?.rows) &&
+            !Array.isArray(sheet.composedGrid.rowKeys),
+        )
+        .map((sheet) => sheet.blockId),
+    ),
+  ]
   compareValue({
     area: 'metadata',
     identity: String(after.record.id ?? before.record.id ?? 'record'),
@@ -828,14 +931,28 @@ export function diffRevisionEnvelopes(
     changes,
   })
   const tableSummaries = compareTables(
-    before.scientificTables,
-    after.scientificTables,
+    [
+      ...before.scientificTables,
+      ...sheetTables(
+        before.sheetEvidence?.filter(
+          (sheet) => !unavailableSheetComparisons.includes(sheet.blockId),
+        ),
+      ),
+    ],
+    [
+      ...after.scientificTables,
+      ...sheetTables(
+        after.sheetEvidence?.filter(
+          (sheet) => !unavailableSheetComparisons.includes(sheet.blockId),
+        ),
+      ),
+    ],
     changes,
   )
   compareEntityCollection({
     area: 'formulas',
-    before: before.formulas,
-    after: after.formulas,
+    before: [...before.formulas, ...sheetFormulas(before.sheetEvidence)],
+    after: [...after.formulas, ...sheetFormulas(after.sheetEvidence)],
     label: (entity, id) => displayName(entity, `Formula ${id}`),
     changes,
   })
@@ -859,6 +976,7 @@ export function diffRevisionEnvelopes(
     changes,
     counts,
     tableSummaries,
-    unchanged: changes.length === 0,
+    unavailableSheetComparisons,
+    unchanged: changes.length === 0 && unavailableSheetComparisons.length === 0,
   }
 }

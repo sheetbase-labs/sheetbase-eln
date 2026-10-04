@@ -449,12 +449,32 @@ export function RevisionDiffReview({
           </div>
         </div>
         <p className="text-xs text-fg-muted" aria-live="polite">
-          {diff.changes.length}{' '}
-          {diff.changes.length === 1 ? 'change' : 'changes'}
+          {diff.unavailableSheetComparisons.length > 0 ? (
+            'Partial comparison'
+          ) : (
+            <>
+              {diff.changes.length}{' '}
+              {diff.changes.length === 1 ? 'change' : 'changes'}
+            </>
+          )}
         </p>
       </header>
 
-      {!diff.unchanged ? (
+      {diff.unavailableSheetComparisons.length > 0 ? (
+        <div
+          role="status"
+          className="rounded-lg border bg-surface-muted p-3 text-sm"
+        >
+          <p className="font-semibold">Cell comparison unavailable</p>
+          <p className="mt-1 text-xs text-fg-muted">
+            Historical Sheet evidence has no stable row identities. Frozen
+            values remain available in the revision, but cannot be compared by
+            cell.
+          </p>
+        </div>
+      ) : null}
+
+      {diff.changes.length > 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-col gap-1">
             <div
@@ -545,7 +565,9 @@ export function RevisionDiffReview({
             revisions.
           </p>
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 &&
+        diff.unavailableSheetComparisons.length > 0 ? null : items.length ===
+        0 ? (
         <div className="rounded-lg border border-dashed p-6 text-center text-sm text-fg-muted">
           No changes match the selected change types.
         </div>

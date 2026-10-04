@@ -12,11 +12,9 @@
  *   sign (approve-for-record) → lock → reconstruct timeline + evidence →
  *   verify prohibited mutations fail through REST and the database.
  *
- * The experiment fixture is built entirely through RPCs (never by seeding
- * scientific content). Formula definitions have no public RPC, so they are
- * written through the migrator connection into the same trusted schema the
- * formula-write / calculation servers use. The live database is never reset
- * or reseeded — only this suite's dedicated workspace is cleaned up.
+ * Scientific content is created through canonical Dataset and Sheet RPCs.
+ * Calculations use the existing safe worker and trusted result finalizer.
+ * Only this suite's dedicated workspace is cleaned up; other data is retained.
  */
 import { config } from 'dotenv'
 import { Client } from 'pg'
@@ -24,10 +22,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
-import { createScientificTableAsMigrator } from '../db/helpers'
 import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { diffRevisionEnvelopes } from '#/lib/revision-diff'
 import type { RevisionWire } from '#/lib/notebook-data'
+import { sheetEvidenceFromRevisionRows } from '#/lib/sheet-evidence'
+import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
+import { calculateSheetSnapshot } from '#/lib/sheet-calculation.server'
+import { sheetInstanceFromWire } from '#/lib/sheet-instance-data'
+import { reviewWorkspaceDataClient } from '#/lib/review-workspace'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -48,7 +50,9 @@ let sample: { id: string }
 let protocol: { id: string; structure_version: number }
 let experiment: { id: string; structure_version: number; identifier: string }
 let richBlock: { id: string; version: number }
-let sheetTable: { id: string; resource_name: string; schema_version: number }
+let dataset: { id: string; revision: number }
+let sheetInstance: ReturnType<typeof sheetInstanceFromWire>
+let sheetBlockId: string
 let cols: { time: string; titer: string; condition: string }
 let r1: {
   revisionId: string
@@ -64,6 +68,23 @@ let signatureId: string
 // Fixture cleanup — removes only this suite's workspace, in dependency order.
 // ---------------------------------------------------------------------------
 async function clean(): Promise<void> {
+  await admin.query('BEGIN')
+  try {
+    await admin.query(
+      'ALTER TABLE api.revision_sheet_evidence DISABLE TRIGGER USER',
+    )
+    await admin.query(
+      'DELETE FROM api.revision_sheet_evidence WHERE workspace_id=$1',
+      [WS],
+    )
+    await admin.query(
+      'ALTER TABLE api.revision_sheet_evidence ENABLE TRIGGER USER',
+    )
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
   await admin.query(`DELETE FROM api.signatures WHERE workspace_id = $1`, [WS])
   await admin.query(
     `DELETE FROM api.review_decisions WHERE workspace_id = $1`,
@@ -80,29 +101,6 @@ async function clean(): Promise<void> {
   await admin.query(`DELETE FROM api.comments WHERE workspace_id = $1`, [WS])
   await admin.query(
     `DELETE FROM internal.revision_file_objects WHERE workspace_id = $1`,
-    [WS],
-  )
-  await admin.query(
-    `DELETE FROM api.formula_dependencies WHERE workspace_id = $1`,
-    [WS],
-  )
-  await admin.query(
-    `DELETE FROM api.formula_definitions WHERE workspace_id = $1`,
-    [WS],
-  )
-  // Drop generated scientific tables before removing their catalog rows
-  // (scientific_tables.block_id is ON DELETE RESTRICT).
-  const generated = await admin.query<{ resource_name: string }>(
-    `SELECT resource_name FROM api.scientific_tables WHERE workspace_id = $1`,
-    [WS],
-  )
-  for (const row of generated.rows) {
-    if (/^sheet_[a-z2-7]{26}$/.test(row.resource_name)) {
-      await admin.query(`DROP TABLE IF EXISTS api.${row.resource_name}`)
-    }
-  }
-  await admin.query(
-    `DELETE FROM api.scientific_tables WHERE workspace_id = $1`,
     [WS],
   )
   await admin.query(
@@ -132,7 +130,85 @@ async function clean(): Promise<void> {
   await admin.query(`DELETE FROM api.file_objects WHERE workspace_id = $1`, [
     WS,
   ])
+  await admin.query('BEGIN')
+  try {
+    const guarded = [
+      'sheet_instances',
+      'sheet_instance_calculation_mutations',
+      'sheet_instance_local_mutations',
+      'sheet_definition_versions',
+      'sheet_definitions',
+      'dataset_version_flags',
+      'dataset_version_values',
+      'dataset_version_rows',
+      'dataset_versions',
+      'dataset_schema_version_fields',
+      'dataset_schema_versions',
+    ]
+    for (const table of guarded)
+      await admin.query(`ALTER TABLE api.${table} DISABLE TRIGGER USER`)
+    await admin.query(
+      'DELETE FROM internal.sheet_instance_calculation_results WHERE workspace_id=$1',
+      [WS],
+    )
+    for (const table of [
+      'sheet_instance_calculation_mutations',
+      'sheet_instance_local_mutations',
+      'sheet_instances',
+    ])
+      await admin.query(`DELETE FROM api.${table} WHERE workspace_id=$1`, [WS])
+    await admin.query(
+      'DELETE FROM api.sheet_definition_versions WHERE definition_id IN (SELECT id FROM api.sheet_definitions WHERE workspace_id=$1)',
+      [WS],
+    )
+    await admin.query(
+      'DELETE FROM api.sheet_definitions WHERE workspace_id=$1',
+      [WS],
+    )
+    for (const table of [
+      'dataset_version_flags',
+      'dataset_version_values',
+      'dataset_version_rows',
+    ])
+      await admin.query(
+        `DELETE FROM api.${table} WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id=$1)`,
+        [WS],
+      )
+    await admin.query(
+      'DELETE FROM api.dataset_versions WHERE workspace_id=$1',
+      [WS],
+    )
+    await admin.query('DELETE FROM api.datasets WHERE workspace_id=$1', [WS])
+    await admin.query(
+      'DELETE FROM api.dataset_schema_definitions WHERE workspace_id=$1',
+      [WS],
+    )
+    for (const table of guarded)
+      await admin.query(`ALTER TABLE api.${table} ENABLE TRIGGER USER`)
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
   await admin.query(`DELETE FROM api.records WHERE workspace_id = $1`, [WS])
+  // Fixture-only teardown; never leave the immutable-definition guard off.
+  await admin.query('BEGIN')
+  try {
+    await admin.query(
+      'ALTER TABLE api.record_field_definitions DISABLE TRIGGER model_definition_guard',
+    )
+    await admin.query(
+      'DELETE FROM api.record_field_definitions WHERE workspace_id=$1',
+      [WS],
+    )
+    await admin.query(
+      'ALTER TABLE api.record_field_definitions ENABLE TRIGGER model_definition_guard',
+    )
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
   await admin.query(`DELETE FROM api.projects WHERE workspace_id = $1`, [WS])
   await admin.query(
     `DELETE FROM api.workspace_memberships WHERE workspace_id = $1`,
@@ -198,17 +274,22 @@ async function createRecord(
   title: string,
   status = 'draft',
   properties: Record<string, unknown> = {},
+  customFields: Record<string, unknown> = {},
 ) {
-  const res = await rpc('create_record', user, session, {
+  const res = await rpc('create_model_record', user, session, {
     p_project_id: PROJECT,
     p_kind: kind,
     p_title: title,
     p_status: status,
     p_tags: [],
     p_properties: properties,
+    p_custom_fields: customFields,
   })
-  expect(res.status).toBe(200)
-  return res.json()
+  expect(res.status, await res.clone().text()).toBe(200)
+  const record = await res.json()
+  expect(record.custom_fields).toEqual(customFields)
+  expect(record.properties).toEqual(properties)
+  return record
 }
 
 async function insertBlock(
@@ -229,14 +310,68 @@ async function insertBlock(
   return res.json()
 }
 
-async function getRows(filter: string) {
+async function getRows(time?: number) {
   const res = await proxy(
-    `${sheetTable.resource_name}?${filter}`,
+    `dataset_rows?dataset_id=eq.${dataset.id}`,
     OWNER,
     OWNER_SESSION,
   )
   expect(res.status).toBe(200)
-  return res.json() as Promise<Array<Record<string, unknown>>>
+  const rows: Array<{ id: string; revision: number }> = await res.json()
+  const valuesRes = await proxy(
+    `dataset_row_values?row_id=in.(${rows.map((row) => row.id).join(',')})`,
+    OWNER,
+    OWNER_SESSION,
+  )
+  expect(valuesRes.status).toBe(200)
+  const values: Array<{
+    row_id: string
+    field_id: string
+    numeric_value: number | string | null
+    text_value: string | null
+  }> = await valuesRes.json()
+  return rows
+    .map((row) => ({
+      ...row,
+      ...Object.fromEntries(
+        values
+          .filter((value) => value.row_id === row.id)
+          .map((value) => [
+            value.field_id,
+            value.numeric_value !== null
+              ? Number(value.numeric_value)
+              : value.text_value,
+          ]),
+      ),
+    }))
+    .filter((row) => time === undefined || row[cols.time] === time)
+}
+
+async function commitRows(rows: Array<Record<string, unknown>>) {
+  const read = await proxy(`datasets?id=eq.${dataset.id}`, OWNER, OWNER_SESSION)
+  expect(read.status).toBe(200)
+  const [current] = await read.json()
+  return asOwner('commit_dataset_row_batch', {
+    p_dataset_id: dataset.id,
+    p_expected_dataset_revision: Number(current.revision),
+    p_idempotency_key: crypto.randomUUID(),
+    p_rows: rows,
+  })
+}
+
+async function canonicalRevision(row: RevisionWire) {
+  const res = await proxy(
+    `revision_sheet_evidence?revision_id=eq.${row.id}`,
+    OWNER,
+    OWNER_SESSION,
+  )
+  expect(res.status).toBe(200)
+  return toCanonicalEnvelope({
+    ...row,
+    frozenSheetEvidence: [
+      ...sheetEvidenceFromRevisionRows(await res.json()).values(),
+    ],
+  })
 }
 
 function richTextDoc(text: string) {
@@ -288,6 +423,27 @@ beforeAll(async () => {
     [PROJECT, WS],
   )
 
+  // Custom scientific metadata belongs to active workspace model fields,
+  // not the protected legacy properties document.
+  for (const [model, key, type] of [
+    ['sample', 'construct', 'text'],
+    ['sample', 'batch', 'text'],
+    ['experiment', 'conditions', 'text'],
+    ['experiment', 'window_days', 'integer'],
+  ]) {
+    const definition = await asOwner('create_and_activate_model_field', {
+      p_workspace_id: WS,
+      p_model_key: model,
+      p_field_name: key,
+      p_label: key,
+      p_logical_type: type,
+      p_nullable: true,
+      p_default_value: null,
+      p_validation: {},
+    })
+    expect(definition.status, await definition.clone().text()).toBe(200)
+  }
+
   // --- Build the Virus Stability notebook through ordinary RPCs. ---
   sample = await createRecord(
     OWNER,
@@ -295,10 +451,10 @@ beforeAll(async () => {
     'sample',
     'LVV-CAR-T drug substance',
     'available',
+    { storageLocation: '4 °C' },
     {
       construct: 'LVV-CAR-T',
       batch: 'LVV-250601',
-      storage: '4 °C',
     },
   )
   protocol = await createRecord(
@@ -329,6 +485,7 @@ beforeAll(async () => {
     'experiment',
     'Virus Stability at 4 °C',
     'draft',
+    {},
     { conditions: '4 °C', window_days: 28 },
   )
 
@@ -365,44 +522,84 @@ beforeAll(async () => {
   })
   expect(link2.status).toBe(200)
 
-  // Sheet block + scientific table.
-  const sheetJson = await insertBlock(
-    OWNER,
-    OWNER_SESSION,
-    experiment,
-    'sheet',
-    {},
-  )
-  experiment.structure_version = sheetJson.structure_version
-  const built = await createScientificTableAsMigrator(
-    admin,
-    OWNER,
-    WS,
-    sheetJson.block.id,
-    'Stability readings (qPCR)',
-    [
-      {
-        label: 'Time (days)',
-        logical_type: 'decimal',
-        unit: { code: 'd', symbol: 'd' },
-      },
-      {
-        label: 'Log titer',
-        logical_type: 'decimal',
-        unit: { code: 'log10', symbol: 'log₁₀' },
-      },
-      { label: 'Condition', logical_type: 'text' },
-    ],
-  )
-  sheetTable = built.table
-  const byLabel = Object.fromEntries(
-    built.columns.map((c: any) => [c.label, c]),
-  )
+  // Canonical Dataset-backed Sheet. Scientific values and source quantities
+  // are governed fields; no retired generated-table writes are used.
   cols = {
-    time: byLabel['Time (days)'].field_name,
-    titer: byLabel['Log titer'].field_name,
-    condition: byLabel['Condition'].field_name,
+    time: crypto.randomUUID(),
+    titer: crypto.randomUUID(),
+    condition: crypto.randomUUID(),
   }
+  const fields = [
+    {
+      fieldId: cols.time,
+      key: 'time',
+      label: 'Time (days)',
+      logicalType: 'decimal',
+      quantity: { kind: 'duration', dimension: 'time', storageUnit: 'd' },
+    },
+    {
+      fieldId: cols.titer,
+      key: 'titer',
+      label: 'Log titer',
+      logicalType: 'decimal',
+      quantity: {
+        kind: 'log_titer',
+        dimension: 'dimensionless',
+        storageUnit: 'log10',
+      },
+    },
+    {
+      fieldId: cols.condition,
+      key: 'condition',
+      label: 'Condition',
+      logicalType: 'text',
+      quantity: null,
+    },
+  ].map((field) => ({
+    ...field,
+    description: null,
+    nullable: true,
+    defaultValue: null,
+    cardinality: 'one',
+    validation: {},
+    category: null,
+    relationship: null,
+    computation: { mode: 'stored' },
+    lifecycle: 'active',
+  }))
+  const schemaRes = await asOwner('create_dataset_schema_definition', {
+    p_workspace_id: WS,
+    p_key: 'rev_stability',
+    p_name: 'Stability readings (qPCR)',
+    p_description: null,
+    p_fields: fields.map(({ fieldId, key, label, logicalType, quantity }) => ({
+      fieldId,
+      key,
+      label,
+      logicalType,
+      ...(quantity ? { quantity } : {}),
+    })),
+  })
+  expect(schemaRes.status, await schemaRes.clone().text()).toBe(200)
+  const schema = await schemaRes.json()
+  const published = await asOwner('publish_dataset_schema_version', {
+    p_schema_version_id: schema.schema_version_id,
+  })
+  expect(published.status, await published.clone().text()).toBe(200)
+  const datasetRes = await proxy('datasets', OWNER, OWNER_SESSION, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      workspace_id: WS,
+      schema_version_id: schema.schema_version_id,
+      name: 'Stability readings (qPCR)',
+    }),
+  })
+  expect(datasetRes.status, await datasetRes.clone().text()).toBe(201)
+  ;[dataset] = await datasetRes.json()
 
   // Four 4 °C timepoint rows.
   const r1Rows = [
@@ -411,18 +608,119 @@ beforeAll(async () => {
     [14, 6.6, '4 °C'],
     [28, 5.9, '4 °C'],
   ] as const
-  for (const [t, logTiter, condition] of r1Rows) {
-    const rowRes = await proxy(sheetTable.resource_name, OWNER, OWNER_SESSION, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        [cols.time]: t,
-        [cols.titer]: logTiter,
+  const rowsRes = await commitRows(
+    r1Rows.map(([time, titer, condition]) => ({
+      operation: 'create',
+      rowId: crypto.randomUUID(),
+      values: {
+        [cols.time]: time,
+        [cols.titer]: titer,
         [cols.condition]: condition,
-      }),
-    })
-    expect(rowRes.status).toBe(201)
-  }
+      },
+    })),
+  )
+  expect(rowsRes.status, await rowsRes.clone().text()).toBe(200)
+  const parameterId = crypto.randomUUID()
+  const bindingId = crypto.randomUUID()
+  const definitionRes = await asOwner('create_sheet_definition', {
+    p_workspace_id: WS,
+    p_key: 'rev_stability_sheet',
+    p_name: 'Stability readings',
+    p_description: null,
+    p_configuration: {
+      formatVersion: 1,
+      parameters: [
+        {
+          id: parameterId,
+          key: 'readings',
+          label: 'Readings',
+          required: true,
+          type: {
+            kind: 'dataset',
+            contract: {
+              mode: 'exact',
+              schemaVersionId: schema.schema_version_id,
+            },
+          },
+          constraints: {},
+        },
+      ],
+      bindings: [{ id: bindingId, key: 'readings', parameterId }],
+      rowIdentity: { kind: 'source', columnIds: [cols.time] },
+      joins: [],
+      columns: fields.map((field) => ({
+        id: field.fieldId,
+        field,
+        source: { kind: 'bound', bindingId, sourceFieldId: field.fieldId },
+      })),
+      calculations: [],
+      writeBackRules: [],
+      actions: [],
+      presentation: {
+        columnOrder: Object.values(cols),
+        hiddenColumnIds: [],
+        columnWidths: {},
+        frozenColumnCount: 0,
+        density: 'standard',
+      },
+    },
+  })
+  expect(definitionRes.status, await definitionRes.clone().text()).toBe(200)
+  const definition = await definitionRes.json()
+  const publishedDefinition = await asOwner(
+    'publish_sheet_definition_version',
+    {
+      p_version_id: definition.version.id,
+      p_expected_revision: definition.version.revision,
+    },
+  )
+  expect(
+    publishedDefinition.status,
+    await publishedDefinition.clone().text(),
+  ).toBe(200)
+  const instanceRes = await asOwner('create_sheet_instance_from_definition', {
+    p_workspace_id: WS,
+    p_name: 'Stability readings',
+    p_description: null,
+    p_source_definition_version_id: definition.version.id,
+    p_project_id: PROJECT,
+    p_notebook_record_id: experiment.id,
+    p_state: {
+      bindings: [],
+      localFields: [],
+      localValues: {},
+      calculationOverrides: {},
+      presentation: {
+        columnOrder: [],
+        hiddenColumnIds: [],
+        columnWidths: {},
+        frozenColumnCount: 0,
+        density: 'standard',
+      },
+      provenance: { createdFrom: 'definition_version' },
+    },
+    p_parameter_inputs: [
+      { parameterId, kind: 'dataset', datasetId: dataset.id },
+    ],
+  })
+  expect(instanceRes.status, await instanceRes.clone().text()).toBe(200)
+  sheetInstance = sheetInstanceFromWire(await instanceRes.json())
+  const resolved = await asOwner('resolve_sheet_instance_row_identity', {
+    p_instance_id: sheetInstance.id,
+    p_expected_revision: sheetInstance.revision,
+  })
+  expect(resolved.status, await resolved.clone().text()).toBe(200)
+  sheetInstance = sheetInstanceFromWire(await resolved.json())
+  const embedded = await asOwner('insert_sheet_instance_block', {
+    p_record_id: experiment.id,
+    p_instance_id: sheetInstance.id,
+    p_expected_structure_version: experiment.structure_version,
+    p_after_block_id: null,
+  })
+  expect(embedded.status, await embedded.clone().text()).toBe(200)
+  const sheetJson = await embedded.json()
+  experiment.structure_version = sheetJson.structure_version
+  sheetBlockId = sheetJson.block.id
 
   // --- Submit R1 (the fixed revision). ---
   const preview1 = await asOwner('preview_submission_digest', {
@@ -474,101 +772,109 @@ beforeAll(async () => {
   })
   expect(updateRes.status).toBe(200)
 
-  // 2. Modify the day-28 log titer cell (5.9 → 5.7) via the generated-table REST surface.
-  const rowsBefore = await getRows(
-    `${cols.time}=eq.28&select=id,version,${cols.time},${cols.titer}`,
-  )
-  const day28 = rowsBefore.find((r) => Number(r[cols.time]) === 28)!
-  const patchRes = await proxy(
-    `${sheetTable.resource_name}?id=eq.${day28.id}&version=eq.${day28.version}`,
-    OWNER,
-    OWNER_SESSION,
+  // Amend one scientific value and append a timepoint through typed HTTP RPCs.
+  const [day28] = await getRows(28)
+  const patchRes = await commitRows([
     {
-      method: 'PATCH',
-      headers: {
-        'content-type': 'application/json',
-        prefer: 'return=representation',
-      },
-      body: JSON.stringify({ [cols.titer]: 5.7 }),
+      operation: 'update',
+      rowId: day28.id,
+      expectedRevision: day28.revision,
+      values: { [cols.titer]: 5.7 },
     },
-  )
-  expect(patchRes.status).toBe(200)
-
-  // 3. Add a day-42 timepoint row.
-  const addRowRes = await proxy(
-    sheetTable.resource_name,
-    OWNER,
-    OWNER_SESSION,
+  ])
+  expect(patchRes.status, await patchRes.clone().text()).toBe(200)
+  const addRowRes = await commitRows([
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        [cols.time]: 42,
-        [cols.titer]: 5.4,
-        [cols.condition]: '4 °C',
-      }),
+      operation: 'create',
+      rowId: crypto.randomUUID(),
+      values: { [cols.time]: 42, [cols.titer]: 5.4, [cols.condition]: '4 °C' },
     },
-  )
-  expect(addRowRes.status).toBe(201)
+  ])
+  expect(addRowRes.status, await addRowRes.clone().text()).toBe(200)
 
-  // 4. Add a supported formula on the day-0 log-titer cell. Formula
-  //    definitions have no public RPC, so write through the migrator into the
-  //    same trusted schema the formula-write / calculation servers use, plus a
-  //    current (non-stale) result-cache row so reviewer checks pass.
-  const day0 = (await getRows(`${cols.time}=eq.0&select=id,${cols.time}`))[0]
-  const titerColumnId = byLabel['Log titer'].id
+  // Persist a canonical Instance calculation, then execute the existing trusted
+  // worker implementation rather than inventing a fixture-only result cache.
   const formulaId = '6d000000-0000-4000-8000-0000000008f1'
-  await admin.query(
-    `INSERT INTO api.formula_definitions(
-       id, workspace_id, record_id, target_table_id, target_row_id, target_column_id,
-       source_expression, template, bindings, engine_expression, syntax_profile,
-       function_profile, literal_profile, engine_version, status, version,
-       created_by_user_id, updated_by_user_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,1,$16,$16)`,
-    [
-      formulaId,
-      WS,
-      experiment.id,
-      sheetTable.id,
-      day0.id,
-      titerColumnId,
-      '=ROUND([Log titer] * 1.000, 4)',
-      JSON.stringify({
-        kind: 'formula',
-        expression: '=ROUND([Log titer] * 1.000, 4)',
-      }),
-      JSON.stringify([
-        {
-          kind: 'cell',
-          tableId: sheetTable.id,
-          rowId: day0.id,
-          columnId: titerColumnId,
-          label: 'Log titer',
+  const calculationRes = await asOwner('mutate_sheet_instance_calculations', {
+    p_instance_id: sheetInstance.id,
+    p_expected_revision: sheetInstance.revision,
+    p_retry_token: crypto.randomUUID(),
+    p_changes: [
+      {
+        operation: 'add',
+        calculation: {
+          id: formulaId,
+          key: 'normalised_titer',
+          label: 'Normalised log titer',
+          lifecycle: 'active',
+          outputField: {
+            ...fields[1],
+            fieldId: formulaId,
+            key: 'normalised_titer',
+            label: 'Normalised log titer',
+            computation: { mode: 'computed', expressionId: formulaId },
+          },
+          dependencies: [{ kind: 'column', id: cols.titer }],
+          expression: {
+            language: 'sheetbase-formula-v1',
+            // ROUND is not supported by the safe worker. These one-decimal
+            // inputs have the same values under scalar identity arithmetic.
+            source: '=A1 * 1.000',
+          },
         },
-      ]),
-      'ROUND([Log titer] * 1.000, 4)',
-      'sheetbase-hf-en-us-v1',
-      'scientific-core-v2',
-      'sheetbase-literal-v1',
-      '3.3.0',
-      'supported',
-      OWNER,
+      },
     ],
+  })
+  expect(calculationRes.status, await calculationRes.clone().text()).toBe(200)
+  sheetInstance = sheetInstanceFromWire(await calculationRes.json())
+  const composition = await fetchComposedSheetRows(
+    sheetInstance.id,
+    { limit: 200, offset: 0 },
+    {
+      ...reviewWorkspaceDataClient,
+      rpc: async (name, args) => {
+        const response = await asOwner(name, args)
+        expect(response.status, await response.clone().text()).toBe(200)
+        return response.json()
+      },
+    },
   )
-  await admin.query(
-    `INSERT INTO internal.formula_result_cache(
-       formula_id, workspace_id, record_id, formula_version, input_revision,
-       schema_versions, status, result_kind, value, error_code, engine_version,
-       profile_fingerprint, runtime_fingerprint)
-     VALUES ($1,$2,$3,1,0,$4,'completed','value',$5,NULL,'3.3.0','fnv1a32-dcfa915f','fnv1a32-5678abcd')`,
-    [
-      formulaId,
-      WS,
-      experiment.id,
-      JSON.stringify({ [sheetTable.id]: sheetTable.schema_version }),
-      JSON.stringify(7.2),
-    ],
+  const results = calculateSheetSnapshot({
+    instanceId: sheetInstance.id,
+    workspaceId: WS,
+    definitionVersionId: sheetInstance.sourceDefinitionVersionId,
+    revision: sheetInstance.revision,
+    state: sheetInstance.state,
+    composition,
+  })
+  expect(results).toHaveLength(5)
+  expect(
+    results.every((result) => result.resultKind === 'value'),
+    JSON.stringify(
+      results.map(({ errorCode, diagnostic }) => ({ errorCode, diagnostic })),
+    ),
+  ).toBe(true)
+  expect(results.map((result) => result.value)).toEqual(
+    expect.arrayContaining([7.2, 7, 6.6, 5.7, 5.4]),
   )
+  await admin.query('BEGIN')
+  try {
+    await admin.query('SET LOCAL ROLE formula_writer')
+    await admin.query(
+      `select internal.apply_trusted_sheet_calculation($1,$2,$3,$4,$5::jsonb)`,
+      [
+        OWNER,
+        sheetInstance.id,
+        sheetInstance.revision,
+        crypto.randomUUID(),
+        JSON.stringify(results),
+      ],
+    )
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
 
   // --- Submit R2 (the amended revision). ---
   const preview2 = await asOwner('preview_submission_digest', {
@@ -622,13 +928,12 @@ describe('REV-008 review acceptance', () => {
     expect(refetched.integrity_digest).toBe(r1.digest)
     expect(refetched.canonical_snapshot).toEqual(r1.snapshot)
 
-    const envelope = toCanonicalEnvelope(refetched as RevisionWire)
-    // R1 has no formula (the formula was added after R1 was submitted).
-    expect(Array.isArray(envelope.formulas)).toBe(true)
-    expect(envelope.formulas.length).toBe(0)
+    const envelope = await canonicalRevision(refetched)
+    // R1 has no calculation (the calculation was added after submission).
+    expect(envelope.sheetEvidence?.[0].composedGrid?.calculations).toEqual([])
     // R1 carries the original rich-text + four-row table.
     expect(envelope.blocks.length).toBeGreaterThanOrEqual(1)
-    expect(envelope.scientificTables[0].rows.length).toBe(4)
+    expect(envelope.sheetEvidence?.[0].composedGrid?.rows).toHaveLength(4)
   })
 
   it('reports text, scientific-table cell and formula differences between R1 and R2', async () => {
@@ -646,8 +951,8 @@ describe('REV-008 review acceptance', () => {
     const r2Row = (await r2Res.json())[0]
 
     const diff = diffRevisionEnvelopes(
-      toCanonicalEnvelope(r1Row as RevisionWire),
-      toCanonicalEnvelope(r2Row as RevisionWire),
+      await canonicalRevision(r1Row),
+      await canonicalRevision(r2Row),
     )
 
     // Metadata title modified.
@@ -659,13 +964,13 @@ describe('REV-008 review acceptance', () => {
     // Scientific-table cell modified (the day-28 log titer). This exercises
     // the field_name column-key resolution in revision-diff.
     const tableSummary = diff.tableSummaries.find(
-      (s) => s.tableId === sheetTable.id,
+      (s) => s.tableId === sheetBlockId,
     )
     expect(tableSummary).toBeDefined()
     expect(tableSummary!.addedRows).toBe(1)
     expect(tableSummary!.modifiedCells).toBeGreaterThanOrEqual(1)
     const cellChange = tableSummary!.changes.find(
-      (c) => c.kind === 'modified' && c.rowId && c.columnId,
+      (c) => c.kind === 'modified' && c.rowId && c.columnId === cols.titer,
     )
     expect(cellChange).toBeDefined()
     expect(cellChange!.before).toBe(5.9)
@@ -829,20 +1134,17 @@ describe('REV-008 review acceptance', () => {
   })
 
   it('exports the complete revision evidence bundle for R2', async () => {
-    const res = await asOwner('export_revision_evidence', {
+    const res = await asOwner('revision_evidence_package', {
       p_revision_id: r2.revisionId,
     })
     expect(res.status).toBe(200)
     const evidence = await res.json()
-    expect(evidence.formatVersion).toBe(1)
-    expect(evidence.revision.integrity_digest).toBe(r2.digest)
-    expect(evidence.revision.superseded_by_revision_id).toBeNull()
-    // The reconstructed snapshot still carries the amended table + formula.
-    const env = toCanonicalEnvelope({
-      canonical_snapshot: evidence.revision.canonical_snapshot,
-    } as RevisionWire)
-    expect(env.formulas.length).toBe(1)
-    expect(env.scientificTables[0].rows.length).toBe(5)
+    expect(evidence.canonicalSnapshot.formatVersion).toBe(1)
+    expect(evidence.revision.integrityDigest).toBe(r2.digest)
+    expect(evidence.revision.supersededByRevisionId).toBeNull()
+    // The package includes the immutable composed values and trusted results.
+    expect(evidence.sheetEvidence[0].composedGrid.calculations).toHaveLength(1)
+    expect(evidence.sheetEvidence[0].composedGrid.rows).toHaveLength(5)
     // Review artefacts are reconstructable from the bundle.
     expect(evidence.submission.state).toBe('approved')
     expect(evidence.decisions.length).toBe(1)
@@ -911,24 +1213,65 @@ describe('REV-008 review acceptance', () => {
       expect(Array.isArray(patchBody) ? patchBody.length : 0).toBe(0)
     }
 
-    // Direct REST PATCH on a locked record's scientific row — the generated
-    // table's BEFORE trigger calls assert_scientific_record_writable, which
-    // raises SB011 for a locked record.
-    const rows = await getRows(`${cols.time}=eq.0&select=id,version`)
-    const rowPatch = await proxy(
-      `${sheetTable.resource_name}?id=eq.${rows[0].id}&version=eq.${rows[0].version}`,
-      OWNER,
-      OWNER_SESSION,
+    // ADR0021/0023: shared live Dataset/Instance evolution remains permitted.
+    // The signed Notebook must continue to show the immutable captured values,
+    // expressions and trusted calculation results, not this later live state.
+    const original = await asOwner('revision_evidence_package', {
+      p_revision_id: r2.revisionId,
+    })
+    expect(original.status).toBe(200)
+    const frozen = await original.json()
+    const [day0] = await getRows(0)
+    const rowPatch = await commitRows([
       {
-        method: 'PATCH',
-        headers: {
-          'content-type': 'application/json',
-          prefer: 'return=representation',
-        },
-        body: JSON.stringify({ [cols.titer]: 0 }),
+        operation: 'update',
+        rowId: day0.id,
+        expectedRevision: day0.revision,
+        values: { [cols.titer]: 0 },
+      },
+    ])
+    expect(rowPatch.status, await rowPatch.clone().text()).toBe(200)
+    const calculation = sheetInstance.state.instanceCalculations![0]
+    const amendedCalculation = await asOwner(
+      'mutate_sheet_instance_calculations',
+      {
+        p_instance_id: sheetInstance.id,
+        p_expected_revision: sheetInstance.revision,
+        p_retry_token: crypto.randomUUID(),
+        p_changes: [
+          {
+            operation: 'edit',
+            calculation: {
+              ...calculation,
+              expression: {
+                ...calculation.expression,
+                source: '=A1 * 1.250',
+              },
+            },
+          },
+        ],
       },
     )
-    expect(rowPatch.status).toBeGreaterThanOrEqual(400)
+    expect(
+      amendedCalculation.status,
+      await amendedCalculation.clone().text(),
+    ).toBe(200)
+    const retainedRes = await asOwner('revision_evidence_package', {
+      p_revision_id: r2.revisionId,
+    })
+    expect(retainedRes.status).toBe(200)
+    const retained = await retainedRes.json()
+    expect(retained.sheetEvidence).toEqual(frozen.sheetEvidence)
+    expect(retained.canonicalSnapshot).toEqual(frozen.canonicalSnapshot)
+    expect(retained.revision.integrityDigest).toBe(r2.digest)
+    expect(
+      retained.sheetEvidence[0].composedGrid.calculations[0].expression.source,
+    ).toBe('=A1 * 1.000')
+    expect(
+      retained.sheetEvidence[0].composedGrid.calculations[0].results.map(
+        (result: { value: number }) => result.value,
+      ),
+    ).toEqual(expect.arrayContaining([7.2, 7, 6.6, 5.7, 5.4]))
 
     // The persisted title is unchanged.
     const recRes = await proxy(
@@ -938,9 +1281,8 @@ describe('REV-008 review acceptance', () => {
     )
     const rec = (await recRes.json())[0]
     expect(rec.title).toBe('Virus Stability at 4 °C')
-    // The day-0 log titer cell is unchanged (the row PATCH was rejected).
-    const day0 = (await getRows(`${cols.time}=eq.0&select=${cols.titer}`))[0]
-    expect(Number(day0[cols.titer])).toBe(7.2)
+    // The live Dataset really changed; preservation above is not vacuous.
+    expect(Number((await getRows(0))[0][cols.titer])).toBe(0)
   })
 
   it('rejects audit-evidence mutations (signatures / decisions / revisions) through the REST proxy', async () => {

@@ -1137,7 +1137,11 @@ function NotebookDocumentContent({
                     block={block}
                     record={record}
                     readOnly={isReadOnly}
-                    frozenEvidence={frozenSheetEvidence?.get(block.id)}
+                    frozenEvidence={
+                      frozenSheetEvidence
+                        ? (frozenSheetEvidence.get(block.id) ?? null)
+                        : undefined
+                    }
                   />
                 ) : editable && (isSelected || hasUnsavedDraft) ? (
                   <BlockEditor

@@ -40,13 +40,26 @@ import {
 export function NotebookSheetBlock({
   block,
   record,
+  readOnly = false,
   frozenEvidence,
 }: {
   block: NotebookBlock
   record: NotebookRecord
   readOnly?: boolean
-  frozenEvidence?: FrozenSheetEvidence
+  /** null means historical evidence was expected but is unavailable. */
+  frozenEvidence?: FrozenSheetEvidence | null
 }) {
+  if (frozenEvidence) {
+    return <FrozenSheetEvidencePanel evidence={frozenEvidence} />
+  }
+  if (frozenEvidence === null || record.lockedAt) {
+    return (
+      <p className="p-3 text-sm text-fg-muted" role="status">
+        Frozen Sheet evidence is unavailable. Live values are not shown for this
+        revision.
+      </p>
+    )
+  }
   const instanceId = sheetBlockInstanceId(block.payload)
   if (!instanceId) {
     return (
@@ -55,14 +68,12 @@ export function NotebookSheetBlock({
       </p>
     )
   }
-  if (frozenEvidence) {
-    return <FrozenSheetEvidencePanel evidence={frozenEvidence} />
-  }
   return (
     <NotebookInstanceSheetEmbed
       instanceId={instanceId}
       projectId={record.projectId}
       recordId={record.id}
+      readOnly={readOnly}
     />
   )
 }
@@ -175,10 +186,12 @@ function NotebookInstanceSheetEmbed({
   instanceId,
   projectId,
   recordId,
+  readOnly,
 }: {
   instanceId: string
   projectId: string | null
   recordId: string
+  readOnly: boolean
 }) {
   const instance = useQuery({
     queryKey: ['sheet-instance', instanceId],
@@ -270,7 +283,9 @@ function NotebookInstanceSheetEmbed({
         <CanonicalSheetWorkspace
           instanceId={instanceId}
           projectId={projectId}
-          readOnly={!projectId || instance.data.lifecycle !== 'active'}
+          readOnly={
+            readOnly || !projectId || instance.data.lifecycle !== 'active'
+          }
         />
       </div>
     </div>

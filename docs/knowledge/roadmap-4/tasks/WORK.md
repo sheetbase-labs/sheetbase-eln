@@ -98,7 +98,7 @@ dismiss; a user never sees an item for an object they cannot read.
 
 ## WORK-02 — Home and Inbox pages
 
-**Status (2026-10-02):** done; nod `done` — closed 2026-10-02 by `468b7e95` (see [update since the 2 October audit](../RECONCILIATION.md#update-since-this-audit)). [Evidence and remaining work](../RECONCILIATION.md#work-02).
+**Status (2026-10-04):** reopened; nod `in-progress`. The 2 October source-completion closure did not establish the original visual and first-run exits. Current Main comparisons fail at unchanged tolerance; fresh first-run preparation is blocked by fixture project authority. See the [current tracker](../CHECKLIST.md) and [task work log](../.nod/tasks/task-111-work-02-home-and-inbox-pages.md). Earlier implementation evidence remains historical, not whole-task acceptance.
 
 **Original decision/dependency note:** Original proposal.
 

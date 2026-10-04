@@ -4287,7 +4287,7 @@ async function seedDesignPipelines(
           'Imports the plate reader export, checks the units and snapshots the dataset.',
         statement: 'SELECT well, value FROM measurements',
         runs: 1,
-        failed: 1,
+        failed: 0,
       },
       {
         key: 'aex_screen_summary',
@@ -4378,6 +4378,56 @@ async function seedDesignPipelines(
               [workspaceId, runId, '{}'],
             )
           }
+        }
+      }
+
+      if (p.key === 'plate_reader_pr_01_export') {
+        const latest = await client.query<{
+          id: string
+          definition_version_id: string
+          status: string
+          error_code: string | null
+          error_message: string | null
+          actor_user_id: string
+          trigger_kind: string
+          parameters: Record<string, unknown>
+          input_versions: Record<string, unknown>
+          trigger_occurrence_id: string | null
+          schedule_id: string | null
+        }>(
+          `select r.* from api.pipeline_runs r
+             join api.pipeline_definition_versions v on v.id = r.definition_version_id
+            where v.definition_id = $1
+            order by r.started_at desc nulls last limit 1`,
+          [definitionId],
+        )
+        const previous = latest.rows.at(0)
+        // Older design seeds manufactured this failure. Preserve that attempt
+        // and its pinned inputs, but make PR-01's latest state match the design
+        // through a linked retry. Other failures are not seed corrections.
+        if (
+          previous?.status === 'failed' &&
+          previous.actor_user_id === actorId &&
+          previous.error_code === 'SB070' &&
+          previous.error_message === 'Step failed: input column missing'
+        ) {
+          const retry = await client.query(
+            'select * from api.start_pipeline_run($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7,$8)',
+            [
+              workspaceId,
+              previous.definition_version_id,
+              previous.trigger_kind,
+              JSON.stringify(previous.parameters),
+              JSON.stringify(previous.input_versions),
+              previous.id,
+              previous.trigger_occurrence_id,
+              previous.schedule_id,
+            ],
+          )
+          await client.query(
+            'select api.complete_pipeline_run($1,$2,$3::jsonb)',
+            [workspaceId, retry.rows[0].id, '{}'],
+          )
         }
       }
 

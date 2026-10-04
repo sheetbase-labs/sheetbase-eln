@@ -186,6 +186,20 @@ retains its 18 warnings and zero errors. The full parity project passes 81
 tests, including the unchanged 70 expected screenshot failures. Coverage stays
 72 of 252 mapped comparisons, with 180 pending.
 
+The design pipeline seed now matches the original latest-run state: PL-0014
+is the sole failed pipeline and PR-01 succeeds. A recognised failure created
+by the older seed receives a linked canonical retry with its original pinned
+version, inputs and parameters; historical attempts are unchanged. Other
+failures remain visible. The integrated seed/domain DB check passes 38 tests,
+including fresh and populated fixtures, unchanged history, pinned inputs and
+repeat-run stability. The full 43-step populated design seed succeeds twice;
+the second run leaves every pipeline-run row unchanged. The live latest-run
+query returns only `full_empty_ratio_from_auc` as failed, and the rendered
+navigation reads `Pipelines 1 failed`. Both HelpRecords screenshot comparisons
+and four navigation/accessibility tests still pass. **DSYS-05 remains open:**
+this verifies fixture state, not actual PR-01 transform execution or complete
+design-data coverage.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven

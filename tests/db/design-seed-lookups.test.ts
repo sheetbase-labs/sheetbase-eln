@@ -376,3 +376,83 @@ it('plans rows, measures samples and follows experiments by canonical identities
     await database.$client.end()
   }
 }, 180_000)
+
+it('creates the five original project milestones through their authority and reuses native identities', async () => {
+  const { migrator, asRole } = await prepareTestDatabase()
+  const database = drizzle(migratorUrl(), { schema })
+  const actor = await asRole('authenticator')
+  try {
+    for (const step of designSteps.slice(0, 3)) await step.run(database)
+    await actor.query('set role authenticated')
+    const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+    await setActorJwt(actor, DESIGN_USER_IDS.gareth, workspaceId)
+    const project = await actor.query<{ id: string }>(
+      "select id from api.create_project('AAV9 process transfer')",
+    )
+    const projectId = project.rows[0].id
+    expect(projectId).not.toBe('00000000-0000-4000-8000-000000000320')
+    await actor.query(
+      "select api.create_record($1,'experiment','Milestone control ' || n) from generate_series(1,145) n",
+      [projectId],
+    )
+    const other = await actor.query<{ id: string }>(
+      "select id from api.create_project('Unrelated milestone controls')",
+    )
+    await actor.query(
+      `select api.create_study_task(p_workspace_id=>$1,p_project_id=>$2,
+        p_title=>'50 L engineering run',p_task_type=>'milestone',p_due_at=>'2027-01-02')`,
+      [workspaceId, other.rows[0].id],
+    )
+    const preexisting = await actor.query<{ id: string }>(
+      `select id from api.create_study_task(p_workspace_id=>$1,p_project_id=>$2,
+        p_title=>'TFF and polish defined',p_task_type=>'milestone',
+        p_due_at=>'2026-10-16T00:00:00+01:00',p_timezone=>'Europe/London',p_position=>2)`,
+      [workspaceId, projectId],
+    )
+    const step = designSteps.find((item) => item.name === 'design milestones')
+    if (!step) throw new Error('milestone step missing')
+    await step.run(database)
+    const read = () =>
+      actor.query(
+        `select * from api.study_tasks where project_id=$1 order by position`,
+        [projectId],
+      )
+    const original = (await read()).rows
+    // Expected values are transcribed from immutable ProjectDetail.txt, not
+    // taken from the implementation's milestone list.
+    expect(
+      original.map((row) => [
+        row.title,
+        row.status,
+        new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Europe/London',
+          day: '2-digit',
+          month: 'short',
+        }).format(row.due_at),
+        row.linked_experiment_identifier,
+      ]),
+    ).toEqual([
+      ['Upstream process locked', 'completed', '19 Sept', 'EXP-0133'],
+      ['Clarification train selected', 'in_progress', '29 Sept', 'EXP-0142'],
+      ['TFF and polish defined', 'not_started', '16 Oct', null],
+      ['50 L engineering run', 'not_started', '06 Nov', 'EXP-0145'],
+      ['Tech-transfer package to CL-017', 'not_started', '27 Nov', null],
+    ])
+    expect(original[2].id).toBe(preexisting.rows[0].id)
+    expect(original.filter((row) => row.status === 'completed')).toHaveLength(1)
+    expect(original.map((row) => row.progress_percent)).toEqual([
+      100, 50, 0, 0, 0,
+    ])
+    expect(
+      (await actor.query('select * from api.study_deliverables')).rows,
+    ).toEqual([])
+    for (let repeat = 0; repeat < 2; repeat++) {
+      await step.run(database)
+      expect((await read()).rows).toEqual(original)
+    }
+  } finally {
+    await actor.end()
+    await migrator.end()
+    await database.$client.end()
+  }
+}, 180_000)

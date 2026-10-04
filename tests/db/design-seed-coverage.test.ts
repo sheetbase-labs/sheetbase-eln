@@ -25,6 +25,130 @@ it('rejects unrelated identities, title citations and unmatched screen identifie
   const previousUrl = process.env.DATABASE_URL
   try {
     await actor.query('set role authenticated')
+    await setActorJwt(
+      actor,
+      DESIGN_USER_IDS.gareth,
+      DESIGN_WORKSPACE_IDS.processDevelopment,
+    )
+    expect(
+      (await actor.query('select timezone from api.workspace_settings')).rows,
+    ).toEqual([{ timezone: 'Europe/London' }])
+    const details = await actor.query(
+      "select id,revision,started_on::text,default_reviewer_user_id,agreement_reference from api.projects where display_id='PRJ-0217'",
+    )
+    expect(details.rows[0]).toMatchObject({
+      started_on: '2026-08-03',
+      default_reviewer_user_id: DESIGN_USER_IDS.mei,
+      agreement_reference: 'MSA-017 · SOW-04',
+    })
+    const members = await actor.query(
+      'select * from api.project_members($1) order by user_id',
+      [details.rows[0].id],
+    )
+    expect(members.rows.map((row) => row.user_id)).toEqual([
+      DESIGN_USER_IDS.gareth,
+      DESIGN_USER_IDS.priya,
+      DESIGN_USER_IDS.mei,
+      DESIGN_USER_IDS.sam,
+      DESIGN_USER_IDS.anna,
+    ])
+    const meiRule = await actor.query(
+      'select can_view,can_edit,can_review,can_manage from api.project_access where project_id=$1 and user_id=$2',
+      [details.rows[0].id, DESIGN_USER_IDS.mei],
+    )
+    expect(meiRule.rows).toEqual([
+      { can_view: true, can_edit: true, can_review: true, can_manage: false },
+    ])
+    const readings = await actor.query(
+      `select max(v.text_value) filter(where f.key='sample') as sample,
+          max(v.text_value) filter(where f.key='condition') as condition,
+          max(v.numeric_value) filter(where f.key='turbidity') as turbidity,
+          max(v.numeric_value) filter(where f.key='capsid_titre') as titre
+       from api.dataset_row_values v join api.dataset_rows r on r.id=v.row_id
+       join api.datasets d on d.id=r.dataset_id
+       join api.dataset_schema_version_fields f on f.schema_version_id=d.schema_version_id and f.field_id=v.field_id
+       where d.display_id='DS-0311' group by v.row_id
+       having max(v.text_value) filter(where f.key='sample') in ('SMP-2248','SMP-2249','BLANK','STD-4')
+       order by sample,turbidity nulls last,titre`,
+    )
+    expect(
+      readings.rows.map((row) => [
+        row.sample,
+        row.condition,
+        row.turbidity === null ? null : Number(row.turbidity),
+        row.titre === null ? null : Number(row.titre),
+      ]),
+    ).toEqual([
+      ['BLANK', null, 0.2, null],
+      ['BLANK', null, 0.3, null],
+      ['SMP-2248', 'C-150', 61.5, null],
+      ['SMP-2249', 'C-150 1:5', 12.1, null],
+      ['SMP-2249', 'C-150 1:5', 12.4, null],
+      ['SMP-2249', 'C-150 1:5', null, 5.4],
+      ['SMP-2249', 'C-150 1:5', null, 5.5],
+      ['STD-4', null, null, 10],
+      ['STD-4', null, null, 10],
+    ])
+    const flags = await actor.query(
+      `select g.*,f.key,f.quantity from api.dataset_value_flags g
+       join api.datasets d on d.id=g.dataset_id
+       join api.dataset_schema_version_fields f on f.schema_version_id=d.schema_version_id and f.field_id=g.field_id
+       where d.display_id='DS-0311' and g.cleared_at is null order by g.id`,
+    )
+    expect(flags.rows).toHaveLength(1)
+    expect(flags.rows[0]).toMatchObject({
+      key: 'turbidity',
+      source: 'system',
+      system_rule: 'out_of_range',
+      evaluated_value: 61.5,
+      threshold: { min: 0, max: 50 },
+      quantity: { symbol: 'NTU' },
+    })
+    const milestones = await actor.query(
+      'select * from api.study_tasks where project_id=$1 order by position',
+      [details.rows[0].id],
+    )
+    expect(milestones.rows).toHaveLength(5)
+    for (let repeat = 0; repeat < 2; repeat++) {
+      await execute('pnpm', ['db:seed:design'], { env })
+      expect(
+        (
+          await actor.query(
+            'select * from api.study_tasks where project_id=$1 order by position',
+            [details.rows[0].id],
+          )
+        ).rows,
+      ).toEqual(milestones.rows)
+      expect(
+        (
+          await actor.query(
+            'select * from api.project_members($1) order by user_id',
+            [details.rows[0].id],
+          )
+        ).rows,
+      ).toEqual(members.rows)
+      expect(
+        (
+          await actor.query('select revision from api.projects where id=$1', [
+            details.rows[0].id,
+          ])
+        ).rows[0].revision,
+      ).toBe(details.rows[0].revision)
+      expect(
+        (
+          await actor.query(
+            'select id,set_at,evaluated_at,evaluated_value,threshold from api.dataset_value_flags where id=$1',
+            [flags.rows[0].id],
+          )
+        ).rows[0],
+      ).toMatchObject({
+        id: flags.rows[0].id,
+        set_at: flags.rows[0].set_at,
+        evaluated_at: flags.rows[0].evaluated_at,
+        evaluated_value: 61.5,
+        threshold: { min: 0, max: 50 },
+      })
+    }
     await setActorJwt(actor, FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID)
     await actor.query('select api.update_workspace_id_prefixes($1,$2::jsonb)', [
       FIXTURE_WORKSPACE_ID,

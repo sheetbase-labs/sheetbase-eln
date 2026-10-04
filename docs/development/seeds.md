@@ -30,10 +30,9 @@ lifecycle (preview → `submit_record_revision` → `run_revision_checks` →
 `create_amendment` for the frozen-vs-live history), project folders and files,
 integrations and API tokens, and the client portal (shares, reports and
 messages). Some steps use canonical RPCs, but direct business-table writes,
-timestamp overrides, placeholder API credential hashes and manufactured
-webhook deliveries remain. These are DSYS-05 authority gaps, not accepted
-ways to reproduce the design. A successful CLI run does not establish the
-task's original exit.
+timestamp overrides and manufactured webhook deliveries remain. These are
+DSYS-05 authority gaps, not accepted ways to reproduce the design. A
+successful CLI run does not establish the task's original exit.
 
 Protocol content resolves the protocol by its canonical identifier and uses
 `insert_block`. Folder and file steps resolve the project by its workspace
@@ -52,6 +51,61 @@ identifiers and use `follow_record`, without direct rows or backdated follow
 events. New follow and measurement event times are server-generated, not frozen
 September evidence. The existing sample values and remaining manufactured
 pipeline run are not an all-values or receipt acceptance claim.
+
+Process workspace settings are created through the owner-only
+`update_workspace_settings` RPC when absent; its native default is
+`Europe/London`. Existing timezone and signature-policy settings are preserved.
+AAV9's start date, default reviewer and agreement use the CAS
+`update_project_details` authority. On SET0323, the initial project frame supplies
+the actual declared leads so the native owner-rule trigger runs before scoped
+science. AAV9 access uses `set_project_access_rule`: Priya and Sam have View and
+Edit; Mei has View, Edit and Review, as the original Reviewer description
+requires. A real QA group grants View to Anna through explicit group membership;
+the other two QA people are not invented. These rules are prepared before
+custody, not in the later metadata step. There is no all-member or temporary
+Gareth Edit grant. Native membership dates are not historical joining evidence.
+
+DatasetExplorer and DatasetsList explicitly name Gareth as DS-0298's creator
+and owner; that remains unchanged in his editable Ambr project. No original
+creator is specified for DS-0305 or DS-0290, so their fresh creation uses the
+actual permitted project lead, Mei. Workspace schema stewardship remains
+Gareth's native owner authority, separate from scientific dataset creation.
+Reseeding does not relabel existing dataset or audit identities. These bounded
+repairs do not make the full seed green: SET0323's structured Dataset-link
+policy rejects the canonical null record FK, including a link between a
+readable/editable AAV9 experiment and its readable Dataset. Authority repair is
+required; never fill a record FK with a Dataset UUID or bypass its policy.
+
+The five original ProjectDetail milestones use `create_study_task`, with
+workspace/project-scoped title lookup and returned experiment identities.
+Target dates and progress are planning inputs, not release receipts. No
+deliverables are fabricated: there is no product creation authority for them.
+Old fixture milestones are not deleted or relabelled on an existing database.
+
+On fresh creation, DS-0311 includes DatasetCompare's nine displayed readings,
+including 61.5 NTU, the 12.4/12.1 NTU repeats, the 5.4/5.5 × 10¹⁰ ELISA
+readings, blanks and standards. Unrecorded measurements stay null. The real
+row-batch rule generates the single system flag with a 0–50 NTU threshold;
+the seed no longer adds an unrelated manual capsid-titre flag. Existing
+dataset rows, active schemas and frozen snapshots are not rewritten. This
+does not reproduce S-14/S-15's historical transition, row numbering or times.
+Generated values outside those displayed readings remain unverified against
+the original canvas.
+
+The agent service credential and the Plate-map exporter (Mei) and Jupyter
+(Gareth) personal tokens use native `createCredential` and
+`emitCredentialAuditEvent` in one transaction. Before reuse or issuance, the
+seed validates the signed fixture cookie through Better Auth, checks current
+persisted workspace membership, and requires owner authority for service
+credentials. Workspace selection uses `set_active_workspace`, not a forged
+context. Existing named credentials retain their IDs, hashes, expiry and usage
+history; malformed legacy placeholder credentials require a fresh fixture DB.
+New IDs, random prefixes, hashes and audit dates are native; secrets are
+discarded, never logged or stored. The seed does not backdate last use or mint
+an already-expired Stability export token. Its September expiry/refusal
+history remains blocked on operation-clock authority. The credential DB test
+captures new secrets only in memory to exercise real exchange and JWT
+verification, audit rollback, authority/session denials and reseed convergence.
 
 The live signing fixture uses native Better Auth credentials and a signed
 session cookie. It sets a password only when no credential exists, verifies

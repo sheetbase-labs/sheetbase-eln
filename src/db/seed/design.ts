@@ -1,10 +1,10 @@
 /**
  * UI system v3 design seed (DSYS-05). See docs/development/seeds.md.
  *
- * This frame creates the people and workspaces the design screens show, on a
- * fixed clock (Friday 25 September 2026, Europe/London) so relative times
- * ("09:32", "Yesterday") render as the design does. Per-screen data is added
- * by later steps; each step runs through the canonical data layer.
+ * This incomplete fixture creates the people, workspaces and scientific data
+ * for the original design screens. DESIGN_CLOCK is a display-data baseline,
+ * not an override of native auth, signing, audit or worker clocks. Remaining
+ * direct business-table writes are authority gaps, not accepted parity proof.
  */
 import { createHmac, randomUUID } from 'node:crypto'
 import { Client } from 'pg'
@@ -13,7 +13,6 @@ import { z } from 'zod'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 import {
-  DESIGN_CREDENTIAL_IDS,
   DESIGN_SESSION_IDS,
   DESIGN_WEBHOOK_IDS,
   FIXTURE_USER_ID,
@@ -186,12 +185,33 @@ export const designSteps: Array<SeedStep> = [
             set: { role: membership.role, clientId: null },
           })
       }
+      await withDesignClaims(
+        db,
+        DESIGN_USER_IDS.gareth,
+        PROCESS,
+        async (client) => {
+          const existing = await client.query(
+            'select 1 from api.workspace_settings where workspace_id=$1',
+            [PROCESS],
+          )
+          if (!existing.rowCount) {
+            // The settings authority supplies Europe/London. Do not rewrite an
+            // existing workspace's timezone or signature policy on reseed.
+            await client.query('select api.update_workspace_settings($1)', [
+              PROCESS,
+            ])
+          }
+        },
+      )
     },
   },
   {
     name: 'design projects',
     run: async (db) => {
       for (const project of DESIGN_PROJECTS) {
+        const details = DESIGN_PROJECT_DETAILS.find(
+          (detail) => detail.id === project.id,
+        )
         await db
           .insert(schema.projects)
           .values({
@@ -199,12 +219,16 @@ export const designSteps: Array<SeedStep> = [
             workspaceId: project.workspaceId,
             key: project.key,
             title: project.title,
+            // The native project-owner trigger needs the actual declared lead
+            // at creation, not a late metadata update or a workspace bypass.
+            leadUserId: details?.lead,
           })
           .onConflictDoUpdate({
             target: [schema.projects.workspaceId, schema.projects.key],
             set: { title: project.title },
           })
       }
+      await seedDesignProjectAccess(db)
     },
   },
   {
@@ -1954,6 +1978,7 @@ const ELISA_FIELDS: ReadonlyArray<DesignDatasetField> = [
   { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
   { key: 'plate', label: 'Plate', logicalType: 'text', required: true },
   { key: 'well', label: 'Well', logicalType: 'text', required: true },
+  { key: 'condition', label: 'Condition', logicalType: 'text' },
   {
     key: 'dilution',
     label: 'Dilution',
@@ -1965,14 +1990,17 @@ const ELISA_FIELDS: ReadonlyArray<DesignDatasetField> = [
     label: 'Capsid titre',
     logicalType: 'decimal',
     unit: '×10¹⁰ vg/mL',
-    required: true,
   },
   {
     key: 'turbidity',
     label: 'Turbidity',
     logicalType: 'decimal',
     unit: 'NTU',
-    required: true,
+    validation: {
+      extensions: {
+        systemFlags: { out_of_range: { min: 0, max: 50 } },
+      },
+    },
   },
   { key: 'a260', label: 'A260', logicalType: 'decimal', unit: 'AU' },
   { key: 'a280', label: 'A280', logicalType: 'decimal', unit: 'AU' },
@@ -2141,7 +2169,9 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
   {
     id: '00000000-0000-4000-8000-0000000003f2',
     workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
-    actorId: DESIGN_USER_IDS.gareth,
+    // No original creator is specified; Mei is this project's semantic lead.
+    // This affects fresh creation only, never existing dataset/audit identity.
+    actorId: DESIGN_USER_IDS.mei,
     projectId: '00000000-0000-4000-8000-000000000324',
     displayId: 'DS-0305',
     schemaKey: 'vicell_viability',
@@ -2221,7 +2251,8 @@ const DESIGN_DATASETS: ReadonlyArray<DesignDataset> = [
   {
     id: '00000000-0000-4000-8000-0000000003f7',
     workspaceId: DESIGN_WORKSPACE_IDS.processDevelopment,
-    actorId: DESIGN_USER_IDS.gareth,
+    // No original creator is specified; use the actual analytical project lead.
+    actorId: DESIGN_USER_IDS.mei,
     projectId: '00000000-0000-4000-8000-000000000328',
     displayId: 'DS-0290',
     schemaKey: 'auc_full_empty_ratio',
@@ -2333,6 +2364,44 @@ function ambrRows(): Array<Record<string, unknown>> {
 }
 
 function elisaRows(): Array<Record<string, unknown>> {
+  // Immutable DatasetCompare's nine displayed readings. Nullable measurements
+  // mean "not recorded", not zero. Values use the schema's ×10¹⁰ scale.
+  const comparedReadings = [
+    {
+      sample: 'SMP-2248',
+      condition: 'C-150',
+      turbidity: 61.5,
+      capsid_titre: null,
+    },
+    {
+      sample: 'SMP-2249',
+      condition: 'C-150 1:5',
+      turbidity: 12.4,
+      capsid_titre: null,
+    },
+    {
+      sample: 'SMP-2249',
+      condition: 'C-150 1:5',
+      turbidity: 12.1,
+      capsid_titre: null,
+    },
+    {
+      sample: 'SMP-2249',
+      condition: 'C-150 1:5',
+      turbidity: null,
+      capsid_titre: 5.4,
+    },
+    {
+      sample: 'SMP-2249',
+      condition: 'C-150 1:5',
+      turbidity: null,
+      capsid_titre: 5.5,
+    },
+    { sample: 'BLANK', condition: null, turbidity: 0.3, capsid_titre: null },
+    { sample: 'BLANK', condition: null, turbidity: 0.2, capsid_titre: null },
+    { sample: 'STD-4', condition: null, turbidity: null, capsid_titre: 10 },
+    { sample: 'STD-4', condition: null, turbidity: null, capsid_titre: 10 },
+  ]
   const plates = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8']
   const wells = [
     'A1',
@@ -2351,19 +2420,26 @@ function elisaRows(): Array<Record<string, unknown>> {
   const rows: Array<Record<string, unknown>> = []
   plates.forEach((plate, plateIndex) => {
     wells.forEach((well, wellIndex) => {
-      const sample = `S-${String(plateIndex * 12 + wellIndex + 1).padStart(3, '0')}`
+      const rowNumber = plateIndex * 12 + wellIndex + 1
+      const reading =
+        rowNumber >= 88 ? comparedReadings[rowNumber - 88] : undefined
+      const sample =
+        reading?.sample ?? `S-${String(rowNumber).padStart(3, '0')}`
       const dilution = [10, 100, 1000][wellIndex % 3]
-      const capsidTitre = Number(
-        (3.4 + ((plateIndex * 12 + wellIndex) % 17) * 0.18).toFixed(2),
-      )
-      const turbidity = Number(
-        (4.2 + ((plateIndex * 7 + wellIndex) % 9) * 0.9).toFixed(1),
-      )
+      const capsidTitre = reading
+        ? reading.capsid_titre
+        : Number((3.4 + ((plateIndex * 12 + wellIndex) % 17) * 0.18).toFixed(2))
+      // DatasetCompare identifies these exact readings. They are measurement
+      // inputs to the real row-batch validation, not manufactured flag rows.
+      const turbidity = reading
+        ? reading.turbidity
+        : Number((4.2 + ((plateIndex * 7 + wellIndex) % 9) * 0.9).toFixed(1))
       const a260 = Number((0.52 + (wellIndex % 5) * 0.03).toFixed(3))
       const a280 = Number((0.31 + (wellIndex % 4) * 0.02).toFixed(3))
-      const outOfRange = capsidTitre > 5.6
+      const outOfRange = turbidity !== null && turbidity > 50
       rows.push({
         sample,
+        condition: reading?.condition ?? null,
         plate,
         well,
         dilution,
@@ -2373,7 +2449,7 @@ function elisaRows(): Array<Record<string, unknown>> {
         a280,
         ratio: Number((a260 / a280).toFixed(2)),
         out_of_range: outOfRange,
-        note: outOfRange ? 'Above top standard' : null,
+        note: outOfRange ? 'Turbidity outside 0–50 NTU' : null,
       })
     })
   })
@@ -2496,46 +2572,60 @@ async function seedDesignDatasets(
         )
         if ((existing.rowCount ?? 0) > 0) return
 
-        const definition = await client.query(
-          'select id from api.dataset_schema_definitions where workspace_id = $1 and key = $2',
-          [dataset.workspaceId, dataset.schemaKey],
+        // Schema stewardship is workspace authority, not the dataset creator's
+        // project Edit rule. Gareth retains the native schema authoring role;
+        // the semantic project lead creates the scientific dataset below.
+        const schemaVersionId = await withDesignClaims(
+          db,
+          DESIGN_USER_IDS.gareth,
+          dataset.workspaceId,
+          async (schemaClient) => {
+            const definition = await schemaClient.query(
+              'select id from api.dataset_schema_definitions where workspace_id = $1 and key = $2',
+              [dataset.workspaceId, dataset.schemaKey],
+            )
+            let versionId: string
+            if ((definition.rowCount ?? 0) > 0) {
+              const version = await schemaClient.query(
+                'select id, lifecycle from api.dataset_schema_versions where schema_id = $1 order by version desc limit 1',
+                [definition.rows[0].id],
+              )
+              if (!(version.rowCount ?? 0)) {
+                throw new Error(
+                  `schema version missing for ${dataset.schemaKey}`,
+                )
+              }
+              versionId = version.rows[0].id
+              if (version.rows[0].lifecycle !== 'active') {
+                await schemaClient.query(
+                  'select api.replace_dataset_schema_version_fields($1,$2::jsonb)',
+                  [versionId, JSON.stringify(datasetFieldsWire(dataset))],
+                )
+                await schemaClient.query(
+                  'select api.publish_dataset_schema_version($1)',
+                  [versionId],
+                )
+              }
+            } else {
+              const created = await schemaClient.query(
+                'select api.create_dataset_schema_definition($1,$2,$3,$4,$5::jsonb) as result',
+                [
+                  dataset.workspaceId,
+                  dataset.schemaKey,
+                  dataset.schemaName,
+                  dataset.description,
+                  JSON.stringify(datasetFieldsWire(dataset)),
+                ],
+              )
+              versionId = created.rows[0].result.schema_version_id
+              await schemaClient.query(
+                'select api.publish_dataset_schema_version($1)',
+                [versionId],
+              )
+            }
+            return versionId
+          },
         )
-        let schemaVersionId: string
-        if ((definition.rowCount ?? 0) > 0) {
-          const version = await client.query(
-            'select id, lifecycle from api.dataset_schema_versions where schema_id = $1 order by version desc limit 1',
-            [definition.rows[0].id],
-          )
-          if (!(version.rowCount ?? 0)) {
-            throw new Error(`schema version missing for ${dataset.schemaKey}`)
-          }
-          schemaVersionId = version.rows[0].id
-          if (version.rows[0].lifecycle !== 'active') {
-            await client.query(
-              'select api.replace_dataset_schema_version_fields($1,$2::jsonb)',
-              [schemaVersionId, JSON.stringify(datasetFieldsWire(dataset))],
-            )
-            await client.query(
-              'select api.publish_dataset_schema_version($1)',
-              [schemaVersionId],
-            )
-          }
-        } else {
-          const created = await client.query(
-            'select api.create_dataset_schema_definition($1,$2,$3,$4,$5::jsonb) as result',
-            [
-              dataset.workspaceId,
-              dataset.schemaKey,
-              dataset.schemaName,
-              dataset.description,
-              JSON.stringify(datasetFieldsWire(dataset)),
-            ],
-          )
-          schemaVersionId = created.rows[0].result.schema_version_id
-          await client.query('select api.publish_dataset_schema_version($1)', [
-            schemaVersionId,
-          ])
-        }
 
         await client.query(
           `insert into api.datasets
@@ -3301,6 +3391,124 @@ async function seedDesignProjectDetails(
         ),
       )
   }
+
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.gareth,
+    PROCESS,
+    async (client) => {
+      const project = await client.query<{
+        id: string
+        revision: string
+        title: string
+        client_id: string | null
+        modality: string | null
+        stage: string | null
+        lead_user_id: string | null
+        default_reviewer_user_id: string | null
+        agreement_reference: string | null
+        started_on: string | null
+      }>(
+        "select *,started_on::text from api.projects where workspace_id=$1 and key='aav9-process-transfer'",
+        [PROCESS],
+      )
+      const current = project.rows.at(0)
+      if (!current) throw new Error('AAV9 project details missing')
+      if (
+        current.started_on !== '2026-08-03' ||
+        current.default_reviewer_user_id !== DESIGN_USER_IDS.mei ||
+        current.agreement_reference !== 'MSA-017 · SOW-04'
+      ) {
+        // This RPC replaces every nullable detail; preserve the complete current
+        // snapshot while setting the original board's domain inputs.
+        await client.query(
+          'select api.update_project_details($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+          [
+            current.id,
+            current.revision,
+            current.title,
+            current.client_id,
+            current.modality,
+            current.stage,
+            current.lead_user_id,
+            DESIGN_USER_IDS.mei,
+            'MSA-017 · SOW-04',
+            '2026-08-03',
+          ],
+        )
+      }
+      // Member added_at values remain real server times, not "joined today" proof.
+    },
+  )
+}
+
+/** Original AAV9 team authority, established before scoped scientific writes.
+ * Reviewer includes Edit plus Review in ProjectMembers; keep those independent
+ * flags instead of using a display label as authority. No all-member rule. */
+async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.gareth,
+    PROCESS,
+    async (client) => {
+      const project = await client.query<{ id: string }>(
+        "select id from api.projects where workspace_id=$1 and key='aav9-process-transfer'",
+        [PROCESS],
+      )
+      const projectId = project.rows.at(0)?.id
+      if (!projectId)
+        throw new Error(
+          'AAV9 native lead rule required before scientific seeding',
+        )
+      for (const [userId, review] of [
+        [DESIGN_USER_IDS.priya, false],
+        [DESIGN_USER_IDS.mei, true],
+        [DESIGN_USER_IDS.sam, false],
+      ] as const) {
+        const existing = await client.query(
+          `select 1 from api.project_access where project_id=$1 and user_id=$2
+         and can_view and can_edit and can_review=$3 and not can_manage and not client_portal`,
+          [projectId, userId, review],
+        )
+        if (!existing.rowCount)
+          await client.query(
+            'select api.set_project_access_rule($1,$2,null,true,true,$3,false,false)',
+            [projectId, userId, review],
+          )
+      }
+      const groups = await client.query<{ id: string }>(
+        "select id from api.workspace_groups_list() where name='QA'",
+      )
+      const groupId =
+        groups.rows.at(0)?.id ??
+        (
+          await client.query<{ id: string }>(
+            "select id from api.create_workspace_group('QA')",
+          )
+        ).rows[0].id
+      const member = await client.query(
+        'select 1 from api.workspace_group_memberships where group_id=$1 and user_id=$2',
+        [groupId, DESIGN_USER_IDS.anna],
+      )
+      if (!member.rowCount)
+        await client.query(
+          'select api.set_workspace_group_member($1,$2,true)',
+          [groupId, DESIGN_USER_IDS.anna],
+        )
+      // Anna is the named QA person. Do not invent the other two QA people from
+      // the reference or replace a group rule with an individual grant.
+      const rule = await client.query(
+        `select 1 from api.project_access where project_id=$1 and group_id=$2
+       and can_view and not can_edit and not can_review and not can_manage and not client_portal`,
+        [projectId, groupId],
+      )
+      if (!rule.rowCount)
+        await client.query(
+          'select api.set_project_access_rule($1,null,$2,true,false,false,false,false)',
+          [projectId, groupId],
+        )
+    },
+  )
 }
 
 /**
@@ -3456,6 +3664,100 @@ async function designSigningFixture(db: Parameters<SeedStep['run']>[0]) {
   return proof
 }
 
+/** Native fixture issuance, with the same session/member/owner gates as the
+ * service and personal handlers. No credential material leaves this helper. */
+async function designCredential(
+  db: Parameters<SeedStep['run']>[0],
+  input: {
+    actorId: string
+    sessionId: string
+    name: string
+    kind: 'personal' | 'service'
+    scopes: string[]
+    expiresAt?: Date
+  },
+): Promise<string> {
+  const { createAuth } = await import('#/lib/auth')
+  const credentials = await import('#/lib/api-credentials')
+  const { emitCredentialAuditEvent } = await import('#/lib/credential-audit')
+  const secret = process.env.BETTER_AUTH_SECRET
+  if (!secret)
+    throw new Error('BETTER_AUTH_SECRET required for fixture session')
+  const signature = createHmac('sha256', secret)
+    .update(input.sessionId)
+    .digest('base64')
+  const headers = new Headers({
+    cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${input.sessionId}.${signature}`)}`,
+  })
+  const authentication = createAuth(db)
+  return db.transaction(async (tx) => {
+    const session = await authentication.api.getSession({ headers })
+    if (!session || session.user.id !== input.actorId)
+      throw new Error('Current native credential fixture session required')
+    if (!(await credentials.isWorkspaceMember(tx, session.user.id, PROCESS)))
+      throw new Error('Credential fixture workspace membership required')
+    if (
+      input.kind === 'service' &&
+      !(await credentials.isWorkspaceOwner(tx, session.user.id, PROCESS))
+    )
+      throw new Error('Only workspace owners can issue service credentials')
+    // Use the normal workspace-switch authority before resolving the selected
+    // context. In particular, Mei also belongs to Analytical Development.
+    const preference = await tx.query.userPreferences.findFirst({
+      where: eq(schema.userPreferences.userId, session.user.id),
+    })
+    if (preference?.activeWorkspaceId !== PROCESS) {
+      await tx.execute(
+        sql`select set_config('request.jwt.claims',${JSON.stringify({
+          role: 'authenticated',
+          sub: session.user.id,
+          session_id: session.session.id,
+          workspace_id: PROCESS,
+        })},true)`,
+      )
+      await tx.execute(sql`select api.set_active_workspace(${PROCESS}::uuid)`)
+    }
+    const existing = await tx.query.apiCredentials.findFirst({
+      where: and(
+        eq(schema.apiCredentials.workspaceId, PROCESS),
+        eq(schema.apiCredentials.createdByUserId, session.user.id),
+        eq(schema.apiCredentials.kind, input.kind),
+        eq(schema.apiCredentials.name, input.name),
+      ),
+    })
+    if (existing) {
+      if (
+        !/^[a-f0-9]{64}$/.test(existing.secretHash) ||
+        !/^[a-f0-9]{8}$/.test(existing.displayPrefix)
+      )
+        throw new Error(
+          `Legacy fabricated credential ${input.name} requires a fresh fixture database`,
+        )
+      return existing.id
+    }
+    const created = await credentials.createCredential(tx, {
+      workspaceId: PROCESS,
+      createdByUserId: session.user.id,
+      name: input.name,
+      scopes: input.scopes,
+      kind: input.kind,
+      expiresAt: input.expiresAt,
+    })
+    await emitCredentialAuditEvent(tx, {
+      actorUserId: session.user.id,
+      workspaceId: PROCESS,
+      credentialId: created.id,
+      operation: 'create',
+      payload: {
+        name: created.name,
+        displayPrefix: created.displayPrefix,
+        kind: created.kind,
+      },
+    })
+    return created.id
+  })
+}
+
 /**
  * Design agents (RM-116/PIPE-01): a workflow, a few operation proposals and a
  * policy, so the Agents surface shows real work. Proposals and the workflow go
@@ -3483,30 +3785,15 @@ async function seedDesignAgents(
     fields: [],
   })
 
-  // A service credential for the policy (direct: the credentials table has no
-  // member-facing create RPC).
-  const existingCredential = await db
-    .select({ id: schema.apiCredentials.id })
-    .from(schema.apiCredentials)
-    .where(eq(schema.apiCredentials.workspaceId, workspaceId))
-    .limit(1)
-  let credentialId = existingCredential[0]?.id
-  if (!credentialId) {
-    const inserted = await db
-      .insert(schema.apiCredentials)
-      .values({
-        workspaceId,
-        displayPrefix: 'sb_seed_demo',
-        secretHash: 'seed',
-        name: 'Seed agent credential',
-        scopes: ['agent_operations:write'],
-        createdByUserId: actorId,
-      })
-      .returning({ id: schema.apiCredentials.id })
-    credentialId = inserted[0]?.id
-  }
-
   await designSigningFixture(db)
+  const credentialId = await designCredential(db, {
+    actorId,
+    sessionId: DESIGN_SESSION_IDS.gareth,
+    name: 'Seed agent credential',
+    kind: 'service',
+    scopes: ['agent_operations:write'],
+  })
+
   await withDesignClaims(db, actorId, workspaceId, async (client) => {
     const hasWorkflow = await client.query(
       `select 1 from api.agent_workflows where workspace_id = $1 and idempotency_key = 'seed-workflow-1' limit 1`,
@@ -3738,13 +4025,20 @@ async function seedDesignResults(
       [experiment.id],
     )
     if ((hasFigure.rowCount ?? 0) === 0) {
-      await client.query(
-        `insert into api.record_links
-           (source_record_id, target_kind, target_identifier, link_type, created_by_user_id)
-         values ($1,'analysis','AN-0001','analysis',$2)
-         on conflict (source_record_id, target_identifier, link_type) do nothing`,
-        [experiment.id, actorId],
+      const analysis = await client.query<{ display_id: string }>(
+        `select display_id from api.analysis_views
+          where workspace_id = $1 and owner_user_id = $2 and name = $3`,
+        [workspaceId, actorId, 'VCD by day'],
       )
+      if (!analysis.rows[0]) {
+        throw new Error('Design Results analysis view is not readable')
+      }
+      await client.query('select api.create_record_link($1,$2,$3,$4)', [
+        experiment.id,
+        'analysis',
+        analysis.rows[0].display_id,
+        'analysis',
+      ])
     }
   })
 }
@@ -4071,111 +4365,98 @@ async function seedDesignMeasurements(
 }
 
 /**
- * Design milestones (PROJ-02): study_tasks of type milestone with their
- * "done when" deliverables, so the project Milestones tab shows a timeline and
- * list instead of an empty state. One is complete, one in progress, one not
- * started.
+ * The five milestones in the original ProjectDetail board. Target dates and
+ * progress are planning inputs, not backdated audit or release evidence.
+ * Deliverables have no product creation authority; do not invent receipts.
  */
 async function seedDesignMilestones(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
-  const projectId = DESIGN_PROJECTS[0]?.id
-  if (!projectId) return
-
   const milestones = [
     {
-      id: '00000000-0000-4000-8000-000000001c00',
-      title: 'Process parameters locked',
-      status: 'in_progress',
-      dueAt: '2026-10-16T00:00:00Z',
-      progress: 50,
-      position: 0,
-      deliverables: [
-        {
-          id: '00000000-0000-4000-8000-000000001c10',
-          name: 'Operating ranges agreed',
-          status: 'delivered',
-        },
-        {
-          id: '00000000-0000-4000-8000-000000001c11',
-          name: 'QA sign-off',
-          status: 'planned',
-        },
-      ],
-    },
-    {
-      id: '00000000-0000-4000-8000-000000001c01',
-      title: 'Engineering run complete',
+      title: 'Upstream process locked',
       status: 'completed',
-      dueAt: '2026-11-06T00:00:00Z',
+      dueAt: '2026-09-19T00:00:00+01:00',
       progress: 100,
-      position: 1,
-      deliverables: [
-        {
-          id: '00000000-0000-4000-8000-000000001c12',
-          name: 'Engineering batch released',
-          status: 'delivered',
-        },
-      ],
+      experiment: 'EXP-0133',
     },
     {
-      id: '00000000-0000-4000-8000-000000001c02',
-      title: 'Technology transfer pack',
+      title: 'Clarification train selected',
+      status: 'in_progress',
+      dueAt: '2026-09-29T00:00:00+01:00',
+      progress: 50,
+      experiment: 'EXP-0142',
+    },
+    {
+      title: 'TFF and polish defined',
       status: 'not_started',
-      dueAt: '2026-12-04T00:00:00Z',
+      dueAt: '2026-10-16T00:00:00+01:00',
       progress: 0,
-      position: 2,
-      deliverables: [
-        {
-          id: '00000000-0000-4000-8000-000000001c13',
-          name: 'Transfer protocol signed',
-          status: 'planned',
-        },
-        {
-          id: '00000000-0000-4000-8000-000000001c14',
-          name: 'Receiving site walkthrough',
-          status: 'planned',
-        },
-      ],
+      experiment: null,
+    },
+    {
+      title: '50 L engineering run',
+      status: 'not_started',
+      dueAt: '2026-11-06T00:00:00Z',
+      progress: 0,
+      experiment: 'EXP-0145',
+    },
+    {
+      title: 'Tech-transfer package to CL-017',
+      status: 'not_started',
+      dueAt: '2026-11-27T00:00:00Z',
+      progress: 0,
+      experiment: null,
     },
   ] as const
 
-  for (const m of milestones) {
-    await db
-      .insert(schema.studyTasks)
-      .values({
-        id: m.id,
-        workspaceId,
-        projectId,
-        title: m.title,
-        taskType: 'milestone',
-        status: m.status,
-        priority: 'medium',
-        dueAt: new Date(m.dueAt),
-        position: m.position,
-        progressPercent: m.progress,
-      })
-      .onConflictDoUpdate({
-        target: schema.studyTasks.id,
-        set: { title: m.title, status: m.status },
-      })
-    for (const d of m.deliverables) {
-      await db
-        .insert(schema.studyDeliverables)
-        .values({
-          id: d.id,
-          workspaceId,
-          taskId: m.id,
-          name: d.name,
-          status: d.status,
-        })
-        .onConflictDoUpdate({
-          target: schema.studyDeliverables.id,
-          set: { name: d.name, status: d.status },
-        })
-    }
-  }
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.gareth,
+    workspaceId,
+    async (client) => {
+      const project = await client.query<{ id: string }>(
+        "select id from api.projects where workspace_id=$1 and key='aav9-process-transfer'",
+        [workspaceId],
+      )
+      const projectId = project.rows.at(0)?.id
+      if (!projectId) throw new Error('AAV9 milestone project missing')
+      for (const [position, milestone] of milestones.entries()) {
+        const existing = await client.query(
+          "select id from api.study_tasks where workspace_id=$1 and project_id=$2 and task_type='milestone' and title=$3",
+          [workspaceId, projectId, milestone.title],
+        )
+        if (existing.rowCount) continue
+        const experiment = milestone.experiment
+          ? await client.query<{ id: string }>(
+              "select id from api.records where workspace_id=$1 and project_id=$2 and identifier=$3 and kind='experiment'",
+              [workspaceId, projectId, milestone.experiment],
+            )
+          : null
+        const experimentId = experiment?.rows.at(0)?.id ?? null
+        if (milestone.experiment && !experimentId)
+          throw new Error(
+            `milestone experiment ${milestone.experiment} missing`,
+          )
+        await client.query(
+          `select api.create_study_task(p_workspace_id=>$1,p_title=>$2,p_task_type=>'milestone',
+          p_project_id=>$3,p_status=>$4,p_due_at=>$5,p_timezone=>'Europe/London',
+          p_position=>$6,p_progress_percent=>$7,p_linked_experiment_record_id=>$8)`,
+          [
+            workspaceId,
+            milestone.title,
+            projectId,
+            milestone.status,
+            milestone.dueAt,
+            position,
+            milestone.progress,
+            experimentId,
+          ],
+        )
+      }
+    },
+  )
 }
 
 /**
@@ -4202,13 +4483,6 @@ const DESIGN_DATASET_FLAGS: Record<
   string,
   ReadonlyArray<{ fieldKey: string; kind: string; reason: string }>
 > = {
-  'DS-0311': [
-    {
-      fieldKey: 'capsid_titre',
-      kind: 'out_of_range',
-      reason: 'Value outside the expected range',
-    },
-  ],
   'DS-0298': [
     {
       fieldKey: 'glucose',
@@ -4227,46 +4501,50 @@ async function seedDesignDatasetFlags(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
-  const actorId = DESIGN_USER_IDS.gareth
-  await withDesignClaims(db, actorId, workspaceId, async (client) => {
-    const experimentIdByIdentifier = new Map<string, string>(
-      DESIGN_EXPERIMENTS.map((e) => [e.identifier, e.id]),
-    )
+  const experimentIdByIdentifier = new Map<string, string>(
+    DESIGN_EXPERIMENTS.map((e) => [e.identifier, e.id]),
+  )
 
-    for (const [displayId, experimentIdentifier] of Object.entries(
-      DESIGN_DATASET_EXPERIMENTS,
-    )) {
-      const dataset = DESIGN_DATASETS.find((d) => d.displayId === displayId)
-      if (!dataset) continue
-      const experimentId = experimentIdByIdentifier.get(experimentIdentifier)
-      if (!experimentId) continue
+  for (const [displayId, experimentIdentifier] of Object.entries(
+    DESIGN_DATASET_EXPERIMENTS,
+  )) {
+    const dataset = DESIGN_DATASETS.find((d) => d.displayId === displayId)
+    if (!dataset) continue
+    const experimentId = experimentIdByIdentifier.get(experimentIdentifier)
+    if (!experimentId) continue
 
+    await withDesignClaims(db, dataset.actorId, workspaceId, async (client) => {
       // Link the experiment that produced the dataset.
       const lockState = await client.query(
         'select locked_at from api.records where id = $1',
         [experimentId],
       )
       if (!lockState.rows[0]?.locked_at) {
-        await client.query(
-          `insert into api.record_links
-             (source_record_id, target_kind, target_identifier, link_type,
-              created_by_user_id)
-           values ($1,'dataset',$2,'dataset',$3)
-           on conflict (source_record_id, target_identifier, link_type)
-             do nothing`,
-          [experimentId, displayId, actorId],
+        const existing = await client.query(
+          `select 1 from api.record_links
+            where source_record_id = $1 and target_kind = 'dataset'
+              and target_identifier = $2 and link_type = 'dataset'`,
+          [experimentId, displayId],
         )
+        if ((existing.rowCount ?? 0) === 0) {
+          await client.query('select api.create_record_link($1,$2,$3,$4)', [
+            experimentId,
+            'dataset',
+            displayId,
+            'dataset',
+          ])
+        }
       }
 
       const flags = DESIGN_DATASET_FLAGS[displayId] ?? []
-      if (flags.length === 0) continue
+      if (flags.length === 0) return
 
       const rows = await client.query(
         'select id from api.dataset_rows where dataset_id = $1 order by id limit 1',
         [dataset.id],
       )
       const rowId: string | undefined = rows.rows[0]?.id
-      if (!rowId) continue
+      if (!rowId) return
 
       const fields = await client.query(
         `select f.field_id, f.key from api.dataset_schema_version_fields f
@@ -4301,8 +4579,8 @@ async function seedDesignDatasetFlags(
           null,
         ])
       }
-    }
-  })
+    })
+  }
 }
 
 /**
@@ -5667,9 +5945,9 @@ async function seedDesignFoldersAndFiles(
 
 /**
  * DSYS-05 — integrations and API tokens (SettingsIntegrations, IntegrationConnect,
- * TokenCreate/TokenExpired). Connectors go through `register_connector`; tokens
- * have no create RPC (the server issues them) so they are written directly with
- * stable ids, including an unused and an already-expired one.
+ * TokenCreate/TokenExpired). Connectors use `register_connector`; personal
+ * tokens use native server issuance after current session/member validation.
+ * Historical expiry/refusal evidence remains unmet, not manufactured.
  */
 async function seedDesignConnectorsAndTokens(
   db: Parameters<SeedStep['run']>[0],
@@ -5747,73 +6025,37 @@ async function seedDesignConnectorsAndTokens(
     DESIGN_SESSION_IDS.gareth,
   )
 
-  const tokens: Array<{
-    id: string
-    prefix: string
-    name: string
-    kind: 'service' | 'personal'
-    scopes: string[]
-    createdByUserId: string
-    lastUsedAt: Date | null
-    expiresAt: Date | null
-  }> = [
+  for (const token of [
     {
-      id: DESIGN_CREDENTIAL_IDS.unused,
-      prefix: 'd5n00001',
       name: 'Plate-map exporter',
-      kind: 'service',
-      scopes: ['datasets:read'],
-      createdByUserId: DESIGN_USER_IDS.mei,
-      lastUsedAt: null,
+      scopes: ['datasets:read', 'datasets:write'],
+      actorId: DESIGN_USER_IDS.mei,
+      sessionId: DESIGN_SESSION_IDS.mei,
       expiresAt: new Date('2026-12-12T00:00:00Z'),
     },
     {
-      id: DESIGN_CREDENTIAL_IDS.expiring,
-      prefix: 'd5n00002',
-      name: 'Stability export',
-      kind: 'service',
-      scopes: ['datasets:read', 'datasets:write'],
-      createdByUserId: DESIGN_USER_IDS.tom,
-      lastUsedAt: new Date('2026-09-24T09:10:00+01:00'),
-      expiresAt: new Date('2026-09-24T12:00:00+01:00'),
-    },
-    {
-      id: DESIGN_CREDENTIAL_IDS.expired,
-      prefix: 'd5n00003',
       name: 'Jupyter, Gareth',
-      kind: 'personal',
       scopes: ['projects:read', 'datasets:read'],
-      createdByUserId: DESIGN_USER_IDS.gareth,
-      lastUsedAt: new Date('2026-09-24T17:00:00+01:00'),
+      actorId: DESIGN_USER_IDS.gareth,
+      sessionId: DESIGN_SESSION_IDS.gareth,
       expiresAt: new Date('2026-10-30T00:00:00Z'),
     },
-  ]
-  for (const token of tokens) {
-    await db
-      .insert(schema.apiCredentials)
-      .values({
-        id: token.id,
-        workspaceId,
-        kind: token.kind,
-        displayPrefix: token.prefix,
-        secretHash: `seed-${token.prefix}`,
-        name: token.name,
-        scopes: token.scopes,
-        createdByUserId: token.createdByUserId,
-        lastUsedAt: token.lastUsedAt,
-        expiresAt: token.expiresAt,
-      })
-      .onConflictDoNothing()
+  ]) {
+    await designCredential(db, { ...token, kind: 'personal' })
   }
+  // Stability export's Sep24 expiry/refusal history cannot be issued at the
+  // native Oct clock. It remains an explicit unmet fixture, not a fake hash.
+  console.warn(
+    'seed unmet: Stability export historical expiry/refusals require operation-clock authority',
+  )
 }
 
 /**
  * IntegrationDeliveries — the Document-management webhook and its failing
  * delivery history. The design shows five attempts against
  * https://dms.cdmo.example/api/ingest for `record.signed`: four still retrying
- * and one delivered. Deliveries have no create RPC (the delivery engine owns
- * that write), so they are written directly with stable ids, like the API
- * tokens above, and carry the design clock's times.
+ * and one delivered. The existing direct writes below do not prove delivery:
+ * canonical delivery-engine execution against a real receiver is still needed.
  */
 async function seedDesignWebhookDeliveries(
   db: Parameters<SeedStep['run']>[0],

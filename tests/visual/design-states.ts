@@ -429,8 +429,8 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'DatasetsList', route: '/datasets' },
   {
     screen: 'DatasetExplorer',
-    route: '/datasets/DS-0311/rows',
-    state: rec('DS-0311'),
+    route: '/datasets/DS-0298/rows',
+    state: rec('DS-0298'),
   },
   {
     screen: 'DatasetSnapshots',

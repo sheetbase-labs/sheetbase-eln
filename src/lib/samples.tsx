@@ -615,6 +615,7 @@ export interface SampleLinkWire {
   target_kind: string
   target_identifier: string
   link_type: string
+  link_metadata?: Record<string, unknown>
   created_at: string
 }
 
@@ -724,8 +725,269 @@ export async function fetchSampleQuantityBalances(
 }
 
 // ---------------------------------------------------------------------------
-// LAB-03 — authoritative measurement provenance.
+// LAB-03 — derived samples and the volume summary the sample detail shows.
 //
+// The design's sample detail lists the volume facts (registered / current /
+// last withdrawal) and the samples derived from this lot. Both are read from
+// canonical data: the volume facts from the append-only `api.sample_events`
+// ledger, and the derived samples from the outgoing `link_type='sample'`
+// lineage edges written by the controlled derivation paths
+// (`api.withdraw_sample`, `api.request_repeat`). A sample with no create event
+// or no derivation link reports the fact as missing, never a guessed value.
+// ---------------------------------------------------------------------------
+
+export interface SampleLastWithdrawal {
+  at: string
+  quantity: number
+  unit: string | null
+  /** The experiment the withdrawal served, when the event records one. */
+  purposeRecordId: string | null
+  /** Quantity left after the withdrawal, from the ledger. */
+  remaining: number | null
+}
+
+export interface SampleVolumeSummary {
+  /** Initially registered volume: the ledger's create event, else current + used. */
+  registered: number | null
+  /** Current volume held on the record. */
+  current: number | null
+  unit: string | null
+  /** Cumulative consumed volume across the ledger. */
+  used: number | null
+  lastWithdrawal: SampleLastWithdrawal | null
+}
+
+/**
+ * Derive the volume summary from the record plus its custody ledger. Pure so
+ * the honest missing-data paths are unit tested; `events` is the newest-first
+ * stream `fetchSampleEvents` returns.
+ */
+export function deriveSampleVolumeSummary(
+  sample: Pick<SampleRecord, 'quantity' | 'quantityUnit'>,
+  events: readonly SampleEvent[],
+): SampleVolumeSummary {
+  const unit =
+    sample.quantityUnit ??
+    events.find((event) => event.quantityUnit)?.quantityUnit ??
+    null
+  const consumes = events.filter((event) => event.operation === 'consume')
+  const used = consumes.length
+    ? consumes.reduce(
+        (total, event) => total + Math.abs(event.quantityDelta ?? 0),
+        0,
+      )
+    : null
+  // Newest-first, so the oldest create is the last matching event.
+  const creates = events.filter((event) => event.operation === 'create')
+  const created = creates.at(-1)
+  const registered =
+    created?.quantityAfter ??
+    (sample.quantity != null && used != null ? sample.quantity + used : null)
+  const latest = consumes.at(0) ?? null
+  const lastWithdrawal: SampleLastWithdrawal | null = latest
+    ? {
+        at: latest.createdAt,
+        quantity: Math.abs(latest.quantityDelta ?? 0),
+        unit: latest.quantityUnit ?? unit,
+        purposeRecordId: latest.purposeRecordId,
+        remaining: latest.quantityAfter,
+      }
+    : null
+  return { registered, current: sample.quantity, unit, used, lastWithdrawal }
+}
+
+export interface DerivedSample {
+  linkId: string
+  recordId: string | null
+  /** The record this derivation was made from (the sample or a child). */
+  parentRecordId: string | null
+  identifier: string
+  title: string | null
+  status: string | null
+  /** Human relation recorded on the derivation link, when the writer set one. */
+  relation: string | null
+  /** Lineage hops from the sample: 0 direct, 1 derived from a direct child. */
+  depth: number
+}
+
+const DERIVATION_ORIGIN_LABELS: Record<string, string> = {
+  withdraw_sample: 'Derived by withdrawal',
+  request_repeat: 'Repeat dilution',
+}
+
+/** The human relation for a derivation link, from its provenance metadata. */
+export function derivationRelation(
+  metadata: Record<string, unknown> | undefined,
+): string | null {
+  if (!metadata) return null
+  if (typeof metadata.relation === 'string' && metadata.relation.trim() !== '') {
+    return metadata.relation.trim()
+  }
+  const origin = metadata.origin
+  if (typeof origin === 'string') return DERIVATION_ORIGIN_LABELS[origin] ?? null
+  return null
+}
+
+export const sampleDerivedQueryKey = (recordId: string) =>
+  ['ui-port', 'sample-derived', recordId] as const
+
+const DERIVED_LINK_SELECT =
+  'id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at'
+
+async function fetchSampleLinks(
+  client: DataClient,
+  sourceIds: string[],
+): Promise<SampleLinkWire[]> {
+  if (sourceIds.length === 0) return []
+  return client.list<SampleLinkWire>(
+    'record_links',
+    `?source_record_id=in.(${sourceIds.join(',')})&link_type=eq.sample&target_kind=eq.sample&select=${DERIVED_LINK_SELECT}&order=created_at.asc`,
+  )
+}
+
+/**
+ * The samples derived from this one, two lineage hops deep: the direct
+ * derivations plus the samples derived from them (the design's nested "↳"
+ * rows). Each row keeps its `depth` so a nested derivation renders indented,
+ * and the target record supplies the identifier, title and status. Nothing is
+ * invented: a link whose target record is not visible keeps its preserved
+ * identifier and a null status.
+ */
+export async function fetchSampleDerivedSamples(
+  client: DataClient,
+  sampleRecordId: string,
+): Promise<DerivedSample[]> {
+  const direct = await fetchSampleLinks(client, [sampleRecordId])
+  if (direct.length === 0) return []
+  const directTargets = direct
+    .map((link) => link.target_record_id)
+    .filter((id): id is string => Boolean(id))
+  const nested = await fetchSampleLinks(client, directTargets)
+  const links: Array<{ link: SampleLinkWire; depth: number }> = [
+    ...direct.map((link) => ({ link, depth: 0 })),
+    ...nested.map((link) => ({ link, depth: 1 })),
+  ]
+  const targetIds = links
+    .map(({ link }) => link.target_record_id)
+    .filter((id): id is string => Boolean(id))
+  const records = targetIds.length
+    ? await client.list<RecordWire>(
+        'records',
+        `?id=in.(${targetIds.join(',')})&select=id,identifier,title,status`,
+      )
+    : []
+  const byId = new Map(records.map((record) => [record.id, record]))
+  return links.map(({ link, depth }) => {
+    const record = link.target_record_id
+      ? byId.get(link.target_record_id)
+      : undefined
+    return {
+      linkId: link.id,
+      recordId: link.target_record_id,
+      parentRecordId: link.source_record_id,
+      identifier: record?.identifier ?? link.target_identifier,
+      title: record?.title ?? null,
+      status: record?.status ?? null,
+      relation: derivationRelation(link.link_metadata),
+      depth,
+    }
+  })
+}
+
+/** One rendered row of the design's Derived samples table. */
+export interface DerivedDisplayEntry {
+  /** "SMP-2248" for a single row, "SMP-2240 … 2247" for a collapsed run. */
+  identifier: string
+  /** Target record for a single row; null for a collapsed run. */
+  recordId: string | null
+  title: string
+  relation: string | null
+  status: string | null
+  /** Lineage hops: 0 direct, 1 nested under the row above. */
+  depth: number
+  /** Number of derivations the row represents (1 unless collapsed). */
+  count: number
+  linkIds: string[]
+}
+
+/**
+ * Collapse the derived samples into the design's table rows: consecutive
+ * direct derivations that share a relation and have no derivations of their own
+ * become one "SMP-2240 … 2247" range row, while a derivation that itself has
+ * children keeps its own row (and its children follow it, indented). The
+ * schema models individual derivations, not the design's hand-written group
+ * names, so a collapsed row is named from its first and last members.
+ */
+export function groupDerivedSamples(
+  samples: readonly DerivedSample[],
+): DerivedDisplayEntry[] {
+  const direct = samples
+    .filter((sample) => sample.depth === 0)
+    .sort((a, b) => a.identifier.localeCompare(b.identifier))
+  const childrenOf = (recordId: string | null) =>
+    samples.filter(
+      (sample) => sample.depth === 1 && sample.parentRecordId === recordId,
+    )
+
+  const single = (sample: DerivedSample): DerivedDisplayEntry => ({
+    identifier: sample.identifier,
+    recordId: sample.recordId,
+    title: sample.title ?? sample.identifier,
+    relation: sample.relation,
+    status: sample.status,
+    depth: 0,
+    count: 1,
+    linkIds: [sample.linkId],
+  })
+
+  const entries: DerivedDisplayEntry[] = []
+  let index = 0
+  while (index < direct.length) {
+    const run: DerivedSample[] = [direct[index]]
+    while (
+      index + 1 < direct.length &&
+      childrenOf(direct[index].recordId).length === 0 &&
+      childrenOf(direct[index + 1].recordId).length === 0 &&
+      direct[index + 1].relation === run[0].relation
+    ) {
+      run.push(direct[index + 1])
+      index++
+    }
+    const first = run[0]
+    const last = run[run.length - 1]
+    if (run.length > 1) {
+      entries.push({
+        identifier: `${first.identifier} … ${last.identifier}`,
+        recordId: null,
+        title: `${first.title ?? first.identifier} … ${last.title ?? last.identifier} (${run.length})`,
+        relation: first.relation,
+        status: first.status,
+        depth: 0,
+        count: run.length,
+        linkIds: run.map((sample) => sample.linkId),
+      })
+    } else {
+      entries.push(single(first))
+    }
+    for (const child of childrenOf(first.recordId)) {
+      entries.push({
+        identifier: child.identifier,
+        recordId: child.recordId,
+        title: child.title ?? child.identifier,
+        relation: child.relation,
+        status: child.status,
+        depth: 1,
+        count: 1,
+        linkIds: [child.linkId],
+      })
+    }
+    index++
+  }
+  return entries
+}
+
+// ---------------------------------------------------------------------------
+// LAB-03 — authoritative measurement provenance.
 // The sample Measurements tab reads `api.sample_measurement_provenance`: values
 // aggregated from Dataset rows linked to the sample and from integration/QC
 // results, each carrying the row/source that produced it. It is read-only and

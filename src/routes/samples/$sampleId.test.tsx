@@ -26,6 +26,9 @@ const samples = vi.hoisted(() => ({
   createSampleReservation: vi.fn(),
   cancelSampleReservation: vi.fn(),
   fetchSampleQuantityBalances: vi.fn(),
+  fetchSampleDerivedSamples: vi.fn(),
+  fetchSampleMeasurements: vi.fn(),
+  fetchSampleReservations: vi.fn(),
 }))
 const sonner = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
@@ -78,6 +81,52 @@ vi.mock('#/lib/notebook-data', () => ({
 
 vi.mock('#/lib/samples', () => ({
   ...samples,
+  deriveSampleVolumeSummary: (
+    record: { quantity: number | null; quantityUnit: string | null },
+    events: Array<{
+      operation: string
+      quantityDelta: number | null
+      quantityAfter: number | null
+      quantityUnit: string | null
+      createdAt: string
+      purposeRecordId: string | null
+    }>,
+  ) => {
+    const consumes = events.filter((e) => e.operation === 'consume')
+    const used = consumes.length
+      ? consumes.reduce((sum, e) => sum + Math.abs(e.quantityDelta ?? 0), 0)
+      : null
+    const creates = events.filter((e) => e.operation === 'create')
+    const created = creates[creates.length - 1]
+    const latest = consumes[0]
+    return {
+      registered:
+        created?.quantityAfter ??
+        (record.quantity != null && used != null
+          ? record.quantity + used
+          : null),
+      current: record.quantity,
+      unit: record.quantityUnit,
+      used,
+      lastWithdrawal: latest
+        ? {
+            at: latest.createdAt,
+            quantity: Math.abs(latest.quantityDelta ?? 0),
+            unit: latest.quantityUnit,
+            purposeRecordId: latest.purposeRecordId,
+            remaining: latest.quantityAfter,
+          }
+        : null,
+    }
+  },
+  sampleDerivedQueryKey: (recordId: string) => [
+    'ui-port',
+    'sample-derived',
+    recordId,
+  ],
+  fetchSampleDerivedSamples: samples.fetchSampleDerivedSamples,
+  fetchSampleMeasurements: samples.fetchSampleMeasurements,
+  fetchSampleReservations: samples.fetchSampleReservations,
   sampleQueryKeys: {
     balances: (recordId: string) => [
       'reg-002',
@@ -220,6 +269,9 @@ beforeEach(() => {
   data.list.mockResolvedValue([
     { id: 'exp-1', identifier: 'EXP-0145', title: '50 L confirmation run' },
   ])
+  samples.fetchSampleDerivedSamples.mockResolvedValue([])
+  samples.fetchSampleMeasurements.mockResolvedValue([])
+  samples.fetchSampleReservations.mockResolvedValue([])
 })
 
 afterEach(() => {

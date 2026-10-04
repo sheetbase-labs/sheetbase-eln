@@ -598,6 +598,12 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignSampleCustody(db),
   },
   {
+    // LAB-03: the harvest lot's custody ledger and the derived-sample lineage
+    // edges the sample detail, lineage and usage tabs read.
+    name: 'design sample lineage',
+    run: (db) => seedDesignSampleLineage(db),
+  },
+  {
     name: 'design templates',
     run: async (db) => {
       for (const template of DESIGN_TEMPLATES) {
@@ -1271,7 +1277,13 @@ const DESIGN_SAMPLES = [
     // DSET/LAB-02 hold data so the hold meter matches the design at the frozen
     // design clock (25 Sep 2026): 5 of 14 days used, use by 04 Oct. Hold fields
     // live in `properties` (guarded by model_base_fields), not custom_fields.
+    // LAB-03 adds the registry fields the design's detail shows: the cell
+    // harvest type, the 15,000 mL registered lot and its cold-room location.
     properties: {
+      sampleType: 'Cell harvest',
+      quantity: 4600,
+      quantityUnit: 'mL',
+      storageLocation: 'Cold room CR-1, shelf 3',
       holdCondition: '2–8 °C',
       holdStartedAt: '2026-09-20T00:00:00Z',
       holdDurationDays: 14,
@@ -1344,9 +1356,10 @@ const DESIGN_SAMPLES = [
   {
     id: '00000000-0000-4000-8000-000000000366',
     identifier: 'SMP-2250',
-    title: 'C-150 filtrate, repeat',
+    title: 'Feed retain',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
+    properties: { sampleType: 'Retain', quantity: 50, quantityUnit: 'mL' },
   },
   {
     id: '00000000-0000-4000-8000-000000000367',
@@ -1392,7 +1405,7 @@ const DESIGN_SAMPLES = [
     title: 'LVV harvest H-22',
     status: 'consumed',
     customFields: { construct: 'LVV', batch: 'H-22' },
-    properties: { quantity: 0, quantityUnit: 'mL' },
+    properties: { sampleType: 'Viral harvest', quantity: 0, quantityUnit: 'mL' },
   },
   {
     id: '00000000-0000-4000-8000-00000000036d',
@@ -3644,6 +3657,204 @@ async function seedDesignSampleCustody(
           new Date('2026-09-11T10:40:00+01:00'),
         ],
       )
+    },
+    DESIGN_SESSION_IDS.gareth,
+  )
+}
+
+/**
+ * LAB-03 — the harvest lot's custody ledger (SMP-2231) and the design's
+ * derived-sample lineage edges. The ledger writes the 15,000 mL registration
+ * and the two design withdrawals through `api.sample_events`; the edges are
+ * canonical `api.record_links` rows (`link_type='sample'`) carrying their
+ * relation in `link_metadata`, the same shape `api.withdraw_sample` and
+ * `api.request_repeat` write. Both steps are idempotent and only run while the
+ * ledger/edges are absent, so a reseed converges.
+ */
+async function seedDesignSampleLineage(
+  db: Parameters<SeedStep['run']>[0],
+): Promise<void> {
+  const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+  const harvestId = '00000000-0000-4000-8000-000000000340' // SMP-2231
+  const experimentId = '00000000-0000-4000-8000-000000000351' // EXP-0142
+  const producedInId = '00000000-0000-4000-8000-0000000003bf' // EXP-0134
+  const feedRetainId = '00000000-0000-4000-8000-000000000366' // SMP-2250
+
+  const existing = await db
+    .select({ id: schema.sampleEvents.id })
+    .from(schema.sampleEvents)
+    .where(eq(schema.sampleEvents.recordId, harvestId))
+    .limit(1)
+  if (existing.length === 0) {
+    await withDesignClaims(
+      db,
+      DESIGN_USER_IDS.mei,
+      workspaceId,
+      async (client) => {
+        await client.query(
+          `insert into api.sample_events
+             (workspace_id, record_id, operation, quantity_delta, quantity_before,
+              quantity_after, quantity_unit, to_location, actor_user_id,
+              purpose_record_id, notes, created_at)
+           values ($1,$2,'create',15000,0,15000,'mL','Cold room CR-1, shelf 3',
+                   $3,$4,'15,000 mL, Cold room CR-1, shelf 3',$5)`,
+          [
+            workspaceId,
+            harvestId,
+            DESIGN_USER_IDS.mei,
+            producedInId,
+            new Date('2026-09-20T16:30:00+01:00'),
+          ],
+        )
+      },
+      DESIGN_SESSION_IDS.mei,
+    )
+    await withDesignClaims(
+      db,
+      DESIGN_USER_IDS.gareth,
+      workspaceId,
+      async (client) => {
+        await client.query(
+          `insert into api.sample_events
+             (workspace_id, record_id, operation, quantity_delta, quantity_before,
+              quantity_after, quantity_unit, actor_user_id, purpose_record_id,
+              notes, created_at)
+           values ($1,$2,'consume',-50,15000,14950,'mL',$3,$4,'Feed retain',$5)`,
+          [
+            workspaceId,
+            harvestId,
+            DESIGN_USER_IDS.gareth,
+            feedRetainId,
+            new Date('2026-09-21T10:02:00+01:00'),
+          ],
+        )
+        await client.query(
+          `insert into api.sample_events
+             (workspace_id, record_id, operation, quantity_delta, quantity_before,
+              quantity_after, quantity_unit, actor_user_id, purpose_record_id,
+              notes, created_at)
+           values ($1,$2,'consume',-10350,14950,4600,'mL',$3,$4,
+                   'Filter runs A–C (3 × 3,450 mL)',$5)`,
+          [
+            workspaceId,
+            harvestId,
+            DESIGN_USER_IDS.gareth,
+            experimentId,
+            new Date('2026-09-23T09:15:00+01:00'),
+          ],
+        )
+      },
+      DESIGN_SESSION_IDS.gareth,
+    )
+  }
+
+  // Derived samples: the design's harvest filtrates, the dilution and the feed
+  // retain, plus the consumed LVV harvest's AEX fraction.
+  const derived: ReadonlyArray<{
+    source: string
+    target: string
+    relation: string
+    origin: string
+  }> = [
+    ...[
+      '00000000-0000-4000-8000-0000000003d4', // SMP-2240
+      '00000000-0000-4000-8000-0000000003d5', // SMP-2241
+      '00000000-0000-4000-8000-0000000003d6', // SMP-2242
+      '00000000-0000-4000-8000-0000000003d7', // SMP-2243
+      '00000000-0000-4000-8000-0000000003d8', // SMP-2244
+      '00000000-0000-4000-8000-0000000003d9', // SMP-2245
+      '00000000-0000-4000-8000-0000000003da', // SMP-2246
+      '00000000-0000-4000-8000-0000000003db', // SMP-2247
+      '00000000-0000-4000-8000-000000000364', // SMP-2248
+    ].map((target) => ({
+      source: harvestId,
+      target,
+      relation: 'Filtered from this lot',
+      origin: 'withdraw_sample',
+    })),
+    {
+      source: harvestId,
+      target: feedRetainId,
+      relation: 'Aliquot of this lot',
+      origin: 'withdraw_sample',
+    },
+    {
+      source: '00000000-0000-4000-8000-000000000364', // SMP-2248
+      target: '00000000-0000-4000-8000-000000000365', // SMP-2249
+      relation: 'Diluted from SMP-2248',
+      origin: 'request_repeat',
+    },
+    {
+      source: '00000000-0000-4000-8000-00000000036c', // SMP-2210
+      target: '00000000-0000-4000-8000-0000000003d2', // SMP-2211
+      relation: 'Fractionated in EXP-0139',
+      origin: 'withdraw_sample',
+    },
+    // The design's parent chain: the HEK293 cell bank expanded into the 20 L
+    // production culture that was harvested as this lot.
+    {
+      source: '00000000-0000-4000-8000-0000000003d0', // SMP-1002
+      target: '00000000-0000-4000-8000-0000000003d3', // SMP-2226
+      relation: 'Expanded in EXP-0134',
+      origin: 'withdraw_sample',
+    },
+    {
+      source: '00000000-0000-4000-8000-0000000003d3', // SMP-2226
+      target: harvestId,
+      relation: 'This sample · harvested 20 Sep',
+      origin: 'withdraw_sample',
+    },
+  ]
+
+  const identifierById = new Map(
+    DESIGN_SAMPLES.map((sample) => [sample.id, sample.identifier]),
+  )
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.gareth,
+    workspaceId,
+    async (client) => {
+      for (const link of derived) {
+        const identifier = identifierById.get(link.target)
+        if (!identifier) continue
+        await client.query(
+          `insert into api.record_links
+             (source_record_id, target_record_id, target_kind, target_identifier,
+              link_type, link_metadata, created_by_user_id)
+           values ($1,$2,'sample',$3,'sample',$4::jsonb,$5)
+           on conflict (source_record_id, target_identifier, link_type)
+             do nothing`,
+          [
+            link.source,
+            link.target,
+            identifier,
+            JSON.stringify({ relation: link.relation, origin: link.origin }),
+            DESIGN_USER_IDS.gareth,
+          ],
+        )
+      }
+
+      // The design's third usage row: a planned reservation of 3,000 mL for
+      // EXP-0145's confirmation run. Written through the canonical RPC so the
+      // free/reserved balance stays authoritative.
+      const reserved = await client.query(
+        `select 1 from api.sample_reservations
+          where sample_record_id = $1 and experiment_record_id = $2 limit 1`,
+        [harvestId, '00000000-0000-4000-8000-0000000003c5'], // EXP-0145
+      )
+      if ((reserved.rowCount ?? 0) === 0) {
+        await client.query(
+          `select api.create_sample_reservation($1,$2,$3,$4,$5,$6)`,
+          [
+            harvestId,
+            '00000000-0000-4000-8000-0000000003c5',
+            3000,
+            'mL',
+            true,
+            'Planned feed · reserved',
+          ],
+        )
+      }
     },
     DESIGN_SESSION_IDS.gareth,
   )

@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Section } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   Table,
@@ -15,17 +14,14 @@ import {
   TableRow,
   TableBox,
 } from '#/components/v3/ui/table'
-import {
-  UsageBalanceBar,
-  reservationStateLabel,
-} from '#/components/v3/samples/sample-usage'
+import { UsageBalanceBar } from '#/components/v3/samples/sample-usage'
 import {
   formatQuantityAmount,
   useSampleActions,
 } from '#/components/v3/samples/withdraw-dialog'
 import {
+  formatSampleEventDay,
   formatSampleEventTime,
-  formatSampleEventTimestamp,
 } from '#/components/v3/samples/sample-history'
 import {
   cancelSampleReservation,
@@ -39,6 +35,7 @@ import type { SampleEvent, SampleReservation } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { RecordWire } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
+
 import { sampleEventsQueryKey } from '../$sampleId'
 
 /**
@@ -46,10 +43,11 @@ import { sampleEventsQueryKey } from '../$sampleId'
  *
  * Everything here is read from canonical data: the used / reserved / free bar
  * comes from `api.sample_quantity_balances`, the reservations from
- * `api.sample_reservations` and the withdrawal table from the `consume` rows of
- * `api.sample_events` (each carrying its purpose experiment and free-text
- * purpose). The old placeholder that read `record_links` is gone. The Withdraw
- * and Reserve buttons open the dialogs the sample frame owns.
+ * `api.sample_reservations` and the withdrawal rows from the `consume` rows of
+ * `api.sample_events`. The design shows withdrawals and planned reservations in
+ * one table, so both are merged here (a reservation is labelled "Planned"),
+ * with the Volume bar beneath it. The Withdraw and Reserve buttons open the
+ * dialogs the sample frame owns.
  */
 export const Route = createFileRoute('/samples/$sampleId/usage')({
   component: SampleUsage,
@@ -77,6 +75,7 @@ function SampleUsage() {
     (event) => event.operation === 'consume',
   )
   const reservationRows = reservations.data ?? []
+  const rowCount = withdrawalEvents.length + reservationRows.length
 
   const experimentIds = Array.from(
     new Set(
@@ -130,29 +129,23 @@ function SampleUsage() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <UsageBalanceBar balances={balances.data ?? null} />
-
       <Section
         title="Usage"
-        count={withdrawalEvents.length}
+        count={rowCount}
         action={
           actions ? (
             <span className="flex flex-wrap justify-end gap-2">
               <Button size="sm" onClick={actions.openReserve}>
                 Reserve volume…
               </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={actions.openWithdraw}
-              >
+              <Button size="sm" variant="primary" onClick={actions.openWithdraw}>
                 Withdraw volume…
               </Button>
             </span>
           ) : null
         }
       >
-        {withdrawalEvents.length ? (
+        {rowCount ? (
           <TableBox>
             <Table aria-label="Sample usage">
               <TableHeader>
@@ -163,6 +156,9 @@ function SampleUsage() {
                   <TableHead align="right">Volume</TableHead>
                   <TableHead>By</TableHead>
                   <TableHead align="right">When</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -179,37 +175,6 @@ function SampleUsage() {
                     }
                   />
                 ))}
-              </TableBody>
-            </Table>
-          </TableBox>
-        ) : (
-          <EmptyState
-            className="py-2"
-            icon="tube"
-            title="Not used yet"
-            body="Withdrawals made for an experiment appear here."
-          />
-        )}
-      </Section>
-
-      <Section title="Reservations" count={reservationRows.length}>
-        {reservationRows.length ? (
-          <TableBox>
-            <Table aria-label="Sample reservations">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Experiment</TableHead>
-                  <TableHead>Use</TableHead>
-                  <TableHead align="right">Volume</TableHead>
-                  <TableHead>State</TableHead>
-                  <TableHead>By</TableHead>
-                  <TableHead align="right">When</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
                 {reservationRows.map((reservation) => (
                   <ReservationRow
                     key={reservation.id}
@@ -231,12 +196,14 @@ function SampleUsage() {
         ) : (
           <EmptyState
             className="py-2"
-            icon="clock"
-            title="No reservations"
-            body="Volume held for a planned experiment appears here."
+            icon="tube"
+            title="Not used yet"
+            body="Withdrawals and planned reservations appear here."
           />
         )}
       </Section>
+
+      <UsageBalanceBar balances={balances.data ?? null} />
     </div>
   )
 }
@@ -299,10 +266,11 @@ function UsageRow({
       <TableCell
         align="right"
         className="text-fg-muted"
-        title={formatSampleEventTimestamp(event.createdAt)}
+        title={formatSampleEventTime(event.createdAt)}
       >
-        {formatSampleEventTime(event.createdAt)}
+        {formatSampleEventDay(event.createdAt)}
       </TableCell>
+      <TableCell />
     </TableRow>
   )
 }
@@ -322,12 +290,12 @@ function ReservationRow({
   busy: boolean
   onCancel: () => void
 }) {
-  const state = reservationStateLabel(reservation.state)
+  const title = experiment.get(reservation.experimentRecordId)?.title ?? '—'
   const active = reservation.state === 'active'
   const when =
     active && reservation.planned
       ? 'Planned'
-      : formatSampleEventTime(reservation.createdAt)
+      : formatSampleEventDay(reservation.createdAt)
   return (
     <TableRow>
       <TableCell>
@@ -336,22 +304,18 @@ function ReservationRow({
           byId={experiment}
         />
       </TableCell>
-      <TableCell>
-        {reservation.planned ? 'Planned use' : 'In progress'}
+      <TableCell className="max-w-[20rem] whitespace-normal leading-[17px]">
+        {title}
+      </TableCell>
+      <TableCell className="max-w-[16rem] whitespace-normal leading-[17px]">
+        {reservation.notes ?? (reservation.planned ? 'Planned use' : 'In progress')}
       </TableCell>
       <TableCell align="right">
         {formatQuantityAmount(reservation.quantity)}
         {unit}
       </TableCell>
-      <TableCell>
-        <Status tone={state.tone}>{state.label}</Status>
-      </TableCell>
       <TableCell>{actor}</TableCell>
-      <TableCell
-        align="right"
-        className="text-fg-muted"
-        title={formatSampleEventTimestamp(reservation.createdAt)}
-      >
+      <TableCell align="right" className="text-fg-muted">
         {when}
       </TableCell>
       <TableCell align="right">

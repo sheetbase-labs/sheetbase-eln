@@ -144,6 +144,11 @@ export function formatHoldDate(date: Date): string {
   return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`
 }
 
+/** Design label short form, e.g. "04-Oct" (zero-padded day). */
+export function formatHoldDateShort(date: Date): string {
+  return `${String(date.getUTCDate()).padStart(2, '0')}-${MONTHS[date.getUTCMonth()]}`
+}
+
 function dayLabel(count: number): string {
   return count === 1 ? 'day' : 'days'
 }
@@ -159,7 +164,7 @@ export function SampleHoldMeter({
   const state = computeSampleHold(record, now)
   if (!state) {
     return (
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         No hold or expiry date recorded.
       </p>
     )
@@ -167,25 +172,8 @@ export function SampleHoldMeter({
 
   return (
     <div className="flex flex-col gap-1.5">
-      {state.condition ? (
-        <div className="text-label text-fg-muted">{state.condition}</div>
-      ) : null}
-      <div className="flex items-baseline justify-between gap-2 text-label">
-        {state.expired ? (
-          <span className="num font-medium text-danger-text">
-            Expired
-            {state.daysAgo > 0
-              ? ` ${state.daysAgo} ${dayLabel(state.daysAgo)} ago`
-              : ' today'}
-          </span>
-        ) : (
-          <span className="num font-medium">
-            {state.daysLeft} {dayLabel(state.daysLeft)} left
-          </span>
-        )}
-        <span className="num text-fg-muted">
-          use by {formatHoldDate(state.expiry)}
-        </span>
+      <div className="num text-caption">
+        {state.daysUsed} of {state.totalDays} {dayLabel(state.totalDays)} used
       </div>
       <div
         role="progressbar"
@@ -202,9 +190,6 @@ export function SampleHoldMeter({
           )}
           style={{ width: `${state.percentUsed}%` }}
         />
-      </div>
-      <div className="num text-label text-fg-muted">
-        {state.daysUsed} of {state.totalDays} {dayLabel(state.totalDays)} used
       </div>
     </div>
   )

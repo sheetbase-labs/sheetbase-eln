@@ -179,6 +179,12 @@ export interface LineageEdge {
   targetRecordId: string | null
   relationshipType: string
   label: string
+  /**
+   * LAB-03 — the human relation the derivation writer recorded in the link's
+   * metadata (e.g. "Filtered from this lot"). Null when the link carries none,
+   * in which case `label` is the only relation text available.
+   */
+  relationLabel: string | null
   direction: LineageDirection
   targetKind: string | null
   targetIdentifier: string | null
@@ -777,6 +783,10 @@ export function buildLineageGraph(
       targetRecordId: link.target_record_id,
       relationshipType: link.link_type,
       label: relationshipLabel(link.link_type),
+      relationLabel:
+        typeof link.link_metadata.relation === 'string'
+          ? link.link_metadata.relation
+          : null,
       direction: edgeDirection,
       targetKind: link.target_kind,
       targetIdentifier: link.target_identifier,
@@ -820,6 +830,7 @@ export function buildLineageGraph(
       targetRecordId: null,
       relationshipType: 'reviewed_by',
       label: 'reviewed by',
+      relationLabel: null,
       direction: 'downstream',
       targetKind: 'review',
       targetIdentifier: `REV-${review.id.slice(0, 8)}`,
@@ -859,6 +870,7 @@ export function buildLineageGraph(
       targetRecordId: null,
       relationshipType: isApproval ? 'approved_by' : 'rejected_by',
       label: isApproval ? 'approved by' : 'rejected by',
+      relationLabel: null,
       direction: 'downstream',
       targetKind: 'decision',
       targetIdentifier: `${isApproval ? 'APP' : 'REJ'}-${decision.id.slice(0, 8)}`,
@@ -896,6 +908,7 @@ export function buildLineageGraph(
       targetRecordId: null,
       relationshipType: 'signed_by',
       label: 'signed by',
+      relationLabel: null,
       direction: 'downstream',
       targetKind: 'signature',
       targetIdentifier: `SIG-${sig.id.slice(0, 8)}`,

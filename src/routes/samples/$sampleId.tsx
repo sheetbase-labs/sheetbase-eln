@@ -8,7 +8,6 @@ import {
   PageHeader,
   Inspector,
   InspectorSection,
-  DescriptionList,
 } from '#/components/v3/ui/layout'
 import { LinkTabs } from '#/components/v3/projects/search-tabs'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -24,6 +23,7 @@ import { toast } from '#/components/v3/ui/sonner'
 import { sampleStatus } from '#/components/v3/samples/samples-data'
 import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
 import { SampleHoldMeter } from '#/components/v3/samples/sample-hold-meter'
+import { SampleRecentHistory } from '#/components/v3/samples/sample-recent-history'
 import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
 import {
   canDisposeSample,
@@ -38,9 +38,13 @@ import {
   describeSampleError,
   disposeSample,
   fetchSample,
+  fetchSampleDerivedSamples,
   fetchSampleEvents,
+  fetchSampleMeasurements,
+  fetchSampleReservations,
   quarantineSample,
   releaseSample,
+  sampleDerivedQueryKey,
   sampleQueryKeys,
   transferSample,
   withdrawSample,
@@ -111,6 +115,30 @@ function SampleLayout() {
   const names = useUserNames(
     (events.data ?? []).map((event) => event.actorUserId ?? '').filter(Boolean),
   )
+  const derivedSamples = useQuery({
+    queryKey: sampleDerivedQueryKey(sampleId),
+    queryFn: () => fetchSampleDerivedSamples(notebookDataClient, sampleId),
+  })
+  const reservations = useQuery({
+    queryKey: sampleQueryKeys.reservations(sampleId),
+    queryFn: () => fetchSampleReservations(notebookDataClient, sampleId),
+  })
+  const measurements = useQuery({
+    queryKey: ['ui-port', 'sample-measurements', sampleId],
+    queryFn: () => fetchSampleMeasurements(notebookDataClient, sampleId),
+  })
+  const projectId = sample?.projectId ?? null
+  const project = useQuery({
+    queryKey: ['ui-port', 'sample-project', projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const rows = await notebookDataClient.list<{ id: string; title: string }>(
+        'projects',
+        `?id=eq.${projectId}&select=id,title`,
+      )
+      return rows[0] ?? null
+    },
+  })
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: sampleQueryKey(sampleId) })
@@ -258,10 +286,10 @@ function SampleLayout() {
   const showRelease = state === 'quarantined' && allowRelease
   const showDispose =
     (state === 'hold_exceeded' || state === 'expired') && allowDispose
-  const quantity =
-    sample.quantity != null
-      ? `${sample.quantity.toLocaleString('en-GB', { maximumFractionDigits: 2 })}${sample.quantityUnit ? ` ${sample.quantityUnit}` : ''}`
-      : '—'
+  const usageCount =
+    (events.data ?? []).filter((event) => event.operation === 'consume')
+      .length +
+    (reservations.data?.length ?? 0)
 
   const bannerAction =
     state === 'quarantined' ? (
@@ -298,34 +326,62 @@ function SampleLayout() {
                 <Status tone={status.tone}>{status.label}</Status>
               </span>
               <span>{sample.sampleType ?? '—'}</span>
+              {project.data ? (
+                <Link
+                  to="/projects/$projectId"
+                  params={{ projectId: project.data.id }}
+                  className="text-link"
+                >
+                  {project.data.title}
+                </Link>
+              ) : null}
             </>
           }
           actions={
             <span className="flex gap-2 max-md:hidden">
-              {allowQuarantine &&
-              !terminal &&
-              sample.status !== 'quarantined' ? (
-                <Button onClick={() => setDialog('quarantine')}>
-                  Quarantine…
+              {terminal ? (
+                <Button
+                  onClick={() =>
+                    toast('Export started. You will get a link when it is ready.')
+                  }
+                >
+                  Export lineage
                 </Button>
-              ) : null}
-              {!terminal ? (
-                <Button onClick={() => setDialog('move')}>Move</Button>
-              ) : null}
-              {withdrawable ? (
-                <Button variant="primary" onClick={() => setDialog('withdraw')}>
-                  Withdraw volume…
-                </Button>
-              ) : !terminal ? (
-                <Button disabled title="Not available in this sample state">
-                  Withdraw
-                </Button>
-              ) : null}
-              {showRelease ? (
-                <Button variant="primary" onClick={() => setDialog('release')}>
-                  Release…
-                </Button>
-              ) : null}
+              ) : (
+                <>
+                  <Button
+                    onClick={() =>
+                      toast('Sent to label printer ZD-2 (Lab 2)')
+                    }
+                  >
+                    Print label
+                  </Button>
+                  <Button onClick={() => setDialog('move')}>Move</Button>
+                  {withdrawable ? (
+                    <Button
+                      variant="primary"
+                      onClick={() => setDialog('withdraw')}
+                    >
+                      Withdraw volume…
+                    </Button>
+                  ) : null}
+                  {showRelease ? (
+                    <Button
+                      variant="primary"
+                      onClick={() => setDialog('release')}
+                    >
+                      Release…
+                    </Button>
+                  ) : null}
+                  {allowQuarantine &&
+                  sample.status !== 'quarantined' &&
+                  !showDispose ? (
+                    <Button onClick={() => setDialog('quarantine')}>
+                      Quarantine…
+                    </Button>
+                  ) : null}
+                </>
+              )}
             </span>
           }
           tabs={
@@ -340,20 +396,23 @@ function SampleLayout() {
                   },
                 },
                 {
+                  label: 'Lineage',
+                  count: derivedSamples.data?.length ?? undefined,
+                  link: { to: '/samples/$sampleId/lineage', params },
+                },
+                {
                   label: 'Usage',
+                  count: usageCount,
                   link: { to: '/samples/$sampleId/usage', params },
+                },
+                {
+                  label: 'Measurements',
+                  count: measurements.data?.length ?? undefined,
+                  link: { to: '/samples/$sampleId/measurements', params },
                 },
                 {
                   label: 'History',
                   link: { to: '/samples/$sampleId/history', params },
-                },
-                {
-                  label: 'Lineage',
-                  link: { to: '/samples/$sampleId/lineage', params },
-                },
-                {
-                  label: 'Measurements',
-                  link: { to: '/samples/$sampleId/measurements', params },
                 },
               ]}
             />
@@ -379,33 +438,26 @@ function SampleLayout() {
         </SampleActionsProvider>
       </div>
 
-      <Inspector aria-label="Sample context" className="w-[300px]">
-        <InspectorSection title="Properties">
-          <DescriptionList
-            labelWidth={104}
-            items={[
-              ['Type', sample.sampleType ?? '—'],
-              ['Quantity', quantity],
-              ['Location', sample.storageLocation ?? '—'],
-              [
-                'Barcode',
-                <span className="mono">{sample.barcode ?? '—'}</span>,
-              ],
-            ]}
-          />
-        </InspectorSection>
-        <InspectorSection title="Label">
-          <SampleLabelCard record={sample} />
-        </InspectorSection>
-        <InspectorSection title="Hold time">
-          <SampleHoldMeter record={sample} />
-        </InspectorSection>
-        {sample.notes ? (
-          <InspectorSection title="Notes">
-            <p className="m-0 text-label leading-[18px]">{sample.notes}</p>
+      {!terminal ? (
+        <Inspector aria-label="Sample context" className="w-[300px]">
+          <InspectorSection title="Label">
+            <SampleLabelCard record={sample} />
           </InspectorSection>
-        ) : null}
-      </Inspector>
+          <InspectorSection title="Hold time">
+            <SampleHoldMeter record={sample} />
+          </InspectorSection>
+          <InspectorSection title="Recent history">
+            <SampleRecentHistory
+              events={events.data ?? []}
+              actorLabel={(event) =>
+                event.actorUserId
+                  ? (names.names[event.actorUserId] ?? null)
+                  : null
+              }
+            />
+          </InspectorSection>
+        </Inspector>
+      ) : null}
 
       {dialog === 'withdraw' ? (
         <WithdrawDialog

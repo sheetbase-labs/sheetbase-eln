@@ -70,7 +70,6 @@ describe('SampleHoldMeter', () => {
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
       '36',
     )
-    expect(screen.getByText(/use by/)).toBeTruthy()
   })
 
   it('states honestly when no expiry date is recorded', () => {

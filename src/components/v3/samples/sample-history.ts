@@ -34,6 +34,22 @@ export function sampleEventDetail(event: SampleEvent): string | null {
   return null
 }
 
+/**
+ * Short sentence fragment for the inspector's Recent history, e.g.
+ * "withdrew 10,350 mL" or "moved to F-2 box 14 A1". The actor is prepended by
+ * the caller; a movement with no destination degrades to the bare action.
+ */
+export function sampleEventSummary(event: SampleEvent): string {
+  const action = sampleEventAction(event.operation).toLowerCase()
+  if (event.operation === 'transfer') {
+    const to = event.toLocation ?? event.notes
+    return to ? `moved to ${to}` : 'moved the sample'
+  }
+  if (event.quantityDelta == null) return action
+  const unit = event.quantityUnit ? ` ${event.quantityUnit}` : ''
+  return `${action} ${formatQuantity(Math.abs(event.quantityDelta))}${unit}`
+}
+
 function formatQuantity(value: number): string {
   return value.toLocaleString('en-GB', { maximumFractionDigits: 2 })
 }
@@ -76,9 +92,26 @@ export function formatSampleEventTime(iso: string): string {
   return `${pad(date.getUTCDate())} ${MONTHS[date.getUTCMonth()]} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`
 }
 
+/** Design day cell for Recent history, e.g. "23 Sep". */
+export function formatSampleEventDay(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return `${pad(date.getUTCDate())} ${MONTHS[date.getUTCMonth()]}`
+}
+
 /** Full timestamp for the cell `title`, e.g. "23 Sep 2026, 09:15 UTC". */
 export function formatSampleEventTimestamp(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
   return `${pad(date.getUTCDate())} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
+}
+
+/** Design detail "When" cell: "23 Sep, 09:15" (comma before the clock). */
+export function formatSampleEventDayTime(iso: string): string {
+  return formatSampleEventTime(iso).replace(/^(\d+ \w+) /, '$1, ')
+}
+
+/** Design "Harvested" value: "20 Sep 2026, 16:30" (no UTC suffix). */
+export function formatSampleEventDateTime(iso: string): string {
+  return formatSampleEventTimestamp(iso).replace(/ UTC$/, '')
 }

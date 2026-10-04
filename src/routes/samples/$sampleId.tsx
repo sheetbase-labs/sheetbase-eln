@@ -288,8 +288,7 @@ function SampleLayout() {
     (state === 'hold_exceeded' || state === 'expired') && allowDispose
   const usageCount =
     (events.data ?? []).filter((event) => event.operation === 'consume')
-      .length +
-    (reservations.data?.length ?? 0)
+      .length + (reservations.data?.length ?? 0)
 
   const bannerAction =
     state === 'quarantined' ? (
@@ -342,7 +341,9 @@ function SampleLayout() {
               {terminal ? (
                 <Button
                   onClick={() =>
-                    toast('Export started. You will get a link when it is ready.')
+                    toast(
+                      'Export started. You will get a link when it is ready.',
+                    )
                   }
                 >
                   Export lineage
@@ -350,9 +351,7 @@ function SampleLayout() {
               ) : (
                 <>
                   <Button
-                    onClick={() =>
-                      toast('Sent to label printer ZD-2 (Lab 2)')
-                    }
+                    onClick={() => toast('Sent to label printer ZD-2 (Lab 2)')}
                   >
                     Print label
                   </Button>

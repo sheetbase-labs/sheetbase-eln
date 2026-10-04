@@ -8,7 +8,10 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Status } from '#/components/v3/ui/status'
 import { sampleStatus } from '#/components/v3/samples/samples-data'
 import { toast } from '#/components/v3/ui/sonner'
-import { computeSampleHold, formatHoldDate } from '#/components/v3/samples/sample-hold-meter'
+import {
+  computeSampleHold,
+  formatHoldDate,
+} from '#/components/v3/samples/sample-hold-meter'
 import {
   fetchLineageGraph,
   getLineageSummary,
@@ -18,10 +21,7 @@ import {
   lineageDataClient,
 } from '#/lib/lineage-data'
 import type { LineageGraph, LineageNode } from '#/lib/lineage-data'
-import {
-  deriveSampleVolumeSummary,
-  fetchSampleEvents,
-} from '#/lib/samples'
+import { deriveSampleVolumeSummary, fetchSampleEvents } from '#/lib/samples'
 import type { SampleRecord, SampleVolumeSummary } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { sampleEventsQueryKey, useSampleRecord } from '../$sampleId'
@@ -242,9 +242,7 @@ function WhereThisLotWent({
     {
       label: 'Remaining',
       value:
-        remaining != null
-          ? `${remaining.toLocaleString('en-GB')}${unit}`
-          : '—',
+        remaining != null ? `${remaining.toLocaleString('en-GB')}${unit}` : '—',
       note: hold
         ? `${sample.storageLocation ?? '—'} · hold until ${formatHoldDate(hold.expiry)}`
         : (sample.storageLocation ?? '—'),
@@ -255,10 +253,7 @@ function WhereThisLotWent({
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {cards.map((card) => (
-        <div
-          key={card.label}
-          className="rounded-md border border-border p-3"
-        >
+        <div key={card.label} className="rounded-md border border-border p-3">
           <div className="text-caption text-fg-muted">{card.label}</div>
           <div className="num mt-0.5 text-[20px] font-medium">{card.value}</div>
           <div className="text-caption text-fg-muted">{card.note}</div>

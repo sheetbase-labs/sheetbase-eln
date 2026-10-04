@@ -138,7 +138,11 @@ function SampleUsage() {
               <Button size="sm" onClick={actions.openReserve}>
                 Reserve volume…
               </Button>
-              <Button size="sm" variant="primary" onClick={actions.openWithdraw}>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={actions.openWithdraw}
+              >
                 Withdraw volume…
               </Button>
             </span>
@@ -308,7 +312,8 @@ function ReservationRow({
         {title}
       </TableCell>
       <TableCell className="max-w-[16rem] whitespace-normal leading-[17px]">
-        {reservation.notes ?? (reservation.planned ? 'Planned use' : 'In progress')}
+        {reservation.notes ??
+          (reservation.planned ? 'Planned use' : 'In progress')}
       </TableCell>
       <TableCell align="right">
         {formatQuantityAmount(reservation.quantity)}

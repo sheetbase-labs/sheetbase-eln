@@ -820,11 +820,15 @@ export function derivationRelation(
   metadata: Record<string, unknown> | undefined,
 ): string | null {
   if (!metadata) return null
-  if (typeof metadata.relation === 'string' && metadata.relation.trim() !== '') {
+  if (
+    typeof metadata.relation === 'string' &&
+    metadata.relation.trim() !== ''
+  ) {
     return metadata.relation.trim()
   }
   const origin = metadata.origin
-  if (typeof origin === 'string') return DERIVATION_ORIGIN_LABELS[origin] ?? null
+  if (typeof origin === 'string')
+    return DERIVATION_ORIGIN_LABELS[origin] ?? null
   return null
 }
 

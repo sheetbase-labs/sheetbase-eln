@@ -127,6 +127,75 @@ afterAll(async () => {
 })
 
 describe('H3 frozen composed Sheet evidence', () => {
+  it('captures asymmetric local rows with stable identities and quantity metadata regardless of presentation order', async () => {
+    const timeField = crypto.randomUUID()
+    const firstRow = '10500000-0000-4000-8000-000000000021'
+    const secondRow = '10500000-0000-4000-8000-000000000022'
+    const state = {
+      localFields: [
+        {
+          fieldId: timeField,
+          key: 'time',
+          label: 'Time',
+          logicalType: 'decimal',
+          quantity: { kind: 'duration', dimension: 'time', storageUnit: 'd' },
+        },
+        {
+          fieldId: LOCAL_FIELD,
+          key: 'titer',
+          label: 'Log titer',
+          logicalType: 'decimal',
+          quantity: {
+            kind: 'log_titer',
+            dimension: 'dimensionless',
+            storageUnit: 'log10',
+          },
+        },
+      ],
+      localValues: {
+        [secondRow]: { [timeField]: 28, [LOCAL_FIELD]: 5.9 },
+        [firstRow]: { [timeField]: 0, [LOCAL_FIELD]: 7.2 },
+      },
+      presentation: {
+        columnOrder: [LOCAL_FIELD, timeField],
+        hiddenColumnIds: [],
+      },
+    }
+    const grid = (
+      await migrator.query(
+        `select internal.build_frozen_composed_sheet_grid($1::jsonb,null,'[]') grid`,
+        [JSON.stringify(state)],
+      )
+    ).rows[0].grid
+    expect(grid.rowKeys).toEqual([firstRow, secondRow])
+    expect(grid.rows).toEqual([
+      [7.2, 0],
+      [5.9, 28],
+    ])
+    expect(grid.columns.map((column: { id: string }) => column.id)).toEqual([
+      LOCAL_FIELD,
+      timeField,
+    ])
+    expect(grid.columns[0].field.quantity).toEqual({
+      kind: 'log_titer',
+      dimension: 'dimensionless',
+      storageUnit: 'log10',
+    })
+    expect(grid.columns[1].field.quantity).toEqual({
+      kind: 'duration',
+      dimension: 'time',
+      storageUnit: 'd',
+    })
+    const owner = await actor(OWNER)
+    await expectDenied(
+      owner.query(
+        `select internal.build_frozen_composed_sheet_grid($1::jsonb,null,'[]')`,
+        [JSON.stringify(state)],
+      ),
+      '42501',
+    )
+  })
+
   it('reconstructs submitted Dataset values after live Dataset and Instance mutation', async () => {
     const owner = await actor(OWNER)
     const schema = (
@@ -252,6 +321,18 @@ describe('H3 frozen composed Sheet evidence', () => {
     expect(
       stored.composed_grid.columns.map((c: { id: string }) => c.id),
     ).toEqual(expect.arrayContaining([COLUMN, LOCAL_FIELD]))
+    expect(stored.composed_grid.rowKeys).toHaveLength(
+      stored.composed_grid.rows.length,
+    )
+    expect(stored.composed_grid.rowKeys[0]).toMatch(/^sb-row-v1:[a-f0-9]{64}$/)
+    expect(stored.composed_grid.columns[0].field).toEqual(
+      definitionConfiguration(schema.schema_version_id).columns[0].field,
+    )
+    expect(stored.composed_grid.fields).toEqual(
+      expect.arrayContaining([
+        definitionConfiguration(schema.schema_version_id).columns[0].field,
+      ]),
+    )
     const sampleCells = stored.composed_grid.rows.map(
       (row: unknown[]) => row[0],
     )

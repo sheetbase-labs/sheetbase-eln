@@ -211,6 +211,27 @@ verify the consuming repository's Read grant under Manage Actions access,
 then rerun CI before any merge. No package permissions, repository secrets,
 manual CI runs, merge or deployment were changed by this investigation.
 
+Migration 0309 supplements the existing immutable Sheet evidence with stable
+composed row keys, full field/source/quantity metadata, effective Definition
+and Instance calculation expressions, and trusted cached results captured at
+the evidence boundary. Review checks verify the original signed-envelope
+digest first, then consume persisted evidence rather than live calculation
+results. Missing, stale and error results fail the existing check vocabulary;
+schema checks no longer ignore canonical Sheet fields.
+
+The integrated fresh-history DB proof passes three suites and 16 tests,
+covering asymmetric stable rows and reordered columns, frozen-versus-live
+Dataset/Instance edits, current/error/stale/missing result captures, retained
+old checks after cache deletion, idempotent evidence persistence, nonmember
+denial and immutable result history. The populated design database migrates
+through 0309; schema generation reports no changes, and its generated snapshot
+matches 0308's schema exactly. No signed snapshot, historical evidence or
+legacy ACL is rewritten. **REV acceptance remains open:** canonical diff/fetch
+and fail-closed rendering integration, historical unavailable comparison and
+the REV/SCI workflow fixture replacements continue separately.
+The broader integrated evidence, submission, signatures, certification,
+governance and review check/due-date run passes nine DB suites and 49 tests.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven

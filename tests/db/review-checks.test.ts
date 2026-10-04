@@ -276,6 +276,62 @@ afterAll(async () => {
 })
 
 describe('REV-005 reviewer check definitions and results', () => {
+  it('does not vacuously pass canonical Sheet schema and calculation checks without frozen results', async () => {
+    const owner = await authenticated(OWNER_A, WS_A)
+    const snapshot = passingSnapshot()
+    snapshot.scientificTables = []
+    snapshot.formulas = []
+    snapshot.sheetEvidence = [
+      {
+        blockId: 'sheet-block',
+        instanceId: 'sheet-instance',
+        instanceRevision: 2,
+        sourceDefinitionVersionId: null,
+        datasetBindings: [],
+        instanceState: {
+          localFields: [
+            {
+              fieldId: 'titer',
+              key: 'titer',
+              label: 'Log titer',
+              logicalType: 'invalid_type',
+            },
+          ],
+          localValues: { day28: { titer: 5.9 } },
+          instanceCalculations: [
+            {
+              id: 'recovery',
+              label: 'Recovery',
+              lifecycle: 'active',
+              expression: {
+                language: 'sheetbase-formula-v1',
+                source: '=ROUND(A1 * 1.000, 4)',
+              },
+            },
+          ],
+        },
+      },
+    ]
+    const revision = await insertRevision(RECORD_A, WS_A, snapshot)
+    const result = await runChecks(
+      owner,
+      revision.id,
+      'check-canonical-missing',
+    )
+    expect(
+      result.results.find((item) => item.key === 'schema-valid-columns'),
+    ).toMatchObject({
+      status: 'fail',
+      evidence: { totalColumns: 1 },
+    })
+    expect(
+      result.results.find((item) => item.key === 'formula-no-stale-results'),
+    ).toMatchObject({
+      status: 'fail',
+      evidence: { totalFormulas: 1 },
+    })
+  })
+
   it('runs all checks against a passing revision and records a pass result', async () => {
     const owner = await authenticated(OWNER_A, WS_A)
     const rev = await insertRevision(RECORD_A, WS_A, passingSnapshot())

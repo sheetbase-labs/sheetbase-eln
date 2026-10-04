@@ -103,6 +103,17 @@ the assertions. The fixture uses the migration-only internal legacy table
 constructor without reopening its revoked public API. The remaining full API
 acceptance failures are still open.
 
+Dataset Explorer and Sheet parameter API fixtures now create and publish
+canonical Dataset schemas through authenticated HTTP RPCs. Explorer assertions
+exercise catalogue isolation, atomic row writes, exact sorted pages and filtered
+totals through the same-origin proxy. The canonical query accepts limits up to
+1,000 and rejects oversized requests; cross-workspace row queries are denied,
+rather than returning the retired API's empty success response. Sheet parameter
+resolution retains its exact-schema, forged-provenance and required-input
+assertions against the returned published version. Both integrated suites pass
+seven tests. Fixture cleanup restores all suspended guards, and the revoked
+legacy creation API remains revoked. Full API acceptance is not yet green.
+
 HelpRecords now passes the unchanged 0.001 full-frame parity threshold in both
 themes, with its expected-failure annotations removed. The lifecycle article
 matches the reference; shared brand typography, workspace-switcher geometry,

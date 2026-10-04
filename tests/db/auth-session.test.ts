@@ -11,7 +11,7 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import * as schema from '#/db/schema'
-import { createAuth } from '#/lib/auth'
+import { createAuth, handleAuthRequest } from '#/lib/auth'
 import { migratorUrl, prepareTestDatabase } from './helpers'
 
 let migrator: Client
@@ -87,6 +87,193 @@ describe('session lifecycle', () => {
     expect(result?.user.id).toBe(userId)
     expect(result?.user.email).toBe('session-test@sheetbase.test')
     expect(result?.session.token).toBe(sessionToken)
+  })
+
+  it('uses Better Auth to verify a local signing password without creating a session', async () => {
+    const headers = sessionHeaders(sessionToken)
+    // Password enrollment is a fixture operation through Better Auth, not a
+    // shipped session-only enrollment endpoint or an application-owned hash.
+    await auth.api.setPassword({
+      headers,
+      body: { newPassword: 'fixture-signing-password-2026' },
+    })
+    const before = await db
+      .select({ id: schema.session.id })
+      .from(schema.session)
+
+    await expect(
+      auth.api.verifyPassword({
+        headers,
+        body: { password: 'incorrect-fixture-password' },
+      }),
+    ).rejects.toMatchObject({ body: { code: 'INVALID_PASSWORD' } })
+    await expect(
+      auth.api.verifyPassword({
+        headers: sessionHeaders(),
+        body: { password: 'fixture-signing-password-2026' },
+      }),
+    ).rejects.toMatchObject({ status: 'UNAUTHORIZED' })
+    expect(
+      await auth.api.verifyPassword({
+        headers,
+        body: { password: 'fixture-signing-password-2026' },
+      }),
+    ).toEqual({ status: true })
+    expect(
+      await db.select({ id: schema.session.id }).from(schema.session),
+    ).toEqual(before)
+  })
+
+  it.each([
+    {
+      path: 'verify-password',
+      body: { password: 'fixture-signing-password-2026' },
+    },
+    {
+      path: 'change-password',
+      body: {
+        currentPassword: 'fixture-signing-password-2026',
+        newPassword: 'unauthorised-fixture-replacement',
+      },
+    },
+    {
+      path: 'request-password-reset',
+      body: { email: 'session-test@sheetbase.test' },
+    },
+    {
+      path: 'reset-password',
+      body: {
+        newPassword: 'unauthorised-fixture-replacement',
+        token: 'untrusted',
+      },
+    },
+    {
+      path: 'sign-in/email',
+      body: {
+        email: 'session-test@sheetbase.test',
+        password: 'fixture-signing-password-2026',
+      },
+    },
+    {
+      path: 'sign-up/email',
+      body: {
+        email: 'unauthorised@sheetbase.test',
+        password: 'unauthorised-fixture-password',
+        name: 'Unauthorised',
+      },
+    },
+    {
+      path: 'set-password',
+      body: { newPassword: 'unauthorised-fixture-replacement' },
+    },
+  ])(
+    'does not expose $path outside governed signing authentication',
+    async ({ path, body }) => {
+      const origin = new URL(process.env.BETTER_AUTH_URL!).origin
+      const headers = sessionHeaders(sessionToken)
+      headers.set('origin', origin)
+      headers.set('content-type', 'application/json')
+      const response = await handleAuthRequest(
+        new Request(`${origin}/api/auth/${path}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        }),
+        auth,
+      )
+      expect(response.status).toBe(404)
+    },
+  )
+
+  it('keeps the normal session HTTP endpoint available', async () => {
+    const origin = new URL(process.env.BETTER_AUTH_URL!).origin
+    const response = await handleAuthRequest(
+      new Request(`${origin}/api/auth/get-session`, {
+        headers: sessionHeaders(sessionToken),
+      }),
+      auth,
+    )
+    expect(response.status).toBe(200)
+    const result = await response.json()
+    expect(result.user.id).toBe(userId)
+  })
+
+  it('blocks a valid reset token callback and redemption at the HTTP boundary', async () => {
+    const token = 'rev03-valid-reset-fixture-token'
+    const context = await auth.$context
+    await context.internalAdapter.createVerificationValue({
+      identifier: `reset-password:${token}`,
+      value: userId,
+      expiresAt: new Date(Date.now() + 300_000),
+    })
+    const origin = new URL(process.env.BETTER_AUTH_URL!).origin
+    const callback = new Request(
+      `${origin}/api/auth/reset-password/${token}?callbackURL=${encodeURIComponent(`${origin}/settings/signatures`)}`,
+    )
+    // Establish that this token really is accepted by the library callback,
+    // rather than obtaining a denial from an invalid-token fixture.
+    const libraryResponse = await auth.handler(callback.clone())
+    expect(libraryResponse.status).toBe(302)
+    expect(
+      new URL(libraryResponse.headers.get('location')!).searchParams.get(
+        'token',
+      ),
+    ).toBe(token)
+
+    const publicResponse = await handleAuthRequest(callback, auth)
+    expect(publicResponse.status).toBe(404)
+    const headers = sessionHeaders(sessionToken)
+    headers.set('origin', origin)
+    headers.set('content-type', 'application/json')
+    const reset = await handleAuthRequest(
+      new Request(`${origin}/api/auth/reset-password`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          token,
+          newPassword: 'blocked-recovery-fixture-password',
+        }),
+      }),
+      auth,
+    )
+    expect(reset.status).toBe(404)
+    expect(
+      await auth.api.verifyPassword({
+        headers,
+        body: { password: 'fixture-signing-password-2026' },
+      }),
+    ).toEqual({ status: true })
+    // The HTTP guard must not disable the trusted API used by authorised
+    // recovery. Only the test fixture calls it directly here.
+    expect(
+      await auth.api.resetPassword({
+        body: { token, newPassword: 'trusted-recovery-fixture-password' },
+      }),
+    ).toEqual({ status: true })
+    expect(
+      await auth.api.verifyPassword({
+        headers,
+        body: { password: 'trusted-recovery-fixture-password' },
+      }),
+    ).toEqual({ status: true })
+  })
+
+  it('does not expose a password oracle outside durable signing failure counting', async () => {
+    const origin = new URL(process.env.BETTER_AUTH_URL!).origin
+    const headers = sessionHeaders(sessionToken)
+    headers.set('origin', origin)
+    headers.set('content-type', 'application/json')
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const response = await handleAuthRequest(
+        new Request(`${origin}/api/auth/verify-password`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ password: 'incorrect-fixture-password' }),
+        }),
+        auth,
+      )
+      expect(response.status).toBe(404)
+    }
   })
 
   it('rejects an expired session', async () => {

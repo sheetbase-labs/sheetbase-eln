@@ -31,6 +31,18 @@ export function createAuth(database: typeof db = db) {
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(database, { provider: 'pg', schema: authSchema }),
     socialProviders,
+    // Signing credentials use the governed enrollment/step-up boundary.
+    // Better Auth still mounts verification and password writes when email
+    // sign-in is disabled; direct HTTP calls would bypass those gates.
+    // Its trusted server APIs remain available to that boundary.
+    disabledPaths: [
+      '/verify-password',
+      '/change-password',
+      '/request-password-reset',
+      '/reset-password',
+      '/sign-in/email',
+      '/sign-up/email',
+    ],
     databaseHooks: {
       user: {
         create: {
@@ -66,6 +78,26 @@ export function createAuth(database: typeof db = db) {
 }
 
 export const auth = createAuth()
+
+/** HTTP-only guard: disabledPaths cannot match a dynamic reset-token path. */
+export function handleAuthRequest(
+  request: Request,
+  instance: Pick<typeof auth, 'handler'> = auth,
+): Promise<Response> {
+  let pathname: string
+  try {
+    pathname = decodeURIComponent(new URL(request.url).pathname).replace(
+      /\/+/g,
+      '/',
+    )
+  } catch {
+    return Promise.resolve(new Response(null, { status: 404 }))
+  }
+  if (pathname.startsWith('/api/auth/reset-password/')) {
+    return Promise.resolve(new Response(null, { status: 404 }))
+  }
+  return instance.handler(request)
+}
 
 /**
  * Resolve the application session, or the fixed seeded development identity

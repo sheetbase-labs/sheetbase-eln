@@ -50,6 +50,37 @@ the disposable database, storage and manual tunnel setup.
   `get-session`, `sign-out`.
 - `/api/db/*` — same-origin PostgREST proxy (see [Data API boundary](#data-api-boundary)).
 
+## Signing credential routes
+
+The following Better Auth HTTP paths return 404: `verify-password`,
+`change-password`, `request-password-reset`, `reset-password`, `sign-in/email`,
+and `sign-up/email`. These paths are disabled in `src/lib/auth.ts`. Better Auth's
+`setPassword` API is server-only and has no HTTP route.
+The application HTTP catchall also blocks the `reset-password/` token subtree.
+Better Auth's `disabledPaths` matches exact pathnames, not wildcard or parameter
+patterns. Trusted server calls to `auth.api.resetPassword` remain available.
+
+Disabling email sign-in alone does not close password verification, password
+changes, or redemption of an existing reset token. Those HTTP operations must
+not bypass the signing lockout or first-password enrolment authorisation.
+Better Auth's trusted server APIs remain available for the governed flow.
+GitHub sign-in and session lookup remain unchanged.
+
+**REV-03 is not complete.** The database signing-token, independent admin
+verification, certification, and lockout gates are still pending. This route
+restriction does not make the current session-and-name signing RPC compliant
+with the [accepted signing contract](../knowledge/decisions/0045-regulated-intended-use-control-model.md#owner-decision-2026-09-27).
+No session-only wrapper around `setPassword` or generic password-reset route
+is supported.
+
+The existing SMTP transport in `src/lib/email-delivery.server.ts` enables
+implicit TLS on port 465 but does not require STARTTLS on other ports. Mandatory
+TLS with certificate validation is still needed before that transport can send
+enrolment secrets. Better Auth has no reset-email callback configured.
+Missing SMTP configuration, a missing transport, or failed delivery must deny
+enrolment. No secret belongs in the notification outbox, a browser response,
+an admin response, or logs.
+
 ## Data API boundary
 
 The browser never talks to PostgREST directly. Authenticated CRUD goes to
@@ -100,6 +131,11 @@ unauthenticated access against a real database without live GitHub calls:
 sessions are written directly to the identity tables, exactly what the OAuth
 callback does after consent, and cookies are signed with the same HMAC
 format Better Auth uses.
+
+The same suite checks the restricted HTTP password routes and verifies local
+passwords through Better Auth's server API without creating another session.
+Its `setPassword` call provisions a test fixture, not a product enrolment flow.
+It does not prove GitHub provider step-up or live SMTP delivery.
 
 `tests/db/postgrest-claims.test.ts` proves the AUTH-003 claim contract: a
 token minted by `mintPostgrestToken` is verified with the server secret and,

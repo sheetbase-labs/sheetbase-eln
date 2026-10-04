@@ -1,6 +1,5 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
@@ -24,7 +23,6 @@ import {
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
-import type { ProjectSummary } from '#/components/v3/projects/project-data'
 import { fetchCalendarBookings } from '#/lib/calendar'
 import type { CalendarBookingWire } from '#/lib/calendar'
 import { formatRelativeTime, notebookDataClient } from '#/lib/notebook-data'
@@ -42,6 +40,20 @@ import {
 import { useWorkItems } from '#/lib/work-items/data'
 import type { WorkItem } from '#/lib/work-items/data'
 import { describeAuditEvent, fetchAuditEvents } from '#/lib/audit-history'
+import {
+  fetchHomeCounts,
+  homeAssignedProjects,
+  homeDayRange,
+  homeDueLabel,
+} from '#/lib/home-data'
+import {
+  fetchWorkspaceGeneral,
+  workspaceGeneralQueryKey,
+} from '#/lib/workspace-general'
+import {
+  fetchMyProjectAssignments,
+  workspaceAccessKeys,
+} from '#/lib/workspace-access'
 import { cn } from '#/lib/utils'
 
 /** UI port (roadmap-4/ui-app3): Home, matching the reference — a status chip
@@ -143,14 +155,6 @@ export function recentTone(item: Pick<RecentItem, 'kind' | 'status'>): Tone {
   return 'none'
 }
 
-function todayRange(): { start: string; end: string } {
-  const start = new Date()
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
-  return { start: start.toISOString(), end: end.toISOString() }
-}
-
 function Home() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id
@@ -158,9 +162,21 @@ function Home() {
   const workItemsQuery = useWorkItems()
   const workItems = workItemsQuery.data ?? []
 
-  const range = useMemo(() => todayRange(), [])
+  const workspaceQuery = useQuery({
+    queryKey: [...workspaceGeneralQueryKey, workspaceId, userId],
+    queryFn: () => fetchWorkspaceGeneral(notebookDataClient),
+    enabled: Boolean(workspaceId),
+  })
+  const timeZone = workspaceQuery.data?.timezone ?? 'UTC'
+  const range = homeDayRange(new Date(), timeZone)
+  const countsQuery = useQuery({
+    queryKey: ['home-counts', workspaceId, userId, range.start, range.end],
+    queryFn: () => fetchHomeCounts(notebookDataClient, workspaceId!, range),
+    enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
+  })
+  const counts = countsQuery.data
   const bookingsQuery = useQuery({
-    queryKey: ['home-bookings', workspaceId, range.start],
+    queryKey: ['home-bookings', workspaceId, userId, range.start],
     queryFn: () =>
       fetchCalendarBookings(
         notebookDataClient,
@@ -168,16 +184,17 @@ function Home() {
         range.start,
         range.end,
       ),
-    enabled: Boolean(workspaceId),
+    enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
   })
 
   const flagsQuery = useQuery({
-    queryKey: ['home-dataset-flags'],
+    queryKey: ['home-dataset-flags', workspaceId, userId],
     queryFn: () =>
       notebookDataClient.list<ActiveFlag>(
         'dataset_value_flags',
         '?cleared_at=is.null&select=id,dataset_id,kind,reason&order=set_at.desc&limit=5',
       ),
+    enabled: Boolean(workspaceId),
   })
 
   // GAP 1 — personal recents read model (views + owned change events), never
@@ -200,40 +217,18 @@ function Home() {
       ),
     enabled: Boolean(workspaceId) && showFirstRun,
   })
-  const projectsQuery = useQuery({
-    queryKey: ['home-first-run-projects', workspaceId, userId],
-    queryFn: async (): Promise<FirstRunProject[]> => {
-      const [projects, access] = await Promise.all([
-        fetchProjectSummaries(workspaceId),
-        notebookDataClient.list<{
-          project_id: string
-          access_level: string
-        }>(
-          'project_access',
-          `?user_id=eq.${encodeURIComponent(userId)}&select=project_id,access_level`,
-        ),
-      ])
-      const levelById = new Map(
-        access.map((row) => [row.project_id, row.access_level]),
-      )
-      return projects
-        .filter(
-          (project: ProjectSummary) =>
-            project.leadUserId === userId || levelById.has(project.id),
-        )
-        .map((project: ProjectSummary) => ({
-          id: project.id,
-          title: project.title,
-          accessLevel:
-            project.leadUserId === userId
-              ? 'owner'
-              : (levelById.get(project.id) ?? 'viewer'),
-        }))
-    },
+  const assignmentsQuery = useQuery({
+    queryKey: workspaceAccessKeys.assignments(workspaceId ?? '', userId),
+    queryFn: () => fetchMyProjectAssignments(notebookDataClient),
     enabled: Boolean(workspaceId) && showFirstRun,
   })
+  const projectsQuery = useQuery({
+    queryKey: ['home-first-run-projects', workspaceId, userId],
+    queryFn: () => fetchProjectSummaries(workspaceId),
+    enabled: Boolean(workspaceId) && showFirstRun && assignmentsQuery.isSuccess,
+  })
   const experimentsQuery = useQuery({
-    queryKey: ['home-first-run-experiments', userId],
+    queryKey: ['home-first-run-experiments', workspaceId, userId],
     queryFn: () =>
       notebookDataClient.list<{ id: string }>(
         'records',
@@ -243,18 +238,8 @@ function Home() {
   })
 
   const activityQuery = useQuery({
-    queryKey: ['home-activity', workspaceId],
+    queryKey: ['home-activity', workspaceId, userId],
     queryFn: () => fetchAuditEvents(notebookDataClient, { limit: 6 }),
-    enabled: Boolean(workspaceId),
-  })
-
-  const inProgressQuery = useQuery({
-    queryKey: ['home-in-progress', workspaceId],
-    queryFn: () =>
-      notebookDataClient.list<{ id: string }>(
-        'records',
-        '?kind=eq.experiment&status=eq.in_progress&deleted_at=is.null&select=id&limit=1000',
-      ),
     enabled: Boolean(workspaceId),
   })
 
@@ -266,10 +251,12 @@ function Home() {
     (b: CalendarBookingWire) => !b.cancelled_at,
   )
   const activity = (activityQuery.data?.events ?? []).map(describeAuditEvent)
-  const inProgress = inProgressQuery.data?.length ?? 0
 
   const mine = (certificationsQuery.data ?? []).find((c) => c.userId === userId)
-  const projects = projectsQuery.data ?? []
+  const projects = homeAssignedProjects(
+    projectsQuery.data ?? [],
+    assignmentsQuery.data ?? [],
+  )
   const setupSteps = firstRunSteps({
     workspaceName: context.workspace?.name ?? 'this workspace',
     signatureCertified: isCurrentStatement(mine),
@@ -280,38 +267,79 @@ function Home() {
 
   const chips = [
     {
-      n: reviews.length,
-      label: reviews.length === 1 ? 'to review' : 'to review',
+      n: counts?.reviews,
+      label: 'to review',
       tone: 'review' as Tone,
       to: '/inbox' as const,
     },
     {
-      n: flags.length,
+      n: counts?.datasetsWithErrors,
       label:
-        flags.length === 1 ? 'dataset with errors' : 'datasets with errors',
+        counts?.datasetsWithErrors === 1
+          ? 'dataset with errors'
+          : 'datasets with errors',
       tone: 'bad' as Tone,
       to: '/datasets' as const,
     },
     {
-      n: inProgress,
+      n: counts?.experimentsInProgress,
       label: 'experiments in progress',
       tone: 'progress' as Tone,
       to: '/experiments' as const,
     },
     {
-      n: bookings.length,
-      label: 'bookings today',
-      tone: 'none' as Tone,
+      n: counts?.instrumentRuns,
+      label: 'instrument runs today',
+      tone: 'analysis' as Tone,
       to: '/schedule' as const,
     },
   ]
 
   const today = new Date().toLocaleDateString('en-GB', {
+    timeZone,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   })
   const openNotebookId = recents.find((r) => r.kind === 'record')?.id
+
+  const homeQueries = [
+    workspaceQuery,
+    countsQuery,
+    bookingsQuery,
+    flagsQuery,
+    recentsQuery,
+    workItemsQuery,
+    activityQuery,
+    ...(showFirstRun
+      ? [certificationsQuery, assignmentsQuery, projectsQuery, experimentsQuery]
+      : []),
+  ]
+  if (homeQueries.some((query) => query.isError)) {
+    return (
+      <div className="flex flex-1 flex-col gap-3 p-6" role="alert">
+        <h1 className="text-section">Home could not be loaded</h1>
+        <p>
+          Some workspace information is unavailable. Try again to load your
+          current work.
+        </p>
+        <Button
+          onClick={() => {
+            for (const query of homeQueries) void query.refetch()
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    )
+  }
+  if (homeQueries.some((query) => query.isPending)) {
+    return (
+      <div className="p-6" role="status">
+        Loading your home…
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -422,19 +450,19 @@ function Home() {
                 >
                   <Dot tone={c.tone} />
                   <span>
-                    <b className="num font-semibold">{c.n}</b> {c.label}
+                    <b className="num font-semibold">{c.n ?? '—'}</b> {c.label}
                   </span>
                 </Link>
               ))}
               <span className="flex-1" />
               <Link to="/inbox" className="text-label">
-                Open inbox · {workItems.length} items
+                Open inbox · {counts?.inbox ?? '—'} items
               </Link>
             </nav>
 
             <Section
               title="Awaiting your review"
-              count={reviews.length}
+              count={counts?.reviews}
               action={
                 <Link to="/inbox" className="text-label">
                   All in inbox
@@ -462,7 +490,7 @@ function Home() {
                             {r.title}
                           </TableCell>
                           <TableCell className="text-fg-muted">
-                            {r.dueAt ? r.dueAt.slice(0, 10) : '—'}
+                            {homeDueLabel(r.dueAt, new Date(), timeZone)}
                           </TableCell>
                           <TableCell align="right">
                             {r.recordId ? (
@@ -629,6 +657,7 @@ function Home() {
                   >
                     <span className="num w-10 shrink-0 font-medium text-link">
                       {new Date(b.starts_at).toLocaleTimeString('en-GB', {
+                        timeZone,
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
@@ -694,6 +723,7 @@ function Home() {
                   <li key={a.event.id} className="flex gap-3">
                     <span className="num w-10 shrink-0 text-label text-fg-muted">
                       {new Date(a.event.createdAt).toLocaleTimeString('en-GB', {
+                        timeZone,
                         hour: '2-digit',
                         minute: '2-digit',
                       })}

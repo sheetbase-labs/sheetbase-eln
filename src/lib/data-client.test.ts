@@ -86,6 +86,72 @@ describe('createDataClient.list', () => {
   })
 })
 
+describe('createDataClient.count', () => {
+  it.each([
+    ['0-0/200017', 200017],
+    ['*/0', 0],
+  ])(
+    'reads the exact total from %s, not the one-row body',
+    async (header, total) => {
+      const response = new Response(
+        JSON.stringify([{ id: 'only-returned-row' }]),
+        {
+          headers: { 'content-range': header },
+        },
+      )
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response)
+      expect(
+        await createDataClient(fetchImpl).count('records', '?kind=eq.sample'),
+      ).toBe(total)
+      const [path, init] = fetchImpl.mock.calls[0]
+      expect(path).toBe('/api/db/records?kind=eq.sample')
+      expect(init?.method).toBe('GET')
+      const headers = new Headers(init?.headers)
+      expect(headers.get('prefer')).toBe('count=exact')
+      expect(headers.get('range')).toBe('0-0')
+      expect(response.bodyUsed).toBe(true)
+    },
+  )
+
+  it.each([
+    null,
+    '',
+    '0-0/*',
+    '*/*',
+    'garbage/17',
+    '0-0/-1',
+    '0-0/1.5',
+    '0-0/9007199254740992',
+    '1-0/17',
+    '0-17/17',
+    '0-0/0',
+  ])(
+    'rejects an unavailable exact total (%s) and drains the response',
+    async (header) => {
+      const response = new Response('[{"id":"one-row-is-not-the-total"}]', {
+        headers: header === null ? {} : { 'content-range': header },
+      })
+      await expect(
+        createDataClient(mockFetch(response)).count('records'),
+      ).rejects.toMatchObject({
+        name: 'DataClientError',
+        code: 'invalid_count',
+      })
+      expect(response.bodyUsed).toBe(true)
+    },
+  )
+
+  it('does not turn a missing count and a non-JSON body into zero', async () => {
+    const response = new Response('not a JSON count')
+    await expect(
+      createDataClient(mockFetch(response)).count('records'),
+    ).rejects.toMatchObject({
+      code: 'invalid_count',
+    })
+    expect(response.bodyUsed).toBe(true)
+  })
+})
+
 describe('createDataClient.rpc', () => {
   it('POSTs the args and returns the representation', async () => {
     const fetchImpl = mockFetch(

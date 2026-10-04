@@ -78,8 +78,7 @@ export interface DataClient {
    * Cheap total count for a resource query. Uses PostgREST's
    * `Prefer: count=exact` + `Range: 0-0` so at most one row is transferred
    * and the total is read from the `Content-Range` header
-   * (`0-0/<total>`). Falls back to counting the returned rows when the
-   * header is absent (e.g. a proxy that strips it).
+   * (`0-0/<total>`, including empty totals). Rejects responses without an exact total.
    */
   count: (resource: string, query?: string) => Promise<number>
   rpc: <T>(name: string, args: Record<string, unknown>) => Promise<T>
@@ -137,21 +136,29 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         },
       })
       const contentRange = response.headers.get('content-range')
-      if (contentRange) {
-        const match = contentRange.match(/\/(\d+)$/)
-        if (match) {
-          // Drain the body so the connection can be reused.
-          await response.text().catch(() => {})
-          return Number(match[1])
-        }
+      // Drain successful and invalid-count responses, without hiding stream
+      // failures or mistaking a one-row response for the exact total.
+      await response.text()
+      const match = contentRange?.match(/^(?:(\d+)-(\d+)|\*)\/(\d+)$/)
+      const total = match ? Number(match[3]) : NaN
+      const start = match?.[1] === undefined ? null : Number(match[1])
+      const end = match?.[2] === undefined ? null : Number(match[2])
+      if (
+        !Number.isSafeInteger(total) ||
+        (start !== null &&
+          end !== null &&
+          (!Number.isSafeInteger(start) ||
+            !Number.isSafeInteger(end) ||
+            start > end ||
+            end >= total))
+      ) {
+        throw new DataClientError(
+          'invalid_count',
+          'The server did not return an exact count.',
+          response.status,
+        )
       }
-      // No count header: count whatever was returned.
-      try {
-        const rows = (await response.json()) as unknown[]
-        return rows.length
-      } catch {
-        return 0
-      }
+      return total
     },
 
     async rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {

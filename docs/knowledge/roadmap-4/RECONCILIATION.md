@@ -92,6 +92,17 @@ pass 25 tests, and the record-model API suite passes six tests against the
 populated design database. No caller permissions or production guards were
 relaxed.
 
+The formula-column-order API proof now creates and removes its own isolated
+workspace, session, notebook and generated table instead of relying on
+historical seeded IDs. Reversed UUID column order and opposing timestamp/UUID
+row order prove that `=B1+C1` persists bindings to display columns B/C in row 1
+when the formula belongs to row 2. Authenticated PostgREST reads back the
+stored target, expression and bindings. The focused API test passes on the
+integrated database; separate column-order and row-order mutations each fail
+the assertions. The fixture uses the migration-only internal legacy table
+constructor without reopening its revoked public API. The remaining full API
+acceptance failures are still open.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven

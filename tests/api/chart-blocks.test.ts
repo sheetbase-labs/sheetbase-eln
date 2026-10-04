@@ -5,13 +5,13 @@
  * proxy to a running PostgREST instance. The admin connection is used only for
  * fixture setup, cleanup and change-event verification.
  */
+import { randomUUID } from 'node:crypto'
 import { config } from 'dotenv'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
-import { createScientificTableAsMigrator } from '../db/helpers'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -60,6 +60,49 @@ async function clean(): Promise<void> {
       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
     [WS_A, WS_B],
   )
+  // Immutable evidence is removed only by transactional fixture teardown.
+  // All guards are restored before committing, including on failure.
+  await admin.query('BEGIN')
+  try {
+    const tables = [
+      'dataset_version_flags',
+      'dataset_version_values',
+      'dataset_version_rows',
+      'dataset_versions',
+      'dataset_schema_version_fields',
+      'dataset_schema_versions',
+    ]
+    for (const table of tables)
+      await admin.query(`ALTER TABLE api.${table} DISABLE TRIGGER USER`)
+    for (const table of [
+      'dataset_version_flags',
+      'dataset_version_values',
+      'dataset_version_rows',
+    ]) {
+      await admin.query(
+        `DELETE FROM api.${table} WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id IN ($1,$2))`,
+        [WS_A, WS_B],
+      )
+    }
+    await admin.query(
+      `DELETE FROM api.dataset_versions WHERE workspace_id IN ($1,$2)`,
+      [WS_A, WS_B],
+    )
+    await admin.query(
+      `DELETE FROM api.datasets WHERE workspace_id IN ($1,$2)`,
+      [WS_A, WS_B],
+    )
+    await admin.query(
+      `DELETE FROM api.dataset_schema_definitions WHERE workspace_id IN ($1,$2)`,
+      [WS_A, WS_B],
+    )
+    for (const table of tables)
+      await admin.query(`ALTER TABLE api.${table} ENABLE TRIGGER USER`)
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
   await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
     WS_A,
     WS_B,
@@ -133,7 +176,7 @@ async function createRecord(
     p_status: 'draft',
     p_properties: {},
   })
-  expect(response.status).toBe(200)
+  expect(response.status, await response.clone().text()).toBe(200)
   return response.json()
 }
 
@@ -161,11 +204,11 @@ function baseSpec(
   return {
     specVersion: 1,
     type: 'line' as const,
-    datasets: [{ tableId }],
+    datasets: [{ datasetId: tableId }],
     fields: {
-      x: { columnId: cols.x.id, fieldName: cols.x.field_name },
-      y: { columnId: cols.y.id, fieldName: cols.y.field_name },
-      series: { columnId: cols.series.id, fieldName: cols.series.field_name },
+      x: { fieldId: cols.x.id },
+      y: { fieldId: cols.y.id },
+      series: { fieldId: cols.series.id },
       color: null,
       size: null,
     },
@@ -241,76 +284,103 @@ afterAll(async () => {
 
 describe('SCI-004 chart blocks REST contract', () => {
   let experiment: { id: string; structure_version: number }
-  let table: { id: string; resource_name: string }
+  let table: { id: string }
   let cols: Record<string, { id: string; field_name: string }>
   let chart: { id: string; version: number; payload: Record<string, unknown> }
 
-  async function buildDataset(
-    user: string,
-    workspace: string,
-    recordId: string,
-    structureVersion: number,
-  ): Promise<number> {
-    // Sheet block via insert_block, then a scientific table via the same RPC
-    // the UI uses, then realistic rows via the generated resource.
-    const sheetRes = await insertBlock(
-      user,
-      workspace,
-      { id: recordId, structure_version: structureVersion },
-      'sheet',
-      {},
-    )
-    expect(sheetRes.status).toBe(200)
-    const sheetJson = await sheetRes.json()
-    const sheet = sheetJson.block
-    const built = await createScientificTableAsMigrator(
-      admin,
-      user,
-      workspace,
-      sheet.id,
-      'Stability readings',
-      [
-        {
-          label: 'Time',
-          logical_type: 'decimal',
-          unit: { code: 'h', symbol: 'h' },
-        },
-        {
-          label: 'Recovery',
-          logical_type: 'decimal',
-          unit: { code: '%', symbol: '%' },
-        },
-        { label: 'Condition', logical_type: 'text' },
-      ],
-    )
-    table = built.table
-    const byLabel = Object.fromEntries(
-      built.columns.map((c: any) => [c.label, c]),
-    )
-    cols = {
-      x: byLabel['Time'],
-      y: byLabel['Recovery'],
-      series: byLabel['Condition'],
+  async function buildDataset(user: string, workspace: string) {
+    const columns = {
+      x: { id: randomUUID(), field_name: 'time' },
+      y: { id: randomUUID(), field_name: 'recovery' },
+      series: { id: randomUUID(), field_name: 'condition' },
     }
+    const schema = await rpc(
+      'create_dataset_schema_definition',
+      user,
+      workspace,
+      {
+        p_workspace_id: workspace,
+        p_key: `stability_${workspace.replaceAll('-', '')}`,
+        p_name: 'Stability readings',
+        p_fields: [
+          {
+            fieldId: columns.x.id,
+            key: 'time',
+            label: 'Time',
+            logicalType: 'decimal',
+            quantity: { kind: 'duration', dimension: 'time', storageUnit: 'h' },
+          },
+          {
+            fieldId: columns.y.id,
+            key: 'recovery',
+            label: 'Recovery',
+            logicalType: 'decimal',
+            quantity: {
+              kind: 'recovery',
+              dimension: 'dimensionless',
+              storageUnit: '%',
+            },
+          },
+          {
+            fieldId: columns.series.id,
+            key: 'condition',
+            label: 'Condition',
+            logicalType: 'text',
+          },
+        ],
+      },
+    )
+    expect(schema.status, await schema.clone().text()).toBe(200)
+    const { schema_version_id: schemaVersionId } = await schema.json()
+    const publish = await rpc(
+      'publish_dataset_schema_version',
+      user,
+      workspace,
+      {
+        p_schema_version_id: schemaVersionId,
+      },
+    )
+    expect(publish.status, await publish.clone().text()).toBe(200)
+    const created = await proxy('datasets', user, workspace, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({
+        workspace_id: workspace,
+        schema_version_id: schemaVersionId,
+        name: 'Stability readings',
+      }),
+    })
+    expect(created.status, await created.clone().text()).toBe(201)
+    const [dataset] = await created.json()
     const rows = [
       [0, 100, '4C'],
       [24, 97, '4C'],
       [0, 100, '20C'],
       [24, 88, '20C'],
     ] as const
-    for (const [t, recovery, condition] of rows) {
-      const rowRes = await proxy(table.resource_name, user, workspace, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          [cols.x.field_name]: t,
-          [cols.y.field_name]: recovery,
-          [cols.series.field_name]: condition,
-        }),
-      })
-      expect(rowRes.status).toBe(201)
-    }
-    return sheetJson.structure_version as number
+    const commit = await rpc('commit_dataset_row_batch', user, workspace, {
+      p_dataset_id: dataset.id,
+      p_expected_dataset_revision: Number(dataset.revision),
+      p_idempotency_key: `chart-fixture-${dataset.id}`,
+      p_rows: rows.map(([t, recovery, condition]) => ({
+        operation: 'create',
+        rowId: randomUUID(),
+        values: {
+          [columns.x.id]: t,
+          [columns.y.id]: recovery,
+          [columns.series.id]: condition,
+        },
+      })),
+    })
+    expect(commit.status, await commit.clone().text()).toBe(200)
+    expect(await commit.json()).toMatchObject({
+      ok: true,
+      datasetId: dataset.id,
+    })
+    return { dataset, columns }
   }
 
   it('creates, reads and updates a chart block through the proxy', async () => {
@@ -322,12 +392,9 @@ describe('SCI-004 chart blocks REST contract', () => {
       'Stability API',
     )
     experiment = rec
-    experiment.structure_version = await buildDataset(
-      USER_A,
-      WS_A,
-      rec.id,
-      rec.structure_version,
-    )
+    const built = await buildDataset(USER_A, WS_A)
+    table = built.dataset
+    cols = built.columns
     const insertRes = await insertBlock(
       USER_A,
       WS_A,
@@ -378,43 +445,12 @@ describe('SCI-004 chart blocks REST contract', () => {
 
   it('rejects a cross-workspace dataset reference', async () => {
     // Build a dataset in workspace B and try to reference it from a chart in A.
-    const recB = await createRecord(
-      USER_B,
-      WS_B,
-      PROJECT_B,
-      'experiment',
-      'WS B data',
-    )
-    const sheetRes = await insertBlock(USER_B, WS_B, recB, 'sheet', {})
-    const sheet = (await sheetRes.json()).block
-    const builtB = await createScientificTableAsMigrator(
-      admin,
-      USER_B,
-      WS_B,
-      sheet.id,
-      'WS B readings',
-      [
-        {
-          label: 'Time',
-          logical_type: 'decimal',
-          unit: { code: 'h', symbol: 'h' },
-        },
-        {
-          label: 'Recovery',
-          logical_type: 'decimal',
-          unit: { code: '%', symbol: '%' },
-        },
-        { label: 'Condition', logical_type: 'text' },
-      ],
-    )
-    const colsB = {
-      x: builtB.columns[0],
-      y: builtB.columns[1],
-      series: builtB.columns[2],
-    }
+    const builtB = await buildDataset(USER_B, WS_B)
     const crossRes = await rpc('update_block_payload', USER_A, WS_A, {
       p_block_id: chart.id,
-      p_payload: chartPayload(builtB.table.id, colsB, { title: 'Cross-ws' }),
+      p_payload: chartPayload(builtB.dataset.id, builtB.columns, {
+        title: 'Cross-ws',
+      }),
       p_expected_version: chart.version,
       p_payload_schema_version: 1,
     })
@@ -430,12 +466,57 @@ describe('SCI-004 chart blocks REST contract', () => {
     chart = await freezeRes.json()
     expect(chart.payload.frozen).toBeTruthy()
     expect(chart.payload.frozen.frozenByUserId).toBe(USER_A)
-    expect(
-      chart.payload.frozen.datasetProvenance[0].datasetId ??
-        chart.payload.frozen.datasetProvenance[0].tableId,
-    ).toBeTruthy()
+    expect(chart.payload.frozen.datasetProvenance[0]).toMatchObject({
+      datasetId: table.id,
+      rowCount: 4,
+    })
     expect(chart.payload.frozen.datasetProvenance[0].datasetVersionId).toMatch(
       /^[0-9a-f-]{36}$/i,
+    )
+    expect(chart.payload.frozen.data.columns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldId: cols.x.id,
+          unit: { kind: 'duration', dimension: 'time', storageUnit: 'h' },
+        }),
+        expect.objectContaining({
+          fieldId: cols.y.id,
+          unit: {
+            kind: 'recovery',
+            dimension: 'dimensionless',
+            storageUnit: '%',
+          },
+        }),
+      ]),
+    )
+    const snapshot = await proxy(
+      `dataset_versions?id=eq.${chart.payload.frozen.datasetProvenance[0].datasetVersionId}&select=schema_version_id`,
+      USER_A,
+      WS_A,
+    )
+    expect(snapshot.status).toBe(200)
+    const [version] = await snapshot.json()
+    const fields = await proxy(
+      `dataset_schema_version_fields?schema_version_id=eq.${version.schema_version_id}&select=field_id,quantity`,
+      USER_A,
+      WS_A,
+    )
+    expect(fields.status).toBe(200)
+    expect(await fields.json()).toEqual(
+      expect.arrayContaining([
+        {
+          field_id: cols.x.id,
+          quantity: { kind: 'duration', dimension: 'time', storageUnit: 'h' },
+        },
+        {
+          field_id: cols.y.id,
+          quantity: {
+            kind: 'recovery',
+            dimension: 'dimensionless',
+            storageUnit: '%',
+          },
+        },
+      ]),
     )
     expect(chart.payload.frozen.data.series).toEqual([])
   })
@@ -466,7 +547,7 @@ describe('SCI-004 chart blocks REST contract', () => {
     expect(mutateRes.status).toBeGreaterThanOrEqual(400)
   })
 
-  it('binds a frozen chart to a same-record revision and then rejects unfreeze', async () => {
+  it('binds a frozen chart during submission and rejects rebinding and unfreeze', async () => {
     const previewRes = await rpc('preview_submission_digest', USER_A, WS_A, {
       p_record_id: experiment.id,
     })
@@ -524,14 +605,31 @@ describe('SCI-004 chart blocks REST contract', () => {
     })
     expect(directInsert.status).toBe(403)
 
+    // Submission binds frozen evidence transactionally (SCI-03), before its
+    // snapshot/digest is captured. Read the resulting live version, not the
+    // pre-submission fixture, and verify both sides of the evidence boundary.
+    const boundRead = await proxy(`blocks?id=eq.${chart.id}`, USER_A, WS_A)
+    expect(boundRead.status).toBe(200)
+    ;[chart] = await boundRead.json()
+    expect(chart.payload.frozen.revisionId).toBe(rev.id)
+    const revisionRead = await proxy(`revisions?id=eq.${rev.id}`, USER_A, WS_A)
+    expect(revisionRead.status).toBe(200)
+    const [revision] = await revisionRead.json()
+    expect(
+      revision.canonical_snapshot.blocks.find(
+        (block: { id: string }) => block.id === chart.id,
+      ).payload.frozen.revisionId,
+    ).toBe(rev.id)
+
     const bindRes = await rpc('bind_chart_revision', USER_A, WS_A, {
       p_block_id: chart.id,
       p_revision_id: rev.id,
       p_expected_version: chart.version,
     })
-    expect(bindRes.status).toBe(200)
-    chart = await bindRes.json()
-    expect(chart.payload.frozen.revisionId).toBe(rev.id)
+    expect(bindRes.status).toBe(400)
+    expect((await bindRes.json()).error.message).toBe(
+      'chart is already bound to a revision',
+    )
 
     const unbindRes = await rpc('unfreeze_chart', USER_A, WS_A, {
       p_block_id: chart.id,

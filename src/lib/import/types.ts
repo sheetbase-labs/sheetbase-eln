@@ -111,7 +111,11 @@ export interface DatasetImportRecord {
   experiment_record_id: string | null
   parser_id: string | null
   parser_version_id: string | null
-  file_id: string
+  file_id: string | null
+  connector_run_id: string | null
+  imported_row_ids: string[]
+  parser_provenance: Record<string, unknown>
+  source_provenance: Record<string, unknown>
   outcome: Record<string, unknown>
   snapshot_version_id: string | null
   status: string

@@ -15,7 +15,7 @@
  * (127.0.0.1:3100). Self-cleaning: every artifact it creates is removed.
  */
 import { createHash } from 'node:crypto'
-import { rmSync } from 'node:fs'
+import { readFileSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { config } from 'dotenv'
@@ -27,9 +27,8 @@ config({ path: ['.env.local', '.env'] })
 
 const WORKSPACE = '00000000-0000-4000-8000-000000000300'
 const DATASET = '00000000-0000-4000-8000-00000000038a' // DS-0320
-const SAMPLE_FIELD = '5c1d8c9d-9cfe-4750-9a41-7f6ca442f10b'
-const WELL_FIELD = '6ee3d629-b115-4a51-828e-d93a5c28a8e3'
-const NOTE_FIELD = 'cbdd2c94-cba0-4e34-8504-6553708f26e3'
+
+test.use({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 })
 
 const FIXTURE_NAME = 'plate-reader-import-flow.csv'
 const FIXTURE_CSV = `# Instrument: PR-01
@@ -95,9 +94,10 @@ async function clean() {
   await admin.query(`UPDATE api.datasets SET revision = 1 WHERE id = $1`, [
     DATASET,
   ])
-  await admin.query(`DELETE FROM api.dataset_bulk_commits WHERE dataset_id = $1`, [
-    DATASET,
-  ])
+  await admin.query(
+    `DELETE FROM api.dataset_bulk_commits WHERE dataset_id = $1`,
+    [DATASET],
+  )
   await admin.query(
     `DELETE FROM api.parser_mappings
       WHERE workspace_id = $1 AND target_key = $2`,
@@ -126,11 +126,7 @@ async function count(query: string): Promise<number> {
 }
 
 /** Choose DS-0320 and upload a fixture, landing on the Map step. */
-async function uploadFixture(
-  page: Page,
-  name: string,
-  content: string,
-) {
+async function uploadFixture(page: Page, name: string, content: string) {
   await page.getByLabel('Import into dataset').selectOption(DATASET)
   await page
     .getByLabel('Laboratory file')
@@ -186,9 +182,13 @@ test.describe('DSET-05 import flow', () => {
     await page.getByLabel('Map note').selectOption('')
     await expect(page.getByText('4 of 5 mapped')).toBeVisible()
     await page.getByRole('button', { name: 'Continue' }).click()
-    await expect(page.getByRole('table', { name: 'Rows to import' })).toBeVisible()
+    await expect(
+      page.getByRole('table', { name: 'Rows to import' }),
+    ).toBeVisible()
 
-    const saved = await admin.query<{ mapping: { sources: Array<{ source: string; fieldId: string | null }> } }>(
+    const saved = await admin.query<{
+      mapping: { sources: Array<{ source: string; fieldId: string | null }> }
+    }>(
       `SELECT mapping FROM api.parser_mappings
         WHERE workspace_id = $1 AND target_key = $2 AND is_default = true`,
       [WORKSPACE, `dataset:${DATASET}`],
@@ -204,7 +204,7 @@ test.describe('DSET-05 import flow', () => {
     await expect(mapping).toBeVisible()
     await expect(page.getByLabel('Map note')).toHaveValue('')
     // Restore a real mapping for the commit run and save it as the default.
-    await page.getByLabel('Map note').selectOption(NOTE_FIELD)
+    await page.getByLabel('Map note').selectOption({ label: 'Note' })
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // --- 05.4 — the review shows server-computed row outcomes. ---
@@ -299,11 +299,112 @@ test.describe('DSET-05 import flow', () => {
     await expect(
       page.getByRole('button', { name: 'Map columns by hand for this file' }),
     ).toBeVisible()
-    await expect(
-      page.getByRole('button', { name: /Try parser/ }),
-    ).toBeVisible()
+    await expect(page.getByRole('button', { name: /Try parser/ })).toBeVisible()
     await expect(
       page.getByRole('button', { name: 'Ask an admin to update the parser' }),
     ).toBeVisible()
+  })
+
+  test('regulated imports retain the file on denial and trace every row after QA approval', async ({
+    page,
+  }) => {
+    await clean()
+    const original = (
+      await admin.query(
+        `SELECT id, status, approved_at, approved_by_user_id
+      FROM api.parser_versions WHERE parser_id IN
+      (SELECT id FROM api.parsers WHERE workspace_id = $1 AND key = 'sheetbase.plate-reader-csv') AND version = 1`,
+        [WORKSPACE],
+      )
+    ).rows[0]
+    await admin.query(
+      `UPDATE api.datasets SET intended_use = 'regulated_record' WHERE id = $1`,
+      [DATASET],
+    )
+    await admin.query(
+      `UPDATE api.parser_versions SET status = 'draft', approved_at = NULL, approved_by_user_id = NULL WHERE id = $1`,
+      [original.id],
+    )
+    try {
+      await page.goto('/import')
+      await uploadFixture(page, FIXTURE_NAME, FIXTURE_CSV)
+      await expect(
+        page.getByRole('table', { name: 'Column mapping' }),
+      ).toBeVisible()
+      await page.getByRole('button', { name: 'Continue' }).click()
+      await expect(
+        page.getByRole('table', { name: 'Rows to import' }),
+      ).toBeVisible()
+      await page.getByRole('button', { name: 'Import 5 rows' }).click()
+      await expect(
+        page.getByText(/Regulated datasets require an approved parser version/),
+      ).toBeVisible()
+      expect(
+        (
+          await admin.query(
+            'SELECT count(*)::int n FROM api.dataset_imports WHERE dataset_id = $1',
+            [DATASET],
+          )
+        ).rows[0].n,
+      ).toBe(0)
+      expect(
+        (
+          await admin.query(
+            `SELECT count(*)::int n FROM api.dataset_rows WHERE dataset_id = $1 AND status = 'recorded'`,
+            [DATASET],
+          )
+        ).rows[0].n,
+      ).toBe(0)
+      const raw = (
+        await admin.query(
+          'SELECT storage_key, checksum FROM api.dataset_import_files WHERE dataset_id = $1 ORDER BY created_at DESC LIMIT 1',
+          [DATASET],
+        )
+      ).rows[0]
+      expect(raw.checksum).toBe(
+        createHash('sha256').update(FIXTURE_CSV).digest('hex'),
+      )
+      expect(
+        readFileSync(resolve('.storage/objects', raw.storage_key), 'utf8'),
+      ).toBe(FIXTURE_CSV)
+      await page.screenshot({
+        path: '.amp/in/artifacts/dset-06-regulated-denial.png',
+        fullPage: true,
+      })
+      const approved = await page.request.post(
+        '/api/db/rpc/approve_parser_version',
+        { data: { p_parser_version_id: original.id } },
+      )
+      expect(approved.ok()).toBe(true)
+      await page.getByRole('button', { name: 'Import 5 rows' }).click()
+      await expect(page.getByText('Imported 5 rows')).toBeVisible()
+      const receipt = (
+        await admin.query(
+          'SELECT imported_row_ids, parser_provenance FROM api.dataset_imports WHERE dataset_id = $1',
+          [DATASET],
+        )
+      ).rows[0]
+      expect(receipt.imported_row_ids).toHaveLength(5)
+      expect(receipt.parser_provenance).toMatchObject({
+        parserVersionId: original.id,
+        status: 'approved',
+        version: 1,
+      })
+    } finally {
+      await clean()
+      await admin.query(
+        `UPDATE api.datasets SET intended_use = 'exploratory_research' WHERE id = $1`,
+        [DATASET],
+      )
+      await admin.query(
+        'UPDATE api.parser_versions SET status = $2, approved_at = $3, approved_by_user_id = $4 WHERE id = $1',
+        [
+          original.id,
+          original.status,
+          original.approved_at,
+          original.approved_by_user_id,
+        ],
+      )
+    }
   })
 })

@@ -273,7 +273,7 @@ async function ensureParsers(
         p_version: parser.version,
         p_signature: parser.signature,
         p_mapping: {},
-        p_status: parser.status,
+        p_status: 'draft',
       },
       token,
     )
@@ -413,16 +413,7 @@ export async function handleImportFileUpload(
   let parser: ImportParserSummary | null = null
   if (recognition) {
     const summary = parsers.get(recognition.key)
-    parser = {
-      key: recognition.key,
-      label: recognition.label,
-      format: recognition.format,
-      version: recognition.version,
-      confidence: recognition.confidence,
-      parserId: summary?.parserId ?? '',
-      parserVersionId: summary?.parserVersionId ?? '',
-      status: summary?.status ?? 'approved',
-    }
+    if (summary) parser = { ...summary, confidence: recognition.confidence }
   }
 
   await postgrestRpc(
@@ -436,16 +427,9 @@ export async function handleImportFileUpload(
     : null
   const draftParsers = IMPORT_PARSERS.filter(
     (item) => item.format === format && item.status === 'draft',
-  ).map((item) => {
+  ).flatMap((item) => {
     const summary = parsers.get(item.key)
-    return {
-      key: item.key,
-      label: item.label,
-      version: item.version,
-      parserId: summary?.parserId ?? '',
-      parserVersionId: summary?.parserVersionId ?? '',
-      status: summary?.status ?? item.status,
-    }
+    return summary ? [summary] : []
   })
 
   return Response.json({
@@ -767,6 +751,55 @@ export async function handleImportCommit(
   if ('error' in prepared) return prepared.error
 
   const parser = parserByKey(body.parserKey)
+  if (body.parserKey && !parser) {
+    return requestErrorResponse(
+      422,
+      'parser_required',
+      'Choose a registered parser version.',
+    )
+  }
+  // Manual mapping is a parser too: the generic format reader plus the
+  // mapping frozen in the receipt. It never bypasses regulated approval.
+  const registered = await postgrestRpc<{
+    parserId: string
+    parserVersionId: string
+  }>(
+    'ensure_parser',
+    {
+      p_workspace_id: context.workspaceId,
+      p_key: parser?.key ?? `sheetbase.manual-${prepared.file.format}`,
+      p_name:
+        parser?.label ?? `Manual ${prepared.file.format.toUpperCase()} mapping`,
+      p_format: prepared.file.format,
+      p_version: parser?.version ?? 1,
+      p_signature: parser?.signature ?? { manualMapping: true },
+      p_status: 'draft',
+    },
+    context.token,
+  )
+  const registeredBody = asRow(registered.body)
+  if (
+    registered.status >= 400 ||
+    !registeredBody ||
+    !('parserId' in registeredBody)
+  ) {
+    return requestErrorResponse(
+      422,
+      'parser_required',
+      'Could not register the parser. The file is kept for retry.',
+    )
+  }
+  const { parserId, parserVersionId } = registeredBody
+  if (
+    (body.parserId && body.parserId !== parserId) ||
+    (body.parserVersionId && body.parserVersionId !== parserVersionId)
+  ) {
+    return requestErrorResponse(
+      422,
+      'parser_mismatch',
+      'The parser attribution does not match the reader used. The file is kept for retry.',
+    )
+  }
   const { mapped, controlFieldId } = buildRows(prepared, parser)
   if (mapped.errors.length > 0 || mapped.rows.length === 0) {
     return Response.json({
@@ -833,8 +866,8 @@ export async function handleImportCommit(
       p_file_id: prepared.file.id,
       p_mapping: prepared.mapping,
       p_outcome: outcome ?? {},
-      p_parser_id: body.parserId ?? null,
-      p_parser_version_id: body.parserVersionId ?? null,
+      p_parser_id: parserId,
+      p_parser_version_id: parserVersionId,
       p_experiment_record_id: body.experimentRecordId ?? null,
       p_instrument_id: body.instrumentId ?? null,
     },
@@ -853,7 +886,13 @@ export async function handleImportCommit(
       errors:
         errors.length > 0
           ? errors
-          : [{ code: 'commit_failed', message: 'The import was rejected.' }],
+          : [
+              {
+                code: 'commit_failed',
+                message:
+                  'The import was rejected. Regulated datasets require an approved parser version; the file is kept for retry.',
+              },
+            ],
     })
   }
 

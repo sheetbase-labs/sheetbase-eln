@@ -135,7 +135,10 @@ async function planRow(
   return rows[0]!
 }
 
-async function datasetRevision(client: Client, datasetId: string): Promise<number> {
+async function datasetRevision(
+  client: Client,
+  datasetId: string,
+): Promise<number> {
   const { rows } = await client.query<{ revision: string }>(
     `SELECT revision FROM api.datasets WHERE id = $1`,
     [datasetId],
@@ -177,14 +180,17 @@ function pgDataClient(owner: Client): DataClient {
         )
         return result.rows[0].result
       }
-      if (name === 'commit_dataset_row_batch') {
+      if (name === 'commit_dataset_import') {
         const result = await owner.query(
-          `select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4) result`,
+          `select api.commit_dataset_import($1,$2,$3::jsonb,$4,$5,'{}','{}',$6,$7) result`,
           [
             args.p_dataset_id,
             args.p_expected_dataset_revision,
             JSON.stringify(args.p_rows),
             args.p_idempotency_key,
+            args.p_file_id,
+            args.p_parser_id,
+            args.p_parser_version_id,
           ],
         )
         return result.rows[0].result
@@ -468,6 +474,18 @@ describe('planned rows filled by import', () => {
     await createDataset(datasetId, WS_A, SCHEMA_VERSION_A, PROJECT_A)
     const planned = await planRow(member, datasetId, SCHEDULED, 'TS-1')
     const revision = await datasetRevision(member, datasetId)
+    const parser = (
+      await member.query(
+        `SELECT api.ensure_parser($1, 'planned-fill', 'Planned fill CSV', 'csv', 1, '{}') result`,
+        [WS_A],
+      )
+    ).rows[0].result
+    const file = (
+      await member.query(
+        `SELECT * FROM api.create_dataset_import_file($1, 'fill.csv', 'text/csv', 20, $2, 'planned-fill.csv', 'csv', $3)`,
+        [WS_A, 'a'.repeat(64), datasetId],
+      )
+    ).rows[0]
 
     const mapped: MappedImport = {
       schemaVersionId: SCHEMA_VERSION_A,
@@ -487,6 +505,9 @@ describe('planned rows filled by import', () => {
         datasetId,
         expectedRevision: revision,
         schemaVersionId: SCHEMA_VERSION_A,
+        fileId: file.id,
+        parserId: parser.parserId,
+        parserVersionId: parser.parserVersionId,
       },
       mapped,
       'fill-ts-1',
@@ -503,5 +524,13 @@ describe('planned rows filled by import', () => {
       [datasetId],
     )
     expect(count[0]!.n).toBe(1)
+    expect(
+      (
+        await member.query(
+          'SELECT imported_row_ids FROM api.dataset_imports WHERE dataset_id = $1',
+          [datasetId],
+        )
+      ).rows[0].imported_row_ids,
+    ).toEqual([planned.id])
   })
 })

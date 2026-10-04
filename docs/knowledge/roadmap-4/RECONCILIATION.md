@@ -131,6 +131,39 @@ loaded fonts with a navigation-safe Playwright poll, without swallowing errors.
 with zero errors and the same 18 warnings. **DSYS-06 remains incomplete:** the
 other mapped screens still diverge and 180 comparisons remain pending.
 
+DSET-06.2 now routes uploaded files, manual mappings and connector ingestion
+through the same canonical import receipt and atomic row writer. Migrations
+0307–0308 add Dataset `intended_use`, protect classification changes with
+scientific-configuration authority and a recorded reason, require matching
+usable parser/version attribution, and refuse unapproved parsers for
+`regulated_record` imports. The receipt freezes parser and source provenance
+with actual committed row IDs, including planned-row substitution. Connector
+receipts require a valid running connector run bound to the current actor.
+Existing receipts are not backfilled with invented evidence. Intended use is
+an import policy classification, not a compliance-acceptance claim.
+
+The integrated five-suite fresh DB check passes 56 tests. Both real import
+browser tests pass, including retained raw bytes/checksum after regulated
+denial, approval through the real RPC, and same-file retry with five traced
+rows. The populated design database migrates through 0308, schema generation
+reports no changes, and `pnpm validate` passes all 3,550 unit tests. DSET-06.2
+is accepted, but **DSET-06 stays open**. DSET-06.1 is reopened because tables
+and approval RPCs exist without a retained-test-file validation operation;
+approval still accepts drafts. Canonical parser settings, validation and
+failure work items remain required, not deferred.
+
+The chart API fixture now uses canonical Dataset schemas and atomic row writes.
+All ten tests pass against the integrated populated database, including frozen
+quantity metadata for hours and percentage recovery, pinned immutable schema
+fields, transactional submission binding and duplicate-bind denial. The full
+API run before this quantity amendment passes 14 suites and 112 tests but fails
+the REV/SCI fixture hooks at revoked legacy scientific-table creation, leaving
+21 tests unexecuted. These tests remain open. A rollback-only canonical Sheet
+mutation also proves a production review defect: changing Log titer from 5.9
+to 5.7 changes frozen Sheet evidence but the existing revision diff reports no
+changes. Canonical frozen cell, calculation and check acceptance is the next
+review correction; restoring retired writes is not a solution.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven
@@ -976,15 +1009,15 @@ Specification: [tasks/DSET.md](tasks/DSET.md).
 
 ### DSET-06
 
-**not-started · nod `todo`** (was `todo`). Parsers per instrument.
+**partial · nod `in-progress`** (audit said not-started). Parsers per instrument.
 
 **Evidence:**
 
-- [`src/lib/connectors/registry.ts`](../../../src/lib/connectors/registry.ts):1 — existing connector registry baseline
-- [`src/db/schema.ts`](../../../src/db/schema.ts) — no parsers/parser_versions model
-- [`docs/knowledge/roadmap-4/tasks/DSET.md`](tasks/DSET.md) — versioned parser task differs from existing connector ingestion
+- Migrations 0299–0300 provide canonical parser/version storage, draft creation and approval, but no test-file validation operation. Step 1 is reopened.
+- Migrations 0307–0308 and `tests/db/dset-06-import-provenance.test.ts` enforce matching parser/version, regulated approval gating, classification authority, replay binding and frozen actual row membership. Step 2 is accepted.
+- `tests/browser/import-flow.test.ts` exercises regulated denial, retained raw-file checksum, real approval and retry with five traced rows. Both integrated browser tests pass.
 
-**Remaining:** All three steps remain: parser definitions/versions and test-file validation/QA approval; parser-version import provenance and governed gating; instrument settings plus failure work items. Existing connectors are not versioned instrument parser approval.
+**Remaining:** Server-authoritative retained-test-file validation and validation-gated approval; canonical instrument/parser settings with exact version and stored validation evidence; actionable failure work items derived through WORK-01. Dataset intended use does not establish compliance acceptance. No historical receipt provenance is fabricated.
 
 ## SHEET
 

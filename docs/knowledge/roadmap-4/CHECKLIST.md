@@ -266,9 +266,9 @@ Specification: [tasks/DSET.md](tasks/DSET.md) · nod `epic-195`
   - [x] DSET-05.4 Review step computing row outcomes server-side `subtask-219`
   - [x] DSET-05.5 Failure page with the three options `subtask-220`
   - [x] DSET-05.6 Raise limits to cover a 96-well plate export and a 14-day bioreactor export `subtask-221`
-- [ ] **DSET-06** Parsers per instrument `task-222`
-  - [x] DSET-06.1 api.parsers and api.parser_versions `subtask-223`
-  - [ ] DSET-06.2 Imports record the parser version `subtask-224`
+- [ ] **DSET-06** Parsers per instrument — **in progress** `task-222`
+  - [ ] DSET-06.1 api.parsers and api.parser_versions — **in progress** `subtask-223`
+  - [x] DSET-06.2 Imports record the parser version `subtask-224`
   - [ ] DSET-06.3 Instruments and parsers settings page `subtask-225`
 
 ## SHEET — Working Sheets, Templates and Analysis (0/5)

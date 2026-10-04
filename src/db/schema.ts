@@ -3474,6 +3474,8 @@ export const datasets = api.table(
     /** Stable per-workspace display id, e.g. DS-0298. Assigned on insert. */
     displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('active'),
+    /** ADR-0045 intended use; regulated imports require a QA-approved parser. */
+    intendedUse: text('intended_use').notNull().default('exploratory_research'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
       .default(sql`1`),
@@ -3504,6 +3506,10 @@ export const datasets = api.table(
     check(
       'chk_datasets_lifecycle',
       sql`${table.lifecycle} IN ('active','archived')`,
+    ),
+    check(
+      'chk_datasets_intended_use',
+      sql`${table.intendedUse} IN ('exploratory_research', 'controlled_development', 'regulated_record')`,
     ),
     check('chk_datasets_revision', sql`${table.revision} > 0`),
     index('idx_datasets_workspace').on(table.workspaceId),
@@ -4300,9 +4306,26 @@ export const datasetImports = api.table(
       () => parserVersions.id,
       { onDelete: 'set null' },
     ),
-    fileId: uuid('file_id')
+    fileId: uuid('file_id').references(() => datasetImportFiles.id, {
+      onDelete: 'cascade',
+    }),
+    /** SQL connector sources have run evidence rather than a raw file. */
+    connectorRunId: uuid('connector_run_id').references(
+      () => connectorRuns.id,
+      {
+        onDelete: 'restrict',
+      },
+    ),
+    importedRowIds: jsonb('imported_row_ids')
       .notNull()
-      .references(() => datasetImportFiles.id, { onDelete: 'cascade' }),
+      .default(sql`'[]'`),
+    /** Frozen at commit, never reconstructed from a mutable parser catalogue. */
+    parserProvenance: jsonb('parser_provenance')
+      .notNull()
+      .default(sql`'{}'`),
+    sourceProvenance: jsonb('source_provenance')
+      .notNull()
+      .default(sql`'{}'`),
     mapping: jsonb('mapping')
       .notNull()
       .default(sql`'{}'`),
@@ -4333,6 +4356,10 @@ export const datasetImports = api.table(
     check(
       'chk_dataset_imports_committed',
       sql`${table.status} <> 'committed' OR ${table.snapshotVersionId} IS NOT NULL`,
+    ),
+    check(
+      'chk_dataset_imports_source',
+      sql`${table.fileId} IS NOT NULL OR ${table.connectorRunId} IS NOT NULL`,
     ),
     uniqueIndex('uq_dataset_imports_workspace_idempotency').on(
       table.workspaceId,

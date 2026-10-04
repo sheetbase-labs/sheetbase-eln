@@ -85,6 +85,23 @@ function pgDataClient(owner: Client): DataClient {
           )
         ).rows[0].result
       }
+      if (name === 'ensure_parser' || name === 'commit_dataset_import') {
+        const entries = Object.entries(args)
+        const parameters = entries
+          .map(
+            ([key, value], i) =>
+              `${key} => $${i + 1}${value !== null && typeof value === 'object' ? '::jsonb' : ''}`,
+          )
+          .join(', ')
+        const values = entries.map(([, value]) =>
+          value !== null && typeof value === 'object'
+            ? JSON.stringify(value)
+            : value,
+        )
+        return (
+          await owner.query(`SELECT api.${name}(${parameters}) result`, values)
+        ).rows[0].result
+      }
       // Connector RPCs share a uniform (uuid, uuid, text...) shape; cast any
       // object argument to jsonb so jsonb parameters work over raw SQL.
       const values = Object.values(args).map((value) =>
@@ -670,6 +687,23 @@ A2,std-2,21.7`
     expect(runRow.rows[0].result.parser).toBe('sheetbase.plate-reader-csv@1')
     expect(runRow.rows[0].result.fileName).toBe('run-42.csv')
 
+    const receipt = (
+      await owner.query(
+        `SELECT parser_provenance, imported_row_ids, source_provenance
+      FROM api.dataset_imports WHERE connector_run_id = $1`,
+        [result.runId],
+      )
+    ).rows[0]
+    expect(receipt.parser_provenance).toMatchObject({
+      key: 'sheetbase.plate-reader-csv',
+      version: 1,
+    })
+    expect(receipt.imported_row_ids).toHaveLength(2)
+    expect(receipt.source_provenance).toMatchObject({
+      fileRecordId: '0e100000-0000-4000-8000-00000000aa01',
+      checksum: 'a'.repeat(64),
+    })
+
     // Stage logs observable.
     const logs = await owner.query(
       `select stage, level from api.connector_run_logs where run_id=$1 order by sequence`,
@@ -681,6 +715,56 @@ A2,std-2,21.7`
       'map',
       'commit',
     ])
+  })
+
+  it('refuses an unapproved instrument parser on regulated datasets and succeeds after approval', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const connectorId = (
+      await owner.query(
+        `SELECT id FROM api.connectors WHERE key = 'plate-reader-bench' LIMIT 1`,
+      )
+    ).rows[0].id
+    await migrator.query(
+      `UPDATE api.datasets SET intended_use = 'regulated_record' WHERE id = $1`,
+      [fixture.datasetId],
+    )
+    const version = (
+      await owner.query(`SELECT pv.id FROM api.parser_versions pv JOIN api.parsers p ON p.id = pv.parser_id
+      WHERE p.key = 'sheetbase.plate-reader-csv' AND pv.version = 1`)
+    ).rows[0].id
+    await migrator.query(
+      `UPDATE api.parser_versions SET status = 'draft', approved_at = NULL WHERE id = $1`,
+      [version],
+    )
+    await expect(
+      ingest(owner, connectorId, fixture, VALID_CSV, 'regulated.csv'),
+    ).rejects.toThrow(/approved parser/i)
+    expect(
+      (
+        await owner.query(
+          'SELECT count(*)::int n FROM api.dataset_rows WHERE dataset_id = $1',
+          [fixture.datasetId],
+        )
+      ).rows[0].n,
+    ).toBe(0)
+    await owner.query('SELECT api.approve_parser_version($1)', [version])
+    const result = await ingest(
+      owner,
+      connectorId,
+      fixture,
+      VALID_CSV,
+      'regulated.csv',
+    )
+    expect(result.rowCount).toBe(2)
+    expect(
+      (
+        await owner.query(
+          'SELECT parser_provenance FROM api.dataset_imports WHERE connector_run_id = $1',
+          [result.runId],
+        )
+      ).rows[0].parser_provenance.status,
+    ).toBe('approved')
   })
 
   it('replays a successful run with the stored result, not an empty ingest', async () => {

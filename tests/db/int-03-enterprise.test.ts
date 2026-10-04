@@ -114,6 +114,23 @@ function pgDataClient(owner: Client): DataClient {
           )
         ).rows[0].result
       }
+      if (name === 'ensure_parser' || name === 'commit_dataset_import') {
+        const entries = Object.entries(args)
+        const parameters = entries
+          .map(
+            ([key, value], i) =>
+              `${key} => $${i + 1}${value !== null && typeof value === 'object' ? '::jsonb' : ''}`,
+          )
+          .join(', ')
+        const values = entries.map(([, value]) =>
+          value !== null && typeof value === 'object'
+            ? JSON.stringify(value)
+            : value,
+        )
+        return (
+          await owner.query(`SELECT api.${name}(${parameters}) result`, values)
+        ).rows[0].result
+      }
       const values = Object.values(args).map((value) =>
         value !== null && typeof value === 'object' && !Array.isArray(value)
           ? JSON.stringify(value)

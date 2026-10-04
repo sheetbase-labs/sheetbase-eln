@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createElement } from 'react'
+import type { ReactNode } from 'react'
+import { renderHook, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   createProject,
   updateProjectDetails,
   fetchProjectActivity,
+  useProjectMilestones,
 } from './project-data'
 
 const { rpc, list } = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
@@ -34,6 +39,79 @@ const expected = {
 }
 
 describe('canonical typed project callers', () => {
+  it('preserves each task timezone for milestone and deliverable due instants', async () => {
+    const due = '2026-09-28T23:00:00+00:00'
+    list
+      .mockResolvedValueOnce([
+        {
+          id: 'london',
+          task_type: 'milestone',
+          title: 'Clarification train',
+          status: 'not_started',
+          due_at: due,
+          timezone: 'Europe/London',
+        },
+        {
+          id: 'utc',
+          task_type: 'task',
+          title: 'UTC task',
+          status: 'not_started',
+          due_at: due,
+          timezone: 'UTC',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'utc-deliverable',
+          task_id: 'utc',
+          name: 'UTC deliverable',
+          status: 'planned',
+          due_at: due,
+        },
+        {
+          id: 'london-deliverable',
+          task_id: 'london',
+          name: 'London deliverable',
+          status: 'planned',
+          due_at: due,
+        },
+      ])
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { result, unmount } = renderHook(
+      () => useProjectMilestones('project-1'),
+      {
+        wrapper: ({ children }: { children: ReactNode }) =>
+          createElement(QueryClientProvider, { client }, children),
+      },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'london',
+          dueAt: due,
+          timezone: 'Europe/London',
+        }),
+        expect.objectContaining({
+          id: 'london-deliverable',
+          dueAt: due,
+          timezone: 'Europe/London',
+        }),
+        expect.objectContaining({
+          id: 'utc-deliverable',
+          dueAt: due,
+          timezone: 'UTC',
+        }),
+      ]),
+    )
+    expect(list.mock.calls[0][1]).toContain('due_at,timezone')
+    expect(list.mock.calls[1][1]).toContain('select=id,task_id,')
+    unmount()
+    client.clear()
+  })
+
   it('creates with every typed property and returns the canonical identity', async () => {
     rpc.mockResolvedValue({ id: 'new-project', revision: '1' })
     expect(await createProject(details)).toEqual({

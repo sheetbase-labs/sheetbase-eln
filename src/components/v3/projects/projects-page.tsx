@@ -826,12 +826,12 @@ function ProjectPeek({
           ', ',
         )}${members.data.length > 3 ? ` +${members.data.length - 3}` : ''}`
     : '—'
-  const date = (value: string, year = false) =>
+  const date = (value: string, year = false, timeZone = 'UTC') =>
     new Date(value).toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'short',
       ...(year ? { year: 'numeric' as const } : {}),
-      timeZone: 'UTC',
+      timeZone,
     })
   const details: [string, React.ReactNode][] = [
     ['Client', p.client],
@@ -844,7 +844,7 @@ function ProjectPeek({
       ? [
           [
             'Milestone',
-            `${milestone.name}${milestone.dueAt ? ` · ${date(milestone.dueAt)}` : ''}`,
+            `${milestone.name}${milestone.dueAt ? ` · ${date(milestone.dueAt, false, milestone.timezone)}` : ''}`,
           ] as [string, React.ReactNode],
         ]
       : []),

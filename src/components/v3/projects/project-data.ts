@@ -322,12 +322,14 @@ export interface ProjectMilestone {
   name: string
   status: string
   dueAt: string | null
+  timezone: string
   linkedRecordId: string | null
   linkedRecordIdentifier: string | null
 }
 
 interface MilestoneWire {
   id: string
+  task_id: string
   name: string
   status: string
   due_at: string | null
@@ -347,9 +349,10 @@ export function useProjectMilestones(projectId: string) {
         title: string
         status: string
         due_at: string | null
+        timezone: string
       }>(
         'study_tasks',
-        `?project_id=eq.${encodeURIComponent(projectId)}&select=id,task_type,title,status,due_at&order=due_at.asc.nullslast,id.asc`,
+        `?project_id=eq.${encodeURIComponent(projectId)}&select=id,task_type,title,status,due_at,timezone&order=due_at.asc.nullslast,id.asc`,
       )
       if (tasks.length === 0) return []
       const ids = tasks.map((t) => t.id)
@@ -361,7 +364,7 @@ export function useProjectMilestones(projectId: string) {
           .join(',')
         const part = await projectDataClient.list<MilestoneWire>(
           'study_deliverables',
-          `?task_id=in.(${chunk})&select=id,name,status,due_at,linked_record_id,linked_record_identifier&order=due_at.asc.nullslast,id.asc`,
+          `?task_id=in.(${chunk})&select=id,task_id,name,status,due_at,linked_record_id,linked_record_identifier&order=due_at.asc.nullslast,id.asc`,
         )
         rows.push(...part)
       }
@@ -378,17 +381,23 @@ export function useProjectMilestones(projectId: string) {
                   ? 'planned'
                   : task.status,
             dueAt: task.due_at,
+            timezone: task.timezone,
             linkedRecordId: null,
             linkedRecordIdentifier: null,
           })),
-        ...rows.map((r) => ({
-          id: r.id,
-          name: r.name,
-          status: r.status,
-          dueAt: r.due_at,
-          linkedRecordId: r.linked_record_id,
-          linkedRecordIdentifier: r.linked_record_identifier,
-        })),
+        ...tasks.flatMap((task) =>
+          rows
+            .filter((row) => row.task_id === task.id)
+            .map((r) => ({
+              id: r.id,
+              name: r.name,
+              status: r.status,
+              dueAt: r.due_at,
+              timezone: task.timezone,
+              linkedRecordId: r.linked_record_id,
+              linkedRecordIdentifier: r.linked_record_identifier,
+            })),
+        ),
       ].sort((a, b) => (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999'))
     },
   })

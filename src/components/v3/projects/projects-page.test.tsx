@@ -9,14 +9,17 @@ import type { ProjectActivityEvent } from './project-data'
 import type * as ProjectData from './project-data'
 import type * as NotebookData from '#/lib/notebook-data'
 
-const { activity } = vi.hoisted(() => ({
+const { activity, milestones } = vi.hoisted(() => ({
   activity: vi.fn<() => Promise<ProjectActivityEvent[]>>(async () => []),
+  milestones: vi.fn<() => { data: ProjectData.ProjectMilestone[] }>(() => ({
+    data: [],
+  })),
 }))
 vi.mock('./project-data', async (importOriginal) => ({
   ...(await importOriginal<typeof ProjectData>()),
   fetchProjectActivity: activity,
   fetchProjectMembers: async () => [],
-  useProjectMilestones: () => ({ data: [] }),
+  useProjectMilestones: milestones,
 }))
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal<typeof NotebookData>()),
@@ -66,6 +69,53 @@ function renderPage(
 }
 
 describe('ProjectsPage', () => {
+  it.each([
+    ['Europe/London', '29 Sept'],
+    ['UTC', '28 Sept'],
+  ])(
+    'renders due instants in %s without shifting date-only started_on',
+    async (timezone, expected) => {
+      milestones.mockReturnValue({
+        data: [
+          {
+            id: 'milestone-1',
+            name: 'Clarification train',
+            status: 'planned',
+            dueAt: '2026-09-28T23:00:00+00:00',
+            timezone,
+            linkedRecordId: null,
+            linkedRecordIdentifier: null,
+          },
+        ],
+      })
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      render(
+        <QueryClientProvider client={client}>
+          <ProjectsPage
+            projects={[row({ started: '2026-09-29' })]}
+            me="Gareth"
+            search={{}}
+            setSearch={() => {}}
+            onCreate={() => {}}
+          />
+        </QueryClientProvider>,
+      )
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Show details for AAV9 process transfer',
+        }),
+      )
+      expect(
+        await screen.findByText(`Clarification train · ${expected}`),
+      ).toBeTruthy()
+      expect(screen.getByText('29 Sept 2026')).toBeTruthy()
+      milestones.mockReturnValue({ data: [] })
+      client.clear()
+    },
+  )
+
   it('renders current record identity and distinguishes null, unresolved and known actors', async () => {
     const event = {
       id: 'event-1',

@@ -8,6 +8,12 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import {
   Dialog,
   DialogBody,
   DialogClose,
@@ -26,9 +32,20 @@ import {
 } from '#/components/v3/ui/table'
 import { toast } from '#/components/v3/ui/sonner'
 import { SettingsHeader } from '#/components/v3/settings/settings-page'
+import { WorkspaceGroups } from '#/components/v3/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
 import { hasCapability } from '#/lib/capability'
+import {
+  fetchWorkspaceCertifications,
+  isCurrentStatement,
+  signatureCertificationQueryKeys,
+} from '#/lib/signature-certification'
+import {
+  fetchWorkspaceGroups,
+  fetchWorkspaceMemberStatus,
+  workspaceAccessKeys,
+} from '#/lib/workspace-access'
 import {
   adminQueryKeys,
   changeMemberRole,
@@ -62,6 +79,7 @@ function Members() {
   const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
   const [dialog, setDialog] = useState<
     | { kind: 'invite' }
+    | { kind: 'groups' }
     | {
         kind: 'role'
         userId: string
@@ -86,6 +104,21 @@ function Members() {
   const clients = useQuery({
     queryKey: ['ui-port', 'settings', 'clients', workspaceId],
     queryFn: () => fetchClients(dataClient, workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+  const groups = useQuery({
+    queryKey: workspaceAccessKeys.groups(workspaceId),
+    queryFn: () => fetchWorkspaceGroups(dataClient),
+    enabled: Boolean(workspaceId),
+  })
+  const memberStatus = useQuery({
+    queryKey: workspaceAccessKeys.members(workspaceId),
+    queryFn: () => fetchWorkspaceMemberStatus(dataClient),
+    enabled: Boolean(workspaceId),
+  })
+  const certifications = useQuery({
+    queryKey: signatureCertificationQueryKeys.workspace(workspaceId),
+    queryFn: () => fetchWorkspaceCertifications(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
   const clientName = (clientId: string | null | undefined) =>
@@ -207,12 +240,20 @@ function Members() {
         border={false}
         actions={
           canManage ? (
-            <Button
-              variant="primary"
-              onClick={() => setDialog({ kind: 'invite' })}
-            >
-              Invite people
-            </Button>
+            <>
+              <Button
+                disabled={groups.isPending || groups.isError}
+                onClick={() => setDialog({ kind: 'groups' })}
+              >
+                Groups
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => setDialog({ kind: 'invite' })}
+              >
+                Invite people
+              </Button>
+            </>
           ) : null
         }
       >
@@ -225,8 +266,11 @@ function Members() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Groups</TableHead>
+              <TableHead>Training</TableHead>
+              <TableHead>E-signature</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead align="right">Added</TableHead>
+              <TableHead align="right">Last active</TableHead>
               <TableHead align="right">{''}</TableHead>
             </TableRow>
           </TableHeader>
@@ -249,64 +293,140 @@ function Members() {
                   ) : null}
                 </TableCell>
                 <TableCell>
+                  {groups.isError
+                    ? 'Unavailable'
+                    : groups.isPending
+                      ? 'Loading…'
+                      : groups.data
+                          .filter((g) => g.member_ids.includes(m.userId))
+                          .map((g) => g.name)
+                          .join(', ') || '—'}
+                </TableCell>
+                <TableCell>
+                  {m.role === 'client_viewer'
+                    ? '—'
+                    : (() => {
+                        const status = memberStatus.data?.find(
+                          (s) => s.user_id === m.userId,
+                        )
+                        if (!status)
+                          return memberStatus.isPending
+                            ? 'Loading…'
+                            : 'Unavailable'
+                        return (
+                          <Status
+                            tone={
+                              status.training_overdue ||
+                              status.training_required
+                                ? 'warn'
+                                : 'ok'
+                            }
+                          >
+                            {status.training_overdue
+                              ? `${status.training_overdue} overdue`
+                              : status.training_required
+                                ? `${status.training_required} to read`
+                                : 'Current'}
+                          </Status>
+                        )
+                      })()}
+                </TableCell>
+                <TableCell>
+                  {m.role === 'client_viewer'
+                    ? '—'
+                    : (() => {
+                        if (certifications.isPending) return 'Loading…'
+                        if (certifications.isError) return 'Unavailable'
+                        const certification = certifications.data.find(
+                          (c) => c.userId === m.userId,
+                        )
+                        return certification?.revokedAt
+                          ? 'Revoked'
+                          : isCurrentStatement(certification)
+                            ? 'Certified'
+                            : certification?.verificationRequested
+                              ? 'Pending verification'
+                              : certification?.identityVerifiedAt
+                                ? 'Identity verified / not certified'
+                                : 'Not certified'
+                      })()}
+                </TableCell>
+                <TableCell>
                   <Status tone={m.suspendedAt ? 'warn' : 'ok'}>
                     {m.suspendedAt ? 'Suspended' : 'Active'}
                   </Status>
                 </TableCell>
                 <TableCell align="right" className="text-fg-muted">
-                  {m.createdAt.slice(0, 10)}
+                  {memberStatus.isError
+                    ? 'Unavailable'
+                    : memberStatus.isPending
+                      ? 'Loading…'
+                      : (memberStatus.data
+                          .find((s) => s.user_id === m.userId)
+                          ?.last_active_at?.replace('T', ' ')
+                          .slice(0, 16) ?? '—')}
                 </TableCell>
                 <TableCell align="right">
                   {canManage && m.userId !== context.user.id ? (
-                    <div className="flex justify-end gap-1.5">
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          setDialog({
-                            kind: 'role',
-                            userId: m.userId,
-                            name: names.userLabel(m.userId),
-                            role: m.role,
-                            clientId: m.clientId ?? null,
-                          })
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            size="sm"
+                            aria-label={`Manage ${names.userLabel(m.userId)}`}
+                          />
                         }
                       >
-                        Role
-                      </Button>
-                      {m.suspendedAt ? (
-                        <Button
-                          size="sm"
+                        Manage
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
                           onClick={() =>
-                            act.mutate({ kind: 'reinstate', userId: m.userId })
+                            setDialog({
+                              kind: 'role',
+                              userId: m.userId,
+                              name: names.userLabel(m.userId),
+                              role: m.role,
+                              clientId: m.clientId ?? null,
+                            })
                           }
                         >
-                          Reinstate
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="quiet"
+                          Role
+                        </DropdownMenuItem>
+                        {m.suspendedAt ? (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              act.mutate({
+                                kind: 'reinstate',
+                                userId: m.userId,
+                              })
+                            }
+                          >
+                            Reinstate
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              act.mutate({ kind: 'suspend', userId: m.userId })
+                            }
+                          >
+                            Suspend
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          danger
                           onClick={() =>
-                            act.mutate({ kind: 'suspend', userId: m.userId })
+                            setDialog({
+                              kind: 'remove',
+                              userId: m.userId,
+                              name: names.userLabel(m.userId),
+                            })
                           }
                         >
-                          Suspend
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="quiet"
-                        onClick={() =>
-                          setDialog({
-                            kind: 'remove',
-                            userId: m.userId,
-                            name: names.userLabel(m.userId),
-                          })
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </div>
+                          Remove
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   ) : null}
                 </TableCell>
               </TableRow>
@@ -378,7 +498,16 @@ function Members() {
         </p>
       </div>
 
-      {dialog?.kind === 'invite' ? (
+      {dialog?.kind === 'groups' ? (
+        <WorkspaceGroups
+          workspaceId={workspaceId}
+          groups={groups.data ?? []}
+          people={rows
+            .filter((m) => !m.suspendedAt)
+            .map((m) => ({ id: m.userId, name: names.userLabel(m.userId) }))}
+          onClose={() => setDialog(null)}
+        />
+      ) : dialog?.kind === 'invite' ? (
         <InviteDialog
           clients={clients.data ?? []}
           busy={invite.isPending}

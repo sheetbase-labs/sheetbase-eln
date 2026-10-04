@@ -1,12 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field } from '#/components/v3/ui/input'
-import { Muted } from '#/components/v3/ui/layout'
+import { Muted, Section } from '#/components/v3/ui/layout'
 import {
   Dialog,
   DialogBody,
@@ -29,312 +28,488 @@ import {
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
-import { hasCapability } from '#/lib/capability'
 import {
   fetchWorkspaceMemberIdentities,
   fetchProjectSummaries,
 } from '#/components/v3/projects/project-data'
 import {
-  adminQueryKeys,
-  fetchProjectAccess,
-  grantProjectAccess,
-  revokeProjectAccess,
-} from '#/lib/workspace-admin'
-import type { ProjectAccessLevel } from '#/lib/workspace-admin'
+  decideProjectAccessRequest,
+  fetchProjectAccessRequests,
+  fetchProjectPermissions,
+  fetchWorkspaceAccessRules,
+  fetchWorkspaceGroups,
+  removeProjectAccessRule,
+  setProjectAccessRule,
+  workspaceAccessKeys,
+} from '#/lib/workspace-access'
+import type {
+  ProjectAccessRule,
+  ProjectPermissions,
+  WorkspaceGroup,
+} from '#/lib/workspace-access'
 
-/** UI port (roadmap-4/ui-app3): project access. The registry grants a person a
- * level on a project; roles decide what they can do there. Grants and revokes
- * run through the workspace-admin RPCs and are gated on workspace.admin. */
-export const Route = createFileRoute('/settings/access')({
-  component: Access,
-})
-
+export const Route = createFileRoute('/settings/access')({ component: Access })
 const dataClient = createDataClient()
-
-const LEVELS: { value: ProjectAccessLevel; label: string; body: string }[] = [
-  { value: 'viewer', label: 'View', body: 'Read, export and comment.' },
-  {
-    value: 'editor',
-    label: 'Edit',
-    body: 'Create and change records in the project.',
-  },
-  {
-    value: 'owner',
-    label: 'Owner',
-    body: 'Edit and manage the project and its membership.',
-  },
-]
+const columns = [
+  { key: 'can_edit', label: 'Edit' },
+  { key: 'can_review', label: 'Review' },
+  { key: 'can_view', label: 'View' },
+  { key: 'client_portal', label: 'Client portal' },
+] as const
 
 function Access() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
-  const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-
-  const access = useQuery({
-    queryKey: adminQueryKeys.projectAccess(workspaceId),
-    queryFn: () => fetchProjectAccess(dataClient, workspaceId),
+  const [dialog, setDialog] = useState<
+    { kind: 'add' } | { kind: 'edit'; rule: ProjectAccessRule } | null
+  >(null)
+  const [projectFilter, setProjectFilter] = useState('')
+  const [groupFilter, setGroupFilter] = useState('')
+  const rules = useQuery({
+    queryKey: workspaceAccessKeys.rules(workspaceId),
+    queryFn: () => fetchWorkspaceAccessRules(dataClient),
+    enabled: Boolean(workspaceId),
+  })
+  const groups = useQuery({
+    queryKey: workspaceAccessKeys.groups(workspaceId),
+    queryFn: () => fetchWorkspaceGroups(dataClient),
     enabled: Boolean(workspaceId),
   })
   const projects = useQuery({
-    queryKey: ['ui-port', 'settings', 'projects'],
-    queryFn: () => fetchProjectSummaries(undefined),
+    queryKey: ['settings-access-projects', workspaceId],
+    queryFn: () => fetchProjectSummaries(workspaceId),
+    enabled: Boolean(workspaceId),
   })
   const people = useQuery({
-    queryKey: ['ui-port', 'settings', 'people'],
+    queryKey: ['settings-access-people', workspaceId],
     queryFn: () => fetchWorkspaceMemberIdentities(),
+    enabled: Boolean(workspaceId),
   })
-
-  const projectLabel = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const p of projects.data ?? [])
-      map.set(p.id, p.displayId ? `${p.displayId} · ${p.title}` : p.title)
-    return map
-  }, [projects.data])
-
-  const personLabel = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const m of people.data ?? []) map.set(m.user_id, m.name)
-    return map
-  }, [people.data])
-
-  const rows = access.data ?? []
-
-  const grant = useMutation({
-    mutationFn: (input: {
-      projectId: string
-      userId: string
-      accessLevel: ProjectAccessLevel
-    }) => grantProjectAccess(dataClient, { workspaceId, ...input }),
+  const permissions = useQuery({
+    queryKey: [
+      'settings-access-permissions',
+      workspaceId,
+      projects.data?.map((p) => p.id),
+    ],
+    queryFn: async () =>
+      new Map(
+        await Promise.all(
+          (projects.data ?? []).map(
+            async (p) =>
+              [p.id, await fetchProjectPermissions(dataClient, p.id)] as const,
+          ),
+        ),
+      ),
+    enabled: Boolean(projects.data),
+  })
+  const requests = useQuery({
+    queryKey: workspaceAccessKeys.requests(workspaceId),
+    queryFn: () => fetchProjectAccessRequests(dataClient),
+    enabled: Boolean(workspaceId),
+  })
+  const manageableProjects = (projects.data ?? []).filter(
+    (p) => permissions.data?.get(p.id)?.can_manage,
+  )
+  const invalidate = () => {
+    void queryClient.invalidateQueries({
+      queryKey: workspaceAccessKeys.all(workspaceId),
+    })
+    void queryClient.invalidateQueries({
+      queryKey: ['settings-access-permissions', workspaceId],
+    })
+    void queryClient.invalidateQueries({ queryKey: ['ui-port', 'projects'] })
+  }
+  const save = useMutation({
+    mutationFn: (input: Parameters<typeof setProjectAccessRule>[1]) =>
+      setProjectAccessRule(dataClient, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.projectAccess(workspaceId),
-      })
-      setOpen(false)
-      toast('Access granted')
+      invalidate()
+      setDialog(null)
+      toast('Access rule saved')
     },
-    onError: (error: unknown) =>
-      toast('Could not grant access', {
-        description:
-          error instanceof Error ? error.message : 'The database refused it.',
-      }),
+    onError: (error: Error) =>
+      toast('Could not save access rule', { description: error.message }),
   })
-
-  const revoke = useMutation({
-    mutationFn: (input: { projectId: string; userId: string }) =>
-      revokeProjectAccess(dataClient, { workspaceId, ...input }),
+  const remove = useMutation({
+    mutationFn: (id: string) => removeProjectAccessRule(dataClient, id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.projectAccess(workspaceId),
-      })
-      toast('Access revoked')
+      invalidate()
+      setDialog(null)
+      toast('Access rule removed')
     },
-    onError: (error: unknown) =>
-      toast('Could not revoke access', {
-        description:
-          error instanceof Error ? error.message : 'The database refused it.',
-      }),
+    onError: (error: Error) =>
+      toast('Could not remove access rule', { description: error.message }),
   })
-
-  const levelStatus = (level: ProjectAccessLevel) =>
-    level === 'owner'
-      ? { tone: 'ok' as const, label: 'Owner' }
-      : level === 'editor'
-        ? { tone: 'progress' as const, label: 'Editor' }
-        : { tone: 'stored' as const, label: 'Viewer' }
-
+  const decide = useMutation({
+    mutationFn: (input: { requestId: string; approve: boolean }) =>
+      decideProjectAccessRequest(dataClient, input),
+    onSuccess: () => {
+      invalidate()
+      toast('Access request decided')
+    },
+    onError: (error: Error) =>
+      toast('Could not decide access request', { description: error.message }),
+  })
+  const pending = (requests.data ?? []).filter(
+    (r) =>
+      r.status === 'pending' && permissions.data?.get(r.project_id)?.can_manage,
+  )
+  const visibleProjects = (projects.data ?? []).filter(
+    (p) => !projectFilter || p.id === projectFilter,
+  )
   return (
     <>
       <SettingsHeader
         title="Project access"
-        count={rows.length}
         border={false}
         actions={
-          canManage ? (
+          manageableProjects.length ? (
             <Button
               variant="primary"
               icon="plus"
-              disabled={!projects.data?.length || !people.data?.length}
-              onClick={() => setOpen(true)}
+              onClick={() => setDialog({ kind: 'add' })}
             >
-              Grant access
+              Add rule
             </Button>
           ) : null
         }
       >
         Who can open each project. Roles decide what they can do there.
       </SettingsHeader>
+      <div className="flex gap-3 border-y border-border-subtle px-4 py-2 md:px-6">
+        <label className="text-label">
+          Project:{' '}
+          <select
+            aria-label="Filter project"
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+          >
+            <option value="">any</option>
+            {(projects.data ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-label">
+          Group:{' '}
+          <select
+            aria-label="Filter group"
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+          >
+            <option value="">any</option>
+            {(groups.data ?? []).map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        <Table aria-label="Project access">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Project</TableHead>
-              <TableHead>Person</TableHead>
-              <TableHead>Level</TableHead>
-              <TableHead align="right">Granted</TableHead>
-              <TableHead align="right">{''}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((a) => {
-              const s = levelStatus(a.accessLevel)
-              return (
-                <TableRow key={a.id}>
-                  <TableCell>
-                    {projectLabel.get(a.projectId) ?? a.projectId.slice(0, 8)}
-                  </TableCell>
-                  <TableCell>
-                    {personLabel.get(a.userId) ?? a.userId.slice(0, 8)}
-                  </TableCell>
-                  <TableCell>
-                    <Status tone={s.tone}>{s.label}</Status>
-                  </TableCell>
-                  <TableCell align="right" className="text-fg-muted">
-                    {a.createdAt.slice(0, 10)}
-                  </TableCell>
-                  <TableCell align="right">
-                    {canManage ? (
-                      <Button
-                        size="sm"
-                        variant="quiet"
-                        disabled={revoke.isPending}
-                        onClick={() =>
-                          revoke.mutate({
-                            projectId: a.projectId,
-                            userId: a.userId,
-                          })
-                        }
-                      >
-                        Revoke
-                      </Button>
-                    ) : null}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-        {!access.isLoading && rows.length === 0 ? (
-          <div className="px-4 py-4 md:px-6">
+        {rules.isError || projects.isError || permissions.isError ? (
+          <SettingsBody>
+            <p role="alert">
+              Could not load project access. No permissions have changed.
+            </p>
+            <Button
+              onClick={() => {
+                void rules.refetch()
+                void projects.refetch()
+                void permissions.refetch()
+              }}
+            >
+              Retry
+            </Button>
+          </SettingsBody>
+        ) : rules.isPending || projects.isPending ? (
+          <SettingsBody>
+            <Muted>Loading project access…</Muted>
+          </SettingsBody>
+        ) : (
+          <Table aria-label="Project access matrix">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Project</TableHead>
+                {columns.map((c) => (
+                  <TableHead key={c.key}>{c.label}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleProjects.map((p) => {
+                const projectRules = rules.data.filter(
+                  (r) =>
+                    r.project_id === p.id &&
+                    (!groupFilter || r.group_id === groupFilter),
+                )
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell>{p.title}</TableCell>
+                    {columns.map((c) => (
+                      <TableCell key={c.key}>
+                        {projectRules
+                          .filter((r) => r[c.key])
+                          .map((r, index) => (
+                            <span key={r.id}>
+                              {index ? ', ' : ''}
+                              {permissions.data?.get(p.id)?.can_manage ? (
+                                <button
+                                  className="text-left hover:underline focus-visible:outline focus-visible:outline-2"
+                                  onClick={() =>
+                                    setDialog({ kind: 'edit', rule: r })
+                                  }
+                                >
+                                  {r.principal_name}
+                                </button>
+                              ) : (
+                                r.principal_name
+                              )}
+                            </span>
+                          ))}
+                        {!projectRules.some((r) => r[c.key]) ? '—' : null}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+        {!projects.isPending &&
+        !projects.isError &&
+        visibleProjects.length === 0 ? (
+          <SettingsBody>
             <EmptyState
               icon="lock"
-              title="No explicit project access"
-              body="Everyone in the workspace can see workspace projects; grants add people to a project or raise their level."
+              title="No accessible projects"
+              body="An explicit project rule is required. Workspace roles do not grant project access."
             />
-          </div>
+          </SettingsBody>
         ) : null}
       </div>
       <SettingsBody className="border-t border-border-subtle">
-        <div className="grid grid-cols-1 gap-4 text-label leading-[18px] sm:grid-cols-3">
-          {LEVELS.map((l) => (
-            <div key={l.value}>
-              <b className="font-semibold">{l.label}</b>
-              <div className="text-fg-muted">{l.body}</div>
-            </div>
-          ))}
-        </div>
-        <Muted>
-          Project membership decides where; the workspace role decides what
-          people may do.
-        </Muted>
+        <Section title="Defaults for new projects">
+          <Muted>
+            New projects are private to the lead until explicit rules are added.
+            Client portal access is off by default.
+          </Muted>
+          <Muted>
+            QA access requires an explicit rule for a workspace group. A role
+            never adds someone to a group.
+          </Muted>
+        </Section>
+        {pending.length ? (
+          <Section title="Access requests" count={pending.length}>
+            <Table aria-label="Pending access requests">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Person</TableHead>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Decision</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pending.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.name}</TableCell>
+                    <TableCell>
+                      {projects.data?.find((p) => p.id === r.project_id)?.title}
+                    </TableCell>
+                    <TableCell>{r.reason}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={decide.isPending}
+                          onClick={() =>
+                            decide.mutate({ requestId: r.id, approve: true })
+                          }
+                        >
+                          Approve edit access
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="quiet"
+                          disabled={decide.isPending}
+                          onClick={() =>
+                            decide.mutate({ requestId: r.id, approve: false })
+                          }
+                        >
+                          Deny
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Section>
+        ) : null}
+        {requests.isError ? (
+          <p role="alert">Access requests are unavailable.</p>
+        ) : null}
       </SettingsBody>
-
-      {open ? (
-        <GrantDialog
-          projects={(projects.data ?? []).map((p) => ({
-            id: p.id,
-            label: p.displayId ? `${p.displayId} · ${p.title}` : p.title,
-          }))}
-          people={(people.data ?? []).map((m) => ({
-            id: m.user_id,
-            label: m.name,
-          }))}
-          busy={grant.isPending}
-          onClose={() => setOpen(false)}
-          onSubmit={(input) => grant.mutate(input)}
+      {dialog ? (
+        <RuleDialog
+          projects={manageableProjects}
+          groups={groups.data ?? []}
+          people={people.data ?? []}
+          rule={dialog.kind === 'edit' ? dialog.rule : undefined}
+          busy={save.isPending || remove.isPending}
+          onClose={() => setDialog(null)}
+          onSave={(input) => save.mutate(input)}
+          onRemove={
+            dialog.kind === 'edit'
+              ? () => remove.mutate(dialog.rule.id)
+              : undefined
+          }
         />
       ) : null}
     </>
   )
 }
 
-function GrantDialog({
+function RuleDialog({
   projects,
+  groups,
   people,
+  rule,
   busy,
   onClose,
-  onSubmit,
+  onSave,
+  onRemove,
 }: {
-  projects: { id: string; label: string }[]
-  people: { id: string; label: string }[]
+  projects: { id: string; title: string }[]
+  groups: WorkspaceGroup[]
+  people: { user_id: string; name: string; role: string }[]
+  rule?: ProjectAccessRule
   busy: boolean
   onClose: () => void
-  onSubmit: (input: {
-    projectId: string
-    userId: string
-    accessLevel: ProjectAccessLevel
-  }) => void
+  onSave: (input: Parameters<typeof setProjectAccessRule>[1]) => void
+  onRemove?: () => void
 }) {
-  const [projectId, setProjectId] = useState(projects.at(0)?.id ?? '')
-  const [userId, setUserId] = useState(people.at(0)?.id ?? '')
-  const [level, setLevel] = useState<ProjectAccessLevel>('viewer')
+  const [projectId, setProjectId] = useState(
+    rule?.project_id ?? projects.at(0)?.id ?? '',
+  )
+  const [kind, setKind] = useState<'group' | 'user'>(
+    rule?.user_id ? 'user' : 'group',
+  )
+  const [principalId, setPrincipalId] = useState(
+    rule?.group_id ?? rule?.user_id ?? '',
+  )
+  const [flags, setFlags] = useState<ProjectPermissions>(
+    rule ?? {
+      can_view: true,
+      can_edit: false,
+      can_review: false,
+      client_portal: false,
+      can_manage: false,
+    },
+  )
   return (
-    <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
+    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title="Grant project access"
-          description="Adds a person to one project at a level. Their workspace role still decides what they can do."
+          title={rule ? 'Edit access rule' : 'Add access rule'}
+          description="Changes take effect on the next request and are audited. Group membership is explicit."
         />
         <DialogBody>
           <Field label="Project">
             <select
-              className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
+              aria-label="Project"
+              disabled={Boolean(rule)}
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.label}
+                  {p.title}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Person">
+          <Field label="Principal type">
             <select
-              className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
+              aria-label="Principal type"
+              disabled={Boolean(rule)}
+              value={kind}
+              onChange={(e) => {
+                setKind(e.target.value === 'user' ? 'user' : 'group')
+                setPrincipalId('')
+              }}
             >
-              {people.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
+              <option value="group">Group</option>
+              <option value="user">Person</option>
             </select>
           </Field>
-          <Field label="Level">
+          <Field label={kind === 'group' ? 'Group' : 'Person'}>
             <select
-              className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
-              value={level}
-              onChange={(e) => setLevel(e.target.value as ProjectAccessLevel)}
+              aria-label={kind === 'group' ? 'Group' : 'Person'}
+              disabled={Boolean(rule)}
+              value={principalId}
+              onChange={(e) => setPrincipalId(e.target.value)}
             >
-              {LEVELS.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
-                </option>
-              ))}
+              <option value="">Choose…</option>
+              {kind === 'group'
+                ? groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))
+                : people.map((p) => (
+                    <option key={p.user_id} value={p.user_id}>
+                      {p.name}
+                    </option>
+                  ))}
             </select>
           </Field>
+          {[
+            ...columns,
+            { key: 'can_manage', label: 'Manage project access' } as const,
+          ].map((c) => (
+            <label key={c.key} className="flex items-center gap-2 text-body">
+              <input
+                type="checkbox"
+                checked={flags[c.key]}
+                onChange={(e) =>
+                  setFlags({ ...flags, [c.key]: e.target.checked })
+                }
+              />
+              {c.label}
+            </label>
+          ))}
+          <Muted>
+            Edit and Review include reading. Management is separate. Workspace
+            capabilities remain the upper bound.
+          </Muted>
         </DialogBody>
         <DialogFooter>
+          {onRemove ? (
+            <Button variant="danger" disabled={busy} onClick={onRemove}>
+              Remove rule
+            </Button>
+          ) : null}
           <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
             variant="primary"
-            disabled={busy || !projectId || !userId}
-            onClick={() => onSubmit({ projectId, userId, accessLevel: level })}
+            disabled={busy || !projectId || !principalId}
+            onClick={() =>
+              onSave({
+                projectId,
+                principal:
+                  kind === 'group'
+                    ? { kind: 'group', groupId: principalId }
+                    : { kind: 'user', userId: principalId },
+                ...flags,
+              })
+            }
           >
-            Grant access
+            Save rule
           </Button>
         </DialogFooter>
       </DialogContent>

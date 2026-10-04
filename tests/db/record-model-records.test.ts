@@ -139,9 +139,15 @@ describe('records of a workspace model', () => {
   it('creates a record with the model prefix and validates its fields', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
 
-    const first = await createRecord(owner, PROJECT_A, 'cell_bank', 'CHO K1 bank', {
-      passage: 12,
-    })
+    const first = await createRecord(
+      owner,
+      PROJECT_A,
+      'cell_bank',
+      'CHO K1 bank',
+      {
+        passage: 12,
+      },
+    )
     expect(first).toMatchObject({
       kind: 'cell_bank',
       identifier: 'CB-0001',
@@ -150,9 +156,15 @@ describe('records of a workspace model', () => {
     })
     expect(first.custom_fields).toEqual({ passage: 12 })
 
-    const second = await createRecord(owner, PROJECT_A, 'cell_bank', 'CHO K1 bank 2', {
-      passage: 13,
-    })
+    const second = await createRecord(
+      owner,
+      PROJECT_A,
+      'cell_bank',
+      'CHO K1 bank 2',
+      {
+        passage: 13,
+      },
+    )
     expect(second.identifier).toBe('CB-0002')
 
     // Wrong logical type is refused by the model's active definition.
@@ -202,9 +214,15 @@ describe('records of a workspace model', () => {
 
   it('keeps workspace records isolated', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const created = await createRecord(owner, PROJECT_A, 'cell_bank', 'Isolated', {
-      passage: 7,
-    })
+    const created = await createRecord(
+      owner,
+      PROJECT_A,
+      'cell_bank',
+      'Isolated',
+      {
+        passage: 7,
+      },
+    )
 
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
     const seenByB = await ownerB.query(
@@ -221,9 +239,15 @@ describe('records of a workspace model', () => {
 
   it('makes workspace model records searchable and linkable', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const created = await createRecord(owner, PROJECT_A, 'cell_bank', 'Searchable CB', {
-      passage: 3,
-    })
+    const created = await createRecord(
+      owner,
+      PROJECT_A,
+      'cell_bank',
+      'Searchable CB',
+      {
+        passage: 3,
+      },
+    )
 
     const search = await owner.query<{ record_id: string }>(
       `SELECT record_id FROM api.search('Searchable')`,
@@ -246,5 +270,71 @@ describe('records of a workspace model', () => {
     expect(link.rows).toEqual([
       { target_record_id: created.id, target_kind: 'cell_bank' },
     ])
+  })
+
+  it('resolves duplicate model keys without claims and keeps field contracts workspace-local', async () => {
+    const ownerB = await asAuthenticated(OWNER_B, WS_B)
+    await createModel(ownerB, WS_B, 'cell_bank', 'CB', 'Cell bank B')
+    const definitionB = await migrator.query<{ id: string }>(
+      `INSERT INTO api.record_field_definitions
+         (workspace_id, kind, field_name, label, display_order, logical_type,
+          nullable, validation, lifecycle, created_by_user_id)
+       VALUES ($1, 'cell_bank', 'bank_code', 'Bank code', 1, 'text',
+               false, '{}'::jsonb, 'active', $2) RETURNING id`,
+      [WS_B, OWNER_B],
+    )
+    await migrator.query("SELECT set_config('request.jwt.claims', '{}', false)")
+    const records = await migrator.query<{
+      id: string
+      workspace_id: string
+      custom_fields: Record<string, unknown>
+    }>(
+      `INSERT INTO api.records
+         (workspace_id, kind, identifier, title, custom_fields, created_by_user_id)
+       VALUES ($1, 'cell_bank', 'CB-DUP-A', 'Bank A', '{"passage":17}', $3),
+              ($2, 'cell_bank', 'CB-DUP-B', 'Bank B', '{"bank_code":"B-42"}', $4)
+       RETURNING id, workspace_id, custom_fields`,
+      [WS_A, WS_B, OWNER_A, OWNER_B],
+    )
+    expect(records.rows.map((record) => record.custom_fields)).toEqual([
+      { passage: 17 },
+      { bank_code: 'B-42' },
+    ])
+    for (const record of records.rows) {
+      const manifest = await migrator.query<{
+        result: { definitions: Array<{ id: string; fieldName: string }> }
+      }>('SELECT internal.model_field_manifest($1) result', [record.id])
+      expect(
+        manifest.rows[0].result.definitions.map((field) => field.fieldName),
+      ).toEqual([record.workspace_id === WS_A ? 'passage' : 'bank_code'])
+      if (record.workspace_id === WS_B)
+        expect(manifest.rows[0].result.definitions[0].id).toBe(
+          definitionB.rows[0].id,
+        )
+      await expect(
+        migrator.query(
+          'UPDATE api.records SET custom_fields=$2::jsonb WHERE id=$1',
+          [
+            record.id,
+            JSON.stringify(
+              record.workspace_id === WS_A ? { passage: 'bad' } : {},
+            ),
+          ],
+        ),
+      ).rejects.toMatchObject({ code: 'SB071' })
+      await expect(
+        migrator.query(
+          'UPDATE api.records SET custom_fields=$2::jsonb WHERE id=$1',
+          [record.id, JSON.stringify({ passage: 17, bank_code: 'B-42' })],
+        ),
+      ).rejects.toMatchObject({ code: 'SB070' })
+    }
+    await expect(
+      migrator.query(
+        `INSERT INTO api.records(workspace_id,kind,identifier,title,created_by_user_id)
+         VALUES ($1,'never_defined','UNKNOWN-1','Unknown kind',$2)`,
+        [WS_B, OWNER_B],
+      ),
+    ).rejects.toMatchObject({ code: '23514' })
   })
 })

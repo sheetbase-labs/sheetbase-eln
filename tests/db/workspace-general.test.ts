@@ -47,6 +47,44 @@ async function asAuthenticated(userId: string): Promise<Client> {
 }
 
 describe('api.update_workspace_general', () => {
+  it('persists publication policy for admins and rejects denied, cross-workspace and invalid writes', async () => {
+    const admin = await asAuthenticated(ADMIN)
+    for (const required of [true, false]) {
+      const result = await admin.query(
+        'SELECT publication_approval_required FROM api.update_workspace_publication_policy($1,$2)',
+        [WS, required],
+      )
+      expect(result.rows[0].publication_approval_required).toBe(required)
+      expect(
+        (
+          await admin.query(
+            'SELECT publication_approval_required FROM api.workspace_settings WHERE workspace_id=$1',
+            [WS],
+          )
+        ).rows[0].publication_approval_required,
+      ).toBe(required)
+    }
+    await expectDenied(
+      (await asAuthenticated(MEMBER)).query(
+        'SELECT api.update_workspace_publication_policy($1,true)',
+        [WS],
+      ),
+      '42501',
+    )
+    await expectDenied(
+      admin.query('SELECT api.update_workspace_publication_policy($1,true)', [
+        '00000000-0000-4000-8000-00000000150b',
+      ]),
+      'SB033',
+    )
+    await expectDenied(
+      admin.query('SELECT api.update_workspace_publication_policy($1,null)', [
+        WS,
+      ]),
+      '22023',
+    )
+  })
+
   it('updates general settings for an admin', async () => {
     const admin = await asAuthenticated(ADMIN)
     const { rows } = await admin.query<{

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
@@ -24,6 +24,11 @@ import type {
   CanonicalDatasetSchemaVersion,
 } from '#/lib/dataset-schema-definition-rpc'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { hasCapability } from '#/lib/capability'
+import {
+  fetchWorkspaceGeneral,
+  workspaceGeneralQueryKey,
+} from '#/lib/workspace-general'
 import {
   modelStatus,
   useModelDatasets,
@@ -89,6 +94,10 @@ function ModelVersions() {
   const versionFields = useModelVersionFields(versionIds)
   const datasets = useModelDatasets(versionIds)
   const approval = useModelApprovalIndex(versionIds)
+  const policy = useQuery({
+    queryKey: workspaceGeneralQueryKey,
+    queryFn: () => fetchWorkspaceGeneral(),
+  })
   const loading = versionFields.isLoading || datasets.isLoading
 
   const requestsFor = (versionId: string) =>
@@ -190,8 +199,12 @@ function ModelVersions() {
                     {approval.isLoading ? (
                       <span className="text-fg-muted">…</span>
                     ) : (
-                      <Status tone={approvalStatus(requestsFor(v.id)).tone}>
-                        {approvalStatus(requestsFor(v.id)).label}
+                      <Status
+                        tone={
+                          approvalStatus(requestsFor(v.id), v.revision).tone
+                        }
+                      >
+                        {approvalStatus(requestsFor(v.id), v.revision).label}
                       </Status>
                     )}
                   </TableCell>
@@ -224,7 +237,15 @@ function ModelVersions() {
                   </TableCell>
                   <TableCell align="right" className="align-top">
                     {v.lifecycle === 'draft' &&
-                    canPublishDraft(requestsFor(v.id)) ? (
+                    hasCapability(role, 'schema.publish') &&
+                    policy.isSuccess &&
+                    !approval.isLoading &&
+                    !approval.isError &&
+                    canPublishDraft(
+                      requestsFor(v.id),
+                      policy.data?.publicationApprovalRequired ?? false,
+                      v.revision,
+                    ) ? (
                       <Button
                         size="sm"
                         variant="primary"

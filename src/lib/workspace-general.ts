@@ -10,6 +10,7 @@ export interface WorkspaceGeneral {
   timezone: string
   dateFormat: string
   numberFormat: 'decimal' | 'scientific'
+  publicationApprovalRequired: boolean
   /** SET-01.2 — identifier prefix per record kind. */
   idPrefixes: Record<string, string>
 }
@@ -31,6 +32,7 @@ interface WorkspaceSettingsWire {
   timezone: string
   date_format: string
   number_format: string
+  publication_approval_required: boolean
   id_prefixes: Record<string, string> | null
   workspaces: { name: string } | null
 }
@@ -53,7 +55,7 @@ export async function fetchWorkspaceGeneral(
 ): Promise<WorkspaceGeneral | null> {
   const rows = await client.list<WorkspaceSettingsWire>(
     'workspace_settings',
-    '?select=site,timezone,date_format,number_format,id_prefixes,workspaces(name)&limit=1',
+    '?select=site,timezone,date_format,number_format,publication_approval_required,id_prefixes,workspaces(name)&limit=1',
   )
   if (rows.length === 0) return null
   const row = rows[0]
@@ -63,6 +65,7 @@ export async function fetchWorkspaceGeneral(
     timezone: row.timezone,
     dateFormat: row.date_format,
     numberFormat: row.number_format === 'scientific' ? 'scientific' : 'decimal',
+    publicationApprovalRequired: row.publication_approval_required,
     idPrefixes: row.id_prefixes ?? {},
   }
 }
@@ -78,6 +81,17 @@ export async function updateWorkspaceGeneral(
     p_timezone: input.timezone,
     p_date_format: input.dateFormat,
     p_number_format: input.numberFormat,
+  })
+}
+
+export async function updateWorkspacePublicationPolicy(
+  workspaceId: string,
+  required: boolean,
+  client: DataClient = notebookDataClient,
+): Promise<void> {
+  await client.rpc('update_workspace_publication_policy', {
+    p_workspace_id: workspaceId,
+    p_required: required,
   })
 }
 

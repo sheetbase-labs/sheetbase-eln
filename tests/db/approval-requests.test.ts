@@ -65,7 +65,11 @@ async function actor(userId: string, workspaceId = WS): Promise<Client> {
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ sub: userId, workspace_id: workspaceId, role: 'authenticated' }),
+    JSON.stringify({
+      sub: userId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }),
   ])
   return client
 }
@@ -101,6 +105,199 @@ async function submit(
 }
 
 describe('MDL-03 approval-gated publication', () => {
+  it('requires approval only when the workspace policy is enabled', async () => {
+    const submitter = await actor(SUBMITTER)
+    const legacy = await createDraft(submitter, 'mdl03_legacy')
+    await submitter.query('SELECT api.publish_dataset_schema_version($1)', [
+      legacy.versionId,
+    ])
+    await migrator.query(
+      `INSERT INTO api.workspace_settings(workspace_id,created_by_user_id,publication_approval_required)
+      VALUES ($1,$2,true) ON CONFLICT(workspace_id) DO UPDATE SET publication_approval_required=true`,
+      [WS, SUBMITTER],
+    )
+    const draft = await createDraft(submitter, 'mdl03_policy')
+    await expectDenied(
+      submitter.query('SELECT api.publish_dataset_schema_version($1)', [
+        draft.versionId,
+      ]),
+      'SB084',
+    )
+    const governed = await createDraft(submitter, 'mdl03_policy_approved')
+    const request = await submit(submitter, governed.versionId, ['reviewer'])
+    await (
+      await actor(APPROVER)
+    ).query('SELECT api.approve_approval_request($1)', [request.id])
+    await submitter.query('SELECT api.publish_dataset_schema_version($1)', [
+      governed.versionId,
+    ])
+    const outsider = await actor(OUTSIDER, OTHER_WS)
+    const other = (
+      await outsider.query(
+        "SELECT api.create_dataset_schema_definition($1,'mdl03_other_policy','Other',null,'[]'::jsonb) result",
+        [OTHER_WS],
+      )
+    ).rows[0].result
+    await outsider.query('SELECT api.publish_dataset_schema_version($1)', [
+      other.schema_version_id,
+    ])
+    await expectDenied(
+      submitter.query(
+        "SELECT api.apply_dataset_schema_evolution($1,'[]'::jsonb,'policy-evolution')",
+        [legacy.versionId],
+      ),
+      'SB084',
+    )
+    await migrator.query(
+      'UPDATE api.workspace_settings SET publication_approval_required=false WHERE workspace_id=$1',
+      [WS],
+    )
+    await submitter.query('SELECT api.publish_dataset_schema_version($1)', [
+      draft.versionId,
+    ])
+  })
+
+  it('requires every approval and retains the draft until the count is complete', async () => {
+    const submitter = await actor(SUBMITTER)
+    const approver = await actor(APPROVER)
+    const { versionId } = await createDraft(submitter, 'mdl03_multiple')
+    const request = (
+      await submitter.query(
+        "SELECT id FROM api.submit_approval_request($1,'dataset_schema_version',$2,ARRAY['reviewer','steward'],'Approve',false,2)",
+        [WS, versionId],
+      )
+    ).rows[0]
+    await approver.query('SELECT api.approve_approval_request($1)', [
+      request.id,
+    ])
+    await expectDenied(
+      submitter.query('SELECT api.publish_dataset_schema_version($1)', [
+        versionId,
+      ]),
+      'SB084',
+    )
+    await expectDenied(
+      submitter.query(
+        "SELECT api.replace_dataset_schema_version_fields($1,'[]'::jsonb)",
+        [versionId],
+      ),
+      'SB085',
+    )
+    await submitter.query('SELECT api.approve_approval_request($1)', [
+      request.id,
+    ])
+    await submitter.query('SELECT api.publish_dataset_schema_version($1)', [
+      versionId,
+    ])
+    expect(
+      (
+        await approver.query(
+          'SELECT count(*)::int AS n FROM api.approval_request_decisions WHERE request_id=$1',
+          [request.id],
+        )
+      ).rows[0].n,
+    ).toBe(2)
+  })
+
+  it.each(['returned', 'withdrawn'])(
+    'does not reuse a historical approval after the latest request is %s',
+    async (state) => {
+      const submitter = await actor(SUBMITTER)
+      const approver = await actor(APPROVER)
+      const { versionId } = await createDraft(
+        submitter,
+        `mdl03_latest_${state}`,
+      )
+      const first = await submit(submitter, versionId, ['reviewer'])
+      await approver.query('SELECT api.approve_approval_request($1)', [
+        first.id,
+      ])
+      const latest = await submit(submitter, versionId, ['reviewer'])
+      if (state === 'returned')
+        await approver.query(
+          "SELECT api.return_approval_request($1,'Revise')",
+          [latest.id],
+        )
+      else
+        await submitter.query(
+          "SELECT api.withdraw_approval_request($1,'Revise')",
+          [latest.id],
+        )
+      await expectDenied(
+        submitter.query('SELECT api.publish_dataset_schema_version($1)', [
+          versionId,
+        ]),
+        'SB084',
+      )
+    },
+  )
+
+  it('binds approval to a valid workspace draft and its current revision', async () => {
+    const submitter = await actor(SUBMITTER)
+    const approver = await actor(APPROVER)
+    const outsider = await actor(OUTSIDER, OTHER_WS)
+    const { versionId } = await createDraft(submitter, 'mdl03_revision')
+    await expectDenied(
+      outsider.query(
+        "SELECT api.submit_approval_request($1,'dataset_schema_version',$2,ARRAY['owner'],'Approve')",
+        [OTHER_WS, versionId],
+      ),
+      '42501',
+    )
+    await expectDenied(
+      submitter.query(
+        "SELECT api.submit_approval_request($1,'dataset_schema_version',$2,ARRAY['reviewer'],'Approve',true,1,99)",
+        [WS, versionId],
+      ),
+      'SB001',
+    )
+    await expectDenied(
+      submit(submitter, '00000000-0000-4000-8000-00000000ffff', ['reviewer']),
+      '42501',
+    )
+    const request = await submit(submitter, versionId, ['reviewer'])
+    await approver.query('SELECT api.approve_approval_request($1)', [
+      request.id,
+    ])
+    await submitter.query(
+      "SELECT api.replace_dataset_schema_version_fields($1,'[]'::jsonb)",
+      [versionId],
+    )
+    expect(
+      (
+        await migrator.query(
+          'SELECT revision FROM api.dataset_schema_versions WHERE id=$1',
+          [versionId],
+        )
+      ).rows[0].revision,
+    ).toBe('2')
+    await expectDenied(
+      submitter.query('SELECT api.publish_dataset_schema_version($1)', [
+        versionId,
+      ]),
+      'SB084',
+    )
+    const fresh = await submit(submitter, versionId, ['reviewer'])
+    await approver.query('SELECT api.approve_approval_request($1)', [fresh.id])
+    await expectDenied(
+      (await actor(NON_APPROVER)).query(
+        'SELECT api.publish_dataset_schema_version($1)',
+        [versionId],
+      ),
+      '42501',
+    )
+    await expectDenied(
+      outsider.query('SELECT api.publish_dataset_schema_version($1)', [
+        versionId,
+      ]),
+      '42501',
+    )
+    await submitter.query('SELECT api.publish_dataset_schema_version($1)', [
+      versionId,
+    ])
+    await expectDenied(submit(submitter, versionId, ['reviewer']), 'SB072')
+  })
+
   it('refuses to publish and locks the draft while an approval is pending', async () => {
     const submitter = await actor(SUBMITTER)
     const { versionId } = await createDraft(submitter, 'mdl03_pending')
@@ -118,6 +315,12 @@ describe('MDL-03 approval-gated publication', () => {
         `SELECT api.replace_dataset_schema_version_fields($1,'[]'::jsonb)`,
         [versionId],
       ),
+      'SB085',
+    )
+    await expectDenied(
+      submitter.query('SELECT api.delete_dataset_schema_version($1)', [
+        versionId,
+      ]),
       'SB085',
     )
   })

@@ -80,10 +80,15 @@ export function roleList(roles: readonly string[]): string {
 }
 
 function byNewest(a: ApprovalRequest, b: ApprovalRequest): number {
-  const at = Date.parse(a.created_at)
-  const bt = Date.parse(b.created_at)
+  const at = Date.parse(a.submitted_at)
+  const bt = Date.parse(b.submitted_at)
   if (Number.isNaN(at) || Number.isNaN(bt)) return 0
-  return bt - at
+  // PostgREST timestamps share a format and retain PostgreSQL microseconds.
+  return (
+    bt - at ||
+    b.submitted_at.localeCompare(a.submitted_at) ||
+    b.id.localeCompare(a.id)
+  )
 }
 
 /** All requests for one object, newest first. */
@@ -135,6 +140,7 @@ const STATE_STATUS: Record<
 /** The status shown for a version: the open request wins, else the latest. */
 export function approvalStatus(
   requests: readonly ApprovalRequest[],
+  revision?: number,
 ): ApprovalStatus {
   const request = pendingRequest(requests) ?? latestRequest(requests)
   if (!request) {
@@ -142,6 +148,17 @@ export function approvalStatus(
       tone: 'none',
       label: 'Not submitted',
       detail: 'No approval request yet',
+    }
+  }
+  if (
+    request.state === 'approved' &&
+    revision !== undefined &&
+    request.object_revision !== revision
+  ) {
+    return {
+      tone: 'draft',
+      label: 'Approval out of date',
+      detail: 'The draft changed after approval',
     }
   }
   return STATE_STATUS[request.state]
@@ -205,10 +222,18 @@ export function canWithdraw(
  * request does, the latest must be `approved` (see
  * `internal.approval_publish_blocker`).
  */
-export function canPublishDraft(requests: readonly ApprovalRequest[]): boolean {
+export function canPublishDraft(
+  requests: readonly ApprovalRequest[],
+  approvalRequired = false,
+  revision?: number,
+): boolean {
   if (pendingRequest(requests)) return false
-  if (requests.length === 0) return true
-  return latestRequest(requests)?.state === 'approved'
+  if (requests.length === 0) return !approvalRequired
+  const latest = latestRequest(requests)
+  return (
+    latest?.state === 'approved' &&
+    (revision === undefined || latest.object_revision === revision)
+  )
 }
 
 export type ApprovalTrailKind =

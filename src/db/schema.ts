@@ -403,6 +403,9 @@ export const workspaceSettings = api.table(
     timezone: text('timezone').notNull().default('Europe/London'),
     dateFormat: text('date_format').notNull().default('d MMM yyyy'),
     numberFormat: text('number_format').notNull().default('decimal'),
+    publicationApprovalRequired: boolean('publication_approval_required')
+      .notNull()
+      .default(false),
     /** SET-01.2 — per-kind identifier prefixes, e.g. {"experiment":"EXP"}. */
     idPrefixes: jsonb('id_prefixes')
       .notNull()

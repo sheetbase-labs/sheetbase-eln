@@ -111,7 +111,7 @@ export function ModelApprovalPanel({
 
   const pending = pendingRequest(requests)
   const latest = latestRequest(requests)
-  const status = approvalStatus(requests)
+  const status = approvalStatus(requests, version.revision)
   const isDraft = version.lifecycle === 'draft'
   const canSubmit = isDraft && !pending && canSubmitForApproval(role)
   const canDecideNow = canDecide(pending, user?.id, role)
@@ -149,6 +149,7 @@ export function ModelApprovalPanel({
         workspaceId: workspaceId as string,
         objectKind: DATASET_SCHEMA_VERSION_KIND,
         objectId: version.id,
+        objectRevision: version.revision,
         requiredApproverRoles: input.roles,
         reason: input.reason,
         requireIndependence: input.independent,
@@ -313,6 +314,26 @@ export function ModelApprovalPanel({
               ? `v${publishedVersion} stays current.`
               : 'Nothing is published yet.'}
           </span>
+        </Notice>
+      ) : latest?.state === 'approved' &&
+        latest.object_revision !== version.revision &&
+        isDraft ? (
+        <Notice
+          tone="info"
+          title="The draft changed after approval."
+          action={
+            canSubmit ? (
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => setDialog('submit')}
+              >
+                Submit for approval
+              </Button>
+            ) : null
+          }
+        >
+          The current revision needs a new approval request before publication.
         </Notice>
       ) : latest?.state === 'approved' ? (
         <Notice

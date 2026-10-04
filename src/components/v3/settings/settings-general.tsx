@@ -5,6 +5,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
+import { CheckRow } from './settings-page'
 import { NativeSelect } from '#/components/v3/projects/select'
 import {
   Table,
@@ -22,6 +23,7 @@ import {
   updateWorkspaceGeneral,
   updateWorkspaceIdPrefixes,
   updateWorkspaceName,
+  updateWorkspacePublicationPolicy,
   workspaceGeneralQueryKey,
   ID_PREFIX_KINDS,
 } from '#/lib/workspace-general'
@@ -33,6 +35,7 @@ const DEFAULTS: WorkspaceGeneral = {
   timezone: 'Europe/London',
   dateFormat: 'd MMM yyyy',
   numberFormat: 'decimal',
+  publicationApprovalRequired: false,
   idPrefixes: {},
 }
 
@@ -58,6 +61,10 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
       if (form.name) await updateWorkspaceName(workspaceId, form.name)
       await updateWorkspaceGeneral(workspaceId, form)
       await updateWorkspaceIdPrefixes(workspaceId, form.idPrefixes)
+      await updateWorkspacePublicationPolicy(
+        workspaceId,
+        form.publicationApprovalRequired,
+      )
     },
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: workspaceGeneralQueryKey }),
@@ -70,7 +77,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
         <Button
           variant="primary"
           onClick={() => save.mutate()}
-          disabled={save.isPending}
+          disabled={save.isPending || query.isLoading || query.isError}
         >
           {save.isPending ? 'Saving…' : 'Save changes'}
         </Button>
@@ -214,6 +221,22 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
             </TableBody>
           </Table>
         </TableBox>
+      </div>
+
+      <div className="flex max-w-2xl flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">Publication approval</h3>
+        <CheckRow
+          title="Require approval before publishing dataset schema versions"
+          body="When enabled, the current draft needs completed approval before publication. When disabled, drafts with no approval request can publish directly. Existing requests still gate publication and lock pending drafts."
+          checked={form.publicationApprovalRequired}
+          disabled={query.isLoading || query.isError || save.isPending}
+          onCheckedChange={(checked) =>
+            setForm((current) => ({
+              ...current,
+              publicationApprovalRequired: checked,
+            }))
+          }
+        />
       </div>
 
       <div className="flex max-w-2xl flex-col gap-2">

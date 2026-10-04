@@ -80,20 +80,43 @@ describe('approvalStatus', () => {
     expect(approvalStatus([request({ state: 'withdrawn' })]).tone).toBe(
       'stored',
     )
+    expect(
+      approvalStatus([request({ state: 'approved', object_revision: 3 })], 4)
+        .label,
+    ).toBe('Approval out of date')
+    expect(
+      approvalStatus([request({ state: 'approved', object_revision: 4 })], 4)
+        .label,
+    ).toBe('Approved')
   })
 })
 
 describe('latestRequest and pendingRequest', () => {
-  it('selects newest by created_at and the one open request', () => {
+  it('preserves PostgreSQL microsecond order within one JavaScript millisecond', () => {
+    expect(
+      latestRequest([
+        request({
+          id: 'z-old',
+          submitted_at: '2026-01-01T00:00:00.000001+00:00',
+        }),
+        request({
+          id: 'a-new',
+          submitted_at: '2026-01-01T00:00:00.000002+00:00',
+        }),
+      ])?.id,
+    ).toBe('a-new')
+  })
+
+  it('selects newest by submitted_at and the one open request', () => {
     const requests = [
       request({
         id: 'a',
-        created_at: '2026-01-01T00:00:00Z',
+        submitted_at: '2026-01-01T00:00:00Z',
         state: 'returned',
       }),
       request({
         id: 'b',
-        created_at: '2026-02-01T00:00:00Z',
+        submitted_at: '2026-02-01T00:00:00Z',
         state: 'pending',
       }),
     ]
@@ -150,6 +173,52 @@ describe('canWithdraw', () => {
 })
 
 describe('canPublishDraft', () => {
+  it('requires a current-revision approval when policy is enabled', () => {
+    expect(canPublishDraft([], true, 4)).toBe(false)
+    expect(canPublishDraft([], false, 4)).toBe(true)
+    expect(
+      canPublishDraft(
+        [request({ state: 'approved', object_revision: 3 })],
+        true,
+        4,
+      ),
+    ).toBe(false)
+    expect(
+      canPublishDraft(
+        [request({ state: 'approved', object_revision: null })],
+        false,
+        4,
+      ),
+    ).toBe(false)
+    expect(
+      canPublishDraft(
+        [request({ state: 'approved', object_revision: 4 })],
+        true,
+        4,
+      ),
+    ).toBe(true)
+    expect(
+      canPublishDraft(
+        [
+          request({
+            id: 'old',
+            state: 'approved',
+            object_revision: 4,
+            submitted_at: '2026-01-01T00:00:00Z',
+          }),
+          request({
+            id: 'new',
+            state: 'returned',
+            object_revision: 4,
+            submitted_at: '2026-01-03T00:00:00Z',
+          }),
+        ],
+        false,
+        4,
+      ),
+    ).toBe(false)
+  })
+
   it('follows the server blocker: no request, or latest approved', () => {
     expect(canPublishDraft([])).toBe(true)
     expect(canPublishDraft([request({ state: 'pending' })])).toBe(false)

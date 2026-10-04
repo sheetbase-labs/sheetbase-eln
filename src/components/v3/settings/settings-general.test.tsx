@@ -7,6 +7,7 @@ import { SettingsGeneral } from './settings-general'
 import {
   updateWorkspaceGeneral,
   updateWorkspaceName,
+  updateWorkspacePublicationPolicy,
 } from '#/lib/workspace-general'
 import type * as workspaceGeneralModule from '#/lib/workspace-general'
 
@@ -20,11 +21,13 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
       timezone: 'Europe/London',
       dateFormat: 'd MMM yyyy',
       numberFormat: 'decimal' as const,
+      publicationApprovalRequired: false,
       idPrefixes: { experiment: 'EXP' },
     })),
     updateWorkspaceGeneral: vi.fn(async () => {}),
     updateWorkspaceIdPrefixes: vi.fn(async () => {}),
     updateWorkspaceName: vi.fn(async () => {}),
+    updateWorkspacePublicationPolicy: vi.fn(async () => {}),
   }
 })
 
@@ -46,6 +49,12 @@ describe('SettingsGeneral', () => {
     renderSection()
     expect(await screen.findByDisplayValue('Process Development')).toBeTruthy()
     expect(screen.getByDisplayValue('Cambridge')).toBeTruthy()
+    const toggle = screen.getByRole('checkbox', {
+      name: /Require approval before publishing dataset schema versions/,
+    })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    await user.click(toggle)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
       expect(vi.mocked(updateWorkspaceGeneral)).toHaveBeenCalledWith(
@@ -56,6 +65,12 @@ describe('SettingsGeneral', () => {
     expect(vi.mocked(updateWorkspaceName)).toHaveBeenCalledWith(
       'ws-1',
       'Process Development',
+    )
+    await waitFor(() =>
+      expect(updateWorkspacePublicationPolicy).toHaveBeenCalledWith(
+        'ws-1',
+        true,
+      ),
     )
   })
 })

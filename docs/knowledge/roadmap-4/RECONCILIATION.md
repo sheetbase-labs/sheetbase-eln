@@ -68,6 +68,30 @@ as the immutable-revision guard requires. Both suites pass, with nine tests
 covering real proxy operations and workspace isolation. The other API
 failures remain open, and the full DB suite has not been rerun after this fix.
 
+MDL-03's dataset-schema publication policy is now implemented. It defaults
+disabled; enabling it requires an approved request for the current draft
+revision. Existing requests gate publication in either policy state. Pending
+requests lock field replacement and draft discard, and returned, withdrawn,
+or stale approvals cannot authorise publication. The integrated six-suite DB
+check passes 35 tests; policy data, UI, and approval tests pass 21 tests.
+Desktop browser checks save and reload both policy states, including keyboard
+toggling, and confirm persisted state through the same-origin API.
+Migrations 0304–0305 apply to the populated design database, and schema
+generation reports no changes. **MDL-03 remains incomplete:** workspace Record
+Models still lack their versioned publication workflow. Dataset-schema policy
+does not fulfil that original model exit.
+
+A separate MDL-01 regression appears when two workspaces define the same
+model key. The old scalar registry lookup in `internal.model_key_for` fails
+with `21000` even though ADR-0051 permits that configuration. Migration 0306
+maps the admitted record kind directly, retaining built-in mapping and the
+existing workspace-owned kind, field, rule, and relationship checks. A red
+claims-free insert now passes with distinct field contracts and manifests,
+while invalid and foreign fields remain rejected. Four focused DB suites
+pass 25 tests, and the record-model API suite passes six tests against the
+populated design database. No caller permissions or production guards were
+relaxed.
+
 ### Earlier updates
 
 This register is a point-in-time audit of `9bbd305c` on 2 October 2026. Eleven

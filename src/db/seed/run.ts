@@ -153,6 +153,9 @@ export const fixtureSteps: Array<SeedStep> = [
           workspaceId: FIXTURE_WORKSPACE_ID,
           key: FIXTURE_PROJECT_KEY,
           title: 'Fixture Project',
+          // The native owner-rule trigger needs the declared lead at creation
+          // so the fixture user can actually work in their own project.
+          leadUserId: FIXTURE_USER_ID,
         })
         // A live workspace may already own the historical fixture UUID. Do
         // not mutate or move that row when running an additive seed.

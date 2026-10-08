@@ -3442,73 +3442,186 @@ async function seedDesignProjectDetails(
   )
 }
 
-/** Original AAV9 team authority, established before scoped scientific writes.
- * Reviewer includes Edit plus Review in ProjectMembers; keep those independent
- * flags instead of using a display label as authority. No all-member rule. */
+/** Project access matrix from the design's Settings Access board, established
+ * before scoped scientific writes. Group membership follows the design's
+ * Settings Members board and Edit/Review/View stay independent flags, never a
+ * display label. The review canvases name Gareth as an independent reviewer on
+ * LVV and HEK293 where he is not the project lead, so those carry a
+ * design-attested explicit Review rule. HEK293 is visible to the whole
+ * workspace, as the design states. */
+const DESIGN_ACCESS_GROUPS = {
+  leads: 'Process Development leads',
+  upstream: 'Upstream',
+  downstream: 'Downstream',
+  analytical: 'Analytical',
+  qa: 'QA',
+} as const
+
+const DESIGN_ACCESS_GROUP_MEMBERS: Record<
+  keyof typeof DESIGN_ACCESS_GROUPS,
+  readonly string[]
+> = {
+  leads: [DESIGN_USER_IDS.gareth],
+  upstream: [DESIGN_USER_IDS.priya, DESIGN_USER_IDS.tom],
+  downstream: [DESIGN_USER_IDS.tom, DESIGN_USER_IDS.sam],
+  analytical: [DESIGN_USER_IDS.mei],
+  qa: [DESIGN_USER_IDS.anna],
+}
+
+interface DesignProjectRule {
+  group?: keyof typeof DESIGN_ACCESS_GROUPS
+  user?: string
+  view: boolean
+  edit: boolean
+  review: boolean
+}
+
+const DESIGN_PROJECT_ACCESS: Record<string, readonly DesignProjectRule[]> = {
+  // Edit: Process Development leads, Upstream, Downstream · Review: Analytical ·
+  // View: QA
+  'aav9-process-transfer': [
+    { group: 'leads', view: true, edit: true, review: false },
+    { group: 'upstream', view: true, edit: true, review: false },
+    { group: 'downstream', view: true, edit: true, review: false },
+    { group: 'analytical', view: true, edit: true, review: true },
+    { group: 'qa', view: true, edit: false, review: false },
+  ],
+  // Edit: Upstream · Review: Analytical · View: QA, Gareth P.
+  'lvv-stability-2-8c': [
+    { group: 'upstream', view: true, edit: true, review: false },
+    { group: 'analytical', view: true, edit: true, review: true },
+    { group: 'qa', view: true, edit: false, review: false },
+    { user: DESIGN_USER_IDS.gareth, view: true, edit: false, review: true },
+  ],
+  // Edit: Process Development leads, Upstream · Review: Analytical · View: QA
+  'ambr-250-perfusion-scale-down': [
+    { group: 'leads', view: true, edit: true, review: false },
+    { group: 'upstream', view: true, edit: true, review: false },
+    { group: 'analytical', view: true, edit: true, review: true },
+    { group: 'qa', view: true, edit: false, review: false },
+  ],
+  // Edit: Upstream · Review: Analytical · View: QA
+  'car-t-expansion-media-screen': [
+    { group: 'upstream', view: true, edit: true, review: false },
+    { group: 'analytical', view: true, edit: true, review: true },
+    { group: 'qa', view: true, edit: false, review: false },
+  ],
+  // Edit: Analytical · Review: Analytical · View: QA, all workspace
+  'hek293-cell-bank-characterisation': [
+    { group: 'analytical', view: true, edit: true, review: true },
+    { group: 'qa', view: true, edit: false, review: false },
+    { user: DESIGN_USER_IDS.gareth, view: true, edit: false, review: true },
+  ],
+}
+
 async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
+  // Project ids come from the seed's declared constants: a project the caller
+  // cannot yet see is not visible through the claimed project read, and access
+  // is exactly what this step is establishing.
+  const byKey: Record<string, string> = {}
+  for (const project of DESIGN_PROJECTS) byKey[project.key] = project.id
+  // HEK293's "all workspace" view covers the design's workspace staff, not the
+  // later auth-free development member or the client viewers.
+  const allWorkspaceUsers = [
+    DESIGN_USER_IDS.gareth,
+    DESIGN_USER_IDS.priya,
+    DESIGN_USER_IDS.mei,
+    DESIGN_USER_IDS.tom,
+    DESIGN_USER_IDS.sam,
+    DESIGN_USER_IDS.anna,
+  ]
+
+  // Groups are workspace-scoped and seeded by the workspace owner.
+  const groupIds: Record<string, string> = {}
   await withDesignClaims(
     db,
     DESIGN_USER_IDS.gareth,
     PROCESS,
     async (client) => {
-      const project = await client.query<{ id: string }>(
-        "select id from api.projects where workspace_id=$1 and key='aav9-process-transfer'",
-        [PROCESS],
-      )
-      const projectId = project.rows.at(0)?.id
-      if (!projectId)
-        throw new Error(
-          'AAV9 native lead rule required before scientific seeding',
+      for (const [key, name] of Object.entries(DESIGN_ACCESS_GROUPS)) {
+        const found = await client.query<{ id: string }>(
+          'select id from api.workspace_groups_list() where name=$1',
+          [name],
         )
-      for (const [userId, review] of [
-        [DESIGN_USER_IDS.priya, false],
-        [DESIGN_USER_IDS.mei, true],
-        [DESIGN_USER_IDS.sam, false],
-      ] as const) {
-        const existing = await client.query(
-          `select 1 from api.project_access where project_id=$1 and user_id=$2
-         and can_view and can_edit and can_review=$3 and not can_manage and not client_portal`,
-          [projectId, userId, review],
-        )
-        if (!existing.rowCount)
-          await client.query(
-            'select api.set_project_access_rule($1,$2,null,true,true,$3,false,false)',
-            [projectId, userId, review],
-          )
+        const id =
+          found.rows.at(0)?.id ??
+          (
+            await client.query<{ id: string }>(
+              'select id from api.create_workspace_group($1)',
+              [name],
+            )
+          ).rows[0].id
+        groupIds[key] = id
       }
-      const groups = await client.query<{ id: string }>(
-        "select id from api.workspace_groups_list() where name='QA'",
-      )
-      const groupId =
-        groups.rows.at(0)?.id ??
-        (
-          await client.query<{ id: string }>(
-            "select id from api.create_workspace_group('QA')",
+      for (const [key, members] of Object.entries(
+        DESIGN_ACCESS_GROUP_MEMBERS,
+      )) {
+        const groupId = groupIds[key]
+        for (const userId of members) {
+          const member = await client.query(
+            'select 1 from api.workspace_group_memberships where group_id=$1 and user_id=$2',
+            [groupId, userId],
           )
-        ).rows[0].id
-      const member = await client.query(
-        'select 1 from api.workspace_group_memberships where group_id=$1 and user_id=$2',
-        [groupId, DESIGN_USER_IDS.anna],
-      )
-      if (!member.rowCount)
-        await client.query(
-          'select api.set_workspace_group_member($1,$2,true)',
-          [groupId, DESIGN_USER_IDS.anna],
-        )
-      // Anna is the named QA person. Do not invent the other two QA people from
-      // the reference or replace a group rule with an individual grant.
-      const rule = await client.query(
-        `select 1 from api.project_access where project_id=$1 and group_id=$2
-       and can_view and not can_edit and not can_review and not can_manage and not client_portal`,
-        [projectId, groupId],
-      )
-      if (!rule.rowCount)
-        await client.query(
-          'select api.set_project_access_rule($1,null,$2,true,false,false,false,false)',
-          [projectId, groupId],
-        )
+          if (!member.rowCount)
+            await client.query(
+              'select api.set_workspace_group_member($1,$2,true)',
+              [groupId, userId],
+            )
+        }
+      }
     },
   )
+
+  const ensureRule = async (
+    client: Client,
+    projectId: string,
+    rule: DesignProjectRule,
+  ) => {
+    const principalUser = rule.user ?? null
+    const principalGroup = rule.group ? groupIds[rule.group] : null
+    const matches = await client.query(
+      `select 1 from api.project_access
+         where project_id=$1 and user_id is not distinct from $2
+           and group_id is not distinct from $3
+           and can_view=$4 and can_edit=$5 and can_review=$6
+           and not can_manage and not client_portal`,
+      [projectId, principalUser, principalGroup, rule.view, rule.edit, rule.review],
+    )
+    if (!matches.rowCount)
+      await client.query(
+        'select api.set_project_access_rule($1,$2,$3,$4,$5,$6,false,false)',
+        [projectId, principalUser, principalGroup, rule.view, rule.edit, rule.review],
+      )
+  }
+
+  // Only a project's own lead may manage its access, so each project's matrix
+  // rules are written as its declared lead.
+  for (const [key, rules] of Object.entries(DESIGN_PROJECT_ACCESS)) {
+    const projectId = byKey[key]
+    if (!projectId)
+      throw new Error(`Design project ${key} missing before access seeding`)
+    const lead = DESIGN_PROJECT_DETAILS.find((detail) => detail.key === key)
+      ?.lead
+    if (!lead) throw new Error(`Design project ${key} has no declared lead`)
+    await withDesignClaims(db, lead, PROCESS, async (client) => {
+      for (const rule of rules) await ensureRule(client, projectId, rule)
+      // HEK293 is visible to every workspace member. Never overwrite an
+      // existing lead or explicit reviewer rule for the same principal.
+      if (key === 'hek293-cell-bank-characterisation') {
+        for (const user_id of allWorkspaceUsers) {
+          const existing = await client.query(
+            'select 1 from api.project_access where project_id=$1 and user_id=$2',
+            [projectId, user_id],
+          )
+          if (!existing.rowCount)
+            await client.query(
+              'select api.set_project_access_rule($1,$2,null,true,false,false,false,false)',
+              [projectId, user_id],
+            )
+        }
+      }
+    })
+  }
 }
 
 /**
@@ -5215,8 +5328,8 @@ async function seedDesignReviewLifecycle(
     {
       recordId: '00000000-0000-4000-8000-0000000003bc', // EXP-0130
       identifier: 'EXP-0130',
-      submitActorId: DESIGN_USER_IDS.sam,
-      submitSessionId: DESIGN_SESSION_IDS.sam,
+      submitActorId: DESIGN_USER_IDS.mei,
+      submitSessionId: DESIGN_SESSION_IDS.mei,
       reviewerIds: [DESIGN_USER_IDS.gareth],
       outcome: 'submit-only',
       note: 'Awaiting review.',

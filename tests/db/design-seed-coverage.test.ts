@@ -45,18 +45,25 @@ it('rejects unrelated identities, title citations and unmatched screen identifie
       'select * from api.project_members($1) order by user_id',
       [details.rows[0].id],
     )
+    // AAV9 access follows the Settings Access matrix: Process Development
+    // leads, Upstream and Downstream may edit, so Tom (Upstream, Downstream)
+    // is a member alongside the named team and the QA group.
     expect(members.rows.map((row) => row.user_id)).toEqual([
       DESIGN_USER_IDS.gareth,
       DESIGN_USER_IDS.priya,
       DESIGN_USER_IDS.mei,
+      DESIGN_USER_IDS.tom,
       DESIGN_USER_IDS.sam,
       DESIGN_USER_IDS.anna,
     ])
-    const meiRule = await actor.query(
-      'select can_view,can_edit,can_review,can_manage from api.project_access where project_id=$1 and user_id=$2',
-      [details.rows[0].id, DESIGN_USER_IDS.mei],
+    const analyticalRule = await actor.query(
+      `select a.can_view,a.can_edit,a.can_review,a.can_manage
+         from api.project_access a
+         join api.workspace_groups g on g.id=a.group_id
+        where a.project_id=$1 and g.name='Analytical'`,
+      [details.rows[0].id],
     )
-    expect(meiRule.rows).toEqual([
+    expect(analyticalRule.rows).toEqual([
       { can_view: true, can_edit: true, can_review: true, can_manage: false },
     ])
     const readings = await actor.query(

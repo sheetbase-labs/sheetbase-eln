@@ -54,8 +54,8 @@ it('establishes scoped semantic project access before the first sample custody w
       [
         DESIGN_USER_IDS.tom,
         {
-          can_view: false,
-          can_edit: false,
+          can_view: true,
+          can_edit: true,
           can_review: false,
           can_manage: false,
         },
@@ -79,6 +79,61 @@ it('establishes scoped semantic project access before the first sample custody w
         ).rows[0],
       ).toMatchObject(expected)
     }
+    const projectIdByKey = async (key: string): Promise<string> =>
+      (
+        await migrator.query<{ id: string }>(
+          'select id from api.projects where workspace_id=$1 and key=$2',
+          [DESIGN_WORKSPACE_IDS.processDevelopment, key],
+        )
+      ).rows[0].id
+    const expectPermissions = async (
+      userId: string,
+      projectKey: string,
+      expected: Record<string, boolean>,
+    ) => {
+      await setActorJwt(actor, userId, DESIGN_WORKSPACE_IDS.processDevelopment)
+      expect(
+        (
+          await actor.query('select * from api.project_permissions($1)', [
+            await projectIdByKey(projectKey),
+          ])
+        ).rows[0],
+      ).toMatchObject(expected)
+    }
+    // Settings Access matrix: CAR-T is edited by Upstream and reviewed by
+    // Analytical; HEK293 is edited and reviewed by Analytical and viewed by the
+    // whole workspace, with the canvases' named reviewer granted Review.
+    await expectPermissions(DESIGN_USER_IDS.priya, 'car-t-expansion-media-screen', {
+      can_view: true,
+      can_edit: true,
+      can_review: false,
+    })
+    await expectPermissions(DESIGN_USER_IDS.mei, 'car-t-expansion-media-screen', {
+      can_view: true,
+      can_edit: true,
+      can_review: true,
+    })
+    await expectPermissions(DESIGN_USER_IDS.sam, 'car-t-expansion-media-screen', {
+      can_view: false,
+      can_edit: false,
+      can_review: false,
+    })
+    await expectPermissions(
+      DESIGN_USER_IDS.mei,
+      'hek293-cell-bank-characterisation',
+      { can_view: true, can_edit: true, can_review: true },
+    )
+    await expectPermissions(
+      DESIGN_USER_IDS.gareth,
+      'hek293-cell-bank-characterisation',
+      { can_view: true, can_edit: false, can_review: true },
+    )
+    await expectPermissions(
+      DESIGN_USER_IDS.sam,
+      'hek293-cell-bank-characterisation',
+      { can_view: true, can_edit: false, can_review: false },
+    )
+
     const custody = designSteps.find(
       (step) => step.name === 'design sample custody',
     )!

@@ -185,7 +185,10 @@ export function auditKnockOnEvents(
 ) {
   return events.filter(
     (candidate) =>
-      candidate.id !== event.id && candidate.payload.sourceEventId === event.id,
+      candidate.id !== event.id &&
+      (candidate.payload.sourceEventId === event.id ||
+        (Array.isArray(candidate.payload.sourceEventIds) &&
+          candidate.payload.sourceEventIds.includes(event.id))),
   )
 }
 
@@ -462,7 +465,11 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
           ? style.render(toValue)
           : formatChangeValue(toValue)
     fields.push({
-      label: style?.label ?? key,
+      label:
+        style?.label ??
+        ('label' in value && typeof value.label === 'string'
+          ? value.label
+          : key),
       kind: from === null ? 'added' : to === null ? 'removed' : 'changed',
       from: from ?? undefined,
       to: to ?? undefined,

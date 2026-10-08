@@ -2267,6 +2267,13 @@
       "when": 1791145236844,
       "tag": "0325_set02_authority_repairs",
       "breakpoints": true
+    },
+    {
+      "idx": 326,
+      "version": "7",
+      "when": 1791146958712,
+      "tag": "0326_exp06_immutable_audit",
+      "breakpoints": true
     }
   ]
 }

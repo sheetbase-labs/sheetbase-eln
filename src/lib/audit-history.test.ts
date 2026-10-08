@@ -276,10 +276,14 @@ describe('experiment history presentation', () => {
       payload: { sessionId: 'same-session', inputRevision: 4 },
     })
     const linked = event({ id: 'linked', payload: { sourceEventId: 'source' } })
+    const multipleInputs = event({
+      id: 'batch',
+      payload: { sourceEventIds: ['other', 'source'] },
+    })
     const unrelated = event({ id: 'unrelated', payload: source.payload })
-    expect(auditKnockOnEvents(source, [source, unrelated, linked])).toEqual([
-      linked,
-    ])
+    expect(
+      auditKnockOnEvents(source, [source, unrelated, linked, multipleInputs]),
+    ).toEqual([linked, multipleInputs])
   })
 
   it('filters by captured block type and change fields, not object names or neighboring events', () => {

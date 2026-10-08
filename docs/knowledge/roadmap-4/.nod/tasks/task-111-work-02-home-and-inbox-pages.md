@@ -5,7 +5,7 @@ type: task
 status: in-progress
 priority: high
 created: "2026-09-27"
-updated: "2026-10-04"
+updated: "2026-10-08"
 parent: epic-104
 related:
   - task-2
@@ -30,3 +30,4 @@ Spec: [WORK-02 in tasks/WORK.md](../../tasks/WORK.md#work-02--home-and-inbox-pag
 - 2026-10-02: All steps done; closed by roadmap sync.
 - 2026-10-02: Follow-up fix: the Inbox type filter now applies to the grouped needs-action sections (previously only the count chips changed); empty state derives from the ordered rows. Commit 1982995e.
 - 2026-10-04: 2026-10-04 correction: earlier source-completion status did not establish all original Main/HomeFirstRun/HomeTriage/InboxEmpty/HelpRecords acceptance exits. Reopened Home and first-run steps on reproduced gaps. No new task completion claimed.
+- 2026-10-08: Coordinator (local): the Home review-access blocker is resolved at the database level. After seeding the Settings Access matrix, Gareth has HEK293 view+review and is the assigned reviewer of the submitted EXP-0130; under RLS he can read exactly that submitted review (can_view and can_review true). Native populated Home browser acceptance and the original cardinalities/identities remain open, as does the first-run membership wording decision.

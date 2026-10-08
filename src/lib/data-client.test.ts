@@ -180,6 +180,29 @@ describe('createDataClient.rpc', () => {
   })
 })
 
+describe('createDataClient.rpc void responses', () => {
+  it('accepts a native PostgREST 204 without trying to parse JSON', async () => {
+    const response = new Response(null, { status: 204 })
+    const parse = vi.spyOn(response, 'json')
+    const client = createDataClient(mockFetch(response))
+    await expect(
+      client.rpc<void>('set_workspace_group_member', {
+        p_group_id: 'group',
+        p_user_id: 'person',
+        p_is_member: true,
+      }),
+    ).resolves.toBeUndefined()
+    expect(parse).not.toHaveBeenCalled()
+  })
+
+  it('does not turn malformed 200 responses into successful void mutations', async () => {
+    const client = createDataClient(mockFetch(new Response('not json')))
+    await expect(client.rpc<void>('mutation', {})).rejects.toBeInstanceOf(
+      SyntaxError,
+    )
+  })
+})
+
 describe('DataClientError', () => {
   it('preserves code, message and status', () => {
     const error = new DataClientError('upstream_unavailable', 'down', 502)

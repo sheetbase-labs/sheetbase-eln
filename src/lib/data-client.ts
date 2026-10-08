@@ -171,7 +171,8 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         },
         body: JSON.stringify(args),
       })
-      return (await response.json()) as T
+      // Native PostgREST void functions succeed with 204 and no JSON body.
+      return (response.status === 204 ? undefined : await response.json()) as T
     },
 
     async insert<T>(

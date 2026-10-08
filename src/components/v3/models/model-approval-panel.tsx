@@ -27,6 +27,7 @@ import {
 import type { ApprovalRequest } from '#/lib/approval-requests'
 import type { CanonicalDatasetSchemaVersion } from '#/lib/dataset-schema-definition-rpc'
 import type { DataClient } from '#/lib/data-client'
+import { RECORD_MODEL_VERSION_KIND } from '#/lib/record-model-versions'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import {
@@ -42,6 +43,7 @@ import {
   latestRequest,
   normaliseReason,
   pendingRequest,
+  roleLabel,
   roleList,
 } from './model-approval'
 import type {
@@ -61,7 +63,12 @@ import type {
  */
 
 export interface ModelApprovalPanelProps {
-  version: CanonicalDatasetSchemaVersion
+  version: Pick<
+    CanonicalDatasetSchemaVersion,
+    'id' | 'version' | 'revision' | 'lifecycle'
+  >
+  objectKind?:
+    typeof DATASET_SCHEMA_VERSION_KIND | typeof RECORD_MODEL_VERSION_KIND
   publishedVersion: number | null
   requests: ApprovalRequest[]
   decisions: ApprovalDecision[]
@@ -103,6 +110,7 @@ export function ModelApprovalPanel({
   role,
   user,
   workspaceId,
+  objectKind = DATASET_SCHEMA_VERSION_KIND,
   client = notebookDataClient,
   className,
 }: ModelApprovalPanelProps) {
@@ -116,6 +124,9 @@ export function ModelApprovalPanel({
   const canSubmit = isDraft && !pending && canSubmitForApproval(role)
   const canDecideNow = canDecide(pending, user?.id, role)
   const canWithdrawNow = canWithdraw(pending, user?.id, role)
+  const everyRole = objectKind === RECORD_MODEL_VERSION_KIND
+  const approvers = (roles: readonly string[]) =>
+    everyRole ? roles.map(roleLabel).join(' and ') : roleList(roles)
 
   const actorIds = useMemo(
     () => approvalActorIds(requests, decisions),
@@ -137,6 +148,9 @@ export function ModelApprovalPanel({
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
+    void queryClient.invalidateQueries({
+      queryKey: ['ui-port', 'record-models'],
+    })
   }
 
   const submit = useMutation({
@@ -147,20 +161,21 @@ export function ModelApprovalPanel({
     }) =>
       submitApprovalRequest(client, {
         workspaceId: workspaceId as string,
-        objectKind: DATASET_SCHEMA_VERSION_KIND,
+        objectKind,
         objectId: version.id,
         objectRevision: version.revision,
         requiredApproverRoles: input.roles,
         reason: input.reason,
-        requireIndependence: input.independent,
+        requireIndependence: everyRole || input.independent,
+        requiredApprovals: everyRole ? input.roles.length : 1,
       }),
     onSuccess: (_created, input) => {
       setDialog(null)
       invalidate()
       toast('Submitted for approval', {
-        description: `An approver in ${roleList(
+        description: `Approval requested from ${approvers(
           input.roles,
-        )} has been asked to review v${version.version}.`,
+        )} for v${version.version}.`,
       })
     },
     onError: errorToast('Could not submit for approval'),
@@ -180,11 +195,14 @@ export function ModelApprovalPanel({
   const approve = useMutation({
     mutationFn: (reason: string) =>
       approveApprovalRequest(client, pending!.id, reason || undefined),
-    onSuccess: () => {
+    onSuccess: (request) => {
       setDialog(null)
       invalidate()
-      toast('Approved', {
-        description: `v${version.version} can be published.`,
+      toast(request.state === 'approved' ? 'Approved' : 'Approval recorded', {
+        description:
+          request.state === 'approved'
+            ? `v${version.version} can be published.`
+            : 'The version remains locked until all required approvals are complete.',
       })
     },
     onError: errorToast('Could not approve the submission'),
@@ -218,7 +236,11 @@ export function ModelApprovalPanel({
         <Banner
           tone="review"
           icon="lock"
-          title={`Locked while ${roleList(pending.required_approver_roles)} reviews.`}
+          title={
+            everyRole
+              ? `Locked while awaiting approval from ${approvers(pending.required_approver_roles)}.`
+              : `Locked while ${approvers(pending.required_approver_roles)} reviews.`
+          }
           action={
             <>
               {canWithdrawNow ? (
@@ -381,7 +403,7 @@ export function ModelApprovalPanel({
           <Muted>{status.detail}</Muted>
           {latest ? (
             <Muted>
-              Required: {roleList(latest.required_approver_roles)}
+              Required: {approvers(latest.required_approver_roles)}
               {latest.require_independence
                 ? ' · independent approver'
                 : ' · submitter may approve'}
@@ -428,6 +450,7 @@ export function ModelApprovalPanel({
         open={dialog === 'submit'}
         busy={busy}
         defaultRoles={DEFAULT_APPROVER_ROLES}
+        requireIndependence={everyRole}
         onOpenChange={(open) => setDialog(open ? 'submit' : null)}
         onSubmit={(input) => submit.mutate(input)}
       />
@@ -472,12 +495,14 @@ function SubmitDialog({
   open,
   busy,
   defaultRoles,
+  requireIndependence,
   onOpenChange,
   onSubmit,
 }: {
   open: boolean
   busy: boolean
   defaultRoles: ApproverRole[]
+  requireIndependence: boolean
   onOpenChange: (open: boolean) => void
   onSubmit: (input: {
     reason: string
@@ -560,7 +585,7 @@ function SubmitDialog({
             <input
               type="checkbox"
               checked={independent}
-              disabled={busy}
+              disabled={busy || requireIndependence}
               onChange={(event) => setIndependent(event.target.checked)}
             />
             Require an independent approver (the submitter cannot approve)

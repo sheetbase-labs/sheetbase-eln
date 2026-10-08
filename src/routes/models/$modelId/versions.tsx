@@ -42,6 +42,8 @@ import {
 } from '#/components/v3/models/model-approval'
 import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
 import { ModelApprovalPanel } from '#/components/v3/models/model-approval-panel'
+import { RecordModelVersions } from '#/components/v3/models/record-model-versions'
+import { isUuid } from '#/lib/field-value-validation'
 import type {
   FieldChange,
   RecordOutcome,
@@ -85,6 +87,21 @@ const OUTCOME: Record<
 }
 
 function ModelVersions() {
+  const { modelId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+  return isUuid(modelId) ? (
+    <DatasetModelVersions />
+  ) : (
+    <RecordModelVersions
+      modelKey={modelId}
+      role={context.workspace?.role ?? null}
+      user={{ id: context.user.id, name: context.user.name }}
+      workspaceId={context.workspace?.id ?? null}
+    />
+  )
+}
+
+function DatasetModelVersions() {
   const { modelId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()

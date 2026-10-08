@@ -195,6 +195,13 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
                   },
                 },
                 {
+                  label: 'Versions',
+                  link: {
+                    to: '/models/$modelId/versions',
+                    params,
+                  },
+                },
+                {
                   label: 'Rules',
                   link: {
                     to: '/models/$modelId/rules',

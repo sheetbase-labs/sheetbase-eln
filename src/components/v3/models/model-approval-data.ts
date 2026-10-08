@@ -27,8 +27,17 @@ export interface ModelApprovalIndex {
 }
 
 export const modelApprovalQueryKeys = {
-  index: (versionIds: readonly string[]) =>
-    ['ui-port', 'models', 'approval-index', versionIds.join(',')] as const,
+  index: (
+    versionIds: readonly string[],
+    objectKind = DATASET_SCHEMA_VERSION_KIND,
+  ) =>
+    [
+      'ui-port',
+      'models',
+      'approval-index',
+      objectKind,
+      versionIds.join(','),
+    ] as const,
 }
 
 function buildIndex(
@@ -59,15 +68,16 @@ function buildIndex(
 export function useModelApprovalIndex(
   versionIds: readonly string[],
   client: DataClient = notebookDataClient,
+  objectKind = DATASET_SCHEMA_VERSION_KIND,
 ) {
   const ids = [...new Set(versionIds.filter(Boolean))]
   return useQuery({
-    queryKey: modelApprovalQueryKeys.index(ids),
+    queryKey: modelApprovalQueryKeys.index(ids, objectKind),
     queryFn: async (): Promise<ModelApprovalIndex> => {
       if (ids.length === 0) return buildIndex([], [])
       const requests = await client.list<ApprovalRequest>(
         'approval_requests',
-        `?object_kind=eq.${DATASET_SCHEMA_VERSION_KIND}` +
+        `?object_kind=eq.${encodeURIComponent(objectKind)}` +
           `&object_id=in.(${ids.join(',')})` +
           '&select=id,workspace_id,object_kind,object_id,object_revision,' +
           'required_approver_roles,required_approvals,require_independence,state,' +

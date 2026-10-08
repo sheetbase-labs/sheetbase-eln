@@ -887,6 +887,12 @@ export const records = api.table(
     // trail (LIVE-001) is the history; this column guards against
     // simultaneous metadata edits.
     metadataVersion: integer('metadata_version').notNull().default(1),
+    // ADR-0051 / MDL-03: the published workspace Record Model version this
+    // record is pinned to. Null for built-in kinds. An explicit upgrade RPC
+    // changes only this pin; values are never rewritten. The FK to
+    // api.record_model_versions is declared in the migration SQL to avoid a
+    // forward type-inference reference.
+    modelVersionId: uuid('model_version_id'),
     calculationInputRevision: bigint('calculation_input_revision', {
       mode: 'bigint',
     })
@@ -2051,6 +2057,99 @@ export const recordModels = api.table(
       sql`${table.currentVersion} > 0`,
     ),
     index('idx_record_models_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * ADR-0051 / MDL-03 — versioned workspace Record Model definitions.
+ *
+ * Each row is one snapshot of a workspace model's field definition. A draft may
+ * be edited (revision bumps) and submitted for approval; publishing requires a
+ * completed approval request covering every required approver role. Publishing
+ * never rewrites existing Record values: a Record keeps the `model_version_id`
+ * it was created or upgraded to until an explicit upgrade RPC changes the pin.
+ */
+export const recordModelVersions = api.table(
+  'record_model_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    modelId: uuid('model_id')
+      .notNull()
+      .references(() => recordModels.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    revision: integer('revision').notNull().default(1),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    definition: jsonb('definition')
+      .notNull()
+      .default(sql`'{"fields":[]}'::jsonb`),
+    reason: text('reason').notNull().default(''),
+    publishedAt: timestamp('published_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_record_model_versions_model_version').on(
+      table.modelId,
+      table.version,
+    ),
+    check('chk_record_model_versions_version', sql`${table.version} > 0`),
+    check('chk_record_model_versions_revision', sql`${table.revision} > 0`),
+    check(
+      'chk_record_model_versions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','published')`,
+    ),
+    index('idx_record_model_versions_workspace').on(table.workspaceId),
+    index('idx_record_model_versions_model').on(table.modelId),
+  ],
+)
+
+/**
+ * ADR-0051 / MDL-03 — explicit Record Model pin upgrades.
+ *
+ * A row records that a Record moved from one published model version to
+ * another. Values are never rewritten by an upgrade, so this log is what lets
+ * `record_model_version_usage` separate records created at a version from
+ * records upgraded to it.
+ */
+export const recordModelVersionUpgrades = api.table(
+  'record_model_version_upgrades',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    fromVersionId: uuid('from_version_id').references(
+      () => recordModelVersions.id,
+      { onDelete: 'set null' },
+    ),
+    toVersionId: uuid('to_version_id')
+      .notNull()
+      .references(() => recordModelVersions.id, { onDelete: 'cascade' }),
+    reason: text('reason'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    upgradedByUserId: text('upgraded_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    index('idx_record_model_version_upgrades_record').on(table.recordId),
+    index('idx_record_model_version_upgrades_to').on(table.toVersionId),
   ],
 )
 

@@ -3585,12 +3585,26 @@ async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
            and group_id is not distinct from $3
            and can_view=$4 and can_edit=$5 and can_review=$6
            and not can_manage and not client_portal`,
-      [projectId, principalUser, principalGroup, rule.view, rule.edit, rule.review],
+      [
+        projectId,
+        principalUser,
+        principalGroup,
+        rule.view,
+        rule.edit,
+        rule.review,
+      ],
     )
     if (!matches.rowCount)
       await client.query(
         'select api.set_project_access_rule($1,$2,$3,$4,$5,$6,false,false)',
-        [projectId, principalUser, principalGroup, rule.view, rule.edit, rule.review],
+        [
+          projectId,
+          principalUser,
+          principalGroup,
+          rule.view,
+          rule.edit,
+          rule.review,
+        ],
       )
   }
 
@@ -3600,8 +3614,9 @@ async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
     const projectId = byKey[key]
     if (!projectId)
       throw new Error(`Design project ${key} missing before access seeding`)
-    const lead = DESIGN_PROJECT_DETAILS.find((detail) => detail.key === key)
-      ?.lead
+    const lead = DESIGN_PROJECT_DETAILS.find(
+      (detail) => detail.key === key,
+    )?.lead
     if (!lead) throw new Error(`Design project ${key} has no declared lead`)
     await withDesignClaims(db, lead, PROCESS, async (client) => {
       for (const rule of rules) await ensureRule(client, projectId, rule)

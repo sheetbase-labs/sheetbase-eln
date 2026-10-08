@@ -2175,7 +2175,10 @@ export const protocolVersions = api.table(
     status: text('status').notNull().default('draft'),
     changeSummary: text('change_summary'),
     reason: text('reason'),
-    effectiveAt: timestamp('effective_at', { withTimezone: true, mode: 'date' }),
+    effectiveAt: timestamp('effective_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',

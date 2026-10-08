@@ -2154,6 +2154,120 @@ export const recordModelVersionUpgrades = api.table(
 )
 
 /**
+ * LAB-07 — controlled protocol versions.
+ *
+ * A protocol is a `protocol_template` Record. Each version is a frozen revision
+ * of that Record: `id` is the `api.revisions` id, so the scientific text of a
+ * version can never be rewritten. Lifecycle is separate from approval: an
+ * approved version is not yet effective.
+ */
+export const protocolVersions = api.table(
+  'protocol_versions',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    protocolRecordId: uuid('protocol_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    status: text('status').notNull().default('draft'),
+    changeSummary: text('change_summary'),
+    reason: text('reason'),
+    effectiveAt: timestamp('effective_at', { withTimezone: true, mode: 'date' }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_protocol_versions_status',
+      sql`${table.status} IN ('draft','in_review','effective','superseded','retired')`,
+    ),
+    check('chk_protocol_versions_version', sql`${table.version} > 0`),
+    unique('uq_protocol_versions_protocol_version').on(
+      table.protocolRecordId,
+      table.version,
+    ),
+    index('idx_protocol_versions_workspace').on(table.workspaceId),
+    index('idx_protocol_versions_protocol').on(table.protocolRecordId),
+  ],
+)
+
+/**
+ * LAB-07 — read-and-acknowledge training, per exact protocol version.
+ */
+export const protocolAcknowledgements = api.table(
+  'protocol_acknowledgements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    protocolVersionId: uuid('protocol_version_id')
+      .notNull()
+      .references(() => protocolVersions.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    acknowledgedAt: timestamp('acknowledged_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_protocol_acknowledgements_version_user').on(
+      table.protocolVersionId,
+      table.userId,
+    ),
+    index('idx_protocol_acknowledgements_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * LAB-07 / PROJ-01 — the current protocol version pinned per project.
+ */
+export const projectProtocols = api.table(
+  'project_protocols',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    protocolRecordId: uuid('protocol_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    protocolVersionId: uuid('protocol_version_id')
+      .notNull()
+      .references(() => protocolVersions.id, { onDelete: 'cascade' }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_project_protocols_project_protocol').on(
+      table.projectId,
+      table.protocolRecordId,
+    ),
+    index('idx_project_protocols_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
  * ADR-0051 / MDL-02 step 2 — workspace-owned model rules.
  *
  * A rule belongs to one model (a built-in `model_kinds` key or a

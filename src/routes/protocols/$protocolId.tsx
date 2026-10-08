@@ -1,7 +1,13 @@
 import { useState } from 'react'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { ProtocolDocument } from '#/components/v3/protocols/protocol-document'
 import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -44,14 +50,16 @@ type ProtocolTab = (typeof tabs)[number]
  * read the real structure, links and revisions; Training records who is
  * trained via `record_protocol_training`. */
 export const Route = createFileRoute('/protocols/$protocolId')({
-  validateSearch: (search: Record<string, unknown>): { tab?: ProtocolTab } => ({
-    tab:
-      search.tab === 'template' ||
-      search.tab === 'usedby' ||
-      search.tab === 'versions' ||
-      search.tab === 'document' ||
-      search.tab === 'training'
-        ? search.tab
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { section?: ProtocolTab } => ({
+    section:
+      search.section === 'template' ||
+      search.section === 'usedby' ||
+      search.section === 'versions' ||
+      search.section === 'document' ||
+      search.section === 'training'
+        ? search.section
         : undefined,
   }),
   beforeLoad: async ({ context: rootContext }) => {
@@ -64,33 +72,11 @@ export const Route = createFileRoute('/protocols/$protocolId')({
   component: ProtocolPage,
 })
 
-interface DocumentPart {
-  kind: 'heading' | 'paragraph'
-  text: string
-}
-
-/** The controlled document is the protocol record's rich-text blocks. */
-function richTextParts(
-  blocks: { type: string; payload: Record<string, unknown> }[],
-): DocumentPart[] {
-  const parts: DocumentPart[] = []
-  for (const block of blocks) {
-    if (block.type !== 'rich_text') continue
-    const doc = (block.payload as { doc?: { content?: unknown[] } }).doc
-    const content = Array.isArray(doc?.content) ? doc.content : []
-    for (const node of content) {
-      const n = node as { type?: string; content?: { text?: string }[] }
-      if (n.type !== 'heading' && n.type !== 'paragraph') continue
-      const text = (n.content ?? []).map((c) => c.text ?? '').join('')
-      if (text.trim()) parts.push({ kind: n.type, text })
-    }
-  }
-  return parts
-}
-
 function ProtocolPage() {
   const { protocolId } = Route.useParams()
-  const [tab, setTab] = useState<ProtocolTab>('document')
+  const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const tab = search.section ?? 'document'
   const record = useQuery({
     queryKey: notebookQueryKeys.record(protocolId),
     queryFn: () => fetchRecord(notebookDataClient, protocolId),
@@ -116,9 +102,8 @@ function ProtocolPage() {
     ...(revisions.data ?? []).map((r) => r.created_by_user_id),
   ])
   const p = record.data
-  const documentParts = richTextParts(blocks.data ?? [])
 
-  if (!p) {
+  if (!p || p.kind !== 'protocol_template') {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
@@ -171,7 +156,11 @@ function ProtocolPage() {
                 key={key}
                 type="button"
                 aria-current={tab === key ? 'page' : undefined}
-                onClick={() => setTab(key)}
+                onClick={() =>
+                  void navigate({
+                    search: { section: key === 'document' ? undefined : key },
+                  })
+                }
                 className={
                   tab === key
                     ? 'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-link bg-transparent px-0.5 text-body font-medium text-fg'
@@ -192,26 +181,13 @@ function ProtocolPage() {
       <div className="min-h-0 flex-1 overflow-auto">
         {tab === 'document' ? (
           <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-4 py-4 md:px-6">
-            <Section title="Document" count={documentParts.length}>
-              {documentParts.length ? (
-                <article className="flex flex-col gap-2">
-                  {documentParts.map((p, i) =>
-                    p.kind === 'heading' ? (
-                      <h3 key={i} className="m-0 text-section">
-                        {p.text}
-                      </h3>
-                    ) : (
-                      <p key={i} className="m-0 text-body">
-                        {p.text}
-                      </p>
-                    ),
-                  )}
-                </article>
+            <Section title="Working document">
+              {blocks.isPending ? (
+                <p role="status">Loading protocol document…</p>
+              ) : blocks.isError ? (
+                <p role="alert">The protocol document could not be loaded.</p>
               ) : (
-                <Muted>
-                  This protocol has no document text yet. Write it in the record
-                  notebook.
-                </Muted>
+                <ProtocolDocument blocks={blocks.data} />
               )}
             </Section>
           </div>

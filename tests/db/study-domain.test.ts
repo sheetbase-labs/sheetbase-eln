@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { grantProjectAccess, prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-000000005800'
 const WS_B = '00000000-0000-4000-8000-000000005801'
@@ -55,10 +55,17 @@ beforeAll(async () => {
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS_A}','${OWNER_A}','owner'),('${WS_A}','${MEMBER_A}','member'),
       ('${WS_B}','${OWNER_B}','owner');
-    insert into api.projects(id,workspace_id,key,title) values
-      ('${PROJECT_A}','${WS_A}','study-a','Study A'),
-      ('${PROJECT_A_2}','${WS_A}','study-a2','Study A2'),
-      ('${PROJECT_B}','${WS_B}','study-b','Study B')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id) values
+      ('${PROJECT_A}','${WS_A}','study-a','Study A','${OWNER_A}'),
+      ('${PROJECT_A_2}','${WS_A}','study-a2','Study A2','${OWNER_A}'),
+      ('${PROJECT_B}','${WS_B}','study-b','Study B','${OWNER_B}')`)
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: true,
+  })
 
   const owner = await actor(OWNER_A)
   const { rows } = await owner.query(

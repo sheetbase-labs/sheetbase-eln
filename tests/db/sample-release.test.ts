@@ -19,7 +19,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { grantProjectAccess, prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000282a'
 const WS_B = '00000000-0000-4000-8000-00000000282b'
@@ -138,10 +138,25 @@ beforeAll(async () => {
       ('${WS_A}', '${SCIENTIST_A}', 'scientist'),
       ('${WS_A}', '${VIEWER_A}', 'viewer'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'lab202-a', 'LAB202 A'),
-      ('${PROJ_B}', '${WS_B}', 'lab202-b', 'LAB202 B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'lab202-a', 'LAB202 A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'lab202-b', 'LAB202 B', '${OWNER_B}')`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: SCIENTIST_A,
+    canView: true,
+    canEdit: true,
+  })
+
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: VIEWER_A,
+    canView: true,
+    canEdit: false,
+  })
   const { rows: instA } = await migrator.query(
     `INSERT INTO api.instruments(workspace_id, name, instrument_type)
      VALUES ($1, 'QC reader A', 'other') RETURNING id`,

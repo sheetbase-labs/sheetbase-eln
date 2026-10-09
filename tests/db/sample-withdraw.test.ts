@@ -64,8 +64,12 @@ async function createRecord(
   return rows[0]
 }
 
-const createSample = (client: Client, project: string, title: string, props = {}) =>
-  createRecord(client, project, 'sample', title, props)
+const createSample = (
+  client: Client,
+  project: string,
+  title: string,
+  props = {},
+) => createRecord(client, project, 'sample', title, props)
 
 const createExperiment = (client: Client, project: string, title: string) =>
   createRecord(client, project, 'experiment', title)
@@ -93,9 +97,9 @@ beforeAll(async () => {
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_A}', '${VIEWER_A}', 'viewer'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'lab001-a', 'LAB001 A'),
-      ('${PROJ_B}', '${WS_B}', 'lab001-b', 'LAB001 B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'lab001-a', 'LAB001 A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'lab001-b', 'LAB001 B', '${OWNER_B}')`,
   )
 })
 
@@ -241,7 +245,10 @@ describe('LAB-01 withdraw_sample — derived container', () => {
         sample.id,
         sample.metadata_version,
         exp.id,
-        JSON.stringify({ title: 'Derived aliquot', storageLocation: 'Freezer C' }),
+        JSON.stringify({
+          title: 'Derived aliquot',
+          storageLocation: 'Freezer C',
+        }),
       ],
     )
     const result = rows[0].result
@@ -416,7 +423,9 @@ describe('LAB-01 withdraw_sample — isolation and viewer denial', () => {
   it('cannot withdraw another workspace sample', async () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
-    const sampleA = await createSample(ownerA, PROJ_A, 'A only', { quantity: 5 })
+    const sampleA = await createSample(ownerA, PROJ_A, 'A only', {
+      quantity: 5,
+    })
     const expB = await createExperiment(ownerB, PROJ_B, 'B purpose')
     await expect(
       ownerB.query(

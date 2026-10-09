@@ -10,7 +10,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { grantProjectAccess, prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000002850a'
 const WS_B = '00000000-0000-4000-8000-00000002850b'
@@ -171,10 +171,18 @@ beforeAll(async () => {
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_A}', '${VIEWER_A}', 'viewer'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'lab285-a', 'LAB285 A'),
-      ('${PROJ_B}', '${WS_B}', 'lab285-b', 'LAB285 B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'lab285-a', 'LAB285 A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'lab285-b', 'LAB285 B', '${OWNER_B}')`,
   )
+
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: VIEWER_A,
+    canView: true,
+    canEdit: false,
+  })
 })
 
 afterAll(async () => {

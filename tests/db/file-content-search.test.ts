@@ -4,7 +4,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, grantProjectAccess } from './helpers'
 
 const WS = '00000000-0000-4000-8000-000000001a0a'
 const OTHER_WS = '00000000-0000-4000-8000-000000001a0b'
@@ -45,10 +45,18 @@ beforeAll(async () => {
       ('${OTHER_WS}', '${OUTSIDER}', 'member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJECT}', '${WS}', 'fcs', 'FCS'),
-      ('${OTHER_PROJECT}', '${OTHER_WS}', 'fcso', 'FCS other')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJECT}', '${WS}', 'fcs', 'FCS', '${MEMBER}'),
+      ('${OTHER_PROJECT}', '${OTHER_WS}', 'fcso', 'FCS other', '${OUTSIDER}')`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: VIEWER,
+    canView: true,
+    canEdit: false,
+  })
+  await migrator.query(`SELECT 1 WHERE false`)
   await migrator.query(
     `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier, title, created_by_user_id) VALUES
       ('${RECORD}', '${WS}', '${PROJECT}', 'file', 'FILE-A', 'Run 07 CSV', '${MEMBER}'),

@@ -84,7 +84,7 @@ beforeAll(async () => {
       ('${OTHER_WS}', '${OTHER_USER}', 'member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES ('${PROJECT}', '${WS}', 'list', 'List project')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES ('${PROJECT}', '${WS}', 'list', 'List project', '${USER}')`,
   )
   await migrator.query(
     `INSERT INTO api.dataset_schema_definitions (id, workspace_id, key, name, lifecycle)
@@ -182,9 +182,10 @@ beforeAll(async () => {
   // uncited window so V_PLAIN is prunable while V_KEPT is not.
   await migrator.query('RESET ROLE')
   const keeper = await asAuthenticated()
-  await keeper.query(`SELECT api.keep_dataset_version($1, 'Retain for the study')`, [
-    V_KEPT,
-  ])
+  await keeper.query(
+    `SELECT api.keep_dataset_version($1, 'Retain for the study')`,
+    [V_KEPT],
+  )
   await migrator.query(
     `UPDATE api.datasets SET archived_at = '2023-01-01T00:00:00Z', lifecycle = 'archived' WHERE id = $1`,
     [DATASET],

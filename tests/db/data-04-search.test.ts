@@ -112,9 +112,9 @@ beforeAll(async () => {
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS_A}','${OWNER_A}','owner'),
       ('${WS_B}','${OWNER_B}','owner');
-    insert into api.projects(id,workspace_id,key,title) values
-      ('${PROJ_A}','${WS_A}','dot-study','Dot study'),
-      ('${PROJ_B}','${WS_B}','other','Other');
+    insert into api.projects(id,workspace_id,key,title,lead_user_id) values
+      ('${PROJ_A}','${WS_A}','dot-study','Dot study','${OWNER_A}'),
+      ('${PROJ_B}','${WS_B}','other','Other','${OWNER_B}');
 
     -- Workspace A fixtures sharing the token "quantum".
     insert into api.records(id,workspace_id,project_id,kind,identifier,title,tags,created_by_user_id)

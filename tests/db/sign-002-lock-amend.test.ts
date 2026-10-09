@@ -16,7 +16,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '#/db/schema'
 import { createAuth } from '#/lib/auth'
 import { handleSignatureStepUp } from '#/lib/signature-step-up.server'
-import { migratorUrl, prepareTestDatabase, ensureSessions } from './helpers'
+import {
+  ensureSessions,
+  grantProjectAccess,
+  migratorUrl,
+  prepareTestDatabase,
+} from './helpers'
 
 const WS_A = '98000000-0000-4000-8000-0000000000a1'
 const WS_B = '98000000-0000-4000-8000-0000000000a2'
@@ -257,8 +262,25 @@ beforeAll(async () => {
     `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES
        ($1,$2,'S2A','SIGN2 A',$3)`,
     [PROJECT_A, WS_A, OWNER_A],
-    await ensureSessions(migrator, [OWNER_A, REVIEWER_A, OWNER_B]),
   )
+  await ensureSessions(migrator, [OWNER_A, REVIEWER_A, OWNER_B])
+  // Since SET-02 / ADR-0050 a project is private to its lead until an explicit
+  // rule exists, so the fixture grants the authority its actors act through.
+  await grantProjectAccess(migrator!, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: OWNER_A,
+    canView: true,
+    canEdit: true,
+    canManage: true,
+  })
+  await grantProjectAccess(migrator!, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: REVIEWER_A,
+    canView: true,
+    canReview: true,
+  })
   await migrator!.query(
     `INSERT INTO api.records
        (id,workspace_id,project_id,kind,identifier,title,status,properties,tags,created_by_user_id)

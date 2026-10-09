@@ -177,7 +177,10 @@ export async function openMigratorWriter(
 
 /**
  * Internal Better Auth sessions for actors whose claims carry a session_id.
- * Submission and signing RPCs require a live matching session.
+ * Submission and signing RPCs require a live matching session. The `token`
+ * column carries the Better Auth cookie value (`token-session-<user>`), so
+ * suites that go through `authentication.api` are authorised as well; the
+ * `session-<user>` id is what the JWT `session_id` claim matches.
  */
 export async function ensureSessions(
   client: Client,
@@ -186,9 +189,9 @@ export async function ensureSessions(
   for (const id of userIds) {
     await client.query(
       `INSERT INTO internal.session(id,token,"userId","expiresAt")
-       VALUES ($1,$1,$2,now()+interval '1 hour')
-       ON CONFLICT (id) DO NOTHING`,
-      [`session-${id}`, id],
+       VALUES ($1,$2,$3,now()+interval '1 hour')
+       ON CONFLICT (id) DO UPDATE SET token = excluded.token`,
+      [`session-${id}`, `token-session-${id}`, id],
     )
   }
 }

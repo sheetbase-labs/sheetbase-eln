@@ -16,7 +16,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '#/db/schema'
 import { createAuth } from '#/lib/auth'
 import { handleSignatureStepUp } from '#/lib/signature-step-up.server'
-import { migratorUrl, prepareTestDatabase, ensureSessions } from './helpers'
+import {
+  ensureSessions,
+  grantProjectAccess,
+  migratorUrl,
+  prepareTestDatabase,
+} from './helpers'
 
 const WS_A = '98000000-0000-4000-8000-000000000001'
 const WS_B = '98000000-0000-4000-8000-000000000002'
@@ -320,6 +325,25 @@ beforeAll(async () => {
     [PROJECT_A, WS_A, OWNER_A],
   )
   await ensureSessions(migrator, [OWNER_A, REVIEWER_A, REVIEWER_B, OWNER_B])
+  // Since SET-02 / ADR-0050 a project is private to its lead until an explicit
+  // rule exists, so the fixture grants the authority its actors act through.
+  await grantProjectAccess(migrator!, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: OWNER_A,
+    canView: true,
+    canEdit: true,
+    canManage: true,
+  })
+  for (const reviewerId of [REVIEWER_A, REVIEWER_B]) {
+    await grantProjectAccess(migrator!, {
+      workspaceId: WS_A,
+      projectId: PROJECT_A,
+      userId: reviewerId,
+      canView: true,
+      canReview: true,
+    })
+  }
   await migrator!.query(
     `INSERT INTO api.records
        (id,workspace_id,project_id,kind,identifier,title,status,properties,tags,created_by_user_id)

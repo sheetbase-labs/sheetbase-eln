@@ -175,6 +175,12 @@ beforeAll(async () => {
     canEdit: true,
   })
   await ensureSessions(migrator, [AUTHOR, REVIEWER, OUTSIDER, VERIFIER])
+  // The certification fixture drives Better Auth directly, so the reviewer's
+  // session carries the cookie token that `signingHeaders()` presents.
+  await migrator!.query(
+    `UPDATE internal.session SET token = 'tok-r' WHERE id = $1`,
+    [`session-${REVIEWER}`],
+  )
   await migrator!.query(
     `INSERT INTO api.records
        (id,workspace_id,project_id,kind,identifier,title,status,properties,tags,created_by_user_id)

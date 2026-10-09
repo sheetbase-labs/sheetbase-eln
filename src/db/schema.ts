@@ -2184,6 +2184,12 @@ export const protocolVersions = api.table(
       withTimezone: true,
       mode: 'date',
     }),
+    // LAB-07: the periodic review date. Confirming the version as current
+    // extends it; starting a new version supersedes the old one instead.
+    reviewDueAt: timestamp('review_due_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',

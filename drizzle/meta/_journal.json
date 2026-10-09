@@ -2463,6 +2463,20 @@
       "when": 1791581761095,
       "tag": "0353_protocol_deviation_allows_text",
       "breakpoints": true
+    },
+    {
+      "idx": 354,
+      "version": "7",
+      "when": 1791582694711,
+      "tag": "0354_chilly_mephisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 355,
+      "version": "7",
+      "when": 1791582699702,
+      "tag": "0355_protocol_periodic_review",
+      "breakpoints": true
     }
   ]
 }

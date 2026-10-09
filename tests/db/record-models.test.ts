@@ -53,7 +53,10 @@ async function createModel(
   return rows[0]
 }
 
-async function nextIdentifier(client: Client, modelId: string): Promise<string> {
+async function nextIdentifier(
+  client: Client,
+  modelId: string,
+): Promise<string> {
   const { rows } = await client.query<{ id: string }>(
     `SELECT api.next_record_model_identifier($1) AS id`,
     [modelId],
@@ -107,9 +110,7 @@ describe('api.create_workspace_model', () => {
       `SELECT key, identifier_prefix FROM api.record_models WHERE workspace_id = $1`,
       [WS_A],
     )
-    expect(read.rows).toEqual([
-      { key: 'cell_bank', identifier_prefix: 'CB' },
-    ])
+    expect(read.rows).toEqual([{ key: 'cell_bank', identifier_prefix: 'CB' }])
   })
 
   it('keeps another workspace invisible', async () => {
@@ -130,10 +131,7 @@ describe('api.create_workspace_model', () => {
 
   it('refuses a non-authorised member', async () => {
     const viewer = await asAuthenticated(VIEWER_A, WS_A)
-    await expectDenied(
-      createModel(viewer, WS_A, 'viewer_model', 'VM'),
-      '42501',
-    )
+    await expectDenied(createModel(viewer, WS_A, 'viewer_model', 'VM'), '42501')
     const stillThere = await migrator.query(
       `SELECT 1 FROM api.record_models WHERE workspace_id = $1 AND key = 'viewer_model'`,
       [WS_A],
@@ -156,7 +154,13 @@ describe('api.create_workspace_model', () => {
 
     // The same key and prefix are valid in a different workspace.
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
-    const modelB = await createModel(ownerB, WS_B, 'cell_bank', 'CB', 'Cell bank')
+    const modelB = await createModel(
+      ownerB,
+      WS_B,
+      'cell_bank',
+      'CB',
+      'Cell bank',
+    )
     expect(modelB.key).toBe('cell_bank')
     expect(modelB.identifier_prefix).toBe('CB')
   })
@@ -165,7 +169,13 @@ describe('api.create_workspace_model', () => {
 describe('api.next_record_model_identifier', () => {
   it('increments per workspace and per prefix', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const modelA = await createModel(owner, WS_A, 'cell_line', 'XB', 'Cell line')
+    const modelA = await createModel(
+      owner,
+      WS_A,
+      'cell_line',
+      'XB',
+      'Cell line',
+    )
 
     const cb = await owner.query<{ id: string }>(
       `SELECT api.next_record_model_identifier($1) AS id`,

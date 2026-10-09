@@ -8,7 +8,11 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  prepareTestDatabase,
+  grantProjectAccess,
+} from './helpers'
 
 const DENIED = '42501'
 
@@ -49,6 +53,13 @@ beforeAll(async () => {
       ('${PROJ_A}', '${WS_A}', 'nb-proj-a', 'NB Project A', '${OWNER_A}'),
       ('${PROJ_B}', '${WS_B}', 'nb-proj-b', 'NB Project B', '${OWNER_B}')`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: true,
+  })
 
   // Seed a record + block + link in each workspace so read isolation can be
   // observed. Created as migrator (owner bypasses RLS) so the seed is not

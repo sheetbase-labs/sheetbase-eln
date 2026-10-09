@@ -103,21 +103,33 @@ it('establishes scoped semantic project access before the first sample custody w
     // Settings Access matrix: CAR-T is edited by Upstream and reviewed by
     // Analytical; HEK293 is edited and reviewed by Analytical and viewed by the
     // whole workspace, with the canvases' named reviewer granted Review.
-    await expectPermissions(DESIGN_USER_IDS.priya, 'car-t-expansion-media-screen', {
-      can_view: true,
-      can_edit: true,
-      can_review: false,
-    })
-    await expectPermissions(DESIGN_USER_IDS.mei, 'car-t-expansion-media-screen', {
-      can_view: true,
-      can_edit: true,
-      can_review: true,
-    })
-    await expectPermissions(DESIGN_USER_IDS.sam, 'car-t-expansion-media-screen', {
-      can_view: false,
-      can_edit: false,
-      can_review: false,
-    })
+    await expectPermissions(
+      DESIGN_USER_IDS.priya,
+      'car-t-expansion-media-screen',
+      {
+        can_view: true,
+        can_edit: true,
+        can_review: false,
+      },
+    )
+    await expectPermissions(
+      DESIGN_USER_IDS.mei,
+      'car-t-expansion-media-screen',
+      {
+        can_view: true,
+        can_edit: true,
+        can_review: true,
+      },
+    )
+    await expectPermissions(
+      DESIGN_USER_IDS.sam,
+      'car-t-expansion-media-screen',
+      {
+        can_view: false,
+        can_edit: false,
+        can_review: false,
+      },
+    )
     await expectPermissions(
       DESIGN_USER_IDS.mei,
       'hek293-cell-bank-characterisation',

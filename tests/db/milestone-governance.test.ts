@@ -61,9 +61,9 @@ const move = (client: Client, due: string, reason: string) =>
 describe('milestone governance', () => {
   it('requires a reason to move a date', async () => {
     const owner = await actor(OWNER, WS)
-    await expect(
-      move(owner, '2026-10-23T00:00:00Z', ''),
-    ).rejects.toMatchObject({ code: '22023' })
+    await expect(move(owner, '2026-10-23T00:00:00Z', '')).rejects.toMatchObject(
+      { code: '22023' },
+    )
   })
 
   it('moves the date and records the change with its reason', async () => {

@@ -4,9 +4,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase,
-  grantProjectAccess,
-} from './helpers'
+import { prepareTestDatabase, grantProjectAccess } from './helpers'
 
 const WS = '00000000-0000-4000-8000-00000000180a'
 const OTHER_WS = '00000000-0000-4000-8000-00000000180b'
@@ -47,8 +45,14 @@ beforeAll(async () => {
     `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
       ('${PROJECT}', '${WS}', 'cs', 'CS', '${MEMBER}'),
       ('${OTHER_PROJECT}', '${OTHER_WS}', 'cso', 'CS other', '${OUTSIDER}')`,
-  await grantProjectAccess(migrator, { workspaceId: WS, projectId: PROJECT, userId: VIEWER, canView: true, canEdit: false })
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: VIEWER,
+    canView: true,
+    canEdit: false,
+  })
   await migrator.query(
     `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier, title, created_by_user_id) VALUES
       ('${RECORD}', '${WS}', '${PROJECT}', 'experiment', 'EXP-C1', 'Commented record', '${MEMBER}'),

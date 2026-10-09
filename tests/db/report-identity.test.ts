@@ -216,7 +216,7 @@ describe('REPORT-001 canonical Report identity', () => {
       ownerB.query(`SELECT api.create_report_definition($1,'Forbidden')`, [
         WS_A,
       ]),
-      'SB033',
+      '42501',
     )
     await expectDenied(
       ownerB.query(`SELECT api.update_report_definition($1,$2,'Forbidden')`, [

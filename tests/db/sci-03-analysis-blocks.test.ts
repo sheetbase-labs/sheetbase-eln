@@ -9,7 +9,7 @@ import pg from 'pg'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, ensureSessions } from './helpers'
 
 const WS_A = crypto.randomUUID()
 const PROJECT_A = crypto.randomUUID()
@@ -149,6 +149,7 @@ beforeAll(async () => {
     `INSERT INTO api.workspace_memberships(workspace_id,user_id,role)
      VALUES ('${WS_A}','${USER_A}','owner')`,
   )
+  await ensureSessions(migrator, [USER_A])
   await migrator.query(
     `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES
      ('${USER_B}','SCI 03 B','sci-03-b@sheetbase.test',true)`,

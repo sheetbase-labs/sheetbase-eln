@@ -250,7 +250,8 @@ describe('OPS-007 bind_report_section_source (frozen evidence)', () => {
         `SELECT * FROM api.bind_report_section_source($1, $2, $3, '{}'::jsonb)`,
         [WS_A, section.id, revAId],
       ),
-      'SB033',
+      // The 0323 entry guard fails closed before the workspace check.
+      '42501',
     )
   })
 })
@@ -395,7 +396,7 @@ describe('OPS-007 generate_report (deterministic)', () => {
         WS_A,
         report.id,
       ]),
-      'SB033',
+      '42501',
     )
   })
 })

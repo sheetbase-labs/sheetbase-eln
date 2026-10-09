@@ -19,7 +19,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, grantProjectAccess } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000053a'
 const WS_B = '00000000-0000-4000-8000-00000000053b'
@@ -60,16 +60,30 @@ beforeAll(async () => {
       ('${PROJ_STALE}', '${WS_A}', 'fav-proj-stale', 'Favourites Project Stale', '${USER_A}'),
       ('${PROJ_LEFT}', '${WS_A}', 'fav-proj-left', 'Favourites Project Left', '${USER_A}')`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_B,
+    projectId: PROJ_B,
+    userId: USER_A,
+    canView: true,
+    canEdit: true,
+  })
 
   // Seed every pin through the only write path: the SECURITY DEFINER RPC.
-  const userA = await asAuthenticated(USER_A)
-  for (const projectId of [PROJ_A, PROJ_B, PROJ_STALE, PROJ_LEFT]) {
-    await userA.query('SELECT api.set_record_favourite($1, $2, true)', [
+  // Favouriting resolves the object's project, so each pin is written under the
+  // claim of the workspace that owns the project.
+  const userAInA = await asAuthenticated(USER_A, WS_A)
+  for (const projectId of [PROJ_A, PROJ_STALE, PROJ_LEFT]) {
+    await userAInA.query('SELECT api.set_record_favourite($1, $2, true)', [
       'project',
       projectId,
     ])
   }
-  const userB = await asAuthenticated(USER_B)
+  const userAInB = await asAuthenticated(USER_A, WS_B)
+  await userAInB.query('SELECT api.set_record_favourite($1, $2, true)', [
+    'project',
+    PROJ_B,
+  ])
+  const userB = await asAuthenticated(USER_B, WS_B)
   await userB.query('SELECT api.set_record_favourite($1, $2, true)', [
     'project',
     PROJ_B,
@@ -81,12 +95,19 @@ afterAll(async () => {
   await migrator.end()
 })
 
-async function asAuthenticated(userId: string): Promise<Client> {
+async function asAuthenticated(
+  userId: string,
+  workspaceId: string = WS_A,
+): Promise<Client> {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
-    JSON.stringify({ sub: userId, role: 'authenticated' }),
+    JSON.stringify({
+      sub: userId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }),
   ])
   return client
 }

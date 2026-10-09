@@ -44,16 +44,16 @@ beforeAll(async () => {
   )
   await migrator.query(
     `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES ('${PROJECT}', '${WS}', 'set', 'Settings project', '${AUTHOR}')`,
-    await grantProjectAccess(migrator, {
-      workspaceId: WS,
-      projectId: PROJECT,
-      userId: ADMIN,
-      canView: true,
-      canEdit: false,
-      canReview: false,
-      canManage: true,
-    }),
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: ADMIN,
+    canView: true,
+    canEdit: false,
+    canReview: false,
+    canManage: true,
+  })
   await grantProjectAccess(migrator, {
     workspaceId: WS,
     projectId: PROJECT,

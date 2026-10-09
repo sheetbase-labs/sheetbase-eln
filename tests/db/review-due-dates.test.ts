@@ -26,10 +26,10 @@ beforeAll(async () => {
   )
   await migrator.query(
     `INSERT INTO api.projects (id, workspace_id, key, title, default_review_period_days, lead_user_id) VALUES
-      ('${PROJECT}', '${WS}', 'due', 'Three-day project', 3, '${USER}'),
-      ('${PROJECT_PLAIN}', '${WS}', 'plain', 'Default project', NULL, '${USER}')`,
-    await ensureSessions(migrator, [USER]),
+      ('${PROJECT}', '${WS}', 'due', 'Three-day project', 3, NULL),
+      ('${PROJECT_PLAIN}', '${WS}', 'plain', 'Default project', NULL, NULL)`,
   )
+  await ensureSessions(migrator, [USER])
   await migrator.query(
     `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier, title, created_by_user_id) VALUES
       ('${RECORD}', '${WS}', '${PROJECT}', 'experiment', 'EXP-D1', 'Three-day record', '${USER}'),

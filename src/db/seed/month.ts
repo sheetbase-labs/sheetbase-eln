@@ -187,7 +187,15 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
   for (const [i, [key, title]] of projects.entries()) {
     await db
       .insert(schema.projects)
-      .values({ id: uuid(0x200 + i), workspaceId: WORKSPACE, key, title })
+      .values({
+        id: uuid(0x200 + i),
+        workspaceId: WORKSPACE,
+        key,
+        title,
+        // The native owner-rule trigger needs a declared lead so the seeded
+        // workspace admin can work in the seeded projects.
+        leadUserId: uuid(0x201),
+      })
       .onConflictDoUpdate({
         target: [schema.projects.workspaceId, schema.projects.key],
         set: { title },

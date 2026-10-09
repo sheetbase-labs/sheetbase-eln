@@ -215,6 +215,9 @@ export const demoSteps: Array<SeedStep> = [
           workspaceId: FIXTURE_WORKSPACE_ID,
           key: DEMO_VIRUS_STABILITY_PROJECT_KEY,
           title: 'Lentivector Stability Study',
+          // The native owner-rule trigger needs the declared lead at creation
+          // so the demo user can work in the demo project.
+          leadUserId: FIXTURE_USER_ID,
         })
         .onConflictDoUpdate({
           target: [schema.projects.workspaceId, schema.projects.key],

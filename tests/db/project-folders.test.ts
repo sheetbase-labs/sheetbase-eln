@@ -46,6 +46,8 @@ beforeAll(async () => {
       ('${PROJECT}', '${WS}', 'pf', 'Folders project', '${LEAD}'),
       ('${OTHER_PROJECT}', '${OTHER_WS}', 'pfx', 'Other project', NULL)`,
   )
+  // Explicit flag-based rules (SET-02 / ADR-0050); a bare access_level is no
+  // longer authority.
   await grantProjectAccess(migrator, {
     workspaceId: WS,
     projectId: PROJECT,
@@ -53,11 +55,13 @@ beforeAll(async () => {
     canView: true,
     canEdit: true,
   })
-  await migrator.query(
-    `INSERT INTO api.project_access (workspace_id, project_id, user_id, access_level, granted_by_user_id) VALUES
-      ('${WS}', '${PROJECT}', '${EDITOR}', 'editor', '${LEAD}'),
-      ('${WS}', '${PROJECT}', '${VIEWER}', 'viewer', '${LEAD}')`,
-  )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: VIEWER,
+    canView: true,
+    canEdit: false,
+  })
   await migrator.query(
     `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier, title, created_by_user_id) VALUES
       ('${RECORD}', '${WS}', '${PROJECT}', 'experiment', 'EXP-F1', 'Movable record', '${LEAD}')`,

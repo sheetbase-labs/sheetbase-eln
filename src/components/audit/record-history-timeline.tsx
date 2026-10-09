@@ -118,8 +118,35 @@ function pickIcon(event: TimelineEventWire): LucideIcon {
 
 function detailPhrase(event: TimelineEventWire): string {
   switch (event.type) {
-    case 'change_event':
+    case 'change_event': {
+      // Captured facts (for example a protocol deviation's frozen and recorded
+      // step text) name themselves, so the row says what changed rather than
+      // repeating the operation.
+      const payload = event.payload
+      const captured =
+        typeof payload === 'object' &&
+        payload !== null &&
+        'changes' in payload &&
+        typeof payload.changes === 'object' &&
+        payload.changes !== null
+          ? payload.changes
+          : null
+      if (captured !== null) {
+        const labels: string[] = []
+        for (const change of Object.values(captured)) {
+          if (
+            typeof change === 'object' &&
+            change !== null &&
+            'label' in change &&
+            typeof change.label === 'string'
+          ) {
+            labels.push(change.label)
+          }
+        }
+        if (labels.length > 0) return labels.join(', ')
+      }
       return String(event.operation ?? '')
+    }
     case 'revision':
       return String(event.reason ?? '')
     case 'submission':

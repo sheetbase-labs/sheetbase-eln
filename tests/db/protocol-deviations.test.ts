@@ -269,6 +269,24 @@ describe('LAB-07 protocol deviations', () => {
       [experiment.id],
     )
     expect(rows).toHaveLength(1)
+    // The review surface reads api.record_timeline, so the deviation must reach
+    // the reviewer through the same event, with its before/after text.
+    const timeline = await author.query<{
+      events: Array<{
+        type: string
+        eventType: string
+        payload: Record<string, unknown>
+      }>
+    }>('select api.record_timeline($1) as events', [experiment.id])
+    const deviationEvent = timeline.rows[0]!.events.find(
+      (event) =>
+        event.type === 'change_event' && event.eventType === 'protocol_deviation',
+    )
+    expect(deviationEvent).toBeDefined()
+    expect(deviationEvent!.payload).toMatchObject({
+      frozenText: FROZEN_TEXT,
+      recordedText: 'Deviate from the pinned procedure.',
+    })
     expect(rows[0]!.payload).toMatchObject({
       blockId: step!.id,
       frozenText: FROZEN_TEXT,

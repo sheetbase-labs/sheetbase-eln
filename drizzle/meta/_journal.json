@@ -2316,6 +2316,20 @@
       "when": 1791535578745,
       "tag": "0332_api_client_projectless_access",
       "breakpoints": true
+    },
+    {
+      "idx": 333,
+      "version": "7",
+      "when": 1791536515951,
+      "tag": "0333_api_client_workspace_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 334,
+      "version": "7",
+      "when": 1791536585124,
+      "tag": "0334_api_client_project_predicates",
+      "breakpoints": true
     }
   ]
 }

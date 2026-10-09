@@ -45,9 +45,9 @@ beforeAll(async () => {
       ('${WS_A}', '${MEMBER_A}', 'member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'nb-proj-a', 'NB Project A'),
-      ('${PROJ_B}', '${WS_B}', 'nb-proj-b', 'NB Project B')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'nb-proj-a', 'NB Project A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'nb-proj-b', 'NB Project B', '${OWNER_B}')`,
   )
 
   // Seed a record + block + link in each workspace so read isolation can be

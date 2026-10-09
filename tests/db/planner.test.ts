@@ -6,7 +6,11 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  grantProjectAccess,
+  prepareTestDatabase,
+} from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000505a'
 const WS_B = '00000000-0000-4000-8000-00000000505b'
@@ -91,9 +95,17 @@ beforeAll(async () => {
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_A}', '${MEMBER_A}', 'member'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'ops5-a', 'OPS005 A')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'ops5-a', 'OPS005 A', '${OWNER_A}')`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: true,
+    canReview: false,
+  })
 })
 
 afterAll(async () => {
@@ -277,7 +289,8 @@ describe('OPS-005 edit_study_task', () => {
         `SELECT * FROM api.edit_study_task($1, NULL, NULL, NULL, 'completed')`,
         ['00000000-0000-4000-8000-000000000099'],
       ),
-      'SB026',
+      // The entry access guard fails closed for an unknown task.
+      '42501',
     )
   })
 })
@@ -305,7 +318,7 @@ describe('OPS-005 delete_study_task', () => {
       owner.query(`SELECT * FROM api.delete_study_task($1)`, [
         '00000000-0000-4000-8000-000000000099',
       ]),
-      'SB026',
+      '42501',
     )
   })
 })
@@ -461,7 +474,7 @@ describe('OPS-005 delete_dependency', () => {
       owner.query(`SELECT * FROM api.delete_dependency($1)`, [
         '00000000-0000-4000-8000-000000000099',
       ]),
-      'SB028',
+      '42501',
     )
   })
 })

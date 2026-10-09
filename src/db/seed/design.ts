@@ -761,6 +761,10 @@ export const designSteps: Array<SeedStep> = [
     run: (db) => seedDesignProjectDetails(db),
   },
   {
+    name: 'design projects board access',
+    run: (db) => seedDesignProjectsBoardAccess(db),
+  },
+  {
     name: 'design sessions',
     run: (db) => seedDesignSessions(db),
   },
@@ -3505,6 +3509,7 @@ const DESIGN_PROJECT_ACCESS: Record<string, readonly DesignProjectRule[]> = {
     { group: 'upstream', view: true, edit: true, review: false },
     { group: 'analytical', view: true, edit: true, review: true },
     { group: 'qa', view: true, edit: false, review: false },
+    { user: DESIGN_USER_IDS.gareth, view: true, edit: false, review: false },
   ],
   // Edit: Analytical · Review: Analytical · View: QA, all workspace
   'hek293-cell-bank-characterisation': [
@@ -3512,6 +3517,123 @@ const DESIGN_PROJECT_ACCESS: Record<string, readonly DesignProjectRule[]> = {
     { group: 'qa', view: true, edit: false, review: false },
     { user: DESIGN_USER_IDS.gareth, view: true, edit: false, review: true },
   ],
+  // The Projects board lists these rows for the design user, who is neither the
+  // lead nor in the project's group, so each carries a design-attested explicit
+  // View rule (the same pattern as LVV and HEK293).
+  'aav-full-empty-assay-qualification': [
+    { user: DESIGN_USER_IDS.gareth, view: true, edit: false, review: false },
+  ],
+}
+
+/** Idempotently ensure one design access rule, written by the project's lead. */
+async function applyDesignProjectRule(
+  client: Client,
+  projectId: string,
+  rule: DesignProjectRule,
+  groupIds: Record<string, string>,
+) {
+  const principalUser = rule.user ?? null
+  const principalGroup = rule.group ? groupIds[rule.group] : null
+  const matches = await client.query(
+    `select 1 from api.project_access
+       where project_id=$1 and user_id is not distinct from $2
+         and group_id is not distinct from $3
+         and can_view=$4 and can_edit=$5 and can_review=$6
+         and not can_manage and not client_portal`,
+    [
+      projectId,
+      principalUser,
+      principalGroup,
+      rule.view,
+      rule.edit,
+      rule.review,
+    ],
+  )
+  if (!matches.rowCount)
+    await client.query(
+      'select api.set_project_access_rule($1,$2,$3,$4,$5,$6,false,false)',
+      [
+        projectId,
+        principalUser,
+        principalGroup,
+        rule.view,
+        rule.edit,
+        rule.review,
+      ],
+    )
+}
+
+/**
+ * The Projects board lists rows whose design user is neither the lead nor in
+ * the project's group (LVV transfection optimisation, AAV8 TFF concentration,
+ * capsid ELISA method transfer, T-cell activation reagent comparison, plasmid
+ * lot release panel). Those projects are created after the access-matrix step,
+ * so their design-attested explicit View rules are applied here, once every
+ * declared project exists.
+ */
+async function seedDesignProjectsBoardAccess(
+  db: Parameters<SeedStep['run']>[0],
+) {
+  const boardRows = [
+    'lvv-transfection-optimisation',
+    'aav8-tff-concentration',
+    'capsid-elisa-method-transfer',
+    't-cell-activation-reagent-comparison',
+    'plasmid-lot-release-panel',
+  ] as const
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.gareth,
+    PROCESS,
+    async (client) => {
+      const groupIds: Record<string, string> = {}
+      for (const [key, name] of Object.entries(DESIGN_ACCESS_GROUPS)) {
+        const found = await client.query<{ id: string }>(
+          'select id from api.workspace_groups_list() where name=$1',
+          [name],
+        )
+        if (found.rows.at(0)?.id) groupIds[key] = found.rows.at(0)!.id
+      }
+      for (const key of boardRows) {
+        const detail = DESIGN_PROJECT_DETAILS.find((d) => d.key === key)
+        if (!detail) throw new Error(`Design project ${key} is not declared`)
+        await withDesignClaims(db, detail.lead, PROCESS, async (lead) => {
+          await applyDesignProjectRule(
+            lead,
+            detail.id,
+            {
+              user: DESIGN_USER_IDS.gareth,
+              view: true,
+              edit: false,
+              review: false,
+            },
+            groupIds,
+          )
+        })
+      }
+    },
+  )
+
+  // The board reads "Sort: Updated" and lists its rows newest first, so the
+  // declared order is expressed in `updated_at` (an access-rule write above
+  // bumps it; the list would otherwise fall back to UUID order).
+  const orderedRows = DESIGN_PROJECT_DETAILS.filter(
+    (detail) => !detail.archived,
+  ).sort((a, b) => b.displayId.localeCompare(a.displayId))
+  await withDesignClaims(
+    db,
+    DESIGN_USER_IDS.gareth,
+    PROCESS,
+    async (client) => {
+      for (const [index, detail] of orderedRows.entries()) {
+        const updatedAt = new Date(DESIGN_CLOCK.getTime() - index * 60_000)
+        await client.query(
+          'update api.projects set updated_at=$2 where workspace_id=$3 and id=$1',
+          [detail.id, updatedAt, PROCESS],
+        )
+      }
+    },
+  )
 }
 
 async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
@@ -3577,35 +3699,7 @@ async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
     projectId: string,
     rule: DesignProjectRule,
   ) => {
-    const principalUser = rule.user ?? null
-    const principalGroup = rule.group ? groupIds[rule.group] : null
-    const matches = await client.query(
-      `select 1 from api.project_access
-         where project_id=$1 and user_id is not distinct from $2
-           and group_id is not distinct from $3
-           and can_view=$4 and can_edit=$5 and can_review=$6
-           and not can_manage and not client_portal`,
-      [
-        projectId,
-        principalUser,
-        principalGroup,
-        rule.view,
-        rule.edit,
-        rule.review,
-      ],
-    )
-    if (!matches.rowCount)
-      await client.query(
-        'select api.set_project_access_rule($1,$2,$3,$4,$5,$6,false,false)',
-        [
-          projectId,
-          principalUser,
-          principalGroup,
-          rule.view,
-          rule.edit,
-          rule.review,
-        ],
-      )
+    await applyDesignProjectRule(client, projectId, rule, groupIds)
   }
 
   // Only a project's own lead may manage its access, so each project's matrix

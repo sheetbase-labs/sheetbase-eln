@@ -273,6 +273,14 @@ describe('LAB-07 protocol deviations', () => {
       blockId: step!.id,
       frozenText: FROZEN_TEXT,
       recordedText: 'Deviate from the pinned procedure.',
+      // The History surface renders captured facts from `changes`.
+      changes: {
+        text: {
+          from: FROZEN_TEXT,
+          to: 'Deviate from the pinned procedure.',
+          label: 'Protocol step text',
+        },
+      },
     })
   })
 

@@ -125,3 +125,46 @@ it('counts the selected actor/category and sends exactly that immutable prefix t
   fireEvent.click(screen.getByRole('button', { name: 'signatures 0' }))
   expect(screen.getByText('No signatures in this selection.')).toBeTruthy()
 })
+
+it('renders a recorded protocol deviation with its frozen and recorded text', () => {
+  render(
+    <ExperimentHistoryView
+      recordId="record-1"
+      identifier="EXP-0142"
+      events={[
+        event({
+          id: 'deviation',
+          sequence: 21,
+          entityType: 'protocol_deviation',
+          operation: 'update',
+          payload: {
+            effect: 'protocol_deviation',
+            blockId: 'block-9',
+            frozenText: 'Hold at 2-8 C for 14 days.',
+            recordedText: 'Hold at 2-8 C for 21 days.',
+            changes: {
+              text: {
+                from: 'Hold at 2-8 C for 14 days.',
+                to: 'Hold at 2-8 C for 21 days.',
+                label: 'Protocol step text',
+              },
+            },
+          },
+        }),
+      ]}
+      snapshotBefore={22}
+      timeZone="Europe/London"
+    />,
+  )
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: /Inspect audit entry 21/,
+    }),
+  )
+  const details = within(
+    screen.getByRole('complementary', { name: 'Entry details' }),
+  )
+  expect(details.getByText('Protocol step text')).toBeTruthy()
+  expect(details.getByText('Hold at 2-8 C for 14 days.')).toBeTruthy()
+  expect(details.getByText('Hold at 2-8 C for 21 days.')).toBeTruthy()
+})

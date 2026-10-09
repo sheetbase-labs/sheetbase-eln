@@ -42,9 +42,9 @@ beforeAll(async () => {
       ('${OTHER_WS}', '${OUTSIDER}', 'member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJECT}', '${WS}', 'cs', 'CS'),
-      ('${OTHER_PROJECT}', '${OTHER_WS}', 'cso', 'CS other')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJECT}', '${WS}', 'cs', 'CS', '${MEMBER}'),
+      ('${OTHER_PROJECT}', '${OTHER_WS}', 'cso', 'CS other', '${OUTSIDER}')`,
   )
   await migrator.query(
     `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier, title, created_by_user_id) VALUES

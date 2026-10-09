@@ -54,8 +54,8 @@ beforeAll(async () => {
      INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'ops007-proj-a', 'OPS007 Project A');`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'ops007-proj-a', 'OPS007 Project A', '${OWNER_A}');`,
   )
   // Seed a record + frozen revision in workspace A with a block the section can
   // bind to. The revision insert trigger derives canonical_snapshot and digest.

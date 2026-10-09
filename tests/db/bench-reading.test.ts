@@ -57,8 +57,8 @@ beforeAll(async () => {
       ('${WS_B}', '${OUTSIDER_B}', 'member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJECT_A}', '${WS_A}', 'bnc', 'Bench project')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJECT_A}', '${WS_A}', 'bnc', 'Bench project', '${MEMBER_A}')`,
   )
   await migrator.query(
     `INSERT INTO api.dataset_schema_definitions (id, workspace_id, key, name, lifecycle) VALUES
@@ -124,11 +124,17 @@ async function commit(
     plannedKey: string
     values: Record<string, unknown>
   },
-): Promise<{ ok: boolean; idempotent?: boolean; rows?: unknown[]; errors?: unknown[] }> {
+): Promise<{
+  ok: boolean
+  idempotent?: boolean
+  rows?: unknown[]
+  errors?: unknown[]
+}> {
   const revision = await client
-    .query<{ revision: string }>(`SELECT revision FROM api.datasets WHERE id = $1`, [
-      input.datasetId,
-    ])
+    .query<{ revision: string }>(
+      `SELECT revision FROM api.datasets WHERE id = $1`,
+      [input.datasetId],
+    )
     .then((r) => Number(r.rows[0]?.revision ?? 1))
   const rows = [
     {
@@ -155,9 +161,7 @@ async function rowState(
   return { status: rows[0]!.status, revision: Number(rows[0]!.revision) }
 }
 
-async function storedValues(
-  rowId: string,
-): Promise<
+async function storedValues(rowId: string): Promise<
   Array<{
     field_id: string
     text_value: string | null

@@ -199,8 +199,8 @@ beforeAll(async () => {
      VALUES ('${WS_A}','${USER_A}','owner')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title)
-     VALUES ('${PROJECT_A}','${WS_A}','sci-04','SCI 04')`,
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id)
+     VALUES ('${PROJECT_A}','${WS_A}','sci-04','SCI 04','${USER_A}')`,
   )
   await migrator.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER_A, workspace_id: WS_A }),

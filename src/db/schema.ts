@@ -893,6 +893,11 @@ export const records = api.table(
     // api.record_model_versions is declared in the migration SQL to avoid a
     // forward type-inference reference.
     modelVersionId: uuid('model_version_id'),
+    // LAB-07: the exact protocol version an experiment started on. Null for
+    // records that are not protocol-controlled. The FK to api.protocol_versions
+    // is declared in the migration SQL to avoid a forward type-inference
+    // reference. Experiments keep the version they started on.
+    protocolVersionId: uuid('protocol_version_id'),
     calculationInputRevision: bigint('calculation_input_revision', {
       mode: 'bigint',
     })

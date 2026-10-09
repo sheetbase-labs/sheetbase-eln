@@ -412,7 +412,6 @@ describe('SCI-002 protocol pins and material blocks', () => {
       note: 'Still observed',
     })
     for (const patch of [
-      { text: 'rewrite' },
       { stepNumber: 99 },
       { sourceStepBlockId: step1.id },
       { sourceProtocolRevisionId: protocol.id },
@@ -424,6 +423,19 @@ describe('SCI-002 protocol pins and material blocks', () => {
         ),
       ).rejects.toMatchObject({ code: '23514' })
     }
+    // LAB-07: the scientific text may change, but the change is a recorded
+    // deviation from the pinned revision rather than a silent edit.
+    await a.query(
+      `UPDATE api.blocks SET payload=payload || '{"text":"rewrite"}'::jsonb WHERE id=$1`,
+      [execution.id],
+    )
+    const { rows: deviations } = await a.query(
+      `SELECT frozen_text,recorded_text FROM api.protocol_deviations WHERE block_id=$1`,
+      [execution.id],
+    )
+    expect(deviations).toEqual([
+      { frozen_text: 'Incubate', recorded_text: 'rewrite' },
+    ])
   })
 
   it('validates material targets and preserves observed identity while allowing quantity edits', async () => {

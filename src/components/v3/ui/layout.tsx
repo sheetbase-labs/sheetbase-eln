@@ -60,18 +60,24 @@ export function PageHeader({
 /**
  * Right-hand panel for properties and provenance. Inline at desktop width (≥1280px); below that it folds away
  * behind a "Details" button and opens as a side panel on laptops and a bottom sheet on tablets and phones.
+ *
+ * `width` matches the screen's design canvas, which is the parity reference and is not always the
+ * `--inspector-width` token (canvases use 280–340px). It is applied inline because the token's
+ * `w-inspector` utility wins over a caller-supplied width class.
  */
 export function Inspector({
   className,
   children,
   label = 'Details',
+  width,
   ...props
-}: React.ComponentProps<'aside'> & { label?: string }) {
+}: React.ComponentProps<'aside'> & { label?: string; width?: number }) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <aside
         aria-label={label}
+        style={width === undefined ? undefined : { width }}
         className={cn(
           'hidden w-inspector shrink-0 flex-col gap-5 overflow-auto border-l border-border bg-surface p-4 xl:flex',
           className,

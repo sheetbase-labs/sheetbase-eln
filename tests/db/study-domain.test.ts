@@ -66,6 +66,13 @@ beforeAll(async () => {
     canView: true,
     canEdit: true,
   })
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A_2,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: true,
+  })
 
   const owner = await actor(OWNER_A)
   const { rows } = await owner.query(
@@ -148,15 +155,22 @@ describe('Study domain', () => {
         study.id,
         PROJECT_B,
       ]),
+      // The 0323 entry guard fails closed before the workspace/link validation.
+    ).rejects.toMatchObject({ code: '42501' })
+    // A same-workspace non-experiment Record fails validation...
+    await expect(
+      member.query(`select api.link_study_experiment($1,$2)`, [
+        study.id,
+        reportA.id,
+      ]),
     ).rejects.toMatchObject({ code: 'SB073' })
-    for (const record of [reportA, experimentB]) {
-      await expect(
-        member.query(`select api.link_study_experiment($1,$2)`, [
-          study.id,
-          record.id,
-        ]),
-      ).rejects.toMatchObject({ code: 'SB073' })
-    }
+    // ...while another workspace's Record is denied before validation.
+    await expect(
+      member.query(`select api.link_study_experiment($1,$2)`, [
+        study.id,
+        experimentB.id,
+      ]),
+    ).rejects.toMatchObject({ code: '42501' })
 
     const ownerB = await actor(OWNER_B, WS_B)
     await expect(

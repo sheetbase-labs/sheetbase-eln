@@ -54,11 +54,11 @@ beforeAll(async () => {
       ('${WS_B}', '${USER_B}', 'member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'fav-proj-a', 'Favourites Project A'),
-      ('${PROJ_B}', '${WS_B}', 'fav-proj-b', 'Favourites Project B'),
-      ('${PROJ_STALE}', '${WS_A}', 'fav-proj-stale', 'Favourites Project Stale'),
-      ('${PROJ_LEFT}', '${WS_A}', 'fav-proj-left', 'Favourites Project Left')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'fav-proj-a', 'Favourites Project A', '${USER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'fav-proj-b', 'Favourites Project B', '${USER_B}'),
+      ('${PROJ_STALE}', '${WS_A}', 'fav-proj-stale', 'Favourites Project Stale', '${USER_A}'),
+      ('${PROJ_LEFT}', '${WS_A}', 'fav-proj-left', 'Favourites Project Left', '${USER_A}')`,
   )
 
   // Seed every pin through the only write path: the SECURITY DEFINER RPC.

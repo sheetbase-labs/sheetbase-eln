@@ -2,7 +2,11 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  grantProjectAccess,
+  prepareTestDatabase,
+} from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000c052'
 const WS_B = '00000000-0000-4000-8000-00000000c053'
@@ -52,8 +56,22 @@ beforeAll(async () => {
       ('${WS_A}','${MEMBER}','member'),
       ('${WS_A}','${VIEWER}','viewer'),
       ('${WS_B}','${OTHER_OWNER}','owner');
-    insert into api.projects(id,workspace_id,key,title) values
-      ('${PROJECT_A}','${WS_A}','cap','Capabilities')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id) values
+      ('${PROJECT_A}','${WS_A}','cap','Capabilities','${OWNER}')`)
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: MEMBER,
+    canView: true,
+    canEdit: true,
+  })
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: VIEWER,
+    canView: true,
+    canEdit: false,
+  })
 })
 
 afterAll(async () => {

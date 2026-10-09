@@ -56,7 +56,7 @@ beforeAll(async () => {
     insert into api.workspaces(id,slug,name) values('${WS}','model-fields','Model fields');
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS}','${OWNER}','owner'),('${WS}','${ADMIN}','admin'),('${WS}','${MEMBER}','member');
-    insert into api.projects(id,workspace_id,key,title) values('${PROJECT}','${WS}','mf','MF')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id) values('${PROJECT}','${WS}','mf','MF','${MEMBER}')`)
 })
 
 afterAll(async () => {

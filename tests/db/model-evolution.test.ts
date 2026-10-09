@@ -43,8 +43,8 @@ beforeAll(async () => {
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS}','${OWNER}','owner'),
       ('${WS}','${MEMBER}','member');
-    insert into api.projects(id,workspace_id,key,title)
-      values('${PROJECT}','${WS}','m04','M04')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id)
+      values('${PROJECT}','${WS}','m04','M04','${MEMBER}')`)
 })
 
 afterAll(async () => {

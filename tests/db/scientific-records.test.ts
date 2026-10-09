@@ -101,10 +101,10 @@ beforeAll(async () => {
      INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
       ('${WS_A}', '${OWNER_A}', 'owner'), ('${WS_A}', '${MEMBER_A}', 'member'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'sci-a', 'SCI A'),
-      ('${PROJ_A2}', '${WS_A}', 'sci-a2', 'SCI A2'),
-      ('${PROJ_B}', '${WS_B}', 'sci-b', 'SCI B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'sci-a', 'SCI A', '${OWNER_A}'),
+      ('${PROJ_A2}', '${WS_A}', 'sci-a2', 'SCI A2', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'sci-b', 'SCI B', '${OWNER_B}')`,
   )
   const owner = await asAuthenticated(OWNER_A, WS_A)
   await addDefinition(owner, 'required_text', 'text', false)

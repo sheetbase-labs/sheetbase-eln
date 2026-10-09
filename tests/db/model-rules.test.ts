@@ -79,7 +79,15 @@ async function createRule(
 ): Promise<Record<string, any>> {
   const { rows } = await client.query(
     `SELECT * FROM api.create_model_rule($1::uuid, $2, $3, $4::text[], $5::jsonb, $6, $7)`,
-    [workspaceId, modelKey, name, fieldKeys, JSON.stringify(condition), effect, message],
+    [
+      workspaceId,
+      modelKey,
+      name,
+      fieldKeys,
+      JSON.stringify(condition),
+      effect,
+      message,
+    ],
   )
   return rows[0]
 }
@@ -128,9 +136,9 @@ beforeAll(async () => {
      INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
        ('${WS_A}', '${OWNER_A}', 'owner'), ('${WS_A}', '${MEMBER_A}', 'member'),
        ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-       ('${PROJ_A}', '${WS_A}', 'rule-a', 'Rule A'),
-       ('${PROJ_B}', '${WS_B}', 'rule-b', 'Rule B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+       ('${PROJ_A}', '${WS_A}', 'rule-a', 'Rule A', '${OWNER_A}'),
+       ('${PROJ_B}', '${WS_B}', 'rule-b', 'Rule B', '${OWNER_B}')`,
   )
   const owner = await asAuthenticated(OWNER_A, WS_A)
   const ownerB = await asAuthenticated(OWNER_B, WS_B)
@@ -173,9 +181,10 @@ describe('rule stewardship and isolation', () => {
     })
 
     // Members read; a plain member cannot author.
-    const listed = await member.query(`SELECT id FROM api.list_model_rules($1)`, [
-      WS_A,
-    ])
+    const listed = await member.query(
+      `SELECT id FROM api.list_model_rules($1)`,
+      [WS_A],
+    )
     expect(listed.rows).toHaveLength(1)
     await expect(
       createRule(
@@ -206,7 +215,10 @@ describe('rule stewardship and isolation', () => {
         JSON.stringify({ effect: 'warn', message: 'Dose looks high' }),
       ])
     ).rows[0]
-    expect(updated).toMatchObject({ effect: 'warn', message: 'Dose looks high' })
+    expect(updated).toMatchObject({
+      effect: 'warn',
+      message: 'Dose looks high',
+    })
 
     await owner.query(`SELECT api.remove_model_rule($1)`, [rule.id])
     expect(
@@ -292,10 +304,11 @@ describe('block effect', () => {
 
     // The same gate covers the canonical partial-update RPC.
     await expect(
-      owner.query(
-        `SELECT api.update_record_custom_fields($1,$2,$3::jsonb)`,
-        [allowed.id, allowed.metadata_version, JSON.stringify({ dose: 200 })],
-      ),
+      owner.query(`SELECT api.update_record_custom_fields($1,$2,$3::jsonb)`, [
+        allowed.id,
+        allowed.metadata_version,
+        JSON.stringify({ dose: 200 }),
+      ]),
     ).rejects.toMatchObject({ code: 'SB083' })
 
     const report = (
@@ -372,9 +385,9 @@ describe('warn effect', () => {
       dose: 150,
     })
     expect(warned.id).toBeTruthy()
-    expect(notices.some((message) => message.includes('Dose is unusually high'))).toBe(
-      true,
-    )
+    expect(
+      notices.some((message) => message.includes('Dose is unusually high')),
+    ).toBe(true)
 
     const report = (
       await owner.query(`SELECT api.model_record_validation($1) AS result`, [
@@ -426,10 +439,16 @@ describe('condition DSL', () => {
       }),
     ).rejects.toMatchObject({ code: 'SB083' })
     // Only one branch matches: allowed.
-    const allowed = await createRecord(owner, PROJ_A, 'experiment', 'One branch', {
-      dose: 20,
-      load: 'low',
-    })
+    const allowed = await createRecord(
+      owner,
+      PROJ_A,
+      'experiment',
+      'One branch',
+      {
+        dose: 20,
+        load: 'low',
+      },
+    )
     expect(allowed.id).toBeTruthy()
   })
 })

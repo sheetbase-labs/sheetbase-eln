@@ -83,9 +83,9 @@ beforeAll(async () => {
      INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
        ('${WS_A}', '${OWNER_A}', 'owner'),
        ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-       ('${PROJECT_A}', '${WS_A}', 'rmra', 'Record Model Records A'),
-       ('${PROJECT_B}', '${WS_B}', 'rmrb', 'Record Model Records B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+       ('${PROJECT_A}', '${WS_A}', 'rmra', 'Record Model Records A', '${OWNER_A}'),
+       ('${PROJECT_B}', '${WS_B}', 'rmrb', 'Record Model Records B', '${OWNER_B}')`,
   )
 })
 

@@ -112,9 +112,9 @@ beforeAll(async () => {
      INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
        ('${WS_A}', '${OWNER_A}', 'owner'),
        ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-       ('${PROJECT_A}', '${WS_A}', 'rmra', 'Record Model Relations A'),
-       ('${PROJECT_B}', '${WS_B}', 'rmrb', 'Record Model Relations B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+       ('${PROJECT_A}', '${WS_A}', 'rmra', 'Record Model Relations A', '${OWNER_A}'),
+       ('${PROJECT_B}', '${WS_B}', 'rmrb', 'Record Model Relations B', '${OWNER_B}')`,
   )
   const owner = await asAuthenticated(OWNER_A, WS_A)
   await createModel(owner, WS_A, 'cell_bank', 'CB', 'Cell bank')
@@ -220,8 +220,18 @@ describe('typed relationships for workspace record models', () => {
     await configureRule(owner, WS_A, 'cell_bank', 'sample', 'sample', 0, null)
 
     const cell = await createRecord(owner, PROJECT_A, 'cell_bank', 'CB source')
-    const sample = await createRecord(owner, PROJECT_A, 'sample', 'Sample target')
-    const reagent = await createRecord(owner, PROJECT_A, 'reagent', 'Reagent target')
+    const sample = await createRecord(
+      owner,
+      PROJECT_A,
+      'sample',
+      'Sample target',
+    )
+    const reagent = await createRecord(
+      owner,
+      PROJECT_A,
+      'reagent',
+      'Reagent target',
+    )
 
     const allowed = await createLink(owner, cell.id, {
       kind: 'sample',

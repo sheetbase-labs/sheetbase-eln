@@ -39,9 +39,9 @@ beforeAll(async () => {
       ('${WS_B}', '${MEMBER_B}', 'owner')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJECT_A}', '${WS_A}', 'depa', 'Deps A'),
-      ('${PROJECT_B}', '${WS_B}', 'depb', 'Deps B')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJECT_A}', '${WS_A}', 'depa', 'Deps A', '${MEMBER_A}'),
+      ('${PROJECT_B}', '${WS_B}', 'depb', 'Deps B', '${MEMBER_B}')`,
   )
 })
 
@@ -73,10 +73,9 @@ async function discover(
   client: Client,
   modelKey: string,
 ): Promise<Dependency[]> {
-  const { rows } = await client.query<{ result: { dependencies: Dependency[] } }>(
-    `SELECT api.discover_model_dependencies($1) AS result`,
-    [modelKey],
-  )
+  const { rows } = await client.query<{
+    result: { dependencies: Dependency[] }
+  }>(`SELECT api.discover_model_dependencies($1) AS result`, [modelKey])
   return rows[0]!.result.dependencies
 }
 

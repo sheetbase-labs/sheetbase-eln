@@ -10,7 +10,11 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  grantProjectAccess,
+  prepareTestDatabase,
+} from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000d0a0'
 const WS_B = '00000000-0000-4000-8000-00000000d0a1'
@@ -49,8 +53,16 @@ beforeAll(async () => {
       ('${WS_B}', '${OUTSIDER}', 'member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES ('${PROJECT}', '${WS_A}', 'sys', 'System flag project')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES ('${PROJECT}', '${WS_A}', 'sys', 'System flag project', '${MEMBER}')`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT,
+    userId: VIEWER,
+    canView: true,
+    canEdit: false,
+    canReview: false,
+  })
   await migrator.query(
     `INSERT INTO api.dataset_schema_definitions (id, workspace_id, key, name, lifecycle) VALUES ('${SCHEMA_DEF}', '${WS_A}', 'sysflag_schema', 'System flag schema', 'draft')`,
   )
@@ -86,7 +98,11 @@ async function asUser(userId: string, workspaceId: string): Promise<Client> {
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
-    JSON.stringify({ sub: userId, workspace_id: workspaceId, role: 'authenticated' }),
+    JSON.stringify({
+      sub: userId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }),
   ])
   return client
 }
@@ -205,10 +221,7 @@ describe('system rule-generated flags', () => {
   it('denies a non-member or another workspace read and write', async () => {
     const otherWorkspace = await asUser(OUTSIDER, WS_B)
     expect(await activeFlags(otherWorkspace)).toHaveLength(0)
-    await expectDenied(
-      validate(otherWorkspace, 9),
-      '42501',
-    )
+    await expectDenied(validate(otherWorkspace, 9), '42501')
 
     // Same workspace id but no membership: RLS hides the flags and validation denies.
     const nonMember = await asUser(OUTSIDER, WS_A)

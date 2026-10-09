@@ -174,3 +174,39 @@ export async function openMigratorWriter(
   await setActorJwt(client, userId, workspaceId)
   return client
 }
+
+/**
+ * Explicit project authority for a test principal. Since SET-02 / ADR-0050 a
+ * project is private to its lead until an explicit rule exists, so fixtures
+ * that write through a claimed actor must grant it. Inserted through the
+ * migrator so the fixture does not need a managing lead of its own.
+ */
+export async function grantProjectAccess(
+  client: Client,
+  input: {
+    workspaceId: string
+    projectId: string
+    userId: string
+    canView?: boolean
+    canEdit?: boolean
+    canReview?: boolean
+    canManage?: boolean
+  },
+): Promise<void> {
+  await client.query(
+    `INSERT INTO api.project_access(workspace_id,project_id,user_id,can_view,can_edit,can_review,can_manage,granted_by_user_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$3)
+     ON CONFLICT(workspace_id,project_id,user_id) DO UPDATE SET
+       can_view=excluded.can_view, can_edit=excluded.can_edit,
+       can_review=excluded.can_review, can_manage=excluded.can_manage`,
+    [
+      input.workspaceId,
+      input.projectId,
+      input.userId,
+      input.canView ?? true,
+      input.canEdit ?? true,
+      input.canReview ?? false,
+      input.canManage ?? false,
+    ],
+  )
+}

@@ -17,7 +17,11 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  grantProjectAccess,
+  prepareTestDatabase,
+} from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000d0b0'
 const WS_B = '00000000-0000-4000-8000-00000000d0b1'
@@ -77,8 +81,16 @@ beforeAll(async () => {
       ('${WS_B}', '${OUTSIDER}', 'member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES ('${PROJECT}', '${WS_A}', 'rule', 'Rule flag project')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES ('${PROJECT}', '${WS_A}', 'rule', 'Rule flag project', '${MEMBER}')`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT,
+    userId: VIEWER,
+    canView: true,
+    canEdit: false,
+    canReview: false,
+  })
   await migrator.query(
     `INSERT INTO api.dataset_schema_definitions (id, workspace_id, key, name, lifecycle) VALUES ('${SCHEMA_DEF}', '${WS_A}', 'ruleflag_schema', 'Rule flag schema', 'draft')`,
   )

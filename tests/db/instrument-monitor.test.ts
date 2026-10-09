@@ -440,7 +440,8 @@ describe('OPS-006 RLS workspace isolation', () => {
         `SELECT * FROM api.ingest_observation($1, $2, $3, 'telemetry', $4::timestamptz, '{"cycle":1}'::jsonb)`,
         [WS_A, run.id, 'forbidden-observation', '2026-01-01T10:00:00Z'],
       ),
-      'SB033',
+      // The 0323 entry guard fails closed before the workspace check.
+      '42501',
     )
   })
 })

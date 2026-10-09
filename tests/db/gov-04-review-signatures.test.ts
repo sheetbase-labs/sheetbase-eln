@@ -19,7 +19,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '#/db/schema'
 import { createAuth } from '#/lib/auth'
 import { handleSignatureStepUp } from '#/lib/signature-step-up.server'
-import { migratorUrl, prepareTestDatabase, ensureSessions } from './helpers'
+import {
+  migratorUrl,
+  prepareTestDatabase,
+  ensureSessions,
+  grantProjectAccess,
+} from './helpers'
 
 const WS = '98000000-0000-4000-8000-0000000000b1'
 const WS_OTHER = '98000000-0000-4000-8000-0000000000b2'
@@ -161,8 +166,15 @@ beforeAll(async () => {
   await migrator!.query(
     `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES ($1,$2,'G4','GOV04 project',$3)`,
     [PROJECT, WS, REVIEWER],
-    await ensureSessions(migrator, [AUTHOR, REVIEWER, OUTSIDER, VERIFIER]),
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: AUTHOR,
+    canView: true,
+    canEdit: true,
+  })
+  await ensureSessions(migrator, [AUTHOR, REVIEWER, OUTSIDER, VERIFIER])
   await migrator!.query(
     `INSERT INTO api.records
        (id,workspace_id,project_id,kind,identifier,title,status,properties,tags,created_by_user_id)
@@ -546,6 +558,6 @@ describe('GOV-04 frozen evidence and signature attachment', () => {
       outsider.query(`SELECT api.revision_evidence_package($1) AS result`, [
         '00000000-0000-4000-8000-0000000000b1',
       ]),
-    ).rejects.toMatchObject({ code: '22023' })
+    ).rejects.toMatchObject({ code: '42501' })
   })
 })

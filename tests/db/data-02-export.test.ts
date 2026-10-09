@@ -170,6 +170,6 @@ describe('DATA-02 revision_evidence_package contract', () => {
       a.query(`select api.revision_evidence_package($1)`, [
         '0d020000-0000-4000-8000-0000000000ff',
       ]),
-    ).rejects.toMatchObject({ code: '22023' })
+    ).rejects.toMatchObject({ code: '42501' })
   })
 })

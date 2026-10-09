@@ -153,6 +153,6 @@ describe('api.record_file_text', () => {
     const outsider = await asAuthenticated(OUTSIDER, OTHER_WS)
     await expect(
       outsider.query(`SELECT api.record_file_text($1, $2)`, [FILE_ID, 'leak']),
-    ).rejects.toThrow(/workspace/i)
+    ).rejects.toThrow(/workspace|access denied/i)
   })
 })

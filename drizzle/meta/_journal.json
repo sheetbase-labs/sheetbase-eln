@@ -2386,6 +2386,48 @@
       "when": 1791570018434,
       "tag": "0342_submission_race_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 343,
+      "version": "7",
+      "when": 1791570169478,
+      "tag": "0343_portal_autoshare_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 344,
+      "version": "7",
+      "when": 1791570211017,
+      "tag": "0344_portal_rule_and_switch",
+      "breakpoints": true
+    },
+    {
+      "idx": 345,
+      "version": "7",
+      "when": 1791570228694,
+      "tag": "0345_portal_grant_on_enable",
+      "breakpoints": true
+    },
+    {
+      "idx": 346,
+      "version": "7",
+      "when": 1791570294519,
+      "tag": "0346_portal_grant_on_accept",
+      "breakpoints": true
+    },
+    {
+      "idx": 347,
+      "version": "7",
+      "when": 1791570445371,
+      "tag": "0347_portal_authority_split",
+      "breakpoints": true
+    },
+    {
+      "idx": 348,
+      "version": "7",
+      "when": 1791570601880,
+      "tag": "0348_share_grants_portal",
+      "breakpoints": true
     }
   ]
 }

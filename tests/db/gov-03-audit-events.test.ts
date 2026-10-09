@@ -14,7 +14,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, grantProjectAccess } from './helpers'
 import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
 
 const DENIED = '42501'
@@ -332,6 +332,13 @@ describe('GOV-03 trigger coverage', () => {
       `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id)
        VALUES ('${projectId}', '${WS}', 'gov03-proj', 'GOV03 Project', '${OWNER}')`,
     )
+    await grantProjectAccess(migrator, {
+      workspaceId: WS,
+      projectId,
+      userId: MEMBER,
+      canView: true,
+      canEdit: true,
+    })
     await migrator.query(
       `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier,
          title, status, created_by_user_id)

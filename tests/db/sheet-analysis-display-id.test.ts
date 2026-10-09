@@ -55,7 +55,11 @@ async function actor() {
   clients.push(client)
   await client.query('set role authenticated')
   await client.query(`select set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ sub: OWNER, workspace_id: WS }),
+    JSON.stringify({
+      sub: OWNER,
+      workspace_id: WS,
+      role: 'authenticated',
+    }),
   ])
   return client
 }

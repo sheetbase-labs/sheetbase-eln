@@ -97,7 +97,13 @@ describe('DATA-02 export receipts (api.data_exports)', () => {
     await foreignClaims.query('SET ROLE authenticated')
     await foreignClaims.query(
       `select set_config('request.jwt.claims',$1,false)`,
-      [JSON.stringify({ sub: OWNER_A, workspace_id: WS_B })],
+      [
+        JSON.stringify({
+          sub: OWNER_A,
+          workspace_id: WS_B,
+          role: 'authenticated',
+        }),
+      ],
     )
     const { rows: foreignRows } = await foreignClaims.query(
       `select count(*)::int as n from api.data_exports where object_id=$1`,

@@ -159,7 +159,11 @@ beforeAll(async () => {
   )
   await owner.query('set role authenticated')
   await owner.query(`select set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ sub: OWNER, workspace_id: WS }),
+    JSON.stringify({
+      sub: OWNER,
+      workspace_id: WS,
+      role: 'authenticated',
+    }),
   ])
 
   const schemaId = (

@@ -194,7 +194,11 @@ beforeAll(async () => {
   ] as const) {
     await client.query('set role authenticated')
     await client.query(`select set_config('request.jwt.claims',$1,false)`, [
-      JSON.stringify({ sub: user, workspace_id: WS }),
+      JSON.stringify({
+        sub: user,
+        workspace_id: WS,
+        role: 'authenticated',
+      }),
     ])
   }
 })

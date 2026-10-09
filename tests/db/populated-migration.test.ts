@@ -106,7 +106,11 @@ describe('populated migration 0255', () => {
     try {
       await actor.query('SET ROLE authenticated')
       await actor.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
-        JSON.stringify({ sub: owner, workspace_id: workspace }),
+        JSON.stringify({
+          sub: owner,
+          workspace_id: workspace,
+          role: 'authenticated',
+        }),
       ])
       const state = {
         bindings: [],

@@ -11,6 +11,7 @@ import { PageHeader, Muted } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { NativeSelect } from '#/components/v3/projects/select'
+import { Checkbox } from '#/components/v3/ui/checkbox'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   applyExperimentSetup,
@@ -57,6 +58,8 @@ function NewExperiment() {
   const [reviewerId, setReviewerId] = useState('')
   const [plannedEnd, setPlannedEnd] = useState('')
   const [protocolId, setProtocolId] = useState('')
+  const [protocolVersionId, setProtocolVersionId] = useState('')
+  const [startNow, setStartNow] = useState(false)
   const [copyFromId, setCopyFromId] = useState('')
   const [touched, setTouched] = useState(false)
 
@@ -79,6 +82,19 @@ function NewExperiment() {
       }>(
         'records',
         '?kind=eq.protocol_template&deleted_at=is.null&order=identifier.asc&select=id,identifier,title&limit=100',
+      ),
+    staleTime: 60_000,
+  })
+  const protocolVersions = useQuery({
+    queryKey: ['ui-port', 'experiments', 'new', 'protocol-versions'],
+    queryFn: () =>
+      notebookDataClient.list<{
+        id: string
+        protocol_record_id: string
+        version: number
+      }>(
+        'protocol_versions',
+        '?status=eq.effective&order=version.desc&select=id,protocol_record_id,version&limit=100',
       ),
     staleTime: 60_000,
   })
@@ -121,12 +137,33 @@ function NewExperiment() {
         protocolRecordId: protocolId || undefined,
         copyFromRecordId: copyFromId || undefined,
       })
-      return record
+      if (startNow || protocolVersionId) {
+        // Starting is a server decision: PROJ-03 and LAB-07 authority (effective
+        // version, exact-version acknowledgement) are enforced by the RPC.
+        const current = await notebookDataClient.list<{
+          metadata_version: number
+        }>('records', `?id=eq.${record.id}&select=metadata_version&limit=1`)
+        await notebookDataClient.rpc('start_experiment', {
+          p_record_id: record.id,
+          p_expected_metadata_version: current.at(0)?.metadata_version ?? 1,
+          p_protocol_version_id: protocolVersionId || null,
+          p_reason: 'Started from the new experiment form',
+        })
+        return { record, started: true }
+      }
+      return { record, started: false }
     },
-    onSuccess: (record) => {
-      toast(`Draft ${record.identifier} created`, {
-        description: 'It opens on a blank notebook; add blocks as you work.',
-      })
+    onSuccess: ({ record, started }) => {
+      toast(
+        started
+          ? `Experiment ${record.identifier} started`
+          : `Draft ${record.identifier} created`,
+        {
+          description: started
+            ? 'It opens on its notebook; edits to pinned steps are recorded as deviations.'
+            : 'It opens on a blank notebook; add blocks as you work.',
+        },
+      )
       void navigate({
         to: '/experiments/$expId/notebook',
         params: { expId: record.id },
@@ -220,19 +257,42 @@ function NewExperiment() {
             onChange={(e) => setPlannedEnd(e.target.value)}
           />
         </Field>
-        <Field label="Protocol to follow" hint="Optional.">
+        <Field
+          label="Protocol version to follow"
+          hint="Only effective versions can start an experiment. Optional."
+        >
           <NativeSelect
-            value={protocolId}
-            onChange={(e) => setProtocolId(e.target.value)}
+            value={protocolVersionId}
+            onChange={(e) => {
+              const value = e.target.value
+              setProtocolVersionId(value)
+              const chosen = (protocolVersions.data ?? []).find(
+                (v) => v.id === value,
+              )
+              setProtocolId(chosen?.protocol_record_id ?? '')
+            }}
           >
             <option value="">No protocol</option>
-            {(protocols.data ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.identifier} · {p.title}
-              </option>
-            ))}
+            {(protocolVersions.data ?? []).map((v) => {
+              const record = (protocols.data ?? []).find(
+                (p) => p.id === v.protocol_record_id,
+              )
+              return (
+                <option key={v.id} value={v.id}>
+                  {record ? `${record.identifier} · ${record.title}` : 'Protocol'}{' '}
+                  · v{v.version}
+                </option>
+              )
+            })}
           </NativeSelect>
         </Field>
+        <label className="flex cursor-pointer items-center gap-2 text-label">
+          <Checkbox
+            checked={startNow}
+            onCheckedChange={(on) => setStartNow(Boolean(on))}
+          />
+          Start the experiment now
+        </label>
         <Field
           label="Copy materials from"
           hint="Links the same samples and reagents as an earlier experiment. Optional."

@@ -15,7 +15,9 @@ test('inbox lists work items, filters by type and fits the phone width', async (
           title: 'Stability assay',
           project_id: 'project-1',
           reason: 'Review requested',
-          due_at: null,
+          // An item without a due date belongs to the collapsed "Later" group
+          // (see groupWorkItems), so a needs-action row carries one.
+          due_at: new Date().toISOString(),
           state: 'needs_action',
           created_at: '2026-09-06T10:00:00Z',
         },

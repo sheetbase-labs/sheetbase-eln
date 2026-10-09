@@ -219,10 +219,10 @@ describe('Sheet Instance durability and authority', () => {
         [WS_A, projectId, recordId, JSON.stringify(state())],
       )
     await expect(createWithContext(PROJECT_B, null)).rejects.toMatchObject({
-      code: 'SB073',
+      code: '42501',
     })
     await expect(createWithContext(PROJECT_A, RECORD_B)).rejects.toMatchObject({
-      code: 'SB073',
+      code: '42501',
     })
     const instance = (await createWithContext(PROJECT_A, RECORD_A)).rows[0]
       .result
@@ -257,7 +257,7 @@ describe('Sheet Instance durability and authority', () => {
     })
     for (const id of [datasetB, crypto.randomUUID()]) {
       await expect(createBound(datasetBinding(id))).rejects.toMatchObject({
-        code: 'SB073',
+        code: '42501',
       })
     }
     for (const id of [RECORD_B, crypto.randomUUID()]) {
@@ -269,7 +269,7 @@ describe('Sheet Instance durability and authority', () => {
           recordId: id,
           policy: 'live',
         }),
-      ).rejects.toMatchObject({ code: 'SB073' })
+      ).rejects.toMatchObject({ code: '42501' })
     }
     await expect(
       createBound(datasetBinding(otherDatasetA, versionA)),

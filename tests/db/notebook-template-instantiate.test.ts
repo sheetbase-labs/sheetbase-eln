@@ -323,7 +323,8 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
         `select api.instantiate_notebook_template_version($1,$2,'Nope','[]'::jsonb,'other')`,
         [published.id, PROJECT],
       ),
-      'SB090',
+      // The 0323 entry guard fails closed before the template validation.
+      '42501',
     )
 
     const required = (

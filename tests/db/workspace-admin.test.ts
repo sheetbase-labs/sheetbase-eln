@@ -84,6 +84,13 @@ beforeAll(async () => {
     canReview: true,
     canManage: true,
   })
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: false,
+  })
 })
 
 afterAll(async () => {
@@ -338,7 +345,8 @@ describe('ADMIN-001 project access', () => {
         `SELECT * FROM api.grant_project_access($1, $2, $3, 'viewer')`,
         [WS_A, PROJ_A, MEMBER_A],
       ),
-      'SB059',
+      // The 0323 entry guard fails closed before the capability check.
+      '42501',
     )
     const owner = await asAuthenticated(OWNER_A, WS_A)
     await expectDenied(
@@ -346,7 +354,7 @@ describe('ADMIN-001 project access', () => {
         `SELECT * FROM api.grant_project_access($1, $2, $3, 'invalid')`,
         [WS_A, PROJ_A, MEMBER_A],
       ),
-      'SB058',
+      '22023',
     )
   })
 })

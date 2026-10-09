@@ -2302,6 +2302,13 @@
       "when": 1791496207089,
       "tag": "0330_workspace_model_record_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 331,
+      "version": "7",
+      "when": 1791529237668,
+      "tag": "0331_project_copy_structure",
+      "breakpoints": true
     }
   ]
 }

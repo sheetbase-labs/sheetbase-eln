@@ -279,7 +279,9 @@ function NewExperiment() {
               )
               return (
                 <option key={v.id} value={v.id}>
-                  {record ? `${record.identifier} · ${record.title}` : 'Protocol'}{' '}
+                  {record
+                    ? `${record.identifier} · ${record.title}`
+                    : 'Protocol'}{' '}
                   · v{v.version}
                 </option>
               )

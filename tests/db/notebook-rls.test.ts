@@ -63,16 +63,21 @@ beforeAll(async () => {
 
   // Seed a record + block + link in each workspace so read isolation can be
   // observed. Created as migrator (owner bypasses RLS) so the seed is not
-  // subject to the created_by_user_id = current_user_id() insert policy.
+  // subject to the created_by_user_id = current_user_id() insert policy. Each
+  // link's destination record exists too: `internal.can_read_record_link_target`
+  // fails closed on a destination the reader cannot see, so a dangling
+  // identifier would hide the link for reasons other than workspace isolation.
   await migrator.query(
     `INSERT INTO api.records (workspace_id, project_id, kind, identifier, title, created_by_user_id) VALUES
       ('${WS_A}', '${PROJ_A}', 'experiment', 'EXP-2025-0001', 'Virus Stability A', '${OWNER_A}'),
-      ('${WS_B}', '${PROJ_B}', 'experiment', 'EXP-2025-0001', 'Virus Stability B', '${OWNER_B}')`,
+      ('${WS_B}', '${PROJ_B}', 'experiment', 'EXP-2025-0001', 'Virus Stability B', '${OWNER_B}'),
+      ('${WS_A}', '${PROJ_A}', 'sample', 'SMP-A-0001', 'Sample A', '${OWNER_A}'),
+      ('${WS_B}', '${PROJ_B}', 'sample', 'SMP-B-0001', 'Sample B', '${OWNER_B}')`,
   )
   const { rows: recs } = await migrator.query<{
     id: string
     workspace_id: string
-  }>(`SELECT id::text, workspace_id FROM api.records`)
+  }>(`SELECT id::text, workspace_id FROM api.records WHERE kind = 'experiment'`)
   const recA = recs.find((r) => r.workspace_id === WS_A)!.id
   const recB = recs.find((r) => r.workspace_id === WS_B)!.id
   await migrator.query(
@@ -142,9 +147,9 @@ async function linkTargets(client: Client): Promise<string[]> {
 describe('notebook domain read isolation', () => {
   it('shows an owner only their own workspace records', async () => {
     const a = await asAuthenticated(OWNER_A, WS_A)
-    expect(await recordTitles(a)).toEqual(['Virus Stability A'])
+    expect(await recordTitles(a)).toEqual(['Sample A', 'Virus Stability A'])
     const b = await asAuthenticated(OWNER_B, WS_B)
-    expect(await recordTitles(b)).toEqual(['Virus Stability B'])
+    expect(await recordTitles(b)).toEqual(['Sample B', 'Virus Stability B'])
   })
 
   it('shows an owner only blocks of records in their workspace', async () => {
@@ -283,7 +288,7 @@ describe('missing claims and api_client', () => {
     await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
       JSON.stringify({ role: 'api_client', workspace_id: WS_A }),
     ])
-    expect(await recordTitles(client)).toEqual(['Virus Stability A'])
+    expect(await recordTitles(client)).toEqual(['Sample A', 'Virus Stability A'])
     expect(await blockTexts(client)).toEqual(['Methods A'])
   })
 })

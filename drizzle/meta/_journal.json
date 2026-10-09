@@ -2484,6 +2484,13 @@
       "when": 1791583816693,
       "tag": "0356_protocol_deviation_audit_payload",
       "breakpoints": true
+    },
+    {
+      "idx": 357,
+      "version": "7",
+      "when": 1791584728624,
+      "tag": "0357_member_training_exact_versions",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import { expectDenied, prepareTestDatabase, ensureSessions } from './helpers'
 
 const WS = '10500000-0000-4000-8000-000000000001'
 const PROJECT = '10500000-0000-4000-8000-000000000002'
@@ -106,8 +106,9 @@ beforeAll(async () => {
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS}','${OWNER}','owner'),
       ('${WS}','${REVIEWER}','member');
-    insert into api.projects(id,workspace_id,key,title) values
-      ('${PROJECT}','${WS}','h3','H3')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id) values
+      ('${PROJECT}','${WS}','h3','H3','${OWNER}')`)
+  await ensureSessions(migrator, [OWNER, REVIEWER])
   await migrator.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id)
      values ($1,$2,$3,'experiment','H3-A','Notebook',$4)`,

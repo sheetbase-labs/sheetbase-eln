@@ -87,6 +87,16 @@ describe('workspace model dependency discovery', () => {
       [WS_A],
     )
     const modelId = model.rows[0]!.id
+    // MDL-03: publish version 1 so records may be created from the model.
+    await member.query(
+      `INSERT INTO api.record_model_versions(workspace_id, model_id, version, revision, lifecycle, definition, published_at, created_by_user_id, updated_by_user_id)
+       SELECT $1, $2, 1, 1, 'published', '{"fields":[]}'::jsonb, now(), api.current_user_id(), api.current_user_id()`,
+      [WS_A, modelId],
+    )
+    await member.query(
+      `UPDATE api.record_models SET current_version = 1, lifecycle = 'published' WHERE id = $1`,
+      [modelId],
+    )
     await migrator.query(
       `INSERT INTO api.record_field_definitions
          (workspace_id, kind, field_name, label, display_order, logical_type,

@@ -52,6 +52,17 @@ async function createModel(
     `SELECT * FROM api.create_workspace_model($1, $2, $3, $4, $5)`,
     [workspaceId, key, name, prefix, null],
   )
+  // MDL-03: a workspace model needs a published version before records may be
+  // created from it; seed version 1 directly (no approval flow under test here).
+  await client.query(
+    `INSERT INTO api.record_model_versions(workspace_id, model_id, version, revision, lifecycle, definition, published_at, created_by_user_id, updated_by_user_id)
+     SELECT $1, $2, 1, 1, 'published', '{"fields":[]}'::jsonb, now(), api.current_user_id(), api.current_user_id()`,
+    [workspaceId, rows[0].id],
+  )
+  await client.query(
+    `UPDATE api.record_models SET current_version = 1, lifecycle = 'published' WHERE id = $1`,
+    [rows[0].id],
+  )
   return rows[0]
 }
 

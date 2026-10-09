@@ -388,7 +388,13 @@ describe('EXT-03 extension history correlation', () => {
     ])
     const extension = await install(owner, { key: 'dist-history' })
     // A durable extension-attributed write stamps the audit identity into
-    // its canonical payload; the object correlation must find it.
+    // its canonical payload; the object correlation must find it. The event
+    // must name a real Record: the GOV-03 read guard resolves the entity.
+    await migrator.query(
+      `insert into api.records(id,workspace_id,kind,identifier,title,created_by_user_id)
+       values ('11111111-0000-4000-8000-000000000001',$1,'experiment','EXT-03-REC','Extension record',$2)`,
+      [WS, OWNER],
+    )
     await migrator.query(
       `select internal.emit_change_event_as_actor($1,$2,'record',$3,'create',NULL,NULL,$4::jsonb)`,
       [

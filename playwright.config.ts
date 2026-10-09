@@ -44,6 +44,12 @@ export default defineConfig({
       url: 'http://127.0.0.1:3100',
       reuseExistingServer: true,
       timeout: 60_000,
+      // Workflow tests sign in as their own fixture users, so the development
+      // environment's auth-free shortcut must not shadow them the way it does
+      // in a `SHEETBASE_DEV_AUTH_FREE=true` local `.env.local`.
+      env: {
+        SHEETBASE_DEV_AUTH_FREE: 'false',
+      },
     },
     {
       command: 'pnpm exec vite dev --port 3200 --host 127.0.0.1',

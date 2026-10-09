@@ -2337,6 +2337,20 @@
       "when": 1791538436208,
       "tag": "0335_protocol_acknowledge_writer_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 336,
+      "version": "7",
+      "when": 1791566426319,
+      "tag": "0336_guard_project_workspace",
+      "breakpoints": true
+    },
+    {
+      "idx": 337,
+      "version": "7",
+      "when": 1791567056952,
+      "tag": "0337_project_update_edit_policy",
+      "breakpoints": true
     }
   ]
 }

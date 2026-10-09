@@ -5,7 +5,11 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  grantProjectAccess,
+  prepareTestDatabase,
+} from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-000000001a01'
 const WS_B = '00000000-0000-4000-8000-000000001b01'
@@ -71,6 +75,15 @@ beforeAll(async () => {
       ('${SESSION_A}', now() + interval '1 day', 'token-admin001-1', '${MEMBER_A}', '10.0.0.1', 'Test Agent'),
       ('${SESSION_B}', now() + interval '1 day', 'token-admin001-2', '${OWNER_B}', '10.0.0.2', 'Test Agent');`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: OWNER_A,
+    canView: true,
+    canEdit: true,
+    canReview: true,
+    canManage: true,
+  })
 })
 
 afterAll(async () => {

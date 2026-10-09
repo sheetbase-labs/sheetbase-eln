@@ -66,6 +66,7 @@ beforeAll(async () => {
     workspaceId: WS,
     key: 'eln-proj',
     title: 'ELN Project',
+    leadUserId: OWNER,
   })
 })
 

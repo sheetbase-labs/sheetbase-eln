@@ -14,7 +14,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { ensureSessions, prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000290a'
 const WS_B = '00000000-0000-4000-8000-00000000290b'
@@ -140,6 +140,7 @@ beforeAll(async () => {
        ('${PROJ_A}', '${WS_A}', 'rule-a', 'Rule A', '${OWNER_A}'),
        ('${PROJ_B}', '${WS_B}', 'rule-b', 'Rule B', '${OWNER_B}')`,
   )
+  await ensureSessions(migrator, [OWNER_A, MEMBER_A, OWNER_B])
   const owner = await asAuthenticated(OWNER_A, WS_A)
   const ownerB = await asAuthenticated(OWNER_B, WS_B)
   await createField(owner, WS_A, 'experiment', 'dose', 'decimal')

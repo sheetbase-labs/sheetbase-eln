@@ -287,7 +287,11 @@ export async function getScopedClient(
     await client.query('BEGIN')
     await client.query('SET LOCAL ROLE authenticated')
     await client.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
-      JSON.stringify({ sub: userId, workspace_id: workspaceId }),
+      JSON.stringify({
+        sub: userId,
+        workspace_id: workspaceId,
+        role: 'authenticated',
+      }),
     ])
   } catch (err) {
     client.release()

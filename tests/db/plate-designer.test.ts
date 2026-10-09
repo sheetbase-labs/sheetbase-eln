@@ -5,7 +5,11 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  prepareTestDatabase,
+  grantProjectAccess,
+} from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000303a'
 const WS_B = '00000000-0000-4000-8000-00000000303b'
@@ -86,6 +90,13 @@ beforeAll(async () => {
       ('${PROJ_A}', '${WS_A}', 'ops3-a', 'OPS003 A', '${OWNER_A}'),
       ('${PROJ_B}', '${WS_B}', 'ops3-b', 'OPS003 B', '${OWNER_B}')`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: true,
+  })
 })
 
 afterAll(async () => {
@@ -380,7 +391,7 @@ describe('OPS-003 RLS and workspace isolation', () => {
         design.id,
         wells({ wellCode: 'A1', row: 0, col: 0, role: 'empty' }),
       ]),
-      'SB016',
+      '42501',
     )
   })
 })

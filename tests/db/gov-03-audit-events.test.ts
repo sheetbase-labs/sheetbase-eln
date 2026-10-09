@@ -709,9 +709,16 @@ describe('history stays honest for archived and deleted objects', () => {
   it('keeps events readable when the record is archived or soft-deleted', async () => {
     const recordId = '10000000-0000-4000-8000-0000000e03f1'
     await migrator.query(
-      `INSERT INTO api.projects (id, workspace_id, key, title)
-       VALUES ('10000000-0000-4000-8000-0000000e03f9', '${WS}', 'gov03-proj-b', 'Archive Proj')`,
+      `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id)
+       VALUES ('10000000-0000-4000-8000-0000000e03f9', '${WS}', 'gov03-proj-b', 'Archive Proj', '${OWNER}')`,
     )
+    await grantProjectAccess(migrator, {
+      workspaceId: WS,
+      projectId: '10000000-0000-4000-8000-0000000e03f9',
+      userId: MEMBER,
+      canView: true,
+      canEdit: true,
+    })
     await migrator.query("SELECT set_config('request.jwt.claims', $1, false)", [
       claims(MEMBER, WS),
     ])

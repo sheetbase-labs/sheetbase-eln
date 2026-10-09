@@ -6,7 +6,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, ensureSessions } from './helpers'
 
 const WS_A = '95000000-0000-4000-8000-000000000001'
 const WS_B = '95000000-0000-4000-8000-000000000002'
@@ -256,9 +256,10 @@ beforeAll(async () => {
     [WS_A, OWNER_A, WS_B, OWNER_B],
   )
   await migrator!.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title) VALUES
-       ($1,$2,'R05A','REV005 A')`,
-    [PROJECT_A, WS_A],
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES
+       ($1,$2,'R05A','REV005 A',$3)`,
+    [PROJECT_A, WS_A, OWNER_A],
+    await ensureSessions(migrator, [OWNER_A, OWNER_B]),
   )
   await migrator!.query(
     `INSERT INTO api.records

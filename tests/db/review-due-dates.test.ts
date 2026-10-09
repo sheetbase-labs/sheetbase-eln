@@ -5,7 +5,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, ensureSessions } from './helpers'
 
 const WS = '00000000-0000-4000-8000-00000000080a'
 const PROJECT = '00000000-0000-4000-8000-00000000080b'
@@ -25,9 +25,10 @@ beforeAll(async () => {
     `INSERT INTO api.workspaces (id, slug, name) VALUES ('${WS}', 'due-ws', 'Due WS')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title, default_review_period_days) VALUES
-      ('${PROJECT}', '${WS}', 'due', 'Three-day project', 3),
-      ('${PROJECT_PLAIN}', '${WS}', 'plain', 'Default project', NULL)`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, default_review_period_days, lead_user_id) VALUES
+      ('${PROJECT}', '${WS}', 'due', 'Three-day project', 3, '${USER}'),
+      ('${PROJECT_PLAIN}', '${WS}', 'plain', 'Default project', NULL, '${USER}')`,
+    await ensureSessions(migrator, [USER]),
   )
   await migrator.query(
     `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier, title, created_by_user_id) VALUES

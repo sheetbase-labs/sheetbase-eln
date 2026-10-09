@@ -224,10 +224,10 @@ beforeAll(async () => {
     [WS, OWNER, MEMBER, OTHER_WS, OTHER],
   )
   await migrator.query(
-    `insert into api.projects(id,workspace_id,key,title) values
-      ($1,$3,'C65','CORE-06.5'),
-      ($2,$4,'C65O','CORE-06.5 other')`,
-    [PROJECT, OTHER_PROJECT, WS, OTHER_WS],
+    `insert into api.projects(id,workspace_id,key,title,lead_user_id) values
+      ($1,$3,'C65','CORE-06.5',$5),
+      ($2,$4,'C65O','CORE-06.5 other',$6)`,
+    [PROJECT, OTHER_PROJECT, WS, OTHER_WS, OWNER, OTHER],
   )
   await migrator.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id)

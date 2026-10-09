@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '#/db/schema'
 import { createAuth } from '#/lib/auth'
 import { handleSignatureStepUp } from '#/lib/signature-step-up.server'
-import { migratorUrl, prepareTestDatabase } from './helpers'
+import { migratorUrl, prepareTestDatabase, ensureSessions } from './helpers'
 
 const WS_A = '98000000-0000-4000-8000-0000000000a1'
 const WS_B = '98000000-0000-4000-8000-0000000000a2'
@@ -254,9 +254,10 @@ beforeAll(async () => {
     [WS_A, OWNER_A, REVIEWER_A, WS_B, OWNER_B],
   )
   await migrator!.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title) VALUES
-       ($1,$2,'S2A','SIGN2 A')`,
-    [PROJECT_A, WS_A],
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES
+       ($1,$2,'S2A','SIGN2 A',$3)`,
+    [PROJECT_A, WS_A, OWNER_A],
+    await ensureSessions(migrator, [OWNER_A, REVIEWER_A, OWNER_B]),
   )
   await migrator!.query(
     `INSERT INTO api.records

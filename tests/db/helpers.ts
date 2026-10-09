@@ -176,6 +176,24 @@ export async function openMigratorWriter(
 }
 
 /**
+ * Internal Better Auth sessions for actors whose claims carry a session_id.
+ * Submission and signing RPCs require a live matching session.
+ */
+export async function ensureSessions(
+  client: Client,
+  userIds: readonly string[],
+): Promise<void> {
+  for (const id of userIds) {
+    await client.query(
+      `INSERT INTO internal.session(id,token,"userId","expiresAt")
+       VALUES ($1,$1,$2,now()+interval '1 hour')
+       ON CONFLICT (id) DO NOTHING`,
+      [`session-${id}`, id],
+    )
+  }
+}
+
+/**
  * Explicit project authority for a test principal. Since SET-02 / ADR-0050 a
  * project is private to its lead until an explicit rule exists, so fixtures
  * that write through a claimed actor must grant it. Inserted through the

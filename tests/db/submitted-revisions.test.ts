@@ -119,9 +119,26 @@ beforeAll(async () => {
     [WS_A, OWNER_A, CONFIG_ADMIN_A, REVIEWER_A, WS_B, OWNER_B],
   )
   await migrator!.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title) VALUES
-       ($1,$2,'REV-A','Revision A'),($3,$4,'REV-B','Revision B')`,
-    [PROJECT_A, WS_A, PROJECT_B, WS_B],
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES
+       ($1,$2,'REV-A','Revision A',$3),($4,$5,'REV-B','Revision B',$6)`,
+    [PROJECT_A, WS_A, OWNER_A, PROJECT_B, WS_B, OWNER_B],
+  )
+  await migrator!.query(
+    `INSERT INTO internal.session(id,token,"userId","expiresAt") VALUES
+       ($1,$1,$2,now()+interval '1 hour'),
+       ($3,$3,$4,now()+interval '1 hour'),
+       ($5,$5,$6,now()+interval '1 hour'),
+       ($7,$7,$8,now()+interval '1 hour')`,
+    [
+      `session-${OWNER_A}`,
+      OWNER_A,
+      `session-${CONFIG_ADMIN_A}`,
+      CONFIG_ADMIN_A,
+      `session-${REVIEWER_A}`,
+      REVIEWER_A,
+      `session-${OWNER_B}`,
+      OWNER_B,
+    ],
   )
   const configAdmin = await authenticated(CONFIG_ADMIN_A, WS_A)
   await configAdmin.query(

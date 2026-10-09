@@ -2358,6 +2358,13 @@
       "when": 1791567211021,
       "tag": "0338_model_record_identifier_prefix",
       "breakpoints": true
+    },
+    {
+      "idx": 339,
+      "version": "7",
+      "when": 1791567431481,
+      "tag": "0339_field_definition_event_record_id",
+      "breakpoints": true
     }
   ]
 }

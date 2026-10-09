@@ -432,11 +432,13 @@ describe('reagent_attention_summary — threshold-derived counts', () => {
   it('counts low stock, near expiry, expired and quarantined from properties', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     // Use a dedicated project so these reagents don't collide with other tests.
-    const { rows: projectRows } = await owner.query(
-      `INSERT INTO api.projects (id, workspace_id, key, title) VALUES ('00000000-0000-4000-8000-00000000339a', $1, 'reg003-attn', 'REG-003 Attn') RETURNING id`,
-      [WS_A],
+    const attnProject = '00000000-0000-4000-8000-00000000339a'
+    // No RETURNING: the owner rule is created by an AFTER INSERT trigger, and
+    // the new row is only readable once that trigger has run.
+    await owner.query(
+      `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES ($1, $2, 'reg003-attn', 'REG-003 Attn', $3)`,
+      [attnProject, WS_A, OWNER_A],
     )
-    const attnProject = projectRows[0].id
 
     // Low stock: quantity at threshold.
     await createReagent(owner, attnProject, 'Low stock', 'available', {

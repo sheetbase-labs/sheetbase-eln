@@ -318,8 +318,8 @@ beforeAll(async () => {
     `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES
        ($1,$2,'SGNA','SIGN A',$3)`,
     [PROJECT_A, WS_A, OWNER_A],
-    await ensureSessions(migrator, [OWNER_A, REVIEWER_A, REVIEWER_B, OWNER_B]),
   )
+  await ensureSessions(migrator, [OWNER_A, REVIEWER_A, REVIEWER_B, OWNER_B])
   await migrator!.query(
     `INSERT INTO api.records
        (id,workspace_id,project_id,kind,identifier,title,status,properties,tags,created_by_user_id)

@@ -2491,6 +2491,13 @@
       "when": 1791584728624,
       "tag": "0357_member_training_exact_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 358,
+      "version": "7",
+      "when": 1791586061356,
+      "tag": "0358_protocol_training_reminders",
+      "breakpoints": true
     }
   ]
 }

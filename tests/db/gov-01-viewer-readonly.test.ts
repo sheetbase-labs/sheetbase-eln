@@ -86,7 +86,7 @@ beforeAll(async () => {
     canView: true,
     canEdit: false,
   })
-  for (const userId of [MEMBER, SCIENTIST, ANALYST, REVIEWER]) {
+  for (const userId of [MEMBER, SCIENTIST, ANALYST, REVIEWER, STEWARD]) {
     await grantProjectAccess(migrator, {
       workspaceId: WS_A,
       projectId: PROJECT_A,

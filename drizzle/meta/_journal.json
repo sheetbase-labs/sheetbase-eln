@@ -2330,6 +2330,13 @@
       "when": 1791536585124,
       "tag": "0334_api_client_project_predicates",
       "breakpoints": true
+    },
+    {
+      "idx": 335,
+      "version": "7",
+      "when": 1791538436208,
+      "tag": "0335_protocol_acknowledge_writer_gate",
+      "breakpoints": true
     }
   ]
 }

@@ -329,8 +329,8 @@ describe('GOV-03 trigger coverage', () => {
     const recordId = '10000000-0000-4000-8000-0000000e03d2'
     const fileId = '10000000-0000-4000-8000-0000000e03d3'
     await migrator.query(
-      `INSERT INTO api.projects (id, workspace_id, key, title)
-       VALUES ('${projectId}', '${WS}', 'gov03-proj', 'GOV03 Project')`,
+      `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id)
+       VALUES ('${projectId}', '${WS}', 'gov03-proj', 'GOV03 Project', '${OWNER}')`,
     )
     await migrator.query(
       `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier,

@@ -8,7 +8,9 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
-import { expectDenied, prepareTestDatabase } from './helpers'
+import { expectDenied, prepareTestDatabase,
+  grantProjectAccess,
+} from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000c045'
 const WS_B = '00000000-0000-4000-8000-00000000c046'
@@ -75,6 +77,7 @@ beforeAll(async () => {
     insert into api.projects(id,workspace_id,key,title,lead_user_id) values
       ('${PROJECT_A}','${WS_A}','gov1','GOV-01 A','${OWNER}'),
       ('${PROJECT_B}','${WS_B}','gov1b','GOV-01 B','${OTHER_OWNER}')`)
+  await grantProjectAccess(migrator, { workspaceId: WS_A, projectId: PROJECT_A, userId: VIEWER, canView: true, canEdit: false })
 })
 
 afterAll(async () => {

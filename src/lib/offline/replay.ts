@@ -33,7 +33,11 @@ import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import type { ComposedSheetSnapshot } from '#/lib/sheet-composition-data'
 import { fetchSheetInstance } from '#/lib/sheet-instance-data'
 import { mutateSheetLocalState } from '#/lib/sheet-local-data'
-import { resolveSheetWriteTarget, writeSheetCells } from '#/lib/sheet-write-back'
+import {
+  resolveSheetWriteTarget,
+  writeSheetCells,
+} from '#/lib/sheet-write-back'
+import type { SheetWriteTarget } from '#/lib/sheet-write-back'
 import type { OfflineEdit, OfflineEditScope, OfflineEditStore } from './store'
 
 // ---------------------------------------------------------------------------
@@ -72,12 +76,14 @@ export interface OfflineReplayOutcome {
 /**
  * A calculation held back by an unresolved conflict: the conflicted cell is an
  * input, so the columns computed from it cannot be trusted until a person
- * resolves the conflict.
+ * resolves the conflict. A stale non-cell edit (a queued row or comment)
+ * blocks the same sheet without naming one cell, so the cell coordinates are
+ * nullable.
  */
 export interface HeldCalculation {
   sheetInstanceId: string
-  rowId: string
-  columnId: string
+  rowId: string | null
+  columnId: string | null
   conflictId: string | null
   /** Why it is held, in words a person can act on. */
   message: string
@@ -130,7 +136,10 @@ export function isOfflineReplayOverlap(error: unknown): boolean {
     if (error.code === 'stale_version' || error.code === 'conflict') return true
   }
   const code =
-    error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    typeof error.code === 'string'
       ? error.code
       : ''
   if (code === 'SB001' || code === 'SB073') return true
@@ -140,8 +149,23 @@ export function isOfflineReplayOverlap(error: unknown): boolean {
 
 function isRefused(error: unknown): boolean {
   if (error instanceof OfflineReplayRefusedError) return true
-  if (error instanceof DataClientError) return error.status >= 400 && error.status < 500
-  if (error instanceof Error && error.name === 'ZodError') return true
+  if (error instanceof DataClientError)
+    return error.status >= 400 && error.status < 500
+  if (error instanceof Error) {
+    if (error.name === 'ZodError') return true
+    // The canonical sheet write path refuses a bad batch before writing.
+    if (
+      error.name === 'SheetBatchValidationError' ||
+      error.name === 'SheetMixedAuthorityWriteError'
+    )
+      return true
+    if (
+      /unresolved_target|ambiguous_target|calculated_read_only/.test(
+        error.message,
+      )
+    )
+      return true
+  }
   return false
 }
 
@@ -196,9 +220,13 @@ function holdMessage(
   sheetInstanceId: string,
   blocked: HeldCalculation,
 ): string {
+  const cell =
+    blocked.rowId && blocked.columnId
+      ? ` on row ${blocked.rowId} · ${blocked.columnId}`
+      : ''
   return (
-    `Held: ${sheetInstanceId} has an unresolved conflict on row ` +
-    `${blocked.rowId} · ${blocked.columnId}, and this edit depends on it.`
+    `Held: ${sheetInstanceId} has an unresolved conflict${cell}, ` +
+    'and this edit depends on it.'
   )
 }
 
@@ -306,8 +334,8 @@ export async function replayOfflineEdits(input: {
           if (sheetInstanceId) {
             const blockedCell: HeldCalculation = {
               sheetInstanceId,
-              rowId: 'rowId' in edit ? edit.rowId : '',
-              columnId: 'columnId' in edit ? edit.columnId : '',
+              rowId: null,
+              columnId: null,
               conflictId: null,
               message: `A queued edit to ${sheetInstanceId} is stale and is held until it is reviewed.`,
             }
@@ -427,7 +455,7 @@ export function retryTokenForEdit(editId: string): string {
     hash(0xc2b2ae35)
   ).slice(0, 32)
   const versioned = `${hex.slice(0, 12)}4${hex.slice(13, 16)}`
-  const variant = `${((parseInt(hex[16] ?? '8', 16) & 0x3) | 0x8).toString(16)}${hex.slice(17)}`
+  const variant = `${((parseInt(hex.charAt(16), 16) & 0x3) | 0x8).toString(16)}${hex.slice(17)}`
   return `${versioned.slice(0, 8)}-${versioned.slice(8, 12)}-${versioned.slice(12, 16)}-${variant.slice(0, 4)}-${variant.slice(4, 16)}`
 }
 
@@ -511,11 +539,21 @@ export function createCanonicalOfflineReplayWriter(
               `Sheet revision ${composition.revision} is past the ${expected} this edit was based on.`,
             )
           }
-          const target = resolveSheetWriteTarget({
-            composition,
-            rowKey: edit.rowId,
-            columnId: edit.columnId,
-          })
+          let target: SheetWriteTarget
+          try {
+            target = resolveSheetWriteTarget({
+              composition,
+              rowKey: edit.rowId,
+              columnId: edit.columnId,
+            })
+          } catch (error) {
+            // The cell no longer resolves in the current composition (a hidden
+            // row, a retired column, a calculated column): a deterministic
+            // refusal, not a transport failure.
+            throw new OfflineReplayRefusedError(
+              error instanceof Error ? error.message : 'unresolved cell target',
+            )
+          }
           await writeSheetCells(
             {
               composition,

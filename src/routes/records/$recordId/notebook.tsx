@@ -61,6 +61,7 @@ import {
   OfflineStatusBanner,
   UnsyncedChangesSection,
 } from '#/components/offline/offline-status'
+import { OfflineReplayRunner } from '#/components/offline/offline-replay'
 import {
   CONNECTION_REQUIRED_REASONS,
   ConnectionRequired,
@@ -714,6 +715,13 @@ function ExperimentNotebookRoute() {
             <OfflineStatusBanner
               className="-mx-4 md:-mx-6"
               capabilitiesClassName="my-3"
+            />
+            {/* EXP-05.3: when the connection returns, the drafts this device
+              held are replayed through their canonical write paths. */}
+            <OfflineReplayRunner
+              store={deviceOfflineEditStore()}
+              scope={{ userId: context.user.id, recordId: record.id }}
+              className="my-3"
             />
             <NotebookPrintStyles />
             <StickyRecordHeader

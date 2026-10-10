@@ -6754,6 +6754,31 @@ async function seedDesignClock(
              updated_at = ${dataset.updatedAt}
        where id = ${dataset.id}`)
   }
+
+  // The seed's upserts stamp records with the real clock, so surfaces that read a
+  // record date (the client portal's max(updated_at), registry ordering, "last
+  // update" lines) drift from the design's frozen 25 Sep. Pinning needs the
+  // updated_at trigger out of the way, because internal.set_updated_at forces
+  // now() whenever any other column differs - a statement that changes only
+  // updated_at still differs on it - and signed records are refused outright by
+  // internal.prevent_locked_record_mutation, so those are left alone.
+  await db.execute(sql`alter table api.records disable trigger set_updated_at`)
+  try {
+    await db.execute(sql`
+      update api.records
+         set updated_at = ${DESIGN_CLOCK}
+       where workspace_id = ${DESIGN_WORKSPACE_IDS.processDevelopment}
+         and locked_at is null
+         and updated_at > ${DESIGN_CLOCK}
+         -- internal.assert_record_project_active refuses an archived project's
+         -- records, which the design seed keeps as fixtures.
+         and (project_id is null
+              or exists (select 1 from api.projects p
+                          where p.id = api.records.project_id
+                            and p.archived_at is null))`)
+  } finally {
+    await db.execute(sql`alter table api.records enable trigger set_updated_at`)
+  }
 }
 
 /**

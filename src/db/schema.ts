@@ -9147,7 +9147,7 @@ export const pipelineRuns = api.table(
     ),
     check(
       'chk_pipeline_runs_status',
-      sql`${table.status} IN ('running', 'succeeded', 'failed', 'cancelled')`,
+      sql`${table.status} IN ('running', 'waiting', 'succeeded', 'failed', 'cancelled')`,
     ),
     check('chk_pipeline_runs_attempt', sql`${table.attempt} >= 1`),
     check(
@@ -9212,6 +9212,57 @@ export const pipelineRunLogs = api.table(
     check(
       'chk_pipeline_run_logs_level',
       sql`${table.level} IN ('info', 'warning', 'error')`,
+    ),
+  ],
+)
+
+/**
+ * PIPE-02.1 — a confirm step that pauses the run for a person.
+ *
+ * The run stops in `waiting` with one prompt recorded here: the step it paused
+ * on, the typed form the author configured, who was asked, and — once somebody
+ * answers — the answer and who gave it. The answer, its author and its time are
+ * all-or-nothing, so a prompt cannot look answered without a named person.
+ */
+export const pipelineRunPrompts = api.table(
+  'pipeline_run_prompts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id').notNull(),
+    stepId: text('step_id').notNull(),
+    formSchema: jsonb('form_schema')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    askedUserIds: text('asked_user_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    answer: jsonb('answer'),
+    answeredByUserId: text('answered_by_user_id'),
+    answeredAt: timestamp('answered_at', { withTimezone: true, mode: 'date' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'fk_pipeline_run_prompts_run',
+      columns: [table.workspaceId, table.runId],
+      foreignColumns: [pipelineRuns.workspaceId, pipelineRuns.id],
+    }).onDelete('cascade'),
+    index('idx_pipeline_run_prompts_run').on(table.runId),
+    index('idx_pipeline_run_prompts_workspace').on(table.workspaceId),
+    check(
+      'chk_pipeline_run_prompts_step_id',
+      sql`length(btrim(${table.stepId})) between 1 and 96`,
+    ),
+    check(
+      'chk_pipeline_run_prompts_answer',
+      sql`(${table.answer} IS NULL) = (${table.answeredByUserId} IS NULL) AND (${table.answer} IS NULL) = (${table.answeredAt} IS NULL)`,
     ),
   ],
 )

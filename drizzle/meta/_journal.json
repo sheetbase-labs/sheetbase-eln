@@ -2687,6 +2687,13 @@
       "when": 1791637473507,
       "tag": "0385_refuse_expired_material",
       "breakpoints": true
+    },
+    {
+      "idx": 386,
+      "version": "7",
+      "when": 1791638763168,
+      "tag": "0386_refuse_link_to_held_material",
+      "breakpoints": true
     }
   ]
 }

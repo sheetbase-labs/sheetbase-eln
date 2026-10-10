@@ -280,4 +280,30 @@ describe('REV-03 signature settings', () => {
     })
     expect(mocks.certify).not.toHaveBeenCalled()
   })
+
+  it('REV-03.3 does not treat a revoked certification as current', async () => {
+    mocks.certifications = [
+      certification('me', 'Ada Lovelace', {
+        statementVersion: 1,
+        certifiedAt: '2026-09-01T12:00:00Z',
+        revokedAt: '2026-09-02T12:00:00Z',
+        identityVerifiedAt: '2026-09-01T11:00:00Z',
+        identityVerifiedBy: 'admin',
+        verifiedEmail: 'ada@sheetbase.test',
+        authMethod: 'password',
+      }),
+    ]
+    renderRoute()
+
+    await screen.findByText(/Verified by a different administrator/)
+    expect(screen.getByText('Not certified')).toBeTruthy()
+    expect(screen.queryByText('Certified')).toBeNull()
+    expect(
+      screen.getByText(/This certification is no longer eligible/),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Certify signature' }),
+    ).toHaveProperty('disabled', true)
+    expect(screen.queryByText(/Certified 2026-09-01/)).toBeNull()
+  })
 })

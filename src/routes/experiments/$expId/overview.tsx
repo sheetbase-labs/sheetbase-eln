@@ -1,206 +1,156 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import {
-  Inspector,
-  InspectorSection,
-  Muted,
-  Section,
-  DescriptionList,
-} from '#/components/v3/ui/layout'
+import { ExperimentOverview } from '#/components/overview/overview-view'
+import type { ExperimentReadiness } from '#/components/overview/readiness'
 import {
   fetchBlocksForRecord,
+  fetchProject,
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
-import {
-  experimentStatusFor,
-  useExperimentLinks,
-  useExperimentRecord,
-} from '../$expId'
+import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
+import { useUserNames } from '#/lib/user-names'
+import { useExperimentLinks, useExperimentRecord } from '../$expId'
 
-/** UI port (roadmap-4/ui-app3): the experiment Overview. Reads the record's
- * notes; protocol progress, key results and readiness are capabilities the ELN
- * does not have yet, so they state the gap. */
+/** EXP-02.4: the experiment Overview. Readiness comes from the server
+ * (`experiment_readiness`), the same function the submit RPC gates on, so the
+ * list the author reads and the block that stops them cannot disagree. */
 export const Route = createFileRoute('/experiments/$expId/overview')({
   component: Overview,
 })
 
-interface DocNode {
-  type?: string
-  content?: DocNode[]
-  text?: string
+interface FollowedByWire {
+  source_record_id: string
 }
-interface Doc {
-  content?: DocNode[]
-}
-
-function textOf(node: DocNode): string {
-  if (node.text) return node.text
-  return (node.content ?? []).map(textOf).join('')
-}
-
-function sectionsFromBlocks(
-  blocks: { id: string; payload: Record<string, unknown> }[],
-): { heading: string; body: string }[] {
-  const out: { heading: string; body: string }[] = []
-  for (const block of blocks) {
-    const doc = (block.payload as { doc?: Doc }).doc
-    if (!doc?.content) continue
-    let heading = ''
-    const parts: string[] = []
-    for (const node of doc.content) {
-      if (node.type === 'heading') heading = textOf(node)
-      else parts.push(textOf(node))
-    }
-    if (heading || parts.length) {
-      out.push({ heading: heading || 'Notes', body: parts.join('\n').trim() })
-    }
-  }
-  return out
+interface FollowedByRecord {
+  id: string
+  identifier: string
+  title: string
+  status: string | null
 }
 
 function Overview() {
   const { expId } = Route.useParams()
   const { data: record } = useExperimentRecord(expId)
   const links = useExperimentLinks(expId)
+
   const blocks = useQuery({
     queryKey: notebookQueryKeys.blocks(expId),
     queryFn: () => fetchBlocksForRecord(notebookDataClient, expId),
   })
-  const sections = sectionsFromBlocks(blocks.data ?? [])
-  const rows = links.data ?? []
-  const protocolLinks = rows.filter((l) => l.link_type === 'protocol')
-  const datasetLinks = rows.filter(
-    (l) => l.link_type === 'dataset' && l.target_record_id,
-  )
-  const analysisLinks = rows.filter((l) => l.link_type === 'analysis')
+
+  const properties = useQuery({
+    queryKey: ['ui-port', 'experiment-properties', expId],
+    queryFn: () =>
+      notebookDataClient
+        .list<{ properties: Record<string, unknown> | null }>(
+          'records',
+          `?id=eq.${expId}&limit=1&select=properties`,
+        )
+        .then((rows) => rows[0]?.properties ?? {}),
+  })
+
+  const readiness = useQuery({
+    queryKey: ['ui-port', 'experiment-readiness', expId],
+    queryFn: () =>
+      notebookDataClient.rpc<ExperimentReadiness>('experiment_readiness', {
+        p_record_id: expId,
+      }),
+    retry: false,
+  })
+
+  const signatures = useQuery({
+    queryKey: signatureQueryKeys.forRecord(expId),
+    queryFn: () => fetchSignaturesForRecord(notebookDataClient, expId),
+  })
+
+  const followedBy = useQuery({
+    queryKey: ['ui-port', 'experiment-followed-by', expId],
+    queryFn: async (): Promise<FollowedByRecord[]> => {
+      const incoming = await notebookDataClient.list<FollowedByWire>(
+        'record_links',
+        `?target_record_id=eq.${expId}&link_type=in.(follows,upstream)&select=source_record_id`,
+      )
+      const ids = [...new Set(incoming.map((row) => row.source_record_id))]
+      if (ids.length === 0) return []
+      const filter = ids.map((id) => encodeURIComponent(id)).join(',')
+      return notebookDataClient.list<FollowedByRecord>(
+        'records',
+        `?id=in.(${filter})&deleted_at=is.null&select=id,identifier,title,status`,
+      )
+    },
+  })
+
+  const project = useQuery({
+    queryKey: ['ui-port', 'experiment-project', record?.project_id ?? ''],
+    queryFn: () =>
+      record?.project_id
+        ? fetchProject(notebookDataClient, record.project_id)
+        : Promise.resolve(null),
+    enabled: Boolean(record?.project_id),
+  })
+
+  const props = properties.data ?? {}
+  const readinessData = readiness.data ?? null
+  const signatureRows = signatures.data ?? []
+
+  const userIds = [
+    record?.created_by_user_id ?? '',
+    ...(readinessData?.openCommentThreads.map(
+      (thread) => thread.authorUserId ?? '',
+    ) ?? []),
+    ...signatureRows.map((signature) => signature.signer_user_id),
+    ...(Array.isArray(props.collaboratorIds)
+      ? props.collaboratorIds.filter(
+          (id): id is string => typeof id === 'string',
+        )
+      : []),
+    typeof props.reviewerId === 'string' ? props.reviewerId : '',
+  ].filter(Boolean)
+  const { userLabel } = useUserNames(userIds)
+
+  if (!record) {
+    return (
+      <div className="px-4 py-5 md:px-8">
+        <p className="m-0 text-label text-fg-muted">
+          {blocks.isLoading ? 'Loading experiment…' : 'Experiment not found.'}
+        </p>
+      </div>
+    )
+  }
 
   return (
-    <>
-      <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto px-4 py-5 md:px-8">
-        {sections.length ? (
-          sections.map((s) => (
-            <Section key={s.heading + s.body.slice(0, 12)} title={s.heading}>
-              <p className="m-0 max-w-[680px] whitespace-pre-line text-prose">
-                {s.body || '—'}
-              </p>
-            </Section>
-          ))
-        ) : (
-          <Section title="Objective">
-            <Muted>
-              {blocks.isLoading
-                ? 'Loading notes…'
-                : 'This experiment has no notes yet.'}
-            </Muted>
-          </Section>
-        )}
-
-        <Section title="Protocol progress">
-          {protocolLinks.length ? (
-            <DescriptionList
-              labelWidth={110}
-              items={protocolLinks.map((l) => [
-                'Protocol',
-                <Link
-                  key={l.id}
-                  to="/protocols/$protocolId"
-                  params={{ protocolId: l.target_record_id ?? '' }}
-                  className="text-link"
-                >
-                  {l.target_identifier}
-                </Link>,
-              ])}
-            />
-          ) : (
-            <Muted>This experiment does not follow a protocol.</Muted>
-          )}
-          <Muted>
-            Step progress is not modelled; the experiment stores no protocol
-            version.
-          </Muted>
-        </Section>
-      </div>
-
-      <Inspector className="w-[300px]">
-        <InspectorSection title="Key results">
-          {datasetLinks.length || analysisLinks.length ? (
-            <DescriptionList
-              labelWidth={90}
-              items={[
-                ...(datasetLinks.length
-                  ? ([
-                      [
-                        'Datasets',
-                        <>
-                          {datasetLinks.map((l, i) => (
-                            <span key={l.id}>
-                              {i ? ', ' : ''}
-                              <Link
-                                to="/datasets/$datasetId"
-                                params={{
-                                  datasetId: l.target_record_id ?? '',
-                                }}
-                                className="text-link mono"
-                              >
-                                {l.target_identifier}
-                              </Link>
-                            </span>
-                          ))}
-                        </>,
-                      ],
-                    ] as [string, React.ReactNode][])
-                  : []),
-                ...(analysisLinks.length
-                  ? ([
-                      [
-                        'Analyses',
-                        <span key="a" className="mono">
-                          {analysisLinks
-                            .map((l) => l.target_identifier)
-                            .join(', ')}
-                        </span>,
-                      ],
-                    ] as [string, React.ReactNode][])
-                  : []),
-              ]}
-            />
-          ) : (
-            <Muted>
-              Curated figures and tables are a later capability; datasets the
-              experiment produced appear on the Datasets tab.
-            </Muted>
-          )}
-        </InspectorSection>
-        <InspectorSection title="Details">
-          <DescriptionList
-            labelWidth={110}
-            items={[
-              [
-                'Identifier',
-                <span className="mono">{record?.identifier ?? '—'}</span>,
-              ],
-              [
-                'Status',
-                record ? experimentStatusFor(record.status).label : '—',
-              ],
-              [
-                'Samples',
-                String(rows.filter((l) => l.target_kind === 'sample').length),
-              ],
-              [
-                'Datasets',
-                String(rows.filter((l) => l.target_kind === 'dataset').length),
-              ],
-              [
-                'Files',
-                String(rows.filter((l) => l.target_kind === 'file').length),
-              ],
-            ]}
-          />
-        </InspectorSection>
-      </Inspector>
-    </>
+    <ExperimentOverview
+      record={{
+        id: record.id,
+        identifier: record.identifier,
+        title: record.title,
+        status: record.status,
+        projectId: record.project_id,
+        createdByUserId: record.created_by_user_id,
+        createdAt: record.created_at,
+        properties: props,
+      }}
+      blocks={blocks.data ?? []}
+      links={(links.data ?? []).map((link) => ({
+        id: link.id,
+        linkType: link.link_type,
+        targetKind: link.target_kind,
+        targetIdentifier: link.target_identifier,
+        targetRecordId: link.target_record_id,
+      }))}
+      readiness={readinessData}
+      readinessIsLoading={readiness.isLoading}
+      readinessError={
+        readiness.error instanceof Error ? readiness.error.message : null
+      }
+      signatures={signatureRows}
+      signaturesIsLoading={signatures.isLoading}
+      signaturesIsError={signatures.isError}
+      followedBy={followedBy.data ?? []}
+      userLabel={userLabel}
+      projectName={project.data?.title ?? null}
+    />
   )
 }

@@ -231,6 +231,15 @@ vi.mock('#/lib/signatures', async (importOriginal) => ({
   signRevision: vi.fn(),
 }))
 
+vi.mock('#/lib/signature-certification', () => ({
+  fetchWorkspaceCertifications: vi.fn(async () => []),
+  isCurrentStatement: () => false,
+  signatureCertificationDataClient: {},
+  signatureCertificationQueryKeys: {
+    workspace: (id: string) => ['ui-port', 'signature-certifications', id],
+  },
+}))
+
 vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchWorkspaceMembers: vi.fn(async () => []),

@@ -53,6 +53,7 @@ function meanings(
     currentUserId: 'reviewer',
     integrityDigest: digest,
     supersededByRevisionId: null,
+    certificationCurrent: true,
     eligibility: { writer: true, requests: [] },
     signatures: [],
     ...overrides,
@@ -122,6 +123,7 @@ describe('signature meaning eligibility', () => {
     )
     expect(meanings({ supersededByRevisionId: 'new-revision' })).toEqual([])
     expect(meanings({ integrityDigest: null })).toEqual([])
+    expect(meanings({ certificationCurrent: false })).toEqual([])
     expect(
       meanings({ submission: { ...submission, state: 'withdrawn' } }),
     ).toEqual([])

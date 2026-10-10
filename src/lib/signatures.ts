@@ -199,11 +199,17 @@ export async function fetchSignatureWitnessCandidates(
   )
 }
 
+/** The server-mirrored gates that decide whether this person may sign. */
+export interface SignatureEligibility {
+  writer: boolean
+  requests: SignatureWitnessRequestWire[]
+}
+
 export async function fetchSignatureEligibility(
   client: DataClient,
   submission: ReviewSubmissionWire,
   userId: string,
-) {
+): Promise<SignatureEligibility> {
   const [writer, requests] = await Promise.all([
     client.rpc('is_workspace_writer', {
       p_workspace_id: submission.workspace_id,
@@ -216,18 +222,25 @@ export async function fetchSignatureEligibility(
   return { writer: z.boolean().parse(writer), requests }
 }
 
-/** Mirrors target rules for presentation. Password issuance/RPCs enforce them. */
+/**
+ * Mirrors target rules for presentation. Password issuance/RPCs enforce them.
+ * `certificationCurrent` is the signer's own attestation state: DEC-04 requires
+ * a current certification for every signature, so an uncertified person has no
+ * available meaning and is told why before a password attempt is refused.
+ */
 export function availableSignatureMeanings(input: {
   submission: ReviewSubmissionWire | null
   currentUserId: string
   integrityDigest: string | null
   supersededByRevisionId: string | null
-  eligibility: Awaited<ReturnType<typeof fetchSignatureEligibility>> | undefined
+  certificationCurrent: boolean
+  eligibility: SignatureEligibility | undefined
   signatures: SignatureWire[]
 }): PostSubmissionSignatureMeaning[] {
   const { submission, currentUserId, integrityDigest, eligibility } = input
   if (
     !submission ||
+    !input.certificationCurrent ||
     !eligibility?.writer ||
     !integrityDigest ||
     input.supersededByRevisionId !== null ||

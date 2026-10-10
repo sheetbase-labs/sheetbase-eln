@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
@@ -32,6 +33,12 @@ import {
   requestSignatureStepUp,
 } from '#/lib/signatures'
 import type { PostSubmissionSignatureMeaning } from '#/lib/signatures'
+import {
+  fetchWorkspaceCertifications,
+  isCurrentStatement,
+  signatureCertificationDataClient,
+  signatureCertificationQueryKeys,
+} from '#/lib/signature-certification'
 
 export function SignNotebookDialog({
   open,
@@ -82,6 +89,24 @@ export function SignNotebookDialog({
       fetchSignatureEligibility(notebookDataClient, submission!, currentUserId),
     enabled: open && Boolean(submission),
   })
+  // A signature needs a current certification (DEC-04 / ADR-0045). Read the
+  // signer's own attestation so the dialog can say so before a password attempt
+  // is refused by the server.
+  const certificationsQuery = useQuery({
+    queryKey: signatureCertificationQueryKeys.workspace(
+      submission?.workspace_id ?? 'none',
+    ),
+    queryFn: () =>
+      fetchWorkspaceCertifications(
+        signatureCertificationDataClient,
+        submission!.workspace_id,
+      ),
+    enabled: open && Boolean(submission),
+  })
+  const certification = (certificationsQuery.data ?? []).find(
+    (row) => row.userId === currentUserId,
+  )
+  const certificationCurrent = isCurrentStatement(certification)
   const integrityDigest = revisionQuery.data?.integrity_digest ?? null
   const meanings = availableSignatureMeanings({
     currentUserId,
@@ -90,6 +115,7 @@ export function SignNotebookDialog({
     supersededByRevisionId:
       revisionQuery.data?.superseded_by_revision_id ?? null,
     eligibility: eligibility.data,
+    certificationCurrent,
     signatures: signaturesQuery.data ?? [],
   })
   const canSign = meanings.length > 0
@@ -190,12 +216,37 @@ export function SignNotebookDialog({
         >
           <DialogBody>
             {!canSign ? (
-              <p className="m-0 text-body text-fg-muted">
-                No eligible signature meaning is available. Signing requires an
-                active frozen revision, assignment as a nonauthor reviewer or an
-                explicit witness request, and current workspace write
-                permission.
-              </p>
+              !certificationsQuery.isSuccess ? (
+                <p className="m-0 text-body text-fg-muted">
+                  Checking your signature certification…
+                </p>
+              ) : certificationCurrent ? (
+                <p className="m-0 text-body text-fg-muted">
+                  No eligible signature meaning is available. Signing requires
+                  an active frozen revision, assignment as a nonauthor reviewer
+                  or an explicit witness request, and current workspace write
+                  permission.
+                </p>
+              ) : (
+                <Notice tone="warn">
+                  <p className="m-0">
+                    Certification is required before you can sign. Your
+                    electronic signature is not certified for this workspace; an
+                    uncertified signature is not accepted.
+                  </p>
+                  <p className="m-0 mt-1.5 text-label">
+                    Certify in Settings → Electronic signatures: confirm your
+                    identity with an administrator, agree to the statement and
+                    enter your signing password. A practice signature is offered
+                    there and is not stored.
+                  </p>
+                  <p className="m-0 mt-1.5">
+                    <Link to="/settings/signatures" className="underline">
+                      Open signature settings
+                    </Link>
+                  </p>
+                </Notice>
+              )
             ) : (
               <div className="flex flex-col gap-3">
                 <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">

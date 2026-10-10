@@ -142,6 +142,12 @@ import type {
   SignatureWire,
 } from '#/lib/signatures'
 import {
+  fetchWorkspaceCertifications,
+  isCurrentStatement,
+  signatureCertificationDataClient,
+  signatureCertificationQueryKeys,
+} from '#/lib/signature-certification'
+import {
   createAmendment,
   fetchRecordTimeline,
   sign002DataClient,
@@ -2121,12 +2127,29 @@ export function SignaturePanel({
     queryFn: () =>
       fetchSignatureEligibility(reviewsDataClient, submission, currentUserId),
   })
+  // DEC-04 / ADR-0045: a signature requires a current certification. Read the
+  // signer's own attestation so the panel states the requirement instead of
+  // letting the step-up refuse the password attempt opaquely.
+  const certifications = useQuery({
+    queryKey: signatureCertificationQueryKeys.workspace(
+      submission.workspace_id,
+    ),
+    queryFn: () =>
+      fetchWorkspaceCertifications(
+        signatureCertificationDataClient,
+        submission.workspace_id,
+      ),
+  })
+  const certificationCurrent = isCurrentStatement(
+    (certifications.data ?? []).find((row) => row.userId === currentUserId),
+  )
   const meanings = availableSignatureMeanings({
     submission,
     currentUserId,
     integrityDigest,
     supersededByRevisionId: revision.superseded_by_revision_id,
     eligibility: eligibility.data,
+    certificationCurrent,
     signatures,
   })
   const members = useQuery({
@@ -2328,6 +2351,17 @@ export function SignaturePanel({
               error={error}
               onConfirm={handleSigned}
             />
+          ) : certifications.isSuccess &&
+            !alreadySigned &&
+            !certificationCurrent ? (
+            <p className="text-xs text-warning-text">
+              Certification is required before you can sign. An uncertified
+              signature is not accepted — certify in{' '}
+              <Link to="/settings/signatures" className="underline">
+                Settings → Electronic signatures
+              </Link>
+              .
+            </p>
           ) : alreadySigned ? (
             <p className="text-xs text-muted-foreground">
               You have already signed this submission.

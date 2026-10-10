@@ -91,6 +91,11 @@ vi.mock('@tanstack/react-start/server', () => ({
   getRequestHeaders: () => ({}),
 }))
 
+vi.mock('#/lib/signature-certification', async (importOriginal) => ({
+  ...(await importOriginal()),
+  fetchWorkspaceCertifications: vi.fn(async () => []),
+}))
+
 // jsdom does not implement ResizeObserver; radix UI reads it on mount.
 globalThis.ResizeObserver = class {
   observe() {}

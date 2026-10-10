@@ -12,8 +12,30 @@ const fetchReviewSubmissionByRevision = vi.fn()
 const fetchRevisionRow = vi.fn()
 const fetchSignaturesForSubmission = vi.fn()
 const fetchSignatureEligibility = vi.fn()
+const fetchWorkspaceCertifications = vi.fn()
 const signRevision = vi.fn()
 const requestSignatureStepUp = vi.fn()
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    children,
+    ...props
+  }: {
+    to?: string
+    children: React.ReactNode
+  } & Record<string, unknown>) => (
+    <a href={typeof to === 'string' ? to : '#'} {...props}>
+      {children}
+    </a>
+  ),
+}))
+
+vi.mock('#/lib/signature-certification', async (importOriginal) => ({
+  ...(await importOriginal()),
+  fetchWorkspaceCertifications: (...args: unknown[]) =>
+    fetchWorkspaceCertifications(...args),
+}))
 
 vi.mock('#/lib/review-workspace', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -33,8 +55,24 @@ vi.mock('#/lib/signatures', async (importOriginal) => ({
     requestSignatureStepUp(...args),
 }))
 
+function certifiedCertification(userId: string) {
+  return {
+    userId,
+    name: 'Ada Lovelace',
+    statementVersion: 1,
+    certifiedAt: '2026-10-04T12:01:00Z',
+    revokedAt: null,
+    identityVerifiedAt: '2026-10-04T12:00:00Z',
+    identityVerifiedBy: 'admin',
+    verifiedEmail: 'ada@sheetbase.test',
+    verificationRequested: false,
+    authMethod: 'password',
+  }
+}
+
 beforeEach(() => {
   fetchSignatureEligibility.mockResolvedValue({ writer: true, requests: [] })
+  fetchWorkspaceCertifications.mockResolvedValue([certifiedCertification('u1')])
   requestSignatureStepUp.mockResolvedValue({
     token: 'one-use-password-token',
     authMethod: 'password',
@@ -413,5 +451,45 @@ describe('SignNotebookDialog', () => {
       })
       expect(document.activeElement).not.toBe(outside)
     }
+  })
+
+  it('REV-03.3 tells an uncertified signer certification is required before signing', async () => {
+    mockSignableSubmission()
+    fetchWorkspaceCertifications.mockResolvedValue([
+      {
+        ...certifiedCertification('u1'),
+        statementVersion: null,
+        certifiedAt: null,
+        identityVerifiedAt: null,
+        authMethod: null,
+      },
+    ])
+    renderSignDialog()
+
+    await screen.findByText(/Certification is required before you can sign/)
+    expect(
+      screen
+        .getByRole('link', { name: 'Open signature settings' })
+        .getAttribute('href'),
+    ).toBe('/settings/signatures')
+    // No password field and no Sign button: the attempt cannot be started.
+    expect(screen.queryByLabelText('Signing password')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
+    expect(signRevision).not.toHaveBeenCalled()
+  })
+
+  it('REV-03.3 does not treat a revoked certification as current before signing', async () => {
+    mockSignableSubmission()
+    fetchWorkspaceCertifications.mockResolvedValue([
+      {
+        ...certifiedCertification('u1'),
+        revokedAt: '2026-10-05T09:00:00Z',
+      },
+    ])
+    renderSignDialog()
+
+    await screen.findByText(/Certification is required before you can sign/)
+    expect(screen.queryByLabelText('Signing password')).toBeNull()
+    expect(signRevision).not.toHaveBeenCalled()
   })
 })

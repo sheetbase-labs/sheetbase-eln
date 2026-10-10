@@ -3,6 +3,7 @@ import type { PipelineConfig } from './pipelines/config'
 import { resolvePipelineActionValue } from './pipeline-actions.server'
 import { openSecret } from './connector-secrets.server'
 import { deriveWebhookSecretKey, signPayload } from './webhook-signing'
+import { channelBody } from './notification-channels'
 
 /** Enqueue signed POSTs in the output transaction; the existing delivery engine owns retries. */
 export async function queuePipelineNotifications(
@@ -30,8 +31,11 @@ export async function queuePipelineNotifications(
     throw new Error('The run event could not be found; no webhook was queued.')
   const deliveryIds: string[] = []
   for (const target of config.notifications) {
-    const { rows } = await conn.query<{ ciphertext: Buffer }>(
-      `SELECT sec.ciphertext FROM api.webhook_subscriptions sub
+    const { rows } = await conn.query<{
+      ciphertext: Buffer
+      channel_type: string
+    }>(
+      `SELECT sec.ciphertext, sub.channel_type FROM api.webhook_subscriptions sub
        JOIN internal.webhook_secrets sec ON sec.subscription_id = sub.id AND sec.secret_name = 'signing_secret'
        WHERE sub.id = $1 AND sub.workspace_id = $2 AND sub.status = 'active'`,
       [target.subscriptionId, run.workspace_id],
@@ -63,7 +67,10 @@ export async function queuePipelineNotifications(
         outputLabel: result.outputLabel,
       },
     }
-    const body = JSON.stringify(payload)
+    // PIPE-05.1: the destination's type decides the body — a Teams incoming webhook
+    // expects a card, and posting the signed JSON would be a 400 the engine cannot
+    // tell from a transient failure.
+    const body = channelBody(rows[0]?.channel_type, payload)
     if (Buffer.byteLength(body) > 64 * 1024)
       throw new Error(
         'Webhook payload exceeds 64 KiB. Choose fewer values to send.',

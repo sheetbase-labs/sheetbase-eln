@@ -18,7 +18,73 @@
 /** Block identity needed to resolve a sheet instance to its notebook anchor. */
 export interface ReadinessBlock {
   id: string
+  /** Present on domain blocks; the readiness adapter only needs id and payload. */
+  type?: string
   payload: Record<string, unknown>
+}
+
+/**
+ * EXP-02.2 — protocol progress, derived from the notebook's own steps.
+ *
+ * LAB-07's protocol step model does not exist yet, so the step status is derived
+ * from what the notebook actually records: a `procedure_step` block carries the
+ * pinned protocol revision it came from (`sourceProtocolRevisionId`), the step it
+ * came from (`sourceStepBlockId`), whether it is done, and who finished it and
+ * when. A step with no recorded state is reported as not started rather than
+ * guessed at, and a step whose state is missing entirely is not invented.
+ */
+export interface ProtocolStepProgress {
+  blockId: string
+  stepNumber: number | null
+  text: string
+  completed: boolean
+  completedAt: string | null
+  completedByUserId: string | null
+  note: string | null
+  sourceProtocolRevisionId: string | null
+  sourceStepBlockId: string | null
+}
+
+export function protocolStepProgress(
+  blocks: readonly ReadinessBlock[],
+): ProtocolStepProgress[] {
+  const steps: ProtocolStepProgress[] = []
+  for (const block of blocks) {
+    if (block.type !== 'procedure_step') continue
+    const payload = block.payload
+    const text = typeof payload.text === 'string' ? payload.text.trim() : ''
+    if (!text) continue
+    steps.push({
+      blockId: block.id,
+      stepNumber:
+        typeof payload.stepNumber === 'number' ? payload.stepNumber : null,
+      text,
+      completed: payload.completed === true,
+      completedAt:
+        typeof payload.completedAt === 'string' ? payload.completedAt : null,
+      completedByUserId:
+        typeof payload.completedByUserId === 'string'
+          ? payload.completedByUserId
+          : null,
+      note:
+        typeof payload.note === 'string' && payload.note ? payload.note : null,
+      sourceProtocolRevisionId:
+        typeof payload.sourceProtocolRevisionId === 'string'
+          ? payload.sourceProtocolRevisionId
+          : null,
+      sourceStepBlockId:
+        typeof payload.sourceStepBlockId === 'string'
+          ? payload.sourceStepBlockId
+          : null,
+    })
+  }
+  return steps.sort((a, b) => {
+    if (a.stepNumber !== null && b.stepNumber !== null)
+      return a.stepNumber - b.stepNumber
+    if (a.stepNumber !== null) return -1
+    if (b.stepNumber !== null) return 1
+    return 0
+  })
 }
 
 export type ReadinessCheckStatus = 'pass' | 'fail'

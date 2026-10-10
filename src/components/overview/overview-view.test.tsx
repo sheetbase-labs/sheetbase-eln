@@ -198,6 +198,57 @@ function baseProps(): ExperimentOverviewProps {
   }
 }
 
+const STEP_BLOCKS: ReadinessBlock[] = [
+  ...BLOCKS,
+  {
+    id: 'step-1',
+    type: 'procedure_step',
+    payload: {
+      text: 'Equilibrate the column',
+      stepNumber: 1,
+      completed: true,
+      completedAt: '2026-09-24T09:00:00.000Z',
+      completedByUserId: 'user-gp',
+      note: '20 CV at 150 cm/h',
+      sourceProtocolRevisionId: 'rev-1',
+      sourceStepBlockId: 'src-step-1',
+    },
+  },
+  {
+    id: 'step-2',
+    type: 'procedure_step',
+    payload: {
+      text: 'Load the clarified harvest',
+      stepNumber: 2,
+      completed: false,
+      completedAt: null,
+      completedByUserId: null,
+      note: '',
+      sourceProtocolRevisionId: 'rev-1',
+      sourceStepBlockId: 'src-step-2',
+    },
+  },
+]
+
+describe('EXP-02.2 protocol progress', () => {
+  it('derives each step from the notebook, with who finished it and when', () => {
+    render(<ExperimentOverview {...baseProps()} blocks={STEP_BLOCKS} />)
+    expect(screen.getByText('Equilibrate the column')).toBeDefined()
+    expect(screen.getByText('Load the clarified harvest')).toBeDefined()
+    // The completed step names who finished it and when.
+    expect(screen.getByText('Done')).toBeDefined()
+    expect(screen.getAllByText(/Gareth P\./).length).toBeGreaterThan(0)
+    expect(screen.getByText('20 CV at 150 cm/h')).toBeDefined()
+    // The unfinished step is not presented as done.
+    expect(screen.getByText('Not started')).toBeDefined()
+  })
+
+  it('says no progress is recorded rather than inventing steps', () => {
+    render(<ExperimentOverview {...baseProps()} />)
+    expect(screen.getByText(/No step progress is recorded yet/)).toBeDefined()
+  })
+})
+
 describe('EXP-02.4 ExperimentOverview', () => {
   it('deep-links every readiness item to the block that resolves it', () => {
     render(<ExperimentOverview {...baseProps()} />)
@@ -252,7 +303,7 @@ describe('EXP-02.4 ExperimentOverview', () => {
     // No reviewer / planned end / client recorded: said, not invented.
     expect(screen.getAllByText('Not recorded').length).toBeGreaterThanOrEqual(3)
     // Protocol step progress is not modelled, and the page says so.
-    expect(screen.getByText(/Step progress is not recorded/)).toBeDefined()
+    expect(screen.getByText(/No step progress is recorded yet/)).toBeDefined()
     // No signatures: the honest empty state, not an empty table.
     expect(
       screen.getByText(

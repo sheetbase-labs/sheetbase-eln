@@ -22,7 +22,8 @@ import {
 import { Status } from '#/components/v3/ui/status'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import type { SignatureWire } from '#/lib/signatures'
-import { readinessItems } from './readiness'
+import { formatNotebookDateTime } from '#/lib/notebook-data'
+import { protocolStepProgress, readinessItems } from './readiness'
 import type {
   ExperimentReadiness,
   ReadinessBlock,
@@ -199,6 +200,7 @@ export function ExperimentOverview({
   userLabel,
   projectName = null,
 }: ExperimentOverviewProps) {
+  const protocolSteps = protocolStepProgress(blocks)
   const items = readinessItems(readiness, blocks, (userId) =>
     userId ? userLabel(userId) : 'Someone',
   )
@@ -256,11 +258,50 @@ export function ExperimentOverview({
           ) : (
             <Muted>This experiment does not follow a protocol.</Muted>
           )}
-          <Muted>
-            Step progress is not recorded: the experiment stores no protocol
-            version, so per-step status, owner, time and evidence cannot be
-            derived.
-          </Muted>
+          {protocolSteps.length ? (
+            <ul className="m-0 mt-2 flex list-none flex-col p-0">
+              {protocolSteps.map((step) => (
+                <li
+                  key={step.blockId}
+                  className="flex min-h-11 items-start gap-3 border-b border-border-subtle py-2 last:border-0"
+                >
+                  <span className="w-6 shrink-0 pt-0.5 text-label text-fg-muted">
+                    {step.stepNumber ?? '·'}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block">{step.text}</span>
+                    {step.note ? (
+                      <span className="block text-label text-fg-muted">
+                        {step.note}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 text-right text-label">
+                    {step.completed ? (
+                      <>
+                        <Status tone="ok">Done</Status>
+                        <span className="mt-1 block text-fg-muted">
+                          {step.completedByUserId
+                            ? userLabel(step.completedByUserId)
+                            : 'Not recorded'}
+                          {step.completedAt
+                            ? ` · ${formatNotebookDateTime(step.completedAt)}`
+                            : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <Status tone="none">Not started</Status>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Muted>
+              No step progress is recorded yet: this experiment has no procedure
+              steps carrying a completed state.
+            </Muted>
+          )}
         </Section>
 
         <Section

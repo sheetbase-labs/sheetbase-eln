@@ -29,6 +29,11 @@ import { SheetPromote } from '#/components/sheet/sheet-promote'
 import type { SheetPromoteLocalField } from '#/components/sheet/sheet-promote'
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
+import {
+  CellConflictPanel,
+  fetchCellConflicts,
+} from '#/components/sheet/cell-conflict-panel'
+import type { CellConflictRow } from '#/components/sheet/cell-conflict-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/v3/ui/input'
@@ -62,6 +67,7 @@ import {
   sanitizeSheetPresentation,
   saveSheetView,
 } from '#/lib/sheet-presentation-view'
+import { workItemsQueryKeys } from '#/lib/work-items/data'
 import { ExportMenu } from '#/components/export/export-menu'
 import { ObjectHistoryDialog } from '#/components/audit'
 import type {
@@ -268,6 +274,12 @@ export interface SheetCellSelection {
   sheetName: string
   /** 1-based row position, as the grid's row headers number it. */
   rowNumber: number
+  /**
+   * EXP-05.4: the row's stable identity. Cell conflicts are addressed by
+   * `row_key` + field id, so a selection can be matched to an open conflict
+   * without depending on display position.
+   */
+  rowKey: string
 }
 
 /**
@@ -635,6 +647,7 @@ export function CanonicalSheetEditor({
             valueState: provenance,
             sheetName: instance.name,
             rowNumber: selected.row + 1,
+            rowKey: selectedRowKey ?? '',
           }
         : null,
     )
@@ -647,7 +660,52 @@ export function CanonicalSheetEditor({
     provenance,
     instance.name,
     selected.row,
+    selectedRowKey,
   ])
+
+  // EXP-05.4: this Sheet's open cell conflicts. A conflict is addressed by the
+  // stable row identity and field id, so the selected cell can be matched to
+  // one without depending on display position.
+  const conflicts = useQuery({
+    queryKey: ['sheet-cell-conflicts', instance.id, 'open'] as const,
+    queryFn: () => fetchCellConflicts(client, instance.id, { state: 'open' }),
+  })
+  // A conflict settled in this session stays in the panel (which shows the
+  // decision) but must no longer count as open or be offered again. The query
+  // itself still lists it until the Sheet reloads, so track the decisions
+  // here rather than dropping the panel the moment it settles.
+  const [resolvedConflictIds, setResolvedConflictIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set())
+  const cachedConflicts = conflicts.data ?? []
+  const openConflicts = cachedConflicts.filter(
+    (conflict) => !resolvedConflictIds.has(conflict.id),
+  )
+  // The conflict the inspector shows: the one on the selected cell. Kept from
+  // the cached rows (not the open filter) so a just-resolved conflict still
+  // renders its decision instead of vanishing under the user.
+  const selectedConflict: CellConflictRow | null =
+    commentSelection && selectedColumn
+      ? (cachedConflicts.find(
+          (conflict) =>
+            conflict.row_key === selectedRowKey &&
+            conflict.field_id === selectedColumn.id,
+        ) ?? null)
+      : null
+
+  // EXP-05.4: reaching a conflict means selecting its cell, which is what the
+  // inspector renders against. Reveal through the grid's own handle so the
+  // selection callback and reveal stay the grid's contract.
+  function revealFirstConflict() {
+    const first = openConflicts.at(0)
+    if (!first) return
+    const rowIndex = matrixRef.current.rowKeys.indexOf(first.row_key)
+    const columnIndex = matrixRef.current.columns.findIndex(
+      (column) => column.id === first.field_id,
+    )
+    if (rowIndex < 0 || columnIndex < 0) return
+    gridHandle?.selectCell(rowIndex, columnIndex)
+  }
 
   const localMutate = useMutation({
     mutationFn: (input: Parameters<typeof mutateSheetLocalState>[0]) =>
@@ -1859,6 +1917,24 @@ export function CanonicalSheetEditor({
         </div>
       )}
       <div className="space-y-1 border-t px-3 py-2 text-xs text-fg-muted">
+        {openConflicts.length > 0 ? (
+          // EXP-05.4: a Sheet-wide count, with a way to reach the first one —
+          // selecting its cell is what puts it in the inspector.
+          <p className="flex flex-wrap items-center gap-2" role="status">
+            <span>
+              {openConflicts.length} open cell conflict
+              {openConflicts.length === 1 ? '' : 's'}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={revealFirstConflict}
+            >
+              Review first conflict
+            </Button>
+          </p>
+        ) : null}
         {/* SHEET-02.3: a returned promotion is announced against the column
         it came from. The banner renders nothing while the request is
         pending or approved, so the line stays silent until a reviewer acts. */}
@@ -1993,6 +2069,33 @@ export function CanonicalSheetEditor({
             }}
           />
         </aside>
+      ) : null}
+      {selectedConflict ? (
+        // EXP-05.4: an open conflict on the selected cell is settled here —
+        // the panel shows both attributable edits and records the decision.
+        // Resolving refreshes the Sheet (held calculations) and the work-item
+        // list (the `cell_conflict` item), so neither keeps describing a
+        // conflict that is already decided.
+        <CellConflictPanel
+          conflict={selectedConflict}
+          currentUserId={commentActor?.user.id ?? null}
+          cellLabel={
+            selectedColumn
+              ? `row ${selected.row + 1}, ${selectedColumn.label}`
+              : undefined
+          }
+          unit={selectedColumn?.field?.quantity?.storageUnit}
+          client={client}
+          onResolved={(resolved) => {
+            setResolvedConflictIds((current) => new Set(current).add(resolved.id))
+            void queryClient.invalidateQueries({
+              queryKey: ['sheet-instance', instance.id],
+            })
+            void queryClient.invalidateQueries({
+              queryKey: workItemsQueryKeys.list(),
+            })
+          }}
+        />
       ) : null}
       {promoteField ? (
         // SHEET-02.3: the column menu opens this dialog, so it carries no

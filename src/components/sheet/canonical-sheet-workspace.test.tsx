@@ -21,18 +21,21 @@ import { mutateSheetLocalState } from '#/lib/sheet-local-data'
 
 import type {
   SheetbaseGridCellChange,
+  SheetbaseGridHandle,
   SheetbaseGridProps,
 } from './sheetbase-grid'
 import { CanonicalSheetEditor } from './canonical-sheet-workspace'
+import type { CellConflictRow } from './cell-conflict-panel'
 
 const rpcMock = vi.hoisted(() => vi.fn())
+const listMock = vi.hoisted(() => vi.fn().mockResolvedValue([]))
 const gridRender = vi.hoisted(() => vi.fn())
 
 /**
  * A DataClient whose rpc is observable. The default handler records every
  * call on `rpcMock`; every client the component tree creates goes through
  * the mocked `createDataClient`, so the test can assert that no authoritative
- * RPC runs at all.
+ * RPC runs at all. `list` is observable through `listMock` (default: empty).
  */
 function fakeClient(
   rpcImpl?: (name: string, args: Record<string, unknown>) => Promise<unknown>,
@@ -52,7 +55,8 @@ function fakeClient(
     return []
   }
   return {
-    list: () => Promise.resolve([]),
+    list: <T,>(resource: string, query?: string) =>
+      listMock(resource, query) as Promise<T[]>,
     count: async () => 0,
     rpc,
     insert,
@@ -115,9 +119,20 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
 }))
 
+// The conflict panel resolves author names through a server function, which
+// has no runtime in jsdom; the panel's own tests cover name resolution.
+vi.mock('#/lib/user-names', () => ({
+  useUserNames: () => ({
+    names: {},
+    userLabel: (id: string) => `name:${id}`,
+  }),
+}))
+
 afterEach(() => {
   cleanup()
   rpcMock.mockReset()
+  listMock.mockReset()
+  listMock.mockResolvedValue([])
   gridRender.mockClear()
   vi.mocked(mutateSheetLocalState).mockReset()
 })
@@ -854,5 +869,205 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
     await waitFor(() => expect(gridRender).toHaveBeenCalled())
     const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
     expect(props.appendRow).toBe(false)
+  })
+})
+
+describe('CanonicalSheetEditor — cell conflict inspector (EXP-05.4)', () => {
+  const CONFLICT = '21000000-0000-4000-8000-0000000000c1'
+
+  /**
+   * A local Sheet whose one column is a quantity field, so the conflict
+   * inspector can show the cell's label and its storage unit.
+   */
+  function conflictInstance(): SheetInstance {
+    const base = validSheetInstanceState()
+    const field = base.localFields[0]
+    return {
+      id: INSTANCE,
+      workspaceId: '21000000-0000-4000-8000-000000000009',
+      projectId: '21000000-0000-4000-8000-00000000000a',
+      notebookRecordId: '21000000-0000-4000-8000-00000000000b',
+      sourceDefinitionVersionId: null,
+      name: 'Conflict sheet',
+      description: null,
+      lifecycle: 'active',
+      revision: 1,
+      state: {
+        ...base,
+        localFields: [
+          {
+            ...field,
+            label: 'Capsid titre',
+            logicalType: 'decimal',
+            quantity: {
+              kind: 'concentration',
+              dimension: 'concentration',
+              storageUnit: 'mg/mL',
+            },
+          },
+        ],
+        localValues: { [ROW_A]: { [field.fieldId]: 91 } },
+        presentation: { ...base.presentation, filters: [], sorts: [] },
+      },
+      duplicatedFromInstanceId: null,
+      createdAt: '2026-08-16T12:00:00.000Z',
+      updatedAt: '2026-08-16T12:00:00.000Z',
+      createdByUserId: 'u1',
+      updatedByUserId: 'u1',
+    }
+  }
+
+  function openConflict(fieldId: string): CellConflictRow {
+    return {
+      id: CONFLICT,
+      sheet_instance_id: INSTANCE,
+      row_key: ROW_A,
+      field_id: fieldId,
+      local_value: 91,
+      local_author_user_id: 'member',
+      local_at: '2026-10-10T10:14:00.000Z',
+      remote_value: 88.5,
+      remote_author_user_id: 'priya',
+      remote_at: '2026-10-10T10:09:00.000Z',
+      state: 'open',
+      resolved_value: null,
+      resolved_by_user_id: null,
+      resolved_at: null,
+      reason: null,
+    }
+  }
+
+  it('renders the conflict on the selected cell, resolves through the RPC and refreshes the Sheet and work items', async () => {
+    const user = userEvent.setup()
+    const instance = conflictInstance()
+    const fieldId = instance.state.localFields[0].fieldId
+    const open = openConflict(fieldId)
+    const resolved: CellConflictRow = {
+      ...open,
+      state: 'resolved',
+      resolved_value: open.remote_value,
+      resolved_by_user_id: 'member',
+      resolved_at: '2026-10-10T11:00:00.000Z',
+      reason: 'Use the online value',
+    }
+    listMock.mockImplementation(async (resource: string) =>
+      resource === 'sheet_cell_conflicts' ? [open] : [],
+    )
+    rpcMock.mockImplementation(async (name: string) =>
+      name === 'resolve_cell_conflict' ? resolved : {},
+    )
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CanonicalSheetEditor
+          instance={instance}
+          projectId={instance.projectId}
+          commentActor={{
+            user: {
+              id: 'member',
+              name: 'Scientist',
+              email: 'member@test.invalid',
+            },
+            workspace: {
+              id: instance.workspaceId,
+              slug: 'lab',
+              name: 'Lab',
+              role: 'member',
+            },
+          }}
+        />
+      </QueryClientProvider>,
+    )
+
+    // The Sheet-wide count is offered with a way to reach the first conflict.
+    await waitFor(() =>
+      expect(screen.getByText('1 open cell conflict')).toBeTruthy(),
+    )
+    const selectCell = vi.fn()
+    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
+    act(() => props.onReady?.({ selectCell } as unknown as SheetbaseGridHandle))
+    await user.click(
+      screen.getByRole('button', { name: 'Review first conflict' }),
+    )
+    expect(selectCell).toHaveBeenCalledWith(0, 0)
+
+    // Selecting the conflicted cell is what puts it in the inspector.
+    act(() =>
+      props.onSelectionChange?.({
+        rowIndex: 0,
+        rowId: ROW_A,
+        columnId: fieldId,
+        input: '91',
+      }),
+    )
+    expect(
+      await screen.findByRole('complementary', { name: 'Resolve conflict' }),
+    ).toBeTruthy()
+    expect(screen.getByText(/row 1, Capsid titre/)).toBeTruthy()
+    expect(screen.getByText('88.5 mg/mL')).toBeTruthy()
+
+    await user.type(
+      screen.getByRole('textbox', { name: 'Reason' }),
+      'Use the online value',
+    )
+    await user.click(screen.getByRole('button', { name: 'Resolve' }))
+
+    await waitFor(() =>
+      expect(rpcMock).toHaveBeenCalledWith('resolve_cell_conflict', {
+        p_conflict_id: CONFLICT,
+        p_value: 88.5,
+        p_reason: 'Use the online value',
+      }),
+    )
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: ['sheet-instance', INSTANCE],
+      }),
+    )
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: ['work-items', 'list'],
+      }),
+    )
+    expect(await screen.findByText('Resolved')).toBeTruthy()
+  })
+
+  it('renders no conflict panel when the Sheet has no open conflicts', async () => {
+    const instance = conflictInstance()
+    const fieldId = instance.state.localFields[0].fieldId
+    renderWorkspace(
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
+    )
+    await waitFor(() =>
+      expect(listMock).toHaveBeenCalledWith(
+        'sheet_cell_conflicts',
+        expect.any(String),
+      ),
+    )
+    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
+    act(() =>
+      props.onSelectionChange?.({
+        rowIndex: 0,
+        rowId: ROW_A,
+        columnId: fieldId,
+        input: '91',
+      }),
+    )
+    expect(
+      screen.queryByRole('complementary', { name: 'Resolve conflict' }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Review first conflict' }),
+    ).toBeNull()
   })
 })

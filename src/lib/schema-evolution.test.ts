@@ -3,13 +3,17 @@ import { describe, expect, it } from 'vitest'
 import {
   applyDatasetSchemaEvolution,
   applyModelFieldEvolution,
+  describeColumnPromotionError,
+  listInstanceColumnPromotions,
   previewCalculationPromotion,
   previewDatasetSchemaEvolution,
   previewLocalFieldPromotion,
   previewModelFieldEvolution,
   promoteCalculation,
   promoteLocalField,
+  requestColumnPromotion,
 } from './schema-evolution'
+import { DataClientError } from './data-client'
 import type { DataClient } from './data-client'
 
 describe('governed evolution client', () => {
@@ -94,5 +98,54 @@ describe('governed evolution client', () => {
       p_action: 'retire',
       p_confirm: true,
     })
+  })
+
+  it('requests a promotion and reads its state without the direct promote path', async () => {
+    const rpcCalls: Array<{ name: string; args: unknown }> = []
+    const listCalls: Array<{ resource: string; query?: string }> = []
+    const client = {
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        rpcCalls.push({ name, args })
+        return { ok: true, state: 'pending' }
+      },
+      list: async (resource: string, query?: string) => {
+        listCalls.push({ resource, query })
+        return []
+      },
+    } as unknown as DataClient
+
+    await requestColumnPromotion(client, {
+      instanceId: 'inst-1',
+      fieldId: 'lf-1',
+      target: 'dataset_schema',
+      schemaDefinitionId: 'schema-1',
+      reason: 'Used in every batch',
+      idempotencyKey: 'promo-req-1',
+    })
+    await listInstanceColumnPromotions(client, 'inst-1')
+
+    expect(rpcCalls.map((item) => item.name)).toEqual([
+      'request_column_promotion',
+    ])
+    expect(rpcCalls[0]?.args).toMatchObject({
+      p_instance_id: 'inst-1',
+      p_field_id: 'lf-1',
+      p_target: 'dataset_schema',
+      p_schema_definition_id: 'schema-1',
+      p_model_key: null,
+      p_reason: 'Used in every batch',
+      p_idempotency_key: 'promo-req-1',
+    })
+    expect(listCalls[0]?.resource).toBe('column_promotions')
+    expect(listCalls[0]?.query).toContain('sheet_instance_id=eq.inst-1')
+
+    expect(
+      describeColumnPromotionError(
+        new DataClientError('SB071', 'incompatible', 400),
+      ),
+    ).toContain('cannot be promoted')
+    expect(describeColumnPromotionError(new Error('boom'))).toContain(
+      'Could not request',
+    )
   })
 })

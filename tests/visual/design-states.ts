@@ -450,7 +450,7 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
     historicalMismatch: {
       ratio: '0.03 (26775 px) at the 0.001 gate',
       causes: [3],
-      text: 'The seeded materials now reproduce the canvas: the nine design rows with their titles, lots, per-lot stock and storage locations, MAT-0402 quarantined and MAT-0355 expired (MAT-0421 is not in the design and was removed), the Status column reads the lot standing (Expires 1 Oct, Released Mar 2027, Expired 20 Sep), the in-stock tab excludes quarantined and expired lots, and the list sorts newest first - so the visible rows, their order and the tab counts match. What remains: the right panel lacks the Lot block fields (catalogue number, Received, Released by, Certificate, Stock of total, Used in), the table column widths differ, the total reads 402 against the design 412, and the app renders a list footer the design does not.'',
+      text: 'The seeded materials now reproduce the canvas: the nine design rows with their titles, lots, per-lot stock and storage locations, MAT-0402 quarantined and MAT-0355 expired (MAT-0421 is not in the design and was removed), the Status column reads the lot standing (Expires 1 Oct, Released Mar 2027, Expired 20 Sep), the in-stock tab excludes quarantined and expired lots, and the list sorts newest first - so the visible rows, their order and the tab counts match. What remains: the right panel lacks the Lot block fields (catalogue number, Received, Released by, Certificate, Stock of total, Used in), the table column widths differ, the total reads 402 against the design 412, and the app renders a list footer the design does not.',
     },
   },
   {

@@ -62,6 +62,9 @@ export function SheetPromote({
   client = sheetPromoteDataClient,
   expectedRevision,
   triggerLabel = 'Promote column…',
+  open: controlledOpen,
+  onOpenChange,
+  trigger = true,
   onSubmitted,
 }: {
   instanceId: string
@@ -69,9 +72,24 @@ export function SheetPromote({
   client?: DataClient
   expectedRevision?: number | null
   triggerLabel?: string
+  /**
+   * Controlled visibility. Omit to let the dialog own its open state behind
+   * its own trigger (the default). The Sheet's column menu sets it so a menu
+   * entry — not a button rendered next to the grid — opens the dialog.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /** Render the built-in trigger button. Set false when the host opens it. */
+  trigger?: boolean
   onSubmitted?: (result: ColumnPromotionRequestResult) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const controlled = controlledOpen !== undefined
+  const open = controlled ? controlledOpen : uncontrolledOpen
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next)
+    onOpenChange?.(next)
+  }
   const [definitionId, setDefinitionId] = useState('')
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -118,7 +136,9 @@ export function SheetPromote({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button onClick={() => setOpen(true)}>{triggerLabel}</Button>
+      {trigger ? (
+        <Button onClick={() => setOpen(true)}>{triggerLabel}</Button>
+      ) : null}
       <DialogContent className="w-[min(680px,calc(100vw-32px))]">
         <DialogHeader
           title={`Promote ${field.label}`}

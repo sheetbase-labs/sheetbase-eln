@@ -23,6 +23,9 @@ import type {
   SheetbaseGridWriteSource,
 } from '#/components/sheet/sheetbase-grid'
 import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
+import { PromoteRejected } from '#/components/sheet/promote-rejected'
+import { SheetPromote } from '#/components/sheet/sheet-promote'
+import type { SheetPromoteLocalField } from '#/components/sheet/sheet-promote'
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
@@ -151,6 +154,36 @@ export function recordCellDisplayText(
   if (recordId === null) return ''
   const snapshot = labels[recordId]
   return snapshot ? formatRecordReferenceLabel(snapshot) : recordId
+}
+
+/**
+ * SHEET-02.3 — the local field a column can be promoted *from*, or null when
+ * the column cannot be promoted. Only a column the Sheet itself owns can be
+ * promoted: a bound column already lives in a Dataset, a calculated column is
+ * derived rather than stored, and a retired local field is no longer offered.
+ * The dialog needs no more than this slice of the field.
+ */
+export function promotableLocalField(
+  instance: SheetInstance,
+  column: CanonicalSheetGridColumn | undefined,
+): SheetPromoteLocalField | null {
+  if (!column || column.origin !== 'local' || !column.field) return null
+  const field = instance.state.localFields.find(
+    (item) => item.fieldId === column.id && item.lifecycle === 'active',
+  )
+  if (!field) return null
+  return {
+    fieldId: field.fieldId,
+    key: field.key,
+    label: field.label,
+    logicalType: field.logicalType,
+    quantity: field.quantity
+      ? {
+          storageUnit: field.quantity.storageUnit,
+          preferredDisplayUnit: field.quantity.preferredDisplayUnit ?? null,
+        }
+      : null,
+  }
 }
 
 /**
@@ -380,6 +413,11 @@ export function CanonicalSheetEditor({
     row: 0,
     col: 0,
   })
+  // SHEET-02.3: the local column whose Promote dialog is open, or null. The
+  // dialog is mounted only while a field is chosen, so its draft reason never
+  // leaks from one column to the next.
+  const [promoteField, setPromoteField] =
+    useState<SheetPromoteLocalField | null>(null)
   const [writeStatus, setWriteStatus] = useState<string | null>(null)
   // ASSIST-01: structured write-back rejection kept beside the status line
   // so the Explain affordance can cite rule codes, rows and fields.
@@ -1304,8 +1342,27 @@ export function CanonicalSheetEditor({
           void persistPresentation({ hiddenColumnIds: [...hidden] })
         },
       },
+      // SHEET-02.3: promotion is offered only for a column the Sheet owns.
+      // The engine hides an entry whose `disabled` is true, and the menu is
+      // opened for the column the grid has just selected, so the entry is
+      // shown for an active local column and for no other kind. `onSelect`
+      // still checks the column it is handed rather than trusting the gate.
+      {
+        id: 'promote-column',
+        label: 'Promote column…',
+        disabled: () =>
+          !canWrite || promotableLocalField(instance, selectedColumn) === null,
+        onSelect: (context) => {
+          const anchor = context.ranges[0]?.columnIds[0]
+          const column = matrixRef.current.columns.find(
+            (item) => item.id === anchor,
+          )
+          const field = promotableLocalField(instanceRef.current, column)
+          if (field) setPromoteField(field)
+        },
+      },
     ],
-    [canWrite, presentation.frozenColumnCount],
+    [canWrite, instance, presentation.frozenColumnCount, selectedColumn],
   )
 
   const contextMenu = useMemo<SheetbaseGridMenuEntry[]>(
@@ -1771,6 +1828,24 @@ export function CanonicalSheetEditor({
         </div>
       )}
       <div className="space-y-1 border-t px-3 py-2 text-xs text-fg-muted">
+        {/* SHEET-02.3: a returned promotion is announced against the column
+        it came from. The banner renders nothing while the request is
+        pending or approved, so the line stays silent until a reviewer acts. */}
+        {selectedColumn && selectedColumn.origin === 'local' ? (
+          <PromoteRejected
+            instanceId={instance.id}
+            fieldId={selectedColumn.id}
+            client={client}
+            onEditAndResubmit={
+              canWrite
+                ? () => {
+                    const field = promotableLocalField(instance, selectedColumn)
+                    if (field) setPromoteField(field)
+                  }
+                : undefined
+            }
+          />
+        ) : null}
         <p>
           Sorting, filters, freezing, hidden columns and sizes are a
           display-only working view. They never change the Dataset, the Sheet's
@@ -1887,6 +1962,28 @@ export function CanonicalSheetEditor({
             }}
           />
         </aside>
+      ) : null}
+      {promoteField ? (
+        // SHEET-02.3: the column menu opens this dialog, so it carries no
+        // trigger of its own. Closing unmounts it, discarding the draft.
+        <SheetPromote
+          instanceId={instance.id}
+          field={promoteField}
+          client={client}
+          expectedRevision={instance.revision}
+          open
+          trigger={false}
+          onOpenChange={(next) => {
+            if (!next) setPromoteField(null)
+          }}
+          onSubmitted={() => {
+            // The promotion's state changed, so a banner for an earlier
+            // return must not outlive this request.
+            void queryClient.invalidateQueries({
+              queryKey: ['column-promotions'],
+            })
+          }}
+        />
       ) : null}
       {canWrite ? (
         <CanonicalSheetLifecyclePanel

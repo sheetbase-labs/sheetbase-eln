@@ -108,6 +108,7 @@ export interface ProjectMember {
   name: string
   access_level: string
   workspace_role: string | null
+  project_role: string | null
   is_lead: boolean
   added_at: string
 }

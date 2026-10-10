@@ -151,11 +151,7 @@ function ProjectMembers() {
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      {m.is_lead
-                        ? 'Lead'
-                        : m.workspace_role
-                          ? m.workspace_role
-                          : '—'}
+                      {m.project_role ?? (m.is_lead ? 'Lead' : '—')}
                     </TableCell>
                     <TableCell>
                       {accessLabel[m.access_level] ?? m.access_level}

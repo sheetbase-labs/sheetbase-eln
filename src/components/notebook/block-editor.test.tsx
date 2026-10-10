@@ -338,7 +338,7 @@ describe('BlockEditor — linked_record', () => {
     expect(save).not.toHaveBeenCalled()
   })
 
-  it('lists scientist-facing target kinds including Dataset, sample and reagent', () => {
+  it('lists scientist-facing target kinds including Dataset, sample and material', () => {
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -360,7 +360,7 @@ describe('BlockEditor — linked_record', () => {
       'Experiment',
       'Dataset',
       'Sample',
-      'Reagent',
+      'Material',
       'Protocol template',
       'Report',
     ])
@@ -372,7 +372,7 @@ describe('BlockEditor — linked_record', () => {
       'experiment',
       'dataset',
       'sample',
-      'reagent',
+      'material',
       'protocol_template',
       'report',
     ])

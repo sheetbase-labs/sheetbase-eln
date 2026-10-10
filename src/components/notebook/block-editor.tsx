@@ -630,7 +630,7 @@ const LINK_TYPES = [
   'sample',
   'protocol',
   'dataset',
-  'reagent',
+  'material',
   'analysis',
   'file',
   // EXP-02.3: the overview relates an experiment to what it follows and to its
@@ -643,7 +643,7 @@ const TARGET_KINDS = [
   'experiment',
   'dataset',
   'sample',
-  'reagent',
+  'material',
   'protocol_template',
   'report',
 ] as const
@@ -652,7 +652,7 @@ const TARGET_KIND_LABELS: Record<(typeof TARGET_KINDS)[number], string> = {
   experiment: 'Experiment',
   dataset: 'Dataset',
   sample: 'Sample',
-  reagent: 'Reagent',
+  material: 'Material',
   protocol_template: 'Protocol template',
   report: 'Report',
 }
@@ -1111,7 +1111,7 @@ function MaterialsEditor(props: BlockEditorProps) {
     props.offline,
     props.onStatusChange,
   )
-  const [kind, setKind] = React.useState<'sample' | 'reagent'>('sample')
+  const [kind, setKind] = React.useState<'sample' | 'material'>('sample')
   const [query, setQuery] = React.useState('')
   const [selected, setSelected] = React.useState<RecordPickerResult | null>(
     null,
@@ -1207,7 +1207,7 @@ function MaterialsEditor(props: BlockEditorProps) {
       )}
       <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
         <div className="flex gap-2">
-          {(['sample', 'reagent'] as const).map((value) => (
+          {(['sample', 'material'] as const).map((value) => (
             <Button
               key={value}
               type="button"
@@ -1223,7 +1223,7 @@ function MaterialsEditor(props: BlockEditorProps) {
               ) : (
                 <Icon name="tube" />
               )}
-              {value === 'sample' ? 'Samples' : 'Reagents'}
+              {value === 'sample' ? 'Samples' : 'Materials'}
             </Button>
           ))}
         </div>

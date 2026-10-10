@@ -199,7 +199,7 @@ describe('link enforcement', () => {
     const s1 = await createRecord(owner, PROJ_A, 'sample', 'S1')
     const s2 = await createRecord(owner, PROJ_A, 'sample', 'S2')
     const s3 = await createRecord(owner, PROJ_A, 'sample', 'S3')
-    const reagent = await createRecord(owner, PROJ_A, 'reagent', 'R1')
+    const reagent = await createRecord(owner, PROJ_A, 'material', 'R1')
     const protocol = await createRecord(
       owner,
       PROJ_A,
@@ -230,7 +230,7 @@ describe('link enforcement', () => {
     // Unlisted target model for the constrained model fails closed.
     await expect(
       createLink(owner, exp.id, {
-        kind: 'reagent',
+        kind: 'material',
         identifier: reagent.identifier,
         id: reagent.id,
         linkType: 'sample',
@@ -250,24 +250,24 @@ describe('link enforcement', () => {
   it('leaves models without rules unrestricted', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const sample = await createRecord(owner, PROJ_A, 'sample', 'Free source')
-    const reagent = await createRecord(owner, PROJ_A, 'reagent', 'Free target')
+    const reagent = await createRecord(owner, PROJ_A, 'material', 'Free target')
     const link = await createLink(owner, sample.id, {
-      kind: 'reagent',
+      kind: 'material',
       identifier: reagent.identifier,
       id: reagent.id,
-      linkType: 'reagent',
+      linkType: 'material',
     })
     expect(link.target_record_id).toBe(reagent.id)
   })
 
   it('enforces rules on direct inserts and identifier-only links', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    await configureRule(owner, 'experiment', 'reagent', 'reagent', 0, 1)
+    await configureRule(owner, 'experiment', 'material', 'material', 0, 1)
     const exp = await createRecord(owner, PROJ_A, 'experiment', 'Direct source')
     const reagent = await createRecord(
       owner,
       PROJ_A,
-      'reagent',
+      'material',
       'Direct target',
     )
     const sample = await createRecord(owner, PROJ_A, 'sample', 'Direct sample')
@@ -275,20 +275,20 @@ describe('link enforcement', () => {
     await expect(
       owner.query(
         `INSERT INTO api.record_links(source_record_id, target_record_id, target_kind, target_identifier, link_type, created_by_user_id)
-         VALUES ($1, $2, 'sample', $3, 'reagent', $4)`,
+         VALUES ($1, $2, 'sample', $3, 'material', $4)`,
         [exp.id, sample.id, sample.identifier, OWNER_A],
       ),
     ).rejects.toMatchObject({ code: 'SB080' })
     // Identifier-only link resolving to an allowed model succeeds.
     const { rows } = await owner.query(
-      `SELECT * FROM api.create_record_link($1, 'reagent', $2, 'reagent', NULL, NULL)`,
+      `SELECT * FROM api.create_record_link($1, 'material', $2, 'material', NULL, NULL)`,
       [exp.id, reagent.identifier],
     )
     expect(rows[0].target_record_id).toBeNull()
     // Identifier-only link to an unlisted model fails closed.
     await expect(
       owner.query(
-        `SELECT * FROM api.create_record_link($1, 'mystery', 'X-1', 'reagent', NULL, NULL)`,
+        `SELECT * FROM api.create_record_link($1, 'mystery', 'X-1', 'material', NULL, NULL)`,
         [exp.id],
       ),
     ).rejects.toMatchObject({ code: 'SB080' })

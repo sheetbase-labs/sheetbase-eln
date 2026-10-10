@@ -42,7 +42,7 @@ export async function createBlankExperiment(
 /**
  * Apply the optional new-experiment choices after creation: link the protocol
  * the experiment follows, and copy the source experiment's linked materials
- * (samples and reagents) onto the new record. Both go through
+ * (samples and materials) onto the new record. Both go through
  * `create_record_link`, so the rules stay in the database.
  */
 export async function applyExperimentSetup(
@@ -77,7 +77,7 @@ export async function applyExperimentSetup(
       target_record_id: string | null
     }>(
       'record_links',
-      `?source_record_id=eq.${encodeURIComponent(input.copyFromRecordId)}&link_type=in.(sample,reagent)&select=target_kind,target_identifier,link_type,target_record_id`,
+      `?source_record_id=eq.${encodeURIComponent(input.copyFromRecordId)}&link_type=in.(sample,material)&select=target_kind,target_identifier,link_type,target_record_id`,
     )
     for (const link of links) {
       await client.rpc('create_record_link', {

@@ -240,7 +240,7 @@ describe('typed relationships for workspace record models', () => {
     const reagent = await createRecord(
       owner,
       PROJECT_A,
-      'reagent',
+      'material',
       'Reagent target',
     )
 
@@ -256,7 +256,7 @@ describe('typed relationships for workspace record models', () => {
     // target fails closed with SB080.
     await expect(
       createLink(owner, cell.id, {
-        kind: 'reagent',
+        kind: 'material',
         identifier: reagent.identifier,
         id: reagent.id,
         linkType: 'sample',

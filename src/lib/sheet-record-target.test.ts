@@ -18,7 +18,9 @@ function configuration(modelKey: string | null) {
 
 describe('sheetRecordTargetModelKey', () => {
   it('uses the Model named on the Definition, not a hard-coded sample', () => {
-    expect(sheetRecordTargetModelKey(configuration('reagent'))).toBe('reagent')
+    expect(sheetRecordTargetModelKey(configuration('material'))).toBe(
+      'material',
+    )
     expect(sheetRecordTargetModelKey(configuration('batch'))).toBe('batch')
     expect(sheetRecordTargetModelKey(configuration(null))).toBeNull()
     expect(sheetRecordTargetModelKey(null)).toBeNull()

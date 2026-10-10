@@ -1,7 +1,7 @@
 /**
  * Scientific record domain library (SCI-001, decision 0026).
  *
- * Samples, reagents and protocols are record kinds within the existing
+ * Samples, materials and protocols are record kinds within the existing
  * `records` infrastructure. This module provides the application-boundary
  * validation and vocabulary that sit on top of the database contract:
  *
@@ -24,24 +24,26 @@ import { toRecord } from '#/lib/notebook-data'
 // ---------------------------------------------------------------------------
 
 /** Record kinds that have configurable scientific properties. */
-export type ScientificRecordKind = 'sample' | 'reagent' | 'protocol_template'
+export type ScientificRecordKind = 'sample' | 'material' | 'protocol_template'
 
 export const SCIENTIFIC_RECORD_KINDS: readonly ScientificRecordKind[] = [
   'sample',
-  'reagent',
+  'material',
   'protocol_template',
 ]
 
 export function isScientificRecordKind(
   kind: string,
 ): kind is ScientificRecordKind {
-  return kind === 'sample' || kind === 'reagent' || kind === 'protocol_template'
+  return (
+    kind === 'sample' || kind === 'material' || kind === 'protocol_template'
+  )
 }
 
 /** Kind -> stable identifier prefix (mirrors the create_record RPC). */
 export const KIND_PREFIX: Record<ScientificRecordKind, string> = {
   sample: 'SMP',
-  reagent: 'RGT',
+  material: 'RGT',
   protocol_template: 'PRT',
 }
 
@@ -238,7 +240,7 @@ function checkLogicalType(
 
 export type SampleStatus =
   'available' | 'reserved' | 'consumed' | 'expired' | 'quarantined' | 'frozen'
-export type ReagentStatus =
+export type MaterialStatus =
   | 'available'
   | 'reserved'
   | 'consumed'
@@ -264,7 +266,7 @@ export const KIND_STATUS_VOCABULARY: Record<
     'quarantined',
     'frozen',
   ],
-  reagent: [
+  material: [
     'available',
     'reserved',
     'consumed',
@@ -287,13 +289,13 @@ const ALLOWED_TRANSITIONS: readonly string[] = [
   'sample:reserved->available',
   'sample:reserved->consumed',
   'sample:quarantined->available',
-  'reagent:available->reserved',
-  'reagent:available->consumed',
-  'reagent:available->quarantined',
-  'reagent:available->expired',
-  'reagent:reserved->available',
-  'reagent:reserved->consumed',
-  'reagent:quarantined->available',
+  'material:available->reserved',
+  'material:available->consumed',
+  'material:available->quarantined',
+  'material:available->expired',
+  'material:reserved->available',
+  'material:reserved->consumed',
+  'material:quarantined->available',
   'protocol_template:draft->active',
   'protocol_template:draft->under_review',
   'protocol_template:under_review->active',
@@ -321,7 +323,7 @@ export function allowedTargets(
 /**
  * Link type for a scientific record kind — the `record_links.link_type`
  * value used when linking a scientific record into a notebook. Mirrors the
- * `sample`/`reagent`/`protocol` link types from decision 0015.
+ * `sample`/`material`/`protocol` link types from decision 0015.
  */
 export function linkTypeForKind(kind: ScientificRecordKind): string {
   return kind === 'protocol_template' ? 'protocol' : kind

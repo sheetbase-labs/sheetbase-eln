@@ -79,7 +79,7 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   definition(
     'create_model_record',
     'Create record',
-    'Create an experiment, sample, reagent, report or supported model record in a project.',
+    'Create an experiment, sample, material, report or supported model record in a project.',
     [
       arg('p_project_id', 'uuid'),
       arg('p_kind', 'text'),
@@ -172,8 +172,8 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
   definition(
     'record_reagent_movement',
-    'Record reagent movement',
-    'Receive, consume or adjust reagent stock through its governed movement operation.',
+    'Record material movement',
+    'Receive, consume or adjust material stock through its governed movement operation.',
     [
       arg('p_reagent_record_id', 'uuid'),
       arg('p_expected_metadata_version', 'integer'),

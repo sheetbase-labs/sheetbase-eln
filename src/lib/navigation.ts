@@ -43,7 +43,7 @@ export function recordDestination(kind: string, recordId: string): string {
   switch (kind) {
     case 'sample':
       return samplePath(recordId)
-    case 'reagent':
+    case 'material':
       return reagentPath(recordId)
     case 'protocol_template':
       return protocolTemplatePath(recordId)

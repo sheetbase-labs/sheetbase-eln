@@ -754,11 +754,11 @@ function validateMaterials(payload: unknown): FieldErrors {
         message: 'materialRecordId must be a UUID',
       })
     }
-    if (value.kind !== 'sample' && value.kind !== 'reagent') {
+    if (value.kind !== 'sample' && value.kind !== 'material') {
       errors.push({
         code: 'invalid_field_value',
         field: `${field}.kind`,
-        message: 'kind must be sample or reagent',
+        message: 'kind must be sample or material',
       })
     }
     for (const name of ['identifier', 'title'] as const) {

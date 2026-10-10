@@ -468,7 +468,7 @@ export const RECORD_KIND_LABELS: Record<string, string> = {
   report: 'Report',
   notebook_template: 'Notebook template',
   sample: 'Sample',
-  reagent: 'Reagent',
+  material: 'Material',
   file: 'File',
   study: 'Study',
   /* DATA-04 search result classes (not record kinds, but rendered through
@@ -488,12 +488,12 @@ export function recordKindLabel(kind: string): string {
  */
 export function statusDomainForKind(
   kind: string,
-): 'experiment' | 'sample' | 'reagent' | 'protocol' | 'notebook_template' {
+): 'experiment' | 'sample' | 'material' | 'protocol' | 'notebook_template' {
   switch (kind) {
     case 'sample':
       return 'sample'
-    case 'reagent':
-      return 'reagent'
+    case 'material':
+      return 'material'
     case 'protocol_template':
       return 'protocol'
     case 'notebook_template':

@@ -101,7 +101,7 @@ async function createRecord(
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      p_project_id: kind === 'sample' || kind === 'reagent' ? PROJ_A : PROJ_A,
+      p_project_id: kind === 'sample' || kind === 'material' ? PROJ_A : PROJ_A,
       p_kind: kind,
       p_title: title,
       p_status: status,

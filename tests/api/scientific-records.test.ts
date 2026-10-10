@@ -365,7 +365,7 @@ describe('SCI-001 scientific records REST contract', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         p_project_id: PROJ_A,
-        p_kind: 'reagent',
+        p_kind: 'material',
         p_title: 'Event proof reagent',
         p_status: 'available',
       }),

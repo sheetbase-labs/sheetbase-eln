@@ -57,11 +57,11 @@ export const sampleStatusVocabulary: StatusVocabulary = {
 }
 
 /**
- * Reagent lifecycle vocabulary (SCI-001). Reagents share the sample
+ * Material lifecycle vocabulary (SCI-001). Materials share the sample
  * availability/quarantine states and add a low-stock inventory state that is
  * not a lifecycle transition target but is rendered when present.
  */
-export const reagentStatusVocabulary: StatusVocabulary = {
+export const materialStatusVocabulary: StatusVocabulary = {
   available: { label: 'Available', tone: 'success', icon: 'check' },
   reserved: { label: 'Reserved', tone: 'info', icon: 'lock' },
   consumed: { label: 'Consumed', tone: 'neutral', icon: 'archive' },
@@ -113,7 +113,7 @@ export const statusVocabularies = {
   review: reviewStatusVocabulary,
   sample: sampleStatusVocabulary,
   dataset: datasetStatusVocabulary,
-  reagent: reagentStatusVocabulary,
+  material: materialStatusVocabulary,
   protocol: protocolStatusVocabulary,
   notebook_template: notebookTemplateStatusVocabulary,
   project: projectStatusVocabulary,

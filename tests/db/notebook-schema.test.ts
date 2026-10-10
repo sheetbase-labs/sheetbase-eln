@@ -446,7 +446,7 @@ describe('Virus Stability demo fixtures', () => {
               count(DISTINCT status)::text AS statuses
        FROM api.records
        WHERE project_id = '${DEMO_VIRUS_STABILITY_PROJECT_ID}'
-         AND kind = 'reagent'`,
+         AND kind = 'material'`,
     )
     expect(Number(reagents[0]?.n)).toBe(26)
     expect(Number(reagents[0]?.statuses)).toBe(5)

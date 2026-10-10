@@ -34,7 +34,7 @@ export const RECORD_KIND_PREFIX: Record<string, string> = {
   protocol_template: 'PRT',
   report: 'RPT',
   sample: KIND_PREFIX.sample,
-  reagent: KIND_PREFIX.reagent,
+  material: KIND_PREFIX.material,
   file: 'FILE',
   notebook_template: 'NBK',
 }

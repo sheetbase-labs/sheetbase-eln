@@ -63,7 +63,7 @@ async function discover() {
       get('/api/db/dataset_schema_definitions?limit=1&select=id'),
       get('/api/db/pipeline_definitions?limit=1&select=id'),
       get('/api/db/notebook_templates?limit=1&select=id'),
-      get('/api/db/records?kind=eq.reagent&limit=1&select=id'),
+      get('/api/db/records?kind=eq.material&limit=1&select=id'),
       get('/api/db/connectors?limit=1&select=id'),
       get('/api/db/analysis_views?limit=1&select=id'),
       get('/api/db/records?kind=eq.protocol_template&limit=1&select=id'),

@@ -38,7 +38,7 @@ describe('SCI-006 template domain helpers', () => {
       'notebook_template',
       'experiment',
       'sample',
-      'reagent',
+      'material',
       'report',
       'file',
       '',

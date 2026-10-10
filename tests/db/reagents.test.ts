@@ -51,7 +51,7 @@ async function createReagent(
   properties: Record<string, unknown> = {},
 ): Promise<Record<string, any>> {
   const { rows } = await client.query(
-    `SELECT * FROM api.create_record($1::uuid, 'reagent', $2, $3, ARRAY[]::text[], $4::jsonb)`,
+    `SELECT * FROM api.create_record($1::uuid, 'material', $2, $3, ARRAY[]::text[], $4::jsonb)`,
     [project, title, status, JSON.stringify(properties)],
   )
   return rows[0]

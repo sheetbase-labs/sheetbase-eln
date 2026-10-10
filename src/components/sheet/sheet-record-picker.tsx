@@ -17,7 +17,7 @@ import { formatRecordReferenceLabel } from '#/lib/record-reference-cell'
 
 const MODEL_KIND: Record<string, ScientificRecordKind> = {
   sample: 'sample',
-  reagent: 'reagent',
+  material: 'material',
   protocol_template: 'protocol_template',
 }
 

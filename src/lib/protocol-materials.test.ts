@@ -7,7 +7,7 @@ function record(overrides: Partial<NotebookRecord> = {}): NotebookRecord {
   return {
     id: 'record-1',
     projectId: 'project-1',
-    kind: 'reagent',
+    kind: 'material',
     identifier: 'RGT-2026-0001',
     title: 'Assay reagent',
     status: 'available',

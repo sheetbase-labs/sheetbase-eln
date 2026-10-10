@@ -511,7 +511,7 @@ export const designSteps: Array<SeedStep> = [
     },
   },
   {
-    name: 'design reagent fields',
+    name: 'design material fields',
     run: async (db) => {
       for (const field of DESIGN_REAGENT_FIELDS) {
         await db
@@ -519,7 +519,7 @@ export const designSteps: Array<SeedStep> = [
           .values({
             id: field.id,
             workspaceId: PROCESS,
-            kind: 'reagent',
+            kind: 'material',
             fieldName: field.fieldName,
             label: field.label,
             displayOrder: field.displayOrder,
@@ -557,7 +557,7 @@ export const designSteps: Array<SeedStep> = [
             id: material.id,
             workspaceId: PROCESS,
             projectId: DESIGN_PROJECTS[0].id,
-            kind: 'reagent',
+            kind: 'material',
             identifier: material.identifier,
             title: material.title,
             status: material.status,
@@ -583,7 +583,7 @@ export const designSteps: Array<SeedStep> = [
       await db.execute(sql`
         DELETE FROM api.records
          WHERE project_id = ${DESIGN_PROJECTS[0].id}
-           AND kind = 'reagent'
+           AND kind = 'material'
            AND identifier <> ALL (${sql.raw(
              `ARRAY[${DESIGN_MATERIALS.map((material) => `'${material.identifier}'`).join(',')}]`,
            )})
@@ -598,7 +598,7 @@ export const designSteps: Array<SeedStep> = [
       )
       await db.execute(sql`
         INSERT INTO internal.id_sequences (workspace_id, kind, last_number)
-        VALUES (${PROCESS}, ${'reagent'}, ${lastMaterial})
+        VALUES (${PROCESS}, ${'material'}, ${lastMaterial})
         ON CONFLICT (workspace_id, kind)
         DO UPDATE SET last_number = greatest(
           internal.id_sequences.last_number,
@@ -697,7 +697,7 @@ export const designSteps: Array<SeedStep> = [
            link_metadata, created_by_user_id, created_at)
         VALUES (${'00000000-0000-4000-8000-000000000351'},
                 ${'00000000-0000-4000-8000-0000000003a8'},
-                'reagent', 'MAT-0420', 'reagent',
+                'material', 'MAT-0420', 'material',
                 ${'{"quantity":1,"unit":"units","usedOn":"2026-09-23"}'}::jsonb,
                 ${DESIGN_USER_IDS.gareth},
                 ${'2026-09-23T00:00:00Z'})

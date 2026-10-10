@@ -258,7 +258,7 @@ describe('field semantics parity', () => {
     expect(
       resolveRecordReferenceState({
         persistedId: RECORD_UUID,
-        snapshot: { ...snapshot, modelKey: 'reagent' },
+        snapshot: { ...snapshot, modelKey: 'material' },
         targetModelKey: 'sample',
       }),
     ).toMatchObject({ kind: 'invalid-model' })

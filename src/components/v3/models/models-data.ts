@@ -381,7 +381,7 @@ export const BUILT_IN_KIND_SURFACES: Partial<
   Record<string, { to: BuiltInKindSurface; label: string }>
 > = {
   sample: { to: '/samples', label: 'Samples' },
-  reagent: { to: '/materials', label: 'Materials' },
+  material: { to: '/materials', label: 'Materials' },
   protocol_template: { to: '/protocols', label: 'Protocols' },
   experiment: { to: '/experiments', label: 'Experiments' },
   notebook_template: { to: '/templates', label: 'Templates' },

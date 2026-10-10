@@ -3,7 +3,7 @@
  *
  * A unified "related work" aggregator built ONLY on existing RLS-filtered
  * reads: outgoing `record_links`, incoming links (`target_record_id` plus the
- * per-kind `link_type` patterns from templates/reagent/samples), bidirectional
+ * per-kind `link_type` patterns from templates/material/samples), bidirectional
  * lineage links, sheet-instance provenance columns, dataset schema
  * relationships, and shared project/model membership. PostgreSQL/RLS stays
  * authoritative — there is no shadow knowledge graph here, just one bounded
@@ -109,8 +109,8 @@ export function outgoingLinkReason(
       return `Derived from dataset ${identifier}`
     case 'sample':
       return `Uses sample ${identifier}`
-    case 'reagent':
-      return `Uses reagent ${identifier}`
+    case 'material':
+      return `Uses material ${identifier}`
     case 'protocol':
       return `Uses protocol ${identifier}`
     case 'file':
@@ -135,8 +135,8 @@ export function incomingLinkReason(
       return `Used as template in ${identifier}`
     case 'sample':
       return `Used as sample in ${identifier}`
-    case 'reagent':
-      return `Used as reagent in ${identifier}`
+    case 'material':
+      return `Used as material in ${identifier}`
     case 'protocol':
       return `Used as protocol in ${identifier}`
     case 'dataset':

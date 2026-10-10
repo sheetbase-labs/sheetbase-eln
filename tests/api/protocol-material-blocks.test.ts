@@ -321,7 +321,7 @@ describe('SCI-002 protocol and material blocks REST contract', () => {
       USER_A,
       WS_A,
       PROJECT_A,
-      'reagent',
+      'material',
       'API reagent',
       'available',
     )

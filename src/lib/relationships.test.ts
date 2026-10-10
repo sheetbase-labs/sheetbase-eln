@@ -159,13 +159,13 @@ describe('fetchIncomingLinksByIdentifier', () => {
           source_record_id: 'rec-7',
           target_record_id: null,
           target_identifier: 'EXP-1',
-          link_type: 'reagent',
+          link_type: 'material',
         }),
         linkWire('by-id-2', {
           source_record_id: 'rec-8',
           target_record_id: 'rec-other',
           target_identifier: 'EXP-1',
-          link_type: 'reagent',
+          link_type: 'material',
         }),
       ]),
     ])
@@ -212,7 +212,7 @@ describe('fetchRelationshipLinks', () => {
           source_record_id: 'rec-7',
           target_record_id: null,
           target_identifier: 'EXP-1',
-          link_type: 'reagent',
+          link_type: 'material',
         }),
       ]),
     ]

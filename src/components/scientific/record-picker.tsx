@@ -1,6 +1,6 @@
 /**
  * RecordPicker — searchable selector for linking scientific records (samples,
- * reagents, protocols) into notebook workflows (SCI-001).
+ * materials, protocols) into notebook workflows (SCI-001).
  *
  * The picker searches records of a given kind by identifier or title,
  * distinguishes kind and status with the shared StatusBadge, shows archived
@@ -64,16 +64,16 @@ export interface RecordPickerProps {
 
 const KIND_DOMAIN: Record<
   ScientificRecordKind,
-  'sample' | 'reagent' | 'protocol'
+  'sample' | 'material' | 'protocol'
 > = {
   sample: 'sample',
-  reagent: 'reagent',
+  material: 'material',
   protocol_template: 'protocol',
 }
 
 const KIND_LABEL: Record<ScientificRecordKind, string> = {
   sample: 'Sample',
-  reagent: 'Reagent',
+  material: 'Material',
   protocol_template: 'Protocol',
 }
 

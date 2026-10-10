@@ -69,7 +69,7 @@ export const MODEL_LINK_TYPES = [
   'sample',
   'protocol',
   'dataset',
-  'reagent',
+  'material',
   'analysis',
   'file',
   'general',

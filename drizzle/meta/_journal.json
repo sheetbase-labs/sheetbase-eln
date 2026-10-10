@@ -2869,6 +2869,27 @@
       "when": 1791662364080,
       "tag": "0411_rename_reagent_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 412,
+      "version": "7",
+      "when": 1791663466998,
+      "tag": "0412_rename_reagent_in_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 413,
+      "version": "7",
+      "when": 1791663831540,
+      "tag": "0413_rename_reagent_model_registry",
+      "breakpoints": true
+    },
+    {
+      "idx": 414,
+      "version": "7",
+      "when": 1791664259360,
+      "tag": "0414_rename_reagent_in_views",
+      "breakpoints": true
     }
   ]
 }

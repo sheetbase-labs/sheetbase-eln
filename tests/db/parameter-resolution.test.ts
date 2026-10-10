@@ -394,7 +394,7 @@ describe('server-authoritative Parameter resolution', () => {
           ? {
               ...field,
               relationship: {
-                target: { kind: 'model', modelKey: 'reagent' },
+                target: { kind: 'model', modelKey: 'material' },
                 cardinality: 'one',
               },
             }

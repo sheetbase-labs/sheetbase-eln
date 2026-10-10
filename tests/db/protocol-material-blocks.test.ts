@@ -446,7 +446,7 @@ describe('SCI-002 protocol pins and material blocks', () => {
     const reagent = await record(
       a,
       PROJECT_A,
-      'reagent',
+      'material',
       'Reagent A',
       'available',
     )
@@ -506,7 +506,7 @@ describe('SCI-002 protocol pins and material blocks', () => {
       [experiment.id],
     )
     expect(links.map((link) => link.link_type).sort()).toEqual([
-      'reagent',
+      'material',
       'sample',
       'sample',
     ])

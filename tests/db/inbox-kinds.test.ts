@@ -65,7 +65,7 @@ beforeAll(async () => {
   )
   await migrator.query(
     `insert into api.records(id,workspace_id,kind,identifier,title,status,created_by_user_id,properties)
-     values ($1,$2,'reagent','MAT-WK','WI reagent','available',$3,'{"expiry":"2026-10-05"}'::jsonb)`,
+     values ($1,$2,'material','MAT-WK','WI reagent','available',$3,'{"expiry":"2026-10-05"}'::jsonb)`,
     [REAGENT, WS, USER],
   )
 })

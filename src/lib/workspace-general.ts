@@ -23,7 +23,7 @@ export const ID_PREFIX_KINDS = [
   'sample',
   'dataset',
   'protocol_template',
-  'reagent',
+  'material',
   'report',
   'file',
   'notebook_template',

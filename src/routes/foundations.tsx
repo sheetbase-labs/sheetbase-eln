@@ -687,7 +687,7 @@ function RecordPreview() {
                     },
                     {
                       id: '3',
-                      label: 'Reagent expiry',
+                      label: 'Material expiry',
                       state: 'warning' as const,
                       detail: 'Due in 10d',
                     },

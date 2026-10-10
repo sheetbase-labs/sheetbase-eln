@@ -105,7 +105,7 @@ describe('link reasons', () => {
       'Derived from dataset D-1',
     )
     expect(outgoingLinkReason('sample', 'S-1')).toBe('Uses sample S-1')
-    expect(outgoingLinkReason('reagent', 'R-1')).toBe('Uses reagent R-1')
+    expect(outgoingLinkReason('material', 'R-1')).toBe('Uses material R-1')
     expect(outgoingLinkReason('protocol', 'P-1')).toBe('Uses protocol P-1')
     expect(outgoingLinkReason('file', 'F-1')).toBe('Has file F-1')
   })
@@ -118,8 +118,8 @@ describe('link reasons', () => {
     expect(incomingLinkReason('sample', 'EXP-9')).toBe(
       'Used as sample in EXP-9',
     )
-    expect(incomingLinkReason('reagent', 'EXP-9')).toBe(
-      'Used as reagent in EXP-9',
+    expect(incomingLinkReason('material', 'EXP-9')).toBe(
+      'Used as material in EXP-9',
     )
     expect(incomingLinkReason('dataset', 'EXP-9')).toBe(
       'Used as dataset in EXP-9',

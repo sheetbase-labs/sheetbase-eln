@@ -123,7 +123,7 @@ describe('Record-reference cell contract', () => {
         contract,
         record: {
           recordId: OTHER_ID,
-          modelKey: 'reagent',
+          modelKey: 'material',
           archived: false,
           deleted: false,
         },

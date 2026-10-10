@@ -97,7 +97,7 @@ const tabLabel: Record<MaterialTab, string> = {
 }
 
 /** UI port (roadmap-4/ui-app3): the materials registry list, wired to real
- * reagent records. Receive lot writes through record_reagent_movement. */
+ * material records. Receive lot writes through record_reagent_movement. */
 export const Route = createFileRoute('/materials')({
   validateSearch: (
     search: Record<string, unknown>,

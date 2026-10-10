@@ -2,7 +2,7 @@
  * LAB-04.2 — a usage record link cannot point at a held or expired lot.
  *
  * The materials block refuses a quarantined or expired lot; this covers the other
- * way an experiment cites a material, the `link_type = 'reagent'` link the registry
+ * way an experiment cites a material, the `link_type = 'material'` link the registry
  * reads as "Used in". Other link types stay open, because linking a report or a
  * file to a held lot is legitimate.
  */
@@ -54,7 +54,7 @@ beforeAll(async () => {
   await migrator.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id)
      values($1,$2,$3,'experiment','EXP-L042','Uses a lot','in_progress',$4),
-            ($5,$2,$3,'reagent','MAT-L042','Filter train C','available',$4)`,
+            ($5,$2,$3,'material','MAT-L042','Filter train C','available',$4)`,
     [EXPERIMENT, WS, PROJECT, USER, MATERIAL],
   )
 })
@@ -75,7 +75,7 @@ async function actor(userId: string): Promise<Client> {
 function link(client: Client, linkType: string) {
   return client.query(`select api.create_record_link($1,$2,$3,$4,$5)`, [
     EXPERIMENT,
-    'reagent',
+    'material',
     'MAT-L042',
     linkType,
     MATERIAL,
@@ -85,13 +85,13 @@ function link(client: Client, linkType: string) {
 describe('LAB-04.2 usage link to a held or expired lot', () => {
   it('accepts an available lot and refuses a quarantined one', async () => {
     const client = await actor(USER)
-    await expect(link(client, 'reagent')).resolves.toBeDefined()
+    await expect(link(client, 'material')).resolves.toBeDefined()
 
     await migrator.query(
       `update api.records set status='quarantined' where id=$1`,
       [MATERIAL],
     )
-    await expectDenied(link(client, 'reagent'), 'SB120')
+    await expectDenied(link(client, 'material'), 'SB120')
 
     // Released again: the same link already exists, so the refusal is what matters.
     await migrator.query(
@@ -106,7 +106,7 @@ describe('LAB-04.2 usage link to a held or expired lot', () => {
       `update api.records set status='expired' where id=$1`,
       [MATERIAL],
     )
-    await expectDenied(link(client, 'reagent'), 'SB124')
+    await expectDenied(link(client, 'material'), 'SB124')
 
     await migrator.query(
       `update api.records set status='available' where id=$1`,

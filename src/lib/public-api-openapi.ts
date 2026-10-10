@@ -532,7 +532,7 @@ function componentParameters(): Record<string, unknown> {
       required: false,
       schema: { type: 'string' },
       description:
-        'PostgREST disjunctive group, e.g. `or=(kind.eq.sample,kind.eq.reagent)`.',
+        'PostgREST disjunctive group, e.g. `or=(kind.eq.sample,kind.eq.material)`.',
     },
     ColumnFilter: {
       name: '{column}',

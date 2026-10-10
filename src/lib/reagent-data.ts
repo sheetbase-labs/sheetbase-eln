@@ -1,7 +1,7 @@
 /**
  * Reagent registry domain library (REG-003).
  *
- * Reagents are `records` of kind='reagent' with configurable properties
+ * Materials are `records` of kind='material' with configurable properties
  * (supplier, catalog_no, lot, expiry, quantity, unit, storage) defined by
  * `record_field_definitions` (SCI-001 / decision 0026). This module provides
  * the application-boundary layer on top of the database contract:
@@ -373,7 +373,7 @@ function postgrestLogicPattern(value: string): string {
  * included only when the status filter is `archived`.
  */
 export function reagentListQuery(query: RegistryQuery): string {
-  const parts: string[] = ['kind=eq.reagent', 'deleted_at=is.null']
+  const parts: string[] = ['kind=eq.material', 'deleted_at=is.null']
 
   const archived = query.filters.find(
     (f) => f.fieldId === 'status' && f.values[0] === 'archived',
@@ -548,7 +548,7 @@ export async function fetchReagentUsage(
 ): Promise<ReagentUsageLink[]> {
   const links = await client.list<UsageLinkWire>(
     'record_links',
-    `?target_identifier=eq.${encodeURIComponent(identifier)}&link_type=eq.reagent&order=created_at.desc&limit=${limit}` +
+    `?target_identifier=eq.${encodeURIComponent(identifier)}&link_type=eq.material&order=created_at.desc&limit=${limit}` +
       `&select=id,source_record_id,link_type,link_metadata,created_at`,
   )
   if (links.length === 0) return []
@@ -606,7 +606,7 @@ export async function fetchReplacementLot(
   }>(
     'record_links',
     `?source_record_id=in.(select id from api.records where identifier=eq.${encodeURIComponent(identifier)})` +
-      `&link_type=eq.reagent&limit=25&select=id,target_record_id,target_identifier,link_metadata`,
+      `&link_type=eq.material&limit=25&select=id,target_record_id,target_identifier,link_metadata`,
   )
   const replacement = links.find(
     (link) =>
@@ -807,7 +807,7 @@ export async function createReagent(
 ): Promise<Reagent> {
   const row = await client.rpc<RecordWire>('create_model_record', {
     p_project_id: input.projectId,
-    p_kind: 'reagent',
+    p_kind: 'material',
     p_title: input.title,
     p_status: input.status ?? 'available',
     p_tags: input.tags ?? [],

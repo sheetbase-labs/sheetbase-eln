@@ -39,10 +39,10 @@ beforeAll(async () => {
   await migrator.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,properties,created_by_user_id)
      values
-       ($1,$3,$4,'reagent','MAT-SOON','Expiring lot','available',
+       ($1,$3,$4,'material','MAT-SOON','Expiring lot','available',
         jsonb_build_object('supplier','Supplier A','lot','L-1',
           'expiry', to_char(current_date + 3, 'YYYY-MM-DD')), $5),
-       ($2,$3,$4,'reagent','MAT-LATER','Distant lot','available',
+       ($2,$3,$4,'material','MAT-LATER','Distant lot','available',
         jsonb_build_object('supplier','Supplier A','lot','L-2',
           'expiry', to_char(current_date + 400, 'YYYY-MM-DD')), $5)`,
     [SOON, LATER, WS, PROJECT, OWNER],
@@ -67,7 +67,7 @@ describe('WORK-03.2 material expiring notifications', () => {
     expect(await sweep()).toBe(1)
 
     const events = await migrator.query<{ entity_uuid: string; payload: Record<string, unknown> }>(
-      `select entity_uuid, payload from api.change_events where entity_type='reagent'`,
+      `select entity_uuid, payload from api.change_events where entity_type='material'`,
     )
     expect(events.rows.map((row) => row.entity_uuid)).toEqual([SOON])
     expect(events.rows[0]!.payload.action).toBe('expiring')

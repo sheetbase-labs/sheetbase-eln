@@ -48,7 +48,7 @@ const INSTRUMENT_FIELDS = 'id,display_id,name,instrument_type,connection_status'
 const KIND_LABELS: Record<string, string> = {
   sample: 'Sample',
   experiment: 'Experiment',
-  reagent: 'Material',
+  material: 'Material',
   protocol_template: 'Protocol template',
   notebook_template: 'Notebook template',
   report: 'Report',

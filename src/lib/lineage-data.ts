@@ -129,7 +129,7 @@ export interface ChangeEventWire {
 export type LineageEntityType =
   | 'experiment'
   | 'sample'
-  | 'reagent'
+  | 'material'
   | 'protocol'
   | 'dataset'
   | 'figure'
@@ -230,7 +230,7 @@ export const DEFAULT_FILTERS: LineageFilters = {
 const KIND_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
   experiment: 'experiment',
   sample: 'sample',
-  reagent: 'reagent',
+  material: 'material',
   protocol_template: 'protocol',
   report: 'report',
   file: 'file',
@@ -239,7 +239,7 @@ const KIND_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
 
 const LINK_TYPE_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
   sample: 'sample',
-  reagent: 'reagent',
+  material: 'material',
   protocol: 'protocol',
   dataset: 'dataset',
   analysis: 'dataset',
@@ -250,7 +250,7 @@ const LINK_TYPE_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
   sample: 'uses',
-  reagent: 'uses',
+  material: 'uses',
   protocol: 'defined by',
   dataset: 'generates',
   analysis: 'analyzed by',
@@ -267,7 +267,7 @@ const RELATIONSHIP_LABELS: Record<string, string> = {
 export const ENTITY_TYPE_LABELS: Record<LineageEntityType, string> = {
   experiment: 'Experiment',
   sample: 'Sample',
-  reagent: 'Reagent',
+  material: 'Material',
   protocol: 'Protocol',
   dataset: 'Dataset',
   figure: 'Figure',
@@ -283,7 +283,7 @@ export const ENTITY_TYPE_LABELS: Record<LineageEntityType, string> = {
 export const ENTITY_TYPE_COLORS: Record<LineageEntityType, string> = {
   experiment: '#3b82f6',
   sample: '#10b981',
-  reagent: '#10b981',
+  material: '#10b981',
   protocol: '#3b82f6',
   dataset: '#3b82f6',
   figure: '#8b5cf6',
@@ -299,7 +299,7 @@ export const ENTITY_TYPE_COLORS: Record<LineageEntityType, string> = {
 export const ALL_ENTITY_TYPES: LineageEntityType[] = [
   'experiment',
   'sample',
-  'reagent',
+  'material',
   'protocol',
   'dataset',
   'figure',
@@ -312,7 +312,7 @@ export const ALL_ENTITY_TYPES: LineageEntityType[] = [
 
 export const ALL_RELATIONSHIP_TYPES: string[] = [
   'sample',
-  'reagent',
+  'material',
   'protocol',
   'dataset',
   'analysis',

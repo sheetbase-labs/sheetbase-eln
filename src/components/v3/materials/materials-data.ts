@@ -12,7 +12,7 @@ import type { Reagent } from '#/lib/reagent-data'
 import type { RegistryQuery } from '#/lib/registry'
 
 /** UI port (roadmap-4/ui-app3): the materials registry, mapped from real
- * reagent records onto the app-3 list shape. */
+ * material records onto the app-3 list shape. */
 
 export interface MaterialListRow {
   uuid: string

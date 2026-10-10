@@ -241,7 +241,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       createdByUserId: GARETH,
       updatedByUserId: GARETH,
     })
-  const reagentNames = [
+  const materialNames = [
     'Dulbecco’s PBS',
     'Human IL-2',
     'Anti-CD19 antibody',
@@ -253,9 +253,9 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       id: uuid(0x350 + i),
       workspaceId: WORKSPACE,
       projectId: uuid(0x200 + (i % 3)),
-      kind: 'reagent',
+      kind: 'material',
       identifier: `RGT-2026-${String(i + 1).padStart(4, '0')}`,
-      title: reagentNames[i],
+      title: materialNames[i],
       status: 'active',
       tags: ['month-seed'],
       properties: {
@@ -1396,7 +1396,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
           {
             id: 'mat-show-2',
             materialRecordId: uuid(0x350),
-            kind: 'reagent',
+            kind: 'material',
             identifier: 'RGT-2026-0001',
             title: 'Dulbecco\u2019s PBS',
             quantity: 50,

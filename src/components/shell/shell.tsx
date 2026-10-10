@@ -1140,7 +1140,7 @@ function CommandPalette({
             <span>g s Sheets</span>
             <span>g t Templates</span>
             <span>g a Samples</span>
-            <span>g r Reagents</span>
+            <span>g r Materials</span>
           </div>
         </Command>
       </DialogContent>

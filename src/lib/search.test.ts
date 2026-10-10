@@ -608,7 +608,7 @@ describe('SEARCHABLE_KINDS', () => {
       'protocol_template',
       'report',
       'sample',
-      'reagent',
+      'material',
       'file',
       'notebook_template',
       'study',

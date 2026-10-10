@@ -342,7 +342,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     ],
     properties: {
       p_project_id: uuid('Project UUID.'),
-      p_kind: text('Record kind, e.g. experiment, sample, reagent.'),
+      p_kind: text('Record kind, e.g. experiment, sample, material.'),
       p_title: text('Record title.'),
       p_status: text('Lifecycle status string.'),
       p_tags: { ...TEXT_ARRAY, description: 'Tags. Pass `[]` when unused.' },
@@ -1112,7 +1112,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         ...TEXT,
         nullable: true,
         description:
-          'experiment, sample, reagent, protocol_template, report, file, notebook_template.',
+          'experiment, sample, material, protocol_template, report, file, notebook_template.',
       },
       p_status: { ...TEXT, nullable: true },
       p_owner_id: {

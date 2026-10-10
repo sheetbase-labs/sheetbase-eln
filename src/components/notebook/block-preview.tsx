@@ -560,7 +560,7 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
                   </Badge>
                 ))}
                 {/* NOTE-03: open the material's canonical Record (Sample or
-                Reagent) by stable UUID. Suppressed while the record cannot
+                Material) by stable UUID. Suppressed while the record cannot
                 be resolved — an unresolvable link would be dishonest. */}
                 {currentRecord ? (
                   <OpenLink

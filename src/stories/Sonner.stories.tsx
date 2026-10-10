@@ -44,7 +44,7 @@ export const Default: Story = {
       <Button
         onClick={() =>
           toast.warning('Low stock', {
-            description: 'Reagent RGT-ENZ-0001 is below reorder threshold.',
+            description: 'Material RGT-ENZ-0001 is below reorder threshold.',
           })
         }
       >

@@ -11377,7 +11377,7 @@
                   },
                   "p_kind": {
                     "type": "string",
-                    "description": "Record kind, e.g. experiment, sample, reagent."
+                    "description": "Record kind, e.g. experiment, sample, material."
                   },
                   "p_title": {
                     "type": "string",
@@ -17083,7 +17083,7 @@
                   "p_kind": {
                     "type": "string",
                     "nullable": true,
-                    "description": "experiment, sample, reagent, protocol_template, report, file, notebook_template."
+                    "description": "experiment, sample, material, protocol_template, report, file, notebook_template."
                   },
                   "p_status": {
                     "type": "string",
@@ -18705,7 +18705,7 @@
         "schema": {
           "type": "string"
         },
-        "description": "PostgREST disjunctive group, e.g. `or=(kind.eq.sample,kind.eq.reagent)`."
+        "description": "PostgREST disjunctive group, e.g. `or=(kind.eq.sample,kind.eq.material)`."
       },
       "ColumnFilter": {
         "name": "{column}",

@@ -25,7 +25,7 @@ const KIND_ICON: Record<RelatedWorkKind, IconName> = {
 const RECORD_KIND_ICON: Record<string, IconName> = {
   experiment: 'flask',
   sample: 'tube',
-  reagent: 'box',
+  material: 'box',
   protocol_template: 'protocol',
   report: 'download',
   file: 'download',

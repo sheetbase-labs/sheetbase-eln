@@ -530,7 +530,7 @@ describe('AppShell', () => {
       'g s Sheets',
       'g t Templates',
       'g a Samples',
-      'g r Reagents',
+      'g r Materials',
     ]) {
       expect(dialog.textContent).toContain(hint)
     }

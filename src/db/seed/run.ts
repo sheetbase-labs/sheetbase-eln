@@ -1180,7 +1180,7 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   {
-    name: 'demo reagents: registry fixtures',
+    name: 'demo materials: registry fixtures',
     run: async (db) => {
       const reagents = [
         {
@@ -1188,7 +1188,7 @@ export const demoSteps: Array<SeedStep> = [
           identifier: DEMO_REAGENT_IDENTIFIER,
           title: 'TaqMan qPCR kit',
           status: 'available',
-          tags: ['qPCR', 'reagent'],
+          tags: ['qPCR', 'material'],
           properties: {
             supplier: 'Acme Biosystems',
             catalog_no: 'TAQ-1000',
@@ -1508,7 +1508,7 @@ export const demoSteps: Array<SeedStep> = [
             identifier: `RGT-2026-${String(sequence).padStart(4, '0')}`,
             title,
             status,
-            tags: [category, 'reagent'],
+            tags: [category, 'material'],
             properties: {
               supplier,
               catalog_no: `DEMO-${String(sequence).padStart(4, '0')}`,
@@ -1530,7 +1530,7 @@ export const demoSteps: Array<SeedStep> = [
             ...reagent,
             workspaceId: FIXTURE_WORKSPACE_ID,
             projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
-            kind: 'reagent',
+            kind: 'material',
             createdByUserId: FIXTURE_USER_ID,
           })
           .onConflictDoUpdate({
@@ -1774,7 +1774,7 @@ export const demoSteps: Array<SeedStep> = [
               {
                 id: 'reagent-active',
                 materialRecordId: DEMO_REAGENT_RECORD_ID,
-                kind: 'reagent',
+                kind: 'material',
                 identifier: DEMO_REAGENT_IDENTIFIER,
                 title: 'TaqMan qPCR kit',
                 quantity: 20,
@@ -1870,7 +1870,7 @@ export const demoSteps: Array<SeedStep> = [
             items: [
               { text: 'Data integrity', checked: true },
               { text: 'Instrument calibration', checked: true },
-              { text: 'Reagent expiry', checked: true },
+              { text: 'Material expiry', checked: true },
             ],
           },
           order: 8,
@@ -1980,7 +1980,7 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   {
-    name: 'demo record links: experiment -> sample, reagent, archived sample',
+    name: 'demo record links: experiment -> sample, material, archived sample',
     run: async (db) => {
       const links = [
         {
@@ -1991,9 +1991,9 @@ export const demoSteps: Array<SeedStep> = [
         },
         {
           targetRecordId: DEMO_REAGENT_RECORD_ID,
-          targetKind: 'reagent' as const,
+          targetKind: 'material' as const,
           targetIdentifier: DEMO_REAGENT_IDENTIFIER,
-          linkType: 'reagent' as const,
+          linkType: 'material' as const,
         },
         // An active link to an archived target exercises the honest
         // archived-reference rendering: target_identifier is preserved so the

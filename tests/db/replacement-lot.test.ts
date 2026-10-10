@@ -51,7 +51,7 @@ beforeAll(async () => {
   })
   await migrator.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,properties,created_by_user_id)
-     values($1,$2,$3,'reagent','MAT-9001','Filter train C','available',
+     values($1,$2,$3,'material','MAT-9001','Filter train C','available',
             '{"supplier":"Sartorius","catalog_no":"DF-C0SP-01","lot":"L-77310",
               "expiry":"2026-10-01","quantity":2,"unit":"units",
               "storage":"Consumables store, bay 4"}'::jsonb,$4)`,
@@ -101,7 +101,7 @@ describe('LAB-04.2 register replacement lot', () => {
       link_metadata: Record<string, unknown>
     }>(
       `select link_metadata from api.record_links
-        where source_record_id=$1 and target_record_id=$2 and link_type='reagent'`,
+        where source_record_id=$1 and target_record_id=$2 and link_type='material'`,
       [MATERIAL, replacement.id],
     )
     expect(links.rows).toHaveLength(1)

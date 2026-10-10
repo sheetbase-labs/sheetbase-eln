@@ -52,7 +52,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     description: 'Sample, material, dataset…',
     icon: 'link',
     group: 'structure',
-    aliases: ['dataset', 'record', 'sample', 'material', 'reagent', 'link'],
+    aliases: ['dataset', 'record', 'sample', 'material', 'link'],
   },
   {
     type: 'sheet_shared',
@@ -74,10 +74,10 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
     type: 'materials',
     label: 'Materials',
-    description: 'Linked samples and reagents with quantities and units.',
+    description: 'Linked samples and materials with quantities and units.',
     icon: 'box',
     group: 'structure',
-    aliases: ['samples', 'reagents', 'inventory'],
+    aliases: ['samples', 'materials', 'inventory'],
   },
   {
     type: 'rich_text',

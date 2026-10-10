@@ -208,7 +208,7 @@ async function commitRecordImport(
 }
 
 function defaultRecordStatus(kind: string): string {
-  if (kind === 'sample' || kind === 'reagent') return 'available'
+  if (kind === 'sample' || kind === 'material') return 'available'
   return 'draft'
 }
 

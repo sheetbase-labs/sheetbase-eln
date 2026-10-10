@@ -138,7 +138,7 @@ describe('scientific record creation and properties', () => {
     const reagent = await createRecord(
       owner,
       PROJ_A,
-      'reagent',
+      'material',
       'Reagent',
       'available',
     )
@@ -407,7 +407,7 @@ describe('scientific lifecycle, isolation, links, and events', () => {
         await createRecord(
           owner,
           PROJ_A,
-          'reagent',
+          'material',
           'Hidden reagent',
           'available',
         )
@@ -447,7 +447,7 @@ describe('scientific lifecycle, isolation, links, and events', () => {
     const reagent = await createRecord(
       owner,
       PROJ_A,
-      'reagent',
+      'material',
       'Link reagent',
       'available',
     )
@@ -460,13 +460,13 @@ describe('scientific lifecycle, isolation, links, and events', () => {
     const cross = await createRecord(
       other,
       PROJ_B,
-      'reagent',
+      'material',
       'Cross target',
       'available',
     )
     for (const [target, kind, linkType] of [
       [sample, 'sample', 'sample'],
-      [reagent, 'reagent', 'reagent'],
+      [reagent, 'material', 'material'],
       [protocol, 'protocol_template', 'protocol'],
     ] as const) {
       const { rows } = await owner.query(
@@ -477,7 +477,7 @@ describe('scientific lifecycle, isolation, links, and events', () => {
     }
     await expect(
       owner.query(
-        `SELECT * FROM api.create_record_link($1,'reagent',$2,'reagent',$3,NULL)`,
+        `SELECT * FROM api.create_record_link($1,'material',$2,'material',$3,NULL)`,
         [exp.id, cross.identifier, cross.id],
       ),
     ).rejects.toMatchObject({ code: 'SB002' })

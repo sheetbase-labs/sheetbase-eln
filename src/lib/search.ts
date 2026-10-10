@@ -122,7 +122,7 @@ export const SEARCHABLE_KINDS = [
   'protocol_template',
   'report',
   'sample',
-  'reagent',
+  'material',
   'file',
   'notebook_template',
   'study',
@@ -952,7 +952,7 @@ function kindLabelForSuggestion(kind: string): string {
   const labels: Record<string, string> = {
     experiment: 'Experiments',
     sample: 'Samples',
-    reagent: 'Reagents',
+    material: 'Materials',
     protocol_template: 'Protocols',
     report: 'Reports',
     file: 'Files',

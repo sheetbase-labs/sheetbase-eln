@@ -297,7 +297,7 @@ function NewExperiment() {
         </label>
         <Field
           label="Copy materials from"
-          hint="Links the same samples and reagents as an earlier experiment. Optional."
+          hint="Links the same samples and materials as an earlier experiment. Optional."
         >
           <NativeSelect
             value={copyFromId}

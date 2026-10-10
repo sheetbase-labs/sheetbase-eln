@@ -252,10 +252,10 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
     })
     await user.click(screen.getByRole('button', { name: /link record/i }))
     expect(screen.getByRole('tab', { name: 'Sample' })).toBeTruthy()
-    expect(screen.queryByRole('tab', { name: 'Reagent' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Material' })).toBeNull()
     expect(screen.queryByRole('tab', { name: 'Protocol' })).toBeNull()
     expect(screen.getByText(/accepts sample links/i)).toBeTruthy()
-    expect(screen.getByText(/reagent.*not accepted/i)).toBeTruthy()
+    expect(screen.getByText(/material.*not accepted/i)).toBeTruthy()
   })
 
   it('opens further tabs only as more pairs are declared', async () => {
@@ -274,7 +274,7 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
     await user.click(screen.getByRole('button', { name: /link record/i }))
     expect(screen.getByRole('tab', { name: 'Sample' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Protocol' })).toBeTruthy()
-    expect(screen.queryByRole('tab', { name: 'Reagent' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Material' })).toBeNull()
   })
 
   it('falls back to the first allowed tab when the default is disallowed', async () => {
@@ -303,7 +303,7 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
       .mockRejectedValue(
         new DataClientError(
           'SB080',
-          'link type sample to model reagent is not allowed',
+          'link type sample to model material is not allowed',
           400,
         ),
       )

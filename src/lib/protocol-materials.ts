@@ -16,7 +16,7 @@ export interface MaterialUnit {
 export interface MaterialItem {
   id: string
   materialRecordId: string
-  kind: 'sample' | 'reagent'
+  kind: 'sample' | 'material'
   identifier: string
   title: string
   quantity: number

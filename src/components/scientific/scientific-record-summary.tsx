@@ -1,5 +1,5 @@
 /**
- * ScientificRecordSummary — inspector summary for a sample, reagent or
+ * ScientificRecordSummary — inspector summary for a sample, material or
  * protocol record (SCI-001).
  *
  * Renders the shared record identity (identifier, kind, status), the
@@ -28,13 +28,13 @@ import type { NotebookRecord } from '#/lib/notebook-data'
 
 const KIND_DOMAIN = {
   sample: 'sample',
-  reagent: 'reagent',
+  material: 'material',
   protocol_template: 'protocol',
 } as const
 
 const KIND_LABEL = {
   sample: 'Sample',
-  reagent: 'Reagent',
+  material: 'Material',
   protocol_template: 'Protocol',
 } as const
 

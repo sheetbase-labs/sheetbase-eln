@@ -494,7 +494,7 @@ beforeAll(async () => {
     USER_A,
     WS_A,
     PROJECT_A,
-    'reagent',
+    'material',
     'TaqMan qPCR kit',
     'available',
     {
@@ -572,7 +572,7 @@ beforeAll(async () => {
       {
         id: 'mat-reagent',
         materialRecordId: reagent.id,
-        kind: 'reagent',
+        kind: 'material',
         identifier: reagent.identifier,
         title: reagent.title,
         quantity: 20,
@@ -971,7 +971,7 @@ beforeAll(async () => {
   // exists) since the relation is the same either way.
   for (const [target, kind, linkType] of [
     [sample, 'sample', 'sample'],
-    [reagent, 'reagent', 'reagent'],
+    [reagent, 'material', 'material'],
   ] as const) {
     const linkRes = await rpc('create_record_link', USER_A, WS_A, {
       p_source_record_id: experiment.id,
@@ -1456,7 +1456,7 @@ describe('SCI-009 Virus Stability end-to-end API acceptance', () => {
     expect(r.status).toBe(200)
     expect((await r.json()).length).toBeGreaterThanOrEqual(1)
     r = await proxy(
-      `records?kind=eq.reagent&project_id=eq.${PROJECT_A}`,
+      `records?kind=eq.material&project_id=eq.${PROJECT_A}`,
       USER_A,
       WS_A,
     )

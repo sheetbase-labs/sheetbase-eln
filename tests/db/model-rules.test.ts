@@ -146,7 +146,7 @@ beforeAll(async () => {
   await createField(owner, WS_A, 'experiment', 'dose', 'decimal')
   await createField(owner, WS_A, 'experiment', 'load', 'text')
   await createField(owner, WS_A, 'sample', 'dose', 'decimal')
-  await createField(owner, WS_A, 'reagent', 'dose', 'decimal')
+  await createField(owner, WS_A, 'material', 'dose', 'decimal')
   await createField(ownerB, WS_B, 'experiment', 'dose', 'decimal')
 })
 
@@ -369,7 +369,7 @@ describe('warn effect', () => {
     await createRule(
       owner,
       WS_A,
-      'reagent',
+      'material',
       'Dose advisory',
       ['dose'],
       { field: 'dose', op: 'gt', value: 100 },
@@ -382,7 +382,7 @@ describe('warn effect', () => {
       notices.push(notice.message ?? '')
     })
 
-    const warned = await createRecord(owner, PROJ_A, 'reagent', 'Warned', {
+    const warned = await createRecord(owner, PROJ_A, 'material', 'Warned', {
       dose: 150,
     })
     expect(warned.id).toBeTruthy()
@@ -403,7 +403,7 @@ describe('warn effect', () => {
     expect(accepted.submission.state).toBe('submitted')
 
     // And a record below the threshold reports nothing.
-    const quiet = await createRecord(owner, PROJ_A, 'reagent', 'Quiet', {
+    const quiet = await createRecord(owner, PROJ_A, 'material', 'Quiet', {
       dose: 10,
     })
     const quietReport = (

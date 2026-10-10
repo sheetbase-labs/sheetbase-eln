@@ -52,7 +52,7 @@ export function toPickerItem(result: SearchResult): PickerItem | null {
   if (result.resultType === 'dataset') kind = 'Dataset'
   else if (result.resultType === 'record') {
     if (result.kind === 'sample') kind = 'Sample'
-    else if (result.kind === 'reagent') kind = 'Material'
+    else if (result.kind === 'material') kind = 'Material'
     else if (result.kind === 'experiment') kind = 'Experiment'
   }
   if (!kind) return null

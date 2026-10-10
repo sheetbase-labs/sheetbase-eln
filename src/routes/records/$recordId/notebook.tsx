@@ -1206,14 +1206,14 @@ export function StickyRecordHeader({
 
 function pickerRecordKind(kind: PickerItem['kind']): string {
   if (kind === 'Sample') return 'sample'
-  if (kind === 'Material') return 'reagent'
+  if (kind === 'Material') return 'material'
   if (kind === 'Experiment') return 'experiment'
   return 'dataset'
 }
 
 function pickerLinkType(kind: PickerItem['kind']): string {
   if (kind === 'Sample') return 'sample'
-  if (kind === 'Material') return 'reagent'
+  if (kind === 'Material') return 'material'
   return 'general'
 }
 
@@ -2594,7 +2594,7 @@ function contributorsFromActivity(
 /** Group links by target kind for the "Link to" count pills. */
 const LINK_KIND_LABELS: Record<string, string> = {
   sample: 'Samples',
-  reagent: 'Reagents',
+  material: 'Materials',
   protocol_template: 'Protocols',
   dataset: 'Datasets',
   experiment: 'Experiments',

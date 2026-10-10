@@ -4119,6 +4119,42 @@ export const datasetCellSearch = api.table(
 )
 
 /**
+ * LAB-06.2 — a person's qualification to run one instrument until a date. The
+ * instrument page shows who is qualified and when it expires; the booking path
+ * (LAB-06.3) refuses an unqualified booker.
+ */
+export const instrumentQualifications = api.table(
+  'instrument_qualifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    validUntil: timestamp('valid_until', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    grantedByUserId: text('granted_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_instrument_qualifications_instrument_user').on(
+      table.instrumentId,
+      table.userId,
+    ),
+    index('idx_instrument_qualifications_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
  * SRCH-01.2 — one row per Sheet Instance cell value, so sheet values are
  * searchable with their column label the way dataset cells are. A trigger
  * rebuilds an instance's rows whenever its state changes; the table is
@@ -7271,6 +7307,8 @@ export const instruments = api.table(
     customFields: jsonb('custom_fields')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /** LAB-06.2 — what this instrument is qualified to run, e.g. "qPCR". */
+    qualifiedFor: text('qualified_for'),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',

@@ -44,7 +44,13 @@ export async function queuePipelineNotifications(
       [target.subscriptionId, run.workspace_id],
     )
     const channel = rows[0]
-    if (!channel) continue
+    // A target that is gone or no longer active is an unavailable destination, not a
+    // destination to skip: PIPE-05.3 rolls the run back rather than reporting success for a
+    // notification that was never sent.
+    if (!channel)
+      throw new Error(
+        'A webhook destination is unavailable. Choose an active destination and retry.',
+      )
     const payload = {
       schemaVersion: '1',
       eventType: 'pipeline.run.completed',

@@ -175,4 +175,11 @@ BEGIN
   RETURN jsonb_build_object('subscription', to_jsonb(v), 'signing_secret', v_secret_text);
 END $function$;
 
+-- A function created after the old signature is dropped gets PostgreSQL's default PUBLIC
+-- EXECUTE, which 0147 and 0160 revoked for every other signature; do the same here.
+REVOKE EXECUTE ON FUNCTION api.create_webhook_subscription(uuid, text, text, jsonb, text, integer, integer, text, integer, text, text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.create_webhook_subscription(uuid, text, text, jsonb, text, integer, integer, text, integer, text, text) TO authenticated, api_client;
+--> statement-breakpoint
+
 NOTIFY pgrst, 'reload schema';

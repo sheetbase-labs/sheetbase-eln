@@ -1,3 +1,4 @@
+import { DESIGN_CLOCK } from './src/db/seed/design'
 import { defineConfig } from 'playwright/test'
 
 export default defineConfig({
@@ -53,6 +54,11 @@ export default defineConfig({
       // in a `SHEETBASE_DEV_AUTH_FREE=true` local `.env.local`.
       env: {
         SHEETBASE_DEV_AUTH_FREE: 'false',
+        // Pin the application's notion of now to the design clock so
+        // time-dependent surfaces (hold meters, expiry windows, relative dates)
+        // render deterministically instead of drifting as real time passes.
+        // See src/lib/clock.ts and DESIGN_CLOCK in src/db/seed/design.ts.
+        SHEETBASE_NOW: DESIGN_CLOCK.toISOString(),
       },
     },
     {

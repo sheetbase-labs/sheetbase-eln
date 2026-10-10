@@ -21,9 +21,11 @@
  * failure is swallowed and logged so a bad sweep can never take the server
  * down.
  */
+
 import { Client } from 'pg'
 import type { QueryResultRow } from 'pg'
 
+import { now as clockNow } from './clock'
 import { env } from '#/env.server'
 
 /** Hold limits are day-scale; a few hours of latency is irrelevant. */
@@ -107,7 +109,7 @@ export function effectiveHoldDeadline(sample: HoldLimitSample): Date | null {
 /** True when the sample has a hold limit and it has passed at `now`. */
 export function isHoldExceeded(
   sample: HoldLimitSample,
-  now: Date = new Date(),
+  now: Date = clockNow(),
 ): boolean {
   const deadline = effectiveHoldDeadline(sample)
   return deadline != null && deadline.getTime() <= now.getTime()

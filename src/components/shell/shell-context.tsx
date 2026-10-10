@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import type { LucideIcon } from 'lucide-react'
+
+import type { IconName } from '#/components/icons'
 
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
 
@@ -23,7 +24,7 @@ export interface AppShellBreadcrumb {
 export interface AppShellNavItem {
   to: string
   label: string
-  icon: LucideIcon
+  icon: IconName
   badge?: string | number
   disabled?: boolean
 }

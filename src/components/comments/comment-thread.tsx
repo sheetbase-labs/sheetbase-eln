@@ -1,6 +1,7 @@
 import * as React from 'react'
-import { CheckCircle2, MessageSquare, RotateCcw } from 'lucide-react'
+import { CheckCircle2, RotateCcw } from 'lucide-react'
 
+import { Icon } from '#/components/icons'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { cn } from '#/lib/utils'
@@ -171,7 +172,7 @@ export function CommentThread({
             </>
           ) : (
             <>
-              <MessageSquare className="size-3" aria-hidden="true" />
+              <Icon name="comment" className="size-3" aria-hidden="true" />
               Open
             </>
           )}

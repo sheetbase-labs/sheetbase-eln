@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Save, Sigma, Trash2, TriangleAlert } from 'lucide-react'
+import { Save, Sigma, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
@@ -342,7 +343,7 @@ export function AnalysisPanel({
             disabled={!runnable}
             onClick={() => rowsQuery.refetch()}
           >
-            <Play /> Run
+            <Icon name="play" /> Run
           </Button>
           <Input
             aria-label="Analysis name"
@@ -369,7 +370,7 @@ export function AnalysisPanel({
           </Button>
           {staleDetail ? (
             <Badge variant="chg">
-              <TriangleAlert className="size-3" aria-hidden />
+              <Icon name="warn" className="size-3" aria-hidden />
               Stale source
             </Badge>
           ) : null}

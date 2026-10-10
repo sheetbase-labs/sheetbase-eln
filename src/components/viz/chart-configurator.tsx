@@ -1,15 +1,14 @@
 import {
   BarChart3,
-  Box,
   Grid3x3,
   LineChart as LineChartIcon,
-  Plus,
   ScatterChart,
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/v3/ui/input'
 import { NativeSelect } from '#/components/v3/projects/select'
@@ -100,8 +99,8 @@ export function ChartConfigurator({
     grouped_bar: <BarChart3 className="size-3.5" aria-hidden />,
     stacked_bar: <BarChart3 className="size-3.5" aria-hidden />,
     histogram: <BarChart3 className="size-3.5 rotate-90" aria-hidden />,
-    box: <Box className="size-3.5" aria-hidden />,
-    violin: <Box className="size-3.5" aria-hidden />,
+    box: <Icon name="box" className="size-3.5" aria-hidden />,
+    violin: <Icon name="box" className="size-3.5" aria-hidden />,
     strip: <ScatterChart className="size-3.5" aria-hidden />,
     summary: <BarChart3 className="size-3.5" aria-hidden />,
     heatmap: <Grid3x3 className="size-3.5" aria-hidden />,
@@ -852,7 +851,7 @@ export function ChartConfigurator({
                 ])
               }
             >
-              <Plus /> Add annotation
+              <Icon name="plus" /> Add annotation
             </Button>
           </div>
           {(spec.display.annotations ?? []).map((annotation, i) => (

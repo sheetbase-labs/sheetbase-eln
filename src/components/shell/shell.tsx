@@ -10,30 +10,16 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import {
-  CalendarDays,
-  Check,
   ChevronsUpDown,
-  Database,
-  FlaskConical,
-  FolderOpen,
-  GanttChart,
-  Home as HomeIcon,
-  Inbox,
   LayoutGrid,
-  LayoutTemplate,
-  LineChart as LineChartIcon,
-  LogOut,
   Menu,
-  Moon,
-  Package,
   PanelLeftClose,
   PanelLeftOpen,
-  Settings,
   Star,
-  Sun,
-  Workflow,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 
 import { authClient } from '#/lib/auth-client'
 import {
@@ -292,21 +278,21 @@ export const SPECIALIST_NAV_HREFS = [] as const
 export const defaultNavSections: AppShellNavSection[] = [
   {
     items: [
-      { to: '/', label: 'Home', icon: HomeIcon },
-      { to: '/inbox', label: 'Inbox', icon: Inbox },
-      { to: '/schedule', label: 'Schedule', icon: CalendarDays },
+      { to: '/', label: 'Home', icon: 'home' },
+      { to: '/inbox', label: 'Inbox', icon: 'inbox' },
+      { to: '/schedule', label: 'Schedule', icon: 'calendar' },
     ],
   },
   {
     items: [
-      { to: '/projects', label: 'Projects', icon: FolderOpen },
-      { to: '/experiments', label: 'Experiments', icon: FlaskConical },
-      { to: '/templates', label: 'Templates', icon: LayoutTemplate },
-      { to: '/samples', label: 'Samples', icon: FlaskConical },
-      { to: '/materials', label: 'Materials', icon: Package },
-      { to: '/datasets', label: 'Datasets', icon: Database },
-      { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
-      { to: '/pipelines', label: 'Pipelines', icon: Workflow },
+      { to: '/projects', label: 'Projects', icon: 'folder' },
+      { to: '/experiments', label: 'Experiments', icon: 'flask' },
+      { to: '/templates', label: 'Templates', icon: 'template' },
+      { to: '/samples', label: 'Samples', icon: 'flask' },
+      { to: '/materials', label: 'Materials', icon: 'box' },
+      { to: '/datasets', label: 'Datasets', icon: 'database' },
+      { to: '/analysis', label: 'Analysis', icon: 'chart' },
+      { to: '/pipelines', label: 'Pipelines', icon: 'pipeline' },
     ],
   },
 ]
@@ -364,7 +350,7 @@ function WorkspaceSwitcher({
             }}
           >
             {workspace.id && workspace.id === context.workspace?.id ? (
-              <Check className="mr-2 size-4" />
+              <Icon name="check" className="mr-2 size-4" />
             ) : (
               <span className="mr-2 size-4" />
             )}
@@ -418,7 +404,7 @@ function AccountMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link to="/settings">
-            <Settings className="mr-2 size-4" /> Settings
+            <Icon name="settings" className="mr-2 size-4" /> Settings
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -435,7 +421,7 @@ function AccountMenu({
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onSignOut}>
-          <LogOut className="mr-2 size-4" /> Sign out
+          <Icon name="signOut" className="mr-2 size-4" /> Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -760,7 +746,7 @@ export function AppShell({
         <div className="border-t border-sidebar-border p-2">
           <ul className="space-y-0.5">
             <NavRow
-              item={{ to: '/settings', label: 'Settings', icon: Settings }}
+              item={{ to: '/settings', label: 'Settings', icon: 'settings' }}
               active={isActive(pathname, '/settings')}
               collapsed={sidebarCollapsed}
               onNavigate={() => setMobileOpen(false)}
@@ -980,10 +966,10 @@ function NavRow({
   collapsed: boolean
   onNavigate: () => void
 }) {
-  const Icon = item.icon
+  const navIcon = item.icon
   const label = (
     <>
-      <Icon className="size-4 shrink-0" />
+      <Icon name={navIcon} className="size-4 shrink-0" />
       {!collapsed ? (
         <span className="flex-1 truncate">{item.label}</span>
       ) : null}
@@ -1105,7 +1091,7 @@ function CommandPalette({
                       value={item.label}
                       onSelect={() => go(item.to)}
                     >
-                      <item.icon className="size-4" />
+                      <Icon name={item.icon} className="size-4" />
                       {item.label}
                     </CommandItem>
                   ))}
@@ -1129,9 +1115,9 @@ function CommandPalette({
                 }}
               >
                 {theme === 'dark' ? (
-                  <Sun className="size-4" />
+                  <Icon name="sun" className="size-4" />
                 ) : (
-                  <Moon className="size-4" />
+                  <Icon name="moon" className="size-4" />
                 )}
                 Toggle colour mode
               </CommandItem>
@@ -1141,7 +1127,7 @@ function CommandPalette({
                   void onSignOut()
                 }}
               >
-                <LogOut className="size-4" />
+                <Icon name="signOut" className="size-4" />
                 Sign out
               </CommandItem>
             </CommandGroup>
@@ -1182,12 +1168,12 @@ const FAVOURITE_KIND_LABELS: Record<FavouriteItem['kind'], string> = {
   notebook_template: 'Template',
 }
 
-const FAVOURITE_KIND_ICONS: Record<FavouriteItem['kind'], LucideIcon> = {
-  record: FlaskConical,
-  dataset: Database,
-  sheet: GanttChart,
-  project: FolderOpen,
-  notebook_template: LayoutTemplate,
+const FAVOURITE_KIND_ICONS: Record<FavouriteItem['kind'], IconName> = {
+  record: 'flask',
+  dataset: 'database',
+  sheet: 'table',
+  project: 'folder',
+  notebook_template: 'template',
 }
 
 function FavouritesCommandGroup({
@@ -1206,14 +1192,14 @@ function FavouritesCommandGroup({
   return (
     <CommandGroup heading="Favourites">
       {items.map((item) => {
-        const Icon = FAVOURITE_KIND_ICONS[item.kind]
+        const kindIcon = FAVOURITE_KIND_ICONS[item.kind]
         return (
           <CommandItem
             key={`${item.kind}:${item.id}`}
             value={`${item.label} ${item.identifier ?? ''} ${FAVOURITE_KIND_LABELS[item.kind]} favourite`}
             onSelect={() => onSelect(item.destination)}
           >
-            <Icon className="size-4" />
+            <Icon name={kindIcon} className="size-4" />
             <span className="flex-1 truncate">{item.label}</span>
             <span className="shrink-0 text-xs text-muted-foreground">
               {FAVOURITE_KIND_LABELS[item.kind]}
@@ -1268,7 +1254,7 @@ function ProjectsCommandGroup({
           value={`${project.title} ${project.key} project`}
           onSelect={() => onSelect(projectPath(project.id))}
         >
-          <FolderOpen className="size-4" />
+          <Icon name="folder" className="size-4" />
           <span className="flex-1 truncate">{project.title}</span>
           <span className="shrink-0 text-xs text-muted-foreground">
             {project.key}

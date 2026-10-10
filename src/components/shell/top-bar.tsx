@@ -1,6 +1,7 @@
-import { PanelRight, Plus, Search } from 'lucide-react'
+import { PanelRight } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -39,7 +40,7 @@ function NewMenu({
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="primary" size="md" className="max-sm:hidden">
-          <Plus className="size-4" /> New
+          <Icon name="plus" className="size-4" /> New
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -102,7 +103,7 @@ export function TopBarActions({
           className="hidden h-7 w-[28rem] max-w-full items-center gap-2 rounded-md border border-input bg-card px-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent sm:flex"
           aria-label="Search experiments, samples, datasets"
         >
-          <Search className="size-3.5 shrink-0" />
+          <Icon name="search" className="size-3.5 shrink-0" />
           <span className="flex-1 truncate">
             Search experiments, samples, datasets
           </span>
@@ -115,7 +116,7 @@ export function TopBarActions({
           aria-label="Search"
           onClick={onOpenPalette}
         >
-          <Search />
+          <Icon name="search" />
         </Button>
       </div>
 

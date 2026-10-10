@@ -7,7 +7,6 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Folder, Home, ListTodo } from 'lucide-react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -214,8 +213,8 @@ describe('AppShell', () => {
   it('marks the active nav item with aria-current=page', () => {
     currentPathname = '/projects'
     const items: AppShellNavItem[] = [
-      { to: '/', label: 'Home', icon: Home },
-      { to: '/projects', label: 'Projects', icon: Folder },
+      { to: '/', label: 'Home', icon: 'home' },
+      { to: '/projects', label: 'Projects', icon: 'folder' },
     ]
     renderShell({
       context: baseContext,
@@ -229,7 +228,7 @@ describe('AppShell', () => {
 
   it('renders disabled nav items as non-interactive placeholders', () => {
     const items: AppShellNavItem[] = [
-      { to: '/tasks', label: 'Tasks', icon: ListTodo, disabled: true },
+      { to: '/tasks', label: 'Tasks', icon: 'check', disabled: true },
     ]
     renderShell({
       context: baseContext,
@@ -301,8 +300,8 @@ describe('AppShell', () => {
 
   it('opens the command palette with ⌘K and lists enabled nav items only', async () => {
     const items: AppShellNavItem[] = [
-      { to: '/projects', label: 'Projects', icon: Folder },
-      { to: '/tasks', label: 'Tasks', icon: ListTodo, disabled: true },
+      { to: '/projects', label: 'Projects', icon: 'folder' },
+      { to: '/tasks', label: 'Tasks', icon: 'check', disabled: true },
     ]
     const { user } = renderShell({
       context: baseContext,
@@ -559,9 +558,9 @@ describe('AppShell', () => {
 
   it('renders the same enabled destinations in the drawer and sidebar (NAV-03)', async () => {
     const items: AppShellNavItem[] = [
-      { to: '/', label: 'Home', icon: Home },
-      { to: '/projects', label: 'Projects', icon: Folder },
-      { to: '/tasks', label: 'Tasks', icon: ListTodo, disabled: true },
+      { to: '/', label: 'Home', icon: 'home' },
+      { to: '/projects', label: 'Projects', icon: 'folder' },
+      { to: '/tasks', label: 'Tasks', icon: 'check', disabled: true },
     ]
     const { container, user } = renderShell({
       context: baseContext,

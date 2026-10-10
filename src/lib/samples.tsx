@@ -1393,6 +1393,45 @@ export async function editSample(
   return toSampleRecord(row)
 }
 
+export interface RecordSampleLabelPrintInput {
+  recordId: string
+  expectedMetadataVersion: number
+  /** The identifier whose label was printed, recorded in the event's notes. */
+  identifier: string
+}
+
+/**
+ * LAB-05.2 — record that a sample's label was printed.
+ *
+ * DEC-10 prints labels from the browser, so there is no printer or gateway to
+ * confirm a job against; the print is recorded on the sample's canonical,
+ * append-only event stream so the History tab shows it. `api.sample_events`
+ * has no print operation, so the print goes through the existing `edit_sample`
+ * RPC — the sample-event path for a non-quantity event with free-text notes —
+ * with the note that names the printed label. It is not a second event table
+ * and never a direct insert into `api.sample_events`.
+ */
+export async function recordSampleLabelPrint(
+  client: DataClient,
+  input: RecordSampleLabelPrintInput,
+): Promise<SampleLabelPrintEvent> {
+  // LAB-05.2: printing is its own event, not an edit — it changes nothing about
+  // the sample, and the History should say what actually happened.
+  return client.rpc<SampleLabelPrintEvent>('record_sample_label_print', {
+    p_record_id: input.recordId,
+    p_expected_metadata_version: input.expectedMetadataVersion,
+    p_note: `Printed label ${input.identifier}`,
+  })
+}
+
+/** The sample_events row a label print appends. */
+export interface SampleLabelPrintEvent {
+  id: string
+  operation: string
+  notes: string | null
+  created_at: string
+}
+
 export interface ArchiveSampleInput {
   recordId: string
   expectedMetadataVersion: number

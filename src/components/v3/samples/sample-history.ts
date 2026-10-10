@@ -16,6 +16,7 @@ const ACTION_LABELS: Record<string, string> = {
   edit: 'Edited',
   archive: 'Archived',
   restore: 'Restored',
+  print: 'Printed label',
 }
 
 /** Human action for a sample_events operation, e.g. consume → "Withdrew". */

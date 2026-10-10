@@ -318,6 +318,78 @@ describe('REG-002 optimistic concurrency', () => {
   })
 })
 
+describe('LAB-05.2 label print event', () => {
+  it('records a print as its own event without touching the sample', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const sample = await createSample(owner, PROJ_A, 'Printed sample', {
+      quantity: 5,
+    })
+    const before = await owner.query<{ metadata_version: number }>(
+      `SELECT metadata_version FROM api.records WHERE id = $1`,
+      [sample.id],
+    )
+
+    const printed = (
+      await owner.query(
+        `SELECT api.record_sample_label_print($1,$2,'Printed label') AS result`,
+        [sample.id, before.rows[0]!.metadata_version],
+      )
+    ).rows[0].result as { operation: string; notes: string }
+
+    expect(printed.operation).toBe('print')
+    expect(printed.notes).toBe('Printed label')
+
+    const events = await owner.query<{ operation: string }>(
+      `SELECT operation FROM api.sample_events WHERE record_id = $1`,
+      [sample.id],
+    )
+    expect(events.rows.map((row) => row.operation)).toContain('print')
+
+    // Printing changes nothing about the sample itself.
+    const after = await owner.query<{
+      metadata_version: number
+      properties: Record<string, unknown>
+    }>(`SELECT metadata_version, properties FROM api.records WHERE id = $1`, [
+      sample.id,
+    ])
+    expect(after.rows[0]!.metadata_version).toBe(
+      before.rows[0]!.metadata_version,
+    )
+    expect(quantityOf(after.rows[0]!)).toBe(5)
+  })
+
+  it('refuses a stale metadata version and a non-sample record', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const sample = await createSample(owner, PROJ_A, 'Stale print')
+    const stale = (
+      await owner.query<{ metadata_version: number }>(
+        `SELECT metadata_version FROM api.records WHERE id = $1`,
+        [sample.id],
+      )
+    ).rows[0]!.metadata_version
+
+    await expect(
+      owner.query(
+        `SELECT api.record_sample_label_print($1,$2,'Printed label') AS result`,
+        [sample.id, stale + 5],
+      ),
+    ).rejects.toThrow(/changed since/)
+
+    const experiment = (
+      await owner.query(
+        `SELECT * FROM api.create_record($1::uuid, 'experiment', 'Not a sample', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        [PROJ_A],
+      )
+    ).rows[0]
+    await expect(
+      owner.query(
+        `SELECT api.record_sample_label_print($1,null,'Printed label') AS result`,
+        [experiment.id],
+      ),
+    ).rejects.toThrow(/Unknown sample/)
+  })
+})
+
 describe('REG-002 workspace isolation', () => {
   it('prevents a cross-workspace consume and reads only own events', async () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)

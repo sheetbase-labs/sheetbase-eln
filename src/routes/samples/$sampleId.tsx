@@ -22,6 +22,10 @@ import {
 import { toast } from '#/components/v3/ui/sonner'
 import { sampleStatus } from '#/components/v3/samples/samples-data'
 import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
+import {
+  PrintLabelButton,
+  SampleLabelPrint,
+} from '#/components/v3/samples/sample-label-print'
 import { SampleHoldMeter } from '#/components/v3/samples/sample-hold-meter'
 import { SampleRecentHistory } from '#/components/v3/samples/sample-recent-history'
 import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
@@ -350,11 +354,7 @@ function SampleLayout() {
                 </Button>
               ) : (
                 <>
-                  <Button
-                    onClick={() => toast('Sent to label printer ZD-2 (Lab 2)')}
-                  >
-                    Print label
-                  </Button>
+                  <PrintLabelButton record={sample} onPrinted={invalidate} />
                   <Button onClick={() => setDialog('move')}>Move</Button>
                   {withdrawable ? (
                     <Button
@@ -511,6 +511,12 @@ function SampleLayout() {
         busy={dispose.isPending}
         onSubmit={(value) => dispose.mutate({ reason: value })}
       />
+
+      {/* LAB-05.2 / DEC-10: the label document the header's Print label sends
+          to the browser's print dialog. It is mounted with the sample frame so
+          the action works from every tab; on screen it is hidden, and in print
+          only this document reaches the sheet. */}
+      <SampleLabelPrint record={sample} />
     </div>
   )
 }

@@ -20,6 +20,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
+import { commentsQueryKeys } from '#/lib/comments-data'
+import type { CommentWire } from '#/lib/comments-data'
+import { newDraft } from '#/lib/review-comment-drafts'
+import { CommentPanel } from '#/components/comments'
 import { deriveReviewActionPermission } from '#/lib/review-workspace'
 import type {
   ReviewDecisionInput,
@@ -32,7 +36,10 @@ import {
   ActionButtons,
   buildApprovalSteps,
   buildStepperState,
+  canCommentOnRevision,
+  DraftCommentsTray,
   renderError,
+  ReturnedCommentsBanner,
   SignaturePanel,
   statusLabel,
   WorkspaceHeader,
@@ -657,6 +664,257 @@ describe('witness picker effective project authority', () => {
       queryClient.clear()
       rpc.mockRestore()
       list.mockRestore()
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// REV-01.3 — private reviewer drafts, "Return with N comments", and the
+// author's returned banner.
+// ---------------------------------------------------------------------------
+
+function commentWire(
+  id: string,
+  overrides: Partial<CommentWire> = {},
+): CommentWire {
+  return {
+    id,
+    workspace_id: 'ws-1',
+    revision_id: 'rev-1',
+    record_id: 'rec-1',
+    sheet_instance_id: null,
+    root_id: id,
+    parent_id: null,
+    target_kind: 'revision',
+    target: {},
+    body: `${id} evidence`,
+    mentions: [],
+    state: 'open',
+    resolved_at: null,
+    resolved_by_user_id: null,
+    author_user_id: 'reviewer-a',
+    created_at: '2026-10-10T00:00:00.000Z',
+    updated_at: '2026-10-10T00:00:00.000Z',
+    ...overrides,
+  }
+}
+
+describe('REV-01.3 — return carries the draft comment count', () => {
+  it('labels the request-changes action with the drafts it will send', () => {
+    render(
+      <ActionButtons
+        submission={submission()}
+        permission={makePermission({ canReview: true, canWithdraw: false })}
+        integrityDigest={DIGEST}
+        draftCommentCount={2}
+        onAfterDecision={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Return with 2 comments' }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Request changes' })).toBeNull()
+  })
+
+  it('keeps the plain label when there are no drafts', () => {
+    render(
+      <ActionButtons
+        submission={submission()}
+        permission={makePermission({ canReview: true, canWithdraw: false })}
+        integrityDigest={DIGEST}
+        onAfterDecision={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Request changes' })).toBeTruthy()
+  })
+
+  it('states that the return publishes its drafts when confirming', async () => {
+    render(
+      <ActionButtons
+        submission={submission()}
+        permission={makePermission({ canReview: true, canWithdraw: false })}
+        integrityDigest={DIGEST}
+        draftCommentCount={1}
+        onAfterDecision={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Return with 1 comment' }),
+    )
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText(/sends your 1 draft comment/)).toBeTruthy()
+  })
+})
+
+describe('REV-01.3 — private draft tray', () => {
+  it('shows drafts as not sent and lets the reviewer edit or delete them', () => {
+    const drafts = [
+      newDraft({ targetKind: 'revision', target: {}, body: 'first draft' }),
+      newDraft({
+        targetKind: 'block',
+        target: { blockId: 'b1' },
+        body: 'second draft',
+      }),
+    ]
+    const onEdit = vi.fn()
+    const onDelete = vi.fn()
+    render(
+      <DraftCommentsTray drafts={drafts} onEdit={onEdit} onDelete={onDelete} />,
+    )
+
+    expect(screen.getByText('2 draft comments')).toBeTruthy()
+    expect(screen.getByText(/not visible to the author/)).toBeTruthy()
+    expect(screen.getByText('first draft')).toBeTruthy()
+    expect(screen.getAllByText('draft · not sent')).toHaveLength(2)
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Delete draft comment' })[0],
+    )
+    expect(onDelete).toHaveBeenCalledWith(drafts[0].id)
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Edit draft comment' })[0],
+    )
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Draft comment body' }),
+      {
+        target: { value: 'first draft, edited' },
+      },
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(onEdit).toHaveBeenCalledWith(drafts[0].id, 'first draft, edited')
+  })
+
+  it('renders nothing when there are no drafts', () => {
+    const { container } = render(
+      <DraftCommentsTray drafts={[]} onEdit={vi.fn()} onDelete={vi.fn()} />,
+    )
+    expect(container.querySelector('[aria-label="Draft comments"]')).toBeNull()
+  })
+})
+
+describe('REV-01.3 — author returned banner', () => {
+  it('names the returned comment count and blocks resubmit while open', () => {
+    const onGoToComment = vi.fn()
+    render(
+      <ReturnedCommentsBanner
+        openCommentCount={1}
+        returnedByUserId="reviewer-a"
+        returnedAt="2026-10-10T00:00:00.000Z"
+        recordId="rec-1"
+        onGoToComment={onGoToComment}
+      />,
+    )
+    expect(
+      screen.getByText(/1 comment to resolve before you resubmit/),
+    ).toBeTruthy()
+    const resubmit = screen.getByRole('button', { name: 'Resubmit (1 open)' })
+    expect(resubmit.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Go to comment' }))
+    expect(onGoToComment).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers resubmit once every returned comment is resolved', () => {
+    render(
+      <ReturnedCommentsBanner
+        openCommentCount={0}
+        returnedByUserId="reviewer-a"
+        returnedAt="2026-10-10T00:00:00.000Z"
+        recordId="rec-1"
+        onGoToComment={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByText(/0 comments to resolve before you resubmit/),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Resubmit' }).getAttribute('href'),
+    ).toBe('/records/rec-1')
+    expect(screen.queryByRole('button', { name: /Resubmit/ })).toBeNull()
+  })
+})
+
+describe('REV-01.3 — author resolve and reply path', () => {
+  it('lets the author comment on a returned review', () => {
+    // The author is neither the active reviewer nor the withdrawer, but a
+    // returned submission must still let them resolve or reply.
+    expect(
+      canCommentOnRevision({
+        canReview: false,
+        canWithdraw: false,
+        state: 'returned',
+      }),
+    ).toBe(true)
+    // A reviewer on the active round comments directly (no drafts required).
+    expect(
+      canCommentOnRevision({
+        canReview: true,
+        canWithdraw: false,
+        state: 'submitted',
+      }),
+    ).toBe(true)
+    // An outsider on an active review cannot comment.
+    expect(
+      canCommentOnRevision({
+        canReview: false,
+        canWithdraw: false,
+        state: 'submitted',
+      }),
+    ).toBe(false)
+  })
+
+  it('resolves a returned thread and replies to it through the comment RPCs', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+    })
+    client.setQueryData(commentsQueryKeys.forRevision('rev-1'), [
+      commentWire('root-1'),
+    ])
+    const rpc = vi
+      .spyOn(reviewsDataClient, 'rpc')
+      .mockResolvedValue({ id: 'root-1', state: 'resolved' })
+    const list = vi
+      .spyOn(reviewsDataClient, 'list')
+      .mockResolvedValue([commentWire('root-1')])
+    try {
+      render(
+        <QueryClientProvider client={client}>
+          <CommentPanel
+            revisionId="rev-1"
+            targetKind="revision"
+            target={{}}
+            currentUserId="owner-a"
+            currentUserName="Priya"
+            canComment
+          />
+        </QueryClientProvider>,
+      )
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Resolve thread' }),
+      )
+      await waitFor(() =>
+        expect(rpc).toHaveBeenCalledWith('resolve_comment_thread', {
+          p_comment_id: 'root-1',
+        }),
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Reply to thread' }))
+      fireEvent.change(screen.getByRole('textbox', { name: 'Reply body' }), {
+        target: { value: 'Corrected the dilution factor.' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Send reply' }))
+      await waitFor(() =>
+        expect(rpc).toHaveBeenCalledWith('reply_to_comment', {
+          p_parent_id: 'root-1',
+          p_body: 'Corrected the dilution factor.',
+          p_mentions: [],
+        }),
+      )
+    } finally {
+      rpc.mockRestore()
+      list.mockRestore()
+      client.clear()
     }
   })
 })

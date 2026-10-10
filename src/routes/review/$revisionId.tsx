@@ -40,6 +40,21 @@ import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
+import {
+  commentsQueryKeys,
+  fetchCommentsForRevision,
+  groupCommentsIntoThreads,
+  threadState,
+} from '#/lib/comments-data'
+import {
+  returnWithCommentsLabel,
+  returnWithDraftComments,
+  useReviewCommentDrafts,
+} from '#/lib/review-comment-drafts'
+import type {
+  ReviewCommentDraft,
+  ReviewCommentDrafts,
+} from '#/lib/review-comment-drafts'
 import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-block'
 import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import { ReviewCheckResults, RevisionDiffReview } from '#/components/review'
@@ -246,6 +261,25 @@ export function statusLabel(state: string): string {
   return def?.label ?? state
 }
 
+/**
+ * REV-01.3: who may comment on the revision from the review workspace. An
+ * active reviewer or the submitter of the current round can comment; once the
+ * submission is returned the author (and any workspace member) resolves or
+ * replies to the returned threads, matching the comment RPCs' workspace
+ * membership boundary.
+ */
+export function canCommentOnRevision({
+  canReview,
+  canWithdraw,
+  state,
+}: {
+  canReview: boolean
+  canWithdraw: boolean
+  state: string | null
+}): boolean {
+  return canReview || canWithdraw || state === 'returned'
+}
+
 const DEFAULT_CHECK_DEFINITION_KEY = 'default-scientific-checks'
 const DEFAULT_CHECK_DEFINITION_VERSION = 1
 
@@ -344,6 +378,13 @@ export function ReviewWorkspaceRoute() {
     queryFn: () => fetchReviewCheckResults(reviewsDataClient, revisionId),
   })
 
+  // REV-01.3: the same query key the CommentPanel uses, so react-query dedupes
+  // the fetch; the returned banner derives how many threads remain to resolve.
+  const commentsQuery = useQuery({
+    queryKey: commentsQueryKeys.forRevision(revisionId),
+    queryFn: () => fetchCommentsForRevision(reviewsDataClient, revisionId),
+  })
+
   const recordIds = useMemo(() => (recordId ? [recordId] : []), [recordId])
   const recordsQuery = useQuery({
     queryKey: reviewQueryKeys.recordsForReviews(recordIds),
@@ -416,6 +457,31 @@ export function ReviewWorkspaceRoute() {
       currentUserId,
     })
   }, [submission, revision, currentUserId])
+
+  // REV-01.3: the reviewer drafts comments privately while the review is
+  // active; they are only published when the reviewer returns the submission.
+  const commentDrafts = useReviewCommentDrafts({
+    revisionId,
+    userId: currentUserId,
+    enabled:
+      permission?.canReview === true && submission?.state === 'submitted',
+  })
+
+  const openCommentCount = useMemo(
+    () =>
+      groupCommentsIntoThreads(commentsQuery.data ?? []).filter(
+        (thread) => threadState(thread) === 'open',
+      ).length,
+    [commentsQuery.data],
+  )
+
+  const latestReturn = useMemo(
+    () =>
+      [...decisions]
+        .reverse()
+        .find((decision) => decision.decision === 'request_changes') ?? null,
+    [decisions],
+  )
 
   const integrityDigest = revision?.integrity_digest ?? null
 
@@ -520,6 +586,12 @@ export function ReviewWorkspaceRoute() {
       }
       collaborationRole={context.workspace?.role ?? 'viewer'}
       revisionOptions={revisionOptions}
+      commentDrafts={commentDrafts}
+      onCommentsChanged={async () => {
+        await queryClient.invalidateQueries({
+          queryKey: commentsQueryKeys.forRevision(revisionId),
+        })
+      }}
       onAfterAmendment={async () => {
         await queryClient.invalidateQueries({
           queryKey: reviewWorkspaceQueryKeys.revision(revisionId),
@@ -566,6 +638,30 @@ export function ReviewWorkspaceRoute() {
             lockedByRevisionId={record?.locked_by_revision_id ?? null}
             recordId={recordId}
           />
+
+          {submission?.state === 'returned' ? (
+            <ReturnedCommentsBanner
+              openCommentCount={openCommentCount}
+              returnedByUserId={latestReturn?.actor_user_id ?? null}
+              returnedAt={latestReturn?.created_at ?? null}
+              recordId={recordId}
+              onGoToComment={() => {
+                const firstOpen = groupCommentsIntoThreads(
+                  commentsQuery.data ?? [],
+                ).find((thread) => threadState(thread) === 'open')
+                void navigate({
+                  to: '/review/$revisionId',
+                  params: { revisionId },
+                  search: {
+                    ...search,
+                    tab: 'comments',
+                    commentId: firstOpen?.root.id,
+                  },
+                  replace: true,
+                })
+              }}
+            />
+          ) : null}
 
           <Tabs
             value={activeTab}
@@ -639,6 +735,11 @@ export function ReviewWorkspaceRoute() {
                       </Button>
                     </div>
                   ) : null}
+                  <DraftCommentsTray
+                    drafts={commentDrafts.drafts}
+                    onEdit={commentDrafts.updateBody}
+                    onDelete={commentDrafts.remove}
+                  />
                   <CommentPanel
                     key={revisionId}
                     revisionId={revisionId}
@@ -647,9 +748,16 @@ export function ReviewWorkspaceRoute() {
                     target={commentAnchor?.target ?? {}}
                     currentUserId={currentUserId}
                     currentUserName={currentUserName}
-                    canComment={
-                      permission?.canReview === true ||
-                      permission?.canWithdraw === true
+                    canComment={canCommentOnRevision({
+                      canReview: permission?.canReview === true,
+                      canWithdraw: permission?.canWithdraw === true,
+                      state: submission.state,
+                    })}
+                    onDraftComment={
+                      permission?.canReview === true &&
+                      submission.state === 'submitted'
+                        ? commentDrafts.addDraft
+                        : undefined
                     }
                   />
                 </>
@@ -862,6 +970,200 @@ export function WorkspaceHeader({
         </div>
       ) : null}
     </header>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// REV-01.3 — returned banner (author) and private draft tray (reviewer).
+// ---------------------------------------------------------------------------
+
+/**
+ * The author-facing banner on a returned submission: who returned it, how many
+ * threads remain to resolve, a jump to the first open comment, and a resubmit
+ * action that stays disabled until every returned comment is resolved.
+ */
+export function ReturnedCommentsBanner({
+  openCommentCount,
+  returnedByUserId,
+  returnedAt,
+  recordId,
+  onGoToComment,
+}: {
+  openCommentCount: number
+  returnedByUserId: string | null
+  returnedAt: string | null
+  recordId: string | null
+  onGoToComment: () => void
+}) {
+  const noun = openCommentCount === 1 ? 'comment' : 'comments'
+  return (
+    <div
+      role="status"
+      className="flex flex-wrap items-center gap-2 rounded-lg border border-warning-border bg-warning-wash px-3 py-2 text-xs text-warning-text"
+    >
+      <Icon name="arrowLeft" size={14} aria-hidden />
+      <span>
+        <span className="font-semibold">Returned for changes</span>
+        {returnedByUserId ? ` by ${returnedByUserId}` : ''}
+        {returnedAt ? ` · ${formatDate(returnedAt)}` : ''} · {openCommentCount}{' '}
+        {noun} to resolve before you resubmit
+      </span>
+      <span className="flex-1" />
+      {openCommentCount > 0 ? (
+        <Button size="sm" variant="secondary" onClick={onGoToComment}>
+          Go to comment
+        </Button>
+      ) : null}
+      {recordId ? (
+        openCommentCount > 0 ? (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled
+            title="Resolve the returned comments first."
+          >
+            Resubmit ({openCommentCount} open)
+          </Button>
+        ) : (
+          <Link
+            to="/records/$recordId"
+            params={{ recordId }}
+            className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground no-underline hover:bg-primary/90"
+          >
+            Resubmit
+          </Link>
+        )
+      ) : null}
+    </div>
+  )
+}
+
+/** One reviewer draft: edit its body in place or delete it before returning. */
+function DraftCommentRow({
+  draft,
+  onEdit,
+  onDelete,
+}: {
+  draft: ReviewCommentDraft
+  onEdit: (id: string, body: string) => void
+  onDelete: (id: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [body, setBody] = useState(draft.body)
+  useEffect(() => {
+    setBody(draft.body)
+  }, [draft.body])
+  const target =
+    draft.targetKind === 'revision'
+      ? 'whole revision'
+      : draft.targetKind.replace(/^sheet_/, '').replace(/_/g, ' ')
+  return (
+    <li className="rounded-md border bg-card p-2 text-xs">
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        <span className="font-medium text-foreground">You</span>
+        <span className="text-fg-muted">draft · not sent</span>
+        <span className="text-fg-muted">anchored to {target}</span>
+        <span className="flex-1" />
+        {!editing ? (
+          <>
+            <Button
+              size="sm"
+              variant="quiet"
+              aria-label="Edit draft comment"
+              onClick={() => setEditing(true)}
+            >
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="quiet"
+              aria-label="Delete draft comment"
+              onClick={() => onDelete(draft.id)}
+            >
+              Delete
+            </Button>
+          </>
+        ) : null}
+      </div>
+      {editing ? (
+        <div className="space-y-2">
+          <textarea
+            className="min-h-[60px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Draft comment body"
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              disabled={!body.trim()}
+              onClick={() => {
+                onEdit(draft.id, body.trim())
+                setEditing(false)
+              }}
+            >
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => {
+                setBody(draft.body)
+                setEditing(false)
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="leading-5 text-foreground">{draft.body}</p>
+      )}
+    </li>
+  )
+}
+
+/**
+ * The reviewer's private drafts. They are held in the reviewer's browser and
+ * are not written to the database — and so not visible to the author — until
+ * the reviewer returns the submission with them.
+ */
+export function DraftCommentsTray({
+  drafts,
+  onEdit,
+  onDelete,
+}: {
+  drafts: ReviewCommentDraft[]
+  onEdit: (id: string, body: string) => void
+  onDelete: (id: string) => void
+}) {
+  if (drafts.length === 0) return null
+  const count = drafts.length
+  return (
+    <section
+      aria-label="Draft comments"
+      className="mb-3 rounded-lg border border-dashed bg-surface-muted/30 p-3"
+    >
+      <header className="mb-2 flex flex-wrap items-center gap-2">
+        <Badge variant="chg">
+          {count} draft {count === 1 ? 'comment' : 'comments'}
+        </Badge>
+        <span className="text-xs text-fg-muted">
+          Private — not visible to the author until you{' '}
+          {returnWithCommentsLabel(count).toLowerCase()}.
+        </span>
+      </header>
+      <ol className="space-y-2">
+        {drafts.map((draft) => (
+          <DraftCommentRow
+            key={draft.id}
+            draft={draft}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        ))}
+      </ol>
+    </section>
   )
 }
 
@@ -1100,6 +1402,8 @@ function ReviewInspector({
   collaborationRole,
   onAfterAmendment,
   revisionOptions,
+  commentDrafts,
+  onCommentsChanged,
 }: {
   revision: RevisionWire | null
   submission: ReviewSubmissionWire | null
@@ -1126,6 +1430,10 @@ function ReviewInspector({
   onAfterAmendment: () => Promise<void>
   /** All revisions of this record, for the amendment chain view. */
   revisionOptions: RevisionOptionWire[]
+  /** REV-01.3: the reviewer's private comment drafts. */
+  commentDrafts: ReviewCommentDrafts
+  /** REV-01.3: refresh the comment list after drafts are published. */
+  onCommentsChanged: () => Promise<void>
 }) {
   const queryClient = useQueryClient()
   const [signingOpen, setSigningOpen] = useState(false)
@@ -1301,9 +1609,23 @@ function ReviewInspector({
             submission={submission}
             permission={permission}
             integrityDigest={integrityDigest}
+            draftCommentCount={commentDrafts.count}
             onApprovedForSigning={() => setSigningOpen(true)}
             onAfterDecision={async (kind, input) => {
-              await runDecision(kind, input)
+              // REV-01.3: returning carries the reviewer's private drafts —
+              // the decision is taken first (the drafts cannot leak if the
+              // return is refused), then the drafts are published together.
+              if (kind === 'request_changes' && commentDrafts.count > 0) {
+                await returnWithDraftComments(reviewsDataClient, {
+                  revisionId: revision.id,
+                  drafts: commentDrafts.drafts,
+                  decision: input,
+                })
+                commentDrafts.clear()
+                await onCommentsChanged()
+              } else {
+                await runDecision(kind, input)
+              }
               if (submission.id) {
                 await queryClient.invalidateQueries({
                   queryKey: reviewWorkspaceQueryKeys.decisions(submission.id),
@@ -1351,12 +1673,15 @@ export function ActionButtons({
   submission,
   permission,
   integrityDigest,
+  draftCommentCount = 0,
   onAfterDecision,
   onApprovedForSigning,
 }: {
   submission: ReviewSubmissionWire
   permission: ReturnType<typeof deriveReviewActionPermission>
   integrityDigest: string | null
+  /** REV-01.3: how many private drafts a return would carry. */
+  draftCommentCount?: number
   onAfterDecision: (
     kind: ReviewDecisionKind,
     input: ReviewDecisionInput,
@@ -1428,7 +1753,11 @@ export function ActionButtons({
     },
     {
       kind: 'request_changes',
-      label: 'Request changes',
+      // REV-01.3: the return action states how many draft comments it carries.
+      label:
+        draftCommentCount > 0
+          ? returnWithCommentsLabel(draftCommentCount)
+          : 'Request changes',
       variant: 'secondary',
       icon: 'arrowLeft',
     },
@@ -1450,6 +1779,9 @@ export function ActionButtons({
               icon={action.icon}
               disabled={disabled}
               blockedReason={permission.reviewBlockedReason ?? undefined}
+              draftCommentCount={
+                action.kind === 'request_changes' ? draftCommentCount : 0
+              }
               note={note}
               setNote={setNote}
               open={pendingKind === action.kind}
@@ -1511,6 +1843,7 @@ function DecisionDialog({
   icon: iconName,
   disabled,
   blockedReason,
+  draftCommentCount = 0,
   note,
   setNote,
   onOpen,
@@ -1524,6 +1857,8 @@ function DecisionDialog({
   icon: IconName
   disabled: boolean
   blockedReason?: ReviewBlockedReason
+  /** REV-01.3: draft comments this return will publish together. */
+  draftCommentCount?: number
   note: string
   setNote: (value: string) => void
   onOpen: () => void
@@ -1564,6 +1899,16 @@ function DecisionDialog({
             <br />
             The submission will move to “{statusLabel(nextState)}”. This cannot
             be undone from the workspace.
+            {kind === 'request_changes' && draftCommentCount > 0 ? (
+              <>
+                <br />
+                <br />
+                This return sends your {draftCommentCount} draft{' '}
+                {draftCommentCount === 1 ? 'comment' : 'comments'} to the
+                author; they become visible on the revision and must be resolved
+                before it can be resubmitted.
+              </>
+            ) : null}
           </ConfirmDialogDescription>
         </ConfirmDialogHeader>
         <Textarea

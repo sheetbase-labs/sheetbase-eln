@@ -69,6 +69,16 @@ export type CommentPanelProps = (
   className?: string
   /** Only a viewer's visible current/frozen context may assess availability. */
   isTargetAvailable?: (comment: CommentWire) => boolean
+  /**
+   * REV-01.3: when provided, a new top-level comment becomes a private
+   * reviewer draft instead of being published immediately. The author cannot
+   * see it until the reviewer returns the submission with their comments.
+   */
+  onDraftComment?: (input: {
+    targetKind: CommentTargetKind
+    target: CommentTarget
+    body: string
+  }) => void
 }
 
 export function CommentPanel({
@@ -84,6 +94,7 @@ export function CommentPanel({
   canCreate = true,
   className,
   isTargetAvailable,
+  onDraftComment,
 }: CommentPanelProps) {
   const queryClient = useQueryClient()
   const [newBody, setNewBody] = React.useState('')
@@ -192,6 +203,13 @@ export function CommentPanel({
     const body = newBody.trim()
     if (!body) return
     setError(null)
+    // REV-01.3: a reviewer's new comment is a private draft, not a sent
+    // comment, until it is published with the return decision.
+    if (onDraftComment && revisionId !== undefined) {
+      onDraftComment({ targetKind, target, body })
+      setNewBody('')
+      return
+    }
     await createMutation.mutateAsync(body)
     setNewBody('')
   }
@@ -288,12 +306,17 @@ export function CommentPanel({
               disabled={!newBody.trim() || createMutation.isPending}
             >
               <MessageSquarePlus className="size-3" aria-hidden="true" />
-              Add comment
+              {onDraftComment ? 'Add draft comment' : 'Add comment'}
             </Button>
             {createMutation.isPending ? (
               <span className="text-xs text-fg-muted">Sending…</span>
             ) : null}
           </div>
+          {onDraftComment ? (
+            <p className="text-xs text-fg-muted">
+              Draft — not sent to the author until you return the submission.
+            </p>
+          ) : null}
         </form>
       ) : null}
 

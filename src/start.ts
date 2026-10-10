@@ -58,6 +58,19 @@ const sampleHoldSchedulerMiddleware = createMiddleware().server(
   },
 )
 
+// WORK-03.2: reagent expiry sweep, the producer for the material_expiring
+// notification. Writes one system change event per lot inside the warning
+// window; guarded like the other schedulers and never started under test
+// runners unless explicitly enabled.
+const reagentExpirySchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startReagentExpiryScheduler } =
+      await import('#/lib/reagent-expiry.server')
+    startReagentExpiryScheduler()
+    return next()
+  },
+)
+
 // API-06: webhook delivery engine. LISTENs for change events, matches
 // active subscriptions, and attempts signed HTTP POST delivery with
 // retries and auto-disablement. Started lazily per-process.
@@ -117,6 +130,7 @@ export const startInstance = createStart(() => ({
     emailSchedulerMiddleware,
     datasetRetentionSchedulerMiddleware,
     sampleHoldSchedulerMiddleware,
+    reagentExpirySchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,
   ],

@@ -24,11 +24,9 @@ function resolvePinnedNow(): Date | null {
  * substituted, which vite.config.ts only fills for development and test builds.
  */
 function readPinnedValue(): string | null {
-  if (typeof process !== 'undefined' && process.env) {
-    const environment = process.env.SHEETBASE_ENV
-    if (environment === 'development' || environment === 'test') {
-      if (process.env.SHEETBASE_NOW) return process.env.SHEETBASE_NOW
-    }
+  const environment = process.env.SHEETBASE_ENV
+  if (environment === 'development' || environment === 'test') {
+    if (process.env.SHEETBASE_NOW) return process.env.SHEETBASE_NOW
   }
   if (typeof __SHEETBASE_NOW__ === 'string' && __SHEETBASE_NOW__) {
     return __SHEETBASE_NOW__

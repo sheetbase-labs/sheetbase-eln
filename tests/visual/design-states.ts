@@ -448,9 +448,9 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
     screen: 'MaterialsList',
     route: '/materials',
     historicalMismatch: {
-      ratio: '0.03 (28767 px) at the 0.001 gate',
+      ratio: '0.03 (28276 px) at the 0.001 gate',
       causes: [3],
-      text: 'Seed data now matches: MAT-0418/0419/0420 carry the design titles, lots, per-lot stock and storage locations, so Material, Lot, Stock and Location render as the design shows. What remains is UI fidelity, all four visible in the diff: the table renders extra columns (the design has ID/Material/Supplier/Lot/Stock/Location/Status, the app adds duplicates and a second Stock/Location pair), the rows sort differently and include MAT-0421 which the design does not list, the Status column shows the record status (Available) where the design shows lot release and expiry text (Expires 1 Oct, Released Mar 2027), and the right panel is missing the Lot block fields (catalogue number, Received, Released by, Certificate, Stock of total, Used in).',
+      text: 'Seed data and lot status now match: the design titles, lots, per-lot stock and storage locations are seeded, the Status column reads the lot standing (Expires 1 Oct, Released Mar 2027) rather than the lifecycle word, and the list sorts newest first like the design. What remains: the design shows seven rows for the project while the seed has ten in stock (MAT-0421/0402/0355 are extra), the table column widths differ, the right panel is missing the Lot block fields (catalogue number, Received, Released by, Certificate, Stock of total, Used in), and the app renders a list footer the design does not.'',
     },
   },
   {

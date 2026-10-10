@@ -31,7 +31,9 @@ export interface MaterialListRow {
 const EMPTY_QUERY: RegistryQuery = {
   pageIndex: 0,
   pageSize: 200,
-  sorting: [],
+  // Newest lot first, which is the order the registry design lists them in; the
+  // identifier sequence is allocation order, so it reads as arrival order.
+  sorting: [{ id: 'identifier', desc: true }],
   grouping: [],
   filters: [],
 }
@@ -44,12 +46,50 @@ const STATUS: Record<string, { tone: Tone; label: string }> = {
   expired: { tone: 'bad', label: 'Expired' },
 }
 
-export function toMaterialListRow(reagent: Reagent): MaterialListRow {
-  const status = STATUS[reagent.status] ?? {
+/**
+ * The registry list shows a lot's standing, not its lifecycle word: an available
+ * lot reads as released until it expires, and one inside the warning window reads
+ * as expiring. Quarantine and expiry keep their own labels because the tabs are
+ * built from them.
+ */
+function lotStatus(
+  reagent: Reagent,
+  attention: ReturnType<typeof reagentAttention>,
+): { tone: Tone; label: string } {
+  if (reagent.status === 'quarantined' || reagent.status === 'expired') {
+    return STATUS[reagent.status]!
+  }
+  if (attention.expired) return { tone: 'bad', label: 'Expired' }
+  const expiry = reagent.expiry ? new Date(reagent.expiry) : null
+  if (expiry && !Number.isNaN(expiry.getTime())) {
+    if (attention.nearExpiry) {
+      return {
+        tone: 'warn',
+        label: `Expires ${expiry.toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          timeZone: 'UTC',
+        })}`,
+      }
+    }
+    return {
+      tone: 'ok',
+      label: `Released · ${expiry.toLocaleDateString('en-GB', {
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+      })}`,
+    }
+  }
+  return STATUS[reagent.status] ?? {
     tone: 'none',
     label: reagent.status.replace(/_/g, ' '),
   }
+}
+
+export function toMaterialListRow(reagent: Reagent): MaterialListRow {
   const attention = reagentAttention(reagent)
+  const status = lotStatus(reagent, attention)
   const tabs = ['instock']
   if (reagent.status === 'quarantined') tabs.push('quarantine')
   if (attention.nearExpiry) tabs.push('expiring')

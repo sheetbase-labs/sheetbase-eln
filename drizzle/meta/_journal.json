@@ -2778,6 +2778,13 @@
       "when": 1791653039966,
       "tag": "0398_pipeline_prompt_answer",
       "breakpoints": true
+    },
+    {
+      "idx": 399,
+      "version": "7",
+      "when": 1791654308379,
+      "tag": "0399_label_templates",
+      "breakpoints": true
     }
   ]
 }

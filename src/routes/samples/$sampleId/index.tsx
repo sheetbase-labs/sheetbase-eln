@@ -21,6 +21,7 @@ import {
   isTerminalSampleStatus,
 } from '#/components/v3/samples/sample-state'
 import { sampleStatus } from '#/components/v3/samples/samples-data'
+import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
 import {
   formatSampleEventDateTime,
   formatSampleEventDayTime,
@@ -283,6 +284,14 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
           />
         </Section>
       </div>
+
+      {/* LAB-05.1: the label a printed code carries, previewed from the sample's
+          own facts so the inspector shows exactly what would be printed. */}
+      <Section title="Label">
+        <div className="max-w-[360px]">
+          <SampleLabelCard record={sample} />
+        </div>
+      </Section>
 
       <Section title="Withdrawals" count={withdrawals.length}>
         {withdrawals.length ? (

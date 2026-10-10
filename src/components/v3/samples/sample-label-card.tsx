@@ -1,15 +1,22 @@
+import QRCode from 'qrcode'
+
+import { buildLabelLines, labelQrPayload } from '#/lib/labels'
+
 import { computeSampleHold, formatHoldDateShort } from './sample-hold-meter'
 
 /**
- * LAB-03 — the sample inspector's label card (SampleDetail / SampleLineage /
+ * LAB-05.1 — the sample inspector's label preview (SampleDetail / SampleLineage /
  * SampleUsage).
  *
- * The design's label preview is a data-matrix code with three machine lines:
- * the stable identifier, the lot (`batch` custom field) and the storage
- * condition with the hold use-by date. The condition and use-by date come from
- * the stored hold window (LAB-02); when a sample carries no hold window the
- * line is omitted rather than fabricated. The data-matrix is the design's fixed
- * pattern (LAB-05 owns the scannable template); this is the inspector preview.
+ * The code is a real, scannable QR of the DEC-10 payload
+ * `https://<host>/r/<identifier>`, so a printed label resolves through the resolver
+ * route. It replaced a fixed decorative pattern that could not be scanned.
+ *
+ * The lines are the identifier, the lot (`batch` custom field) and the storage
+ * condition with the hold use-by date (LAB-02). A line is omitted when the sample does
+ * not carry the fact rather than being fabricated. Without a host there is no honest
+ * payload to encode, so the card says so instead of drawing a code that would resolve
+ * nowhere.
  */
 export interface SampleLabelRecord {
   identifier: string
@@ -26,19 +33,47 @@ function batchOf(record: SampleLabelRecord): string | null {
   return typeof batch === 'string' && batch.trim() !== '' ? batch : null
 }
 
-export function SampleLabelCard({ record }: { record: SampleLabelRecord }) {
+/** The QR modules as one SVG path; synchronous, so the card needs no effect. */
+function qrPath(payload: string): { d: string; size: number } {
+  const qr = QRCode.create(payload, { errorCorrectionLevel: 'M' })
+  const size = qr.modules.size
+  const data = qr.modules.data
+  let d = ''
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (data[y * size + x]) d += `M${x} ${y}h1v1h-1z`
+    }
+  }
+  return { d, size }
+}
+
+export function SampleLabelCard({
+  record,
+  host,
+}: {
+  record: SampleLabelRecord
+  /** The host a scanned code resolves against; defaults to the current origin. */
+  host?: string
+}) {
+  const resolvedHost =
+    host ?? (typeof window !== 'undefined' ? window.location.host : '')
   const batch = batchOf(record)
   const hold = computeSampleHold({
     createdAt: record.createdAt ?? new Date().toISOString(),
     properties: record.properties,
     customFields: record.customFields,
   })
-  const storageLine =
-    hold && hold.condition
-      ? `${hold.condition} · use by ${formatHoldDateShort(hold.expiry)}`
-      : hold
-        ? `use by ${formatHoldDateShort(hold.expiry)}`
-        : null
+  const lines = buildLabelLines({
+    identifier: record.identifier,
+    lot: batch,
+    condition: hold?.condition ?? null,
+    useBy: hold ? formatHoldDateShort(hold.expiry) : null,
+  })
+  const payload = resolvedHost
+    ? labelQrPayload(resolvedHost, record.identifier)
+    : null
+  const code = payload ? qrPath(payload) : null
+
   return (
     <div
       data-slot="sample-label"
@@ -46,27 +81,29 @@ export function SampleLabelCard({ record }: { record: SampleLabelRecord }) {
       aria-label={`Printable label for ${record.identifier}`}
       className="grid grid-cols-[56px_1fr] items-center gap-2.5 rounded-sm border border-border p-2.5"
     >
-      <svg
-        width="56"
-        height="56"
-        viewBox="0 0 7 7"
-        role="img"
-        aria-label={`Label barcode for ${record.identifier}`}
-        shapeRendering="crispEdges"
-      >
-        <path
-          d="M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0zM4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5zM4 6h1v1H4zM6 6h1v1H6z"
-          fill="currentColor"
-        />
-        <path
-          d="M1 1h1v1H1zM5 1h1v1H5zM1 5h1v1H1z"
-          style={{ fill: 'var(--surface)' }}
-        />
-      </svg>
+      {code && payload ? (
+        <svg
+          width="56"
+          height="56"
+          viewBox={`0 0 ${code.size} ${code.size}`}
+          role="img"
+          aria-label={`Label code resolving to ${payload}`}
+          shapeRendering="crispEdges"
+        >
+          <path d={code.d} fill="currentColor" />
+        </svg>
+      ) : (
+        <span
+          className="flex size-14 items-center justify-center border border-dashed border-border-strong text-[9px] leading-3 text-fg-muted"
+          role="status"
+        >
+          No code
+        </span>
+      )}
       <div className="mono text-[11px] leading-4">
-        <div>{record.identifier}</div>
-        {batch ? <div>{batch}</div> : null}
-        {storageLine ? <div>{storageLine}</div> : null}
+        {lines.map((line) => (
+          <div key={line.kind}>{line.text}</div>
+        ))}
       </div>
     </div>
   )

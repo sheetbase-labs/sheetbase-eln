@@ -2392,6 +2392,50 @@ export const modelRules = api.table(
 )
 
 /**
+ * label_templates (LAB-05.1) describes what a printed label carries for a kind of
+ * record: its name, which kind it labels, and whether the storage condition and the
+ * hold use-by date are printed. The 2D code's payload is fixed by DEC-10
+ * (`https://<host>/r/<identifier>`) and built in `src/lib/labels.ts`, so it is not a
+ * column here — a template cannot silently change what a printed code resolves to.
+ * Readable by workspace members; a template is workspace configuration, so writes are
+ * left to the RPCs that own configuration.
+ */
+export const labelTemplates = api.table(
+  'label_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    recordKind: text('record_kind').notNull(),
+    showCondition: boolean('show_condition').notNull().default(true),
+    showUseBy: boolean('show_use_by').notNull().default(true),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_label_templates_workspace_name').on(table.workspaceId, table.name),
+    index('idx_label_templates_workspace').on(table.workspaceId),
+    check(
+      'chk_label_templates_name',
+      sql`length(btrim(${table.name})) between 1 and 120`,
+    ),
+    check(
+      'chk_label_templates_record_kind',
+      sql`length(btrim(${table.recordKind})) between 1 and 48`,
+    ),
+  ],
+)
+
+/**
  * sample_events (REG-002) is the append-only chain-of-custody and quantity
  * event log for sample records. Every controlled receive/consume/transfer
  * appends one row with actor attribution; the authoritative quantity and

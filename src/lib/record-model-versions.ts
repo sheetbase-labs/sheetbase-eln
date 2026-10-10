@@ -106,7 +106,7 @@ export async function replaceRecordModelVersionDefinition(
     migrationScope?: ModelChangeScope
   },
 ) {
-  return recordModelVersionSchema.parse(
+  const version = recordModelVersionSchema.parse(
     await client.rpc('replace_record_model_version_definition', {
       p_version_id: input.versionId,
       p_expected_revision: input.expectedRevision,
@@ -118,6 +118,37 @@ export async function replaceRecordModelVersionDefinition(
       p_reason: input.reason,
     }),
   )
+  return version
+}
+
+export interface ModelMigrationResult {
+  migrated: number
+  recordIds: string[]
+}
+
+/**
+ * MDL-02.3 — "also migrate open experiments" is a real migration.
+ *
+ * The definition edit records the steward's choice; this is what honours it. It
+ * upgrades the records the impact panel counted: those pinned to an older version
+ * of the same model that are not archived, deleted or already approved. Each
+ * record goes through the canonical per-record upgrade, so every migration is
+ * attributed and audited. The batch is all-or-nothing: a refusal rolls the whole
+ * call back rather than leaving half the records moved.
+ */
+export async function migrateOpenExperimentsToModelVersion(
+  client: DataClient,
+  input: { modelId: string; versionId: string; reason: string },
+): Promise<ModelMigrationResult> {
+  const result = await client.rpc<{ migrated: number; recordIds: string[] }>(
+    'migrate_open_experiments_to_model_version',
+    {
+      p_model_id: input.modelId,
+      p_version_id: input.versionId,
+      p_reason: input.reason,
+    },
+  )
+  return { migrated: result.migrated ?? 0, recordIds: result.recordIds ?? [] }
 }
 
 export async function publishRecordModelVersion(

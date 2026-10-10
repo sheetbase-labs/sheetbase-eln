@@ -2806,6 +2806,13 @@
       "when": 1791656310799,
       "tag": "0402_sample_print_event",
       "breakpoints": true
+    },
+    {
+      "idx": 403,
+      "version": "7",
+      "when": 1791656704786,
+      "tag": "0403_migrate_open_experiments",
+      "breakpoints": true
     }
   ]
 }

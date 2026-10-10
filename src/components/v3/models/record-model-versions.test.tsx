@@ -16,6 +16,7 @@ import {
   recordModelVersionSchema,
   replaceRecordModelVersionDefinition,
   upgradeRecordModelRecord,
+  migrateOpenExperimentsToModelVersion,
 } from '#/lib/record-model-versions'
 import type { RecordModelVersion } from '#/lib/record-model-versions'
 import type { ApprovalRequest } from '#/lib/approval-requests'
@@ -163,6 +164,31 @@ describe('Record Model version client contract', () => {
       },
       p_reason: 'Extend the range after service',
     })
+  })
+
+  it('runs the migration batch when the scope is also-migrate-open-experiments', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ migrated: 2, recordIds: ['r-1', 'r-2'] }),
+        ),
+      )
+    const client = createDataClient(fetcher)
+    const result = await migrateOpenExperimentsToModelVersion(client, {
+      modelId: 'model-1',
+      versionId: VERSION_ID,
+      reason: 'Extend the range after service',
+    })
+    expect(fetcher.mock.calls[0]?.[0]).toBe(
+      '/api/db/rpc/migrate_open_experiments_to_model_version',
+    )
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      p_model_id: 'model-1',
+      p_version_id: VERSION_ID,
+      p_reason: 'Extend the range after service',
+    })
+    expect(result).toEqual({ migrated: 2, recordIds: ['r-1', 'r-2'] })
   })
 
   it('edits a label and numeric range without changing stable keys or discarding semantic metadata', () => {

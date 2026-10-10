@@ -26,6 +26,7 @@ import {
   listRecordModelVersions,
   publishRecordModelVersion,
   replaceRecordModelVersionDefinition,
+  migrateOpenExperimentsToModelVersion,
 } from '#/lib/record-model-versions'
 import type {
   ModelChangeScope,
@@ -128,19 +129,29 @@ export function RecordModelVersions({
     onError,
   })
   const save = useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       definition: RecordModelVersionDefinition
       reason: string
       scope: ModelChangeScope
     }) => {
       if (!selected) throw new Error('Version not found.')
-      return replaceRecordModelVersionDefinition(client, {
+      const version = await replaceRecordModelVersionDefinition(client, {
         versionId: selected.id,
         expectedRevision: selected.revision,
         definition: input.definition,
         reason: input.reason,
         migrationScope: input.scope,
       })
+      // MDL-02.3: the choice is not just recorded — it is carried out. Only
+      // after the definition edit succeeds, so a refused edit migrates nothing.
+      if (input.scope === 'also-migrate-open-experiments' && modelId) {
+        await migrateOpenExperimentsToModelVersion(client, {
+          modelId,
+          versionId: selected.id,
+          reason: input.reason,
+        })
+      }
+      return version
     },
     onSuccess: invalidate,
     onError,

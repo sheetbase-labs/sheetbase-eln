@@ -10,8 +10,15 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, grantProjectAccess, prepareTestDatabase, setActorJwt } from './helpers'
+import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
+import {
+  expectDenied,
+  grantProjectAccess,
+  prepareTestDatabase,
+  setActorJwt,
+} from './helpers'
 
+const DEFINITION_PARAMETER = '00000000-0000-4000-8000-00000000c1f0'
 const WS = '00000000-0000-4000-8000-00000000c100'
 const OTHER_WS = '00000000-0000-4000-8000-00000000c101'
 const PROJECT = '00000000-0000-4000-8000-00000000c102'
@@ -193,10 +200,12 @@ async function start(
   versionId: string | null = null,
   reason: string | null = null,
 ) {
-  return client.query(
-    'select * from api.start_experiment($1,$2,$3,$4)',
-    [experiment.id, experiment.metadataVersion, versionId, reason],
-  )
+  return client.query('select * from api.start_experiment($1,$2,$3,$4)', [
+    experiment.id,
+    experiment.metadataVersion,
+    versionId,
+    reason,
+  ])
 }
 
 async function acknowledge(userId: string, versionId: string) {
@@ -204,6 +213,184 @@ async function acknowledge(userId: string, versionId: string) {
   await trainee.query('select * from api.acknowledge_protocol_version($1)', [
     versionId,
   ])
+}
+
+/**
+ * A notebook template version whose single parameter is required and mapped, plus the resolved
+ * Sheet instance state the notebook would carry. Inserted directly: this exercises the start
+ * check, not instantiation, and the instantiation path that would normally produce these rows
+ * refuses while a required parameter has no supplied input - which is exactly why the draft
+ * being changed afterwards is the case worth covering.
+ */
+/**
+ * A Sheet Definition with one declared reference column and one scalar parameter - the shape
+ * `optionalScalarDefinitionConfiguration` uses in the template suite, so the parameter is
+ * genuinely declared and its binding list is consistent.
+ */
+function scalarDefinitionConfiguration(): Record<string, unknown> {
+  const configuration = structuredClone(
+    validSheetDefinitionConfiguration(),
+  ) as Record<string, unknown> & {
+    columns: Array<{
+      id: string
+      source: { kind: string }
+      field: { logicalType: string; relationship: unknown }
+    }>
+  }
+  const column = configuration.columns[0]!
+  column.source = { kind: 'declared' }
+  column.field.logicalType = 'reference'
+  column.field.relationship = {
+    target: { kind: 'model', modelKey: 'sample' },
+    cardinality: 'one',
+  }
+  configuration.parameters = [
+    {
+      id: DEFINITION_PARAMETER,
+      key: 'passage_count',
+      label: 'Passage count',
+      required: false,
+      type: { kind: 'scalar', valueType: 'integer' },
+      constraints: {},
+    },
+  ]
+  configuration.bindings = []
+  configuration.joins = []
+  configuration.columns = [column]
+  configuration.calculations = []
+  configuration.writeBackRules = []
+  configuration.actions = []
+  configuration.rowIdentity = { kind: 'local', columnIds: [column.id] }
+  configuration.presentation = {
+    columnOrder: [column.id],
+    hiddenColumnIds: [],
+    columnWidths: {},
+    frozenColumnCount: 0,
+    density: 'standard',
+  }
+  return configuration
+}
+
+/** The state a freshly created instance carries before any parameters are resolved. */
+function emptyInstanceState(): Record<string, unknown> {
+  return {
+    bindings: [],
+    parameterValues: [],
+    localFields: [],
+    localValues: {},
+    calculationOverrides: {},
+    presentation: {
+      columnOrder: [],
+      hiddenColumnIds: [],
+      columnWidths: {},
+      frozenColumnCount: 0,
+      density: 'standard',
+    },
+    provenance: { createdFrom: 'ad_hoc' },
+  }
+}
+
+async function requiredItemNotebook(
+  experimentId: string,
+  withValue: boolean,
+): Promise<{ templateVersionId: string; key: string }> {
+  const key = 'passage_count'
+  const templateParameterId = crypto.randomUUID()
+  const placementId = crypto.randomUUID()
+  const templateId = crypto.randomUUID()
+  const templateVersionId = crypto.randomUUID()
+
+  const author = await actor(AUTHOR)
+  const definition = (
+    await author.query<{ version: { id: string; revision: number } }>(
+      `select api.create_sheet_definition($1,$2,'Required items sheet',null,$3::jsonb) result`,
+      [
+        WS,
+        `required_sheet_${templateId.replace(/-/g, '').slice(0, 12)}`,
+        JSON.stringify(scalarDefinitionConfiguration()),
+      ],
+    )
+  ).rows[0]!.result
+  await author.query(`select api.publish_sheet_definition_version($1,$2)`, [
+    definition.version.id,
+    definition.version.revision,
+  ])
+
+  await migrator.query(
+    `insert into api.notebook_templates(id,workspace_id,key,name,lifecycle,created_by_user_id)
+     values($1,$2,$3,'Required items','active',$4)`,
+    [
+      templateId,
+      WS,
+      `required_${templateId.replace(/-/g, '').slice(0, 12)}`,
+      AUTHOR,
+    ],
+  )
+  await migrator.query(
+    `insert into api.notebook_template_versions(id,template_id,version,lifecycle,configuration_format_version,configuration,created_by_user_id)
+     values($1,$2,1,'draft',1,$3::jsonb,$4)`,
+    [
+      templateVersionId,
+      templateId,
+      JSON.stringify({
+        formatVersion: 1,
+        parameters: [
+          {
+            id: templateParameterId,
+            key,
+            label: 'Passage count',
+            required: true,
+            type: { kind: 'scalar', valueType: 'integer' },
+            constraints: {},
+          },
+        ],
+        placements: [
+          {
+            id: placementId,
+            kind: 'sheet',
+            order: 1,
+            definitionVersionId: definition.version.id,
+            parameterMappings: [
+              {
+                templateParameterId,
+                definitionParameterId: DEFINITION_PARAMETER,
+              },
+            ],
+          },
+        ],
+      }),
+      AUTHOR,
+    ],
+  )
+  await migrator.query(
+    `update api.records set source_notebook_template_version_id=$2 where id=$1`,
+    [experimentId, templateVersionId],
+  )
+
+  // The controlled RPC, so the instance and its resolved parameters are written the way the
+  // application writes them: supplied when the value is present, unresolved when it is not.
+  await author.query(
+    `select api.create_sheet_instance_from_definition($1,'Required items',null,$2,$3,$4,$5::jsonb,$6::jsonb)`,
+    [
+      WS,
+      definition.version.id,
+      PROJECT,
+      experimentId,
+      JSON.stringify(emptyInstanceState()),
+      JSON.stringify(
+        withValue
+          ? [
+              {
+                parameterId: DEFINITION_PARAMETER,
+                kind: 'scalar',
+                value: 4,
+              },
+            ]
+          : [],
+      ),
+    ],
+  )
+  return { templateVersionId, key }
 }
 
 describe('EXP-03 controlled experiment start and lifecycle', () => {
@@ -311,9 +498,8 @@ describe('EXP-03 controlled experiment start and lifecycle', () => {
     const versionId = await effectiveVersion()
     await acknowledge(AUTHOR, versionId)
     const experiment = await draftExperiment()
-    const started = (
-      await start(author, experiment, versionId, 'Begin work')
-    ).rows[0]
+    const started = (await start(author, experiment, versionId, 'Begin work'))
+      .rows[0]
 
     // draft -> approved is not a transition, and a started experiment is
     // already past draft; in_progress -> approved is illegal too.
@@ -336,12 +522,15 @@ describe('EXP-03 controlled experiment start and lifecycle', () => {
       '22023',
     )
     const submitted = (
-      await author.query('select * from api.set_experiment_status($1,$2,$3,$4)', [
-        experiment.id,
-        started.metadata_version,
-        'in_review',
-        'Ready for review',
-      ])
+      await author.query(
+        'select * from api.set_experiment_status($1,$2,$3,$4)',
+        [
+          experiment.id,
+          started.metadata_version,
+          'in_review',
+          'Ready for review',
+        ],
+      )
     ).rows[0]
     expect(submitted).toMatchObject({ status: 'in_review' })
 
@@ -356,12 +545,15 @@ describe('EXP-03 controlled experiment start and lifecycle', () => {
       '42501',
     )
     const approved = (
-      await reviewer.query('select * from api.set_experiment_status($1,$2,$3,$4)', [
-        experiment.id,
-        submitted.metadata_version,
-        'approved',
-        'Independent approval',
-      ])
+      await reviewer.query(
+        'select * from api.set_experiment_status($1,$2,$3,$4)',
+        [
+          experiment.id,
+          submitted.metadata_version,
+          'approved',
+          'Independent approval',
+        ],
+      )
     ).rows[0]
     expect(approved).toMatchObject({ status: 'approved' })
 
@@ -376,12 +568,15 @@ describe('EXP-03 controlled experiment start and lifecycle', () => {
       'SB111',
     )
     const reopened = (
-      await author.query('select * from api.set_experiment_status($1,$2,$3,$4)', [
-        experiment.id,
-        approved.metadata_version,
-        'in_progress',
-        'Amendment after approval',
-      ])
+      await author.query(
+        'select * from api.set_experiment_status($1,$2,$3,$4)',
+        [
+          experiment.id,
+          approved.metadata_version,
+          'in_progress',
+          'Amendment after approval',
+        ],
+      )
     ).rows[0]
     expect(reopened).toMatchObject({ status: 'in_progress' })
   })
@@ -410,5 +605,39 @@ describe('EXP-03 controlled experiment start and lifecycle', () => {
       ]),
       'SB112',
     )
+  })
+
+  it('refuses to start while a required template parameter has no resolved value', async () => {
+    const author = await actor(AUTHOR)
+    const versionId = await effectiveVersion()
+    await acknowledge(AUTHOR, versionId)
+    const experiment = await draftExperiment()
+    const { key } = await requiredItemNotebook(experiment.id, false)
+
+    const refusal = await start(author, experiment).then(
+      () => null,
+      (error: { code?: string; message?: string }) => error,
+    )
+    // The refusal names the item rather than only saying the experiment cannot start, so the
+    // user knows what to supply.
+    expect(String(refusal?.message)).toContain(key)
+    expect(refusal?.code).toBe('SB111')
+
+    const { rows } = await migrator.query<{ status: string }>(
+      'select status from api.records where id=$1',
+      [experiment.id],
+    )
+    expect(rows[0]!.status).toBe('draft')
+  })
+
+  it('starts once every required template parameter has a resolved value', async () => {
+    const author = await actor(AUTHOR)
+    const versionId = await effectiveVersion()
+    await acknowledge(AUTHOR, versionId)
+    const experiment = await draftExperiment()
+    await requiredItemNotebook(experiment.id, true)
+
+    const { rows } = await start(author, experiment)
+    expect(rows[0]!.status).toBe('in_progress')
   })
 })

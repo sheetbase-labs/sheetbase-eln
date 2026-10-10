@@ -2645,6 +2645,13 @@
       "when": 1791630529373,
       "tag": "0379_audit_chain_anonymisation",
       "breakpoints": true
+    },
+    {
+      "idx": 380,
+      "version": "7",
+      "when": 1791631046112,
+      "tag": "0380_delete_experiment_draft",
+      "breakpoints": true
     }
   ]
 }

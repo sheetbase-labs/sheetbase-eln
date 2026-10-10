@@ -53,8 +53,13 @@ function makeReagent(
     lot: null,
     expiry: null,
     quantity: null,
+    initialQuantity: null,
     unit: null,
     storage: null,
+    received: null,
+    releasedBy: null,
+    releasedAt: null,
+    certificate: null,
     lowStockThreshold: null,
     expiryWarningDays: null,
     record: {

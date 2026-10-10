@@ -26,6 +26,17 @@ export interface MaterialListRow {
   attention?: { tone: Tone; label: string }
   tabs: string[]
   metadataVersion: number
+  /** Lot block detail, shown in the inspector. */
+  catalogNo: string | null
+  received: string | null
+  releasedBy: string | null
+  releasedAt: string | null
+  certificate: string | null
+  /** Quantity as received, so the inspector can show "2 of 6 units". */
+  initialQuantity: number | null
+  unit: string | null
+  /** Expiry as the inspector states it: "Expires 1 Oct 2026 (6 days)". */
+  expiryNote: string | null
 }
 
 const EMPTY_QUERY: RegistryQuery = {
@@ -96,6 +107,38 @@ function lotStatus(
   }
 }
 
+function formatDay(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+/**
+ * The inspector states the expiry in full - date and days remaining - where the
+ * list only needs the short form.
+ */
+function expiryNote(
+  reagent: Reagent,
+  attention: ReturnType<typeof reagentAttention>,
+): string | null {
+  if (!reagent.expiry) return null
+  const date = new Date(reagent.expiry)
+  if (Number.isNaN(date.getTime())) return null
+  const days = attention.daysToExpiry
+  if (attention.expired) {
+    return days != null && days < 0
+      ? `Expired ${formatDay(reagent.expiry)} (${Math.abs(days)} days ago)`
+      : `Expired ${formatDay(reagent.expiry)}`
+  }
+  if (attention.nearExpiry && days != null) {
+    return `Expires ${formatDay(reagent.expiry)} (${days} ${days === 1 ? 'day' : 'days'})`
+  }
+  return null
+}
+
 export function toMaterialListRow(reagent: Reagent): MaterialListRow {
   const attention = reagentAttention(reagent)
   const status = lotStatus(reagent, attention)
@@ -119,6 +162,14 @@ export function toMaterialListRow(reagent: Reagent): MaterialListRow {
         : '—',
     location: reagent.storage ?? '—',
     status,
+    catalogNo: reagent.catalogNo,
+    received: reagent.received ?? null,
+    releasedBy: reagent.releasedBy ?? null,
+    releasedAt: reagent.releasedAt ?? null,
+    certificate: reagent.certificate ?? null,
+    initialQuantity: reagent.initialQuantity ?? null,
+    unit: reagent.unit,
+    expiryNote: expiryNote(reagent, attention),
     attention:
       attention.kind === 'low_stock'
         ? { tone: 'warn', label: 'Low stock' }

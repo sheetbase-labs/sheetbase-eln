@@ -511,6 +511,43 @@ export const designSteps: Array<SeedStep> = [
     },
   },
   {
+    name: 'design reagent fields',
+    run: async (db) => {
+      for (const field of DESIGN_REAGENT_FIELDS) {
+        await db
+          .insert(schema.recordFieldDefinitions)
+          .values({
+            id: field.id,
+            workspaceId: PROCESS,
+            kind: 'reagent',
+            fieldName: field.fieldName,
+            label: field.label,
+            displayOrder: field.displayOrder,
+            logicalType: field.logicalType,
+            nullable: field.nullable,
+            validation: {},
+            lifecycle: 'active',
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.recordFieldDefinitions.workspaceId,
+              schema.recordFieldDefinitions.kind,
+              schema.recordFieldDefinitions.fieldName,
+            ],
+            set: {
+              label: field.label,
+              displayOrder: field.displayOrder,
+              logicalType: field.logicalType,
+              nullable: field.nullable,
+              validation: {},
+              lifecycle: 'active',
+            },
+          })
+      }
+    },
+  },
+  {
     name: 'design materials',
     run: async (db) => {
       for (const material of DESIGN_MATERIALS) {
@@ -525,6 +562,7 @@ export const designSteps: Array<SeedStep> = [
             title: material.title,
             status: material.status,
             properties: material.properties,
+            customFields: material.customFields ?? {},
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
           .onConflictDoUpdate({
@@ -533,6 +571,7 @@ export const designSteps: Array<SeedStep> = [
               title: material.title,
               status: material.status,
               properties: material.properties,
+              customFields: material.customFields ?? {},
               deletedAt: null,
               archivedAt: null,
             },
@@ -1087,6 +1126,8 @@ const DESIGN_MATERIALS: ReadonlyArray<{
   title: string
   status: string
   properties: Record<string, unknown>
+  /** Model-declared lot detail, stored in custom_fields. */
+  customFields?: Record<string, unknown>
 }> = [
   {
     id: '00000000-0000-4000-8000-0000000003a0',
@@ -1207,11 +1248,19 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     status: 'available',
     properties: {
       supplier: 'Sartorius',
+      catalog_no: 'DF-C0SP-01',
       lot: 'L-77310',
       expiry: '2026-10-01',
       quantity: 2,
       unit: 'units',
       storage: 'Consumables store, bay 4',
+    },
+    customFields: {
+      initial_quantity: 6,
+      received: '2026-06-04',
+      released_by: 'QC',
+      released_at: '2026-06-06',
+      certificate: 'CoA_L-77310.pdf',
     },
   },
 ]
@@ -1293,6 +1342,61 @@ const DESIGN_PROTOCOLS: ReadonlyArray<{
     identifier: 'PRT-024',
     title: 'Review workflow template',
     status: 'active',
+  },
+]
+
+/**
+ * Reagent lot detail the registry inspector shows. Declared as model fields so
+ * the record guard accepts the values in custom_fields; the legacy properties
+ * allow-list is fixed and cannot carry them.
+ */
+const DESIGN_REAGENT_FIELDS: ReadonlyArray<{
+  id: string
+  fieldName: string
+  label: string
+  displayOrder: number
+  logicalType: 'text' | 'decimal' | 'date'
+  nullable: boolean
+}> = [
+  {
+    id: '00000000-0000-4000-8000-000000000340',
+    fieldName: 'initial_quantity',
+    label: 'Quantity received',
+    displayOrder: 1,
+    logicalType: 'decimal',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000341',
+    fieldName: 'received',
+    label: 'Received',
+    displayOrder: 2,
+    logicalType: 'date',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000342',
+    fieldName: 'released_by',
+    label: 'Released by',
+    displayOrder: 3,
+    logicalType: 'text',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000343',
+    fieldName: 'released_at',
+    label: 'Released on',
+    displayOrder: 4,
+    logicalType: 'date',
+    nullable: true,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000344',
+    fieldName: 'certificate',
+    label: 'Certificate',
+    displayOrder: 5,
+    logicalType: 'text',
+    nullable: true,
   },
 ]
 

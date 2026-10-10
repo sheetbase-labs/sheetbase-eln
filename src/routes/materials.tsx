@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
@@ -44,10 +44,34 @@ import {
   useReagentPage,
 } from '#/components/v3/materials/materials-data'
 import type { MaterialListRow } from '#/components/v3/materials/materials-data'
-import { recordReagentMovement } from '#/lib/reagent-data'
+import { fetchReagentUsage, recordReagentMovement } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 const tabs = ['instock', 'expiring', 'quarantine', 'expired'] as const
+
+/** The inspector states dates in full, e.g. "4 Jun 2026". */
+function dayLabel(iso: string | null): string {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+/** "2 of 6 units": what is left of what was received. */
+function stockOfTotal(row: MaterialListRow): string {
+  const unit = row.unit ? ` ${row.unit}` : ''
+  const current = row.stock
+  if (row.initialQuantity == null) return current
+  const total = row.initialQuantity.toLocaleString('en-GB', {
+    maximumFractionDigits: 2,
+  })
+  return `${current.replace(unit, '')} of ${total}${unit}`
+}
 type MaterialTab = (typeof tabs)[number]
 const tabLabel: Record<MaterialTab, string> = {
   instock: 'In stock',
@@ -114,6 +138,13 @@ function MaterialsList() {
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
+
+  const usage = useQuery({
+    queryKey: ['ui-port', 'materials', 'usage', sel?.id ?? ''],
+    queryFn: () => fetchReagentUsage(notebookDataClient, sel!.id),
+    enabled: Boolean(sel),
+    staleTime: 15_000,
+  })
 
   const receive = useMutation({
     mutationFn: (input: { quantity: number; reason?: string }) =>
@@ -283,12 +314,9 @@ function MaterialsList() {
             <div className="font-heading text-doc font-semibold">
               {sel.name}
             </div>
-            <div className="text-label">
-              <Status tone={sel.status.tone}>{sel.status.label}</Status>
-            </div>
-            {sel.attention ? (
-              <div className="mt-1.5">
-                <Status tone={sel.attention.tone}>{sel.attention.label}</Status>
+            {sel.expiryNote ? (
+              <div className="text-label">
+                <Status tone={sel.status.tone}>{sel.expiryNote}</Status>
               </div>
             ) : null}
           </div>
@@ -297,13 +325,35 @@ function MaterialsList() {
               <DescriptionList
                 labelWidth={88}
                 items={[
-                  ['Supplier', sel.supplier],
-                  ['Lot', sel.lot],
-                  ['Stock', sel.stock],
-                  ['Location', sel.location],
+                  [
+                    'Supplier',
+                    sel.catalogNo
+                      ? `${sel.supplier} · cat. ${sel.catalogNo}`
+                      : sel.supplier,
+                  ],
+                  ['Received', dayLabel(sel.received)],
+                  [
+                    'Released by',
+                    sel.releasedBy
+                      ? `${sel.releasedBy} · ${dayLabel(sel.releasedAt)}`
+                      : '—',
+                  ],
+                  ['Certificate', sel.certificate ?? '—'],
+                  ['Stock', stockOfTotal(sel)],
                 ]}
               />
             </InspectorSection>
+            {usage.data?.length ? (
+              <InspectorSection title="Used in">
+                <ul className="flex flex-col gap-1">
+                  {usage.data.map((link) => (
+                    <li key={link.id} className="text-label">
+                      {link.sourceIdentifier}
+                    </li>
+                  ))}
+                </ul>
+              </InspectorSection>
+            ) : null}
           </div>
         </Inspector>
       ) : null}

@@ -82,6 +82,12 @@ export function projectReagentProperties(
 export const DEFAULT_EXPIRY_WARNING_DAYS = 30
 
 export interface Reagent extends ReagentProperties {
+  /** Quantity as received, so the inspector can show "2 of 6 units". */
+  initialQuantity: number | null
+  received: string | null // ISO date YYYY-MM-DD
+  releasedBy: string | null
+  releasedAt: string | null // ISO date YYYY-MM-DD
+  certificate: string | null
   id: string
   identifier: string
   title: string
@@ -100,8 +106,16 @@ export interface Reagent extends ReagentProperties {
 
 export function toReagent(record: NotebookRecord): Reagent {
   const props = projectReagentProperties(record.properties)
+  // Lot-block detail is declared as model fields, so it arrives in custom_fields
+  // rather than in the legacy properties allow-list.
+  const custom = record.customFields ?? {}
   return {
     ...props,
+    initialQuantity: asNumber(custom.initial_quantity),
+    received: asString(custom.received),
+    releasedBy: asString(custom.released_by),
+    releasedAt: asString(custom.released_at),
+    certificate: asString(custom.certificate),
     id: record.id,
     identifier: record.identifier,
     title: record.title,

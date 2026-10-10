@@ -2862,6 +2862,13 @@
       "when": 1791662150267,
       "tag": "0410_supersede_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 411,
+      "version": "7",
+      "when": 1791662364080,
+      "tag": "0411_rename_reagent_kind",
+      "breakpoints": true
     }
   ]
 }

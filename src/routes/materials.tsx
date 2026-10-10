@@ -75,7 +75,7 @@ function stockOfTotal(row: MaterialListRow): string {
 type MaterialTab = (typeof tabs)[number]
 const tabLabel: Record<MaterialTab, string> = {
   instock: 'In stock',
-  expiring: 'Expiring',
+  expiring: 'Expiring in 30 days',
   quarantine: 'Quarantine',
   expired: 'Expired',
 }

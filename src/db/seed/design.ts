@@ -577,6 +577,34 @@ export const designSteps: Array<SeedStep> = [
             },
           })
       }
+      // The fixture set is the whole truth for this project: a material the design
+      // no longer lists is retired here, so a reseed cannot leave a stale lot
+      // behind (an upsert alone never removes one).
+      await db.execute(sql`
+        DELETE FROM api.records
+         WHERE project_id = ${DESIGN_PROJECTS[0].id}
+           AND kind = 'reagent'
+           AND identifier <> ALL (${sql.raw(
+             `ARRAY[${DESIGN_MATERIALS.map((material) => `'${material.identifier}'`).join(',')}]`,
+           )})
+      `)
+      // Continue the MAT- sequence after the seeded lots: the design's workspace
+      // settings show MAT-0421 as the next material, so a new lot is 0421 rather
+      // than re-issuing an existing identifier.
+      const lastMaterial = Math.max(
+        ...DESIGN_MATERIALS.map((material) =>
+          Number(material.identifier.split('-')[1]),
+        ),
+      )
+      await db.execute(sql`
+        INSERT INTO internal.id_sequences (workspace_id, kind, last_number)
+        VALUES (${PROCESS}, ${'reagent'}, ${lastMaterial})
+        ON CONFLICT (workspace_id, kind)
+        DO UPDATE SET last_number = greatest(
+          internal.id_sequences.last_number,
+          ${lastMaterial}
+        )
+      `)
     },
   },
   {

@@ -1,5 +1,7 @@
 import * as React from 'react'
 
+import { QueryClientContext } from '@tanstack/react-query'
+
 import { cn } from '#/lib/utils'
 import type {
   NotebookBlock as NotebookBlockData,
@@ -42,6 +44,10 @@ import {
 } from '#/lib/notebook-outline'
 import { AddBlockControl } from './add-block-menu'
 import { NotebookSheetBlock } from './notebook-sheet-block'
+import {
+  NotebookSignedSection,
+  NotebookViewerActions,
+} from './notebook-viewer-actions'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 import {
   useCollaborationEnabled,
@@ -78,7 +84,10 @@ export type { AutosaveStatus, SaveResult } from './block-editor'
  * - a stable selection target and URL anchor per block (#block-<id>) so
  *   comments and review can refer to a block later.
  *
- * `readOnly` disables all mutations (archived notebooks).
+ * `readOnly` disables all mutations (archived, signed and view-only
+ * notebooks). A read-only notebook that is neither archived nor signed shows
+ * the view-only actions — request edit access, copy selection, comment
+ * (EXP-04.5); a signed one shows its signatures.
  */
 
 export interface NotebookDocumentProps {
@@ -516,9 +525,18 @@ function NotebookDocumentContent({
   }
 
   const isReadOnly = readOnly || record.archivedAt !== null
+  // EXP-04.5: a signed (locked) record shows its signatures inline, and a
+  // view-only reader gets the actions they still have. Archived records are
+  // neither: they are read-only for everyone and no access request applies.
+  const isSigned = record.lockedAt !== null
+  const viewerActions = isReadOnly && record.archivedAt === null && !isSigned
+  // A signed section only reads where a query client exists — presentational
+  // and pre-hydration renders must not open a connection.
+  const hasQueryClient = React.useContext(QueryClientContext) !== undefined
   // COLLAB-02: block comment affordances render only when the deployment
   // has collaboration enabled; ThreadPanel further gates on room readiness.
   const collabComments = useCollaborationEnabled()
+  const collabReady = useCollaborationRoomReady()
 
   // Cell operations belong to SheetKeyboardShortcuts, not block navigation.
   useShortcutScope('notebook')
@@ -952,6 +970,13 @@ function NotebookDocumentContent({
         activeBlockId={selectedId}
         mode={selectedId ? 'editing' : 'viewing'}
       />
+      {viewerActions ? (
+        <NotebookViewerActions
+          projectId={record.projectId}
+          commentEnabled={collabComments && collabReady}
+          selectedBlockId={selectedId}
+        />
+      ) : null}
       {orderedIds.length === 0 && !isReadOnly ? (
         <div
           className="rounded-lg border border-dashed bg-surface-muted/20 px-6 py-8 text-center"
@@ -1339,6 +1364,10 @@ function NotebookDocumentContent({
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {isSigned && hasQueryClient ? (
+        <NotebookSignedSection recordId={record.id} />
       ) : null}
 
       <ConfirmDialog

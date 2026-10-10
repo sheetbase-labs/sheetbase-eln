@@ -1249,7 +1249,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     title: 'TFF cassette, 100 kDa',
     status: 'available',
     properties: {
-      supplier: 'Sartorius',
+      supplier: 'Supplier G',
       lot: 'T-8810',
       expiry: '2027-08-31',
       quantity: 4,
@@ -1263,7 +1263,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     title: 'Pluronic F-68, 10 %',
     status: 'expired',
     properties: {
-      supplier: 'Thermo Fisher',
+      supplier: 'Supplier D',
       lot: 'PL-202',
       expiry: '2026-09-20',
       quantity: 0.2,
@@ -1277,7 +1277,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     title: 'HEK293 expression medium',
     status: 'available',
     properties: {
-      supplier: 'Thermo Fisher',
+      supplier: 'Supplier E',
       lot: 'M-3301',
       expiry: '2026-11-30',
       quantity: 18,
@@ -1291,7 +1291,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     title: 'PEI transfection reagent',
     status: 'available',
     properties: {
-      supplier: 'Polysciences',
+      supplier: 'Supplier D',
       lot: 'P-9914',
       expiry: '2027-02-28',
       quantity: 42,
@@ -1305,7 +1305,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     title: 'Capsid ELISA kit',
     status: 'available',
     properties: {
-      supplier: 'Thermo Fisher',
+      supplier: 'Supplier C',
       lot: 'K-2208',
       expiry: '2026-12-31',
       quantity: 2,
@@ -1319,7 +1319,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     title: 'AEX resin, 5 mL column',
     status: 'quarantined',
     properties: {
-      supplier: 'Cytiva',
+      supplier: 'Supplier F',
       lot: 'R-1170',
       expiry: '2027-06-18',
       quantity: 3,
@@ -1333,7 +1333,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     title: 'Filter train A, two-stage depth',
     status: 'available',
     properties: {
-      supplier: 'Pall',
+      supplier: 'Supplier A',
       lot: 'L-54988',
       expiry: '2027-01-31',
       quantity: 5,
@@ -1347,7 +1347,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     title: 'Filter train B, two-stage depth',
     status: 'available',
     properties: {
-      supplier: 'Pall',
+      supplier: 'Supplier A',
       lot: 'L-55021',
       expiry: '2027-03-31',
       quantity: 6,
@@ -1361,7 +1361,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
     title: 'Filter train C, single-stage depth',
     status: 'available',
     properties: {
-      supplier: 'Sartorius',
+      supplier: 'Supplier B',
       catalog_no: 'DF-C0SP-01',
       lot: 'L-77310',
       expiry: '2026-10-01',

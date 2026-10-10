@@ -448,9 +448,9 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
     screen: 'MaterialsList',
     route: '/materials',
     historicalMismatch: {
-      ratio: '0.02 (25568 px) at the 0.001 gate',
+      ratio: '0.02 (24346 px) at the 0.001 gate',
       causes: [3],
-      text: 'The board matches the canvas on content: the nine design rows in order with their titles, lots, per-lot stock and storage locations, MAT-0402 quarantined, MAT-0355 expired, no stale lots, Status reading lot standing (Expires 1 Oct, Released Mar 2027), the inspector stating the whole lot block (supplier with catalogue number, Received, Released by, Certificate, Stock of total, expiry with days), Used in (EXP-0142, 1 unit, 23 Sep) from a seeded record link, and the action row (Register replacement lot as the primary action with its dialog, Quarantine) - both backed by RPCs. What remains: the design counts 412 materials and 356 in stock where the seed has nine, the No replacement lot note is not built, and the table column widths differ.',
+      text: 'The board matches the canvas on content: the nine design rows in order with their titles, lots, per-lot stock and storage locations, MAT-0402 quarantined, MAT-0355 expired, no stale lots, Status reading lot standing (Expires 1 Oct, Released Mar 2027), the inspector stating the whole lot block (supplier with catalogue number, Received, Released by, Certificate as a real file link, Stock of total, expiry with days), Used in (EXP-0142, 1 unit, 23 Sep) from a seeded record link, and the action row (Register replacement lot with its dialog, Quarantine), both backed by RPCs. The column positions now agree within a few pixels because the seed uses the design supplier labels, which every canvas uses. What remains: the header counts (412 materials, 356 in stock), which cannot be reproduced together with these rows - see the work log - and the design impact sentence, which needs an impact analysis rather than static copy.',
     },
   },
   {

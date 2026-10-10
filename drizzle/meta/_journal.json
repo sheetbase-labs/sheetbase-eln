@@ -2673,6 +2673,13 @@
       "when": 1791634268771,
       "tag": "0383_revision_drift",
       "breakpoints": true
+    },
+    {
+      "idx": 384,
+      "version": "7",
+      "when": 1791636889825,
+      "tag": "0384_replacement_lot",
+      "breakpoints": true
     }
   ]
 }

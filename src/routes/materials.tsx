@@ -158,6 +158,26 @@ function MaterialsList() {
     staleTime: 15_000,
   })
 
+  const quarantine = useMutation({
+    mutationFn: () =>
+      recordReagentMovement(notebookDataClient, {
+        recordId: sel!.uuid,
+        operation: 'quarantine',
+        quantityDelta: 0,
+        reason: 'Held for review',
+        expectedMetadataVersion: sel!.metadataVersion,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: materialListQueryKeys.page,
+      })
+      toast('Lot quarantined')
+    },
+    onError: (error: unknown) => {
+      toast(error instanceof Error ? error.message : 'Could not quarantine lot')
+    },
+  })
+
   const receive = useMutation({
     mutationFn: (input: { quantity: number; reason?: string }) =>
       recordReagentMovement(notebookDataClient, {
@@ -331,6 +351,16 @@ function MaterialsList() {
                 <Status tone={sel.status.tone}>{sel.expiryNote}</Status>
               </div>
             ) : null}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={quarantine.isPending || sel.status.label.startsWith('Quarantine')}
+                onClick={() => quarantine.mutate()}
+              >
+                Quarantine
+              </Button>
+            </div>
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
             <InspectorSection title="Lot">

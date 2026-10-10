@@ -162,13 +162,13 @@ describe('MOB-01.2 review items on a phone', () => {
   })
 
   it('keeps the review surface for the desktop link and the record for the phone', () => {
-    expect(reviewNeedsLargerScreen(items[0]!)).toBe(true)
-    expect(reviewNeedsLargerScreen(items[1]!)).toBe(false)
-    expect(recordLink(items[0]!)).toEqual({
+    expect(reviewNeedsLargerScreen(items[0])).toBe(true)
+    expect(reviewNeedsLargerScreen(items[1])).toBe(false)
+    expect(recordLink(items[0])).toEqual({
       to: '/records/$recordId',
       params: { recordId: 'record-1' },
     })
-    expect(recordLink({ ...items[1]!, recordId: null })).toEqual({
+    expect(recordLink({ ...items[1], recordId: null })).toEqual({
       to: '/inbox',
     })
   })

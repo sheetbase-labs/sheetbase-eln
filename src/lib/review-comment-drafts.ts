@@ -214,7 +214,7 @@ export async function returnWithDraftComments(
   })
   return {
     decision: result.decision,
-    publishedCommentIds: result.commentIds ?? [],
+    publishedCommentIds: result.commentIds,
   }
 }
 

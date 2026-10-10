@@ -16,7 +16,9 @@ afterEach(() => cleanup())
 // labels and descriptions below are the canvas's, verbatim.
 
 describe('block catalogue — Insert block design', () => {
-  const byType: Record<string, BlockPickerOption> = Object.fromEntries(
+  // The key may genuinely be absent, so the lookup is optional: a missing option should
+  // fail the assertion rather than throw while the test is being read.
+  const byType: Record<string, BlockPickerOption | undefined> = Object.fromEntries(
     BLOCK_PICKER_OPTIONS.map((opt) => [opt.type, opt]),
   )
 

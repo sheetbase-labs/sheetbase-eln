@@ -6,7 +6,8 @@
  * Authoring RPCs stay fail-closed.
  */
 import type { HttpTransport } from "../http.js";
-import { type RecordModel, fromRecordModel } from "../types.js";
+import {  fromRecordModel } from "../types.js";
+import type {RecordModel} from "../types.js";
 
 export class CataloguesResource {
   constructor(private transport: HttpTransport) {}

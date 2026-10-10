@@ -193,7 +193,7 @@ function baseProps(): ExperimentOverviewProps {
         ? 'Gareth P.'
         : userId === 'user-ps'
           ? 'Priya S.'
-          : (userId ?? 'Someone'),
+          : userId,
     projectName: 'AAV9 process transfer',
   }
 }

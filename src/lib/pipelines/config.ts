@@ -835,7 +835,7 @@ export function validateConfirmAnswer(
   if (values !== undefined && !isObject(values))
     return 'values must be an object'
   if (answer.decision !== 'confirm') return null
-  const supplied = (values ?? {}) as Record<string, unknown>
+  const supplied = (values ?? {})
   for (const field of confirm.fields) {
     const present = field.key in supplied
     if (!present) {

@@ -399,11 +399,11 @@ export function ExperimentOverview({
                   <Link
                     to="/protocols/$protocolId"
                     params={{
-                      protocolId: protocolLinks[0]!.targetRecordId ?? '',
+                      protocolId: protocolLinks[0].targetRecordId ?? '',
                     }}
                     className="text-link"
                   >
-                    {protocolLinks[0]!.targetIdentifier}
+                    {protocolLinks[0].targetIdentifier}
                   </Link>
                 ) : (
                   'Not recorded'

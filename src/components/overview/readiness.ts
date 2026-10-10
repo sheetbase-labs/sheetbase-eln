@@ -183,7 +183,7 @@ export function blockIdByInstanceId(
 ): Map<string, string> {
   const map = new Map<string, string>()
   for (const block of blocks) {
-    const instanceId = block.payload?.instanceId
+    const instanceId = block.payload.instanceId
     if (typeof instanceId === 'string') map.set(instanceId, block.id)
   }
   return map
@@ -289,10 +289,10 @@ function locationForComment(
   thread: ReadinessCommentThread,
   blocksById: Map<string, string>,
 ): DerivedLocation {
-  const blockId = asString(thread.target?.blockId)
+  const blockId = asString(thread.target.blockId)
   if (blockId) return { blockId, detail: null, unresolvedReason: null }
 
-  const instanceId = asString(thread.target?.instanceId)
+  const instanceId = asString(thread.target.instanceId)
   if (instanceId) {
     const resolved = blocksById.get(instanceId) ?? null
     return {
@@ -326,7 +326,7 @@ export function readinessItems(
   const items: ReadinessItem[] = []
 
   for (const [errorIndex, error] of readiness.validationErrors.entries()) {
-    const failing = (error.results ?? []).filter(
+    const failing = error.results.filter(
       (result) => result.status === 'fail',
     )
     for (const [resultIndex, result] of failing.entries()) {

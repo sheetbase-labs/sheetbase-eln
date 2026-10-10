@@ -3,10 +3,11 @@ import type { HttpTransport } from "../http.js";
 import { iterRpc } from "../pagination.js";
 import {
   fromSearchResult,
-  fromSearchPage,
-  type SearchResult,
-  type SearchPage,
+  fromSearchPage
+  
+  
 } from "../types.js";
+import type {SearchResult, SearchPage} from "../types.js";
 
 export class SearchResource {
   constructor(private transport: HttpTransport) {}

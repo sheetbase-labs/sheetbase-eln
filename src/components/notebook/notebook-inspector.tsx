@@ -109,10 +109,10 @@ export function formatCellValue(
 
 /** The field's own unit, preferring the display unit where one is configured. */
 function fieldUnit(field: FieldDefinition | null): string | null {
+  // The guard is what narrows `field` to a definition, so the optional chain stays.
   if (!field?.quantity) return null
-  return (
-    field.quantity.preferredDisplayUnit ?? field.quantity.storageUnit ?? null
-  )
+  // `storageUnit` is required, so the fallback chain always resolves to a string.
+  return field.quantity.preferredDisplayUnit ?? field.quantity.storageUnit
 }
 
 /** A one-line description of a field's validation rule, when it has one. */

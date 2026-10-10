@@ -1,7 +1,8 @@
 /** Project resource — list, get, create, update, iterate. */
 import type { HttpTransport } from "../http.js";
 import { iterTable } from "../pagination.js";
-import { fromProject, type Project } from "../types.js";
+import { fromProject  } from "../types.js";
+import type {Project} from "../types.js";
 import { NotFoundError } from "../errors.js";
 
 export class ProjectsResource {

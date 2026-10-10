@@ -5,9 +5,10 @@ import {
   checklistChanges,
   isBlocked,
   loadItems,
-  staleFiles,
-  type Item,
+  staleFiles
+  
 } from '../../docs/knowledge/roadmap-4/tools/tracker'
+import type {Item} from '../../docs/knowledge/roadmap-4/tools/tracker';
 
 const item = (
   id: string,

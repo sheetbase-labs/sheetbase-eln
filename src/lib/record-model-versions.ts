@@ -148,7 +148,7 @@ export async function migrateOpenExperimentsToModelVersion(
       p_reason: input.reason,
     },
   )
-  return { migrated: result.migrated ?? 0, recordIds: result.recordIds ?? [] }
+  return { migrated: result.migrated, recordIds: result.recordIds }
 }
 
 export async function publishRecordModelVersion(

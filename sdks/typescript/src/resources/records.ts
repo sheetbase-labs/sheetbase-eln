@@ -3,10 +3,11 @@ import type { HttpTransport } from "../http.js";
 import { iterTable } from "../pagination.js";
 import {
   fromRecord,
-  fromRecordRevision,
-  type SheetbaseRecord,
-  type RecordRevision,
+  fromRecordRevision
+  
+  
 } from "../types.js";
+import type {SheetbaseRecord, RecordRevision} from "../types.js";
 import { NotFoundError } from "../errors.js";
 
 export class RecordsResource {

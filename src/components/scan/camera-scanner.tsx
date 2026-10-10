@@ -12,9 +12,10 @@ import { SCAN_FORMATS, loadCodeDecoder } from './code-decoder'
  * Camera scanning for the Scan surface (LAB-05.4 / MOB-02). Mount it where a
  * page needs a code read from the device camera; it reports every code it reads
  * through `onScan` and always offers the typed-ID path. The browser's
- * `BarcodeDetector` is used where available; where it is not, the decoder
- * fallback in `./code-decoder` is tried before reporting the browser as
- * unsupported — see that module for why no WASM decoder is bundled.
+ * `BarcodeDetector` is used where available; where it is not, the shipped jsQR
+ * fallback reads QR codes from the video frame. jsQR cannot read Data Matrix or
+ * 1D Code 128 labels, so the component says which labels must be typed instead
+ * — see `./code-decoder` for the decoder resolution.
  */
 export type CameraScannerState =
   /** Camera off; waiting for the person to start it. */
@@ -61,6 +62,20 @@ const STATE_MESSAGE: Partial<Record<CameraScannerState, string>> = {
   error: 'The camera couldn’t be started. Type the ID below.',
 }
 
+/** Human names for the label formats, used in the coverage message. */
+const FORMAT_LABEL: Record<string, string> = {
+  qr_code: 'QR codes',
+  data_matrix: 'Data Matrix',
+  code_128: 'Code 128',
+}
+
+/** "QR codes", "Data Matrix or Code 128" — for prose about the formats. */
+function formatList(formats: readonly string[]): string {
+  const labels = formats.map((format) => FORMAT_LABEL[format] ?? format)
+  if (labels.length < 2) return labels[0] ?? ''
+  return `${labels.slice(0, -1).join(', ')} or ${labels[labels.length - 1]}`
+}
+
 /** Which honest failure state a rejected `getUserMedia` maps to. */
 function cameraFailureState(error: unknown): CameraScannerState {
   const name =
@@ -91,6 +106,11 @@ export function CameraScanner({
   const video = useRef<HTMLVideoElement>(null)
   const [state, setState] = useState<CameraScannerState>('idle')
   const [lastScan, setLastScan] = useState<string | null>(null)
+  // Formats the active decoder can read; `null` until a session loads one, or
+  // when the decoder reads everything requested.
+  const [decoderFormats, setDecoderFormats] = useState<readonly string[] | null>(
+    null,
+  )
   // Bumped by "Start camera"; the session effect is keyed on it so the state
   // changes a session makes never restart or cancel the scanning loop.
   const [session, setSession] = useState(0)
@@ -123,6 +143,7 @@ export function CameraScanner({
         setState('unsupported')
         return
       }
+      setDecoderFormats(decoder.formats ?? null)
       try {
         stream = await mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
@@ -178,6 +199,11 @@ export function CameraScanner({
   const retryable =
     state === 'denied' || state === 'unavailable' || state === 'error'
   const showStart = state === 'idle' || state === 'starting' || retryable
+  // Formats the active decoder cannot read, so the message can name them. The
+  // shipped jsQR fallback reads QR only, unlike the native detector.
+  const limitedFormats = decoderFormats
+    ? formats.filter((format) => !decoderFormats.includes(format))
+    : []
 
   return (
     <div
@@ -229,6 +255,18 @@ export function CameraScanner({
           </div>
         )}
       </div>
+
+      {scanning && limitedFormats.length > 0 ? (
+        <p
+          role="status"
+          data-scan-coverage="limited"
+          className="m-0 text-label text-fg-muted"
+        >
+          From the camera this browser can read{' '}
+          {formatList(formats.filter((f) => !limitedFormats.includes(f)))} only.
+          Type a {formatList(limitedFormats)} ID below.
+        </p>
+      ) : null}
 
       {children}
 

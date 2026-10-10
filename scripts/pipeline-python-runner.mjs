@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process'
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
-import { mkdir, readdir, rm, stat } from 'node:fs/promises'
+import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -28,9 +28,18 @@ export const LIMITS = Object.freeze({
  */
 export const OUTPUT_DIR = '/tmp/out'
 
-/** Where collected artefacts are kept on this host, per run. */
-const ARTEFACT_ROOT =
+/**
+ * Where collected artefacts are kept on this host, per run. Read per call rather than at
+ * module load, so a deployment (or a test) can point it somewhere else without a restart.
+ */
+const artefactRoot = () =>
   process.env.SHEETBASE_ARTEFACT_DIR ?? '/tmp/sheetbase-artefacts'
+
+/** Marks a run's artefacts as kept, so pruning leaves them alone. */
+const KEEP_MARKER = '.keep'
+
+/** How long an unkept artefact directory may sit before pruning removes it. */
+const ARTEFACT_TTL_MS = 24 * 60 * 60 * 1000
 
 /** A run key becomes a directory name, so it must not be able to escape the root. */
 export const ARTEFACT_KEY = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/
@@ -217,7 +226,7 @@ function docker(
 export async function collectOutputFiles(command, name, artefactKey) {
   if (!ARTEFACT_KEY.test(artefactKey))
     throw new RunnerError('Invalid artefact key.', 400, 'invalid_configuration')
-  const destination = join(ARTEFACT_ROOT, artefactKey)
+  const destination = join(artefactRoot(), artefactKey)
   await rm(destination, { recursive: true, force: true })
   await mkdir(destination, { recursive: true })
 
@@ -248,6 +257,56 @@ export async function collectOutputFiles(command, name, artefactKey) {
     collected.push({ name: entry.name, size: stats.size, path })
   }
   return collected.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
+ * PIPE-04.2 — a run's artefacts are temporary unless it keeps them.
+ *
+ * They live under a per-run directory on this host, so releasing a run either deletes them or
+ * marks the directory as kept. Kept artefacts outlive the run because a proposal can reference
+ * one (PIPE-03), so the marker is a file rather than a database row: the runner owns the
+ * bytes, and a marker next to them cannot drift from what is actually there.
+ *
+ * A run that dies before releasing leaves its directory behind, which is what pruning is for:
+ * anything older than the window that was never kept is abandoned, not kept by accident.
+ */
+export async function releaseArtefacts(artefactKey, keep) {
+  if (!ARTEFACT_KEY.test(artefactKey))
+    throw new RunnerError('Invalid artefact key.', 400, 'invalid_configuration')
+  const directory = join(artefactRoot(), artefactKey)
+  if (keep) {
+    await writeFile(join(directory, KEEP_MARKER), new Date().toISOString())
+    return { kept: true }
+  }
+  await rm(directory, { recursive: true, force: true })
+  return { kept: false }
+}
+
+/** Delete unkept artefact directories older than the window. */
+export async function pruneArtefacts(maxAgeMs = ARTEFACT_TTL_MS, now = Date.now()) {
+  let removed = 0
+  let kept = 0
+  let entries
+  try {
+    entries = await readdir(artefactRoot(), { withFileTypes: true })
+  } catch {
+    return { removed, kept }
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    const directory = join(artefactRoot(), entry.name)
+    const marker = await stat(join(directory, KEEP_MARKER)).catch(() => null)
+    if (marker) {
+      kept += 1
+      continue
+    }
+    const directoryStat = await stat(directory).catch(() => null)
+    if (!directoryStat) continue
+    if (now - directoryStat.mtimeMs < maxAgeMs) continue
+    await rm(directory, { recursive: true, force: true })
+    removed += 1
+  }
+  return { removed, kept }
 }
 
 export async function runDockerJob(job, image, command = docker) {

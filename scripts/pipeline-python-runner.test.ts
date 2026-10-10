@@ -5,7 +5,7 @@
  * each file with its size. The container is only readable until it is removed, which is why
  * this happens between the run finishing and the cleanup.
  */
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,6 +14,8 @@ import {
   ARTEFACT_KEY,
   LIMITS,
   collectOutputFiles,
+  pruneArtefacts,
+  releaseArtefacts,
 } from './pipeline-python-runner.mjs'
 
 let root: string
@@ -90,5 +92,55 @@ describe('collectOutputFiles', () => {
     await expect(
       collectOutputFiles(dockerWriting({}), 'container-1', '../escape'),
     ).rejects.toThrow(/Invalid artefact key/)
+  })
+})
+
+describe('PIPE-04.2 artefact lifecycle', () => {
+  it('deletes the artefacts of a run unless it keeps them', async () => {
+    const command = dockerWriting({ 'figure.png': 'bytes' })
+    await collectOutputFiles(command, 'container-1', 'run-1')
+    expect(await releaseArtefacts('run-1', false)).toEqual({ kept: false })
+    await expect(
+      stat(join(root, 'run-1')).then(
+        () => 'present',
+        () => 'gone',
+      ),
+    ).resolves.toBe('gone')
+  })
+
+  it('keeps them when asked, and pruning then leaves them alone', async () => {
+    const command = dockerWriting({ 'figure.png': 'bytes' })
+    await collectOutputFiles(command, 'container-1', 'run-kept')
+    expect(await releaseArtefacts('run-kept', true)).toEqual({ kept: true })
+
+    // Even with an age far past the window, a kept directory survives.
+    const result = await pruneArtefacts(0, Date.now() + 365 * 24 * 60 * 60 * 1000)
+    expect(result.kept).toBeGreaterThanOrEqual(1)
+    await expect(
+      stat(join(root, 'run-kept')).then(
+        () => 'present',
+        () => 'gone',
+      ),
+    ).resolves.toBe('present')
+  })
+
+  it('prunes an abandoned run once it is past the window', async () => {
+    const command = dockerWriting({ 'figure.png': 'bytes' })
+    await collectOutputFiles(command, 'container-1', 'run-abandoned')
+    // Never released: the run died before it could.
+    const result = await pruneArtefacts(0, Date.now() + 1000)
+    expect(result.removed).toBeGreaterThanOrEqual(1)
+    await expect(
+      stat(join(root, 'run-abandoned')).then(
+        () => 'present',
+        () => 'gone',
+      ),
+    ).resolves.toBe('gone')
+  })
+
+  it('refuses an invalid key on release too', async () => {
+    await expect(releaseArtefacts('../escape', true)).rejects.toThrow(
+      /Invalid artefact key/,
+    )
   })
 })

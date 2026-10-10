@@ -24,6 +24,7 @@ import {
   updateWorkspaceIdPrefixes,
   updateWorkspaceName,
   updateWorkspacePublicationPolicy,
+  updateWorkspaceOfflineEditing,
   workspaceGeneralQueryKey,
   ID_PREFIX_KINDS,
 } from '#/lib/workspace-general'
@@ -36,6 +37,7 @@ const DEFAULTS: WorkspaceGeneral = {
   dateFormat: 'd MMM yyyy',
   numberFormat: 'decimal',
   publicationApprovalRequired: false,
+  offlineEditingAllowed: true,
   idPrefixes: {},
 }
 
@@ -64,6 +66,10 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
       await updateWorkspacePublicationPolicy(
         workspaceId,
         form.publicationApprovalRequired,
+      )
+      await updateWorkspaceOfflineEditing(
+        workspaceId,
+        form.offlineEditingAllowed,
       )
     },
     onSuccess: () =>
@@ -250,11 +256,19 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
             A change to a saved value records the reason in History with the old
             and the new value.
           </li>
-          <li>
-            Edits from an offline device sync when it reconnects; conflicts are
-            shown to both people.
-          </li>
         </ul>
+        <CheckRow
+          title="Allow offline editing on this workspace’s devices"
+          body="Edits sync when the device reconnects. Conflicts are shown to both people."
+          checked={form.offlineEditingAllowed}
+          disabled={query.isLoading || query.isError || save.isPending}
+          onCheckedChange={(checked) =>
+            setForm((current) => ({
+              ...current,
+              offlineEditingAllowed: checked,
+            }))
+          }
+        />
       </div>
     </Section>
   )

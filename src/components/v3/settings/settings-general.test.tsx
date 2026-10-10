@@ -7,6 +7,7 @@ import { SettingsGeneral } from './settings-general'
 import {
   updateWorkspaceGeneral,
   updateWorkspaceName,
+  updateWorkspaceOfflineEditing,
   updateWorkspacePublicationPolicy,
 } from '#/lib/workspace-general'
 import type * as workspaceGeneralModule from '#/lib/workspace-general'
@@ -22,12 +23,14 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => {
       dateFormat: 'd MMM yyyy',
       numberFormat: 'decimal' as const,
       publicationApprovalRequired: false,
+      offlineEditingAllowed: true,
       idPrefixes: { experiment: 'EXP' },
     })),
     updateWorkspaceGeneral: vi.fn(async () => {}),
     updateWorkspaceIdPrefixes: vi.fn(async () => {}),
     updateWorkspaceName: vi.fn(async () => {}),
     updateWorkspacePublicationPolicy: vi.fn(async () => {}),
+    updateWorkspaceOfflineEditing: vi.fn(async () => {}),
   }
 })
 
@@ -55,6 +58,15 @@ describe('SettingsGeneral', () => {
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     await user.click(toggle)
     expect(toggle.getAttribute('aria-checked')).toBe('true')
+
+    // EXP-05.5: offline editing is a workspace-wide switch.
+    const offline = screen.getByRole('checkbox', {
+      name: /Allow offline editing on this workspace’s devices/,
+    })
+    expect(offline.getAttribute('aria-checked')).toBe('true')
+    await user.click(offline)
+    expect(offline.getAttribute('aria-checked')).toBe('false')
+
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
       expect(vi.mocked(updateWorkspaceGeneral)).toHaveBeenCalledWith(
@@ -71,6 +83,9 @@ describe('SettingsGeneral', () => {
         'ws-1',
         true,
       ),
+    )
+    await waitFor(() =>
+      expect(updateWorkspaceOfflineEditing).toHaveBeenCalledWith('ws-1', false),
     )
   })
 })

@@ -3,6 +3,10 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 
 import { describeSignInError } from '#/lib/auth-errors'
+import {
+  SignedOutSurface,
+  useRetainedDrafts,
+} from '#/components/offline/signed-out-surface'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
@@ -88,6 +92,8 @@ function SignIn() {
   const help = useHelp()
   const [redirecting, setRedirecting] = useState(false)
   const message = describeSignInError(error)
+  // EXP-05.5: the drafts this device kept when its last user signed out.
+  const retainedDrafts = useRetainedDrafts()
 
   const provider = 'GitHub'
   const title =
@@ -141,10 +147,7 @@ function SignIn() {
             {message ? <Notice tone="bad">{message}</Notice> : null}
 
             {state === 'signed-out' ? (
-              <Notice icon="signOut">
-                You signed out of this browser. Saved changes remain in your
-                workspace.
-              </Notice>
+              <SignedOutSurface retained={retainedDrafts} />
             ) : state === 'expired-signing' ? (
               <Notice tone="warn" title="The record wasn’t signed.">
                 Your session ended while the signing dialog was open, so nothing

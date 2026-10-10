@@ -11,6 +11,8 @@ export interface WorkspaceGeneral {
   dateFormat: string
   numberFormat: 'decimal' | 'scientific'
   publicationApprovalRequired: boolean
+  /** SET-01.3 / EXP-05.5 — whether this workspace allows offline editing. */
+  offlineEditingAllowed: boolean
   /** SET-01.2 — identifier prefix per record kind. */
   idPrefixes: Record<string, string>
 }
@@ -33,6 +35,7 @@ interface WorkspaceSettingsWire {
   date_format: string
   number_format: string
   publication_approval_required: boolean
+  allow_offline_editing: boolean
   id_prefixes: Record<string, string> | null
   workspaces: { name: string } | null
 }
@@ -55,7 +58,7 @@ export async function fetchWorkspaceGeneral(
 ): Promise<WorkspaceGeneral | null> {
   const rows = await client.list<WorkspaceSettingsWire>(
     'workspace_settings',
-    '?select=site,timezone,date_format,number_format,publication_approval_required,id_prefixes,workspaces(name)&limit=1',
+    '?select=site,timezone,date_format,number_format,publication_approval_required,allow_offline_editing,id_prefixes,workspaces(name)&limit=1',
   )
   if (rows.length === 0) return null
   const row = rows[0]
@@ -66,6 +69,7 @@ export async function fetchWorkspaceGeneral(
     dateFormat: row.date_format,
     numberFormat: row.number_format === 'scientific' ? 'scientific' : 'decimal',
     publicationApprovalRequired: row.publication_approval_required,
+    offlineEditingAllowed: row.allow_offline_editing,
     idPrefixes: row.id_prefixes ?? {},
   }
 }
@@ -92,6 +96,23 @@ export async function updateWorkspacePublicationPolicy(
   await client.rpc('update_workspace_publication_policy', {
     p_workspace_id: workspaceId,
     p_required: required,
+  })
+}
+
+/**
+ * SET-01.3 / EXP-05.5 — allow or forbid offline editing on this workspace's
+ * devices. When off, the notebook must not hold unsynced drafts: the offline
+ * store still persists what it is given, so the caller gates its offline hold
+ * on this value. Audited as an editing-rule change.
+ */
+export async function updateWorkspaceOfflineEditing(
+  workspaceId: string,
+  allowed: boolean,
+  client: DataClient = notebookDataClient,
+): Promise<void> {
+  await client.rpc('update_workspace_settings', {
+    p_workspace_id: workspaceId,
+    p_allow_offline_editing: allowed,
   })
 }
 

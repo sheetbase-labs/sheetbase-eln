@@ -2694,6 +2694,13 @@
       "when": 1791638763168,
       "tag": "0386_refuse_link_to_held_material",
       "breakpoints": true
+    },
+    {
+      "idx": 387,
+      "version": "7",
+      "when": 1791646027512,
+      "tag": "0387_booking_change_events",
+      "breakpoints": true
     }
   ]
 }

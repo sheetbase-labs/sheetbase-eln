@@ -221,8 +221,8 @@ describe('captured change facts', () => {
         payload: { title: 'Renamed' },
       },
     ])
-    expect(mapped[0]!.target).toBe('Protocol step text')
+    expect(mapped[0].target).toBe('Protocol step text')
     // A payload without captured facts still reports the operation.
-    expect(mapped[1]!.target).toBe('update')
+    expect(mapped[1].target).toBe('update')
   })
 })

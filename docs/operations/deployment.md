@@ -307,7 +307,9 @@ migration equals the database's current migration. If it differs, readiness will
 reject the old artifact, so stop traffic and roll forward with a forward-fix
 migration. Database restore is not an REL-001 rollback mechanism; backups,
 restore procedure, restore drills and RPO/RTO objectives are documented in
-[`recovery.md`](recovery.md) and must exist before wider release.
+[`recovery.md`](recovery.md) and must exist before wider release. The nightly
+audit-trail verification (DEC-04, 06:00) is documented in
+[`audit-verification.md`](audit-verification.md).
 
 Record the decision maker, source and target environments, artifact digests,
 migration version, readiness evidence, and rollback decision for every promotion.

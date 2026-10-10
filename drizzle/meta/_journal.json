@@ -2631,6 +2631,13 @@
       "when": 1791629241472,
       "tag": "0377_audit_hash_chain",
       "breakpoints": true
+    },
+    {
+      "idx": 378,
+      "version": "7",
+      "when": 1791629640601,
+      "tag": "0378_audit_verification_job",
+      "breakpoints": true
     }
   ]
 }

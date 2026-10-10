@@ -17,6 +17,7 @@
     "artifact:build": "node --import tsx scripts/build-artifact.ts",
     "deploy:plan": "node --import tsx scripts/deploy.ts --plan",
     "deploy:apply": "node --import tsx scripts/deploy.ts --apply",
+    "audit:verify": "node --import tsx scripts/audit-verification.ts",
     "backup:run": "node --import tsx scripts/backup.ts",
     "backup:restore-drill": "node --import tsx scripts/restore-drill.ts",
     "release:local": "bash scripts/release.sh",

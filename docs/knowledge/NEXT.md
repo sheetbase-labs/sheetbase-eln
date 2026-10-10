@@ -1,16 +1,18 @@
 ---
 title: Sheetbase Current Work
 status: canonical
-last_reviewed: 2026-10-03
+last_reviewed: 2026-10-10
 ---
 
 # Sheetbase — Current Work
 
-**Roadmap 4 is active and incomplete.** The current checkout is
-`roadmap-4/ui-app3`, audited at `9bbd305c` on 2 October 2026. Its
-[reconciliation](roadmap-4/RECONCILIATION.md) covers all 86 original tasks.
-The [Roadmap 4 handoff](roadmap-4/NEXT.md) and nod tracker own its remaining
-queue. Roadmap 5 remains a [proposal](../../plans/roadmap-5/README.md).
+**Every Roadmap 4 active task is complete; nothing is in progress.** The work is
+on `GWP/roadmap-4-shell`. Its [reconciliation](roadmap-4/RECONCILIATION.md) covers
+all 86 original tasks and its evidence and limits still stand: task completion is
+not release acceptance, and the visual and browser layers are deferred to
+acceptance by the owner's instruction. The [Roadmap 4 handoff](roadmap-4/NEXT.md)
+and nod tracker own its queue. Roadmap 5 remains a
+[proposal](../../plans/roadmap-5/README.md).
 
 This is a local source and documentation assessment. It does not establish
 merge, current hosted CI, deployment or production acceptance. Earlier branch
@@ -24,7 +26,7 @@ not the current-checkout summary.
 | Roadmap 1 | Recorded complete; historical Core exits not independently recertified here.                                                                                                                                                                                               |
 | Roadmap 2 | Active scope recorded closed; GOV-02 remains deferred.                                                                                                                                                                                                                     |
 | Roadmap 3 | September reconciliation records 50 merged implementation tasks plus institutional proposals/deferrals; known limits and workflow acceptance remain. ADR-0045 was subsequently accepted through DEC-04; ADR-0044 remains proposed.                                         |
-| Roadmap 4 | 2 October audit baseline: 13 accepted decisions, four inherited implementation completions with acceptance unverified, 52 partial, 16 not started, one superseded duplicate. Eleven tasks have closed since; nod now records 28 done of 85 active tasks (87 of 266 steps). |
+| Roadmap 4 | All 85 active tasks done on `GWP/roadmap-4-shell` (SHELL-04 cancelled in favour of DEC-03). The 2 October audit baseline it grew from was 13 accepted decisions, four inherited completions with acceptance unverified, 52 partial, 16 not started and one superseded duplicate; each was reconciled against the current source rather than the audit text. Completion is task-level: it is not release acceptance, and the deferred visual and browser layers remain unverified. |
 | Roadmap 5 | Proposed follow-on work; unfinished Roadmap 4 requirements retain their original task owner.                                                                                                                                                                               |
 
 The [7 September reconciliation](history/2026-09-07-roadmap-reconciliation.md)

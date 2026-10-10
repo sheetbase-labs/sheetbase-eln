@@ -1,16 +1,16 @@
 ---
 title: Roadmap 4 — current work
 status: canonical for Roadmap 4
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-10
 ---
 
 # Roadmap 4 — current work
 
-**Active and incomplete**, on `roadmap-4/ui-app3`, audited at `9bbd305c`.
-The [2 October reconciliation](RECONCILIATION.md) covers all 86 original tasks:
-13 accepted decisions, four inherited implementation completions awaiting fresh
-acceptance, 52 partial tasks, 16 not started and one superseded duplicate.
-The tracker counts 85 active tasks because SHELL-04 is cancelled in favour of DEC-03.
+**Every active task is complete; nothing is in progress.** The tracker's 85 active
+tasks are all done, on `GWP/roadmap-4-shell`. This is task completion, not release
+acceptance: the [2 October reconciliation](RECONCILIATION.md) covers all 86 original
+tasks, and its evidence and limits still stand. The tracker counts 85 active tasks
+because SHELL-04 is cancelled in favour of DEC-03.
 
 The repository-wide [NEXT.md](../NEXT.md) owns cross-roadmap priority. This file
 and nod own Roadmap 4's queue; [task specifications](tasks/README.md) retain its
@@ -18,10 +18,10 @@ requirements. [UI_PORT.md](UI_PORT.md) records the adopted app-3 port and histor
 [UI_PORT_SCREENS.md](UI_PORT_SCREENS.md) maps current screen gaps to those tasks.
 A ported screen or removed gap banner does not establish the task exit.
 
-All DEC decisions are recorded accepted. The generated “Waiting on a decision”
-label also counts open implementation prerequisites. “In progress” means a
-partial implementation exists, not that an engineer is currently assigned.
-Done counts retain qualified historical completion; they are not release acceptance.
+All DEC decisions are recorded accepted. Done counts retain qualified historical
+completion; they are not release acceptance. The visual and browser layers are
+deferred to acceptance by the owner's instruction, so parity board fidelity is a
+recorded gap rather than a task exit.
 
 <!-- tracker:start -->
 

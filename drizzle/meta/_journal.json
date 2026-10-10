@@ -2575,6 +2575,20 @@
       "when": 1791628128723,
       "tag": "0369_instrument_rename_history",
       "breakpoints": true
+    },
+    {
+      "idx": 370,
+      "version": "7",
+      "when": 1791628338406,
+      "tag": "0370_gifted_dragon_lord",
+      "breakpoints": true
+    },
+    {
+      "idx": 371,
+      "version": "7",
+      "when": 1791628348020,
+      "tag": "0371_file_version_chain",
+      "breakpoints": true
     }
   ]
 }

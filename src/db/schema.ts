@@ -1180,6 +1180,17 @@ export const fileObjects = api.table(
     }),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
     version: integer('version').notNull().default(1),
+    /**
+     * PROJ-04.3 — the version this one replaced. The chain is how "upload new
+     * version" keeps every earlier file downloadable; the FK is declared in the
+     * migration SQL (self-reference) and deletion is refused there.
+     */
+    previousVersionId: uuid('previous_version_id'),
+    /** PROJ-04.3 — the workspace retention policy applied at upload. */
+    retentionUntil: timestamp('retention_until', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',

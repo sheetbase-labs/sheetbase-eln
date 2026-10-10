@@ -18,7 +18,11 @@ BEGIN
   IF strpos(definition, anchor) = 0 THEN
     RAISE EXCEPTION 'create_booking anchor missing; refusing to patch blindly';
   END IF;
-  IF strpos(definition, 'calendar_booking') > 0 THEN
+  -- A generic trigger already emits when the booking row is inserted, but that runs
+  -- BEFORE the participants are written, so the notification would find nobody. The
+  -- explicit emit below runs after them; this guard checks for the emit, not for the
+  -- table name (the function mentions calendar_bookings regardless).
+  IF strpos(definition, 'emit_change_event') > 0 THEN
     RETURN;  -- already emits
   END IF;
 

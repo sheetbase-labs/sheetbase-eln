@@ -2726,12 +2726,23 @@ function elisaRows(): Array<Record<string, unknown>> {
       const rowNumber = plateIndex * 12 + wellIndex + 1
       const reading =
         rowNumber >= 88 ? comparedReadings[rowNumber - 88] : undefined
+      // The design's SampleDetail cites "DS-0311 rows 1-2" for SMP-2231's capsid
+      // titre, and the sample binding runs through the schema's sample text field,
+      // so the dataset's first two rows carry that sample identifier.
       const sample =
-        reading?.sample ?? `S-${String(rowNumber).padStart(3, '0')}`
+        reading?.sample ??
+        (rowNumber <= 2
+          ? 'SMP-2231'
+          : `S-${String(rowNumber).padStart(3, '0')}`)
       const dilution = [10, 100, 1000][wellIndex % 3]
       const capsidTitre = reading
         ? reading.capsid_titre
-        : Number((3.4 + ((plateIndex * 12 + wellIndex) % 17) * 0.18).toFixed(2))
+        : rowNumber <= 2
+          ? // The two rows the design's sample detail cites for SMP-2231.
+            8.6
+          : Number(
+              (3.4 + ((plateIndex * 12 + wellIndex) % 17) * 0.18).toFixed(2),
+            )
       // DatasetCompare identifies these exact readings. They are measurement
       // inputs to the real row-batch validation, not manufactured flag rows.
       const turbidity = reading

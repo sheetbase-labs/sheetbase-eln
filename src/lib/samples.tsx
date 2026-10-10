@@ -832,6 +832,10 @@ export function derivationRelation(
   return null
 }
 
+/** LAB-03 measurement provenance, read by the sample detail and Measurements tab. */
+export const sampleMeasurementsQueryKey = (recordId: string) =>
+  ['ui-port', 'sample-measurements', recordId] as const
+
 export const sampleDerivedQueryKey = (recordId: string) =>
   ['ui-port', 'sample-derived', recordId] as const
 

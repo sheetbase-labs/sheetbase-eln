@@ -29,6 +29,8 @@ import {
   deriveSampleVolumeSummary,
   fetchSampleDerivedSamples,
   fetchSampleEvents,
+  fetchSampleMeasurements,
+  sampleMeasurementsQueryKey,
   groupDerivedSamples,
   sampleDerivedQueryKey,
 } from '#/lib/samples'
@@ -173,6 +175,16 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     queryKey: sampleDerivedQueryKey(sample.id),
     queryFn: () => fetchSampleDerivedSamples(notebookDataClient, sample.id),
   })
+  // The design states the capsid titre with the dataset row that produced it
+  // ("8.6 x 10^11 cp/mL - DS-0311 rows 1-2"). That value is a dataset reading
+  // aggregated by api.sample_measurement_provenance, not a field on the sample.
+  const measurements = useQuery({
+    queryKey: sampleMeasurementsQueryKey(sample.id),
+    queryFn: () => fetchSampleMeasurements(notebookDataClient, sample.id),
+  })
+  const capsid = measurements.data?.find((row) =>
+    /capsid/i.test(row.measurement),
+  )
   const eventsList = events.data ?? []
   const withdrawals = eventsList.filter(
     (event) => event.operation === 'consume',
@@ -209,7 +221,30 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
                   {formatVolume(volume.current, volume.unit)}
                 </span>,
               ],
-              ['Capsid titre', '—'],
+              [
+                'Capsid titre',
+                capsid ? (
+                  <span>
+                    {capsid.valueText ??
+                      (capsid.value != null
+                        ? capsid.value.toLocaleString('en-GB', {
+                            maximumFractionDigits: 2,
+                          })
+                        : '—')}
+                    {capsid.unit ? ` ${capsid.unit}` : ''}
+                    {capsid.provenance.datasetDisplayId ? (
+                      <>
+                        {' · '}
+                        <span className="mono text-fg-muted">
+                          {capsid.provenance.datasetDisplayId}
+                        </span>
+                      </>
+                    ) : null}
+                  </span>
+                ) : (
+                  '—'
+                ),
+              ],
               ['Cell line', '—'],
               [
                 'Produced in',

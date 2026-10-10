@@ -17,6 +17,7 @@ tags:
 Step 2 of 3 in [DSYS-06](../../tasks/DSYS.md#dsys-06--visual-parity-suite); the full step text is under “Steps” there.
 
 ## Work Log
+  - 2026-10-10: MaterialsList mapped and measured, so it no longer sits in DESIGN_PENDING (tests/visual/design-states.ts). Its route, tabs (In stock 356 / Expiring 30 days 4 / Quarantine 3 / Expired 9) and columns already match; the remaining 0.02 (25349 px) diff is seeded content and is recorded as a diagnosed historicalMismatch under cause 3. The other 38 screens pending for the same reason are blocked on DSYS-05 seed coverage: the design screens show specific display IDs and per-record fields the design seed does not create yet, so that seed work unblocks the rest of the boards.
 - 2026-09-27: PR #206: the parity suite now signs in as the screen's seeded design user (Better Auth session + __Secure- cookie) on a dedicated server with auth-free disabled; verified by rendering HelpRecords as Gareth P.
 - 2026-09-27: PR #206: parity freezes the browser clock to the design seed clock (DESIGN_CLOCK) so date and relative-time copy matches the design render; verified HelpRecords still renders.
 - 2026-10-02: 2026-10-02 reopened against current code: see DSYS-06 reconciliation note and RECONCILIATION.md#dsys-06. Implemented subsets retained; full step requirement is not met.

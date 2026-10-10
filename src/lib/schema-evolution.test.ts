@@ -7,10 +7,8 @@ import {
   listInstanceColumnPromotions,
   previewCalculationPromotion,
   previewDatasetSchemaEvolution,
-  previewLocalFieldPromotion,
   previewModelFieldEvolution,
   promoteCalculation,
-  promoteLocalField,
   requestColumnPromotion,
 } from './schema-evolution'
 import { DataClientError } from './data-client'
@@ -45,19 +43,6 @@ describe('governed evolution client', () => {
       action: 'retire',
       confirm: true,
     })
-    await previewLocalFieldPromotion(client, {
-      instanceId: 'inst-1',
-      fieldId: 'lf-1',
-      target: 'dataset_schema',
-      schemaDefinitionId: 'schema-1',
-    })
-    await promoteLocalField(client, {
-      instanceId: 'inst-1',
-      fieldId: 'lf-1',
-      target: 'model_field',
-      modelKey: 'sample',
-      idempotencyKey: 'promo-1',
-    })
     await previewCalculationPromotion(client, {
       instanceId: 'inst-1',
       calculationId: 'calc-1',
@@ -75,8 +60,6 @@ describe('governed evolution client', () => {
       'apply_dataset_schema_evolution',
       'preview_model_field_evolution',
       'apply_model_field_evolution',
-      'preview_local_field_promotion',
-      'promote_local_field',
       'preview_calculation_promotion',
       'promote_calculation',
     ])
@@ -88,11 +71,6 @@ describe('governed evolution client', () => {
       p_schema_version_id: 'ver-1',
       p_idempotency_key: 'evo-1',
       p_expected_revision: 1,
-    })
-    expect(calls[5]?.args).toMatchObject({
-      p_target: 'model_field',
-      p_model_key: 'sample',
-      p_idempotency_key: 'promo-1',
     })
     expect(calls[3]?.args).toMatchObject({
       p_action: 'retire',

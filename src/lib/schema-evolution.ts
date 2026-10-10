@@ -85,49 +85,20 @@ export async function applyModelFieldEvolution(
   })
 }
 
-export async function previewLocalFieldPromotion(
-  client: DataClient,
-  input: {
-    instanceId: string
-    fieldId: string
-    target: 'dataset_schema' | 'model_field'
-    schemaDefinitionId?: string | null
-    modelKey?: string | null
-  },
-): Promise<EvolutionPreview> {
-  return client.rpc('preview_local_field_promotion', {
-    p_instance_id: input.instanceId,
-    p_field_id: input.fieldId,
-    p_target: input.target,
-    p_schema_definition_id: input.schemaDefinitionId ?? null,
-    p_model_key: input.modelKey ?? null,
-  })
-}
-
-export async function promoteLocalField(
-  client: DataClient,
-  input: {
-    instanceId: string
-    fieldId: string
-    target: 'dataset_schema' | 'model_field'
-    schemaDefinitionId?: string | null
-    modelKey?: string | null
-    schemaVersionId?: string | null
-    expectedRevision?: number | null
-    idempotencyKey: string
-  },
-): Promise<EvolutionResult> {
-  return client.rpc('promote_local_field', {
-    p_instance_id: input.instanceId,
-    p_field_id: input.fieldId,
-    p_target: input.target,
-    p_schema_definition_id: input.schemaDefinitionId ?? null,
-    p_idempotency_key: input.idempotencyKey,
-    p_model_key: input.modelKey ?? null,
-    p_schema_version_id: input.schemaVersionId ?? null,
-    p_expected_revision: input.expectedRevision ?? null,
-  })
-}
+/**
+ * SHEET-02.4 — the direct promotion path is gone from the client.
+ *
+ * A promotion is a request now (SHEET-02.1), decided by an approval (MDL-03) and applied by
+ * api.apply_column_promotion (SHEET-02.2), so nothing here calls `promote_local_field` any
+ * more: the dialog asks, the approval decides, the settle applies. The wrappers that called it
+ * directly were left behind with no caller, and they are removed rather than kept as a second
+ * way to promote a column.
+ *
+ * The `promote_local_field` RPC itself is retained. The request flow records a `model_field`
+ * promotion but cannot yet apply one — api.apply_column_promotion refuses any target that is
+ * not a dataset schema — so retiring the RPC now would remove the only working path for that
+ * target. It retires with the model-field apply, not before it.
+ */
 
 export async function previewCalculationPromotion(
   client: DataClient,
@@ -174,11 +145,7 @@ export async function promoteCalculation(
 // ---------------------------------------------------------------------------
 
 export type ColumnPromotionState =
-  | 'pending'
-  | 'approved'
-  | 'returned'
-  | 'applied'
-  | 'withdrawn'
+  'pending' | 'approved' | 'returned' | 'applied' | 'withdrawn'
 
 /** Wire shape of an `api.column_promotions` row (snake_case). */
 export interface ColumnPromotion {

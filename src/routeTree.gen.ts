@@ -116,6 +116,7 @@ import { Route as PipelinesPipelineIdStepsRouteImport } from './routes/pipelines
 import { Route as PipelinesPipelineIdTriggersRouteImport } from './routes/pipelines/$pipelineId/triggers'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
 import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
+import { Route as ProjectsProjectIdFilesRouteImport } from './routes/projects/$projectId/files'
 import { Route as ProjectsProjectIdFoldersRouteImport } from './routes/projects/$projectId/folders'
 import { Route as ProjectsProjectIdMembersRouteImport } from './routes/projects/$projectId/members'
 import { Route as ProjectsProjectIdMilestonesRouteImport } from './routes/projects/$projectId/milestones'
@@ -695,6 +696,11 @@ const ProjectsProjectIdIndexRoute = ProjectsProjectIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProjectsProjectIdRoute,
 } as any)
+const ProjectsProjectIdFilesRoute = ProjectsProjectIdFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
+  getParentRoute: () => ProjectsProjectIdRoute,
+} as any)
 const ProjectsProjectIdFoldersRoute =
   ProjectsProjectIdFoldersRouteImport.update({
     id: '/folders',
@@ -990,6 +996,7 @@ export interface FileRoutesByFullPath {
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
@@ -1121,6 +1128,7 @@ export interface FileRoutesByTo {
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
@@ -1265,6 +1273,7 @@ export interface FileRoutesById {
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
@@ -1410,6 +1419,7 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/files'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
     | '/projects/$projectId/milestones'
@@ -1541,6 +1551,7 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/files'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
     | '/projects/$projectId/milestones'
@@ -1684,6 +1695,7 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/files'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
     | '/projects/$projectId/milestones'
@@ -2543,6 +2555,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdIndexRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
+    '/projects/$projectId/files': {
+      id: '/projects/$projectId/files'
+      path: '/files'
+      fullPath: '/projects/$projectId/files'
+      preLoaderRoute: typeof ProjectsProjectIdFilesRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
     '/projects/$projectId/folders': {
       id: '/projects/$projectId/folders'
       path: '/folders'
@@ -2984,6 +3003,7 @@ const PipelinesRouteWithChildren = PipelinesRoute._addFileChildren(
 )
 
 interface ProjectsProjectIdRouteChildren {
+  ProjectsProjectIdFilesRoute: typeof ProjectsProjectIdFilesRoute
   ProjectsProjectIdFoldersRoute: typeof ProjectsProjectIdFoldersRoute
   ProjectsProjectIdMembersRoute: typeof ProjectsProjectIdMembersRoute
   ProjectsProjectIdMilestonesRoute: typeof ProjectsProjectIdMilestonesRoute
@@ -2992,6 +3012,7 @@ interface ProjectsProjectIdRouteChildren {
 }
 
 const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
+  ProjectsProjectIdFilesRoute: ProjectsProjectIdFilesRoute,
   ProjectsProjectIdFoldersRoute: ProjectsProjectIdFoldersRoute,
   ProjectsProjectIdMembersRoute: ProjectsProjectIdMembersRoute,
   ProjectsProjectIdMilestonesRoute: ProjectsProjectIdMilestonesRoute,

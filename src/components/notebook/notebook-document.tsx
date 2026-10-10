@@ -203,6 +203,20 @@ const EDITABLE_TYPES = new Set([
   'plate_map',
 ])
 
+/**
+ * EXP-04.1: prose reads in a 680px measure, while the data-dense blocks —
+ * sheets, charts and plate maps — take the full width of the working surface.
+ * The distinction is the design's, not an accident of content length: a chart
+ * or a grid needs the horizontal room, and a paragraph is unreadable without
+ * a measure.
+ */
+const WIDE_BLOCK_TYPES = new Set(['sheet', 'chart', 'plate_map'])
+
+/** The measure a block renders at, exposed for styling and for tests. */
+export function blockMeasure(type: string): 'prose' | 'wide' {
+  return WIDE_BLOCK_TYPES.has(type) ? 'wide' : 'prose'
+}
+
 export function NotebookDocument(props: NotebookDocumentProps) {
   return (
     <ScientificWorkbookProvider>
@@ -1009,11 +1023,16 @@ function NotebookDocumentContent({
               id={`block-${block.id}`}
               className={cn(
                 'scroll-mt-28 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                // EXP-04.1: prose in a 680px measure, wide blocks full width.
+                blockMeasure(block.type) === 'wide'
+                  ? 'w-full'
+                  : 'mx-auto w-full max-w-[680px]',
                 isMoving && 'opacity-60',
                 // NOTE-02: collapsed sections are removed from view but
                 // restored in print, so printed structure stays complete.
                 isHiddenSection && 'hidden print:contents',
               )}
+              data-block-measure={blockMeasure(block.type)}
               tabIndex={isReadOnly ? undefined : 0}
               role={isReadOnly ? undefined : 'group'}
               aria-label={`${blockLabel(block)} block${canMove ? ' — Alt+Arrow keys move; Ctrl+Arrow keys navigate' : ''}`}

@@ -2750,6 +2750,13 @@
       "when": 1791649136748,
       "tag": "0394_project_members_role",
       "breakpoints": true
+    },
+    {
+      "idx": 395,
+      "version": "7",
+      "when": 1791649627843,
+      "tag": "0395_link_types_follows_upstream",
+      "breakpoints": true
     }
   ]
 }

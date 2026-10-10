@@ -98,6 +98,62 @@ function richTextBlock(id: string, text: string): NotebookBlock {
   }
 }
 
+/** A chart block with a frozen snapshot, so it renders without a dataset query. */
+function frozenChartBlock(id: string): NotebookBlock {
+  return {
+    ...richTextBlock(id, ''),
+    type: 'chart',
+    payload: {
+      title: 'Frozen stability snapshot (qPCR)',
+      spec: null,
+      frozen: {
+        revisionId: null,
+        frozenAt: '2025-07-14T10:00:00Z',
+        frozenByUserId: 'u1',
+        datasetProvenance: [
+          {
+            datasetId: '00000000-0000-4000-8000-000000000170',
+            schemaVersion: 1,
+            rowCount: 2,
+            checksum: 'abc12345',
+          },
+        ],
+        data: {
+          columns: [
+            {
+              fieldId: 'c1',
+              label: 'Time (days)',
+              logicalType: 'decimal',
+              unit: { symbol: 'd' },
+            },
+            {
+              fieldId: 'c2',
+              label: 'Log titer',
+              logicalType: 'decimal',
+              unit: { symbol: 'log₁₀' },
+            },
+          ],
+          rows: [
+            { col_time: 0, col_titer: 7.2 },
+            { col_time: 28, col_titer: 5.9 },
+          ],
+          series: [
+            {
+              identifier: '4 °C',
+              label: '4 °C',
+              color: '#006EDC',
+              points: [
+                { x: 0, y: 7.2, yError: null, label: '4 °C' },
+                { x: 28, y: 5.9, yError: null, label: '4 °C' },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  }
+}
+
 describe('NotebookDocument — rendering', () => {
   it('renders each block with a stable anchor id', () => {
     const { container } = render(
@@ -131,6 +187,35 @@ describe('NotebookDocument — rendering', () => {
 
     fireEvent.click(container.querySelector('#block-b1')!)
     expect(screen.getByRole('textbox', { name: 'Text content' })).toBeTruthy()
+  })
+
+  it('gives prose a 680px measure and data-dense blocks the full width', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <NotebookDocument
+          record={record}
+          blocks={[
+            richTextBlock('prose-1', 'Objective'),
+            frozenChartBlock('chart-1'),
+          ]}
+          onSaveBlock={vi.fn()}
+          onInsertBlock={vi.fn()}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    const prose = container.querySelector('#block-prose-1')!
+    expect(prose.getAttribute('data-block-measure')).toBe('prose')
+    expect(prose.className).toContain('max-w-[680px]')
+
+    const chart = container.querySelector('#block-chart-1')!
+    expect(chart.getAttribute('data-block-measure')).toBe('wide')
+    expect(chart.className).not.toContain('max-w-[680px]')
   })
 
   it('renders an honest, labelled frozen chart preview', () => {

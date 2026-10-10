@@ -626,6 +626,10 @@ const LINK_TYPES = [
   'reagent',
   'analysis',
   'file',
+  // EXP-02.3: the overview relates an experiment to what it follows and to its
+  // upstream work; both are record links.
+  'follows',
+  'upstream',
 ] as const
 
 const TARGET_KINDS = [

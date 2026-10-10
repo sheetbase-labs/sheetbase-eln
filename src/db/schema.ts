@@ -1083,7 +1083,7 @@ export const recordLinks = api.table(
   (table) => [
     check(
       'chk_record_links_link_type',
-      sql`${table.linkType} IN ('sample', 'protocol', 'dataset', 'reagent', 'analysis', 'file', 'general', 'template')`,
+      sql`${table.linkType} IN ('sample', 'protocol', 'dataset', 'reagent', 'analysis', 'file', 'general', 'template', 'follows', 'upstream')`,
     ),
     // No duplicate (source, target_identifier, link_type). target_identifier
     // is used (not target_record_id) so a link to a missing target is still

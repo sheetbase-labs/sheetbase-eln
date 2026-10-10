@@ -14,8 +14,10 @@ done names the layers it must touch; not every ticket needs all five.
 Status today: all five layers are wired. Unit and component tests run through
 `pnpm test` in jsdom. Database integration uses `pnpm test:db`: a migrated
 template database is built once per run and each vitest worker clones it into
-its own `sheetbase_test_<worker>`, so files run in parallel (~2 minutes for the
-whole layer). API contracts use `pnpm test:api` against the running PostgREST
+its own `sheetbase_test_<worker>`, so files run in parallel (about a minute for
+the whole layer). The local Postgres runs with `synchronous_commit`, `fsync` and
+`full_page_writes` off: it is a disposable development database, and those
+settings halve the layer's runtime. API contracts use `pnpm test:api` against the running PostgREST
 stack. Browser workflows use `pnpm test:browser` (two workers); the Playwright
 configuration starts an isolated application server and the tests create and
 remove their own authenticated fixtures.
@@ -26,7 +28,12 @@ references are rendered from the vendored canvases only when those change
 parallel across workers.
 
 While working a slice, run the file or files that cover it: the full database
-layer and the full parity registry are for acceptance, not for every change.
+layer is for acceptance, not for every change.
+
+`pnpm test:parity` and `pnpm test:browser` are deferred until the end of the
+current programme: implementation slices are verified by the unit suite and the
+database files that cover them, and the visual and browser layers run once, at
+acceptance.
 
 ## Rules that apply at every layer
 

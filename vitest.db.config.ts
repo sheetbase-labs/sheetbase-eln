@@ -12,7 +12,7 @@ export default defineConfig({
     // Each worker clones the migrated template into its own database, so files
     // run in parallel without sharing state (see tests/db/helpers.ts).
     fileParallelism: true,
-    maxWorkers: 8,
+    maxWorkers: 12,
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

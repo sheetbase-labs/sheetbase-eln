@@ -45,6 +45,7 @@ import {
 } from '#/components/v3/materials/materials-data'
 import type { MaterialListRow } from '#/components/v3/materials/materials-data'
 import {
+  fetchReplacementLot,
   fetchReagentUsage,
   recordReagentMovement,
   registerReplacementLot,
@@ -211,6 +212,13 @@ function MaterialsList() {
           : 'Could not register the replacement lot',
       )
     },
+  })
+
+  const replacementLink = useQuery({
+    queryKey: ['ui-port', 'materials', 'replacement', sel?.id ?? ''],
+    queryFn: () => fetchReplacementLot(notebookDataClient, sel!.id),
+    enabled: Boolean(sel),
+    staleTime: 15_000,
   })
 
   const receive = useMutation({
@@ -429,6 +437,17 @@ function MaterialsList() {
                   ['Stock', stockOfTotal(sel)],
                 ]}
               />
+            </InspectorSection>
+            <InspectorSection
+              title={
+                replacementLink.data ? 'Replacement lot' : 'No replacement lot'
+              }
+            >
+              <p className="text-label text-fg-muted">
+                {replacementLink.data
+                  ? `${replacementLink.data.targetIdentifier}${replacementLink.data.reason ? ` · ${replacementLink.data.reason}` : ''}`
+                  : 'Experiments cannot reference an expired lot.'}
+              </p>
             </InspectorSection>
             {usage.data?.length ? (
               <InspectorSection title="Used in">

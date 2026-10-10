@@ -91,7 +91,35 @@ async function materialBlock(
   )
 }
 
-describe('LAB-04 quarantined material refusal', () => {
+describe('LAB-04 quarantined and expired material refusal', () => {
+  it('refuses an expired lot and accepts it once it is no longer expired', async () => {
+    const reagent = await record('reagent', 'RGT-L04-C', 'available')
+    await actor.query(`update api.records set status='expired' where id=$1`, [
+      reagent,
+    ])
+    const blocked = await experiment()
+    await expectDenied(
+      materialBlock(blocked, {
+        id: reagent,
+        kind: 'reagent',
+        identifier: 'RGT-L04-C',
+      }),
+      'SB124',
+    )
+
+    await actor.query(`update api.records set status='available' where id=$1`, [
+      reagent,
+    ])
+    const allowed = await experiment()
+    await expect(
+      materialBlock(allowed, {
+        id: reagent,
+        kind: 'reagent',
+        identifier: 'RGT-L04-C',
+      }),
+    ).resolves.toBeDefined()
+  })
+
   it('accepts an available material and refuses a quarantined one', async () => {
     const sample = await record('sample', 'SMP-L04-A', 'available')
     const run = await experiment()

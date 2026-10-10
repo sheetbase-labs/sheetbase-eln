@@ -583,6 +583,49 @@ export async function fetchReagentUsage(
   })
 }
 
+export interface ReplacementLotLink {
+  id: string
+  targetRecordId: string | null
+  targetIdentifier: string
+  reason: string | null
+}
+
+/**
+ * The lot registered to replace this one (LAB-04.2). The link carries the
+ * replacement relation, so the inspector can state whether one exists.
+ */
+export async function fetchReplacementLot(
+  client: DataClient,
+  identifier: string,
+): Promise<ReplacementLotLink | null> {
+  const links = await client.list<{
+    id: string
+    target_record_id: string | null
+    target_identifier: string
+    link_metadata: unknown
+  }>(
+    'record_links',
+    `?source_record_id=in.(select id from api.records where identifier=eq.${encodeURIComponent(identifier)})` +
+      `&link_type=eq.reagent&limit=25&select=id,target_record_id,target_identifier,link_metadata`,
+  )
+  const replacement = links.find(
+    (link) =>
+      (link.link_metadata as Record<string, unknown> | null)?.relation ===
+      'replacement',
+  )
+  return replacement
+    ? {
+        id: replacement.id,
+        targetRecordId: replacement.target_record_id,
+        targetIdentifier: replacement.target_identifier,
+        reason:
+          asString(
+            (replacement.link_metadata as Record<string, unknown> | null)?.reason,
+          ) ?? null,
+      }
+    : null
+}
+
 export function fetchReagentAttentionSummary(
   client: DataClient,
   expiryWarningDays = DEFAULT_EXPIRY_WARNING_DAYS,

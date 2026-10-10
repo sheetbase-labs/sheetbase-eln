@@ -19,6 +19,7 @@ import * as React from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { NotebookDocument } from './notebook-document'
+import { BLOCK_PICKER_OPTIONS } from './block-picker'
 import { NotebookOutlinePanel } from './notebook-outline-panel'
 import { notebookOutline } from '#/lib/notebook-outline'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
@@ -458,6 +459,117 @@ describe('NotebookDocument — insertion', () => {
     )
     await user.click(await screen.findByRole('option', { name: /^Checklist/ }))
     expect(onInsertBlock).toHaveBeenCalledWith('checklist', 'b1')
+  })
+})
+
+// EXP-04.3 — the Insert block menu opens from `/` and `+`, filters as the
+// user types, and is driven from the keyboard (arrows, Enter, Esc).
+describe('NotebookDocument — insert-block menu', () => {
+  it('opens the menu from /, narrows it as the query is typed, and closes on Esc', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b1', 'A')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onReplaceBlock={vi.fn().mockResolvedValue(undefined)}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    await user.click(container.querySelector('#block-b1')!)
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    await user.click(editor)
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('/')
+
+    expect(
+      await screen.findByRole('listbox', { name: 'Insert block' }),
+    ).toBeTruthy()
+    expect(screen.getAllByRole('option')).toHaveLength(
+      BLOCK_PICKER_OPTIONS.length,
+    )
+
+    await user.paste('table')
+    const narrowed = screen.getAllByRole('option')
+    expect(narrowed).toHaveLength(1)
+    expect(narrowed[0].textContent).toContain('Grid backed by a model')
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox', { name: 'Insert block' })).toBeNull()
+  })
+
+  it('inserts the block the arrow keys highlight with Enter', async () => {
+    const user = userEvent.setup()
+    const onReplaceBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b1', 'A')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onReplaceBlock={onReplaceBlock}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    await user.click(container.querySelector('#block-b1')!)
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    await user.click(editor)
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('/')
+    await screen.findByRole('listbox', { name: 'Insert block' })
+
+    // The design highlights Sheet first; one ArrowDown moves to the next
+    // entry in the same group.
+    await user.keyboard('{ArrowDown}')
+    const highlighted = screen
+      .getAllByRole('option')
+      .filter((option) => option.getAttribute('aria-selected') === 'true')
+    expect(highlighted).toHaveLength(1)
+    expect(highlighted[0].textContent).toContain('Record reference')
+
+    await user.keyboard('{Enter}')
+    expect(onReplaceBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b1' }),
+      'linked_record',
+    )
+    expect(screen.queryByRole('listbox', { name: 'Insert block' })).toBeNull()
+  })
+
+  it('opens the same menu from the + control and inserts the highlighted block with Enter', async () => {
+    const user = userEvent.setup()
+    const onInsertBlock = vi.fn().mockResolvedValue(undefined)
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b1', 'A')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={onInsertBlock}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Add block/ }))
+    // The `+` control opens the same "Insert block" menu as `/`.
+    expect(
+      await screen.findByRole('listbox', { name: 'Insert block' }),
+    ).toBeTruthy()
+    await user.type(
+      await screen.findByRole('combobox'),
+      'from a sheet or dataset',
+    )
+
+    const options = screen.getAllByRole('option')
+    expect(options).toHaveLength(1)
+    expect(options[0].textContent).toContain('Chart')
+
+    await user.keyboard('{Enter}')
+    expect(onInsertBlock).toHaveBeenCalledWith('chart', undefined)
   })
 })
 

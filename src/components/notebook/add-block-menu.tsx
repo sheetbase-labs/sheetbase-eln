@@ -19,6 +19,9 @@ import { BLOCK_PICKER_GROUPS, BLOCK_PICKER_OPTIONS } from './block-picker'
  * UI port (roadmap-4/ui-app3): the "+ Add block" menu, as a command palette
  * (the design's AddBlockMenu). Also opens from "/" via the slash menu. The
  * menu is presentational; the parent owns the insert.
+ *
+ * EXP-04.3: it carries the design's "Insert block" name and the shared block
+ * catalogue, so the `+` control and `/` present the same menu.
  */
 export function AddBlockMenu({
   onAdd,
@@ -32,11 +35,11 @@ export function AddBlockMenu({
   onOpenChange: (open: boolean) => void
 }) {
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} title="Add a block">
-      <Command label="Add a block">
-        <CommandInput placeholder="Add a block: text, sheet, chart, samples…" />
+    <CommandDialog open={open} onOpenChange={onOpenChange} title="Insert block">
+      <Command label="Insert block">
+        <CommandInput placeholder="Insert block: text, sheet, chart, samples…" />
         <CommandList
-          label="Block types"
+          label="Insert block"
           className="max-h-[480px] max-md:max-h-none"
         >
           {BLOCK_PICKER_GROUPS.map((group) => {
@@ -72,7 +75,7 @@ export function AddBlockMenu({
             )
           })}
           <CommandEmpty>
-            No block type matches. Try “sheet”, “file” or “sign”.
+            No block type matches. Try “sheet”, “chart” or “file”.
           </CommandEmpty>
         </CommandList>
         <CommandFooter>

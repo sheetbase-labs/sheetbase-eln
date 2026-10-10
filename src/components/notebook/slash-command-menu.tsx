@@ -4,6 +4,7 @@ import { BLOCK_PICKER_GROUPS, BLOCK_PICKER_OPTIONS } from './block-picker'
 import type { BlockPickerOption } from './block-picker'
 import { cn } from '#/lib/utils'
 import { Icon } from '#/components/v3/icons'
+import { Kbd } from '#/components/v3/ui/kbd'
 
 /**
  * Slash command menu — a Notion-style floating dropdown that appears when
@@ -15,6 +16,10 @@ import { Icon } from '#/components/v3/icons'
  * reports the selected type via `onSelect`. All keyboard handling
  * (Arrow/Enter/Escape) is driven by the parent editor, which owns the
  * `selectedIndex` and calls `onSelect` / `onClose`.
+ *
+ * EXP-04.3 — the chrome follows `canvas/NbEditing.dc.html`: the menu is
+ * titled "Insert block", grouped in the shared catalogue's design order, and
+ * marks the highlighted entry with the design's ↵ hint.
  */
 export interface SlashCommandMenuProps {
   query: string
@@ -56,7 +61,7 @@ export function SlashCommandMenu({
         className="z-50 w-72 rounded-lg border bg-popover p-3 text-sm text-fg-muted shadow-md"
         style={style}
         role="listbox"
-        aria-label="Block types"
+        aria-label="Insert block"
       >
         No matching block types
       </div>
@@ -70,8 +75,11 @@ export function SlashCommandMenu({
       className="z-50 max-h-80 w-72 overflow-y-auto rounded-lg border bg-popover p-1 shadow-md"
       style={style}
       role="listbox"
-      aria-label="Block types"
+      aria-label="Insert block"
     >
+      <p className="px-2 py-1 text-[11px] font-medium text-fg-muted">
+        Insert block
+      </p>
       {BLOCK_PICKER_GROUPS.map((group) => {
         const items = filtered.filter((opt) => opt.group === group.id)
         if (items.length === 0) return null
@@ -110,12 +118,15 @@ export function SlashCommandMenu({
                     size={16}
                     className="mt-0.5 shrink-0 text-fg-muted"
                   />
-                  <span className="min-w-0">
+                  <span className="min-w-0 flex-1">
                     <span className="block font-medium">{opt.label}</span>
                     <span className="block text-xs text-fg-muted">
                       {opt.description}
                     </span>
                   </span>
+                  {active ? (
+                    <Kbd className="mt-0.5 shrink-0 self-center">↵</Kbd>
+                  ) : null}
                 </button>
               )
             })}
@@ -123,7 +134,7 @@ export function SlashCommandMenu({
         )
       })}
       <p className="border-t px-2 py-1.5 text-[10px] text-fg-muted">
-        ↑↓ to move · Enter to insert · Esc to close
+        ↑ ↓ to move · Enter to insert · Esc to close
       </p>
     </div>
   )

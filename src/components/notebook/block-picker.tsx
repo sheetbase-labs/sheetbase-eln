@@ -2,9 +2,23 @@ import type { IconName } from '#/components/v3/icons'
 
 /**
  * The block catalogue: the editable block types with familiar labels (Text,
- * Checklist, Linked record) rather than internal codes. The insertion UI is
- * the command-palette `AddBlockMenu` and the slash menu; this module owns the
- * option list they share.
+ * Sheet, Record reference) rather than internal codes.
+ *
+ * EXP-04.3 — the labels, descriptions and order of the entries the Insert
+ * block menu in the notebook design names (`canvas/NbEditing.dc.html`) come
+ * from that design: Sheet, Chart, Record reference, Text, File or image,
+ * each with its canvas description verbatim.
+ *
+ * The design's menu is a flat seven-entry mock of the menu at one cursor
+ * position, so the catalogue keeps only the entries that are real block
+ * types and keeps the Roadmap-2 grouping both insert surfaces share
+ * (Sheets and references → Writing → Files and figures), led by the group
+ * the design highlights first (Sheet). The design's other two entries are
+ * not block types and live inside a block instead: "Heading" is the
+ * rich-text heading mark and "Formula" is a Sheet column (ƒx).
+ *
+ * The insertion UI is the command-palette `AddBlockMenu` (`+`) and the slash
+ * menu (`/`); this module owns the option list they share.
  */
 
 export interface BlockPickerOption {
@@ -12,49 +26,33 @@ export interface BlockPickerOption {
   label: string
   description: string
   icon: IconName
-  group: 'writing' | 'structure' | 'evidence'
+  group: 'structure' | 'writing' | 'evidence'
   aliases: readonly string[]
 }
 
+/** Group order follows the design, which opens on Sheet. */
 export const BLOCK_PICKER_GROUPS = [
-  { id: 'writing', label: 'Writing' },
   { id: 'structure', label: 'Sheets and references' },
+  { id: 'writing', label: 'Writing' },
   { id: 'evidence', label: 'Files and figures' },
 ] as const
 
 export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
-    type: 'rich_text',
-    label: 'Text',
-    description: 'Headings, paragraphs, and prose lists.',
-    icon: 'edit',
-    group: 'writing',
-    aliases: ['heading', 'paragraph', 'note', 'prose'],
-  },
-  {
-    type: 'checklist',
-    label: 'Checklist',
-    description: 'A list of checkable items.',
-    icon: 'check',
-    group: 'writing',
-    aliases: ['todo', 'tasks'],
-  },
-  {
-    type: 'linked_record',
-    label: 'Linked record',
-    description:
-      'A reference to another experiment, Dataset, sample or reagent.',
-    icon: 'link',
-    group: 'structure',
-    aliases: ['dataset', 'record', 'sample', 'reagent', 'link'],
-  },
-  {
     type: 'sheet',
     label: 'Sheet',
-    description: 'Start a new Sheet on this Notebook.',
+    description: 'Grid backed by a model',
     icon: 'table',
     group: 'structure',
     aliases: ['table', 'grid', 'spreadsheet'],
+  },
+  {
+    type: 'linked_record',
+    label: 'Record reference',
+    description: 'Sample, material, dataset…',
+    icon: 'link',
+    group: 'structure',
+    aliases: ['dataset', 'record', 'sample', 'material', 'reagent', 'link'],
   },
   {
     type: 'sheet_shared',
@@ -82,21 +80,36 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     aliases: ['samples', 'reagents', 'inventory'],
   },
   {
-    type: 'file',
-    label: 'File',
-    description: 'Attach a file with provenance and lifecycle states.',
-    icon: 'download',
-    group: 'evidence',
-    aliases: ['image', 'photo', 'pdf', 'attachment'],
+    type: 'rich_text',
+    label: 'Text',
+    description: 'Paragraph',
+    icon: 'edit',
+    group: 'writing',
+    aliases: ['heading', 'paragraph', 'note', 'prose'],
+  },
+  {
+    type: 'checklist',
+    label: 'Checklist',
+    description: 'A list of checkable items.',
+    icon: 'check',
+    group: 'writing',
+    aliases: ['todo', 'tasks'],
   },
   {
     type: 'chart',
     label: 'Chart',
-    description:
-      'A line, scatter or bar chart from a saved dataset, with a live or frozen snapshot.',
+    description: 'From a sheet or dataset',
     icon: 'chart',
     group: 'evidence',
     aliases: ['plot', 'graph'],
+  },
+  {
+    type: 'file',
+    label: 'File or image',
+    description: 'Attach a file with provenance and lifecycle states.',
+    icon: 'download',
+    group: 'evidence',
+    aliases: ['image', 'photo', 'pdf', 'attachment'],
   },
   {
     type: 'analysis',

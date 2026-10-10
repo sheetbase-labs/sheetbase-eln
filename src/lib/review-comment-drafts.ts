@@ -15,10 +15,8 @@
  */
 import * as React from 'react'
 
-import { createComment } from './comments-data'
 import type { CommentTarget, CommentTargetKind } from './comments-data'
 import type { DataClient } from './data-client'
-import { requestChangesOnReview } from './review-workspace'
 import type {
   ReviewDecisionInput,
   ReviewDecisionResult,
@@ -187,10 +185,10 @@ export interface ReturnWithCommentsResult {
 /**
  * Return a submission carrying the reviewer's private drafts.
  *
- * The return decision is taken first (it is the authority and the moment the
- * drafts are "sent together" with the decision); only after it succeeds are
- * the drafts published as ordinary anchored comments the author can resolve
- * or reply to. A refused return therefore leaves the drafts private.
+ * One server call does both, in one transaction: `return_revision_with_comments`
+ * takes the return decision and then publishes the drafts as ordinary anchored
+ * comments the author can resolve or reply to. A refused return therefore leaves
+ * the drafts private, and a returned review can never be missing its comments.
  */
 export async function returnWithDraftComments(
   client: DataClient,
@@ -200,18 +198,24 @@ export async function returnWithDraftComments(
     decision: ReviewDecisionInput
   },
 ): Promise<ReturnWithCommentsResult> {
-  const decision = await requestChangesOnReview(client, input.decision)
-  const publishedCommentIds: string[] = []
-  for (const draft of input.drafts) {
-    const created = await createComment(client, {
-      revisionId: input.revisionId,
+  const result = await client.rpc<{
+    decision: ReviewDecisionResult
+    commentIds: string[]
+  }>('return_revision_with_comments', {
+    p_submission_id: input.decision.submissionId,
+    p_note: input.decision.note ?? null,
+    p_expected_state: input.decision.expectedState ?? 'submitted',
+    p_expected_revision_digest: input.decision.expectedRevisionDigest,
+    p_comments: input.drafts.map((draft) => ({
       targetKind: draft.targetKind,
       target: draft.target,
       body: draft.body,
-    })
-    publishedCommentIds.push(created.id)
+    })),
+  })
+  return {
+    decision: result.decision,
+    publishedCommentIds: result.commentIds ?? [],
   }
-  return { decision, publishedCommentIds }
 }
 
 // ---------------------------------------------------------------------------

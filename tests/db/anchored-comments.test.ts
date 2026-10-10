@@ -624,4 +624,75 @@ describe('REV-004 anchored comments contract', () => {
     expect(rows[0].author_user_id).toBeNull()
     expect(rows[0].body).toBe('I will leave')
   })
+
+  it('returns a revision with its comments in one transaction (REV-01.3)', async () => {
+    const owner = await asUser(OWNER_A, WS_A)
+    const reviewer = await asUser(REVIEWER_A, WS_A)
+    const source = await preview(owner)
+    const submitted = await submit(
+      owner,
+      source.sourceDigest,
+      'rev4-atomic-return',
+    )
+    const submissionId = submitted.submission.id
+
+    // The reviewer's private drafts travel with the return: one call, so a
+    // returned review cannot arrive without the comments it promised.
+    const { rows } = await reviewer.query(
+      `SELECT api.return_revision_with_comments($1,$2,$3,$4,$5::jsonb) AS result`,
+      [
+        submissionId,
+        'please address these',
+        'submitted',
+        submitted.revision.integrityDigest,
+        JSON.stringify([
+          { targetKind: 'revision', target: {}, body: 'first draft' },
+          { targetKind: 'revision', target: {}, body: 'second draft' },
+        ]),
+      ],
+    )
+    const result = rows[0].result as {
+      decision: { state: string }
+      commentIds: string[]
+    }
+    expect(result.commentIds).toHaveLength(2)
+
+    const returned = await migrator!.query<{ state: string }>(
+      `SELECT state FROM api.review_submissions WHERE id = $1`,
+      [submissionId],
+    )
+    expect(returned.rows[0]!.state).toBe('returned')
+
+    const published = await migrator!.query<{ body: string; state: string }>(
+      `SELECT body, state FROM api.comments WHERE id = ANY($1::uuid[]) ORDER BY body`,
+      [result.commentIds],
+    )
+    expect(published.rows.map((row) => row.body)).toEqual([
+      'first draft',
+      'second draft',
+    ])
+    // The author can resolve them, so they arrive open and anchored.
+    expect(published.rows.every((row) => row.state === 'open')).toBe(true)
+
+    // A refused return publishes nothing: the submission is no longer in the
+    // state the caller believed, so the drafts must not leak.
+    await expect(
+      reviewer.query(
+        `SELECT api.return_revision_with_comments($1,$2,$3,$4,$5::jsonb) AS result`,
+        [
+          submissionId,
+          'again',
+          'submitted',
+          'b'.repeat(64),
+          JSON.stringify([
+            { targetKind: 'revision', target: {}, body: 'should not exist' },
+          ]),
+        ],
+      ),
+    ).rejects.toThrow()
+    const leaked = await migrator!.query(
+      `SELECT 1 FROM api.comments WHERE body = 'should not exist'`,
+    )
+    expect(leaked.rows).toEqual([])
+  })
 })

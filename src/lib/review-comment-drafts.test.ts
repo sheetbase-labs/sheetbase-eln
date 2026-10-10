@@ -48,19 +48,23 @@ function fakeClient(overrides?: {
 }): DataClient {
   const rpc = vi.fn(
     overrides?.rpc ??
-      ((name: string) =>
-        name === 'create_comment'
+      ((name: string, args?: unknown) =>
+        name === 'return_revision_with_comments'
           ? Promise.resolve({
-              id: `comment-${Math.random().toString(36).slice(2)}`,
+              decision: {
+                submissionId: 'sub-1',
+                revisionId: 'rev-1',
+                decision: 'request_changes',
+                state: 'returned',
+                decisionId: 'dec-1',
+                createdAt: '2026-10-10T00:00:00.000Z',
+              },
+              commentIds: (
+                ((args as { p_comments?: unknown[] })?.p_comments ??
+                  []) as unknown[]
+              ).map((_, index) => `comment-${index + 1}`),
             })
-          : Promise.resolve({
-              submissionId: 'sub-1',
-              revisionId: 'rev-1',
-              decision: 'request_changes',
-              state: 'returned',
-              decisionId: 'dec-1',
-              createdAt: '2026-10-10T00:00:00.000Z',
-            })),
+          : Promise.resolve({ id: 'comment-1' })),
   )
   return { list: vi.fn(async () => []), rpc } as unknown as DataClient
 }
@@ -142,30 +146,32 @@ describe('returnWithDraftComments', () => {
       },
     })
 
-    // The return decision is taken first (so a refused return cannot leak the
-    // drafts), then the draft is published as an ordinary comment.
+    // One transaction: the return and its comments cannot come apart, so a
+    // refused return cannot leak a draft and a returned review cannot be
+    // missing its comments.
     expect(rpc.mock.calls.map(([name]) => name)).toEqual([
-      'request_changes_on_review',
-      'create_comment',
+      'return_revision_with_comments',
     ])
     expect(rpc.mock.calls[0][1]).toMatchObject({
       p_submission_id: 'sub-1',
       p_note: 'please address',
+      p_expected_state: 'submitted',
       p_expected_revision_digest: DIGEST,
-    })
-    expect(rpc.mock.calls[1][1]).toMatchObject({
-      p_revision_id: 'rev-1',
-      p_body: 'add the per-flask values',
+      p_comments: [
+        {
+          targetKind: 'revision',
+          target: {},
+          body: 'add the per-flask values',
+        },
+      ],
     })
     expect(result.publishedCommentIds).toHaveLength(1)
   })
 
   it('publishes nothing when the return is refused', async () => {
     const client = fakeClient({
-      rpc: (name) =>
-        name === 'request_changes_on_review'
-          ? Promise.reject(new Error('revision integrity digest mismatch'))
-          : Promise.resolve({ id: 'comment-1' }),
+      rpc: () =>
+        Promise.reject(new Error('revision integrity digest mismatch')),
     })
     const rpc = client.rpc as unknown as ReturnType<typeof vi.fn>
     const draft = newDraft({
@@ -183,7 +189,7 @@ describe('returnWithDraftComments', () => {
     ).rejects.toThrow(/digest mismatch/)
 
     expect(rpc.mock.calls.map(([name]) => name)).toEqual([
-      'request_changes_on_review',
+      'return_revision_with_comments',
     ])
   })
 
@@ -198,11 +204,13 @@ describe('returnWithDraftComments', () => {
       drafts,
       decision: { submissionId: 'sub-1', expectedRevisionDigest: DIGEST },
     })
-    expect(
-      rpc.mock.calls.filter(([name]) => name === 'create_comment'),
-    ).toHaveLength(3)
-    expect(rpc.mock.calls[1][1]).toMatchObject({ p_body: 'first' })
-    expect(rpc.mock.calls[3][1]).toMatchObject({ p_body: 'third' })
+    const payload = (rpc.mock.calls[0][1] as { p_comments: { body: string }[] })
+      .p_comments
+    expect(payload.map((comment) => comment.body)).toEqual([
+      'first',
+      'second',
+      'third',
+    ])
     expect(result.publishedCommentIds).toHaveLength(3)
   })
 })

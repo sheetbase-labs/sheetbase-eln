@@ -4139,6 +4139,43 @@ export const datasetCellSearch = api.table(
 )
 
 /**
+ * PROJ-04.1 — placement for object kinds that have no folder column. Records keep
+ * `records.folder_id` (existing behaviour and readers), so this table is the one
+ * home for sheets, datasets, analyses and pipelines: one folder per object, in
+ * one workspace.
+ */
+export const folderItems = api.table(
+  'folder_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    folderId: uuid('folder_id')
+      .notNull()
+      .references(() => folders.id, { onDelete: 'cascade' }),
+    objectKind: text('object_kind').notNull(),
+    objectId: uuid('object_id').notNull(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_folder_items_object').on(
+      table.workspaceId,
+      table.objectKind,
+      table.objectId,
+    ),
+    index('idx_folder_items_folder').on(table.folderId),
+    check(
+      'chk_folder_items_kind',
+      sql`${table.objectKind} IN ('sheet_instance', 'dataset', 'analysis_view', 'pipeline_definition')`,
+    ),
+  ],
+)
+
+/**
  * LAB-06.2 — a person's qualification to run one instrument until a date. The
  * instrument page shows who is qualified and when it expires; the booking path
  * (LAB-06.3) refuses an unqualified booker.

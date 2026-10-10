@@ -99,7 +99,7 @@ function renderShell(
   return render(
     <AppShell
       data={{
-        me: { name: 'Gareth P.', initials: 'GP', role: 'Member' },
+        me: { id: 'u-1', name: 'Gareth P.', initials: 'GP', role: 'Member' },
         notifications: [],
         pinned: [],
         counts: { inbox: '3', datasets: '2', pipelines: '1' },
@@ -264,16 +264,30 @@ describe('v3 AccountMenu native signout', () => {
     }
   })
 
-  it('does not discard offline work or pretend to end an unreachable session', async () => {
+  it('signs out while offline, keeping unsynced work on the device (EXP-05.5)', async () => {
+    // Being offline is no longer a reason to refuse sign-out: the device store
+    // keeps the drafts, and signing back in as the same user restores them. The
+    // only thing that blocks sign-out is an editor with work it has not saved.
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    try {
+      await chooseSignOut()
+      await waitFor(() => expect(signOut).toHaveBeenCalled())
+      // The server cache is cleared; the device store is not, and is not touched.
+      expect(clearQueries).toHaveBeenCalled()
+    } finally {
+      online.mockRestore()
+    }
+  })
+
+  it('still refuses to sign out while an editor holds unsaved work', async () => {
+    const listener = (event: Event) => event.preventDefault()
+    window.addEventListener('beforeunload', listener)
     try {
       await chooseSignOut()
       await screen.findByRole('alert')
       expect(signOut).not.toHaveBeenCalled()
-      expect(navigate).not.toHaveBeenCalled()
-      expect(clearQueries).not.toHaveBeenCalled()
     } finally {
-      online.mockRestore()
+      window.removeEventListener('beforeunload', listener)
     }
   })
 })

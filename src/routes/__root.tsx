@@ -260,6 +260,7 @@ function RootRouteComponent() {
   const appShellData = auth
     ? {
         me: {
+          id: auth.user.id,
           name: auth.user.name,
           initials: initialsOf(auth.user.name),
           role: auth.workspace?.role ?? 'Member',
@@ -276,7 +277,7 @@ function RootRouteComponent() {
         })),
       }
     : {
-        me: { name: '', initials: '', role: '' },
+        me: { id: '', name: '', initials: '', role: '' },
         notifications: [],
         pinned: [],
         counts: {},

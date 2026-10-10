@@ -27,6 +27,14 @@ import {
   PopoverTrigger,
 } from '#/components/v3/ui/popover'
 import { useTheme } from '#/components/v3/lib/theme'
+import {
+  retainDraftsOnSignOut,
+  webSignOutRetentionStorage,
+} from '#/lib/offline/retention'
+import {
+  createIndexedDbStorage,
+  createOfflineEditStore,
+} from '#/lib/offline/store'
 import { createDataClient } from '#/lib/data-client'
 import {
   fetchUserPreferences,
@@ -64,7 +72,7 @@ const G_DESTINATIONS: GlobalShortcutDestination[] = [
 ]
 
 type ShellData = {
-  me: { name: string; initials: string; role: string }
+  me: { id: string; name: string; initials: string; role: string }
   notifications: Notification[]
   pinned: { id: string; name: string; tone: 'progress' | 'review' }[]
   /** Live counts keyed by nav label: Inbox, Datasets, Pipelines. */
@@ -655,6 +663,17 @@ function Notifications({ items }: { items: Notification[] }) {
 
 const appearanceClient = createDataClient()
 
+/**
+ * EXP-05.5 — the device's offline edit store, created on first use so SSR never
+ * opens IndexedDB. Sign-out reads it to record what this device is holding; it
+ * must never clear it, because the drafts are what survives.
+ */
+let deviceOfflineStore: ReturnType<typeof createOfflineEditStore> | null = null
+function offlineEditStore() {
+  deviceOfflineStore ??= createOfflineEditStore(createIndexedDbStorage())
+  return deviceOfflineStore
+}
+
 function AccountMenu({ me }: { me: ShellData['me'] }) {
   const { pref, setPref } = useTheme()
   const navigate = useNavigate()
@@ -666,14 +685,26 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
     // Reuse the editors' native leave guard before terminating their session.
     const leaving = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(leaving)
-    if (!navigator.onLine || leaving.defaultPrevented) {
+    // EXP-05.5: unsynced edits survive sign-out, so being offline is no longer a
+    // reason to refuse it. Only an editor with work it has not saved blocks it.
+    if (leaving.defaultPrevented) {
       setSignOutError(
-        'Save your pending edits and reconnect before signing out. Your edits have not been discarded.',
+        'Save your pending edits before signing out. Your edits have not been discarded.',
       )
       return
     }
     setSigningOut(true)
     try {
+      // Record that this device is holding drafts for this user, before the
+      // session ends. It never deletes: the drafts are the point.
+      await retainDraftsOnSignOut(
+        {
+          listScopes: (userId) => offlineEditStore().listScopes(userId),
+          listDrafts: (scope) => offlineEditStore().listEdits(scope),
+        },
+        webSignOutRetentionStorage(window.localStorage),
+        me.id,
+      ).catch(() => undefined)
       const result = await authClient.signOut()
       if (result.error || !result.data.success)
         throw new Error(

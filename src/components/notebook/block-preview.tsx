@@ -28,6 +28,8 @@ import type { IconName } from '#/components/v3/icons'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
 import { datasetPath, recordDestination, sheetPath } from '#/lib/navigation'
 import { PipelineOutputBlockPreview } from './pipeline-output-block-preview'
+import { useUnsyncedBlock } from '#/components/offline/offline-edits'
+import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
 import {
   fetchCanonicalDataset,
@@ -161,6 +163,8 @@ export function BlockPreview({
   frozen = false,
 }: BlockPreviewProps) {
   const { type, payload } = block
+  // EXP-05.2: a block with a local draft carries a marker where it renders.
+  const unsynced = useUnsyncedBlock(block.id)
   // NOTE-02: read previews carry the same stable heading anchors as the
   // read-only editor view so outline links resolve in every mode.
   const body = renderPayload(
@@ -170,7 +174,12 @@ export function BlockPreview({
     hiddenNodeIndexes,
     frozen,
   )
-  return <div className={cn('text-sm leading-6', className)}>{body}</div>
+  return (
+    <div className={cn('text-sm leading-6', className)}>
+      {unsynced ? <UnsyncedMark className="mb-1" /> : null}
+      {body}
+    </div>
+  )
 }
 
 function renderPayload(

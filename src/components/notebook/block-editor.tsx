@@ -65,6 +65,8 @@ import type { MaterialItem } from '#/lib/protocol-materials'
 import { useAutosave } from './use-autosave'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import { SaveStatus } from './save-status'
+import { useUnsyncedBlock } from '#/components/offline/offline-edits'
+import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
 import { OpenLink } from './block-preview'
 import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
@@ -172,6 +174,17 @@ export interface BlockEditorProps {
 }
 
 export function BlockEditor(props: BlockEditorProps) {
+  // EXP-05.2: a block with a local draft carries a marker where it renders.
+  const unsynced = useUnsyncedBlock(props.block.id)
+  return (
+    <>
+      {unsynced ? <UnsyncedMark /> : null}
+      <BlockEditorBody {...props} />
+    </>
+  )
+}
+
+function BlockEditorBody(props: BlockEditorProps) {
   if (
     props.block.type === 'rich_text' &&
     !isRichTextPayload(props.block.payload)

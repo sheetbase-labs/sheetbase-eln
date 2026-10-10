@@ -52,6 +52,19 @@ import type { NotebookInspectorCellFacts } from '#/components/notebook/notebook-
 import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
 import { CommentPanel } from '#/components/comments'
 import { useLiveStatus } from '#/components/live/live-event-provider'
+import { deviceOfflineEditStore } from '#/components/offline/device-store'
+import {
+  OfflineEditsProvider,
+  useIsOnline,
+} from '#/components/offline/offline-edits'
+import {
+  OfflineStatusBanner,
+  UnsyncedChangesSection,
+} from '#/components/offline/offline-status'
+import {
+  CONNECTION_REQUIRED_REASONS,
+  ConnectionRequired,
+} from '#/components/offline/connection-required'
 import {
   ActivityFeed,
   ContributorAvatars,
@@ -622,174 +635,193 @@ function ExperimentNotebookRoute() {
         ) : null,
       )
   return (
-    // COLLAB-02: the whole page (canvas + inspector) lives inside the
-    // record room; CollaborationRoom renders children unchanged until the
-    // provider is ready, so SSR markup is unaffected.
-    <CollaborationRoom roomId={collaborationRoomId}>
-      <RouteShell
-        fullBleed
-        context={shellContext}
-        breadcrumbs={[
-          { label: 'Home', to: '/' },
-          { label: 'Projects', to: '/projects' },
-          ...(project
-            ? [{ label: project.title, to: `/projects/${project.id}` }]
-            : []),
-          { label: displayRecord.title },
-        ]}
-        projectTree={
-          project && projectId ? (
-            <ProjectNavigationTree
-              project={project}
-              folders={projectFoldersQuery.data ?? []}
-              records={projectRecordsQuery.data ?? []}
-              activeRecordId={record.id}
-            />
-          ) : undefined
-        }
-        inspectorCollapsible
-        // EXT-02: palette commands resolve per caller; historical revisions
-        // contribute nothing so frozen evidence stays free of live affordances.
-        extensionCommands={historicalRevisionId ? [] : extensionPoints.commands}
-        onExtensionCommand={runExtensionContribution}
-        inspector={
-          <NotebookInspector
-            record={displayRecord}
-            outlineControls={
-              historicalRevisionId || record.lockedAt || record.archivedAt
-                ? undefined
-                : outlineControls
-            }
-            projectName={project?.title ?? null}
-            ownerName={context.user.name}
-            currentUserId={context.user.id}
-            currentUserName={context.user.name}
-            links={links}
-            linksLoading={linksQuery.isLoading}
-            blocks={blocks}
-            activity={activity}
-            activityLoading={activityQuery.isLoading}
-            revisionEvidence={historicalEvidence}
-            commentsRevisionId={historicalRevisionQuery.data?.id}
-            canEditMetadata={
-              !record.lockedAt && !record.archivedAt && !historicalRevisionId
-            }
-            reviewActivity={reviewActivity}
-            isHistorical={Boolean(historicalRevisionId)}
-            extensionPanels={extensionPanelTabs}
-            /* EXP-04.4: the selected Sheet cell, lifted from the grid by
-               `useNotebookCellFacts` — null until a cell is selected. */
-            cell={selectedCell}
-          />
-        }
-      >
-        <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
-          <NotebookPrintStyles />
-          <StickyRecordHeader
-            record={displayRecord}
-            projectName={project?.title ?? null}
-            projectId={projectId ?? undefined}
-            currentUserId={context.user.id}
-            currentUserName={context.user.name}
-            workspaceId={context.workspace?.id}
-            blocks={historicalEvidence?.blocks ?? blocks}
-            historicalRevisionId={historicalRevisionId}
-            review={review}
-            hasUnsavedWork={hasUnsavedWork}
-            liveLockedAt={record.lockedAt}
-            liveLockedByRevisionId={record.lockedByRevisionId}
-            extensionActions={
-              historicalRevisionId ? [] : extensionPoints.objectActions
-            }
-            onExtensionAction={runExtensionContribution}
-            extensionError={extensionError}
-          />
-          {!historicalRevisionId ? (
-            <RecordNotebookTabs
-              tab={tab}
-              onTab={setTab}
-              linkCount={links.length}
-              revisionCount={revisions.length}
-              signatureCount={signaturesQuery.data?.length ?? 0}
-            />
-          ) : null}
-          {tab !== 'notebook' && !historicalRevisionId ? (
-            <RecordNotebookPanel
-              tab={tab}
+    // EXP-05.2: one device-store scope for this user and record drives the
+    // offline banner, the cell/block markers and the inspector list. It sits
+    // inside the live-event provider (root), so the connection signal is the
+    // one already in use.
+    <OfflineEditsProvider
+      store={deviceOfflineEditStore()}
+      scope={{ userId: context.user.id, recordId: record.id }}
+    >
+      {/* COLLAB-02: the whole page (canvas + inspector) lives inside the
+          record room; CollaborationRoom renders children unchanged until the
+          provider is ready, so SSR markup is unaffected. */}
+      <CollaborationRoom roomId={collaborationRoomId}>
+        <RouteShell
+          fullBleed
+          context={shellContext}
+          breadcrumbs={[
+            { label: 'Home', to: '/' },
+            { label: 'Projects', to: '/projects' },
+            ...(project
+              ? [{ label: project.title, to: `/projects/${project.id}` }]
+              : []),
+            { label: displayRecord.title },
+          ]}
+          projectTree={
+            project && projectId ? (
+              <ProjectNavigationTree
+                project={project}
+                folders={projectFoldersQuery.data ?? []}
+                records={projectRecordsQuery.data ?? []}
+                activeRecordId={record.id}
+              />
+            ) : undefined
+          }
+          inspectorCollapsible
+          // EXT-02: palette commands resolve per caller; historical revisions
+          // contribute nothing so frozen evidence stays free of live affordances.
+          extensionCommands={
+            historicalRevisionId ? [] : extensionPoints.commands
+          }
+          onExtensionCommand={runExtensionContribution}
+          inspector={
+            <NotebookInspector
+              record={displayRecord}
+              outlineControls={
+                historicalRevisionId || record.lockedAt || record.archivedAt
+                  ? undefined
+                  : outlineControls
+              }
+              projectName={project?.title ?? null}
+              ownerName={context.user.name}
+              currentUserId={context.user.id}
+              currentUserName={context.user.name}
               links={links}
-              revisions={revisions}
-              signatures={signaturesQuery.data ?? []}
-              signatureError={signaturesQuery.isError}
-              signaturesLoading={signaturesQuery.isPending}
+              linksLoading={linksQuery.isLoading}
+              blocks={blocks}
+              activity={activity}
+              activityLoading={activityQuery.isLoading}
+              revisionEvidence={historicalEvidence}
+              commentsRevisionId={historicalRevisionQuery.data?.id}
+              canEditMetadata={
+                !record.lockedAt && !record.archivedAt && !historicalRevisionId
+              }
+              reviewActivity={reviewActivity}
+              isHistorical={Boolean(historicalRevisionId)}
+              extensionPanels={extensionPanelTabs}
+              /* EXP-04.4: the selected Sheet cell, lifted from the grid by
+               `useNotebookCellFacts` — null until a cell is selected. */
+              cell={selectedCell}
+              /* EXP-05.2: the edits waiting to sync, from the device store. */
+              unsynced={<UnsyncedChangesSection />}
             />
-          ) : null}
-          {/* EXT-02 sample panel: contributed object-actions and palette
+          }
+        >
+          <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
+            {/* EXP-05.2: the offline banner, full-bleed over the column's
+              padding, plus the offline-capabilities note below it. */}
+            <OfflineStatusBanner
+              className="-mx-4 md:-mx-6"
+              capabilitiesClassName="my-3"
+            />
+            <NotebookPrintStyles />
+            <StickyRecordHeader
+              record={displayRecord}
+              projectName={project?.title ?? null}
+              projectId={projectId ?? undefined}
+              currentUserId={context.user.id}
+              currentUserName={context.user.name}
+              workspaceId={context.workspace?.id}
+              blocks={historicalEvidence?.blocks ?? blocks}
+              historicalRevisionId={historicalRevisionId}
+              review={review}
+              hasUnsavedWork={hasUnsavedWork}
+              liveLockedAt={record.lockedAt}
+              liveLockedByRevisionId={record.lockedByRevisionId}
+              extensionActions={
+                historicalRevisionId ? [] : extensionPoints.objectActions
+              }
+              onExtensionAction={runExtensionContribution}
+              extensionError={extensionError}
+            />
+            {!historicalRevisionId ? (
+              <RecordNotebookTabs
+                tab={tab}
+                onTab={setTab}
+                linkCount={links.length}
+                revisionCount={revisions.length}
+                signatureCount={signaturesQuery.data?.length ?? 0}
+              />
+            ) : null}
+            {tab !== 'notebook' && !historicalRevisionId ? (
+              <RecordNotebookPanel
+                tab={tab}
+                links={links}
+                revisions={revisions}
+                signatures={signaturesQuery.data ?? []}
+                signatureError={signaturesQuery.isError}
+                signaturesLoading={signaturesQuery.isPending}
+              />
+            ) : null}
+            {/* EXT-02 sample panel: contributed object-actions and palette
               commands converge here. Rendered through the existing Dialog
               primitive with a labelled title for focus management. */}
-          <Dialog open={samplePanelOpen} onOpenChange={setSamplePanelOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader title="Sample panel" />
-              <SampleExtensionPanel loadSummary={loadSampleSummary} />
-            </DialogContent>
-          </Dialog>
-          {historicalRevisionId ? (
-            <HistoricalEvidenceBanner recordId={record.id} />
-          ) : null}
-          {isArchived ? <ArchivedBanner /> : null}
-          {/* EXP-04.1: the template-version state of the working notebook.
+            <Dialog open={samplePanelOpen} onOpenChange={setSamplePanelOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader title="Sample panel" />
+                <SampleExtensionPanel loadSummary={loadSampleSummary} />
+              </DialogContent>
+            </Dialog>
+            {historicalRevisionId ? (
+              <HistoricalEvidenceBanner recordId={record.id} />
+            ) : null}
+            {isArchived ? <ArchivedBanner /> : null}
+            {/* EXP-04.1: the template-version state of the working notebook.
               Frozen evidence and archived records are read-only, so an
               update banner would only dangle there. */}
-          {!historicalRevisionId && !isArchived ? (
-            <NotebookTemplateUpgradeBanner
-              recordId={record.id}
-              pinnedVersionId={record.sourceNotebookTemplateVersionId}
-            />
-          ) : null}
-          {!historicalRevisionId && record.lockedAt ? (
-            <LockedBanner
-              record={record}
-              onAmended={() => {
-                void queryClient.invalidateQueries({
-                  queryKey: notebookQueryKeys.record(record.id),
-                })
-                void queryClient.invalidateQueries({
-                  queryKey: notebookQueryKeys.blocks(record.id),
-                })
-              }}
-            />
-          ) : null}
-          {tab !== 'notebook' &&
-          !historicalRevisionId ? null : historicalRevisionId ? (
-            <HistoricalNotebookCanvas
-              record={record}
-              revisionId={historicalRevisionId}
-              client={notebookDataClient}
-            />
-          ) : (
-            <NotebookCanvas
-              record={record}
-              blocks={blocks}
-              isLoading={blocksQuery.isLoading}
-              error={blocksQuery.error}
-              onRetry={() => blocksQuery.refetch()}
-              client={notebookDataClient}
-              queryClient={queryClient}
-              collaborationWorkspaceId={context.workspace?.id}
-              outline={outlineControls}
-              collaborationRole={context.workspace?.role}
-              // EXP-04.5: a workspace viewer reads the notebook view-only
-              // instead of being handed the editable path for the server to
-              // refuse. GOV-01: viewer has no record.create.
-              viewOnly={
-                !hasCapability(context.workspace?.role, 'record.create')
-              }
-              onUnsavedWorkChange={setHasUnsavedWork}
-              onCellSelectionChange={onCellSelectionChange}
-            />
-          )}
-        </div>
-      </RouteShell>
-    </CollaborationRoom>
+            {!historicalRevisionId && !isArchived ? (
+              <NotebookTemplateUpgradeBanner
+                recordId={record.id}
+                pinnedVersionId={record.sourceNotebookTemplateVersionId}
+              />
+            ) : null}
+            {!historicalRevisionId && record.lockedAt ? (
+              <LockedBanner
+                record={record}
+                onAmended={() => {
+                  void queryClient.invalidateQueries({
+                    queryKey: notebookQueryKeys.record(record.id),
+                  })
+                  void queryClient.invalidateQueries({
+                    queryKey: notebookQueryKeys.blocks(record.id),
+                  })
+                }}
+              />
+            ) : null}
+            {tab !== 'notebook' &&
+            !historicalRevisionId ? null : historicalRevisionId ? (
+              <HistoricalNotebookCanvas
+                record={record}
+                revisionId={historicalRevisionId}
+                client={notebookDataClient}
+              />
+            ) : (
+              <NotebookCanvas
+                record={record}
+                blocks={blocks}
+                isLoading={blocksQuery.isLoading}
+                error={blocksQuery.error}
+                onRetry={() => blocksQuery.refetch()}
+                client={notebookDataClient}
+                queryClient={queryClient}
+                collaborationWorkspaceId={context.workspace?.id}
+                outline={outlineControls}
+                collaborationRole={context.workspace?.role}
+                // EXP-04.5: a workspace viewer reads the notebook view-only
+                // instead of being handed the editable path for the server to
+                // refuse. GOV-01: viewer has no record.create.
+                viewOnly={
+                  !hasCapability(context.workspace?.role, 'record.create')
+                }
+                onUnsavedWorkChange={setHasUnsavedWork}
+                onCellSelectionChange={onCellSelectionChange}
+              />
+            )}
+          </div>
+        </RouteShell>
+      </CollaborationRoom>
+    </OfflineEditsProvider>
   )
 }
 
@@ -858,6 +890,9 @@ export function StickyRecordHeader({
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  // EXP-05.2: submit and sign need a connection; the header disables them
+  // and states why while the live-event stream is offline.
+  const online = useIsOnline()
   const [submitOpen, setSubmitOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [signOpen, setSignOpen] = useState(false)
@@ -997,19 +1032,41 @@ export function StickyRecordHeader({
             </Button>
           ) : null}
           {canSubmit ? (
-            <Button type="button" size="sm" onClick={() => setSubmitOpen(true)}>
-              Submit
-            </Button>
+            <ConnectionRequired
+              online={online}
+              reason={CONNECTION_REQUIRED_REASONS.submit}
+            >
+              {({ disabled, describedBy }) => (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={disabled}
+                  aria-describedby={describedBy}
+                  onClick={() => setSubmitOpen(true)}
+                >
+                  Submit
+                </Button>
+              )}
+            </ConnectionRequired>
           ) : null}
           {canSign ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => setSignOpen(true)}
+            <ConnectionRequired
+              online={online}
+              reason={CONNECTION_REQUIRED_REASONS.sign}
             >
-              Sign
-            </Button>
+              {({ disabled, describedBy }) => (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={disabled}
+                  aria-describedby={describedBy}
+                  onClick={() => setSignOpen(true)}
+                >
+                  Sign
+                </Button>
+              )}
+            </ConnectionRequired>
           ) : null}
           {canOpenReview && reviewRevisionId ? (
             <Link
@@ -2655,6 +2712,7 @@ export function NotebookInspector({
   commentsRevisionId,
   outlineControls,
   cell = null,
+  unsynced = null,
   /**
    * EXT-02: host-composed extension panel tabs, appended after the
    * canonical tabs. Empty (and always empty in historical mode) unless
@@ -2692,6 +2750,11 @@ export function NotebookInspector({
    * nothing is selected, so the tab is unchanged.
    */
   cell?: NotebookInspectorCellFacts | null
+  /**
+   * EXP-05.2: the edits waiting to sync, rendered at the head of the
+   * Properties tab. Null (the default) leaves the tab unchanged.
+   */
+  unsynced?: ReactNode
   extensionPanels?: InspectorTab[]
 }) {
   const evidenceBlocks = isHistorical
@@ -2728,6 +2791,8 @@ export function NotebookInspector({
       label: 'Properties',
       content: (
         <div className="space-y-2">
+          {/* EXP-05.2: what is waiting to sync, from the device store. */}
+          {unsynced}
           {/* EXP-04.4: the selected Sheet cell — its value, validation,
               provenance and column definition — heads the tab. The record's
               own metadata below is unchanged, so the panel is an addition to

@@ -125,6 +125,32 @@ describe('createLiveEventCoordinator', () => {
     })
   })
 
+  it('reconnects on demand, resuming after the last applied sequence', () => {
+    const { coordinator, sources } = makeDeps()
+    coordinator.connect()
+    sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+    sources[0].dispatch('change', changeEvent(5))
+    expect(coordinator.getStatus().lastAppliedSeq).toBe(5)
+
+    coordinator.reconnect()
+
+    expect(sources).toHaveLength(2)
+    expect(sources[0].closed).toBe(true)
+    expect(sources[1].url).toContain('after=5')
+    expect(coordinator.getStatus().status).toBe('connecting')
+  })
+
+  it('does not reopen a stream after disconnect', () => {
+    const { coordinator, sources } = makeDeps()
+    coordinator.connect()
+    coordinator.disconnect()
+
+    coordinator.reconnect()
+
+    expect(sources).toHaveLength(1)
+    expect(coordinator.getStatus().status).toBe('offline')
+  })
+
   it('applies other-tab block events by invalidating the blocks cache', () => {
     const { coordinator, qc, sources } = makeDeps()
     const spy = vi.spyOn(qc, 'invalidateQueries')

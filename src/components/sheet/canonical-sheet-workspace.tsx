@@ -12,6 +12,7 @@ import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
 import { SheetKeyboardShortcuts } from '#/components/shortcuts/sheet-keyboard-shortcuts'
 import { CommentPanel } from '#/components/comments/comment-panel'
 import type {
+  SheetbaseCellState,
   SheetbaseGridCellChange,
   SheetbaseGridColumn,
   SheetbaseGridFilter,
@@ -269,17 +270,31 @@ export interface SheetCellSelection {
   rowNumber: number
 }
 
+/**
+ * EXP-05.2 — per-cell presentation state supplied by the host, keyed by the
+ * canonical row identity and column id (never by display position). The
+ * Notebook uses it to paint `unsynced` on cells with a local draft.
+ */
+export type SheetCellStateResolver = (cell: {
+  instanceId: string
+  rowId: string
+  columnId: string
+}) => SheetbaseCellState | undefined
+
 export function CanonicalSheetWorkspace({
   instanceId,
   projectId,
   readOnly = false,
   commentId,
+  cellState,
   onCellSelectionChange,
 }: {
   instanceId: string
   projectId: string | null
   readOnly?: boolean
   commentId?: string
+  /** EXP-05.2: per-cell state (e.g. `unsynced`) resolved by the host. */
+  cellState?: SheetCellStateResolver
   /** EXP-04.4: notified when the selected cell changes. */
   onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
@@ -310,6 +325,7 @@ export function CanonicalSheetWorkspace({
       readOnly={readOnly}
       commentActor={auth}
       commentId={commentId}
+      cellState={cellState}
       onCellSelectionChange={onCellSelectionChange}
     />
   )
@@ -353,6 +369,7 @@ export function CanonicalSheetEditor({
   readOnly = false,
   commentActor = null,
   commentId,
+  cellState,
   onCellSelectionChange,
 }: {
   instance: SheetInstance
@@ -360,6 +377,8 @@ export function CanonicalSheetEditor({
   readOnly?: boolean
   commentActor?: Pick<CurrentContext, 'user' | 'workspace'> | null
   commentId?: string
+  /** EXP-05.2: per-cell state (e.g. `unsynced`) resolved by the host. */
+  cellState?: SheetCellStateResolver
   /** EXP-04.4: published on every change of the selected cell. */
   onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
@@ -1815,6 +1834,18 @@ export function CanonicalSheetEditor({
             onCellsChange={handleCellsChange}
             onSelectionChange={handleSelectionChange}
             onReady={setGridHandle}
+            // EXP-05.2: the host's per-cell state, resolved to the grid's
+            // display row index via the canonical row identity.
+            cellState={
+              cellState
+                ? (rowIndex, columnId) =>
+                    cellState({
+                      instanceId: instance.id,
+                      rowId: matrix.rowKeys[rowIndex] ?? '',
+                      columnId,
+                    })
+                : undefined
+            }
             onColumnResize={handleColumnResize}
             onColumnOrderChange={handleColumnOrderChange}
             onSortsChange={handleSortsChange}

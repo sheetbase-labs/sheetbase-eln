@@ -190,6 +190,12 @@ export interface LiveEventDeps {
 
 export interface LiveCoordinator {
   connect: () => void
+  /**
+   * Drop the current stream and open a fresh one, resuming after the last
+   * applied sequence. Used by the offline banner's explicit Retry, which
+   * `connect()` cannot serve because it is a no-op while a stream exists.
+   */
+  reconnect: () => void
   disconnect: () => void
   getStatus: () => LiveStatus
   subscribe: (listener: (status: LiveStatus) => void) => () => void
@@ -694,6 +700,14 @@ export function createLiveEventCoordinator(
     connect() {
       if (disposed) return
       if (source) return
+      openStream()
+    },
+    reconnect() {
+      if (disposed) return
+      // Resume from the cursor we have already applied so the server does not
+      // replay the whole stream; duplicate suppression drops anything at or
+      // below it regardless.
+      reconnectAfter = lastAppliedSeq > 0 ? lastAppliedSeq : null
       openStream()
     },
     disconnect() {

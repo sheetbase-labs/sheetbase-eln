@@ -5,6 +5,7 @@ import { ZodError } from 'zod'
 
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
+import { useUnsyncedCellState } from '#/components/offline/offline-edits'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -354,6 +355,8 @@ function NotebookInstanceSheetEmbed({
     queryKey: ['sheet-instance', instanceId],
     queryFn: () => fetchSheetInstance(instanceId, sheetInstanceDataClient),
   })
+  // EXP-05.2: paint `unsynced` on cells with a local draft.
+  const unsyncedCellState = useUnsyncedCellState(instanceId)
   const embeddings = useQuery({
     queryKey: ['sheet-instance-embeddings', instanceId],
     queryFn: () =>
@@ -442,6 +445,9 @@ function NotebookInstanceSheetEmbed({
           projectId={projectId}
           readOnly={
             readOnly || !projectId || instance.data.lifecycle !== 'active'
+          }
+          cellState={({ rowId, columnId }) =>
+            unsyncedCellState(rowId, columnId)
           }
           onCellSelectionChange={onCellSelectionChange}
         />

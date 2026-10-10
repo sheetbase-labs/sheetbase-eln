@@ -495,7 +495,9 @@ describe('Virus Stability demo fixtures', () => {
     ).toBe(false)
     const materials = rows.find((row) => row.id === DEMO_BLOCK_IDS.materials)
     expect(materials?.type).toBe('materials')
-    expect(materials?.payload.items).toHaveLength(3)
+    // Two active materials: an expired lot cannot be recorded as used (LAB-04.2),
+    // so the demo no longer cites the expired reference lot.
+    expect(materials?.payload.items).toHaveLength(2)
   })
 
   it('demo block payloads validate at the application boundary', async () => {

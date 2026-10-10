@@ -12183,7 +12183,7 @@
           }
         ],
         "x-sheetbase-scopes": ["webhooks:write"],
-        "description": "Creates a subscription in the JWT workspace. Returns the subscription row and a generated signing secret (returned exactly once). rate_limit_per_minute caps delivery attempts per rolling minute (deferred, never dropped); null = unlimited.",
+        "description": "Creates a subscription in the JWT workspace. Returns the subscription row and, for a webhook or Teams destination, a generated signing secret (returned exactly once). An email destination names a recipient instead of a URL and gets no secret. rate_limit_per_minute caps delivery attempts per rolling minute (deferred, never dropped); null = unlimited.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12191,7 +12191,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["p_workspace_id", "p_key", "p_url"],
+                "required": ["p_workspace_id", "p_key"],
                 "properties": {
                   "p_workspace_id": {
                     "type": "string",
@@ -12204,7 +12204,15 @@
                   },
                   "p_url": {
                     "type": "string",
-                    "description": "HTTPS webhook endpoint URL."
+                    "description": "HTTPS webhook endpoint URL. Required for webhook and Teams destinations; must be omitted for an email destination."
+                  },
+                  "p_channel_type": {
+                    "type": "string",
+                    "description": "Destination type: 'webhook' (default), 'teams', or 'email'."
+                  },
+                  "p_recipient_user_id": {
+                    "type": "string",
+                    "description": "User id of the recipient. Required for an email destination and must be omitted otherwise."
                   },
                   "p_event_types": {
                     "type": "array",

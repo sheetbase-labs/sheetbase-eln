@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { channelBody, teamsMessageCard } from './notification-channels'
+import {
+  channelBody,
+  emailMessage,
+  teamsMessageCard,
+} from './notification-channels'
 import type { PipelineRunNotification } from './notification-channels'
 
 const payload: PipelineRunNotification = {
@@ -66,5 +70,25 @@ describe('teamsMessageCard', () => {
     expect(
       teamsMessageCard(payload, { title: 'PV stability finished' }).summary,
     ).toBe('PV stability finished')
+  })
+})
+
+describe('emailMessage', () => {
+  it('sends a subject and a plain-text body naming the run and its output', () => {
+    expect(emailMessage(payload)).toEqual({
+      subject: 'Pipeline run completed',
+      body: 'Run run-1 completed.\nOutput: Turbidity results\nRows: 12',
+    })
+  })
+
+  it('takes a title as the subject when one is given', () => {
+    expect(
+      emailMessage(payload, { title: 'PV stability finished' }).subject,
+    ).toBe('PV stability finished')
+  })
+
+  it('omits a line it does not have rather than sending an empty one', () => {
+    const body = emailMessage({ ...payload, result: { rowCount: 0 } }).body
+    expect(body).toBe('Run run-1 completed.\nRows: 0')
   })
 })

@@ -7,11 +7,12 @@
  * engine can see — Teams answers 200 for a card it can render and 400 for one it cannot — so
  * the type has to be chosen here rather than guessed at delivery time.
  *
- * `email` is deliberately absent: there is no transport for it, and a channel that silently
- * never sends is worse than one that does not exist.
+ * An `email` destination is a person, not a URL: the outbox is keyed by person (user_id plus
+ * to_email) and the address is read from their account, so a changed address is not a stale
+ * copy sitting in a destination. Its template is a subject and a plain-text body.
  */
 
-export type NotificationChannelType = 'webhook' | 'teams'
+export type NotificationChannelType = 'webhook' | 'teams' | 'email'
 
 export interface PipelineRunNotification {
   schemaVersion: string
@@ -70,4 +71,23 @@ export function channelBody(
   if (channelType === 'teams')
     return JSON.stringify(teamsMessageCard(payload, options))
   return JSON.stringify(payload)
+}
+
+/** The subject and body an email destination sends for a completed run. */
+export function emailMessage(
+  payload: PipelineRunNotification,
+  options: { title?: string } = {},
+): { subject: string; body: string } {
+  const subject = options.title ?? 'Pipeline run completed'
+  const lines = [`Run ${payload.runId} completed.`]
+  const label =
+    typeof payload.result.outputLabel === 'string'
+      ? payload.result.outputLabel
+      : typeof payload.result.outputDatasetId === 'string'
+        ? payload.result.outputDatasetId
+        : null
+  if (label) lines.push(`Output: ${label}`)
+  if (typeof payload.result.rowCount === 'number')
+    lines.push(`Rows: ${payload.result.rowCount}`)
+  return { subject, body: lines.join('\n') }
 }

@@ -2855,6 +2855,13 @@
       "when": 1791661789632,
       "tag": "0409_pipeline_action_insert_block",
       "breakpoints": true
+    },
+    {
+      "idx": 410,
+      "version": "7",
+      "when": 1791662150267,
+      "tag": "0410_supersede_proposals",
+      "breakpoints": true
     }
   ]
 }

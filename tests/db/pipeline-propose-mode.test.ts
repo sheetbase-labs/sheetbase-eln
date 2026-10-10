@@ -28,9 +28,10 @@ beforeAll(async () => {
     `insert into internal."user"(id,name,email,"emailVerified") values($1,$1,$2,true)`,
     [OWNER, `${OWNER}@test.invalid`],
   )
-  await migrator.query(`insert into api.workspaces(id,slug,name) values($1,'pipe031','PIPE-03.1')`, [
-    WS,
-  ])
+  await migrator.query(
+    `insert into api.workspaces(id,slug,name) values($1,'pipe031','PIPE-03.1')`,
+    [WS],
+  )
   await migrator.query(
     `insert into api.workspace_memberships(workspace_id,user_id,role) values($1,$2,'owner')`,
     [WS, OWNER],
@@ -179,6 +180,83 @@ describe('PIPE-03.1 a pipeline proposes a notebook block', () => {
     )
     expect(blocks.rows.map((row) => row.type)).toEqual(['rich_text'])
     expect(await structureVersion()).toBeGreaterThan(before)
+  })
+
+  it('supersedes an older proposal for the same change, and leaves different changes alone', async () => {
+    const owner = await actor(OWNER)
+    const before = await structureVersion()
+
+    const first = (
+      await owner.query(
+        `select to_jsonb(api.propose_agent_operation($1,$2,$3,$4::jsonb,$5::jsonb,$6)) result`,
+        [
+          WS,
+          'Add a summary block',
+          'Run 1.',
+          operation(before),
+          PIPELINE_PROVENANCE,
+          'pipe031-s1',
+        ],
+      )
+    ).rows[0].result as { id: string; status: string }
+
+    // A different change to the same record must not touch it.
+    const other = (
+      await owner.query(
+        `select to_jsonb(api.propose_agent_operation($1,$2,$3,$4::jsonb,$5::jsonb,$6)) result`,
+        [
+          WS,
+          'Add a methods block',
+          'A different block.',
+          JSON.stringify({
+            kind: 'notebook_block.insert',
+            recordId: RECORD,
+            afterBlockId: null,
+            block: {
+              type: 'rich_text',
+              payload: { doc: { type: 'doc', content: [] }, note: 'methods' },
+            },
+            expectedRevision: before,
+          }),
+          PIPELINE_PROVENANCE,
+          'pipe031-s2',
+        ],
+      )
+    ).rows[0].result as { status: string }
+    expect(other.status).toBe('pending')
+    const stillPending = await migrator.query<{ status: string }>(
+      `select status from api.agent_operation_proposals where id=$1`,
+      [first.id],
+    )
+    expect(stillPending.rows[0]!.status).toBe('pending')
+
+    // The same change proposed again by the next run supersedes it.
+    const second = (
+      await owner.query(
+        `select to_jsonb(api.propose_agent_operation($1,$2,$3,$4::jsonb,$5::jsonb,$6)) result`,
+        [
+          WS,
+          'Add a summary block',
+          'Run 2.',
+          operation(before),
+          PIPELINE_PROVENANCE,
+          'pipe031-s3',
+        ],
+      )
+    ).rows[0].result as { id: string; status: string }
+    expect(second.status).toBe('pending')
+
+    const superseded = await migrator.query<{
+      status: string
+      rejection_reason: string
+    }>(
+      `select status, rejection_reason from api.agent_operation_proposals where id=$1`,
+      [first.id],
+    )
+    expect(superseded.rows[0]!.status).toBe('cancelled')
+    expect(superseded.rows[0]!.rejection_reason).toContain('Superseded')
+    // It stays readable: the request was made and the record says what became of it.
+    expect(second.id).not.toBe(first.id)
   })
 
   it('refuses an agent-shaped provenance that is not actually an agent', async () => {

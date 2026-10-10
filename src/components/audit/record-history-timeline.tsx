@@ -4,17 +4,14 @@ import {
   GitCommit,
   History,
   ListChecks,
-  Lock,
-  MessageSquare,
-  PenLine,
   Undo2,
-  Upload,
   XCircle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { AuditTrail } from './audit-trail'
 import type { AuditEvent } from './audit-trail'
+import type { IconName } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import type { TimelineEventWire } from '#/lib/sign-002'
@@ -45,15 +42,15 @@ export interface RecordHistoryTimelineProps {
   refreshing?: boolean
 }
 
-const DECISION_ICONS: Partial<Record<string, LucideIcon>> = {
+const DECISION_ICONS: Partial<Record<string, IconName | LucideIcon>> = {
   approve: CheckCircle2,
   reject: XCircle,
   request_changes: Undo2,
   withdraw: Undo2,
 }
 
-const OPERATION_ICONS: Partial<Record<string, LucideIcon>> = {
-  create: Upload,
+const OPERATION_ICONS: Partial<Record<string, IconName | LucideIcon>> = {
+  create: 'upload',
   update: History,
   move: History,
   delete: History,
@@ -64,7 +61,7 @@ const OPERATION_ICONS: Partial<Record<string, LucideIcon>> = {
   quarantine: History,
   resolve: History,
   reopen: History,
-  lock: Lock,
+  lock: 'lock',
   amend: GitCommit,
 }
 
@@ -95,12 +92,12 @@ function relativeTime(ts: string): string {
   return new Date(then).toLocaleDateString()
 }
 
-function pickIcon(event: TimelineEventWire): LucideIcon {
+function pickIcon(event: TimelineEventWire): IconName | LucideIcon {
   switch (event.type) {
     case 'signature':
-      return PenLine
+      return 'edit'
     case 'comment':
-      return MessageSquare
+      return 'comment'
     case 'check':
       return ListChecks
     case 'submission':

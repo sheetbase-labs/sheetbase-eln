@@ -28,6 +28,8 @@ import {
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
+import { useUserNames } from '#/lib/user-names'
+import { formatDate } from '#/lib/workspace-admin'
 import {
   fetchWorkspaceMemberIdentities,
   fetchProjectSummaries,
@@ -151,9 +153,12 @@ function Access() {
     onError: (error: Error) =>
       toast('Could not decide access request', { description: error.message }),
   })
-  const pending = (requests.data ?? []).filter(
-    (r) =>
-      r.status === 'pending' && permissions.data?.get(r.project_id)?.can_manage,
+  const requestRows = requests.data ?? []
+  // Requesters and deciders are workspace members; one resolver names both so
+  // a decision is attributable, never a bare user id.
+  const { userLabel } = useUserNames(
+    requestRows.flatMap((r) => [r.user_id, r.decided_by_user_id ?? '']),
+    context.user,
   )
   const visibleProjects = (projects.data ?? []).filter(
     (p) => !projectFilter || p.id === projectFilter,
@@ -302,9 +307,9 @@ function Access() {
             never adds someone to a group.
           </Muted>
         </Section>
-        {pending.length ? (
-          <Section title="Access requests" count={pending.length}>
-            <Table aria-label="Pending access requests">
+        {requestRows.length ? (
+          <Section title="Access requests" count={requestRows.length}>
+            <Table aria-label="Access requests">
               <TableHeader>
                 <TableRow>
                   <TableHead>Person</TableHead>
@@ -314,38 +319,63 @@ function Access() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pending.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>{r.name}</TableCell>
-                    <TableCell>
-                      {projects.data?.find((p) => p.id === r.project_id)?.title}
-                    </TableCell>
-                    <TableCell>{r.reason}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          disabled={decide.isPending}
-                          onClick={() =>
-                            decide.mutate({ requestId: r.id, approve: true })
-                          }
-                        >
-                          Approve edit access
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="quiet"
-                          disabled={decide.isPending}
-                          onClick={() =>
-                            decide.mutate({ requestId: r.id, approve: false })
-                          }
-                        >
-                          Deny
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {requestRows.map((r) => {
+                  const canDecide =
+                    r.status === 'pending' &&
+                    permissions.data?.get(r.project_id)?.can_manage === true
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell>{userLabel(r.user_id)}</TableCell>
+                      <TableCell>
+                        {projects.data?.find((p) => p.id === r.project_id)
+                          ?.title ?? '—'}
+                      </TableCell>
+                      <TableCell>{r.reason}</TableCell>
+                      <TableCell>
+                        {canDecide ? (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              disabled={decide.isPending}
+                              onClick={() =>
+                                decide.mutate({
+                                  requestId: r.id,
+                                  approve: true,
+                                })
+                              }
+                            >
+                              Approve edit access
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="quiet"
+                              disabled={decide.isPending}
+                              onClick={() =>
+                                decide.mutate({
+                                  requestId: r.id,
+                                  approve: false,
+                                })
+                              }
+                            >
+                              Deny
+                            </Button>
+                          </div>
+                        ) : r.status === 'pending' ? (
+                          <span>Waiting for approval</span>
+                        ) : (
+                          <span>
+                            {r.status === 'approved' ? 'Approved' : 'Denied'}
+                            {r.decided_by_user_id
+                              ? ` by ${userLabel(r.decided_by_user_id)}`
+                              : ''}
+                            {' · '}
+                            {formatDate(r.updated_at)}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </Section>

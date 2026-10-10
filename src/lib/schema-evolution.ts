@@ -1,4 +1,5 @@
 import type { DataClient } from './data-client'
+import { DataClientError } from './data-client'
 import type { DatasetSchemaFieldInput } from './dataset-schema-definition-rpc'
 import { fieldWire } from './dataset-schema-definition-rpc'
 
@@ -160,4 +161,107 @@ export async function promoteCalculation(
     p_schema_definition_id: input.schemaDefinitionId ?? null,
     p_idempotency_key: input.idempotencyKey,
   })
+}
+
+// ---------------------------------------------------------------------------
+// SHEET-02.3 — column promotion as a request.
+//
+// `request_column_promotion` is the only path a UI may take: it forks a draft
+// Dataset Schema Version, records a pending `api.column_promotions` row and
+// raises the MDL-03 approval, writing nothing to the dataset. The direct
+// `promote_local_field` path (wrapped above) applies immediately and is not
+// what a promotion dialog should call.
+// ---------------------------------------------------------------------------
+
+export type ColumnPromotionState =
+  | 'pending'
+  | 'approved'
+  | 'returned'
+  | 'applied'
+  | 'withdrawn'
+
+/** Wire shape of an `api.column_promotions` row (snake_case). */
+export interface ColumnPromotion {
+  id: string
+  sheet_instance_id: string
+  field_id: string
+  target: 'dataset_schema' | 'model_field'
+  schema_definition_id: string | null
+  schema_version_id: string | null
+  model_key: string | null
+  state: ColumnPromotionState
+  approval_request_id: string | null
+  /**
+   * What was asked for. On a `returned` promotion SHEET-02.2 overwrites this
+   * with the approver's decision reason, so a returned row carries the reason
+   * the reviewer gave.
+   */
+  reason: string | null
+  requested_by_user_id: string
+  requested_at: string
+  decided_at: string | null
+}
+
+export interface ColumnPromotionRequestResult {
+  ok?: boolean
+  promotionId?: string
+  state?: ColumnPromotionState | string
+  targetKind?: string
+  schemaVersionId?: string
+  approvalRequestId?: string
+  idempotent?: boolean
+}
+
+export async function requestColumnPromotion(
+  client: DataClient,
+  input: {
+    instanceId: string
+    fieldId: string
+    target: 'dataset_schema' | 'model_field'
+    schemaDefinitionId?: string | null
+    modelKey?: string | null
+    reason: string
+    idempotencyKey: string
+    expectedRevision?: number | null
+  },
+): Promise<ColumnPromotionRequestResult> {
+  return client.rpc('request_column_promotion', {
+    p_instance_id: input.instanceId,
+    p_field_id: input.fieldId,
+    p_target: input.target,
+    p_schema_definition_id: input.schemaDefinitionId ?? null,
+    p_model_key: input.modelKey ?? null,
+    p_reason: input.reason,
+    p_idempotency_key: input.idempotencyKey,
+    p_expected_revision: input.expectedRevision ?? null,
+  })
+}
+
+export function listInstanceColumnPromotions(
+  client: DataClient,
+  instanceId: string,
+): Promise<ColumnPromotion[]> {
+  return client.list(
+    'column_promotions',
+    `?sheet_instance_id=eq.${instanceId}` +
+      '&select=id,sheet_instance_id,field_id,target,schema_definition_id,' +
+      'schema_version_id,model_key,state,approval_request_id,reason,' +
+      'requested_by_user_id,requested_at,decided_at' +
+      '&order=requested_at.desc',
+  )
+}
+
+/** The server's reason for refusing a promotion, in the language of the UI. */
+export function describeColumnPromotionError(error: unknown): string {
+  if (!(error instanceof DataClientError))
+    return 'Could not request the promotion. Try again.'
+  const messages: Record<string, string> = {
+    SB071:
+      'Some values in this column cannot be promoted to the dataset. Fix or clear them, then try again.',
+    SB072:
+      'This dataset already has a draft schema version pending. Publish or discard it before promoting again.',
+    '22023': 'Check the dataset and reason, then try again.',
+    '42501': 'You do not have permission to promote columns in this sheet.',
+  }
+  return messages[error.code] ?? error.message
 }

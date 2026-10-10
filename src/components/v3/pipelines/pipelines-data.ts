@@ -149,6 +149,8 @@ export const pipelineDataQueryKeys = {
     ['ui-port', 'pipelines', 'run-prompts', id] as const,
   runOutputs: (id: string) =>
     ['ui-port', 'pipelines', 'run-outputs', id] as const,
+  runDeliveries: (id: string) =>
+    ['ui-port', 'pipelines', 'run-deliveries', id] as const,
   schedules: (id: string) => ['ui-port', 'pipelines', 'schedules', id] as const,
 }
 
@@ -281,6 +283,68 @@ export function useRunPrompts(
   return useQuery({
     queryKey: pipelineDataQueryKeys.runPrompts(runId),
     queryFn: () => listPipelineRunPrompts(client, runId),
+  })
+}
+
+export type PipelineRunDeliveryStatus =
+  'pending' | 'delivered' | 'failed' | 'retrying' | 'dead_letter'
+
+/** One notification delivery a run queued (PIPE-05.3). `api.webhook_deliveries`
+ * records the destination and outcome; the channel type lives on the
+ * destination's configuration, not on the delivery. */
+export interface PipelineRunDeliveryWire {
+  id: string
+  subscription_id: string
+  event_type: string
+  status: PipelineRunDeliveryStatus
+  attempt: number
+  response_status: number | null
+  error_code: string | null
+  error_message: string | null
+  delivered_at: string | null
+  created_at: string
+  /** The destination webhook, when the workspace can read it. */
+  destination: { key: string; description: string | null } | null
+}
+
+/** The delivery ids a run recorded in `result.notificationDeliveryIds`. */
+export function readDeliveryIds(result: Record<string, unknown>): string[] {
+  const raw = result.notificationDeliveryIds
+  if (!Array.isArray(raw)) return []
+  return raw.filter((v): v is string => typeof v === 'string' && v.length > 0)
+}
+
+/** The deliveries a run queued, joined to their destination webhooks. */
+export function useRunDeliveries(
+  runId: string,
+  deliveryIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const ids = deliveryIds.join(',')
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.runDeliveries(runId),
+    queryFn: async (): Promise<PipelineRunDeliveryWire[]> => {
+      const rows = await client.list<Omit<PipelineRunDeliveryWire, 'destination'>>(
+        'webhook_deliveries',
+        `?select=id,subscription_id,event_type,status,attempt,response_status,error_code,error_message,delivered_at,created_at&id=in.(${ids})&order=created_at.asc`,
+      )
+      if (rows.length === 0) return []
+      const subscriptionIds = [...new Set(rows.map((r) => r.subscription_id))]
+      const subscriptions = await client.list<{
+        id: string
+        key: string
+        description: string | null
+      }>(
+        'webhook_subscriptions',
+        `?select=id,key,description&id=in.(${subscriptionIds.join(',')})`,
+      )
+      const byId = new Map(subscriptions.map((s) => [s.id, s]))
+      return rows.map((row) => ({
+        ...row,
+        destination: byId.get(row.subscription_id) ?? null,
+      }))
+    },
+    enabled: deliveryIds.length > 0,
   })
 }
 

@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Bell } from 'lucide-react'
 
+import { Icon } from '#/components/icons'
 import {
   Button,
   Popover,
@@ -56,7 +56,7 @@ export function NotificationsBell() {
               : 'Notifications'
           }
         >
-          <Bell className="size-4" />
+          <Icon name="bell" className="size-4" />
           {unread.length > 0 ? (
             <span
               className="absolute right-1 top-1 size-1.5 rounded-full bg-danger-text"

@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './$runId'
 import type * as pipelineDataModule from '#/components/v3/pipelines/pipelines-data'
+import type { PipelineRunDeliveryWire } from '#/components/v3/pipelines/pipelines-data'
 import type * as pipelineLibData from '#/lib/pipelines/data'
 import type {
   PipelineRunPromptWire,
@@ -21,12 +22,14 @@ interface RunPageState {
   run: PipelineRunWire | null
   prompts: PipelineRunPromptWire[]
   memberNames: Record<string, string>
+  deliveries: PipelineRunDeliveryWire[]
 }
 
 const state = vi.hoisted((): RunPageState => ({
   run: null,
   prompts: [],
   memberNames: {},
+  deliveries: [],
 }))
 const dataLayer = vi.hoisted(() => ({ answer: vi.fn() }))
 
@@ -55,6 +58,10 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
   useRunLogs: () => ({ data: [] }),
   useRunOutputs: () => ({ data: [] }),
   useRunPrompts: () => ({ data: state.prompts }),
+  useRunDeliveries: () => ({
+    data: state.deliveries,
+    isLoading: false,
+  }),
   useWorkspaceMemberNames: () => ({ data: state.memberNames }),
   usePipelineVersions: () => ({
     data: [{ id: 'v-1', version: 5 }],
@@ -141,12 +148,32 @@ function renderRun() {
   )
 }
 
+function delivery(
+  overrides: Partial<PipelineRunDeliveryWire> = {},
+): PipelineRunDeliveryWire {
+  return {
+    id: 'delivery-1',
+    subscription_id: 'sub-1',
+    event_type: 'pipeline.run.completed',
+    status: 'delivered',
+    attempt: 1,
+    response_status: 200,
+    error_code: null,
+    error_message: null,
+    delivered_at: '2026-10-10T10:13:00.000Z',
+    created_at: '2026-10-10T10:12:50.000Z',
+    destination: { key: 'aav9-process', description: '#aav9-process' },
+    ...overrides,
+  }
+}
+
 afterEach(() => {
   cleanup()
   dataLayer.answer.mockReset()
   state.run = null
   state.prompts = []
   state.memberNames = {}
+  state.deliveries = []
 })
 
 describe('a waiting run', () => {
@@ -236,5 +263,60 @@ describe('a run with no prompt', () => {
     expect(queryByRole('button', { name: 'Confirm and continue' })).toBeNull()
     expect(queryByText(/This run is waiting for you\./)).toBeNull()
     expect(queryByText('Running')).toBeTruthy()
+  })
+})
+
+describe('the run’s notification deliveries', () => {
+  it('renders each delivery with its destination, status and outcome', () => {
+    state.run = run({
+      status: 'succeeded',
+      result: { notificationDeliveryIds: ['delivery-1'] },
+    })
+    state.deliveries = [delivery()]
+    const { getByText, getByRole } = renderRun()
+
+    expect(
+      getByRole('table', { name: 'Run notification deliveries' }),
+    ).toBeTruthy()
+    expect(getByText('#aav9-process')).toBeTruthy()
+    expect(getByText('Delivered')).toBeTruthy()
+    expect(getByText('Sent 2026-10-10 10:13')).toBeTruthy()
+  })
+
+  it('shows why a failed delivery did not arrive', () => {
+    state.run = run({
+      status: 'succeeded',
+      result: { notificationDeliveryIds: ['delivery-1'] },
+    })
+    state.deliveries = [
+      delivery({
+        status: 'dead_letter',
+        attempt: 5,
+        delivered_at: null,
+        response_status: 500,
+        error_code: 'http_500',
+        error_message: 'The endpoint replied 500 after 5 attempts.',
+      }),
+    ]
+    const { getByText } = renderRun()
+
+    expect(getByText('Failed after retries')).toBeTruthy()
+    expect(getByText('The endpoint replied 500 after 5 attempts.')).toBeTruthy()
+  })
+
+  it('renders an honest empty state, not a blank panel, when nothing was queued', () => {
+    state.run = run({ status: 'succeeded', result: {} })
+    state.deliveries = []
+    const { getByText, queryByRole } = renderRun()
+
+    expect(getByText('Notifications')).toBeTruthy()
+    expect(
+      getByText(
+        'This run queued no notifications — the published version configured no destinations.',
+      ),
+    ).toBeTruthy()
+    expect(
+      queryByRole('table', { name: 'Run notification deliveries' }),
+    ).toBeNull()
   })
 })

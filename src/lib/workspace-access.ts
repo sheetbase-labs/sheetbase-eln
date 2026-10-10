@@ -59,14 +59,22 @@ const memberStatusSchema = z.object({
 })
 export type WorkspaceMemberStatus = z.infer<typeof memberStatusSchema>
 
+/**
+ * SET-02.3 — one project access request as the audit needs it. Read straight
+ * from `api.project_access_requests`: the table's SELECT policy scopes rows to
+ * project managers and the requester's own, and carries the decision
+ * attribution (`decided_by_user_id`, `updated_at`) that the RPC projection
+ * omits. Requester and decider display names are resolved at the call site.
+ */
 const accessRequestSchema = z.object({
   id: z.uuid(),
   project_id: z.uuid(),
   user_id: z.string(),
-  name: z.string(),
   reason: z.string(),
   status: z.enum(['pending', 'approved', 'denied']),
   created_at: z.string(),
+  updated_at: z.string(),
+  decided_by_user_id: z.string().nullable(),
 })
 export type ProjectAccessRequest = z.infer<typeof accessRequestSchema>
 
@@ -221,9 +229,13 @@ export async function removeProjectAccessRule(
 export async function fetchProjectAccessRequests(
   client: DataClient,
 ): Promise<ProjectAccessRequest[]> {
-  return z
-    .array(accessRequestSchema)
-    .parse(await client.rpc('project_access_requests_list', {}))
+  return z.array(accessRequestSchema).parse(
+    await client.list(
+      'project_access_requests',
+      '?select=id,project_id,user_id,reason,status,created_at,updated_at,' +
+        'decided_by_user_id&order=created_at.desc',
+    ),
+  )
 }
 
 export async function requestProjectEditAccess(

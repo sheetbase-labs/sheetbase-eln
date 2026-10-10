@@ -1,25 +1,16 @@
 import {
-  Archive,
   ArchiveRestore,
   ArrowRightLeft,
-  Database,
-  FileText,
   FileWarning,
   FolderTree,
   GitCommit,
   History,
-  KeyRound,
-  LayoutTemplate,
-  Link2,
-  Lock,
-  MessageSquare,
-  PenLine,
-  Sheet,
-  Table2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
@@ -55,40 +46,40 @@ export interface ObjectHistoryTimelineProps {
   className?: string
 }
 
-const OPERATION_ICONS: Partial<Record<string, LucideIcon>> = {
+const OPERATION_ICONS: Partial<Record<string, IconName | LucideIcon>> = {
   create: GitCommit,
   update: History,
   move: ArrowRightLeft,
   delete: FileWarning,
-  archive: Archive,
+  archive: 'archive',
   restore: ArchiveRestore,
-  link: Link2,
-  unlink: Link2,
+  link: 'link',
+  unlink: 'link',
   quarantine: FileWarning,
-  lock: Lock,
+  lock: 'lock',
   amend: GitCommit,
-  revoke: KeyRound,
+  revoke: 'key',
 }
 
-const ENTITY_ICONS: Partial<Record<string, LucideIcon>> = {
-  record: FileText,
-  file: FileText,
+const ENTITY_ICONS: Partial<Record<string, IconName | LucideIcon>> = {
+  record: 'protocol',
+  file: 'protocol',
   folder: FolderTree,
-  dataset: Database,
-  dataset_version: Database,
-  sheet_instance: Sheet,
-  sheet_definition: LayoutTemplate,
-  sheet_definition_version: LayoutTemplate,
-  notebook_template: LayoutTemplate,
-  notebook_template_version: LayoutTemplate,
-  review_submission: Table2,
-  review_decision: Table2,
-  signature: PenLine,
-  api_credential: KeyRound,
-  comment: MessageSquare,
+  dataset: 'database',
+  dataset_version: 'database',
+  sheet_instance: 'table',
+  sheet_definition: 'template',
+  sheet_definition_version: 'template',
+  notebook_template: 'template',
+  notebook_template_version: 'template',
+  review_submission: 'table',
+  review_decision: 'table',
+  signature: 'edit',
+  api_credential: 'key',
+  comment: 'comment',
 }
 
-function iconFor(event: AuditEventWire): LucideIcon {
+function iconFor(event: AuditEventWire): IconName | LucideIcon {
   return (
     OPERATION_ICONS[event.operation] ??
     ENTITY_ICONS[event.entityType] ??
@@ -165,7 +156,7 @@ function GroupRow({
   group: { primary: AuditEventWire; related: AuditEventWire[] }
 }) {
   const described = describeAuditEvent(group.primary)
-  const Icon = iconFor(group.primary)
+  const EventIcon = iconFor(group.primary)
   const link = auditLinkFor(group.primary)
   const correlated =
     group.related.length > 0 && group.primary.entityType === 'api_credential'
@@ -177,7 +168,11 @@ function GroupRow({
         className="absolute left-4 top-9 h-[calc(100%-1.5rem)] w-px bg-border last:hidden"
       />
       <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-surface text-fg-muted">
-        <Icon className="size-3.5" aria-hidden="true" />
+        {typeof EventIcon === 'string' ? (
+          <Icon name={EventIcon} className="size-3.5" aria-hidden="true" />
+        ) : (
+          <EventIcon className="size-3.5" aria-hidden="true" />
+        )}
       </span>
       <div className="min-w-0 flex-1 pt-0.5">
         <p className="flex flex-wrap items-center gap-x-1.5 text-sm">

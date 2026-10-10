@@ -1,5 +1,4 @@
-import { MessageSquare } from 'lucide-react'
-
+import { Icon } from '#/components/icons'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { cn } from '#/lib/utils'
@@ -31,7 +30,7 @@ export function CommentButton({
       className={cn('relative', className)}
       onClick={onClick}
     >
-      <MessageSquare className="size-3.5" aria-hidden="true" />
+      <Icon name="comment" className="size-3.5" aria-hidden="true" />
       {count > 0 ? (
         <Badge
           className="absolute -right-1.5 -top-1.5 h-3.5 min-w-3.5 px-0.5 text-[9px] leading-none"

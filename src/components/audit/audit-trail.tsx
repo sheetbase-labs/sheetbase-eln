@@ -1,13 +1,8 @@
-import {
-  ChevronRight,
-  FileCheck2,
-  FlaskConical,
-  History,
-  Upload,
-  UserCheck,
-} from 'lucide-react'
+import { FileCheck2, History, UserCheck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { cn } from '#/lib/utils'
@@ -41,7 +36,7 @@ export interface AuditEvent {
   timestamp: string
   /** Optional target record, e.g. "Protocol 4". */
   target?: string
-  icon?: LucideIcon
+  icon?: IconName | LucideIcon
 }
 
 export interface AuditTrailProps {
@@ -56,9 +51,9 @@ export interface AuditTrailProps {
   className?: string
 }
 
-const typeIcons: Partial<Record<string, LucideIcon>> = {
-  created: FlaskConical,
-  uploaded: Upload,
+const typeIcons: Partial<Record<string, IconName | LucideIcon>> = {
+  created: 'flask',
+  uploaded: 'upload',
   'review-requested': FileCheck2,
   'review-started': UserCheck,
 }
@@ -116,7 +111,7 @@ export function AuditTrail({
         aria-label="Audit trail"
       >
         {events.map((event, i) => {
-          const Icon = event.icon ?? typeIcons[event.type] ?? History
+          const EventIcon = event.icon ?? typeIcons[event.type] ?? History
           const isLast = i === events.length - 1
           const actor = event.actor
           return (
@@ -131,7 +126,15 @@ export function AuditTrail({
                 />
               ) : null}
               <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-surface text-fg-muted">
-                <Icon className="size-3.5" aria-hidden="true" />
+                {typeof EventIcon === 'string' ? (
+                  <Icon
+                    name={EventIcon}
+                    className="size-3.5"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <EventIcon className="size-3.5" aria-hidden="true" />
+                )}
               </span>
               <div className="min-w-0 pt-1">
                 <p className="text-sm font-medium">{event.title}</p>
@@ -155,7 +158,7 @@ export function AuditTrail({
             onClick={onLoadMore}
             disabled={loadingMore}
           >
-            <ChevronRight className="mr-1 size-3.5" />
+            <Icon name="chevronRight" className="mr-1 size-3.5" />
             {loadingMore
               ? 'Loading…'
               : `Load more (${totalCount - events.length} left)`}

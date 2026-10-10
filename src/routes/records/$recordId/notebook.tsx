@@ -33,6 +33,7 @@ import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
 import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-notebook-dialog'
 import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-panel'
+import { NotebookTemplateUpgradeBanner } from '#/components/notebook/notebook-template-upgrade-banner'
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import {
   ExportEvidenceButton,
@@ -735,6 +736,15 @@ function ExperimentNotebookRoute() {
             <HistoricalEvidenceBanner recordId={record.id} />
           ) : null}
           {isArchived ? <ArchivedBanner /> : null}
+          {/* EXP-04.1: the template-version state of the working notebook.
+              Frozen evidence and archived records are read-only, so an
+              update banner would only dangle there. */}
+          {!historicalRevisionId && !isArchived ? (
+            <NotebookTemplateUpgradeBanner
+              recordId={record.id}
+              pinnedVersionId={record.sourceNotebookTemplateVersionId}
+            />
+          ) : null}
           {!historicalRevisionId && record.lockedAt ? (
             <LockedBanner
               record={record}

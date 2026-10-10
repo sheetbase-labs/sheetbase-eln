@@ -21,14 +21,17 @@ import {
 } from '#/components/v3/ui/table'
 import { toast } from '#/components/v3/ui/sonner'
 import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
+import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
 import { answerPipelineRunPrompt } from '#/lib/pipelines/data'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
 import {
   pipelineDataQueryKeys,
+  readDeliveryIds,
   runDuration,
   runStatus,
   usePipelineVersions,
   usePipelineRun,
+  useRunDeliveries,
   useRunLogs,
   useRunOutputs,
   useRunPrompts,
@@ -50,6 +53,8 @@ function RunPage() {
   const prompts = useRunPrompts(runId)
   const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
+  const deliveryIds = readDeliveryIds(run.data?.result ?? {})
+  const deliveries = useRunDeliveries(runId, deliveryIds)
   const queryClient = useQueryClient()
   const answer = useMutation({
     mutationFn: (value: PipelineRunPromptAnswer) =>
@@ -204,6 +209,13 @@ function RunPage() {
               when it ended.
             </Notice>
           )}
+
+          <RunDeliveriesPanel
+            deliveries={deliveries.data ?? []}
+            runStatus={r.status}
+            queuedCount={deliveryIds.length}
+            isLoading={deliveries.isLoading && deliveryIds.length > 0}
+          />
 
           <section>
             <h2 className="mb-1.5 font-sans text-label font-semibold">Log</h2>

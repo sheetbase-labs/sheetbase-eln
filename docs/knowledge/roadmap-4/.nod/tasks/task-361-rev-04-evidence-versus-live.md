@@ -2,10 +2,10 @@
 id: task-361
 title: REV-04 — Evidence versus live
 type: task
-status: in-progress
+status: done
 priority: medium
 created: "2026-09-27"
-updated: "2026-10-02"
+updated: "2026-10-10"
 parent: epic-346
 related:
   - task-2
@@ -26,3 +26,4 @@ Spec: [REV-04 in tasks/REV.md](../../tasks/REV.md#rev-04--evidence-versus-live)
 
 ## Work Log
 - 2026-10-02: 2026-10-02 reconciliation at ELN 9bbd305c (components 6f12e0b3): partial. Evidence: src/routes/evidence/$revisionId.tsx:69 — frozen revision fetched; lines 75-78 fetch live record for metadata, lines 149-154 only derive coarse drift from supersession/lock revision.; src/routes/evidence/$revisionId.tsx:153 — renders block_snapshot and stored digest, not cited-Dataset-versus-latest comparison or verified-at result.; tests/db/core-h3-frozen-composed-evidence.test.ts — canonical frozen composed evidence coverage exists; no nightly verification job found.. Remaining: 1 Source-aware snapshot/live comparison including renamed-record differences; 2 full evidence/phone presentation with frozen-only cited values (current route /evidence/$revisionId differs from planned nesting); 3 scheduled digest verification results. Existing snapshot summary/amendment entry is partial. See docs/knowledge/roadmap-4/RECONCILIATION.md#rev-04. Source audit, not fresh service/browser acceptance.
+- 2026-10-10: All steps done; closed by roadmap sync.

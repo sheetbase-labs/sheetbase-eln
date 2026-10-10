@@ -146,6 +146,7 @@ import { Route as ModelsModelIdRecordsRecordIdRouteImport } from './routes/model
 import { Route as ModelsModelIdRecordsNewRouteImport } from './routes/models/$modelId/records/new'
 import { Route as PipelinesPipelineIdRunsIndexRouteImport } from './routes/pipelines/$pipelineId/runs/index'
 import { Route as PipelinesPipelineIdRunsRunIdRouteImport } from './routes/pipelines/$pipelineId/runs/$runId'
+import { Route as RecordsRecordIdEvidenceRevisionIdRouteImport } from './routes/records/$recordId/evidence/$revisionId'
 import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
 import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
@@ -863,6 +864,12 @@ const PipelinesPipelineIdRunsRunIdRoute =
     path: '/runs/$runId',
     getParentRoute: () => PipelinesPipelineIdRoute,
   } as any)
+const RecordsRecordIdEvidenceRevisionIdRoute =
+  RecordsRecordIdEvidenceRevisionIdRouteImport.update({
+    id: '/evidence/$revisionId',
+    path: '/evidence/$revisionId',
+    getParentRoute: () => RecordsRecordIdRoute,
+  } as any)
 const ApiClientPortalRecordsRecordIdPdfRoute =
   ApiClientPortalRecordsRecordIdPdfRouteImport.update({
     id: '/api/client-portal/records/$recordId/pdf',
@@ -1017,6 +1024,7 @@ export interface FileRoutesByFullPath {
   '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
+  '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1147,6 +1155,7 @@ export interface FileRoutesByTo {
   '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
+  '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
   '/models/$modelId/records': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1290,6 +1299,7 @@ export interface FileRoutesById {
   '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
+  '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1434,6 +1444,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/$recordId'
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
+    | '/records/$recordId/evidence/$revisionId'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
@@ -1564,6 +1575,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/$recordId'
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
+    | '/records/$recordId/evidence/$revisionId'
     | '/models/$modelId/records'
     | '/pipelines/$pipelineId/runs'
     | '/api/client-portal/records/$recordId/pdf'
@@ -1706,6 +1718,7 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/$recordId'
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
+    | '/records/$recordId/evidence/$revisionId'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
@@ -2740,6 +2753,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PipelinesPipelineIdRunsRunIdRouteImport
       parentRoute: typeof PipelinesPipelineIdRoute
     }
+    '/records/$recordId/evidence/$revisionId': {
+      id: '/records/$recordId/evidence/$revisionId'
+      path: '/evidence/$revisionId'
+      fullPath: '/records/$recordId/evidence/$revisionId'
+      preLoaderRoute: typeof RecordsRecordIdEvidenceRevisionIdRouteImport
+      parentRoute: typeof RecordsRecordIdRoute
+    }
     '/api/client-portal/records/$recordId/pdf': {
       id: '/api/client-portal/records/$recordId/pdf'
       path: '/api/client-portal/records/$recordId/pdf'
@@ -3114,11 +3134,14 @@ const TemplatesRouteWithChildren = TemplatesRoute._addFileChildren(
 interface RecordsRecordIdRouteChildren {
   RecordsRecordIdNotebookRoute: typeof RecordsRecordIdNotebookRoute
   RecordsRecordIdIndexRoute: typeof RecordsRecordIdIndexRoute
+  RecordsRecordIdEvidenceRevisionIdRoute: typeof RecordsRecordIdEvidenceRevisionIdRoute
 }
 
 const RecordsRecordIdRouteChildren: RecordsRecordIdRouteChildren = {
   RecordsRecordIdNotebookRoute: RecordsRecordIdNotebookRoute,
   RecordsRecordIdIndexRoute: RecordsRecordIdIndexRoute,
+  RecordsRecordIdEvidenceRevisionIdRoute:
+    RecordsRecordIdEvidenceRevisionIdRoute,
 }
 
 const RecordsRecordIdRouteWithChildren = RecordsRecordIdRoute._addFileChildren(

@@ -18,3 +18,14 @@ export const RESULT_CELL_LIMIT = 1_000_000
 /** Per-run execution timeout in seconds. The statement_timeout is set to this
  * value inside the pipeline_worker transaction. */
 export const EXECUTION_TIMEOUT_SECONDS = 60
+
+/** Maximum Python request or result payload in bytes (32 MiB). Mirrored by the
+ * runner broker, which also rejects larger bodies before they reach the job. */
+export const PAYLOAD_BYTE_LIMIT = 32 * 1024 * 1024
+
+/** Render a byte count for a limit-failure message, e.g. `33.6 MiB`. */
+export function formatByteSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
+}

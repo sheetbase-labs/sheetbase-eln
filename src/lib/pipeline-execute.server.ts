@@ -26,7 +26,8 @@
  * attempt to the failed run.
  */
 import { Client } from 'pg'
-import { executePythonTransform } from './pipeline-python.server'
+import { PipelinePythonError, executePythonTransform } from './pipeline-python.server'
+import type { PythonTransformUsage } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
 import type { QueryResultRow } from 'pg'
@@ -498,7 +499,11 @@ async function finishExecution(
   conn: ExecConnection,
   run: RunRow,
   config: PipelineConfig,
-  transform: { rows: Array<Record<string, unknown>>; durationMs: number },
+  transform: {
+    rows: Array<Record<string, unknown>>
+    durationMs: number
+    usage?: PythonTransformUsage
+  },
   timing: {
     startedAt: number
     materializeMs: number
@@ -567,6 +572,9 @@ async function finishExecution(
   const completion = {
     actions: actionResults,
     rowCount: transform.rows.length,
+    // PIPE-04.3: the run's peak measured Python payload usage (omitted when no
+    // Python step ran). Stored on the run so the UI can show storage/limits.
+    pythonUsage: transform.usage,
     outputDatasetId: output.datasetId,
     outputDatasetVersionId: output.datasetVersionId,
     outputLabel: output.label,
@@ -1434,7 +1442,13 @@ async function materializeInputRows(
 // ---------------------------------------------------------------------------
 
 type TransformOutcome =
-  | { kind: 'rows'; rows: Array<Record<string, unknown>>; durationMs: number }
+  | {
+      kind: 'rows'
+      rows: Array<Record<string, unknown>>
+      durationMs: number
+      /** PIPE-04.3: per-run peak payload usage measured across Python steps. */
+      usage?: PythonTransformUsage
+    }
   | {
       kind: 'waiting'
       step: PipelineStep
@@ -1461,6 +1475,22 @@ async function executeSteps(
   const skipped = new Set<string>()
   // The most recent recorded decision, exposed to the steps after it.
   let answerValues: Record<string, unknown> | null = null
+  // PIPE-04.3: the peak payload usage reported by any Python step this run.
+  const peakUsage: PythonTransformUsage = {
+    inputBytes: 0,
+    outputBytes: 0,
+    rows: 0,
+    cells: 0,
+  }
+  let sawUsage = false
+  const recordUsage = (usage: PythonTransformUsage | undefined): void => {
+    if (!usage) return
+    sawUsage = true
+    peakUsage.inputBytes = Math.max(peakUsage.inputBytes, usage.inputBytes)
+    peakUsage.outputBytes = Math.max(peakUsage.outputBytes, usage.outputBytes)
+    peakUsage.rows = Math.max(peakUsage.rows, usage.rows)
+    peakUsage.cells = Math.max(peakUsage.cells, usage.cells)
+  }
   const steps: PipelineStep[] = [
     ...(config.transform.language === 'none'
       ? []
@@ -1503,6 +1533,7 @@ async function executeSteps(
           `Python step ${index + 1} completed.`,
           { runtime: result.runtime, logs: result.logs },
         )
+        recordUsage(result.usage)
         return {
           kind: 'rows',
           rows: result.rows,
@@ -1511,7 +1542,7 @@ async function executeSteps(
       } catch (error) {
         return {
           kind: 'error',
-          code: 'transform_failed',
+          code: pythonErrorCode(error),
           message:
             error instanceof Error ? error.message : 'Python execution failed.',
         }
@@ -1597,7 +1628,29 @@ async function executeSteps(
     kind: 'rows',
     rows: previous ?? [],
     durationMs: Date.now() - started,
+    ...(sawUsage ? { usage: peakUsage } : {}),
   }
+}
+
+/**
+ * Map a runner failure onto the executor's bounded error codes. Size and
+ * timeout limits are reported with their own codes (and a numeric message from
+ * the broker) rather than collapsing into a bare `transform_failed`.
+ */
+function pythonErrorCode(error: unknown): PipelineErrorCode {
+  if (error instanceof PipelinePythonError) {
+    switch (error.code) {
+      case 'input_too_large':
+        return 'input_too_large'
+      case 'transform_timed_out':
+        return 'transform_timed_out'
+      case 'output_too_large':
+        return 'row_limit_exceeded'
+      default:
+        return 'transform_failed'
+    }
+  }
+  return 'transform_failed'
 }
 
 /**

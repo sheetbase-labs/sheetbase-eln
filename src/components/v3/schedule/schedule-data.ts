@@ -148,14 +148,18 @@ export function useBookingSamples(
   })
 }
 
-export async function bookInstrument(input: {
+export interface BookInstrumentInput {
   workspaceId: string
   resourceId: string
   title: string
   startsAt: string
   endsAt: string
   timezone: string
-}): Promise<ScheduleBooking> {
+}
+
+export async function bookInstrument(
+  input: BookInstrumentInput,
+): Promise<ScheduleBooking> {
   const wire = await createBooking(notebookDataClient, input.workspaceId, {
     resourceId: input.resourceId,
     title: input.title,

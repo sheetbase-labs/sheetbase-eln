@@ -62,6 +62,7 @@ import {
   StatusBadge,
 } from '#/components/scientific'
 import type { InspectorTab } from '#/components/record'
+import { SignaturesTable } from '#/components/review/signatures-table'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -103,11 +104,7 @@ import type {
   RevisionWire,
 } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
-import {
-  fetchSignaturesForRecord,
-  signatureQueryKeys,
-  SIGNATURE_MEANING_LABEL,
-} from '#/lib/signatures'
+import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
 import type { SignatureWire } from '#/lib/signatures'
 import {
   Table,
@@ -1209,66 +1206,17 @@ function RecordNotebookPanel({
   }
   if (tab === 'signatures') {
     return (
-      <section aria-label="signatures" className="py-4">
-        {signatureError ? (
-          <p role="alert">Signatures could not be loaded.</p>
-        ) : signaturesLoading ? (
-          <Muted>Loading signatures…</Muted>
-        ) : signatures.length ? (
-          <div className="overflow-x-auto rounded-md border border-border">
-            <Table aria-label="Immutable signatures">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Signature ID</TableHead>
-                  <TableHead>Signer</TableHead>
-                  <TableHead>Signed at</TableHead>
-                  <TableHead>Meaning</TableHead>
-                  <TableHead>Revision and exact digest</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {signatures.map((signature) => (
-                  <TableRow key={signature.id}>
-                    <TableCell className="font-mono text-xs">
-                      {signature.id}
-                    </TableCell>
-                    <TableCell>
-                      {signature.signer_name ??
-                        'Name not recorded in historical evidence'}
-                      <span className="block text-xs text-fg-muted">
-                        {signature.signer_user_id}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <time dateTime={signature.signed_at}>
-                        {signature.signed_at}
-                      </time>
-                    </TableCell>
-                    <TableCell>
-                      {SIGNATURE_MEANING_LABEL[signature.signature_meaning]}
-                      <span className="block text-xs text-fg-muted">
-                        {signature.auth_method}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <div className="w-64 whitespace-normal">
-                        <span className="block break-all">
-                          {signature.revision_id}
-                        </span>
-                        <span className="block break-all">
-                          {signature.revision_integrity_digest}
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <Muted>No signatures yet.</Muted>
+      <SignaturesTable
+        signatures={signatures}
+        isLoading={signaturesLoading}
+        isError={signatureError}
+        revisionVersions={Object.fromEntries(
+          revisions.map((revision) => [
+            revision.id,
+            revision.structure_version,
+          ]),
         )}
-      </section>
+      />
     )
   }
   const rows = revisions

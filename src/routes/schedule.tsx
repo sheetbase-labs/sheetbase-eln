@@ -4,20 +4,10 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
 import { Dot } from '#/components/v3/ui/status'
 import { Muted } from '#/components/v3/ui/layout'
-import { Field, Input } from '#/components/v3/ui/input'
-import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-} from '#/components/v3/ui/dialog'
 import { Icon } from '#/components/v3/icons'
 import { toast } from '#/components/v3/ui/sonner'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { BookDialog } from '#/components/v3/schedule/book-dialog'
 import {
-  bookInstrument,
   useBookingSamples,
   useRangeBookings,
   useScheduleResources,
@@ -169,6 +159,7 @@ function Schedule() {
         </div>
         <BookDialog
           instruments={instruments}
+          workspaceId={workspaceId}
           defaultDate={view === 'day' ? anchor : addDays(today, 3)}
           onBooked={(b) => {
             setAdded((a) => [...a, b])
@@ -584,120 +575,5 @@ function Below({
         )}
       </section>
     </div>
-  )
-}
-
-function BookDialog({
-  instruments,
-  defaultDate,
-  onBooked,
-}: {
-  instruments: ScheduleInstrument[]
-  defaultDate: string
-  onBooked: (b: ScheduleBooking) => void
-}) {
-  const { context } = Route.useRouteContext()
-  const [open, setOpen] = useState(false)
-  const [resourceId, setResourceId] = useState('')
-  const [title, setTitle] = useState('')
-  const [date, setDate] = useState(defaultDate)
-  const [start, setStart] = useState('09:00')
-  const [end, setEnd] = useState('10:00')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const submit = async () => {
-    const wsId = context.workspace?.id
-    if (!wsId) return
-    if (!resourceId || !title.trim()) {
-      setError('Choose an instrument and give the booking a title.')
-      return
-    }
-    setBusy(true)
-    setError(null)
-    try {
-      const b = await bookInstrument({
-        workspaceId: wsId,
-        resourceId,
-        title: title.trim(),
-        startsAt: `${date}T${start}:00.000Z`,
-        endsAt: `${date}T${end}:00.000Z`,
-        timezone: 'UTC',
-      })
-      onBooked(b)
-      setOpen(false)
-      setTitle('')
-      setResourceId('')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create the booking.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button
-        className="ml-2 max-md:ml-0 max-md:h-11 max-md:w-full"
-        onClick={() => setOpen(true)}
-      >
-        Book instrument
-      </Button>
-      <DialogContent className="w-[min(480px,calc(100vw-32px))]">
-        <DialogHeader title="Book an instrument" />
-        <DialogBody>
-          <Field label="Instrument" required>
-            <NativeSelect
-              value={resourceId}
-              onChange={(e) => setResourceId(e.target.value)}
-            >
-              <option value="">Choose…</option>
-              {instruments.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field label="What" required>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </Field>
-          <Field label="Date" required>
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="From" required>
-              <Input
-                type="time"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-              />
-            </Field>
-            <Field label="To" required>
-              <Input
-                type="time"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
-            </Field>
-          </div>
-          {error ? (
-            <p role="alert" className="m-0 text-label text-danger-text">
-              {error}
-            </p>
-          ) : null}
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
-          <Button variant="primary" disabled={busy} onClick={submit}>
-            {busy ? 'Booking…' : 'Book'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

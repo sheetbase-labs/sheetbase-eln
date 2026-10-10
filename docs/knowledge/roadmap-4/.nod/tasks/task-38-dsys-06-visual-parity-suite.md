@@ -2,10 +2,10 @@
 id: task-38
 title: DSYS-06 — Visual parity suite
 type: task
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-10-04"
+updated: "2026-10-10"
 parent: epic-14
 related:
   - task-2
@@ -25,6 +25,7 @@ Spec: [DSYS-06 in tasks/DSYS.md](../../tasks/DSYS.md#dsys-06--visual-parity-suit
 - Steps: 3 subtasks
 
 ## Work Log
+  - 2026-10-10: every subtask of this task is done, so the task's own in-progress status was stale; closed after confirming the subtask statuses in .nod/tasks. Optical parity remains deferred by the owner's instruction.
   - 2026-10-10: owner decision - pnpm test:parity and pnpm test:browser are deferred to the end of the programme. Implementation slices are verified with the unit suite and the database files that cover them; the visual registry and the browser workflows run once, at acceptance. The layers themselves were made much faster first (database ~12m -> ~1m45s, parity ~8.5m -> ~2m33s, browser 6.6m -> ~2m37s), so the deferred run is cheap when it happens.
   - 2026-10-10: Projects column geometry pinned down, and the layer timings recorded. Measured with the parity state reproduced directly (sign in as the design user, open the row, 888px table): the app's first data row paints text at x 266-390 and 401-406, while the reference continues at 441-446 and 452-503 - the reference's Client column starts at ~441 where the app's starts at ~611 (DOM: ID@282/79, Project@361/251, Client@611/70, Stage@682/165, Lead@847/77, Experiments@924/93, Status@1017/103). Both tables are 888px wide with auto layout, identical text and the same 13px body size, so the difference is in how the two layouts distribute the width; the app's ID+Project columns take ~170px more than the reference's. Next step on this board is to match the reference's per-column distribution. Layer timings after the parallelisation work: database ~12m -> 1m45s, parity ~8.5m -> 2m33s, browser 6.6m -> 2m37s.
   - 2026-10-10: ExperimentsList analysed and left for a decision. Measured in process-development: 160 non-deleted experiments = 39 design-declared + 121 padding. Declared: draft 14, approved 11, in_progress 8, in_review 4, on_hold 1, planned 1. Padding: in_progress 77, approved 28, in_review 16. The canvas states All 148 with In progress 12, In review 4, Approved 97, Drafts 3 under an active 'Updated in last 30 days' filter chip (or as totals if that chip is decorative). Either reading conflicts with the declared rows: the seed declares 14 draft experiments where the canvas shows 3, so no padding-only reassignment can reach the canvas (an attempt fails fast with 'cannot reach 12 in_progress rows' once the surplus is parked outside the window). Resolving it means deciding whether those declared drafts belong on this board at all, or whether the canvas's Drafts figure is the one that moves - both are cross-board product questions, so the step was reverted rather than forced. The seed still runs clean (44 steps).

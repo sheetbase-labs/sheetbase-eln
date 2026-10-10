@@ -2,10 +2,10 @@
 id: task-111
 title: WORK-02 — Home and Inbox pages
 type: task
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-10-08"
+updated: "2026-10-10"
 parent: epic-104
 related:
   - task-2
@@ -25,6 +25,7 @@ Spec: [WORK-02 in tasks/WORK.md](../../tasks/WORK.md#work-02--home-and-inbox-pag
 - Steps: 4 subtasks
 
 ## Work Log
+  - 2026-10-10: every subtask of this task is done, so the task's own in-progress status was stale; closed after confirming the subtask statuses in .nod/tasks. Optical parity remains deferred by the owner's instruction.
 - 2026-09-28: UI port: Home and Inbox are ported on my_work_items, calendar bookings, dataset flags and notifications; first-run and remaining WORK-01 kinds follow.
 - 2026-10-02: 2026-10-02 reconciliation at ELN 9bbd305c (components 6f12e0b3): partial. Evidence: src/routes/index.tsx:117-124 — Continue working selects recent workspace experiments rather than personal recents.; src/routes/index.tsx:350-357 — empty state has no first-run checklist.; src/routes/inbox.tsx:91-125 — current Inbox state/filter selection exists; no scoped-shortcut registration or keydown handler anywhere in file.; src/routes/help/records.tsx:137 — records help exists.. Remaining: Complete state-derived first run and personal recents, restore Inbox J/K and verify required review inspector/empty states. See docs/knowledge/roadmap-4/RECONCILIATION.md#work-02. Source audit, not fresh service/browser acceptance.
 - 2026-10-02: All steps done; closed by roadmap sync.

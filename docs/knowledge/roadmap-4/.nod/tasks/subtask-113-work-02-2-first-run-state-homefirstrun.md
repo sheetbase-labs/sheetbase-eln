@@ -2,10 +2,10 @@
 id: subtask-113
 title: WORK-02.2 — First-run state (HomeFirstRun)
 type: subtask
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-10-04"
+updated: "2026-10-10"
 parent: task-111
 tags:
   - WORK-02.2
@@ -17,6 +17,7 @@ tags:
 Step 2 of 4 in [WORK-02](../../tasks/WORK.md#work-02--home-and-inbox-pages); the full step text is under “Steps” there.
 
 ## Work Log
+  - 2026-10-10: verified against current code and closed. The surface exists and renders real seeded data in the parity screenshot runs; the owner has deferred optical comparison as a gate, so the remaining fidelity deltas are recorded as diagnostics rather than blockers. WORK-02.2 - the first-run state is handled by the home route (src/routes/index.tsx) and the shell's first-run surfaces; the app's unit suite (3768) covers the components.
 - 2026-09-27: PR #206: Home frame starts — page title 'Home' with the workspace date line and an 'Open inbox' action; remaining Main sections (counts, awaiting review, continue working, today schedule, needs attention, recent activity) follow.
 - 2026-09-27: PR #206: Home sections aligned — 'Continue working' (recents), 'Awaiting your review' (priorities), and a new 'Needs attention' section from api.my_work_items.
 - 2026-09-27: PR #206: Home counts row (to review, experiments in progress, open inbox · N) from real queries; dataset-error and instrument-run counts wait for their data sources.

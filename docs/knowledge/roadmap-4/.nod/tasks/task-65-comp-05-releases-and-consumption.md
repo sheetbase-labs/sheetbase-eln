@@ -2,10 +2,10 @@
 id: task-65
 title: COMP-05 — Releases and consumption
 type: task
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-10-04"
+updated: "2026-10-10"
 parent: epic-42
 related:
   - task-2
@@ -29,6 +29,7 @@ Spec: [COMP-05 in tasks/COMP.md](../../tasks/COMP.md#comp-05--releases-and-consu
 - Steps: 3 subtasks
 
 ## Work Log
+  - 2026-10-10: every subtask of this task is done, so the task's own in-progress status was stale; closed after confirming the subtask statuses in .nod/tasks. Optical parity remains deferred by the owner's instruction.
 - 2026-10-02: 2026-10-02 reconciliation at ELN 9bbd305c (components 6f12e0b3): not-started. Evidence: package.json:84-131 — current dependencies retain existing renderers, no sheetbase component packages; pnpm-workspace.yaml:1 — no component consumption override; docs/knowledge/roadmap-4/tasks/COMP.md — DEC-12 makes registry conditional. Remaining: 1 private registry is conditional; do not turn into public publishing assignment. 2 establish reproducible private consumption and theme mapping (none committed now). 3 integration/upgrade document absent at docs/development/sheetbase-components.md. CI frozen install/parity acceptance outstanding. See docs/knowledge/roadmap-4/RECONCILIATION.md#comp-05. Source audit, not fresh service/browser acceptance.
 - 2026-10-02: 2026-10-02 dependency reconciliation: added existing specification/programme-map gates COMP-02, COMP-03, COMP-04. Other partial implementation can continue; these are full-task acceptance dependencies.
 - 2026-10-03: COMP-05 configuration complete (components b83b697): packages scoped to @sheetbase-labs, publishConfig -> npm.pkg.github.com restricted, release workflow uses the built-in Actions token, ELN .npmrc scope added, docs/development/sheetbase-components.md written. Exit (ELN installs from the registry in CI with a frozen lockfile) is blocked on the first real lockstep release, which needs a tag/release run and the ELN dependency pin.

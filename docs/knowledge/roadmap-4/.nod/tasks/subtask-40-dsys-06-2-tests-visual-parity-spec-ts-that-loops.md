@@ -2,10 +2,10 @@
 id: subtask-40
 title: DSYS-06.2 — tests/visual/parity.spec.ts that loops over design-states.ts
 type: subtask
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-10-04"
+updated: "2026-10-10"
 parent: task-38
 tags:
   - DSYS-06.2
@@ -17,6 +17,7 @@ tags:
 Step 2 of 3 in [DSYS-06](../../tasks/DSYS.md#dsys-06--visual-parity-suite); the full step text is under “Steps” there.
 
 ## Work Log
+  - 2026-10-10: verified against current code and closed. The surface exists and renders real seeded data in the parity screenshot runs; the owner has deferred optical comparison as a gate, so the remaining fidelity deltas are recorded as diagnostics rather than blockers. DSYS-06.2 - the parity spec exists at tests/visual/parity.spec.ts and loops over tests/visual/design-states.ts, generating a board per mapped screen and theme; that is the step's deliverable, and board-level fidelity is the deferred work.
   - 2026-10-10: the record pin is in and verified - EXP-0136 reads 2026-09-25 08:40, the design clock - and the residual drift has two distinct causes, neither of them the pin. (1) A signed record is skipped because internal.prevent_locked_record_mutation refuses it; the workspace's one locked record is EXP-0138, which sits in the very project the client portal shows, so the portal's max(records.updated_at) still reads that record's date. That is a product question - which records a 'last update' should count - or a seed question about signing, not a pin bug. (2) SMP-2231 moved to today at 14:56, minutes AFTER the seed run at 14:48, so it was mutated at runtime rather than by the seed: the parity suite exercises actions on that sample, so boards that display a mutated record's date will drift as the suite runs. Worth knowing before treating any remaining date difference as a seed defect.
   - 2026-10-10: ClientPortal's gap is the clock, and the trace explains a wider drift. Its 'Last update' reads max(records.updated_at) for the project (the portal RPC's last_update), and every one of the 216 fixture records in the design workspace is dated today, while the design is frozen at 25 Sep. Adding a pin to the design clock step failed: internal.set_updated_at forces NEW.updated_at := now() whenever any other column differs, and a statement that changes only updated_at still differs on that column, so an ordinary UPDATE can never pin it - and the attempt also hit internal.prevent_locked_record_mutation ('record is locked') for signed records. The step's existing dataset pin does work, because api.datasets does not carry set_updated_at (DS-0311 reads 2026-09-25 08:12). So pinning record dates needs the trigger disabled around the update (the seed runs as the migrator, which can) or a different clock source for those surfaces. Scope: this affects every board that shows a relative or seeded record date, which is most of the remaining drift, and it is the same clock problem the SHEETBASE_NOW seam addresses for the runtime.
   -  Verified outcome: the row now reads 'Capsid titre 8.6 x10^11 cp/mL . DS-0311', which matches the design's value, unit and dataset citation exactly - only the design's 'rows 1-2' suffix is absent, because api.sample_measurement_provenance exposes row ids rather than row indexes. The ELISA capsid_titre field's unit was changed to x10^11 cp/mL (a capsid ELISA counts capsid particles, and the design uses both cp/mL and vg/mL across screens, so the per-schema field is the right place), and the bench-reading schema keeps its own capsid field, so only the ELISA datasets are affected. Suites after the change: unit 3768, and 12 seed/dataset DB files (72 tests) including design-seed-coverage and design-signatures.

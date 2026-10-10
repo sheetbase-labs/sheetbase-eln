@@ -27,6 +27,15 @@ references are rendered from the vendored canvases only when those change
 (`tsx scripts/design-reference.mts --if-stale`), and the comparisons run
 parallel across workers.
 
+`tests/db/design-scenarios.test.ts` covers three design screens and provisions
+its own `sheetbase_parity_*` database for each. It refuses to run unless
+`SHEETBASE_ENV=test`, `SHEETBASE_DEV_AUTH_FREE=false`, and all four role
+URLs (`DATABASE_URL`, `MIGRATION_DATABASE_URL`, `PGRST_DB_URI`,
+`FORMULA_DATABASE_URL`) are loopback URLs naming that exact database (see
+[seeds.md](seeds.md)). A `.env.local` whose `PGRST_DB_URI` names the Compose
+host `postgres` fails these three by design; point that variable at the local
+port rather than relaxing the guard.
+
 While working a slice, run the file or files that cover it: the full database
 layer is for acceptance, not for every change.
 

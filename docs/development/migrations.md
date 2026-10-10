@@ -103,10 +103,9 @@ pnpm db:migrate
 ```
 
 Do not run plain `pnpm db:generate` expecting a diff, and do not treat its
-output as a migration. The fresh-database check in the normal flow is likewise
-`drizzle-kit generate --custom` on an empty database, then confirming the
-history applies without error — not "must produce no new migration", which the
-absent baseline makes meaningless.
+output as a migration. The check the normal flow relies on is `pnpm test:db`
+replaying the whole journal against an empty database, not the old "must
+produce no new migration" rule, which the absent baseline makes meaningless.
 
 `0110_core_schema_snapshot_checkpoint.sql` is a no-op kept for the migration
 sequence. Do not replace it with `CREATE TABLE` for objects those migrations

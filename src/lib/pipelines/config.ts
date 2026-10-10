@@ -60,6 +60,61 @@ export interface PipelineOutput {
   fieldMapping?: Record<string, string> | null
 }
 
+/**
+ * PIPE-02 / DEC-08 / ADR-0052 — a `confirm` step pauses the run for a named
+ * person. Autonomy stays the default: only a step that carries `confirm`
+ * pauses. The pipeline author configures the typed decision form, who is
+ * asked, which steps depend on the decision, and what happens when nobody
+ * answers before the prompt expires.
+ */
+export const CONFIRM_NO_ANSWER_OUTCOMES = ['reask', 'apply', 'fail'] as const
+export type ConfirmNoAnswerOutcome = (typeof CONFIRM_NO_ANSWER_OUTCOMES)[number]
+
+/** The three decisions a person can record against a prompt. */
+export const CONFIRM_DECISIONS = ['confirm', 'skip', 'stop'] as const
+export type ConfirmDecision = (typeof CONFIRM_DECISIONS)[number]
+
+/** Default and maximum prompt lifetime; temporary data is bounded by this. */
+export const DEFAULT_CONFIRM_EXPIRY_HOURS = 24
+export const MAX_CONFIRM_EXPIRY_HOURS = 168
+export const MAX_CONFIRM_FIELDS = 20
+export const MAX_CONFIRM_ASKED_USERS = 50
+
+/** One field of the typed decision form shown to the asked people. */
+export interface PipelineConfirmField {
+  key: string
+  label: string
+  type: ParameterType
+  required?: boolean
+  /** With type 'text', render a select of these options. */
+  options?: string[]
+}
+
+/** Opt-in human confirmation attached to a step. */
+export interface PipelineStepConfirm {
+  /** Typed decision form; at least one field. */
+  fields: PipelineConfirmField[]
+  /** The named people asked to decide (user ids); at least one. */
+  askedUserIds: string[]
+  /**
+   * Steps skipped when the person chooses Skip. The step must be declared in
+   * this version's `steps`. Skipping leaves the dependent work unapplied.
+   */
+  skipSteps?: string[]
+  /** Behaviour when nobody answers before expiry. Default 'reask'. */
+  noAnswer?: ConfirmNoAnswerOutcome
+  /** Prompt lifetime in hours. Default 24, maximum 168. */
+  expiresHours?: number
+}
+
+export interface PipelineStep {
+  name: string
+  language: 'sql' | 'python'
+  statement: string
+  /** Opt-in: run this step's proposal, then pause for a person. */
+  confirm?: PipelineStepConfirm
+}
+
 export interface PipelineConfig {
   configVersion: typeof PIPELINE_CONFIG_VERSION
   description?: string
@@ -77,7 +132,7 @@ export interface PipelineConfig {
   }
   output: PipelineOutput
   /** Ordered analysis steps; each receives the preceding result as previous. */
-  steps?: Array<{ name: string; language: 'sql' | 'python'; statement: string }>
+  steps?: PipelineStep[]
   /** Signed HTTP POST destinations, delivered durably after successful output. */
   notifications?: Array<{
     subscriptionId: string
@@ -392,6 +447,24 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             `steps[${index}].statement`,
             'Step code must contain 1–20000 characters.',
           )
+        if (step.confirm !== undefined)
+          validateConfirmStep(errors, step.confirm, index)
+      }
+      // skipSteps must reference a declared step other than the confirm step.
+      for (const [index, step] of v.steps.entries()) {
+        if (!isObject(step) || !isObject(step.confirm)) continue
+        const skips = step.confirm.skipSteps
+        if (!Array.isArray(skips)) continue
+        for (const name of skips) {
+          if (typeof name !== 'string') continue
+          if (!names.has(name) || name === step.name)
+            push(
+              errors,
+              'invalid_value',
+              `steps[${index}].confirm.skipSteps`,
+              `skipSteps must name another step in this version: ${name}`,
+            )
+        }
       }
     }
   }
@@ -533,6 +606,166 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
   return errors
 }
 
+function validateConfirmStep(
+  errors: ConfigError[],
+  raw: unknown,
+  index: number,
+): void {
+  const field = `steps[${index}].confirm`
+  if (!isObject(raw)) {
+    push(
+      errors,
+      'invalid_shape',
+      field,
+      'A confirm step needs a form, asked people and a no-answer outcome.',
+    )
+    return
+  }
+  if (
+    !Array.isArray(raw.fields) ||
+    raw.fields.length < 1 ||
+    raw.fields.length > MAX_CONFIRM_FIELDS
+  ) {
+    push(
+      errors,
+      'invalid_shape',
+      `${field}.fields`,
+      `The decision form needs between 1 and ${MAX_CONFIRM_FIELDS} fields.`,
+    )
+  } else {
+    const keys = new Set<string>()
+    raw.fields.forEach((rawField, fieldIndex) => {
+      const path = `${field}.fields[${fieldIndex}]`
+      if (
+        !isObject(rawField) ||
+        typeof rawField.key !== 'string' ||
+        !INPUT_NAME_RE.test(rawField.key)
+      ) {
+        push(
+          errors,
+          'invalid_value',
+          `${path}.key`,
+          'Each form field needs a lowercase identifier key.',
+        )
+        return
+      }
+      if (keys.has(rawField.key))
+        push(
+          errors,
+          'duplicate_name',
+          `${path}.key`,
+          `form field key is duplicated: ${rawField.key}`,
+        )
+      keys.add(rawField.key)
+      if (
+        typeof rawField.label !== 'string' ||
+        rawField.label.trim().length < 1 ||
+        rawField.label.length > 200
+      )
+        push(
+          errors,
+          'invalid_value',
+          `${path}.label`,
+          'Each form field needs a label of at most 200 characters.',
+        )
+      if (
+        typeof rawField.type !== 'string' ||
+        !(PARAMETER_TYPES as readonly string[]).includes(rawField.type)
+      )
+        push(
+          errors,
+          'invalid_value',
+          `${path}.type`,
+          'Choose a supported field type.',
+        )
+      if (
+        rawField.required !== undefined &&
+        typeof rawField.required !== 'boolean'
+      )
+        push(
+          errors,
+          'invalid_value',
+          `${path}.required`,
+          'required must be a boolean.',
+        )
+      if (
+        rawField.options !== undefined &&
+        (!Array.isArray(rawField.options) ||
+          rawField.options.length < 1 ||
+          rawField.options.length > 50 ||
+          rawField.options.some(
+            (option) =>
+              typeof option !== 'string' ||
+              option.trim().length === 0 ||
+              option.length > 100,
+          ))
+      )
+        push(
+          errors,
+          'invalid_value',
+          `${path}.options`,
+          'options must be 1–50 short labels.',
+        )
+    })
+  }
+  if (
+    !Array.isArray(raw.askedUserIds) ||
+    raw.askedUserIds.length < 1 ||
+    raw.askedUserIds.length > MAX_CONFIRM_ASKED_USERS ||
+    raw.askedUserIds.some(
+      (userId) => typeof userId !== 'string' || userId.trim().length === 0,
+    )
+  ) {
+    push(
+      errors,
+      'invalid_shape',
+      `${field}.askedUserIds`,
+      `Ask between 1 and ${MAX_CONFIRM_ASKED_USERS} people.`,
+    )
+  }
+  if (
+    raw.noAnswer !== undefined &&
+    !(CONFIRM_NO_ANSWER_OUTCOMES as readonly string[]).includes(
+      raw.noAnswer as string,
+    )
+  ) {
+    push(
+      errors,
+      'invalid_value',
+      `${field}.noAnswer`,
+      'Choose stop and re-ask, apply the proposal, or fail.',
+    )
+  }
+  if (
+    raw.expiresHours !== undefined &&
+    (typeof raw.expiresHours !== 'number' ||
+      !Number.isInteger(raw.expiresHours) ||
+      raw.expiresHours < 1 ||
+      raw.expiresHours > MAX_CONFIRM_EXPIRY_HOURS)
+  ) {
+    push(
+      errors,
+      'invalid_value',
+      `${field}.expiresHours`,
+      `expiresHours must be a whole number between 1 and ${MAX_CONFIRM_EXPIRY_HOURS}.`,
+    )
+  }
+  if (
+    raw.skipSteps !== undefined &&
+    (!Array.isArray(raw.skipSteps) ||
+      raw.skipSteps.some(
+        (name) => typeof name !== 'string' || !INPUT_NAME_RE.test(name),
+      ))
+  ) {
+    push(
+      errors,
+      'invalid_value',
+      `${field}.skipSteps`,
+      'skipSteps must be a list of lowercase step identifiers.',
+    )
+  }
+}
+
 function defaultMatchesType(value: unknown, type: unknown): boolean {
   switch (type) {
     case 'text':
@@ -555,6 +788,64 @@ function defaultMatchesType(value: unknown, type: unknown): boolean {
 export function configErrorsToMessage(errors: ConfigError[]): string | null {
   if (errors.length === 0) return null
   return errors[0].message
+}
+
+// ---------------------------------------------------------------------------
+// PIPE-02 confirm-step helpers (shared by the executor and the authoring UI).
+// ---------------------------------------------------------------------------
+
+/** The confirm step named `stepName`, or null when it is not a confirm step. */
+export function findPipelineConfirmStep(
+  config: PipelineConfig,
+  stepName: string,
+): PipelineStep | null {
+  const step = (config.steps ?? []).find((entry) => entry.name === stepName)
+  return step && step.confirm ? step : null
+}
+
+/** Author's no-answer outcome; DEC-08 defaults to stop and re-ask. */
+export function confirmNoAnswerOutcome(
+  confirm: PipelineStepConfirm,
+): ConfirmNoAnswerOutcome {
+  return confirm.noAnswer ?? 'reask'
+}
+
+/** Prompt lifetime in hours (bounded by MAX_CONFIRM_EXPIRY_HOURS). */
+export function confirmExpiryHours(confirm: PipelineStepConfirm): number {
+  return confirm.expiresHours ?? DEFAULT_CONFIRM_EXPIRY_HOURS
+}
+
+/**
+ * Validate a recorded decision against the step's form: the decision must be
+ * one of the three, and Confirm must carry type-matching values for every
+ * required field. Null when valid.
+ */
+export function validateConfirmAnswer(
+  confirm: PipelineStepConfirm,
+  answer: unknown,
+): string | null {
+  if (!isObject(answer))
+    return 'an answer must be an object with a decision'
+  if (
+    typeof answer.decision !== 'string' ||
+    !(CONFIRM_DECISIONS as readonly string[]).includes(answer.decision)
+  )
+    return 'decision must be confirm, skip or stop'
+  const values = answer.values
+  if (values !== undefined && !isObject(values))
+    return 'values must be an object'
+  if (answer.decision !== 'confirm') return null
+  const supplied = (values ?? {}) as Record<string, unknown>
+  for (const field of confirm.fields) {
+    const present = field.key in supplied
+    if (!present) {
+      if (field.required) return `missing required field: ${field.key}`
+      continue
+    }
+    if (!valueMatchesType(supplied[field.key], field.type))
+      return `field ${field.key} does not match its declared type`
+  }
+  return null
 }
 
 export interface ResolvedRunRequest {

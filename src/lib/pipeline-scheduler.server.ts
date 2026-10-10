@@ -33,7 +33,10 @@ import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
 import { metrics } from '#/lib/metrics'
-import { runPipelineExecution } from './pipeline-execute.server'
+import {
+  expirePipelinePrompts,
+  runPipelineExecution,
+} from './pipeline-execute.server'
 import type { PipelineExecuteDeps } from './pipeline-execute.server'
 import {
   nextRunAt,
@@ -840,6 +843,18 @@ export function startPipelineScheduler(): void {
   const tick = async () => {
     try {
       await sweepPipelines(deps)
+      // PIPE-02.2: an unanswered prompt applies the outcome its author
+      // configured for a run that nobody answered. This path acts as the
+      // pipeline, not a person, so a human session is never needed — and if
+      // that ever changes it must fail loudly rather than act as a fake user.
+      await expirePipelinePrompts({
+        getSession: async () => {
+          throw new Error(
+            'Expiring a pipeline prompt must not require a human session.',
+          )
+        },
+        connect: defaultConnect,
+      })
     } catch (error) {
       // The sweep must never take the server down; failure is logged and
       // retried on the next interval.

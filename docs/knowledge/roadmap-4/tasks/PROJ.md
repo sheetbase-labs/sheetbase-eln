@@ -107,6 +107,18 @@ lines) renders the project page today.
 1. Decide with the SHELL-04 outcome for `/planner` whether milestones reuse
    `study_deliverables` or get `api.project_milestones` (order, title, status,
    target date, evidence links via `record_links`); write it in this task.
+
+   **Decision (2026-10-10): milestones reuse `study_deliverables`.** This task's own
+   scope says to reconcile with `study_deliverables` rather than create a second
+   planning model, and the existing model already carries what a milestone needs:
+   name, description, status (`planned | in_progress | delivered | overdue`), a target
+   date (`due_at`) and an evidence link (`linked_record_id` plus its captured
+   identifier). What it lacks is ordering, which step 2 adds as a `position` column
+   scoped to the owning task, so a milestone list has a stable order to reorder within.
+   Milestones are task-scoped because `task_id` is NOT NULL: a project's milestones are
+   the deliverables of the tasks in its workstreams, which is what the project page
+   renders. SHELL-04 is cancelled in favour of DEC-03, so there is no competing
+   `/planner` outcome to reconcile against.
 2. Milestone RPCs (create, reorder, update, link evidence) with DB tests.
 3. Project Overview tab: milestones table, recent experiments, details,
    members summary, client access, open reviews; plus the LVV and Ambr

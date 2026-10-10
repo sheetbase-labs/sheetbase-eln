@@ -2729,6 +2729,13 @@
       "when": 1791647735691,
       "tag": "0391_private_draft_experiments",
       "breakpoints": true
+    },
+    {
+      "idx": 392,
+      "version": "7",
+      "when": 1791648256372,
+      "tag": "0392_study_deliverable_milestones",
+      "breakpoints": true
     }
   ]
 }

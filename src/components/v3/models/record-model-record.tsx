@@ -29,6 +29,10 @@ function formatDate(value: string | null | undefined): string {
  * created, who uses the record, the canonical record timeline, and the
  * integrations note. Everything is read from the model and the record; no
  * per-model page code.
+ *
+ * MOB-02.4: the fields already read as one column, so on a phone the page just
+ * moves its actions to the end of that column as full-width targets
+ * (`canvas/RecordPhone.dc.html`); the desktop header keeps them.
  */
 export function RecordModelRecord({
   modelKey,
@@ -97,7 +101,7 @@ export function RecordModelRecord({
           </p>
           <h2 className="mt-1 mb-0 text-title">{record?.title ?? 'Record'}</h2>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 max-md:hidden">
           <Button
             variant="secondary"
             nativeButton={false}
@@ -204,6 +208,35 @@ export function RecordModelRecord({
           above. No integration has written to this record yet.
         </p>
       </Section>
+
+      {/* MOB-02.4: RecordPhone draws the record's actions at the end of the
+          column as full-width 44px targets, under the fields they act on. The
+          desktop header keeps them. */}
+      <div className="flex flex-col gap-2 md:hidden">
+        <Button
+          variant="primary"
+          size="lg"
+          nativeButton={false}
+          render={
+            <Link to="/models/$modelId/records/new" params={{ modelId: modelKey }} />
+          }
+        >
+          New {model.data?.name ?? 'record'}
+        </Button>
+        <Button
+          variant="secondary"
+          size="lg"
+          nativeButton={false}
+          render={
+            <Link
+              to="/models/$modelId/records"
+              params={{ modelId: modelKey }}
+            />
+          }
+        >
+          All records
+        </Button>
+      </div>
     </div>
   )
 }

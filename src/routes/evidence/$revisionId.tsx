@@ -45,7 +45,12 @@ import { createAmendment, sign002DataClient } from '#/lib/sign-002'
 
 /** UI port (roadmap-4/ui-app3): submitted evidence. The frozen revision reads
  * exactly as it was signed and never changes; when the live record has moved on,
- * that is stated and the way forward is an amendment, never an edit. */
+ * that is stated and the way forward is an amendment, never an edit.
+ *
+ * MOB-02.4: below the phone breakpoint the wide order/block/content table and
+ * the inspector's integrity facts become one readable column (the blocks as
+ * wrapping rows, the hash stated inline), while the amendment stays a desktop
+ * action and the page says so. */
 export const Route = createFileRoute('/evidence/$revisionId')({
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -64,7 +69,7 @@ function textSummary(payload: Record<string, unknown>): string {
   return keys.length ? keys.slice(0, 4).join(', ') : '—'
 }
 
-function EvidencePage() {
+export function EvidencePage() {
   const { revisionId } = Route.useParams()
   const revisionQuery = useQuery({
     queryKey: ['ui-port', 'evidence', revisionId],
@@ -190,7 +195,15 @@ function EvidencePage() {
               >
                 Open live record
               </Button>
-              <Button disabled={!recordId} onClick={() => setAmendOpen(true)}>
+              {/* MOB-02.4: creating an amendment unlocks the record for a new
+                  draft revision to be reviewed and signed; that is a desktop
+                  job, so below the phone breakpoint the page says so instead of
+                  offering the action. */}
+              <Button
+                disabled={!recordId}
+                onClick={() => setAmendOpen(true)}
+                className="max-md:hidden"
+              >
                 Create amendment
               </Button>
               <Button
@@ -215,7 +228,16 @@ function EvidencePage() {
               evidence above is unchanged; make an amendment — never an edit.
             </Notice>
           ) : null}
-          <TableBox className="max-w-[900px]">
+          {/* MOB-02.4: on a phone the integrity facts the desktop keeps in the
+              inspector are stated in the column, next to the frozen content
+              they vouch for. */}
+          <div className="flex flex-col gap-1 md:hidden">
+            <Status tone="ok">Hash verified when signed</Status>
+            <Muted className="break-all">
+              {revision.integrity_algorithm ?? 'sha256'} · {digest}
+            </Muted>
+          </div>
+          <TableBox className="max-w-[900px] max-md:hidden">
             <Table aria-label="Frozen revision content">
               <TableHeader>
                 <TableRow>
@@ -239,19 +261,51 @@ function EvidencePage() {
               </TableBody>
             </Table>
           </TableBox>
+          {/* MOB-02.4: the same frozen blocks as the desktop table, one
+              readable column, with the content wrapping in full rather than
+              truncated to a narrow third of a wide table. */}
+          {blocks.length ? (
+            <ul
+              aria-label="Frozen revision content"
+              className="m-0 list-none rounded-md border border-border px-4 md:hidden"
+            >
+              {blocks.map((b) => (
+                <li
+                  key={b.id}
+                  className="flex min-h-14 flex-col justify-center gap-1 border-b border-border-subtle py-2.5 last:border-0"
+                >
+                  <span className="flex items-baseline gap-2 text-label">
+                    <span className="num text-fg-muted">{b.order}</span>
+                    <span className="font-medium text-fg">{b.type}</span>
+                  </span>
+                  <span className="text-body text-fg">
+                    {textSummary(b.payload)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {blocks.length === 0 ? (
             <Muted>This revision has no blocks recorded.</Muted>
           ) : null}
+          <p className="m-0 text-label text-fg-muted md:hidden">
+            Creating an amendment needs a desktop: it unlocks the record for a
+            new draft revision, which is reviewed and signed in its own right.
+          </p>
         </div>
       </div>
 
       <Inspector aria-label="Evidence package" className="w-[320px]">
-        <InspectorSection title="Integrity">
-          <Status tone="ok">Verified when signed</Status>
-          <Muted className="mt-1 break-all">
-            {revision.integrity_algorithm ?? 'sha256'} · {digest}
-          </Muted>
-        </InspectorSection>
+        {/* The phone column above states the hash, so the folded-away inspector
+            does not repeat it (heading included) there. */}
+        <div className="max-md:hidden">
+          <InspectorSection title="Integrity">
+            <Status tone="ok">Verified when signed</Status>
+            <Muted className="mt-1 break-all">
+              {revision.integrity_algorithm ?? 'sha256'} · {digest}
+            </Muted>
+          </InspectorSection>
+        </div>
         <InspectorSection title="Revision">
           <Muted>
             Structure v{revision.structure_version} · metadata v

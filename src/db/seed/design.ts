@@ -2292,7 +2292,10 @@ const ELISA_FIELDS: ReadonlyArray<DesignDatasetField> = [
     key: 'capsid_titre',
     label: 'Capsid titre',
     logicalType: 'decimal',
-    unit: '×10¹⁰ vg/mL',
+    // A capsid ELISA counts capsid particles, and the design states the ELISA
+    // dataset's capsid titre as "8.6 x 10^11 cp/mL" (the bench-reading schema has
+    // its own field, so this unit only affects the ELISA datasets).
+    unit: '×10¹¹ cp/mL',
   },
   {
     key: 'turbidity',

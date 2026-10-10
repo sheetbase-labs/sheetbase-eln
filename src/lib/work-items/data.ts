@@ -16,6 +16,7 @@ export type WorkItemKind =
   | 'review_requested'
   | 'witness_requested'
   | 'run_failed'
+  | 'run_waiting'
   | 'data_issue'
   | 'material_expiring'
   | 'approval_requested'
@@ -63,6 +64,7 @@ const KINDS: readonly WorkItemKind[] = [
   'review_requested',
   'witness_requested',
   'run_failed',
+  'run_waiting',
   'data_issue',
   'material_expiring',
   'approval_requested',

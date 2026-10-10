@@ -139,4 +139,37 @@ describe('PIPE-02.1 waiting runs', () => {
     const hidden = await outsider.query(`select id from api.pipeline_run_prompts`)
     expect(hidden.rows).toEqual([])
   })
+
+  it('lists the waiting run for the person asked, and drops it once answered', async () => {
+    await migrator.query(
+      `insert into api.pipeline_run_prompts(run_id,workspace_id,step_id,asked_user_ids)
+       values($1,$2,'confirm-dilution','{"${MEMBER}"}'::text[])`,
+      [RUN, WS],
+    )
+    const member = await actor(MEMBER, WS)
+    const listed = await member.query<{ kind: string; title: string; reason: string }>(
+      `select kind, title, reason from api.my_work_items where kind='run_waiting'`,
+    )
+    expect(listed.rows).toHaveLength(1)
+    expect(listed.rows[0]!.title).toBe('PIPE-02.1')
+    expect(listed.rows[0]!.reason).toContain('Waiting')
+
+    // Somebody the prompt did not ask sees no such item.
+    const outsider = await actor(OUTSIDER, OTHER_WS)
+    const other = await outsider.query(
+      `select kind from api.my_work_items where kind='run_waiting'`,
+    )
+    expect(other.rows).toEqual([])
+
+    await migrator.query(
+      `update api.pipeline_run_prompts set answer='{"unitsPerColumn":4}'::jsonb,
+              answered_by_user_id=$1, answered_at=now()
+        where step_id='confirm-dilution'`,
+      [MEMBER],
+    )
+    const after = await member.query(
+      `select kind from api.my_work_items where kind='run_waiting'`,
+    )
+    expect(after.rows).toEqual([])
+  })
 })

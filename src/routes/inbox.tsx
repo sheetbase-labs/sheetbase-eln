@@ -47,7 +47,7 @@ function kindToType(kind: WorkItemKind): InboxType {
   if (kind === 'review_requested' || kind === 'witness_requested')
     return 'reviews'
   if (kind === 'data_issue') return 'data'
-  if (kind === 'run_failed') return 'runs'
+  if (kind === 'run_failed' || kind === 'run_waiting') return 'runs'
   if (kind === 'material_expiring') return 'materials'
   return 'following'
 }
@@ -57,6 +57,8 @@ function toneFor(kind: WorkItemKind): Tone {
     return 'review'
   if (kind === 'data_issue') return 'bad'
   if (kind === 'run_failed') return 'bad'
+  // A run waiting for a person is actionable, not broken.
+  if (kind === 'run_waiting') return 'warn'
   if (kind === 'material_expiring') return 'warn'
   return 'stored'
 }
@@ -67,6 +69,7 @@ function labelFor(kind: WorkItemKind, state: string): string {
   if (kind === 'review_requested') return 'Review'
   if (kind === 'data_issue') return 'Data issue'
   if (kind === 'run_failed') return 'Failed'
+  if (kind === 'run_waiting') return 'Waiting'
   if (kind === 'material_expiring') return 'Material'
   return 'Following'
 }
@@ -128,7 +131,8 @@ export function itemLink(item: WorkItem) {
         versionId: item.parserVersionId ?? undefined,
       },
     }
-  if (item.kind === 'run_failed') return { to: '/pipelines' as const }
+  if (item.kind === 'run_failed' || item.kind === 'run_waiting')
+    return { to: '/pipelines' as const }
   if (item.kind === 'data_issue') return { to: '/datasets' as const }
   if (item.kind === 'material_expiring') return { to: '/materials' as const }
   if (item.recordId)

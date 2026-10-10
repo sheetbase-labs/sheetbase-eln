@@ -445,6 +445,15 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'SheetWorking', route: '/sheets/SHT-0019', state: rec('SHT-0019') },
   { screen: 'SamplesList', route: '/samples' },
   {
+    screen: 'MaterialsList',
+    route: '/materials',
+    historicalMismatch: {
+      ratio: '0.02 (25349 px) at the 0.001 gate',
+      causes: [3],
+      text: 'The route, tabs (In stock 356 / Expiring 30 days 4 / Quarantine 3 / Expired 9) and columns already match. The gap is seeded content: the design lists MAT-0420/0419/0418/0377/0371/0366/0342 with per-lot stock and storage locations, while the seed carries ten materials with different identifiers, no storage property (so Location renders an em dash) and design-placeholder supplier labels ("Supplier B") it does not reproduce. DSYS-05 seed gap, counted under cause 3.',
+    },
+  },
+  {
     screen: 'SampleDetail',
     route: '/samples/SMP-2231',
     state: rec('SMP-2231'),
@@ -558,7 +567,6 @@ export const DESIGN_PENDING: ReadonlyArray<{
       'ImportMap',
       'ImportUpload',
       'IntegrationConnect',
-      'MaterialsList',
       'ModelFields',
       'ModelRecords',
       'ModelVersions',

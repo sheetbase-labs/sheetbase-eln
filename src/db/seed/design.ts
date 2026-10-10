@@ -1633,6 +1633,12 @@ const DESIGN_SAMPLES = [
     title: 'C-150 filtrate',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
+    properties: {
+      sampleType: 'Filtrate',
+      quantity: 14.2,
+      quantityUnit: 'mL',
+      storageLocation: 'F-2, box 14, A9',
+    },
   },
   {
     id: '00000000-0000-4000-8000-000000000365',
@@ -1640,6 +1646,12 @@ const DESIGN_SAMPLES = [
     title: 'C-150 filtrate, 1:5 dilution',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
+    properties: {
+      sampleType: 'Dilution',
+      quantity: 1,
+      quantityUnit: 'mL',
+      storageLocation: 'Plate 4, G1–G2',
+    },
   },
   {
     id: '00000000-0000-4000-8000-000000000366',
@@ -1647,7 +1659,12 @@ const DESIGN_SAMPLES = [
     title: 'Feed retain',
     status: 'available',
     customFields: { construct: 'AAV9', batch: 'C-150' },
-    properties: { sampleType: 'Retain', quantity: 50, quantityUnit: 'mL' },
+    properties: {
+      sampleType: 'Retain',
+      quantity: 50,
+      quantityUnit: 'mL',
+      storageLocation: 'F-2, box 14, B1',
+    },
   },
   {
     id: '00000000-0000-4000-8000-000000000367',

@@ -608,6 +608,26 @@ export const designSteps: Array<SeedStep> = [
     },
   },
   {
+    name: 'design material usage',
+    run: async (db) => {
+      // The registry inspector lists the experiments that cite a lot. The design's
+      // MAT-0420 panel shows EXP-0142 using one unit on 23 Sep, so the link carries
+      // the quantity and the date the usage happened.
+      await db.execute(sql`
+        INSERT INTO api.record_links
+          (source_record_id, target_record_id, target_kind, target_identifier, link_type,
+           link_metadata, created_by_user_id, created_at)
+        VALUES (${'00000000-0000-4000-8000-000000000351'},
+                ${'00000000-0000-4000-8000-0000000003a8'},
+                'reagent', 'MAT-0420', 'reagent',
+                ${'{"quantity":1,"unit":"units","usedOn":"2026-09-23"}'}::jsonb,
+                ${DESIGN_USER_IDS.gareth},
+                ${'2026-09-23T00:00:00Z'})
+        ON CONFLICT (source_record_id, target_identifier, link_type) DO NOTHING
+      `)
+    },
+  },
+  {
     name: 'design protocols',
     run: async (db) => {
       for (const protocol of DESIGN_PROTOCOLS) {

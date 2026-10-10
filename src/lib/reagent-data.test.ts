@@ -153,6 +153,8 @@ describe('fetchReagentUsage', () => {
           id: 'link-1',
           source_record_id: 'experiment-1',
           link_type: 'reagent',
+          link_metadata: { quantity: 1, unit: 'units' },
+          created_at: '2026-09-23T00:00:00Z',
         },
       ])
       .mockResolvedValueOnce([
@@ -172,6 +174,9 @@ describe('fetchReagentUsage', () => {
         sourceKind: 'experiment',
         sourceIdentifier: 'EXP-2026-0001',
         linkType: 'reagent',
+        createdAt: '2026-09-23T00:00:00Z',
+        quantity: 1,
+        unit: 'units',
       },
     ])
     expect(list).toHaveBeenNthCalledWith(

@@ -98,7 +98,7 @@ if (mode !== 'capture') {
       maxBuffer: 8 * 1024 * 1024,
     })
     if (
-      !seeded.stdout.includes('Seed complete: 45 step(s) applied idempotently.')
+      !seeded.stdout.includes('Seed complete: 46 step(s) applied idempotently.')
     ) {
       throw new Error('Full canonical design seed did not complete')
     }

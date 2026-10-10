@@ -62,6 +62,18 @@ function dayLabel(iso: string | null): string {
   })
 }
 
+/** Day and month, for the compact usage line ("23 Sep"). */
+function shortDay(iso: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  })
+}
+
 /** "2 of 6 units": what is left of what was received. */
 function stockOfTotal(row: MaterialListRow): string {
   const unit = row.unit ? ` ${row.unit}` : ''
@@ -349,6 +361,9 @@ function MaterialsList() {
                   {usage.data.map((link) => (
                     <li key={link.id} className="text-label">
                       {link.sourceIdentifier}
+                      {link.quantity != null
+                        ? ` · ${link.quantity.toLocaleString('en-GB', { maximumFractionDigits: 2 })}${link.unit ? ` ${link.quantity === 1 ? link.unit.replace(/s$/, '') : link.unit}` : ''}, ${shortDay(link.createdAt)}`
+                        : ''}
                     </li>
                   ))}
                 </ul>

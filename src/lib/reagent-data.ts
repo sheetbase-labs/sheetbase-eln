@@ -516,12 +516,18 @@ export interface ReagentUsageLink {
   sourceKind: string
   sourceIdentifier: string
   linkType: string
+  /** When the usage was recorded, so the inspector can state the date. */
+  createdAt: string | null
+  quantity: number | null
+  unit: string | null
 }
 
 interface UsageLinkWire {
   id: string
   source_record_id: string
   link_type: string
+  link_metadata: unknown
+  created_at: string | null
 }
 
 interface UsageSourceWire {
@@ -543,7 +549,7 @@ export async function fetchReagentUsage(
   const links = await client.list<UsageLinkWire>(
     'record_links',
     `?target_identifier=eq.${encodeURIComponent(identifier)}&link_type=eq.reagent&order=created_at.desc&limit=${limit}` +
-      `&select=id,source_record_id,link_type`,
+      `&select=id,source_record_id,link_type,link_metadata,created_at`,
   )
   if (links.length === 0) return []
 
@@ -564,6 +570,13 @@ export async function fetchReagentUsage(
             sourceKind: source.kind,
             sourceIdentifier: source.identifier,
             linkType: link.link_type,
+            createdAt: link.created_at ?? null,
+            quantity: asNumber(
+              (link.link_metadata as Record<string, unknown> | null)?.quantity,
+            ),
+            unit: asString(
+              (link.link_metadata as Record<string, unknown> | null)?.unit,
+            ),
           },
         ]
       : []

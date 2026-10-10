@@ -67,6 +67,13 @@ async function submit(
   idempotencyKey: string,
   recordId = RECORD_A,
 ) {
+  // An open comment thread blocks submission (EXP-02.1), so a fixture that has
+  // been anchoring comments resolves them before it submits again.
+  await migrator!.query(
+    `UPDATE api.comments SET state='resolved', resolved_at=now(), resolved_by_user_id=$2
+      WHERE record_id=$1 AND state='open'`,
+    [recordId, OWNER_A],
+  )
   const { rows } = await client.query(
     `SELECT api.submit_record_revision(
        $1, $2, 'default-scientific-review', 1, ARRAY[$3]::text[], true, $4

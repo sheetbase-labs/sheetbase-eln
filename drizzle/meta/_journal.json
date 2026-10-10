@@ -2624,6 +2624,13 @@
       "when": 1791629079883,
       "tag": "0376_refuse_quarantined_material",
       "breakpoints": true
+    },
+    {
+      "idx": 377,
+      "version": "7",
+      "when": 1791629241472,
+      "tag": "0377_audit_hash_chain",
+      "breakpoints": true
     }
   ]
 }

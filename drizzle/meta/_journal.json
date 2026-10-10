@@ -2652,6 +2652,13 @@
       "when": 1791631046112,
       "tag": "0380_delete_experiment_draft",
       "breakpoints": true
+    },
+    {
+      "idx": 381,
+      "version": "7",
+      "when": 1791631312472,
+      "tag": "0381_notification_event_types",
+      "breakpoints": true
     }
   ]
 }

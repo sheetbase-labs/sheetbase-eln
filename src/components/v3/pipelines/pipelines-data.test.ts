@@ -132,6 +132,10 @@ describe('currentVersion and draftVersion', () => {
 describe('runStatus', () => {
   it('maps run statuses to tone and label', () => {
     expect(runStatus('running')).toEqual({ tone: 'progress', label: 'Running' })
+    expect(runStatus('waiting')).toEqual({
+      tone: 'warn',
+      label: 'Waiting for a person',
+    })
     expect(runStatus('succeeded')).toEqual({ tone: 'ok', label: 'Succeeded' })
     expect(runStatus('failed')).toEqual({ tone: 'bad', label: 'Failed' })
     expect(runStatus('cancelled')).toEqual({

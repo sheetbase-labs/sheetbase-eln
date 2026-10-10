@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
 import { Banner, Notice } from '#/components/v3/ui/alert'
@@ -18,17 +19,25 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
+import { toast } from '#/components/v3/ui/sonner'
+import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
+import { answerPipelineRunPrompt } from '#/lib/pipelines/data'
+import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
 import {
+  pipelineDataQueryKeys,
   runDuration,
   runStatus,
   usePipelineVersions,
   usePipelineRun,
   useRunLogs,
   useRunOutputs,
+  useRunPrompts,
+  useWorkspaceMemberNames,
 } from '#/components/v3/pipelines/pipelines-data'
 
 /** UI port (roadmap-4/ui-app3): a pipeline run's record — status, log, inputs
- * used and outputs kept. */
+ * used and outputs kept; a `waiting` run also shows its confirm prompt and the
+ * controls that answer it (PIPE-02.4). */
 export const Route = createFileRoute('/pipelines/$pipelineId/runs/$runId')({
   component: RunPage,
 })
@@ -38,11 +47,40 @@ function RunPage() {
   const run = usePipelineRun(runId)
   const logs = useRunLogs(runId)
   const outputs = useRunOutputs(runId)
+  const prompts = useRunPrompts(runId)
+  const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
+  const queryClient = useQueryClient()
+  const answer = useMutation({
+    mutationFn: (value: PipelineRunPromptAnswer) =>
+      answerPipelineRunPrompt(runId, value),
+    onSuccess: () => {
+      toast('Answer recorded — the run is resuming.')
+      void queryClient.invalidateQueries({
+        queryKey: pipelineDataQueryKeys.run(runId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: pipelineDataQueryKeys.runPrompts(runId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: pipelineDataQueryKeys.runLogs(runId),
+      })
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : 'Could not answer the run.',
+      ),
+  })
   const version = (versions.data ?? []).find(
     (v) => v.id === run.data?.definition_version_id,
   )
   const r = run.data
+  // The newest prompt is the one a waiting run is paused on.
+  const promptList = prompts.data ?? []
+  const prompt = promptList.length
+    ? promptList[promptList.length - 1]
+    : undefined
+  const nameOf = (userId: string) => members.data?.[userId] ?? userId
 
   if (!r) {
     return (
@@ -98,8 +136,33 @@ function RunPage() {
         </Banner>
       ) : null}
 
+      {r.status === 'waiting' ? (
+        <Banner tone="warn" icon="pause" title="This run is waiting for you.">
+          {prompt && typeof prompt.form_schema.description === 'string'
+            ? prompt.form_schema.description
+            : 'It paused at its confirm step and will not change recorded data on its own.'}
+        </Banner>
+      ) : null}
+
       <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
         <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-5">
+          {prompt ? (
+            <RunPromptPanel
+              prompt={prompt}
+              canAnswer={r.status === 'waiting'}
+              nameOf={nameOf}
+              onAnswer={(value) => answer.mutate(value)}
+              submitting={answer.isPending}
+              error={
+                answer.isError
+                  ? answer.error instanceof Error
+                    ? answer.error.message
+                    : 'Could not answer the run.'
+                  : null
+              }
+            />
+          ) : null}
+
           {outputs.data?.length ? (
             <section>
               <h2 className="mb-1.5 font-sans text-label font-semibold">
@@ -171,6 +234,26 @@ function RunPage() {
         </div>
 
         <Inspector aria-label="Run details" className="w-[320px]">
+          {prompt ? (
+            <InspectorSection title="Asked">
+              {prompt.asked_user_ids.length ? (
+                <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
+                  {prompt.asked_user_ids.map((id) => (
+                    <li key={id}>{nameOf(id)}</li>
+                  ))}
+                </ul>
+              ) : (
+                <Muted>No one was named.</Muted>
+              )}
+              <Muted className="mt-1.5">
+                {prompt.answered_at
+                  ? `Answered ${prompt.answered_at.slice(0, 16).replace('T', ' ')}`
+                  : prompt.expires_at
+                    ? `Expires ${prompt.expires_at.slice(0, 16).replace('T', ' ')}`
+                    : 'No expiry set.'}
+              </Muted>
+            </InspectorSection>
+          ) : null}
           <InspectorSection title="Inputs used">
             {Object.keys(r.input_versions).length ? (
               <DescriptionList

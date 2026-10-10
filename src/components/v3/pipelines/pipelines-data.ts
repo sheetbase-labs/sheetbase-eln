@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import type { Tone } from '#/components/v3/ui/status'
+import type { WorkspaceMemberIdentity } from '#/components/v3/projects/project-data'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -9,6 +10,7 @@ import {
   listPipelineDefinitions,
   listPipelineRunLogs,
   listPipelineRunOutputs,
+  listPipelineRunPrompts,
   listPipelineSchedules,
 } from '#/lib/pipelines/data'
 import type {
@@ -16,6 +18,7 @@ import type {
   PipelineDefinitionWire,
   PipelineRunLogWire,
   PipelineRunOutputWire,
+  PipelineRunPromptWire,
   PipelineRunStatus,
   PipelineRunWire,
   PipelineScheduleWire,
@@ -34,6 +37,8 @@ export function runStatus(status: PipelineRunStatus): {
   switch (status) {
     case 'running':
       return { tone: 'progress', label: 'Running' }
+    case 'waiting':
+      return { tone: 'warn', label: 'Waiting for a person' }
     case 'succeeded':
       return { tone: 'ok', label: 'Succeeded' }
     case 'failed':
@@ -140,6 +145,8 @@ export const pipelineDataQueryKeys = {
     ['ui-port', 'pipelines', 'definition-runs', id] as const,
   run: (id: string) => ['ui-port', 'pipelines', 'run', id] as const,
   runLogs: (id: string) => ['ui-port', 'pipelines', 'run-logs', id] as const,
+  runPrompts: (id: string) =>
+    ['ui-port', 'pipelines', 'run-prompts', id] as const,
   runOutputs: (id: string) =>
     ['ui-port', 'pipelines', 'run-outputs', id] as const,
   schedules: (id: string) => ['ui-port', 'pipelines', 'schedules', id] as const,
@@ -266,6 +273,34 @@ export function useRunOutputs(
   })
 }
 
+/** The prompts a run has raised — the waiting step's typed form and answer. */
+export function useRunPrompts(
+  runId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.runPrompts(runId),
+    queryFn: () => listPipelineRunPrompts(client, runId),
+  })
+}
+
+/** The people a prompt can name: user id → display name for the workspace. */
+export function useWorkspaceMemberNames(
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'member-names'] as const,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const members = await client.rpc<WorkspaceMemberIdentity[]>(
+        'workspace_members_list',
+        {},
+      )
+      return Object.fromEntries(members.map((m) => [m.user_id, m.name]))
+    },
+    staleTime: 60_000,
+  })
+}
+
 export function useSchedules(
   definitionId: string,
   client: DataClient = notebookDataClient,
@@ -280,6 +315,7 @@ export type {
   PipelineDefinitionVersionWire,
   PipelineRunLogWire,
   PipelineRunOutputWire,
+  PipelineRunPromptWire,
   PipelineRunWire,
   PipelineScheduleWire,
 }

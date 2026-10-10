@@ -10,7 +10,7 @@
  * (identity/workspace/project steps arrive with API-003).
  */
 import { config } from 'dotenv'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -2170,7 +2170,9 @@ export const demoSteps: Array<SeedStep> = [
             updatedByUserId: FIXTURE_USER_ID,
           })
           .onConflictDoUpdate({
+            // One root file per record; versions are separate rows (PROJ-04.3).
             target: schema.fileObjects.recordId,
+            targetWhere: sql`previous_version_id is null`,
             set: {
               storageKey: f.storageKey,
               displayName: f.displayName,

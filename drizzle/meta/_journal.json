@@ -2638,6 +2638,13 @@
       "when": 1791629640601,
       "tag": "0378_audit_verification_job",
       "breakpoints": true
+    },
+    {
+      "idx": 379,
+      "version": "7",
+      "when": 1791630529373,
+      "tag": "0379_audit_chain_anonymisation",
+      "breakpoints": true
     }
   ]
 }

@@ -707,16 +707,38 @@ describe('CORE-05 governed evolution and promotion', () => {
     await approver.query(`select api.approve_approval_request($1,'go ahead')`, [
       second.approvalRequestId,
     ])
-    await expect(
-      steward.query(`select api.apply_column_promotion($1,$2) result`, [
+    // The owner decided a local-only Sheet should create a new dataset: materialization
+    // sources a snapshot from dataset bindings and a local-only Sheet has none, so the
+    // apply writes the Sheet's own values as a new dataset instead.
+    const applied = (
+      await steward.query(`select api.apply_column_promotion($1,$2) result`, [
         second.promotionId,
         '00000000-0000-4000-8000-00000000c2ff',
-      ]),
-    ).rejects.toThrow(/composition sources/)
-    const stillPending = await migrator!.query<{ state: string }>(
-      `SELECT state FROM api.column_promotions WHERE id = $1`,
-      [second.promotionId],
+      ])
+    ).rows[0].result
+    expect(applied).toMatchObject({ state: 'applied', applied: true })
+    expect(applied.datasetId).toBeTruthy()
+
+    // The Sheet's own value is in the new dataset, under the promoted field.
+    // dataset_row_values is typed, and the promoted field is text.
+    const values = await migrator!.query<{ text_value: string | null }>(
+      `SELECT v.text_value FROM api.dataset_row_values v
+        JOIN api.dataset_rows r ON r.id = v.row_id
+       WHERE r.dataset_id = $1 AND v.field_id = $2`,
+      [applied.datasetId, LOCAL_FIELD],
     )
-    expect(stillPending.rows[0]!.state).toBe('pending')
+    expect(values.rows.map((row) => row.text_value)).toEqual(['kept-local'])
+
+    // And the column stopped being local.
+    const afterApply = await migrator!.query<{
+      state: Record<string, unknown>
+    }>(`SELECT state FROM api.sheet_instances WHERE id = $1`, [created.id])
+    const afterFields = (afterApply.rows[0]!.state.localFields ?? []) as Array<{
+      fieldId: string
+      lifecycle: string
+    }>
+    expect(
+      afterFields.find((field) => field.fieldId === LOCAL_FIELD)?.lifecycle,
+    ).toBe('retired')
   })
 })

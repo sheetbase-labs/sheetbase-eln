@@ -2897,6 +2897,13 @@
       "when": 1791664592773,
       "tag": "0415_notification_channel_types",
       "breakpoints": true
+    },
+    {
+      "idx": 416,
+      "version": "7",
+      "when": 1791665025390,
+      "tag": "0416_promote_local_only",
+      "breakpoints": true
     }
   ]
 }

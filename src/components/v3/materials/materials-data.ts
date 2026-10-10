@@ -57,7 +57,7 @@ function lotStatus(
   attention: ReturnType<typeof reagentAttention>,
 ): { tone: Tone; label: string } {
   if (reagent.status === 'quarantined' || reagent.status === 'expired') {
-    return STATUS[reagent.status]!
+    return STATUS[reagent.status]
   }
   if (attention.expired) return { tone: 'bad', label: 'Expired' }
   const expiry = reagent.expiry ? new Date(reagent.expiry) : null

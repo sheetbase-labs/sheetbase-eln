@@ -21,6 +21,9 @@ interface ErrorEnvelope {
 
 const API_BASE = '/api/db'
 
+/** SET-01.3 — the request header the editing-rule triggers read. */
+export const CHANGE_REASON_HEADER = 'x-sheetbase-change-reason'
+
 export class DataClientError extends Error {
   readonly code: string
   readonly status: number
@@ -81,7 +84,11 @@ export interface DataClient {
    * (`0-0/<total>`, including empty totals). Rejects responses without an exact total.
    */
   count: (resource: string, query?: string) => Promise<number>
-  rpc: <T>(name: string, args: Record<string, unknown>) => Promise<T>
+  rpc: <T>(
+    name: string,
+    args: Record<string, unknown>,
+    options?: { changeReason?: string },
+  ) => Promise<T>
   insert: <T>(resource: string, row: Record<string, unknown>) => Promise<T>
   patch: <T>(
     resource: string,
@@ -161,14 +168,23 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       return total
     },
 
-    async rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
+    async rpc<T>(
+      name: string,
+      args: Record<string, unknown>,
+      options?: { changeReason?: string },
+    ): Promise<T> {
+      const headers: Record<string, string> = {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        prefer: 'return=representation',
+      }
+      // SET-01.3: a workspace can require a reason for changing a saved value;
+      // the reason travels in the header the write triggers read.
+      if (options?.changeReason)
+        headers[CHANGE_REASON_HEADER] = options.changeReason
       const response = await request(`/rpc/${name}`, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          accept: 'application/json',
-          prefer: 'return=representation',
-        },
+        headers,
         body: JSON.stringify(args),
       })
       // Native PostgREST void functions succeed with 204 and no JSON body.

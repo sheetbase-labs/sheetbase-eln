@@ -730,11 +730,13 @@ describe('Sheet Instance durability and authority', () => {
     expect(
       (
         await migrator.query(
-          `select tgname,tgenabled,count(*)::integer count from pg_trigger where tgrelid='api.sheet_instances'::regclass and not tgisinternal group by tgname,tgenabled`,
+          `select tgname,tgenabled,count(*)::integer count from pg_trigger where tgrelid='api.sheet_instances'::regclass and not tgisinternal group by tgname,tgenabled order by tgname`,
         )
       ).rows,
     ).toEqual([
       { tgname: 'change_event_sheet_instances', tgenabled: 'O', count: 1 },
+      // SET-01.3: the workspace editing rule is enforced on this table too.
+      { tgname: 'enforce_change_reason', tgenabled: 'O', count: 1 },
       { tgname: 'guard_sheet_instance', tgenabled: 'O', count: 1 },
       { tgname: 'prevent_sheet_display_id_change', tgenabled: 'O', count: 1 },
       { tgname: 'sheet_instances_assign_display_id', tgenabled: 'O', count: 1 },

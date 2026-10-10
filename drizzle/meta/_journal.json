@@ -2498,6 +2498,20 @@
       "when": 1791586061356,
       "tag": "0358_protocol_training_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 359,
+      "version": "7",
+      "when": 1791615636687,
+      "tag": "0359_even_silhouette",
+      "breakpoints": true
+    },
+    {
+      "idx": 360,
+      "version": "7",
+      "when": 1791615647634,
+      "tag": "0360_editing_rules_enforcement",
+      "breakpoints": true
     }
   ]
 }

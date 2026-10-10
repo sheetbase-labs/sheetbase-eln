@@ -212,3 +212,30 @@ describe('DataClientError', () => {
     expect(error.name).toBe('DataClientError')
   })
 })
+
+describe('createDataClient.rpc', () => {
+  it('sends the change reason header only when a reason is given', async () => {
+    const withReason = mockFetch(jsonResponse({ ok: true }))
+    await createDataClient(withReason).rpc(
+      'update_block_payload',
+      { p_block_id: 'b1' },
+      { changeReason: 'Corrected against the bench sheet' },
+    )
+    const [, init] = (withReason as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0] as [string, RequestInit]
+    const headers = new Headers(init.headers)
+    expect(headers.get('x-sheetbase-change-reason')).toBe(
+      'Corrected against the bench sheet',
+    )
+
+    const without = mockFetch(jsonResponse({ ok: true }))
+    await createDataClient(without).rpc('update_block_payload', {
+      p_block_id: 'b1',
+    })
+    const [, plain] = (without as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0] as [string, RequestInit]
+    expect(
+      new Headers(plain.headers).get('x-sheetbase-change-reason'),
+    ).toBeNull()
+  })
+})

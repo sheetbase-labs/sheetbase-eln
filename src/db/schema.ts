@@ -410,6 +410,20 @@ export const workspaceSettings = api.table(
     idPrefixes: jsonb('id_prefixes')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /**
+     * SET-01.3 — editing rules. The design's SettingsGeneral shows all three
+     * checked; `requireChangeReason` defaults off because enforcement is
+     * server-side, so a workspace opts in (the design seed opts the design
+     * workspace in for parity). Locking on sign is SIGN-002's behaviour and
+     * offline editing is EXP-05's.
+     */
+    requireChangeReason: boolean('require_change_reason')
+      .notNull()
+      .default(false),
+    lockOnSign: boolean('lock_on_sign').notNull().default(true),
+    allowOfflineEditing: boolean('allow_offline_editing')
+      .notNull()
+      .default(true),
     integrationSettings: jsonb('integration_settings')
       .notNull()
       .default(sql`'{}'`),

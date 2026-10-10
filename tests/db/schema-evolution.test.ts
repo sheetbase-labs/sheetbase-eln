@@ -501,4 +501,143 @@ describe('CORE-05 governed evolution and promotion', () => {
     expect(derived.ok).toBe(true)
     expect(derived.storesFormula).toBe(false)
   })
+
+  it('requests a column promotion as a pending approval without touching the dataset', async () => {
+    const steward = await actor(STEWARD)
+    const configuration = structuredClone(
+      validSheetDefinitionConfiguration(),
+    ) as Record<string, unknown>
+    const column = (
+      configuration.columns as Array<Record<string, unknown>>
+    )[0] as Record<string, unknown>
+    ;(column as { source: unknown }).source = { kind: 'declared' }
+    configuration.parameters = []
+    configuration.bindings = []
+    configuration.joins = []
+    configuration.columns = [column]
+    configuration.calculations = []
+    configuration.writeBackRules = []
+    configuration.actions = []
+    configuration.rowIdentity = { kind: 'local', columnIds: [column.id] }
+    configuration.presentation = {
+      columnOrder: [column.id],
+      hiddenColumnIds: [],
+      columnWidths: {},
+      frozenColumnCount: 0,
+      density: 'standard',
+    }
+    const definition = (
+      await steward.query(
+        `select api.create_sheet_definition($1,'evo_promo_req','Promo request','',$2::jsonb) result`,
+        [WS, JSON.stringify(configuration)],
+      )
+    ).rows[0].result
+    await steward.query(`select api.publish_sheet_definition_version($1,1)`, [
+      definition.version.id,
+    ])
+    const schema = (
+      await steward.query(
+        `select api.create_dataset_schema_definition($1,'promo_req_schema','Promo request',null,'[]'::jsonb) result`,
+        [WS],
+      )
+    ).rows[0].result
+    await steward.query(`select api.publish_dataset_schema_version($1)`, [
+      schema.schema_version_id,
+    ])
+    const created = (
+      await steward.query(
+        `select to_jsonb(api.create_sheet_instance_from_definition($1,'Promo request',null,$2,null,null,$3::jsonb,'[]'::jsonb)) result`,
+        [
+          WS,
+          definition.version.id,
+          JSON.stringify({
+            bindings: [],
+            localFields: [
+              {
+                fieldId: LOCAL_FIELD,
+                key: 'observation',
+                label: 'Observation',
+                description: null,
+                logicalType: 'text',
+                nullable: true,
+                defaultValue: null,
+                cardinality: 'one',
+                quantity: null,
+                validation: {},
+                category: null,
+                relationship: null,
+                computation: { mode: 'stored' },
+                lifecycle: 'active',
+              },
+            ],
+            localValues: { [LOCAL_ROW]: { [LOCAL_FIELD]: 'kept-local' } },
+            instanceCalculations: [],
+            calculationOverrides: {},
+            presentation: {
+              columnOrder: [],
+              hiddenColumnIds: [],
+              columnWidths: {},
+              frozenColumnCount: 0,
+              density: 'standard',
+            },
+            provenance: { createdFrom: 'ad_hoc' },
+          }),
+        ],
+      )
+    ).rows[0].result
+
+    const rowsBefore = await migrator!.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM api.dataset_rows WHERE workspace_id = $1`,
+      [WS],
+    )
+
+    const promotion = (
+      await steward.query(
+        `select api.request_column_promotion($1,$2,'dataset_schema',$3,null,'Promote observation','promo-req-1') result`,
+        [created.id, LOCAL_FIELD, schema.schema_definition_id],
+      )
+    ).rows[0].result
+    expect(promotion.state).toBe('pending')
+    expect(promotion.schemaVersionId).toBeTruthy()
+    expect(promotion.approvalRequestId).toBeTruthy()
+
+    // The request forked a DRAFT version carrying the field, and asked for approval.
+    const draft = await migrator!.query<{
+      lifecycle: string
+      revision: number
+    }>(`SELECT lifecycle FROM api.dataset_schema_versions WHERE id = $1`, [
+      promotion.schemaVersionId,
+    ])
+    expect(draft.rows[0]!.lifecycle).toBe('draft')
+    const fields = await migrator!.query(
+      `SELECT 1 FROM api.dataset_schema_version_fields WHERE schema_version_id = $1 AND field_id = $2`,
+      [promotion.schemaVersionId, LOCAL_FIELD],
+    )
+    expect(fields.rows).toHaveLength(1)
+    const approval = await migrator!.query<{
+      object_kind: string
+      state: string
+    }>(`SELECT object_kind, state FROM api.approval_requests WHERE id = $1`, [
+      promotion.approvalRequestId,
+    ])
+    expect(approval.rows[0]).toEqual({
+      object_kind: 'column_promotion',
+      state: 'pending',
+    })
+
+    // Nothing was written to the dataset: the request is pending, not applied.
+    const rowsAfter = await migrator!.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM api.dataset_rows WHERE workspace_id = $1`,
+      [WS],
+    )
+    expect(rowsAfter.rows[0]!.n).toBe(rowsBefore.rows[0]!.n)
+
+    // One open request per field: a second would fork a second draft.
+    await expect(
+      steward.query(
+        `select api.request_column_promotion($1,$2,'dataset_schema',$3,null,'again','promo-req-2') result`,
+        [created.id, LOCAL_FIELD, schema.schema_definition_id],
+      ),
+    ).rejects.toThrow()
+  })
 })

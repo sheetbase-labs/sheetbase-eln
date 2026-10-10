@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
@@ -19,14 +20,18 @@ import {
 import { AppShell } from './app-shell'
 import { setUserPreference } from '#/lib/user-preferences'
 
-const { signOut, navigate, invalidate, cancelQueries, clearQueries } =
+const { signOut, navigate, invalidate, cancelQueries, clearQueries, goBack } =
   vi.hoisted(() => ({
     signOut: vi.fn(),
     navigate: vi.fn(),
     invalidate: vi.fn(),
     cancelQueries: vi.fn(),
     clearQueries: vi.fn(),
+    goBack: vi.fn(),
   }))
+
+/** The path the mocked router reports; MOB-01.1's back button depends on it. */
+const routerPath = { current: '/' }
 vi.mock('#/lib/auth-client', () => ({ authClient: { signOut } }))
 beforeEach(() => {
   vi.clearAllMocks()
@@ -43,12 +48,23 @@ beforeAll(() => {
 })
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
-    <a href={typeof to === 'string' ? to : '#'}>{children}</a>
+  Link: ({
+    to,
+    children,
+    className,
+  }: {
+    to?: unknown
+    children?: React.ReactNode
+    className?: string
+  }) => (
+    <a href={typeof to === 'string' ? to : '#'} className={className}>
+      {children}
+    </a>
   ),
   useNavigate: () => navigate,
   useRouter: () => ({
     invalidate,
+    history: { back: goBack },
     options: {
       context: { queryClient: { cancelQueries, clear: clearQueries } },
     },
@@ -57,7 +73,7 @@ vi.mock('@tanstack/react-router', () => ({
     select,
   }: {
     select: (state: { location: { pathname: string } }) => unknown
-  }) => select({ location: { pathname: '/' } }),
+  }) => select({ location: { pathname: routerPath.current } }),
 }))
 
 vi.mock('#/components/v3/search/search-palette', () => ({
@@ -149,6 +165,37 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
     await user.keyboard('?')
     expect(await screen.findByText('Keyboard shortcuts')).toBeTruthy()
     expect(screen.getByText('Search and jump')).toBeTruthy()
+  })
+})
+
+describe('MOB-01.1 phone shell', () => {
+  afterEach(() => {
+    routerPath.current = '/'
+  })
+
+  it('keeps the bench destinations in the phone bottom bar', () => {
+    renderShell()
+    const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
+    expect(bar.className).toContain('md:hidden')
+    for (const label of ['Today', 'Scan', 'Inbox']) {
+      const link = within(bar).getByRole('link', { name: label })
+      expect(link.className).toContain('min-h-14')
+    }
+    expect(within(bar).getByRole('button', { name: 'Menu' })).toBeTruthy()
+  })
+
+  it('shows the phone back button away from the bottom bar and hides it on it', () => {
+    routerPath.current = '/records/abc'
+    const first = renderShell()
+    const back = screen.getByRole('button', { name: 'Back' })
+    expect(back.className).toContain('md:hidden')
+    fireEvent.click(back)
+    expect(goBack).toHaveBeenCalled()
+    first.unmount()
+
+    routerPath.current = '/'
+    renderShell()
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull()
   })
 })
 

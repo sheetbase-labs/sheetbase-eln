@@ -362,6 +362,33 @@ function BottomTabs({
   )
 }
 
+/** The destinations the bottom bar owns; a phone has nowhere to go back from. */
+const PHONE_TOP_LEVEL_PATHS = new Set(['/', '/scan', '/inbox', '/settings'])
+
+/**
+ * MOB-01.1 — the phone header's back button. Below the phone breakpoint the
+ * sidebar that would otherwise show where you came from is hidden, so the header
+ * carries the affordance instead. It is absent on the bottom bar's own
+ * destinations, where there is nowhere to go back to.
+ */
+function PhoneBackButton() {
+  const router = useRouter()
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
+  if (PHONE_TOP_LEVEL_PATHS.has(pathname)) return null
+  return (
+    <Button
+      variant="quiet"
+      size="icon"
+      icon="arrowLeft"
+      aria-label="Back"
+      onClick={() => router.history.back()}
+      className="md:hidden"
+    />
+  )
+}
+
 function TopBar({
   data,
   onMenu,
@@ -387,6 +414,11 @@ function TopBar({
         onClick={onMenu}
         className="lg:hidden max-md:hidden"
       />
+      {/* MOB-01.1: on a phone the header carries a back button, because the
+          sidebar that would otherwise show where you came from is hidden. It is
+          absent on the top-level destinations, where there is nowhere to go back
+          to. */}
+      <PhoneBackButton />
       <Link
         to="/"
         className="flex shrink-0 items-center gap-2 max-md:pl-1 xl:w-[208px] font-display text-[15px] leading-[normal] font-semibold text-fg no-underline hover:text-fg hover:no-underline"

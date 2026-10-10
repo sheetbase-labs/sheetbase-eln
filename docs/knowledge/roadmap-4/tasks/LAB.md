@@ -237,8 +237,13 @@ Nothing exists. Storage positions (`src/lib/storage.ts`,
    label template rendered as a print document; print event recorded on the
    sample; toast per design.
 3. `/r/<identifier>` resolver route to the right record page.
-4. Camera scanning component (`BarcodeDetector` where available, a
-   WASM decoder fallback) with typed-ID fallback; used by MOB-02.
+4. Camera scanning component (`BarcodeDetector` where available, a decoder
+   fallback) with typed-ID fallback; used by MOB-02. **Implemented 2026-10-10:**
+   `src/components/scan/camera-scanner.tsx` over a `CodeDecoder` interface —
+   native `BarcodeDetector` for all three formats, and a jsQR-backed decoder
+   where it is absent. jsQR is pure JavaScript rather than WASM (same
+   capability, no WASM toolchain) and reads **QR only**, so while a limited
+   decoder is scanning the component says so and keeps the typed path.
 
 ### Check it
 

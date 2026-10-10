@@ -1,4 +1,5 @@
 import { cn } from '#/lib/utils'
+import { now as clockNow } from '#/lib/clock'
 
 /**
  * LAB-03 / step 4 — the sample inspector's hold-time meter (SampleDetail).
@@ -84,7 +85,7 @@ function clamp(value: number, min: number, max: number): number {
  */
 export function computeSampleHold(
   record: HoldMeterRecord,
-  now: Date = new Date(),
+  now: Date = clockNow(),
 ): SampleHoldState | null {
   const resolved = resolveHold(record)
   if (!resolved) return null

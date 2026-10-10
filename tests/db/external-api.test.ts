@@ -25,7 +25,7 @@ import {
 } from '#/lib/api-credentials'
 import { ExternalTokenError, resolveExternalToken } from '#/lib/external-token'
 import type { ProxyPath } from '#/lib/postgrest-path'
-import { migratorUrl, prepareTestDatabase } from './helpers'
+import { migratorUrl, prepareTestDatabase, testDatabaseName } from './helpers'
 
 const SECRET =
   process.env.PGRST_JWT_SECRET ?? 'test-jwt-secret-at-least-32-chars!!'
@@ -95,7 +95,7 @@ async function asApiClient(claims: Record<string, unknown>): Promise<Client> {
   const url = new URL(process.env.PGRST_DB_URI ?? '')
   url.hostname = 'localhost'
   url.port = process.env.POSTGRES_PORT ?? '5432'
-  url.pathname = '/sheetbase_test'
+  url.pathname = `/${testDatabaseName()}`
   const client = new Client({ connectionString: url.toString() })
   await client.connect()
   clients.push(client)
@@ -899,7 +899,7 @@ async function asPersonalTokenClient(token: string): Promise<Client> {
   const url = new URL(process.env.PGRST_DB_URI ?? '')
   url.hostname = 'localhost'
   url.port = process.env.POSTGRES_PORT ?? '5432'
-  url.pathname = '/sheetbase_test'
+  url.pathname = `/${testDatabaseName()}`
   const client = new PgClient({ connectionString: url.toString() })
   await client.connect()
   clients.push(client)

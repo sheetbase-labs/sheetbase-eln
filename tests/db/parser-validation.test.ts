@@ -5,7 +5,7 @@ import {
   expectDenied,
   prepareTestDatabase,
   setActorJwt,
-  TEST_DATABASE,
+  testDatabaseName,
 } from './helpers'
 
 const workspace = randomUUID()
@@ -52,7 +52,7 @@ beforeAll(async () => {
   await apiClient.query('SET ROLE api_client')
   await setActorJwt(apiClient, 'parser-qa', workspace)
   const url = new URL(process.env.DATABASE_URL!)
-  url.pathname = `/${TEST_DATABASE}`
+  url.pathname = `/${testDatabaseName()}`
   server = new Client({ connectionString: url.toString() })
   await server.connect()
   await server.query('SET ROLE service_role')

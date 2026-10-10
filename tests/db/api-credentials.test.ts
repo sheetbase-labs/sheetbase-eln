@@ -659,3 +659,45 @@ describe('credential audit events', () => {
     expect(oldRows[0].sequence < newRows[0].sequence).toBe(true)
   })
 })
+
+describe('SET-04.2 token expiry window and refusals', () => {
+  it('refuses a token that would live longer than 90 days', async () => {
+    const { rows } = await migrator.query<{ id: string }>(
+      `insert into internal.api_credentials(workspace_id,display_prefix,secret_hash,name,scopes,created_by_user_id,expires_at)
+       values($1,'aaaabbbb','hash','Too long',array['projects:read'],$2, now() + interval '91 days')
+       returning id`,
+      [WS, OWNER],
+    ).catch((error: Error) => ({ rows: [{ id: `error:${error.message}` }] }))
+    expect(rows[0]!.id).toContain('90 days')
+
+    const ok = await migrator.query<{ id: string }>(
+      `insert into internal.api_credentials(workspace_id,display_prefix,secret_hash,name,scopes,created_by_user_id,expires_at)
+       values($1,'bbbbcccc','hash','Within window',array['projects:read'],$2, now() + interval '89 days')
+       returning id`,
+      [WS, OWNER],
+    )
+    const id = ok.rows[0]!.id
+
+    // A refusal is recorded and surfaces as needing a replacement once expired.
+    await migrator.query('select internal.record_credential_refusal($1)', [id])
+    await migrator.query(
+      `update internal.api_credentials set expires_at = now() - interval '1 hour' where id=$1`,
+      [id],
+    )
+    // The settings read is admin-scoped, so it is called with the owner's claims.
+    await migrator.query("select set_config('request.jwt.claims',$1,false)", [
+      JSON.stringify({ role: 'authenticated', sub: OWNER, workspace_id: WS }),
+    ])
+    const status = await migrator.query<{
+      refusal_count: number
+      expired: boolean
+      needs_replacement: boolean
+    }>('select refusal_count,expired,needs_replacement from api.api_credential_status() where id=$1', [id])
+    await migrator.query("select set_config('request.jwt.claims','{}',false)")
+    expect(status.rows[0]).toMatchObject({
+      refusal_count: 1,
+      expired: true,
+      needs_replacement: true,
+    })
+  })
+})

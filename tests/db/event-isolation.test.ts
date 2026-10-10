@@ -29,7 +29,12 @@ import {
 } from '#/lib/webhook-delivery'
 import { buildEventPayload, mapEventType } from '#/lib/webhook-events'
 import { signPayload } from '#/lib/webhook-signing'
-import { prepareTestDatabase, setActorJwt, TEST_DATABASE } from './helpers'
+import {
+  prepareTestDatabase,
+  setActorJwt,
+  TEST_DATABASE,
+  testDatabaseName,
+} from './helpers'
 
 const WS_A = '0e030000-0000-4000-8000-000000000a01'
 const WS_B = '0e030000-0000-4000-8000-000000000b02'
@@ -46,7 +51,7 @@ const subscriptionByWs: Record<string, string> = {}
 
 function superuserTestUrl(): string {
   const url = new URL(process.env.DATABASE_URL!)
-  url.pathname = `/${TEST_DATABASE}`
+  url.pathname = `/${testDatabaseName()}`
   return url.toString()
 }
 

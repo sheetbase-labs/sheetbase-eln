@@ -27,7 +27,12 @@ import type {
   PipelineSchedulerDeps,
   SchedulerConnection,
 } from '#/lib/pipeline-scheduler.server'
-import { prepareTestDatabase, setActorJwt, TEST_DATABASE } from './helpers'
+import {
+  prepareTestDatabase,
+  setActorJwt,
+  TEST_DATABASE,
+  testDatabaseName,
+} from './helpers'
 
 const WS = '0e010000-0000-4000-8000-000000000101'
 const OWNER = 'pipeline-owner-a'
@@ -46,7 +51,7 @@ let pipelineVersionId = ''
 
 function superuserTestUrl(): string {
   const url = new URL(process.env.DATABASE_URL!)
-  url.pathname = `/${TEST_DATABASE}`
+  url.pathname = `/${testDatabaseName()}`
   return url.toString()
 }
 

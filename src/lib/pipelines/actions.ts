@@ -238,11 +238,9 @@ export function validatePipelineActions(value: unknown): string[] {
         `Action ${index + 1} needs a unique name using letters, numbers and underscores.`,
       )
     if (typeof item.name === 'string') names.add(item.name)
-    if (
-      item.mode !== undefined &&
-      item.mode !== 'execute' &&
-      item.mode !== 'propose'
-    )
+    // The item is unvalidated JSON: check the raw mode before narrowing it.
+    const mode: unknown = item.mode
+    if (mode !== undefined && mode !== 'execute' && mode !== 'propose')
       errors.push(`Action ${index + 1} has an unknown mode.`)
     const operation = PIPELINE_ACTIONS.find(
       (entry) => entry.operation === item.operation,

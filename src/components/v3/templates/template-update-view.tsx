@@ -35,7 +35,10 @@ const CONFLICT_LABELS: Record<string, string> = {
   'sheet-definition-conflict': 'Sheet definition changed incompatibly',
 }
 
-const OUTCOME_LABELS: Record<string, { title: string; body: string }> = {
+const OUTCOME_LABELS: Record<
+  string,
+  { title: string; body: string } | undefined
+> = {
   keep: {
     title: 'Keep as it is',
     body: 'Leave this part on its current definition; nothing here changes.',
@@ -117,7 +120,7 @@ export function NotebookTemplateUpdateView({
   backLink: React.ReactNode
 }) {
   const [choices, setChoices] = useState<
-    Record<string, NotebookUpgradeDecisionDraft>
+    Record<string, NotebookUpgradeDecisionDraft | undefined>
   >({})
   const [applying, setApplying] = useState(false)
   const [done, setDone] = useState(false)
@@ -126,7 +129,7 @@ export function NotebookTemplateUpdateView({
   const drafts = useMemo(() => {
     if (!preview) return {}
     const base = defaultNotebookUpgradeDrafts(preview)
-    const merged: Record<string, NotebookUpgradeDecisionDraft> = {}
+    const merged: Record<string, NotebookUpgradeDecisionDraft | undefined> = {}
     for (const conflict of preview.conflicts) {
       merged[conflict.id] = {
         outcome: choices[conflict.id]?.outcome ?? base[conflict.id].outcome,
@@ -395,7 +398,7 @@ export function NotebookTemplateUpdateView({
                                 aria-label={`Target column for ${nested.id}`}
                                 value={
                                   nestedDraft?.targetId ??
-                                  nested.targetCandidates[0] ??
+                                  nested.targetCandidates.at(0) ??
                                   ''
                                 }
                                 onChange={(event) =>

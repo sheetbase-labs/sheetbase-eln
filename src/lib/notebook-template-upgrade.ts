@@ -108,7 +108,10 @@ export function parseNotebookTemplateUpgradeDecisions(value: unknown) {
 
 export type NotebookUpgradeDecisionDraft = {
   outcome?: 'keep' | 'retarget'
-  instanceDecisionDrafts?: Record<string, SheetDefinitionUpgradeDecisionDraft>
+  instanceDecisionDrafts?: Record<
+    string,
+    SheetDefinitionUpgradeDecisionDraft | undefined
+  >
   instanceParameterDrafts?: Record<string, string>
 }
 

@@ -240,6 +240,15 @@ export const apiCredentials = internal.table(
     lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
     revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
     expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
+    /**
+     * SET-04.2 — an expired token that is still presented is surfaced with its
+     * refusal count so the owner is told to create a replacement.
+     */
+    refusalCount: integer('refusal_count').notNull().default(0),
+    lastRefusedAt: timestamp('last_refused_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     createdByUserId: text('created_by_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),

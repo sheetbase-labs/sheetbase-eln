@@ -12,13 +12,16 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { SignJWT } from 'jose'
 
 import type * as schema from '#/db/schema'
 import { apiCredentials, workspaceMemberships } from '#/db/schema'
 import { isValidScope } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
+
+/** SET-04.2 — the design's maximum token lifetime. */
+export const MAX_CREDENTIAL_LIFETIME_DAYS = 90
 
 export type { Scope } from '#/lib/api-credential-scopes'
 export {
@@ -65,6 +68,11 @@ export interface CredentialRecord {
   lastUsedAt: Date | null
   revokedAt: Date | null
   expiresAt: Date | null
+  refusalCount: number
+  lastRefusedAt: Date | null
+  expired: boolean
+  unusedDays: number | null
+  needsReplacement: boolean
   createdByUserId: string
 }
 
@@ -148,6 +156,15 @@ export async function createCredential(
   if (expiresAt && expiresAt.getTime() <= Date.now()) {
     throw new CredentialError('expired', 'Expiry must be in the future.')
   }
+  if (
+    expiresAt &&
+    expiresAt.getTime() > Date.now() + MAX_CREDENTIAL_LIFETIME_DAYS * 86_400_000
+  ) {
+    throw new CredentialError(
+      'expiry_too_long',
+      'A token may not live longer than 90 days.',
+    )
+  }
 
   return await db.transaction(async (tx) => {
     // Generate a unique prefix (collision is astronomically unlikely but the
@@ -198,19 +215,36 @@ export async function listCredentials(
     where: eq(apiCredentials.workspaceId, workspaceId),
     orderBy: (table, { desc }) => [desc(table.createdAt)],
   })
-  return rows.map((row) => ({
-    id: row.id,
-    workspaceId: row.workspaceId,
-    kind: row.kind as CredentialKind,
-    displayPrefix: row.displayPrefix,
-    name: row.name,
-    scopes: row.scopes as Scope[],
-    createdAt: row.createdAt,
-    lastUsedAt: row.lastUsedAt,
-    revokedAt: row.revokedAt,
-    expiresAt: row.expiresAt,
-    createdByUserId: row.createdByUserId,
-  }))
+  const now = Date.now()
+  return rows.map((row) => {
+    const expired = row.expiresAt !== null && row.expiresAt.getTime() <= now
+    const unusedDays = row.lastUsedAt
+      ? Math.floor((now - row.lastUsedAt.getTime()) / 86_400_000)
+      : null
+    return {
+      id: row.id,
+      workspaceId: row.workspaceId,
+      kind: row.kind as CredentialKind,
+      displayPrefix: row.displayPrefix,
+      name: row.name,
+      scopes: row.scopes as Scope[],
+      createdAt: row.createdAt,
+      lastUsedAt: row.lastUsedAt,
+      revokedAt: row.revokedAt,
+      expiresAt: row.expiresAt,
+      refusalCount: row.refusalCount,
+      lastRefusedAt: row.lastRefusedAt,
+      expired,
+      unusedDays,
+      // The design asks for a replacement when an expired token is still being
+      // used, or when one has gone unused for 30 days.
+      needsReplacement:
+        row.revokedAt === null &&
+        ((expired && row.refusalCount > 0) ||
+          (unusedDays !== null && unusedDays >= 30)),
+      createdByUserId: row.createdByUserId,
+    }
+  })
 }
 
 /** Revokes a credential. Revocation is immediate and permanent. */
@@ -287,6 +321,7 @@ export type ExchangeErrorCode =
   | 'invalid_credential'
   | 'revoked'
   | 'expired'
+  | 'expiry_too_long'
   | 'insufficient_scope'
   | 'rate_limited'
 
@@ -408,6 +443,14 @@ export async function exchangeCredential(
   }
 
   if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
+    // SET-04.2: the owner is shown that an expired token is still being used.
+    await db
+      .update(apiCredentials)
+      .set({
+        refusalCount: sql`${apiCredentials.refusalCount} + 1`,
+        lastRefusedAt: new Date(),
+      })
+      .where(eq(apiCredentials.id, row.id))
     throw new CredentialError('expired', 'Credential has expired.')
   }
 

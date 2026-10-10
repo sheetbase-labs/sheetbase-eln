@@ -273,4 +273,145 @@ describe('SignNotebookDialog', () => {
       '',
     )
   })
+
+  function mockSignableSubmission() {
+    fetchReviewSubmissionByRevision.mockResolvedValue({
+      id: 'sub1',
+      workspace_id: 'ws1',
+      record_id: 'r1',
+      state: 'approved',
+      assigned_reviewer_user_ids: ['u1'],
+    })
+    fetchRevisionRow.mockResolvedValue({
+      id: 'rev1',
+      integrity_digest: 'abc123digest',
+    })
+    fetchSignaturesForSubmission.mockResolvedValue([])
+    signRevision.mockResolvedValue({ signatureId: 'sig1' })
+  }
+
+  function renderSignDialog(onOpenChange: (open: boolean) => void = vi.fn()) {
+    return renderWithQuery(
+      <SignNotebookDialog
+        open
+        onOpenChange={onOpenChange}
+        revisionId="rev1"
+        currentUserId="u1"
+        currentUserName="Ada Lovelace"
+      />,
+    )
+  }
+
+  it('REV-03.4 puts initial focus in the signing password field when it opens', async () => {
+    mockSignableSubmission()
+    renderSignDialog()
+
+    const password = await screen.findByLabelText('Signing password')
+    await waitFor(() => {
+      expect(document.activeElement).toBe(password)
+    })
+  })
+
+  it('REV-03.4 shows the meaning, the bound revision and the password re-entry requirement', async () => {
+    mockSignableSubmission()
+    renderSignDialog()
+
+    const select = await screen.findByLabelText('Signature meaning')
+    expect(select).toHaveProperty('value', 'reviewed-and-approved')
+    expect(screen.getByText('Meaning').nextElementSibling?.textContent).toBe(
+      'Reviewed and approved',
+    )
+    expect(
+      screen.getByText(/approve it as the authoritative record for locking/),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        /Re-enter your local signing password for this signature/,
+      ),
+    ).toBeTruthy()
+    // The revision the signature binds is identified by digest as well as id.
+    expect(screen.getByText('abc123digest')).toBeTruthy()
+  })
+
+  it('REV-03.4 submits on Enter from the confirmation field', async () => {
+    const user = userEvent.setup()
+    mockSignableSubmission()
+    renderSignDialog()
+
+    await user.type(
+      await screen.findByLabelText('Signing password'),
+      'local-signing-password',
+    )
+    await user.type(
+      screen.getByLabelText('Signature confirmation'),
+      'Ada Lovelace',
+    )
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+      expect(signRevision).toHaveBeenCalledTimes(1)
+    })
+    expect(requestSignatureStepUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        purpose: 'sign',
+        password: 'local-signing-password',
+      }),
+    )
+  })
+
+  it('REV-03.4 cancels on Escape without signing', async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    mockSignableSubmission()
+    renderSignDialog(onOpenChange)
+
+    await screen.findByLabelText('Signing password')
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+    expect(signRevision).not.toHaveBeenCalled()
+  })
+
+  it('REV-03.4 traps focus inside the dialog while open', async () => {
+    const user = userEvent.setup()
+    mockSignableSubmission()
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <button type="button">Outside the dialog</button>
+        <SignNotebookDialog
+          open
+          onOpenChange={vi.fn()}
+          revisionId="rev1"
+          currentUserId="u1"
+          currentUserName="Ada Lovelace"
+        />
+      </QueryClientProvider>,
+    )
+
+    const password = await screen.findByLabelText('Signing password')
+    const dialog = screen.getByRole('dialog')
+    const outside = screen.getByRole('button', {
+      name: 'Outside the dialog',
+      hidden: true,
+    })
+    await waitFor(() => {
+      expect(document.activeElement).toBe(password)
+    })
+
+    for (let index = 0; index < 8; index += 1) {
+      await user.tab()
+      await waitFor(() => {
+        expect(dialog.contains(document.activeElement)).toBe(true)
+      })
+      expect(document.activeElement).not.toBe(outside)
+    }
+  })
 })

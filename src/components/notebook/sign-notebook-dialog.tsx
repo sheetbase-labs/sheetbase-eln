@@ -179,95 +179,108 @@ export function SignNotebookDialog({
           title="Sign this Notebook"
           description="This records an internal electronic signature against the submitted evidence. It is not a regulatory compliance certification."
         />
-        <DialogBody>
-          {!canSign ? (
-            <p className="m-0 text-body text-fg-muted">
-              No eligible signature meaning is available. Signing requires an
-              active frozen revision, assignment as a nonauthor reviewer or an
-              explicit witness request, and current workspace write permission.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
-                <dt className="text-fg-muted">Signer</dt>
-                <dd className="m-0">{currentUserName}</dd>
-                <dt className="text-fg-muted">Revision</dt>
-                <dd className="m-0 font-mono break-all">{revisionId}</dd>
-                <dt className="text-fg-muted">Content hash</dt>
-                <dd className="m-0 font-mono break-all">
-                  {integrityDigest ?? 'Unavailable'}
-                </dd>
-              </dl>
-              <Field
-                label="Signing password"
-                hint="Re-enter your local signing password for this signature. Three failed attempts lock signing for 15 minutes."
-              >
-                <Input
-                  ref={passwordRef}
-                  aria-label="Signing password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </Field>
-              <Field label="Signature meaning">
-                <NativeSelect
-                  aria-label="Signature meaning"
-                  value={meaning}
-                  onChange={(event) => {
-                    const option = SIGNATURE_MEANING_OPTIONS.find(
-                      (item) => item.value === event.target.value,
-                    )
-                    if (option) setMeaning(option.value)
-                  }}
+        <form
+          className="flex min-h-0 flex-1 flex-col"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (sign.isPending) return
+            if (!password || !confirmationMatches || !integrityDigest) return
+            sign.mutate()
+          }}
+        >
+          <DialogBody>
+            {!canSign ? (
+              <p className="m-0 text-body text-fg-muted">
+                No eligible signature meaning is available. Signing requires an
+                active frozen revision, assignment as a nonauthor reviewer or an
+                explicit witness request, and current workspace write
+                permission.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
+                  <dt className="text-fg-muted">Signing as</dt>
+                  <dd className="m-0">{currentUserName}</dd>
+                  <dt className="text-fg-muted">Meaning</dt>
+                  <dd className="m-0 font-medium">{selected.label}</dd>
+                  <dt className="text-fg-muted">Revision</dt>
+                  <dd className="m-0 font-mono break-all">{revisionId}</dd>
+                  <dt className="text-fg-muted">Content hash</dt>
+                  <dd className="m-0 font-mono break-all">
+                    {integrityDigest ?? 'Unavailable'}
+                  </dd>
+                </dl>
+                <Field
+                  label="Signing password"
+                  hint="Re-enter your local signing password for this signature. Three failed attempts lock signing for 15 minutes."
                 >
-                  {SIGNATURE_MEANING_OPTIONS.filter((option) =>
-                    meanings.includes(option.value),
-                  ).map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-              <p className="m-0 text-label text-fg-muted">
-                {selected.description}
-              </p>
-              <p className="m-0 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-label text-fg-muted">
-                {ASSURANCE_LEVEL_STATEMENT.standard}
-              </p>
-              <Field label="Type your name to confirm">
-                <Input
-                  aria-label="Signature confirmation"
-                  type="text"
-                  placeholder={currentUserName}
-                  value={confirmation}
-                  onChange={(event) => setConfirmation(event.target.value)}
-                  autoComplete="off"
-                />
-              </Field>
-            </div>
-          )}
-          {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
-          {canSign ? (
-            <Button
-              variant="primary"
-              disabled={
-                sign.isPending ||
-                !password ||
-                !confirmationMatches ||
-                !integrityDigest
-              }
-              onClick={() => sign.mutate()}
-            >
-              Sign
-            </Button>
-          ) : null}
-        </DialogFooter>
+                  <Input
+                    ref={passwordRef}
+                    aria-label="Signing password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </Field>
+                <Field label="Signature meaning">
+                  <NativeSelect
+                    aria-label="Signature meaning"
+                    value={meaning}
+                    onChange={(event) => {
+                      const option = SIGNATURE_MEANING_OPTIONS.find(
+                        (item) => item.value === event.target.value,
+                      )
+                      if (option) setMeaning(option.value)
+                    }}
+                  >
+                    {SIGNATURE_MEANING_OPTIONS.filter((option) =>
+                      meanings.includes(option.value),
+                    ).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+                <p className="m-0 text-label text-fg-muted">
+                  {selected.description}
+                </p>
+                <p className="m-0 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-label text-fg-muted">
+                  {ASSURANCE_LEVEL_STATEMENT.standard}
+                </p>
+                <Field label="Type your name to confirm">
+                  <Input
+                    aria-label="Signature confirmation"
+                    type="text"
+                    placeholder={currentUserName}
+                    value={confirmation}
+                    onChange={(event) => setConfirmation(event.target.value)}
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+            )}
+            {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+            {canSign ? (
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={
+                  sign.isPending ||
+                  !password ||
+                  !confirmationMatches ||
+                  !integrityDigest
+                }
+              >
+                Sign
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

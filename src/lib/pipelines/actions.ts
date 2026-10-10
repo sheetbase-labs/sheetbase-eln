@@ -3,6 +3,13 @@ export interface PipelineAction {
   name: string
   operation: string
   arguments: Record<string, unknown>
+  /**
+   * PIPE-03.1 — what the step does with the action. `execute` (the default) calls the
+   * canonical RPC; `propose` writes a proposal instead, so a person decides. Only an
+   * operation with a `proposalKind` can be proposed, because a proposal's operation has
+   * to be something the proposal contract can validate and execute.
+   */
+  mode?: 'execute' | 'propose'
 }
 export type PipelineActionArgumentType =
   'uuid' | 'text' | 'integer' | 'bigint' | 'numeric' | 'jsonb' | 'text[]'
@@ -19,6 +26,8 @@ export interface PipelineActionDefinition {
   label: string
   description: string
   arguments: PipelineActionArgument[]
+  /** The proposal kind this operation becomes when a step proposes it. */
+  proposalKind?: string
 }
 const arg = (
   name: string,
@@ -36,14 +45,31 @@ const definition = (
   label: string,
   description: string,
   args: PipelineActionArgument[],
+  proposalKind?: string,
 ): PipelineActionDefinition => ({
   operation,
   rpc: operation,
   label,
   description,
   arguments: args,
+  proposalKind,
 })
 export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
+  definition(
+    'insert_block',
+    'Insert a notebook block',
+    'Insert a block into a notebook record, after a named block. A step may propose this instead of doing it.',
+    [
+      arg('p_record_id', 'uuid'),
+      arg('p_type', 'text'),
+      arg('p_payload', 'jsonb'),
+      arg('p_payload_schema_version', 'integer', false),
+      arg('p_after_block_id', 'uuid', false, true),
+      arg('p_expected_structure_version', 'integer', false),
+      arg('p_before_block_id', 'uuid', false, true),
+    ],
+    'notebook_block.insert',
+  ),
   definition(
     'create_project',
     'Create project',
@@ -212,6 +238,12 @@ export function validatePipelineActions(value: unknown): string[] {
         `Action ${index + 1} needs a unique name using letters, numbers and underscores.`,
       )
     if (typeof item.name === 'string') names.add(item.name)
+    if (
+      item.mode !== undefined &&
+      item.mode !== 'execute' &&
+      item.mode !== 'propose'
+    )
+      errors.push(`Action ${index + 1} has an unknown mode.`)
     const operation = PIPELINE_ACTIONS.find(
       (entry) => entry.operation === item.operation,
     )
@@ -243,6 +275,10 @@ export function validatePipelineActions(value: unknown): string[] {
       )
         errors.push(`Action ${index + 1} requires ${field.name}.`)
     }
+    if (item.mode === 'propose' && !operation.proposalKind)
+      errors.push(
+        `Action ${index + 1} cannot propose ${operation.operation}: it has no proposal form.`,
+      )
   }
   return errors
 }

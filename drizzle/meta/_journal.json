@@ -2841,6 +2841,20 @@
       "when": 1791660551950,
       "tag": "0407_record_cell_conflict",
       "breakpoints": true
+    },
+    {
+      "idx": 408,
+      "version": "7",
+      "when": 1791661494597,
+      "tag": "0408_pipeline_propose_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 409,
+      "version": "7",
+      "when": 1791661789632,
+      "tag": "0409_pipeline_action_insert_block",
+      "breakpoints": true
     }
   ]
 }

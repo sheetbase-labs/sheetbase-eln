@@ -1797,6 +1797,67 @@ describe('Pipeline workflow extensions', () => {
     })
   })
 
+  it('proposes a notebook block instead of inserting it when the action says propose', async () => {
+    const record = (
+      await migrator.query<{ id: string; structure_version: number }>(
+        `INSERT INTO api.records(
+           workspace_id, kind, identifier, title, status, created_by_user_id)
+         VALUES($1,'experiment','EXP-031-PROPOSE','Proposal target','in_progress',$2)
+         RETURNING id, structure_version`,
+        [WS, OWNER],
+      )
+    ).rows[0]!
+
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      transform: { language: 'none', statement: '' },
+      output: { mode: 'none' },
+      actions: [
+        {
+          name: 'summary',
+          operation: 'insert_block',
+          mode: 'propose',
+          arguments: {
+            p_record_id: record.id,
+            p_type: 'rich_text',
+            p_payload: { doc: { type: 'doc', content: [] } },
+            p_expected_structure_version: record.structure_version,
+          },
+        },
+      ],
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    await close()
+    expect(report.ok).toBe(true)
+
+    const proposed = (
+      report.run?.result.actions as Record<
+        string,
+        {
+          id: string
+          operation_kind: string
+          status: string
+          provenance: Record<string, unknown>
+        }
+      >
+    ).summary
+    expect(proposed.operation_kind).toBe('notebook_block.insert')
+    // Inserting content is consequential, so it waits for a person.
+    expect(proposed.status).toBe('pending')
+    expect(proposed.provenance.kind).toBe('pipeline')
+    expect(proposed.provenance.runId).toBe(run.id)
+
+    // Nothing was inserted: the proposal is the whole effect of the step.
+    const blocks = await migrator.query(
+      `SELECT id FROM api.blocks WHERE record_id=$1`,
+      [record.id],
+    )
+    expect(blocks.rows).toEqual([])
+  })
+
   it("does not let a viewer fail another user's running pipeline", async () => {
     const run = await workflow({
       configVersion: 1,

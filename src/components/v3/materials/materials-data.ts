@@ -56,11 +56,20 @@ function lotStatus(
   reagent: Reagent,
   attention: ReturnType<typeof reagentAttention>,
 ): { tone: Tone; label: string } {
-  if (reagent.status === 'quarantined' || reagent.status === 'expired') {
-    return STATUS[reagent.status]
-  }
-  if (attention.expired) return { tone: 'bad', label: 'Expired' }
+  if (reagent.status === 'quarantined') return STATUS.quarantined
   const expiry = reagent.expiry ? new Date(reagent.expiry) : null
+  if (reagent.status === 'expired' || attention.expired) {
+    return expiry && !Number.isNaN(expiry.getTime())
+      ? {
+          tone: 'bad',
+          label: `Expired ${expiry.toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            timeZone: 'UTC',
+          })}`,
+        }
+      : STATUS.expired
+  }
   if (expiry && !Number.isNaN(expiry.getTime())) {
     if (attention.nearExpiry) {
       return {
@@ -90,10 +99,14 @@ function lotStatus(
 export function toMaterialListRow(reagent: Reagent): MaterialListRow {
   const attention = reagentAttention(reagent)
   const status = lotStatus(reagent, attention)
-  const tabs = ['instock']
+  // A lot is in stock, or held aside, or gone; quarantine and expiry are their own
+  // tabs rather than members of the stock list. Expiring is a view over stock.
+  const expired = attention.expired || reagent.status === 'expired'
+  const tabs: string[] = []
   if (reagent.status === 'quarantined') tabs.push('quarantine')
-  if (attention.nearExpiry) tabs.push('expiring')
-  if (attention.expired || reagent.status === 'expired') tabs.push('expired')
+  else if (expired) tabs.push('expired')
+  else tabs.push('instock')
+  if (tabs.includes('instock') && attention.nearExpiry) tabs.push('expiring')
   return {
     uuid: reagent.id,
     id: reagent.identifier,

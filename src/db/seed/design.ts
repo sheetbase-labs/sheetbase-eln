@@ -1105,9 +1105,16 @@ const DESIGN_MATERIALS: ReadonlyArray<{
   {
     id: '00000000-0000-4000-8000-0000000003a1',
     identifier: 'MAT-0355',
-    title: 'Depth filter SD-1',
-    status: 'available',
-    properties: { supplier: 'Pall', lot: 'L-77105', expiry: '2027-03-15' },
+    title: 'Pluronic F-68, 10 %',
+    status: 'expired',
+    properties: {
+      supplier: 'Thermo Fisher',
+      lot: 'PL-202',
+      expiry: '2026-09-20',
+      quantity: 0.2,
+      unit: 'L',
+      storage: 'Room temp store',
+    },
   },
   {
     id: '00000000-0000-4000-8000-0000000003a2',
@@ -1134,7 +1141,7 @@ const DESIGN_MATERIALS: ReadonlyArray<{
       expiry: '2027-02-28',
       quantity: 42,
       unit: 'mL',
-      storage: 'F-1 (2-8 C)',
+      storage: 'F-1 (2–8 °C)',
     },
   },
   {
@@ -1148,15 +1155,22 @@ const DESIGN_MATERIALS: ReadonlyArray<{
       expiry: '2026-12-31',
       quantity: 2,
       unit: 'plates',
-      storage: 'F-2 (2-8 C)',
+      storage: 'F-2 (2–8 °C)',
     },
   },
   {
     id: '00000000-0000-4000-8000-0000000003a5',
     identifier: 'MAT-0402',
-    title: 'rProtein A resin',
-    status: 'available',
-    properties: { supplier: 'Cytiva', lot: 'L-78012', expiry: '2027-06-18' },
+    title: 'AEX resin, 5 mL column',
+    status: 'quarantined',
+    properties: {
+      supplier: 'Cytiva',
+      lot: 'R-1170',
+      expiry: '2027-06-18',
+      quantity: 3,
+      unit: 'columns',
+      storage: 'Consumables store, bay 2',
+    },
   },
   {
     id: '00000000-0000-4000-8000-0000000003a6',
@@ -1199,13 +1213,6 @@ const DESIGN_MATERIALS: ReadonlyArray<{
       unit: 'units',
       storage: 'Consumables store, bay 4',
     },
-  },
-  {
-    id: '00000000-0000-4000-8000-0000000003a9',
-    identifier: 'MAT-0421',
-    title: 'TFF membrane cassette',
-    status: 'available',
-    properties: { supplier: 'Repligen', lot: 'L-78903', expiry: '2027-09-01' },
   },
 ]
 

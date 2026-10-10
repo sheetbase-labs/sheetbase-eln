@@ -2,10 +2,10 @@
 id: subtask-118
 title: WORK-03.2 — internal.notifications written by a trigger on api.change_events for the…
 type: subtask
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-28"
+updated: "2026-10-10"
 parent: task-116
 tags:
   - WORK-03.2

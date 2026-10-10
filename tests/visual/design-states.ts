@@ -450,7 +450,7 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
     historicalMismatch: {
       ratio: '0.03 (28276 px) at the 0.001 gate',
       causes: [3],
-      text: 'Seed data and lot status now match: the design titles, lots, per-lot stock and storage locations are seeded, the Status column reads the lot standing (Expires 1 Oct, Released Mar 2027) rather than the lifecycle word, and the list sorts newest first like the design. What remains: the design shows seven rows for the project while the seed has ten in stock (MAT-0421/0402/0355 are extra), the table column widths differ, the right panel is missing the Lot block fields (catalogue number, Received, Released by, Certificate, Stock of total, Used in), and the app renders a list footer the design does not.'',
+      text: 'Seed data and lot status now match: the design titles, lots, per-lot stock and storage locations are seeded, the Status column reads the lot standing (Expires 1 Oct, Released Mar 2027) rather than the lifecycle word, and the list sorts newest first like the design. What remains: the design shows seven rows for the project while the seed has ten in stock (MAT-0421/0402/0355 are extra), the table column widths differ, the right panel is missing the Lot block fields (catalogue number, Received, Released by, Certificate, Stock of total, Used in), and the app renders a list footer the design does not.',
     },
   },
   {

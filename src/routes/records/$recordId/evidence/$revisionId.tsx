@@ -109,6 +109,24 @@ function RevisionEvidenceRoute() {
                   : (state?.record.currentTitle ?? '—'),
               ],
               [
+                'Instruments',
+                state && state.instruments.length > 0
+                  ? state.instruments.map((instrument) => (
+                      <div key={instrument.instrumentId}>
+                        {instrument.displayId ? (
+                          <>
+                            <span className="mono">{instrument.displayId}</span>
+                            {' · '}
+                          </>
+                        ) : null}
+                        {instrument.renamed
+                          ? `${instrument.signedName ?? '—'} → ${instrument.currentName ?? '—'}`
+                          : (instrument.currentName ?? '—')}
+                      </div>
+                    ))
+                  : '—',
+              ],
+              [
                 'Comments after signing',
                 String(state?.commentsAfterSigning ?? 0),
               ],

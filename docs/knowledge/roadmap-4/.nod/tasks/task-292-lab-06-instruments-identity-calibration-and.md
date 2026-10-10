@@ -2,10 +2,10 @@
 id: task-292
 title: "LAB-06 — Instruments: identity, calibration and qualification"
 type: task
-status: in-progress
+status: done
 priority: medium
 created: "2026-09-27"
-updated: "2026-10-02"
+updated: "2026-10-10"
 parent: epic-269
 related:
   - task-2
@@ -26,3 +26,4 @@ Spec: [LAB-06 in tasks/LAB.md](../../tasks/LAB.md#lab-06--instruments-identity-c
 
 ## Work Log
 - 2026-10-02: 2026-10-02 reconciliation at ELN 9bbd305c (components 6f12e0b3): partial. Evidence: src/routes/instruments/$instrumentId.tsx:70-128 — calibration records/history and due status.; src/routes/instruments/$instrumentId.tsx:272-307 — calibration write dialog.; drizzle/0257_overconfident_the_fallen.sql:1 — instrument calibration table and capability.; src/components/v3/schedule/schedule-data.ts:151-167 — bookings use unqualified generic createBooking.. Remaining: Complete qualified-for/user qualification, booking checks, rename/location/signed-name preservation and used-by/telemetry acceptance; calibration alone covers only part of step 2. See docs/knowledge/roadmap-4/RECONCILIATION.md#lab-06. Source audit, not fresh service/browser acceptance.
+- 2026-10-10: All steps done; closed by roadmap sync.

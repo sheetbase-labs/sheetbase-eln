@@ -27,6 +27,18 @@ export interface RevisionDrift {
     latestLabel: string | null
     changed: boolean
   }>
+  /**
+   * LAB-06.4: instruments the record's imports came through, each showing the name captured
+   * when the revision was frozen beside the name the instrument has now, so a rename is
+   * visible rather than silently applied to history.
+   */
+  instruments: Array<{
+    instrumentId: string
+    displayId: string | null
+    signedName: string | null
+    currentName: string | null
+    renamed: boolean
+  }>
   commentsAfterSigning: number
   drifted: boolean
 }

@@ -29,9 +29,9 @@ import { Client } from 'pg'
 import {
   PipelinePythonError,
   executePythonTransform,
+  releasePythonArtefacts,
 } from './pipeline-python.server'
 import type { PythonTransformUsage } from './pipeline-python.server'
-import { releasePythonArtefacts } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
 import type { QueryResultRow } from 'pg'
@@ -1552,21 +1552,14 @@ async function executeSteps(
   const skipped = new Set<string>()
   // The most recent recorded decision, exposed to the steps after it.
   let answerValues: Record<string, unknown> | null = null
-  // PIPE-04.3: the peak payload usage reported by any Python step this run.
-  const peakUsage: PythonTransformUsage = {
-    inputBytes: 0,
-    outputBytes: 0,
-    rows: 0,
-    cells: 0,
-  }
-  let sawUsage = false
+  // PIPE-04.3: the peak payload usage reported by any Python step this run. Accumulated into a
+  // list rather than folded into a running object: a flag assigned inside the callback is
+  // narrowed to its initialiser by control-flow analysis, so the result could not ask whether
+  // anything had been seen.
+  const usages: PythonTransformUsage[] = []
   const recordUsage = (usage: PythonTransformUsage | undefined): void => {
     if (!usage) return
-    sawUsage = true
-    peakUsage.inputBytes = Math.max(peakUsage.inputBytes, usage.inputBytes)
-    peakUsage.outputBytes = Math.max(peakUsage.outputBytes, usage.outputBytes)
-    peakUsage.rows = Math.max(peakUsage.rows, usage.rows)
-    peakUsage.cells = Math.max(peakUsage.cells, usage.cells)
+    usages.push(usage)
   }
   const steps: PipelineStep[] = [
     ...(config.transform.language === 'none'
@@ -1709,7 +1702,16 @@ async function executeSteps(
     kind: 'rows',
     rows: previous ?? [],
     durationMs: Date.now() - started,
-    ...(sawUsage ? { usage: peakUsage } : {}),
+    ...(usages.length > 0
+      ? {
+          usage: {
+            inputBytes: Math.max(...usages.map((u) => u.inputBytes)),
+            outputBytes: Math.max(...usages.map((u) => u.outputBytes)),
+            rows: Math.max(...usages.map((u) => u.rows)),
+            cells: Math.max(...usages.map((u) => u.cells)),
+          },
+        }
+      : {}),
   }
 }
 

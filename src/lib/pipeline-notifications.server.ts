@@ -43,7 +43,7 @@ export async function queuePipelineNotifications(
         WHERE sub.id = $1 AND sub.workspace_id = $2 AND sub.status = 'active'`,
       [target.subscriptionId, run.workspace_id],
     )
-    const channel = rows[0]
+    const channel = rows.at(0)
     // A target that is gone or no longer active is an unavailable destination, not a
     // destination to skip: PIPE-05.3 rolls the run back rather than reporting success for a
     // notification that was never sent.

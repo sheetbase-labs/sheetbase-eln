@@ -411,6 +411,39 @@ describe('NotebookCanvas — locked record', () => {
 })
 
 describe('NotebookCanvas', () => {
+  it('renders view-only for a reader without record.create (EXP-04.5)', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <NotebookCanvas
+          record={record}
+          blocks={[
+            {
+              id: 'b1',
+              recordId: record.id,
+              type: 'rich_text',
+              payload: { doc: { type: 'doc', content: [] } },
+              payloadSchemaVersion: 1,
+              order: 0,
+              version: 1,
+            },
+          ]}
+          isLoading={false}
+          error={null}
+          onRetry={() => {}}
+          client={{} as unknown as DataClient}
+          queryClient={client}
+          viewOnly
+        />
+      </QueryClientProvider>,
+    )
+    // The editable path is never handed to a viewer: no add-block control,
+    // even though the record is neither archived nor locked.
+    expect(screen.queryByText('+ Block')).toBeNull()
+  })
+
   it('shows a loading state', () => {
     const { container } = render(
       <NotebookCanvas

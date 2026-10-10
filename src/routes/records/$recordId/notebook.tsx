@@ -96,6 +96,7 @@ import {
   recordKindLabel,
   statusDomainForKind,
 } from '#/lib/notebook-data'
+import { hasCapability } from '#/lib/capability'
 import type {
   NotebookBlock as NotebookBlockDomain,
   NotebookLink,
@@ -720,6 +721,12 @@ function ExperimentNotebookRoute() {
               collaborationWorkspaceId={context.workspace?.id}
               outline={outlineControls}
               collaborationRole={context.workspace?.role}
+              // EXP-04.5: a workspace viewer reads the notebook view-only
+              // instead of being handed the editable path for the server to
+              // refuse. GOV-01: viewer has no record.create.
+              viewOnly={
+                !hasCapability(context.workspace?.role, 'record.create')
+              }
               onUnsavedWorkChange={setHasUnsavedWork}
             />
           )}
@@ -1359,6 +1366,7 @@ export function NotebookCanvas({
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
   outline,
+  viewOnly = false,
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
@@ -1378,6 +1386,12 @@ export function NotebookCanvas({
   collaborationRole?: string
   /** NOTE-02: shared section-collapse controls (route-owned presentation state). */
   outline?: NotebookOutlineControls
+  /**
+   * EXP-04.5: the reader has no record.create capability, so the notebook is a
+   * view-only surface — read-only with the viewer's actions — rather than the
+   * editable path that only the server would refuse.
+   */
+  viewOnly?: boolean
   /** NOTE-04: notified with NotebookDocument's unsaved-work signal. */
   onUnsavedWorkChange?: (hasUnsavedWork: boolean) => void
 }) {
@@ -1409,7 +1423,13 @@ export function NotebookCanvas({
       </div>
     )
   }
-  if (record.archivedAt || record.lockedAt || !client || !queryClient) {
+  if (
+    record.archivedAt ||
+    record.lockedAt ||
+    !client ||
+    !queryClient ||
+    viewOnly
+  ) {
     // Archived and locked notebooks, plus provider-less callers, render
     // read-only through the same document component so the visual frame and
     // anchors match the editable state. SIGN-002: a locked record's

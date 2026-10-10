@@ -448,9 +448,9 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
     screen: 'MaterialsList',
     route: '/materials',
     historicalMismatch: {
-      ratio: '0.02 (25349 px) at the 0.001 gate',
+      ratio: '0.03 (28767 px) at the 0.001 gate',
       causes: [3],
-      text: 'The route, tabs (In stock 356 / Expiring 30 days 4 / Quarantine 3 / Expired 9) and columns already match. The gap is seeded content: the design lists MAT-0420/0419/0418/0377/0371/0366/0342 with per-lot stock and storage locations, while the seed carries ten materials with different identifiers, no storage property (so Location renders an em dash) and design-placeholder supplier labels ("Supplier B") it does not reproduce. DSYS-05 seed gap, counted under cause 3.',
+      text: 'Seed data now matches: MAT-0418/0419/0420 carry the design titles, lots, per-lot stock and storage locations, so Material, Lot, Stock and Location render as the design shows. What remains is UI fidelity, all four visible in the diff: the table renders extra columns (the design has ID/Material/Supplier/Lot/Stock/Location/Status, the app adds duplicates and a second Stock/Location pair), the rows sort differently and include MAT-0421 which the design does not list, the Status column shows the record status (Available) where the design shows lot release/expiry text (Expires 1 Oct / Released Mar 2027), and the right panel is missing the design's Lot block fields (catalogue number, Received, Released by, Certificate, Stock of total, Used in).'',
     },
   },
   {

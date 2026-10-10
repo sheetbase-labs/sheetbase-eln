@@ -49,6 +49,7 @@ function kindToType(kind: WorkItemKind): InboxType {
   if (kind === 'data_issue') return 'data'
   if (kind === 'run_failed' || kind === 'run_waiting') return 'runs'
   if (kind === 'material_expiring') return 'materials'
+  if (kind === 'cell_conflict') return 'data'
   return 'following'
 }
 
@@ -60,6 +61,8 @@ function toneFor(kind: WorkItemKind): Tone {
   // A run waiting for a person is actionable, not broken.
   if (kind === 'run_waiting') return 'warn'
   if (kind === 'material_expiring') return 'warn'
+  // A conflict is actionable: two edits need a person to choose between them.
+  if (kind === 'cell_conflict') return 'warn'
   return 'stored'
 }
 
@@ -71,6 +74,7 @@ function labelFor(kind: WorkItemKind, state: string): string {
   if (kind === 'run_failed') return 'Failed'
   if (kind === 'run_waiting') return 'Waiting'
   if (kind === 'material_expiring') return 'Material'
+  if (kind === 'cell_conflict') return 'Conflict'
   return 'Following'
 }
 

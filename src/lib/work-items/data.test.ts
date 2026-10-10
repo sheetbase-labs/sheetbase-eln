@@ -89,6 +89,7 @@ describe('countByKind', () => {
       item({ kind: 'run_waiting' }),
       item({ kind: 'data_issue' }),
       item({ kind: 'material_expiring' }),
+      item({ kind: 'cell_conflict' }),
       item({ kind: 'following' }),
       item({ kind: 'witness_requested' }),
     ])
@@ -99,6 +100,7 @@ describe('countByKind', () => {
       run_waiting: 1,
       data_issue: 1,
       material_expiring: 1,
+      cell_conflict: 1,
       approval_requested: 0,
       following: 1,
     })

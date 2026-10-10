@@ -2820,6 +2820,20 @@
       "when": 1791657345305,
       "tag": "0404_apply_column_promotion",
       "breakpoints": true
+    },
+    {
+      "idx": 405,
+      "version": "7",
+      "when": 1791658128492,
+      "tag": "0405_sheet_cell_conflicts",
+      "breakpoints": true
+    },
+    {
+      "idx": 406,
+      "version": "7",
+      "when": 1791658224971,
+      "tag": "0406_work_items_cell_conflicts",
+      "breakpoints": true
     }
   ]
 }

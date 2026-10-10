@@ -19,6 +19,7 @@ export type WorkItemKind =
   | 'run_waiting'
   | 'data_issue'
   | 'material_expiring'
+  | 'cell_conflict'
   | 'approval_requested'
   | 'following'
 export type WorkItemState =
@@ -67,6 +68,7 @@ const KINDS: readonly WorkItemKind[] = [
   'run_waiting',
   'data_issue',
   'material_expiring',
+  'cell_conflict',
   'approval_requested',
   'following',
 ]
@@ -167,6 +169,7 @@ export function countByKind(
     run_waiting: 0,
     data_issue: 0,
     material_expiring: 0,
+    cell_conflict: 0,
     approval_requested: 0,
     following: 0,
   }

@@ -86,6 +86,70 @@ async function createInstance(user: Client): Promise<string> {
   return rows[0]!.result.instance.id
 }
 
+describe('EXP-05.3 raising a conflict', () => {
+  it('raises one open conflict per cell, idempotently, attributed to the caller', async () => {
+    const user = await actor(USER)
+    const instanceId = await createInstance(user)
+
+    const raised = (
+      await user.query(
+        `select to_jsonb(api.record_cell_conflict($1,$2,$3,
+           '{"v":"offline"}'::jsonb,$4,now() - interval '5 minutes',
+           '{"v":"theirs"}'::jsonb,$5,now() - interval '10 minutes')) result`,
+        [instanceId, ROW_KEY, FIELD, USER, OTHER],
+      )
+    ).rows[0].result as {
+      id: string
+      state: string
+      local_author_user_id: string
+    }
+
+    expect(raised.state).toBe('open')
+    expect(raised.local_author_user_id).toBe(USER)
+
+    // A second replay of the same cell finds the conflict it already raised.
+    const again = (
+      await user.query(
+        `select to_jsonb(api.record_cell_conflict($1,$2,$3,
+           '{"v":"offline"}'::jsonb,$4,now(),null,null,null)) result`,
+        [instanceId, ROW_KEY, FIELD, USER],
+      )
+    ).rows[0].result as { id: string }
+    expect(again.id).toBe(raised.id)
+    const count = await migrator.query<{ n: number }>(
+      `select count(*)::int as n from api.sheet_cell_conflicts
+        where sheet_instance_id=$1 and state='open'`,
+      [instanceId],
+    )
+    expect(count.rows[0]!.n).toBe(1)
+  })
+
+  it('refuses to attribute the conflict to somebody else', async () => {
+    const user = await actor(USER)
+    const instanceId = await createInstance(user)
+    await expect(
+      user.query(
+        `select api.record_cell_conflict($1,$2,$3,'{"v":"x"}'::jsonb,$4,now()) result`,
+        [instanceId, ROW_KEY, FIELD, OTHER],
+      ),
+    ).rejects.toThrow(/whose edit it is/)
+  })
+
+  it('keeps the table closed to direct writes', async () => {
+    const user = await actor(USER)
+    const instanceId = await createInstance(user)
+    await expect(
+      user.query(
+        `insert into api.sheet_cell_conflicts(
+           workspace_id, sheet_instance_id, row_key, field_id,
+           local_value, local_author_user_id, local_at)
+         values($1,$2,$3,$4,'{"v":"x"}'::jsonb,$5,now())`,
+        [WS, instanceId, ROW_KEY, FIELD, USER],
+      ),
+    ).rejects.toThrow()
+  })
+})
+
 describe('EXP-05.4 cell conflicts', () => {
   it('keeps both sides and records the resolution with its reason', async () => {
     const user = await actor(USER)

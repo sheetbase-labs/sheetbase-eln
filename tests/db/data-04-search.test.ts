@@ -143,6 +143,26 @@ beforeAll(async () => {
       ('${SHEET_A}','${WS_A}','${PROJ_A}','Quantum screening sheet',
        '${MINIMAL_INSTANCE_STATE}'::jsonb);
 
+    -- SRCH-01: a cell value and the text inside an uploaded file are searchable.
+    insert into api.dataset_schema_definitions(id,workspace_id,key,name)
+    values ('0d040000-0000-4000-8000-0000000009c1','${WS_A}','readingschema','Reading schema');
+    insert into api.dataset_schema_versions(id,schema_id,version)
+    values ('0d040000-0000-4000-8000-0000000009c2','0d040000-0000-4000-8000-0000000009c1',1);
+    insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,nullable,display_order)
+    values ('0d040000-0000-4000-8000-0000000009c2','0d040000-0000-4000-8000-0000000009c3','reading','Reading','text',true,1);
+    update api.dataset_schema_versions set lifecycle='active',published_at=now()
+     where id='0d040000-0000-4000-8000-0000000009c2';
+    insert into api.datasets(id,workspace_id,primary_project_id,schema_version_id,name)
+    values ('0d040000-0000-4000-8000-0000000009c4','${WS_A}','${PROJ_A}','0d040000-0000-4000-8000-0000000009c2','Reading table');
+    insert into api.dataset_versions(id,dataset_id,workspace_id,schema_version_id,source_dataset_revision,label)
+    values ('0d040000-0000-4000-8000-0000000009c5','0d040000-0000-4000-8000-0000000009c4','${WS_A}','0d040000-0000-4000-8000-0000000009c2',1,'v1');
+    insert into api.dataset_version_rows(dataset_version_id,row_id,revision)
+    values ('0d040000-0000-4000-8000-0000000009c5','0d040000-0000-4000-8000-0000000009c6',1);
+    insert into api.dataset_version_values(dataset_version_id,row_id,field_id,ordinal,text_value)
+    values ('0d040000-0000-4000-8000-0000000009c5','0d040000-0000-4000-8000-0000000009c6','0d040000-0000-4000-8000-0000000009c3',0,'quantum 42');
+    insert into api.file_objects(id,workspace_id,record_id,storage_key,display_name,media_type,byte_size,checksum_algorithm,status,storage_backend,version,created_by_user_id,extracted_text)
+    values ('0d040000-0000-4000-8000-0000000009a6','${WS_A}','0d040000-0000-4000-8000-0000000005a2','0d040000-0000-4000-8000-000000000001/0d040000-0000-4000-8000-000000000002/0123456789abcdef0123456789abcdef','quantum-run.csv','text/csv',128,'sha256','active','local',1,'${OWNER_A}','reading,quantum yield'||chr(10)||'1,42');
+
     insert into api.notebook_templates(id,workspace_id,key,name,description)
     values ('${TEMPLATE_A}','${WS_A}','quantum_dot_assay','Quantum dot assay template',
             'standard quantum protocol');
@@ -291,5 +311,36 @@ describe('DATA-04 global search coverage', () => {
     const hits = await search(OWNER_A, WS_A, { query: 'yields', limit: 10 })
     expect(hits[0]?.result_type).toBe('dataset')
     expect(hits[0]?.title).toBe('Quantum yields')
+  })
+
+  it('finds dataset cell values and file contents with the matched field', async () => {
+    const hits = await search(OWNER_A, WS_A, { query: 'quantum', limit: 50 })
+    const cell = hits.find((hit) => hit.result_type === 'dataset_row')
+    expect(cell).toMatchObject({
+      kind: 'dataset_row',
+      matched_field: 'cell_value',
+    })
+    expect(cell?.matched_context).toContain('quantum')
+    expect(cell?.deep_link).toContain('/datasets?dataset=')
+    const contents = hits.find(
+      (hit) =>
+        hit.result_type === 'file' && hit.matched_field === 'file_contents',
+    )
+    expect(contents?.matched_context).toContain('quantum')
+
+    // The result-type filter narrows to the cell class.
+    const onlyCells = await search(OWNER_A, WS_A, {
+      query: 'quantum',
+      resultType: 'dataset_row',
+    })
+    expect(onlyCells.length).toBeGreaterThan(0)
+    expect(onlyCells.every((hit) => hit.result_type === 'dataset_row')).toBe(
+      true,
+    )
+    // A workspace outside the fixture sees none of it.
+    const outsider = await search(OWNER_B, WS_B, { query: 'quantum' })
+    expect(outsider.every((hit) => hit.result_type !== 'dataset_row')).toBe(
+      true,
+    )
   })
 })

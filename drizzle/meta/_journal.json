@@ -2526,6 +2526,13 @@
       "when": 1791618923183,
       "tag": "0362_sheet_cell_search_index",
       "breakpoints": true
+    },
+    {
+      "idx": 363,
+      "version": "7",
+      "when": 1791620402873,
+      "tag": "0363_search_cell_and_file_hits",
+      "breakpoints": true
     }
   ]
 }

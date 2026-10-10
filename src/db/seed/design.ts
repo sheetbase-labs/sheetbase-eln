@@ -750,10 +750,7 @@ export const designSteps: Array<SeedStep> = [
               where f.id = $1`,
             ['00000000-0000-4000-8000-0000000007a0'],
           )
-          const file =
-            created.rows.at(0) ??
-            (existing.rows.at(0) as
-              { id: string; identifier: string } | undefined)
+          const file = created.rows.at(0) ?? existing.rows.at(0)
           if (!file) throw new Error('certificate file not created')
           await client.query(
             `insert into api.record_links

@@ -620,7 +620,8 @@ export async function fetchReplacementLot(
         targetIdentifier: replacement.target_identifier,
         reason:
           asString(
-            (replacement.link_metadata as Record<string, unknown> | null)?.reason,
+            (replacement.link_metadata as Record<string, unknown> | null)
+              ?.reason,
           ) ?? null,
       }
     : null
@@ -648,18 +649,19 @@ export async function fetchCertificateFile(
   )
   const target = links.find((link) => link.target_record_id)?.target_record_id
   if (!target) return null
-  const [record] = await client.list<{ id: string; identifier: string }>(
-    'records',
-    `?id=eq.${encodeURIComponent(target)}&select=id,identifier`,
-  )
+  const record = (
+    await client.list<{ id: string; identifier: string }>(
+      'records',
+      `?id=eq.${encodeURIComponent(target)}&select=id,identifier`,
+    )
+  ).at(0)
   if (!record) return null
-  const [object] = await client.list<{
-    display_name: string
-    media_type: string | null
-  }>(
-    'file_objects',
-    `?record_id=eq.${encodeURIComponent(target)}&select=display_name,media_type&limit=1`,
-  )
+  const object = (
+    await client.list<{ display_name: string; media_type: string | null }>(
+      'file_objects',
+      `?record_id=eq.${encodeURIComponent(target)}&select=display_name,media_type&limit=1`,
+    )
+  ).at(0)
   return {
     fileRecordId: record.id,
     identifier: record.identifier,

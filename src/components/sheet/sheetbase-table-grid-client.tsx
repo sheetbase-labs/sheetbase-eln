@@ -135,6 +135,9 @@ function datasetFields(
     writable: !column.readOnly && !readOnly && column.source !== 'calculated',
     computed: column.source === 'calculated',
     source: sourceOf(column),
+    // EXP-04.2: the header's `Source` badge names the dataset and snapshot.
+    // Absent, the engine falls back to its kind-only badge (`ƒx` for `calc`).
+    sourceLabel: column.sourceLabel,
     dataType: dataTypeOf(column),
     options: column.options ? [...column.options] : undefined,
     numberFormat: numberFormatOf(column.numberFormat),
@@ -144,6 +147,26 @@ function datasetFields(
       ? (storedValue: string) => column.displayText?.(storedValue)
       : undefined,
   }))
+}
+
+/**
+ * EXP-04.2 — the engine's header-group row: contiguous columns sharing a
+ * `group` label span one header naming their source. Rebuilt from the
+ * displayed order, so hiding or moving columns keeps each run spanning the
+ * columns actually shown.
+ */
+function columnGroupsOf(
+  columns: readonly SheetbaseGridColumn[],
+): { label: string; columns: number[] }[] | undefined {
+  const groups: { label: string; columns: number[] }[] = []
+  columns.forEach((column, index) => {
+    const label = column.group
+    if (!label) return
+    const current = groups.at(-1)
+    if (current && current.label === label) current.columns.push(index)
+    else groups.push({ label, columns: [index] })
+  })
+  return groups.length > 0 ? groups : undefined
 }
 
 /** A1-addressed stored values, the engine's mount-time data. */
@@ -349,6 +372,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     height,
     stretch,
     spareRows = 0,
+    appendRow,
     frozenColumns,
     initialColumnWidths,
     columnOrder,
@@ -508,6 +532,11 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   const fields = useMemo(
     () => datasetFields(orderedColumns, readOnly),
     [orderedColumns, readOnly],
+  )
+  // EXP-04.2: contiguous same-source runs become the engine's header groups.
+  const columnGroups = useMemo(
+    () => columnGroupsOf(orderedColumns),
+    [orderedColumns],
   )
   const fieldIds = useMemo(
     () => orderedColumns.map((column) => column.id),
@@ -841,6 +870,8 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       onAnnotationsChange={() => setTimeout(annotationsChanged, 0)}
       rowCount={rows.length + spareRows}
       columnCount={columns.length}
+      columnGroups={columnGroups}
+      appendRow={appendRow}
       fieldIds={fieldIds}
       datasetHeader={datasetHeader}
       readOnly={readOnly}

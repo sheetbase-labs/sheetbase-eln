@@ -220,6 +220,7 @@ describe('canonicalCellFacts', () => {
     field,
     presentation: { kind: 'number', inputType: 'number', step: 'any' },
     editable: true,
+    group: 'Results',
   }
 
   const valueState: BoundValueState = {

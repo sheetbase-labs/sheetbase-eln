@@ -30,6 +30,18 @@ export interface SheetbaseGridColumn {
   /** Header label, already carrying any display-only unit suffix. */
   label: string
   source: SheetbaseGridColumnSource
+  /**
+   * EXP-04.2 — group header naming the column's source. Contiguous columns
+   * that share a label render under one header spanning them; omitted columns
+   * take no group header.
+   */
+  group?: string
+  /**
+   * EXP-04.2 — human label for the header's `Source` badge, naming the
+   * dataset and snapshot (for example `DS-0311 · rev 9`). Absent labels fall
+   * back to the badge's kind-only form (`ƒx` for calculated columns).
+   */
+  sourceLabel?: string
   type: SheetbaseGridColumnType
   /** The column cannot be edited (derived, retired or read-only Sheet). */
   readOnly?: boolean
@@ -244,6 +256,13 @@ export interface SheetbaseGridProps {
   rowHeaders?: boolean
   /** Extra blank rows kept at the end for entry. */
   spareRows?: number
+  /**
+   * EXP-04.2 — render the "New run" draft row after the last populated row
+   * (the design's append/draft row). Typing into its first writable cell runs
+   * the normal write pipeline. Requires a `spareRows`/`rowCount` large enough
+   * to hold it; the caller passes it only where a run can start.
+   */
+  appendRow?: boolean | { label?: string }
   /** Fixed height, or `'fill'` to fill the container. */
   height?: number | 'fill'
   /** How columns stretch to fill the available width. */

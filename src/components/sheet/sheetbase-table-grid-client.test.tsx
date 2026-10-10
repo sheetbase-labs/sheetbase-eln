@@ -2,7 +2,10 @@ import { act, cleanup, render, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { RangeStore } from '@sheetbase-labs/sheetbase-table'
+import {
+  RangeStore,
+  sourceBadgeLabel,
+} from '@sheetbase-labs/sheetbase-table'
 import type {
   CellFormat,
   SpreadsheetClipboardPayload,
@@ -223,6 +226,94 @@ describe('SheetbaseTableGridClient layout props', () => {
     expect(props.initialData.get('A1')).toBe('rec-1')
     expect(props.initialData.get('B1')).toBe('1')
     expect(props.initialData.get('C1')).toBe('a1')
+  })
+})
+
+describe('Sheet header chrome (EXP-04.2)', () => {
+  const chromeColumns: SheetbaseGridProps['columns'] = [
+    {
+      id: 'condition',
+      label: 'Condition',
+      source: 'local',
+      type: 'text',
+      group: 'This experiment',
+    },
+    {
+      id: 'train',
+      label: 'Filter train',
+      source: 'local',
+      type: 'text',
+      group: 'This experiment',
+    },
+    {
+      id: 'turbidity',
+      label: 'Turbidity out',
+      source: 'bound',
+      type: 'number',
+      group: 'Results',
+      sourceLabel: 'Results · rev 9',
+    },
+    {
+      id: 'yield',
+      label: 'Step yield',
+      source: 'calculated',
+      type: 'number',
+      readOnly: true,
+      group: 'Derived',
+    },
+  ]
+  const chromeRows: SheetbaseGridProps['rows'] = [
+    { id: 'run-1', cells: ['A-50', 'MAT-0418', 6.2, 86] },
+  ]
+
+  function renderChrome(overrides: Partial<SheetbaseGridProps> = {}) {
+    render(
+      <SheetbaseTableGridClient
+        {...baseProps({ columns: chromeColumns, rows: chromeRows, ...overrides })}
+      />,
+    )
+    return lastProps()
+  }
+
+  it('groups contiguous same-source columns and names the dataset in the Source badge', () => {
+    const props = renderChrome()
+    expect(props.columnGroups).toEqual([
+      { label: 'This experiment', columns: [0, 1] },
+      { label: 'Results', columns: [2] },
+      { label: 'Derived', columns: [3] },
+    ])
+    const turbidity = props.datasetHeader?.fields.at(2)
+    expect(turbidity?.source).toBe('dataset')
+    expect(turbidity?.sourceLabel).toBe('Results · rev 9')
+  })
+
+  it('marks a calculated column with the ƒx badge and leaves a bound column unmarked', () => {
+    const fields = renderChrome().datasetHeader?.fields ?? []
+    const derived = fields.at(3)
+    expect(derived?.computed).toBe(true)
+    expect(derived?.source).toBe('calc')
+    // The engine prints the design's `ƒx` label when the host gives none.
+    expect(sourceBadgeLabel(derived?.source, derived?.sourceLabel)).toBe('ƒx')
+    const bound = fields.at(2)
+    expect(bound?.computed).toBeFalsy()
+    expect(sourceBadgeLabel(bound?.source, bound?.sourceLabel)).not.toBe('ƒx')
+    expect(sourceBadgeLabel(bound?.source, bound?.sourceLabel)).toBe(
+      'Results · rev 9',
+    )
+  })
+
+  it('rebuilds the group row from the displayed column order', () => {
+    const props = renderChrome({ columnOrder: ['yield', 'turbidity', 'condition', 'train'] })
+    expect(props.columnGroups).toEqual([
+      { label: 'Derived', columns: [0] },
+      { label: 'Results', columns: [1] },
+      { label: 'This experiment', columns: [2, 3] },
+    ])
+  })
+
+  it('forwards the New-run append row only when the caller sets it', () => {
+    expect(renderChrome().appendRow).toBeUndefined()
+    expect(renderChrome({ appendRow: true }).appendRow).toBe(true)
   })
 })
 

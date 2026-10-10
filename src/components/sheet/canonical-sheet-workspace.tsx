@@ -170,6 +170,10 @@ function sheetbaseColumn(
     label: canonicalSheetColumnHeader(column),
     source: column.origin === 'calculation' ? 'calculated' : column.origin,
     readOnly,
+    // EXP-04.2: the header's group row and `Source` badge name where the
+    // column comes from (the source dataset, this Sheet, or derivation).
+    group: column.group,
+    sourceLabel: column.sourceLabel,
   }
   if (kind === 'checkbox') return { ...base, type: 'checkbox' }
   if (kind === 'number') return { ...base, type: 'number' }
@@ -1670,6 +1674,9 @@ export function CanonicalSheetEditor({
             stretch="last"
             height="fill"
             spareRows={canWrite ? 1 : 0}
+            // EXP-04.2: the "New run" draft row is offered only where a run
+            // can actually start — a writable, active Sheet.
+            appendRow={canWrite}
             columnWidth={(columnId) =>
               instanceRef.current.state.presentation.columnWidths[columnId]
             }

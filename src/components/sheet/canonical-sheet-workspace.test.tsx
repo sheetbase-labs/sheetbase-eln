@@ -87,9 +87,21 @@ vi.mock('./sheetbase-grid', () => ({
       <table>
         <thead>
           <tr>
+            {columns.map((column) =>
+              column.group ? (
+                <th key={`group-${column.id}`} scope="colgroup">
+                  {column.group}
+                </th>
+              ) : null,
+            )}
+          </tr>
+          <tr>
             {columns.map((column) => (
               <th key={column.id} scope="col">
                 {column.label}
+                {/* EXP-04.2: the engine prints the calculation mark from the
+                column's `calculated` source. */}
+                {column.source === 'calculated' ? ' ƒx' : null}
               </th>
             ))}
           </tr>
@@ -725,5 +737,122 @@ describe('CanonicalSheetWorkspace — explain surface (ASSIST-01)', () => {
       screen.getAllByText(/\[Write-back rule mixed_authority_write\]/).length,
     ).toBeGreaterThan(0)
     expect(screen.getByText(/Not authoritative/)).toBeTruthy()
+  })
+})
+
+describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
+  const CALC = '21000000-0000-4000-8000-00000000000c'
+
+  /** The composed fixture plus one active instance calculation column. */
+  async function composedInstanceWithCalculation(): Promise<SheetInstance> {
+    const instance = await composedInstance()
+    const outputField = {
+      fieldId: CALC,
+      key: 'step_yield',
+      label: 'Step yield',
+      description: null,
+      logicalType: 'decimal' as const,
+      nullable: true,
+      defaultValue: null,
+      cardinality: 'one' as const,
+      quantity: null,
+      validation: {},
+      category: null,
+      relationship: null,
+      computation: { mode: 'computed' as const, expressionId: CALC },
+      lifecycle: 'active' as const,
+    }
+    return {
+      ...instance,
+      state: {
+        ...instance.state,
+        instanceCalculations: [
+          {
+            id: CALC,
+            key: 'step_yield',
+            label: 'Step yield',
+            lifecycle: 'active',
+            outputField,
+            dependencies: [],
+            expression: { language: 'sheetbase-formula-v1', source: '=1' },
+          },
+        ],
+      },
+    }
+  }
+
+  it('names each column source in the header group and marks calculated columns ƒx', async () => {
+    const instance = await composedInstanceWithCalculation()
+    rpcMock.mockResolvedValue(twoDatasetWire())
+    renderWorkspace(
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
+    )
+
+    await waitFor(() => expect(gridRender).toHaveBeenCalled())
+    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
+    const byId = new Map(props.columns.map((column) => [column.id, column]))
+    const [columnA, columnB] = validSheetDefinitionConfiguration().columns
+    const localField = validSheetInstanceState().localFields[0].fieldId
+
+    // Bound columns name their Dataset binding's parameter, plus the
+    // snapshot revision the composition read.
+    expect(byId.get(columnA.id)).toMatchObject({
+      source: 'bound',
+      group: 'Results',
+      sourceLabel: 'Results · rev 9',
+    })
+    expect(byId.get(columnB.id)).toMatchObject({
+      source: 'bound',
+      group: 'Comparison',
+      sourceLabel: 'Comparison · rev 8',
+    })
+    // Local and derived columns name their own source kind.
+    expect(byId.get(localField)).toMatchObject({
+      source: 'local',
+      group: 'This experiment',
+    })
+    const derived = props.columns.find(
+      (column) => column.source === 'calculated',
+    )
+    expect(derived).toMatchObject({ label: 'Step yield', group: 'Derived' })
+    expect(derived?.sourceLabel).toBeUndefined()
+
+    // The group header renders, and only the derived column carries the ƒx
+    // calculation mark.
+    expect(screen.getByRole('columnheader', { name: 'Results' })).toBeTruthy()
+    expect(screen.getByText(/ƒx/)).toBeTruthy()
+    expect(props.columns.filter((column) => column.source === 'bound')).toEqual(
+      expect.not.arrayContaining([expect.objectContaining({ group: 'Derived' })]),
+    )
+  })
+
+  it('offers the New-run draft row where a run can start', async () => {
+    const instance = await composedInstance()
+    rpcMock.mockResolvedValue(twoDatasetWire())
+    renderWorkspace(
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
+    )
+
+    await waitFor(() => expect(gridRender).toHaveBeenCalled())
+    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
+    expect(props.appendRow).toBe(true)
+  })
+
+  it('withholds the New-run draft row when the Sheet is read-only', async () => {
+    const instance = await composedInstance()
+    rpcMock.mockResolvedValue(twoDatasetWire())
+    renderWorkspace(
+      <CanonicalSheetEditor instance={instance} projectId={null} readOnly />,
+    )
+
+    await waitFor(() => expect(gridRender).toHaveBeenCalled())
+    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
+    expect(props.appendRow).toBe(false)
   })
 })

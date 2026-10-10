@@ -38,6 +38,25 @@ never touches the engine directly; it speaks the neutral contract below.
 - `datasetHeader.fields[].displayText` — stored value → human label without
   rewriting the stored value (Record references, category labels).
 
+## Header chrome (EXP-04.2)
+
+The design's sheet header is driven entirely by neutral column data, so callers
+never build engine header settings:
+
+- `SheetbaseGridColumn.group` — the group header naming the column's source.
+  Contiguous columns sharing a label render under one header spanning them, so
+  the group row follows the displayed order through hide/move.
+- `SheetbaseGridColumn.sourceLabel` — the `Source` badge label naming the
+  dataset and snapshot (`<dataset> · rev <n>`); absent labels fall back to the
+  engine's kind-only badge (`ƒx` for a calculated column).
+- `SheetbaseGridProps.appendRow` — the "New run" draft row after the last
+  populated row. The canonical workspace passes it only while a run can start
+  (a writable, active Sheet), paired with its spare row.
+
+`canonical-sheet-grid.ts` names each column's source: a bound column takes its
+Dataset binding's parameter label (plus the composed snapshot revision), local
+columns read `This experiment`, and calculated columns read `Derived`.
+
 ## Styling
 
 `sheetbase-table/styles.css` is imported in `src/styles.css` before the ELN's

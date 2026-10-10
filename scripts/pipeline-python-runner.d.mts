@@ -22,7 +22,9 @@ export interface CollectedArtefact {
 }
 
 export declare function collectOutputFiles(
-  command: (args: string[]) => Promise<{ code: number; stdout: string; stderr: string }>,
+  command: (
+    args: string[],
+  ) => Promise<{ code: number; stdout: string; stderr: string }>,
   containerName: string,
   artefactKey: string,
 ): Promise<CollectedArtefact[]>

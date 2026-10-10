@@ -114,7 +114,10 @@ describe('PIPE-04.2 artefact lifecycle', () => {
     expect(await releaseArtefacts('run-kept', true)).toEqual({ kept: true })
 
     // Even with an age far past the window, a kept directory survives.
-    const result = await pruneArtefacts(0, Date.now() + 365 * 24 * 60 * 60 * 1000)
+    const result = await pruneArtefacts(
+      0,
+      Date.now() + 365 * 24 * 60 * 60 * 1000,
+    )
     expect(result.kept).toBeGreaterThanOrEqual(1)
     await expect(
       stat(join(root, 'run-kept')).then(

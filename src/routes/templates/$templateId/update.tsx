@@ -218,7 +218,12 @@ function TemplateUpdate() {
         backLink={
           <Button
             nativeButton={false}
-            render={<Link to="/experiments/$expId" params={{ expId: search.record }} />}
+            render={
+              <Link
+                to="/experiments/$expId"
+                params={{ expId: search.record }}
+              />
+            }
           >
             Back to notebook
           </Button>

@@ -138,7 +138,10 @@ function stubClient(versions: TemplateVersionWire[]) {
   return { client, list }
 }
 
-function renderBanner(pinnedVersionId: string | null, versions: TemplateVersionWire[]) {
+function renderBanner(
+  pinnedVersionId: string | null,
+  versions: TemplateVersionWire[],
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })

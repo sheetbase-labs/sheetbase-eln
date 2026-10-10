@@ -324,7 +324,9 @@ export function useRunDeliveries(
   return useQuery({
     queryKey: pipelineDataQueryKeys.runDeliveries(runId),
     queryFn: async (): Promise<PipelineRunDeliveryWire[]> => {
-      const rows = await client.list<Omit<PipelineRunDeliveryWire, 'destination'>>(
+      const rows = await client.list<
+        Omit<PipelineRunDeliveryWire, 'destination'>
+      >(
         'webhook_deliveries',
         `?select=id,subscription_id,event_type,status,attempt,response_status,error_code,error_message,delivered_at,created_at&id=in.(${ids})&order=created_at.asc`,
       )

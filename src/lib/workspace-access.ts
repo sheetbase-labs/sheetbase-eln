@@ -229,13 +229,15 @@ export async function removeProjectAccessRule(
 export async function fetchProjectAccessRequests(
   client: DataClient,
 ): Promise<ProjectAccessRequest[]> {
-  return z.array(accessRequestSchema).parse(
-    await client.list(
-      'project_access_requests',
-      '?select=id,project_id,user_id,reason,status,created_at,updated_at,' +
-        'decided_by_user_id&order=created_at.desc',
-    ),
-  )
+  return z
+    .array(accessRequestSchema)
+    .parse(
+      await client.list(
+        'project_access_requests',
+        '?select=id,project_id,user_id,reason,status,created_at,updated_at,' +
+          'decided_by_user_id&order=created_at.desc',
+      ),
+    )
 }
 
 export async function requestProjectEditAccess(

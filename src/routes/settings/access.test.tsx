@@ -119,7 +119,9 @@ function renderAccess() {
   if (!Component) throw new Error('Access component required')
   return render(
     <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
     >
       <Component />
     </QueryClientProvider>,
@@ -153,7 +155,9 @@ describe('SET-02.3 access requests audit', () => {
   it('reads a pending request the reader cannot decide as waiting, not granted', async () => {
     renderAccess()
     const pending = await rowFor('Attach the calibration certificate')
-    expect(await within(pending).findByText('Waiting for approval')).toBeTruthy()
+    expect(
+      await within(pending).findByText('Waiting for approval'),
+    ).toBeTruthy()
     expect(
       within(pending).queryByRole('button', { name: 'Approve edit access' }),
     ).toBeNull()

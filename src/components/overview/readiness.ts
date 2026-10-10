@@ -326,9 +326,7 @@ export function readinessItems(
   const items: ReadinessItem[] = []
 
   for (const [errorIndex, error] of readiness.validationErrors.entries()) {
-    const failing = error.results.filter(
-      (result) => result.status === 'fail',
-    )
+    const failing = error.results.filter((result) => result.status === 'fail')
     for (const [resultIndex, result] of failing.entries()) {
       const location = locationForCheck(result)
       items.push({

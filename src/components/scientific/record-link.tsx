@@ -86,11 +86,7 @@ export function RecordLink({
             : 'bg-primary/10 text-primary',
         )}
       >
-        {stateInfo ? (
-          stateInfo.icon
-        ) : (
-          <Icon name={icon} className="size-4" />
-        )}
+        {stateInfo ? stateInfo.icon : <Icon name={icon} className="size-4" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">

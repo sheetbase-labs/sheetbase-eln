@@ -236,7 +236,8 @@ export function canonicalSheetGridMatrix(input: {
       const group = name ?? SHEET_BOUND_GROUP_FALLBACK
       return {
         group,
-        sourceLabel: revision === undefined ? name : `${group} · rev ${revision}`,
+        sourceLabel:
+          revision === undefined ? name : `${group} · rev ${revision}`,
       }
     }
     const bound = composed.columns.map((column) =>

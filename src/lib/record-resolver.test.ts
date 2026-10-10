@@ -8,16 +8,14 @@ import type { DataClient } from '#/lib/data-client'
 
 describe('resolveRecordByIdentifier', () => {
   it('resolves a scanned identifier to the record it names', async () => {
-    const list = vi
-      .fn()
-      .mockResolvedValue([
-        {
-          id: 'rec-1',
-          identifier: 'SMP-0007',
-          kind: 'sample',
-          title: 'Serum pool A',
-        },
-      ])
+    const list = vi.fn().mockResolvedValue([
+      {
+        id: 'rec-1',
+        identifier: 'SMP-0007',
+        kind: 'sample',
+        title: 'Serum pool A',
+      },
+    ])
     const record = await resolveRecordByIdentifier(
       { list } as unknown as DataClient,
       'SMP-0007',

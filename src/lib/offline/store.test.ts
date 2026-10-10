@@ -117,7 +117,10 @@ describe('offline edit store', () => {
 
   it('isolates edits per user and per record', async () => {
     const store = createOfflineEditStore(createInMemoryStorage())
-    const otherUser: OfflineEditScope = { userId: 'user-b', recordId: 'record-1' }
+    const otherUser: OfflineEditScope = {
+      userId: 'user-b',
+      recordId: 'record-1',
+    }
     const otherRecord: OfflineEditScope = {
       userId: 'user-a',
       recordId: 'record-2',
@@ -144,12 +147,12 @@ describe('offline edit store', () => {
     const store = createOfflineEditStore(createInMemoryStorage())
     await store.putEdit(scope, draft())
 
-    expect(await store.listEdits({ userId: 'user-a', recordId: 'record-2' })).toEqual(
-      [],
-    )
-    expect(await store.listEdits({ userId: 'user-b', recordId: 'record-1' })).toEqual(
-      [],
-    )
+    expect(
+      await store.listEdits({ userId: 'user-a', recordId: 'record-2' }),
+    ).toEqual([])
+    expect(
+      await store.listEdits({ userId: 'user-b', recordId: 'record-1' }),
+    ).toEqual([])
   })
 
   it('removes exactly the edits a successful replay committed', async () => {
@@ -161,7 +164,9 @@ describe('offline edit store', () => {
     const third = await store.putEdit(scope, draft({ text: 'third' }))
     const kept = await store.putEdit(other, draft({ text: 'elsewhere' }))
 
-    await expect(store.removeEdits(scope, [first.id, third.id])).resolves.toBe(2)
+    await expect(store.removeEdits(scope, [first.id, third.id])).resolves.toBe(
+      2,
+    )
 
     const remaining = await store.listEdits(scope)
     expect(remaining.map((edit) => edit.id)).toEqual([second.id])
@@ -209,15 +214,17 @@ describe('offline edit store', () => {
     const store = createOfflineEditStore(storage)
 
     await expect(store.listEdits(scope)).resolves.toEqual([])
-    await expect(store.listEdits({ userId: 'x', recordId: 'y' })).resolves.toEqual(
-      [],
-    )
+    await expect(
+      store.listEdits({ userId: 'x', recordId: 'y' }),
+    ).resolves.toEqual([])
   })
 
   it.each(['not json', 42, null, { leaks: true }])(
     'reads %j as no edits without throwing',
     async (stored) => {
-      const storage = createInMemoryStorage({ [offlineEditsKey(scope)]: stored })
+      const storage = createInMemoryStorage({
+        [offlineEditsKey(scope)]: stored,
+      })
       const store = createOfflineEditStore(storage)
 
       await expect(store.listEdits(scope)).resolves.toEqual([])
@@ -271,9 +278,9 @@ describe('offline edit store', () => {
     await expect(
       store.listEdits({ userId: '', recordId: 'record-1' }),
     ).rejects.toThrow(TypeError)
-    await expect(store.putEdit({ userId: 'user-a', recordId: '' }, draft())).rejects.toThrow(
-      TypeError,
-    )
+    await expect(
+      store.putEdit({ userId: 'user-a', recordId: '' }, draft()),
+    ).rejects.toThrow(TypeError)
     await expect(store.clear({ userId: '', recordId: '' })).rejects.toThrow(
       TypeError,
     )

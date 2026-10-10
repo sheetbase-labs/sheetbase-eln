@@ -840,7 +840,9 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
     expect(screen.getByRole('columnheader', { name: 'Results' })).toBeTruthy()
     expect(screen.getByText(/ƒx/)).toBeTruthy()
     expect(props.columns.filter((column) => column.source === 'bound')).toEqual(
-      expect.not.arrayContaining([expect.objectContaining({ group: 'Derived' })]),
+      expect.not.arrayContaining([
+        expect.objectContaining({ group: 'Derived' }),
+      ]),
     )
   })
 

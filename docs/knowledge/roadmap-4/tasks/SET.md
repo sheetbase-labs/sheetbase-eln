@@ -97,15 +97,16 @@ adding a parallel one.
    `WORKSPACE_ROLE_DESCRIPTIONS` in `src/lib/workspace-admin.ts` carry the
    user-facing names and copy; the mapping is:
 
-   | Design role  | Existing role(s)                               | Why they are the same thing                                                                     |
-   | ------------ | ---------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-   | Admin        | `owner`, `admin`                               | `owner` holds owner-only security (invitations, security settings); `admin` administers the rest. |
-   | Editor       | `member`, `scientist`, `analyst`, `steward`    | Member-class writers with the same data capabilities; `steward` additionally publishes Models and Dataset Schemas. |
-   | Reviewer     | `reviewer`                                     | Member-class data capabilities; review *assignment* is separate from the role, so it is not a permission set. |
-   | Viewer       | `viewer`                                       | Read-only: cannot create, link or upgrade records, Sheets or Datasets.                            |
-   | Client viewer| `client_viewer`                                | External; sees only approved records explicitly shared to their client portal.                    |
+   | Design role   | Existing role(s)                            | Why they are the same thing                                                                                        |
+   | ------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+   | Admin         | `owner`, `admin`                            | `owner` holds owner-only security (invitations, security settings); `admin` administers the rest.                  |
+   | Editor        | `member`, `scientist`, `analyst`, `steward` | Member-class writers with the same data capabilities; `steward` additionally publishes Models and Dataset Schemas. |
+   | Reviewer      | `reviewer`                                  | Member-class data capabilities; review _assignment_ is separate from the role, so it is not a permission set.      |
+   | Viewer        | `viewer`                                    | Read-only: cannot create, link or upgrade records, Sheets or Datasets.                                             |
+   | Client viewer | `client_viewer`                             | External; sees only approved records explicitly shared to their client portal.                                     |
 
    No design role is added to the vocabulary, and no existing role is renamed.
+
 2. Groups per DEC-06 with project access rules by group; access matrix view
    computed from the same grants RLS uses.
 3. Access requests (from `NbViewer`): request, approve, audit.

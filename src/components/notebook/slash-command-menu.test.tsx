@@ -18,9 +18,8 @@ afterEach(() => cleanup())
 describe('block catalogue — Insert block design', () => {
   // The key may genuinely be absent, so the lookup is optional: a missing option should
   // fail the assertion rather than throw while the test is being read.
-  const byType: Record<string, BlockPickerOption | undefined> = Object.fromEntries(
-    BLOCK_PICKER_OPTIONS.map((opt) => [opt.type, opt]),
-  )
+  const byType: Record<string, BlockPickerOption | undefined> =
+    Object.fromEntries(BLOCK_PICKER_OPTIONS.map((opt) => [opt.type, opt]))
 
   it('uses the canvas label and description for each block the design names', () => {
     expect(byType.sheet?.label).toBe('Sheet')
@@ -98,7 +97,9 @@ describe('SlashCommandMenu', () => {
   })
 
   it('narrows the list as the query is typed', () => {
-    render(<SlashCommandMenu query="table" selectedIndex={0} onSelect={vi.fn()} />)
+    render(
+      <SlashCommandMenu query="table" selectedIndex={0} onSelect={vi.fn()} />,
+    )
 
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(1)
@@ -108,7 +109,9 @@ describe('SlashCommandMenu', () => {
   it('reports the highlighted block when it is clicked', async () => {
     const user = userEvent.setup()
     const onSelect = vi.fn()
-    render(<SlashCommandMenu query="chart" selectedIndex={0} onSelect={onSelect} />)
+    render(
+      <SlashCommandMenu query="chart" selectedIndex={0} onSelect={onSelect} />,
+    )
 
     await user.click(screen.getByRole('option', { name: /Chart/ }))
     expect(onSelect).toHaveBeenCalledWith('chart')
@@ -131,7 +134,9 @@ describe('SlashCommandMenu', () => {
   })
 
   it('says so instead of rendering options when nothing matches', () => {
-    render(<SlashCommandMenu query="zzz" selectedIndex={0} onSelect={vi.fn()} />)
+    render(
+      <SlashCommandMenu query="zzz" selectedIndex={0} onSelect={vi.fn()} />,
+    )
 
     expect(screen.queryAllByRole('option')).toHaveLength(0)
     expect(screen.getByText('No matching block types')).toBeTruthy()

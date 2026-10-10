@@ -119,6 +119,7 @@ lines) renders the project page today.
    the deliverables of the tasks in its workstreams, which is what the project page
    renders. SHELL-04 is cancelled in favour of DEC-03, so there is no competing
    `/planner` outcome to reconcile against.
+
 2. Milestone RPCs (create, reorder, update, link evidence) with DB tests.
 3. Project Overview tab: milestones table, recent experiments, details,
    members summary, client access, open reviews; plus the LVV and Ambr

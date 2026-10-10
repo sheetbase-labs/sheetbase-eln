@@ -1,7 +1,11 @@
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
 
-import { EmptyHint, InspectorSection, InspectorSectionStack } from '#/components/record'
+import {
+  EmptyHint,
+  InspectorSection,
+  InspectorSectionStack,
+} from '#/components/record'
 import { Notice, NoticeDescription, NoticeTitle } from '#/components/ui/alert'
 import { Tabs, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
 import { cn } from '#/lib/utils'
@@ -240,8 +244,7 @@ export function canonicalCellFacts(input: {
           unit: fieldUnit(field),
           validation: rule,
           required: field ? !field.nullable : null,
-          source:
-            column.origin === 'bound' ? 'Linked' : column.origin,
+          source: column.origin === 'bound' ? 'Linked' : column.origin,
         }
       : null,
   }
@@ -295,12 +298,12 @@ function ProvenanceSection({
             ) : undefined
           }
         />
-        <FactRow label="Instrument" value={provenance.instrument ?? undefined} />
-        <FactRow label="Captured" value={provenance.capturedAt ?? undefined} />
         <FactRow
-          label="Entered by"
-          value={provenance.enteredBy ?? undefined}
+          label="Instrument"
+          value={provenance.instrument ?? undefined}
         />
+        <FactRow label="Captured" value={provenance.capturedAt ?? undefined} />
+        <FactRow label="Entered by" value={provenance.enteredBy ?? undefined} />
         <FactRow label="Edited" value={provenance.editedAt ?? undefined} />
       </dl>
     </InspectorSection>
@@ -406,7 +409,9 @@ export function NotebookCellProperties({
           <p className="mb-1 text-xs text-fg-muted">{cell.subject}</p>
         ) : null}
         <p className="text-lg font-medium">
-          {cell.value.display ?? <span className="text-fg-muted">No value recorded</span>}
+          {cell.value.display ?? (
+            <span className="text-fg-muted">No value recorded</span>
+          )}
           {cell.value.display && cell.value.unit ? (
             <span className="ml-1 text-xs font-normal text-fg-muted">
               {cell.value.unit}
@@ -417,7 +422,10 @@ export function NotebookCellProperties({
           <p className="mt-1 text-xs text-fg-muted">{cell.value.note}</p>
         ) : null}
       </InspectorSection>
-      <ValidationSection validation={cell.validation ?? null} actions={actions} />
+      <ValidationSection
+        validation={cell.validation ?? null}
+        actions={actions}
+      />
       <ProvenanceSection provenance={cell.provenance ?? null} />
       <ColumnSection column={cell.column ?? null} />
     </InspectorSectionStack>

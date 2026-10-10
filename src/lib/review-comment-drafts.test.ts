@@ -60,8 +60,7 @@ function fakeClient(overrides?: {
                 createdAt: '2026-10-10T00:00:00.000Z',
               },
               commentIds: (
-                ((args as { p_comments?: unknown[] }).p_comments ??
-                  [])
+                (args as { p_comments?: unknown[] }).p_comments ?? []
               ).map((_, index) => `comment-${index + 1}`),
             })
           : Promise.resolve({ id: 'comment-1' })),

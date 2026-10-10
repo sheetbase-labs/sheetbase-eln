@@ -108,9 +108,9 @@ export function CameraScanner({
   const [lastScan, setLastScan] = useState<string | null>(null)
   // Formats the active decoder can read; `null` until a session loads one, or
   // when the decoder reads everything requested.
-  const [decoderFormats, setDecoderFormats] = useState<readonly string[] | null>(
-    null,
-  )
+  const [decoderFormats, setDecoderFormats] = useState<
+    readonly string[] | null
+  >(null)
   // Bumped by "Start camera"; the session effect is keyed on it so the state
   // changes a session makes never restart or cancel the scanning loop.
   const [session, setSession] = useState(0)

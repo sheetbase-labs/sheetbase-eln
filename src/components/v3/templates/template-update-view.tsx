@@ -20,8 +20,8 @@ import type {
   NotebookUpgradeDecision,
   NotebookUpgradeDecisionDraft,
   NotebookUpgradePreview,
+  SheetDefinitionUpgradeDecisionDraft,
 } from '#/lib/notebook-template-upgrade'
-import type { SheetDefinitionUpgradeDecisionDraft } from '#/lib/notebook-template-upgrade'
 
 const AUTOMATIC_LABELS: Record<string, string> = {
   'placement-added': 'Section added',
@@ -243,15 +243,15 @@ export function NotebookTemplateUpdateView({
     <div className="flex min-w-0 flex-col gap-5 px-4 py-4 md:px-6">
       {done ? (
         <Notice icon="check">
-          <b className="font-semibold">
-            Notebook updated to v{targetVersion}.
-          </b>{' '}
+          <b className="font-semibold">Notebook updated to v{targetVersion}.</b>{' '}
           Recorded in its history as a template update. Existing text, rows and
           signatures were not touched.
         </Notice>
       ) : (
         <Notice>
-          {notebookLabel ? <b className="font-semibold">{notebookLabel}</b> : null}
+          {notebookLabel ? (
+            <b className="font-semibold">{notebookLabel}</b>
+          ) : null}
           {sourceVersion != null
             ? ` is on template v${sourceVersion}. Version ${targetVersion} was published`
             : ` A newer template version (v${targetVersion}) is available`}
@@ -282,7 +282,9 @@ export function NotebookTemplateUpdateView({
               </TableHeader>
               <TableBody>
                 {preview.automatic.map((change, index) => (
-                  <TableRow key={`${change.kind}-${change.placementId ?? index}`}>
+                  <TableRow
+                    key={`${change.kind}-${change.placementId ?? index}`}
+                  >
                     <TableCell>
                       {AUTOMATIC_LABELS[change.kind] ??
                         change.kind.replace(/-/g, ' ')}

@@ -11,7 +11,10 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { NotebookTemplateUpdateView } from './template-update-view'
-import type { NotebookUpgradeDecision, NotebookUpgradePreview } from '#/lib/notebook-template-upgrade'
+import type {
+  NotebookUpgradeDecision,
+  NotebookUpgradePreview,
+} from '#/lib/notebook-template-upgrade'
 
 const uuid = (n: number) =>
   `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
@@ -65,7 +68,11 @@ const preview: NotebookUpgradePreview = {
           instanceId: INSTANCE,
           instanceRevision: 3,
         },
-        target: { definitionId: DEF_TARGET, versionId: TARGET_VERSION, version: 2 },
+        target: {
+          definitionId: DEF_TARGET,
+          versionId: TARGET_VERSION,
+          version: 2,
+        },
         automaticChanges: [{ kind: 'column-added', objectId: uuid(13) }],
         conflicts: [
           {
@@ -124,9 +131,7 @@ describe('NotebookTemplateUpdateView', () => {
     expect(
       screen.getByText('Sheet re-pinned to a newer definition version'),
     ).toBeDefined()
-    expect(
-      screen.getByText('No matching sheet in this notebook'),
-    ).toBeDefined()
+    expect(screen.getByText('No matching sheet in this notebook')).toBeDefined()
     expect(
       screen.getByText('Sheet definition changed incompatibly'),
     ).toBeDefined()

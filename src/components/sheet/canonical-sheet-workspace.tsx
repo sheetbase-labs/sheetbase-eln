@@ -2087,7 +2087,9 @@ export function CanonicalSheetEditor({
           unit={selectedColumn?.field?.quantity?.storageUnit}
           client={client}
           onResolved={(resolved) => {
-            setResolvedConflictIds((current) => new Set(current).add(resolved.id))
+            setResolvedConflictIds((current) =>
+              new Set(current).add(resolved.id),
+            )
             void queryClient.invalidateQueries({
               queryKey: ['sheet-instance', instance.id],
             })

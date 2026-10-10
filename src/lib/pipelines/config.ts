@@ -824,8 +824,7 @@ export function validateConfirmAnswer(
   confirm: PipelineStepConfirm,
   answer: unknown,
 ): string | null {
-  if (!isObject(answer))
-    return 'an answer must be an object with a decision'
+  if (!isObject(answer)) return 'an answer must be an object with a decision'
   if (
     typeof answer.decision !== 'string' ||
     !(CONFIRM_DECISIONS as readonly string[]).includes(answer.decision)
@@ -835,7 +834,7 @@ export function validateConfirmAnswer(
   if (values !== undefined && !isObject(values))
     return 'values must be an object'
   if (answer.decision !== 'confirm') return null
-  const supplied = (values ?? {})
+  const supplied = values ?? {}
   for (const field of confirm.fields) {
     const present = field.key in supplied
     if (!present) {

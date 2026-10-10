@@ -218,7 +218,10 @@ export function RecordModelRecord({
           size="lg"
           nativeButton={false}
           render={
-            <Link to="/models/$modelId/records/new" params={{ modelId: modelKey }} />
+            <Link
+              to="/models/$modelId/records/new"
+              params={{ modelId: modelKey }}
+            />
           }
         >
           New {model.data?.name ?? 'record'}

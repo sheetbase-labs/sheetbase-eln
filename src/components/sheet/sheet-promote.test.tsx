@@ -116,7 +116,9 @@ describe('SheetPromote', () => {
       p_schema_definition_id: DEFINITION.id,
       p_reason: 'Used in every batch',
     })
-    expect(calls.some((call) => call.name === 'promote_local_field')).toBe(false)
+    expect(calls.some((call) => call.name === 'promote_local_field')).toBe(
+      false,
+    )
   })
 
   it('surfaces the server refusal rather than a success when the field is incompatible', async () => {
@@ -149,7 +151,9 @@ describe('SheetPromote', () => {
     expect(onSubmitted).not.toHaveBeenCalled()
     // The refusal leaves the dialog open so its reason stays visible.
     expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(calls.some((call) => call.name === 'promote_local_field')).toBe(false)
+    expect(calls.some((call) => call.name === 'promote_local_field')).toBe(
+      false,
+    )
   })
 })
 
@@ -163,8 +167,7 @@ const RETURNED: ColumnPromotion = {
   model_key: null,
   state: 'returned',
   approval_request_id: 'appr-1',
-  reason:
-    "Visual clarity isn't a defined scale, so it can't be a GxP field.",
+  reason: "Visual clarity isn't a defined scale, so it can't be a GxP field.",
   requested_by_user_id: 'u-1',
   requested_at: '2026-09-24T09:00:00.000Z',
   decided_at: '2026-09-24T10:40:00.000Z',

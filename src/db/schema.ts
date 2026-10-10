@@ -2422,7 +2422,10 @@ export const labelTemplates = api.table(
       .defaultNow(),
   },
   (table) => [
-    unique('uq_label_templates_workspace_name').on(table.workspaceId, table.name),
+    unique('uq_label_templates_workspace_name').on(
+      table.workspaceId,
+      table.name,
+    ),
     index('idx_label_templates_workspace').on(table.workspaceId),
     check(
       'chk_label_templates_name',

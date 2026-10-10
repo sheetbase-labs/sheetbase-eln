@@ -2,10 +2,7 @@ import { act, cleanup, render, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  RangeStore,
-  sourceBadgeLabel,
-} from '@sheetbase-labs/sheetbase-table'
+import { RangeStore, sourceBadgeLabel } from '@sheetbase-labs/sheetbase-table'
 import type {
   CellFormat,
   SpreadsheetClipboardPayload,
@@ -269,7 +266,11 @@ describe('Sheet header chrome (EXP-04.2)', () => {
   function renderChrome(overrides: Partial<SheetbaseGridProps> = {}) {
     render(
       <SheetbaseTableGridClient
-        {...baseProps({ columns: chromeColumns, rows: chromeRows, ...overrides })}
+        {...baseProps({
+          columns: chromeColumns,
+          rows: chromeRows,
+          ...overrides,
+        })}
       />,
     )
     return lastProps()
@@ -303,7 +304,9 @@ describe('Sheet header chrome (EXP-04.2)', () => {
   })
 
   it('rebuilds the group row from the displayed column order', () => {
-    const props = renderChrome({ columnOrder: ['yield', 'turbidity', 'condition', 'train'] })
+    const props = renderChrome({
+      columnOrder: ['yield', 'turbidity', 'condition', 'train'],
+    })
     expect(props.columnGroups).toEqual([
       { label: 'Derived', columns: [0] },
       { label: 'Results', columns: [1] },

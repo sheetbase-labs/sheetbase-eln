@@ -6,10 +6,7 @@ import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import type { FieldDefinition } from '#/lib/field-definition'
 import type { BoundValueState } from '#/lib/sheet-bound-columns'
 
-import {
-  canonicalCellFacts,
-  NotebookInspector,
-} from './notebook-inspector'
+import { canonicalCellFacts, NotebookInspector } from './notebook-inspector'
 import type { NotebookInspectorCellFacts } from './notebook-inspector'
 
 vi.mock('@tanstack/react-router', () => ({
@@ -115,7 +112,9 @@ describe('NotebookInspector Properties', () => {
     // Validation state.
     expect(screen.getByText('Outside allowed range')).toBeTruthy()
     expect(
-      screen.getByText('Allowed 0–50 NTU. Repeat the reading at a higher dilution.'),
+      screen.getByText(
+        'Allowed 0–50 NTU. Repeat the reading at a higher dilution.',
+      ),
     ).toBeTruthy()
 
     // Provenance.
@@ -123,15 +122,13 @@ describe('NotebookInspector Properties', () => {
       .parentElement?.parentElement as HTMLElement
     expect(within(provenance).getByText('DS-0311')).toBeTruthy()
     expect(within(provenance).getByText(/row 88/)).toBeTruthy()
-    expect(
-      within(provenance).getByText('Turbidimeter TB-02'),
-    ).toBeTruthy()
+    expect(within(provenance).getByText('Turbidimeter TB-02')).toBeTruthy()
     expect(within(provenance).getByText('24 Sep 2026, 16:04')).toBeTruthy()
     expect(within(provenance).getByText('Import, PR-01 export')).toBeTruthy()
 
     // Column definition.
-    const column = screen.getByRole('heading', { name: 'Column' })
-      .parentElement?.parentElement as HTMLElement
+    const column = screen.getByRole('heading', { name: 'Column' }).parentElement
+      ?.parentElement as HTMLElement
     expect(within(column).getByText('Turbidity out')).toBeTruthy()
     expect(within(column).getByText('Decimal')).toBeTruthy()
     expect(within(column).getByText('NTU')).toBeTruthy()

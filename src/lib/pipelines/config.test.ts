@@ -271,9 +271,7 @@ describe('Confirm steps (PIPE-02)', () => {
     const config = confirmConfig()
     config.steps![0].confirm = { fields: [], askedUserIds: [] }
     const errors = validatePipelineConfig(config)
-    expect(
-      errors.some((e) => e.field === 'steps[0].confirm.fields'),
-    ).toBe(true)
+    expect(errors.some((e) => e.field === 'steps[0].confirm.fields')).toBe(true)
     expect(
       errors.some((e) => e.field === 'steps[0].confirm.askedUserIds'),
     ).toBe(true)
@@ -296,9 +294,9 @@ describe('Confirm steps (PIPE-02)', () => {
     const config = confirmConfig()
     config.steps![0].confirm!.skipSteps = ['nope']
     const errors = validatePipelineConfig(config)
-    expect(
-      errors.some((e) => e.field === 'steps[0].confirm.skipSteps'),
-    ).toBe(true)
+    expect(errors.some((e) => e.field === 'steps[0].confirm.skipSteps')).toBe(
+      true,
+    )
   })
 
   it('finds the confirm step and applies the DEC-08 defaults', () => {
@@ -309,8 +307,12 @@ describe('Confirm steps (PIPE-02)', () => {
     const confirm = step!.confirm!
     expect(confirmNoAnswerOutcome(confirm)).toBe('apply')
     expect(confirmExpiryHours(confirm)).toBe(48)
-    expect(confirmNoAnswerOutcome({ fields: confirm.fields, askedUserIds: ['a'] })).toBe('reask')
-    expect(confirmExpiryHours({ fields: confirm.fields, askedUserIds: ['a'] })).toBe(24)
+    expect(
+      confirmNoAnswerOutcome({ fields: confirm.fields, askedUserIds: ['a'] }),
+    ).toBe('reask')
+    expect(
+      confirmExpiryHours({ fields: confirm.fields, askedUserIds: ['a'] }),
+    ).toBe(24)
   })
 
   it('validates a recorded decision against the form', () => {
@@ -324,7 +326,10 @@ describe('Confirm steps (PIPE-02)', () => {
     expect(validateConfirmAnswer(confirm, { decision: 'stop' })).toBeNull()
     expect(validateConfirmAnswer(confirm, { decision: 'skip' })).toBeNull()
     expect(
-      validateConfirmAnswer(confirm, { decision: 'confirm', values: { unit: 'g/L' } }),
+      validateConfirmAnswer(confirm, {
+        decision: 'confirm',
+        values: { unit: 'g/L' },
+      }),
     ).toBeNull()
     expect(
       validateConfirmAnswer(confirm, { decision: 'confirm', values: {} }),

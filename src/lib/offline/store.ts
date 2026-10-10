@@ -223,7 +223,9 @@ export function createIndexedDbStorage(
       }
       request.onsuccess = () => resolve(request.result)
       request.onerror = () =>
-        reject(request.error ?? new Error('Failed to open the offline database.'))
+        reject(
+          request.error ?? new Error('Failed to open the offline database.'),
+        )
       request.onblocked = () =>
         reject(new Error('Opening the offline database was blocked.'))
     })
@@ -364,8 +366,10 @@ export function createOfflineEditStore(
       assertScope(scope)
       const existing = await readValidEdits(storage, scope)
       const sequence =
-        existing.reduce((highest, edit) => Math.max(highest, edit.sequence), 0) +
-        1
+        existing.reduce(
+          (highest, edit) => Math.max(highest, edit.sequence),
+          0,
+        ) + 1
       const edit = offlineEditSchema.parse({
         ...draft,
         id: draft.id ?? makeEditId(),
